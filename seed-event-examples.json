@@ -1,0 +1,271 @@
+{
+  "name": "amio-max-seed-event-examples",
+  "version": "14.12.2",
+  "description": "Example analytics payloads for local testing, QA and dashboard demos.",
+  "notes": [
+    "Values are synthetic and safe to publish.",
+    "Use these examples to seed dev/test databases or validate event ingestion.",
+    "query_id/start_param/startapp payloads mirror MAX-style entry patterns used in Amio."
+  ],
+  "examples": [
+    {
+      "event_name": "bot_started",
+      "occurred_at": "2026-04-19T14:30:00Z",
+      "session": {
+        "session_id": "3f68b9c0-0d3c-4ac2-9f58-111111111111",
+        "query_id": null,
+        "source_type": "bot_start",
+        "start_payload": "src=max_channel;med=post;cmp=launch_april;cnt=creative_03;plc=post_114;ref=free_comments",
+        "platform": null,
+        "client_version": null
+      },
+      "user": {
+        "user_id": "88442211",
+        "username": "anna_max",
+        "first_name": "Anna",
+        "language_code": "ru"
+      },
+      "channel": {
+        "channel_id": "-73175958664622"
+      },
+      "touch": {
+        "touch_type": "first_touch",
+        "source": "max_channel",
+        "medium": "post",
+        "campaign": "launch_april",
+        "content": "creative_03",
+        "placement_id": "post_114",
+        "referral_code": "free_comments",
+        "entry_link_type": "start"
+      },
+      "properties": {
+        "chat_id": "88442211",
+        "chat_type": "private"
+      }
+    },
+    {
+      "event_name": "miniapp_opened",
+      "occurred_at": "2026-04-19T14:31:05Z",
+      "session": {
+        "session_id": "3f68b9c0-0d3c-4ac2-9f58-111111111111",
+        "query_id": "q_9f2b16e3",
+        "source_type": "startapp",
+        "startapp_payload": "ck:-73175958664622:116401693713202500",
+        "start_param": "ck:-73175958664622:116401693713202500",
+        "platform": "ios",
+        "client_version": "1.14.2"
+      },
+      "user": {
+        "user_id": "88442211"
+      },
+      "channel": {
+        "channel_id": "-73175958664622",
+        "post_id": "116401693713202500",
+        "comment_key": "-73175958664622:116401693713202500"
+      },
+      "properties": {
+        "entry_link_type": "startapp",
+        "source": "max_channel",
+        "campaign": "launch_april"
+      }
+    },
+    {
+      "event_name": "comments_opened",
+      "occurred_at": "2026-04-19T14:31:10Z",
+      "session_id": "3f68b9c0-0d3c-4ac2-9f58-111111111111",
+      "user_id": "88442211",
+      "channel_id": "-73175958664622",
+      "post_id": "116401693713202500",
+      "comment_key": "-73175958664622:116401693713202500",
+      "properties": {
+        "platform": "ios",
+        "client_version": "1.14.2"
+      }
+    },
+    {
+      "event_name": "tracked_button_impression",
+      "occurred_at": "2026-04-19T14:31:12Z",
+      "session_id": "3f68b9c0-0d3c-4ac2-9f58-111111111111",
+      "user_id": "88442211",
+      "channel_id": "-73175958664622",
+      "post_id": "116401693713202500",
+      "properties": {
+        "button_id": "lead_comments",
+        "placement": "comments_screen",
+        "button_text": "🚀 Бесплатно подключить комментарии",
+        "ab_variant": "A"
+      }
+    },
+    {
+      "event_name": "tracked_button_clicked",
+      "occurred_at": "2026-04-19T14:31:18Z",
+      "session_id": "3f68b9c0-0d3c-4ac2-9f58-111111111111",
+      "user_id": "88442211",
+      "channel_id": "-73175958664622",
+      "post_id": "116401693713202500",
+      "properties": {
+        "button_id": "lead_comments",
+        "placement": "comments_screen",
+        "target_action": "connect_channel",
+        "target_url": "https://amio.example/go/-73175958664622/lead_comments",
+        "is_unique_for_session": true,
+        "is_unique_for_user": true
+      }
+    },
+    {
+      "event_name": "comment_created",
+      "occurred_at": "2026-04-19T14:31:42Z",
+      "session_id": "3f68b9c0-0d3c-4ac2-9f58-111111111111",
+      "user_id": "88442211",
+      "channel_id": "-73175958664622",
+      "post_id": "116401693713202500",
+      "comment_key": "-73175958664622:116401693713202500",
+      "comment": {
+        "comment_id": "1745073102_ab12cd",
+        "text": "Классный пост, спасибо!",
+        "status": "published",
+        "metadata": {
+          "comment_length": 21,
+          "has_link": false,
+          "contains_media": false,
+          "reply_to_id": null
+        }
+      }
+    },
+    {
+      "event_name": "reaction_added",
+      "occurred_at": "2026-04-19T14:31:53Z",
+      "session_id": "3f68b9c0-0d3c-4ac2-9f58-111111111111",
+      "user_id": "88442211",
+      "channel_id": "-73175958664622",
+      "post_id": "116401693713202500",
+      "properties": {
+        "comment_id": "1745073001_zz88yy",
+        "emoji": "🔥"
+      }
+    },
+    {
+      "event_name": "moderation_checked",
+      "occurred_at": "2026-04-19T14:32:05Z",
+      "session_id": "3f68b9c0-0d3c-4ac2-9f58-222222222222",
+      "user_id": "99223344",
+      "channel_id": "-73175958664622",
+      "post_id": "116401693713202500",
+      "comment_key": "-73175958664622:116401693713202500",
+      "properties": {
+        "mode": "hybrid",
+        "score": 0.98,
+        "labels": [
+          "spam",
+          "promo"
+        ],
+        "latency_ms": 842
+      }
+    },
+    {
+      "event_name": "moderation_blocked",
+      "occurred_at": "2026-04-19T14:32:06Z",
+      "session_id": "3f68b9c0-0d3c-4ac2-9f58-222222222222",
+      "user_id": "99223344",
+      "channel_id": "-73175958664622",
+      "post_id": "116401693713202500",
+      "comment_key": "-73175958664622:116401693713202500",
+      "comment": {
+        "comment_id": "1745073120_qw77er",
+        "text": "Подпишись на мой канал и забери подарок"
+      },
+      "properties": {
+        "mode": "hybrid",
+        "verdict": "block",
+        "reason": "spam_invite_detected",
+        "matched_words": [
+          "подпишись",
+          "забери подарок"
+        ],
+        "labels": [
+          "spam",
+          "promo"
+        ]
+      }
+    },
+    {
+      "event_name": "poll_voted",
+      "occurred_at": "2026-04-19T14:33:11Z",
+      "session_id": "3f68b9c0-0d3c-4ac2-9f58-111111111111",
+      "user_id": "88442211",
+      "channel_id": "-73175958664622",
+      "post_id": "116401693713202500",
+      "properties": {
+        "poll_id": "poll_launch_001",
+        "option_id": "opt_yes",
+        "placement": "comments_screen",
+        "is_first_vote": true
+      }
+    },
+    {
+      "event_name": "lead_magnet_clicked",
+      "occurred_at": "2026-04-19T14:33:50Z",
+      "session_id": "3f68b9c0-0d3c-4ac2-9f58-111111111111",
+      "user_id": "88442211",
+      "channel_id": "-73175958664622",
+      "properties": {
+        "placement": "avatar_card",
+        "button_id": "connect_same_comments",
+        "offer": "free_comments",
+        "target_action": "connect_channel"
+      }
+    },
+    {
+      "event_name": "channel_connect_completed",
+      "occurred_at": "2026-04-19T14:36:10Z",
+      "session_id": "7d8fb6b0-b1d3-42e6-8a16-333333333333",
+      "user_id": "88442211",
+      "channel_id": "-74222222222222",
+      "properties": {
+        "plan_code": "free",
+        "connected_via": "lead_magnet",
+        "source": "max_channel",
+        "campaign": "launch_april"
+      }
+    },
+    {
+      "event_name": "upgrade_completed",
+      "occurred_at": "2026-04-22T10:15:00Z",
+      "session_id": "2d2c8bd8-16aa-49e4-93ac-444444444444",
+      "user_id": "88442211",
+      "channel_id": "-74222222222222",
+      "conversion": {
+        "conversion_type": "upgrade",
+        "value_amount": 590,
+        "currency": "RUB",
+        "status": "paid"
+      },
+      "properties": {
+        "from_plan": "free",
+        "to_plan": "pro",
+        "attributed_source": "max_channel",
+        "attributed_campaign": "launch_april",
+        "attributed_content": "creative_03"
+      }
+    },
+    {
+      "event_name": "migration_paid",
+      "occurred_at": "2026-04-24T12:20:00Z",
+      "session_id": "90d7f227-63fa-430f-8cb4-555555555555",
+      "user_id": "55667788",
+      "channel_id": "-75000000000000",
+      "conversion": {
+        "conversion_type": "migration_paid",
+        "value_amount": 4900,
+        "currency": "RUB",
+        "status": "paid"
+      },
+      "properties": {
+        "source": "telegram",
+        "medium": "post",
+        "campaign": "tg_to_max_spring",
+        "content": "migration_offer_A"
+      }
+    }
+  ]
+}

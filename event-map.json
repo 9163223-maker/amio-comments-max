@@ -1,0 +1,534 @@
+{
+  "name": "amio-max-event-map",
+  "version": "14.12.1",
+  "database_target": "postgresql",
+  "timezone": "UTC",
+  "identity": {
+    "primary_user_key": "user_id",
+    "primary_session_key": "session_id",
+    "session_fallback_keys": ["query_id", "start_param"],
+    "channel_key": "channel_id",
+    "post_key": "post_id"
+  },
+  "payload_strategy": {
+    "supported_entry_links": ["start", "startapp", "callback", "redirect"],
+    "recommended_marketing_keys": [
+      "src",
+      "med",
+      "cmp",
+      "cnt",
+      "term",
+      "crid",
+      "adid",
+      "plc",
+      "inf",
+      "ref"
+    ],
+    "example_compact_payload": "s=maxch;m=post;c=launch_april;t=cr03;p=114;i=wylsa;r=free",
+    "example_verbose_payload": {
+      "src": "max_channel",
+      "med": "post",
+      "cmp": "launch_april",
+      "cnt": "creative_03",
+      "plc": "post_114",
+      "inf": "wylsa",
+      "ref": "free_comments"
+    }
+  },
+  "default_event_properties": [
+    "query_id",
+    "platform",
+    "client_version",
+    "source",
+    "medium",
+    "campaign",
+    "content",
+    "term",
+    "creative_id",
+    "ad_id",
+    "placement_id",
+    "influencer_id",
+    "referral_code",
+    "entry_link_type",
+    "button_id",
+    "placement",
+    "poll_id",
+    "option_id",
+    "comment_id",
+    "mode",
+    "score",
+    "labels"
+  ],
+  "events": [
+    {
+      "event_name": "bot_started",
+      "category": "acquisition",
+      "source": "bot_webhook",
+      "writes_to": ["users", "sessions", "acquisition_touches", "events"],
+      "required": ["user_id", "chat_id", "chat_type", "start_payload", "occurred_at"],
+      "recommended": ["source", "medium", "campaign", "content", "creative_id", "placement_id", "referral_code"],
+      "description": "Пользователь вошёл в бота по deep link start payload"
+    },
+    {
+      "event_name": "miniapp_opened",
+      "category": "acquisition",
+      "source": "miniapp",
+      "writes_to": ["users", "sessions", "events"],
+      "required": ["query_id", "user_id", "channel_id", "post_id", "start_param", "platform", "client_version", "occurred_at"],
+      "recommended": ["comment_key", "chat_type", "ip"],
+      "description": "Mini app открыт и инициализирован"
+    },
+    {
+      "event_name": "session_started",
+      "category": "acquisition",
+      "source": "backend",
+      "writes_to": ["sessions", "events"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["query_id", "user_id", "channel_id", "post_id"],
+      "description": "Техническое событие старта сессии"
+    },
+    {
+      "event_name": "comments_opened",
+      "category": "engagement",
+      "source": "miniapp",
+      "writes_to": ["events"],
+      "required": ["session_id", "channel_id", "post_id", "occurred_at"],
+      "recommended": ["comment_key"],
+      "description": "Пользователь открыл экран комментариев"
+    },
+    {
+      "event_name": "comment_created",
+      "category": "engagement",
+      "source": "backend",
+      "writes_to": ["comments", "events"],
+      "required": ["comment_id", "comment_key", "user_id", "text", "occurred_at"],
+      "recommended": ["channel_id", "post_id", "parent_comment_id", "comment_length", "has_link", "contains_media"],
+      "description": "Создан комментарий"
+    },
+    {
+      "event_name": "comment_updated",
+      "category": "engagement",
+      "source": "backend",
+      "writes_to": ["comments", "events"],
+      "required": ["comment_id", "user_id", "occurred_at"],
+      "recommended": ["channel_id", "post_id", "comment_length"],
+      "description": "Комментарий обновлён"
+    },
+    {
+      "event_name": "comment_deleted",
+      "category": "engagement",
+      "source": "backend",
+      "writes_to": ["comments", "events"],
+      "required": ["comment_id", "user_id", "occurred_at"],
+      "recommended": ["channel_id", "post_id"],
+      "description": "Комментарий удалён"
+    },
+    {
+      "event_name": "reply_started",
+      "category": "engagement",
+      "source": "miniapp",
+      "writes_to": ["events"],
+      "required": ["session_id", "comment_id", "occurred_at"],
+      "recommended": ["channel_id", "post_id", "target_user_id"],
+      "description": "Пользователь нажал Ответить"
+    },
+    {
+      "event_name": "reaction_added",
+      "category": "engagement",
+      "source": "backend",
+      "writes_to": ["comment_reactions", "events"],
+      "required": ["comment_id", "user_id", "emoji", "occurred_at"],
+      "recommended": ["channel_id", "post_id"],
+      "description": "Реакция на комментарий"
+    },
+    {
+      "event_name": "avatar_clicked",
+      "category": "engagement",
+      "source": "miniapp",
+      "writes_to": ["events"],
+      "required": ["session_id", "comment_id", "occurred_at"],
+      "recommended": ["channel_id", "post_id", "target_user_id"],
+      "description": "Клик по аватарке/имени автора комментария"
+    },
+    {
+      "event_name": "profile_card_opened",
+      "category": "engagement",
+      "source": "miniapp",
+      "writes_to": ["events"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "post_id", "target_user_id"],
+      "description": "Открыта карточка профиля или CTA-карточка"
+    },
+    {
+      "event_name": "profile_connect_clicked",
+      "category": "conversion",
+      "source": "miniapp",
+      "writes_to": ["events", "conversions"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "post_id", "target_user_id", "conversion_type"],
+      "description": "Клик по CTA внутри карточки профиля"
+    },
+    {
+      "event_name": "tracked_button_impression",
+      "category": "engagement",
+      "source": "miniapp",
+      "writes_to": ["events"],
+      "required": ["button_id", "placement", "occurred_at"],
+      "recommended": ["session_id", "channel_id", "post_id", "ab_variant"],
+      "description": "Tracked button была показана пользователю"
+    },
+    {
+      "event_name": "tracked_button_clicked",
+      "category": "engagement",
+      "source": "redirect",
+      "writes_to": ["tracked_button_clicks", "events"],
+      "required": ["button_id", "placement", "occurred_at"],
+      "recommended": ["session_id", "user_id", "channel_id", "post_id", "target_url", "is_unique_for_session", "is_unique_for_user"],
+      "description": "Клик по tracked button"
+    },
+    {
+      "event_name": "redirect_opened",
+      "category": "engagement",
+      "source": "redirect",
+      "writes_to": ["events"],
+      "required": ["button_id", "target_url", "occurred_at"],
+      "recommended": ["session_id", "user_id", "channel_id", "post_id"],
+      "description": "Сработал redirect-роут /go/:channelId/:buttonId"
+    },
+    {
+      "event_name": "external_link_opened",
+      "category": "engagement",
+      "source": "redirect",
+      "writes_to": ["events"],
+      "required": ["target_url", "occurred_at"],
+      "recommended": ["button_id", "session_id", "user_id", "channel_id", "post_id"],
+      "description": "Переход во внешнюю ссылку"
+    },
+    {
+      "event_name": "poll_viewed",
+      "category": "engagement",
+      "source": "miniapp",
+      "writes_to": ["events"],
+      "required": ["poll_id", "placement", "occurred_at"],
+      "recommended": ["session_id", "channel_id", "post_id"],
+      "description": "Пользователь увидел опрос"
+    },
+    {
+      "event_name": "poll_voted",
+      "category": "engagement",
+      "source": "backend",
+      "writes_to": ["poll_votes", "events"],
+      "required": ["poll_id", "option_id", "occurred_at"],
+      "recommended": ["session_id", "user_id", "channel_id", "post_id", "is_first_vote"],
+      "description": "Пользователь проголосовал в опросе"
+    },
+    {
+      "event_name": "poll_results_viewed",
+      "category": "engagement",
+      "source": "miniapp",
+      "writes_to": ["events"],
+      "required": ["poll_id", "occurred_at"],
+      "recommended": ["session_id", "channel_id", "post_id"],
+      "description": "Просмотр результатов опроса"
+    },
+    {
+      "event_name": "lead_magnet_viewed",
+      "category": "conversion",
+      "source": "miniapp",
+      "writes_to": ["events"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "post_id", "placement", "offer_code"],
+      "description": "Показан freemium lead magnet"
+    },
+    {
+      "event_name": "lead_magnet_clicked",
+      "category": "conversion",
+      "source": "miniapp",
+      "writes_to": ["events", "conversions"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "post_id", "placement", "offer_code", "conversion_type"],
+      "description": "Клик по lead magnet"
+    },
+    {
+      "event_name": "channel_connect_started",
+      "category": "conversion",
+      "source": "backend",
+      "writes_to": ["events", "conversions"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "conversion_type"],
+      "description": "Пользователь начал подключение канала"
+    },
+    {
+      "event_name": "channel_connect_completed",
+      "category": "conversion",
+      "source": "backend",
+      "writes_to": ["events", "conversions"],
+      "required": ["session_id", "channel_id", "occurred_at"],
+      "recommended": ["plan_code", "conversion_type"],
+      "description": "Канал подключён"
+    },
+    {
+      "event_name": "upgrade_page_opened",
+      "category": "conversion",
+      "source": "miniapp",
+      "writes_to": ["events"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "target_plan"],
+      "description": "Открыта страница апгрейда"
+    },
+    {
+      "event_name": "upgrade_clicked",
+      "category": "conversion",
+      "source": "miniapp",
+      "writes_to": ["events", "conversions"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "target_plan", "value_amount", "currency"],
+      "description": "Клик по оплате/апгрейду"
+    },
+    {
+      "event_name": "upgrade_completed",
+      "category": "conversion",
+      "source": "backend",
+      "writes_to": ["events", "conversions", "channels"],
+      "required": ["session_id", "channel_id", "occurred_at"],
+      "recommended": ["target_plan", "value_amount", "currency", "status"],
+      "description": "Оплата или активация тарифа завершена"
+    },
+    {
+      "event_name": "moderation_checked",
+      "category": "moderation",
+      "source": "backend",
+      "writes_to": ["events", "moderation_decisions"],
+      "required": ["channel_id", "mode", "verdict", "occurred_at"],
+      "recommended": ["comment_id", "user_id", "score", "labels", "latency_ms", "model_name"],
+      "description": "Комментарий прошёл проверку модерации"
+    },
+    {
+      "event_name": "moderation_allowed",
+      "category": "moderation",
+      "source": "backend",
+      "writes_to": ["events", "moderation_decisions"],
+      "required": ["channel_id", "mode", "occurred_at"],
+      "recommended": ["comment_id", "user_id", "score", "labels"],
+      "description": "Комментарий пропущен"
+    },
+    {
+      "event_name": "moderation_blocked",
+      "category": "moderation",
+      "source": "backend",
+      "writes_to": ["events", "moderation_decisions", "comments"],
+      "required": ["channel_id", "mode", "occurred_at"],
+      "recommended": ["comment_id", "user_id", "score", "labels", "matched_words", "matched_regex", "reason"],
+      "description": "Комментарий заблокирован"
+    },
+    {
+      "event_name": "moderation_flagged",
+      "category": "moderation",
+      "source": "backend",
+      "writes_to": ["events", "moderation_decisions"],
+      "required": ["channel_id", "mode", "occurred_at"],
+      "recommended": ["comment_id", "user_id", "score", "labels", "reason"],
+      "description": "Комментарий отправлен в queue/flag"
+    },
+    {
+      "event_name": "spam_reported_by_user",
+      "category": "moderation",
+      "source": "miniapp",
+      "writes_to": ["events"],
+      "required": ["comment_id", "session_id", "occurred_at"],
+      "recommended": ["channel_id", "post_id", "reason"],
+      "description": "Пользователь пожаловался на комментарий"
+    },
+    {
+      "event_name": "contact_requested",
+      "category": "consent",
+      "source": "miniapp",
+      "writes_to": ["events"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "post_id"],
+      "description": "Запрошен контакт пользователя"
+    },
+    {
+      "event_name": "contact_shared",
+      "category": "consent",
+      "source": "backend",
+      "writes_to": ["users", "events"],
+      "required": ["user_id", "phone", "occurred_at"],
+      "recommended": ["session_id", "channel_id"],
+      "description": "Пользователь поделился телефоном"
+    },
+    {
+      "event_name": "geo_requested",
+      "category": "consent",
+      "source": "miniapp",
+      "writes_to": ["events"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "post_id"],
+      "description": "Запрошена геолокация"
+    },
+    {
+      "event_name": "geo_shared",
+      "category": "consent",
+      "source": "backend",
+      "writes_to": ["users", "events"],
+      "required": ["user_id", "geo_lat", "geo_lon", "occurred_at"],
+      "recommended": ["session_id", "channel_id", "geo_accuracy"],
+      "description": "Пользователь поделился геолокацией"
+    },
+    {
+      "event_name": "migration_offer_viewed",
+      "category": "conversion",
+      "source": "miniapp",
+      "writes_to": ["events"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "placement", "offer_code"],
+      "description": "Показан оффер переезда Telegram → MAX"
+    },
+    {
+      "event_name": "migration_started",
+      "category": "conversion",
+      "source": "backend",
+      "writes_to": ["events", "conversions"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "source_channel_ref"],
+      "description": "Пользователь начал переезд"
+    },
+    {
+      "event_name": "migration_source_connected",
+      "category": "conversion",
+      "source": "backend",
+      "writes_to": ["events"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "source_channel_ref"],
+      "description": "Подключён источник для миграции"
+    },
+    {
+      "event_name": "migration_import_started",
+      "category": "conversion",
+      "source": "backend",
+      "writes_to": ["events"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "expected_posts_count"],
+      "description": "Стартовал импорт архива"
+    },
+    {
+      "event_name": "migration_import_completed",
+      "category": "conversion",
+      "source": "backend",
+      "writes_to": ["events"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "imported_posts_count", "imported_comments_count"],
+      "description": "Архив импортирован"
+    },
+    {
+      "event_name": "migration_sync_enabled",
+      "category": "conversion",
+      "source": "backend",
+      "writes_to": ["events"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "sync_window_days"],
+      "description": "Включена синхронизация Telegram → MAX"
+    },
+    {
+      "event_name": "migration_paid",
+      "category": "conversion",
+      "source": "backend",
+      "writes_to": ["events", "conversions"],
+      "required": ["session_id", "occurred_at"],
+      "recommended": ["channel_id", "value_amount", "currency", "status"],
+      "description": "Оплачен пакет миграции"
+    },
+    {
+      "event_name": "dashboard_opened",
+      "category": "admin",
+      "source": "backend",
+      "writes_to": ["events"],
+      "required": ["channel_id", "occurred_at"],
+      "recommended": ["user_id", "session_id"],
+      "description": "Открыт dashboard канала"
+    },
+    {
+      "event_name": "analytics_report_viewed",
+      "category": "admin",
+      "source": "backend",
+      "writes_to": ["events"],
+      "required": ["channel_id", "occurred_at"],
+      "recommended": ["user_id", "report_name", "date_range"],
+      "description": "Открыт аналитический отчёт"
+    },
+    {
+      "event_name": "moderation_settings_changed",
+      "category": "admin",
+      "source": "backend",
+      "writes_to": ["events", "channels"],
+      "required": ["channel_id", "occurred_at"],
+      "recommended": ["user_id", "mode", "diff"],
+      "description": "Изменены настройки модерации"
+    },
+    {
+      "event_name": "tracked_button_created",
+      "category": "admin",
+      "source": "backend",
+      "writes_to": ["tracked_buttons", "events"],
+      "required": ["channel_id", "button_id", "placement", "occurred_at"],
+      "recommended": ["button_text", "target_url", "target_action", "ab_variant"],
+      "description": "Создана tracked button"
+    },
+    {
+      "event_name": "poll_created",
+      "category": "admin",
+      "source": "backend",
+      "writes_to": ["polls", "events"],
+      "required": ["channel_id", "poll_id", "placement", "occurred_at"],
+      "recommended": ["title", "is_multiple"],
+      "description": "Создан опрос"
+    },
+    {
+      "event_name": "white_label_enabled",
+      "category": "admin",
+      "source": "backend",
+      "writes_to": ["channels", "events"],
+      "required": ["channel_id", "occurred_at"],
+      "recommended": ["user_id", "plan_code"],
+      "description": "Включён white-label"
+    },
+    {
+      "event_name": "agency_brand_changed",
+      "category": "admin",
+      "source": "backend",
+      "writes_to": ["channels", "events"],
+      "required": ["channel_id", "occurred_at"],
+      "recommended": ["user_id", "agency_brand_name"],
+      "description": "Изменён агентский бренд"
+    }
+  ],
+  "reports_enabled_by_schema": {
+    "acquisition": [
+      "first_touch_source",
+      "last_touch_source",
+      "campaign_performance",
+      "creative_ctr_to_connect",
+      "blogger_to_upgrade"
+    ],
+    "engagement": [
+      "comments_per_post",
+      "unique_commenters",
+      "reaction_rate",
+      "poll_vote_rate",
+      "tracked_button_ctr"
+    ],
+    "moderation": [
+      "blocked_rate",
+      "flagged_rate",
+      "spam_labels_breakdown",
+      "ai_latency",
+      "false_positive_review_queue"
+    ],
+    "revenue_and_growth": [
+      "lead_to_connect_funnel",
+      "connect_to_upgrade_funnel",
+      "migration_funnel",
+      "paid_conversion_by_source"
+    ]
+  }
+}

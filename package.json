@@ -1,0 +1,19 @@
+{
+  "name": "amio-comments-max",
+  "version": "27.0.0-sp27",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "stress:comments": "node test/comments-stress.mjs",
+    "stress:global": "node test/global-menu-stress.mjs",
+    "stress:all": "node test/comments-stress.mjs && node test/global-menu-stress.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "displayVersion": "SP27"
+}

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Post Editor Pro + Media Replace + CTA Builder · Amio</title>
+  <link rel="stylesheet" href="/public/styles.css" />
+</head>
+<body>
+  <div class="page dashboard-page">
+    <header class="topbar dashboard-head">
+      <div class="title-pill">Post Editor Pro + Media Replace + CTA Builder · Amio 14.15.1</div>
+    </header>
+
+    <section class="dashboard-card">
+      <div class="form-grid three-col compact-grid">
+        <label>
+          <span>Channel ID</span>
+          <input id="channelId" class="settings-input" placeholder="-1001234567890" />
+        </label>
+        <label>
+          <span>Comment key / post key</span>
+          <input id="commentKey" class="settings-input" placeholder="-100...:123456" />
+        </label>
+        <label>
+          <span>Администратор</span>
+          <input id="actorName" class="settings-input" placeholder="Olga / Admin" />
+        </label>
+      </div>
+      <div class="settings-actions">
+        <button id="loadPostsBtn" class="primary-btn" type="button">Загрузить посты</button>
+        <button id="loadCurrentBtn" class="ghost-btn" type="button">Открыть выбранный пост</button>
+      </div>
+      <div id="postStatusBox" class="status-box"></div>
+    </section>
+
+    <div class="dashboard-grid post-editor-grid media-editor-grid keyboard-builder-grid">
+      <section class="dashboard-card">
+        <div class="section-head"><h2>Посты канала</h2></div>
+        <div id="postsList" class="simple-list"></div>
+      </section>
+
+      <section class="dashboard-card">
+        <div class="section-head"><h2>Редактор текста поста</h2></div>
+        <div id="editorMeta" class="simple-list muted">Выберите пост.</div>
+        <label>
+          <span>Текст поста</span>
+          <textarea id="postText" class="settings-textarea" rows="12" placeholder="Текст поста"></textarea>
+        </label>
+        <div class="settings-actions">
+          <button id="previewBtn" class="ghost-btn" type="button">Предпросмотр</button>
+          <button id="savePostBtn" class="primary-btn" type="button">Сохранить текст</button>
+        </div>
+        <div id="postPreview" class="post-preview-box"></div>
+      </section>
+
+      <section class="dashboard-card">
+        <div class="section-head"><h2>Текущее медиа поста</h2></div>
+        <div id="currentMediaList" class="simple-list muted">Выберите пост.</div>
+        <div class="media-replace-panel">
+          <label>
+            <span>Новый файл для замены медиа</span>
+            <input id="mediaFileInput" class="settings-input" type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.zip,.rar,.txt" />
+          </label>
+          <div id="selectedMediaMeta" class="muted">Файл не выбран.</div>
+          <div id="localMediaPreview" class="post-preview-box muted">Локальный предпросмотр появится после выбора файла.</div>
+          <div class="settings-actions">
+            <button id="replaceMediaBtn" class="primary-btn" type="button">Заменить медиа</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard-card keyboard-builder-card">
+        <div class="section-head"><h2>Визуальный CTA / Keyboard Builder</h2></div>
+        <label>
+          <span>Текст главной кнопки комментариев</span>
+          <input id="commentButtonText" class="settings-input" placeholder="Например: 💬 Обсудить пост" />
+        </label>
+        <div class="settings-actions keyboard-builder-actions">
+          <button id="addKeyboardRowBtn" class="ghost-btn" type="button">+ Добавить ряд</button>
+          <button id="addPresetLeadBtn" class="ghost-btn" type="button">+ Пресет «Подключить себе»</button>
+          <button id="saveKeyboardBtn" class="primary-btn" type="button">Сохранить клавиатуру</button>
+        </div>
+        <div id="keyboardBuilderList" class="keyboard-builder-list"></div>
+        <div class="section-head compact-head"><h3>Live preview</h3></div>
+        <div id="keyboardPreview" class="keyboard-preview-box"></div>
+      </section>
+
+      <section class="dashboard-card">
+        <div class="section-head"><h2>История версий</h2></div>
+        <div id="historyList" class="simple-list"></div>
+      </section>
+    </div>
+  </div>
+  <script src="/public/posts.js"></script>
+</body>
+</html>
