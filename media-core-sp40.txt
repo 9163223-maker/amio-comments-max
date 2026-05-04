@@ -1,0 +1,158 @@
+"use strict";
+
+process.env.BUILD_VERSION = "SP40";
+process.env.RUNTIME_VERSION = "SP40";
+process.env.BUILD_SOURCE_MARKER = "adminkit-SP40-mvp-reset-promo-tools";
+
+const fs = require("fs");
+const path = require("path");
+const Module = require("module");
+
+const VERSION = "SP40";
+const MARKER = "adminkit-SP40-mvp-reset-promo-tools";
+const DATA_DIR = path.join(__dirname, "data");
+const PROMO_DB = path.join(DATA_DIR, "promo-settings.json");
+const MEDIA_DB = path.join(DATA_DIR, "media-uploads.json");
+
+function ensureDir(dir) { fs.mkdirSync(dir, { recursive: true }); }
+function noCache(res) { res.set({ "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache", "Expires": "0" }); }
+function safeJson(value, fallback) { try { return JSON.parse(value); } catch { return fallback; } }
+function adminOk(req, res) {
+  const token = String(req.query?.token || req.query?.adminToken || req.get?.("x-admin-token") || "").trim();
+  const expected = String(process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || "").trim();
+  if (!expected || token === expected) return true;
+  noCache(res);
+  res.status(403).json({ ok: false, error: "admin_forbidden", runtimeVersion: VERSION, expectedToken: "GIFT_ADMIN_TOKEN" });
+  return false;
+}
+function loadPromoDb() {
+  ensureDir(DATA_DIR);
+  const db = safeJson(fs.existsSync(PROMO_DB) ? fs.readFileSync(PROMO_DB, "utf8") : "{}", {});
+  if (!db || typeof db !== "object") return defaultPromoDb();
+  return { ...defaultPromoDb(), ...db, cta: { ...defaultPromoDb().cta, ...(db.cta || {}) } };
+}
+function savePromoDb(db) { ensureDir(DATA_DIR); fs.writeFileSync(PROMO_DB, JSON.stringify(db, null, 2)); }
+function defaultPromoDb() {
+  return {
+    version: VERSION,
+    mediaPolicy: {
+      commentsText: true,
+      commentsPhoto: true,
+      commentsFiles: false,
+      commentsVideo: false,
+      filesMovedTo: "gifts",
+      videoMovedTo: "channel_posts"
+    },
+    cta: {
+      enabled: true,
+      giftLabel: "🎁 Подарок автора",
+      giftUrl: "",
+      servicesLabel: "Услуги автора",
+      servicesUrl: "",
+      hint: "Файлы и видео теперь выдаются через подарки/лид-магниты, а не как вложения комментариев."
+    },
+    highlights: {}
+  };
+}
+function loadMediaDb() {
+  ensureDir(DATA_DIR);
+  const db = safeJson(fs.existsSync(MEDIA_DB) ? fs.readFileSync(MEDIA_DB, "utf8") : "{}", {});
+  if (!db.uploads || typeof db.uploads !== "object") db.uploads = {};
+  if (!Array.isArray(db.events)) db.events = [];
+  return db;
+}
+function jsonBody(req, maxBytes = 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > maxBytes) {
+        const error = new Error("payload_too_large");
+        error.status = 413;
+        reject(error);
+        try { req.destroy(error); } catch {}
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => resolve(safeJson(Buffer.concat(chunks).toString("utf8"), {})));
+    req.on("error", reject);
+  });
+}
+function mediaIsAllowedInComments(att = {}) {
+  const type = String(att.type || "").toLowerCase();
+  const name = String(att.name || att.fileName || att.url || att.previewUrl || "").toLowerCase();
+  if (type === "image") return true;
+  if (/\.(jpg|jpeg|png|webp|gif|heic|heif)(\?|#|$)/i.test(name)) return true;
+  if (type === "video" || type === "file" || type === "audio") return false;
+  if (/\.(pdf|doc|docx|xls|xlsx|zip|rar|mov|mp4|webm|m4v)(\?|#|$)/i.test(name)) return false;
+  return true;
+}
+function patchCommentService(moduleExports) {
+  if (!moduleExports || moduleExports.__akSp40Patched) return moduleExports;
+  const oldCreate = moduleExports.createComment;
+  const oldList = moduleExports.listComments;
+  if (typeof oldCreate === "function") {
+    moduleExports.createComment = function sp40CreateComment(args = {}) {
+      const attachments = Array.isArray(args.attachments) ? args.attachments : [];
+      const blocked = attachments.filter((att) => !mediaIsAllowedInComments(att));
+      if (blocked.length) {
+        args = {
+          ...args,
+          attachments: attachments.filter(mediaIsAllowedInComments),
+          mediaPolicyNotice: "files_and_video_moved_to_gifts"
+        };
+      }
+      return oldCreate.call(this, args);
+    };
+  }
+  if (typeof oldList === "function") {
+    moduleExports.listComments = function sp40ListComments(...args) {
+      const list = oldList.apply(this, args);
+      if (!Array.isArray(list)) return list;
+      return list.map((comment) => {
+        if (!Array.isArray(comment.attachments)) return comment;
+        return { ...comment, attachments: comment.attachments.filter(mediaIsAllowedInComments) };
+      });
+    };
+  }
+  moduleExports.__akSp40Patched = true;
+  return moduleExports;
+}
+function escapeHtml(value) { return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;"); }
+function clientPatch() {
+  const promo = loadPromoDb();
+  const cfg = JSON.stringify({ version: VERSION, marker: MARKER, cta: promo.cta, mediaPolicy: promo.mediaPolicy }).replaceAll("<", "\\u003c");
+  return `\n;(() => {\n  if (window.__ADMINKIT_SP40__) return;\n  window.__ADMINKIT_SP40__ = true;\n  const CFG = ${cfg};\n  const BLOCKED_EXT = /\\.(pdf|doc|docx|xls|xlsx|zip|rar|mov|mp4|webm|m4v|mp3|wav)(\\?|#|$)/i;\n  const isBlockedText = (s) => /файл|документ|pdf|видео|video|mov|mp4|webm/i.test(String(s || ''));\n  function toast(text) {\n    let el = document.getElementById('ak-sp40-toast');\n    if (!el) {\n      el = document.createElement('div'); el.id = 'ak-sp40-toast'; document.body.appendChild(el);\n      const st = document.createElement('style'); st.textContent = '#ak-sp40-toast{position:fixed;left:18px;right:18px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:2147483647;background:rgba(15,23,42,.92);color:white;border-radius:18px;padding:13px 16px;font:15px -apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 8px 26px #0003;display:none}.ak-sp40-cta{display:flex;gap:8px;align-items:center;justify-content:center;margin:10px auto 8px;max-width:92%;flex-wrap:wrap}.ak-sp40-cta button{border:0;border-radius:999px;background:rgba(255,255,255,.82);color:#2563eb;font-weight:700;padding:9px 14px;box-shadow:0 4px 14px #60a5fa26}.ak-sp40-highlight{outline:2px solid rgba(37,99,235,.22);box-shadow:0 6px 20px rgba(37,99,235,.13)!important}.ak-sp40-admin-badge{font-size:12px;color:#2563eb;font-weight:800;margin-bottom:3px}.ak-sp40-hide-media,.ak-sp40-hidden-file{display:none!important}.ak-sp40-video-disabled{display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;min-height:120px!important;color:#64748b!important;background:rgba(255,255,255,.35)!important;border-radius:18px!important;padding:18px!important}'; document.head.appendChild(st);\n    }\n    el.textContent = text; el.style.display = 'block'; clearTimeout(el._t); el._t = setTimeout(() => { el.style.display = 'none'; }, 3200);\n  }\n  function addCTA() {\n    if (!CFG.cta || !CFG.cta.enabled || document.querySelector('.ak-sp40-cta')) return;\n    const markers = Array.from(document.querySelectorAll('div,span')).filter((el) => /Начало обсуждения/i.test(el.textContent || ''));\n    const anchor = markers[0] && (markers[0].parentElement || markers[0]);\n    if (!anchor) return;\n    const wrap = document.createElement('div'); wrap.className = 'ak-sp40-cta';\n    const gift = document.createElement('button'); gift.type='button'; gift.textContent = CFG.cta.giftLabel || '🎁 Подарок автора'; gift.onclick = () => toast('Подарки и файлы выдаются через раздел «Подарки/лид-магниты».'); wrap.appendChild(gift);\n    const services = document.createElement('button'); services.type='button'; services.textContent = CFG.cta.servicesLabel || 'Услуги автора'; services.onclick = () => toast('Ссылка на услуги автора настраивается в АдминКИТ.'); wrap.appendChild(services);\n    anchor.insertAdjacentElement('afterend', wrap);\n  }\n  function disableFileVideoUI(root = document) {\n    root.querySelectorAll('input[type=file]').forEach((input) => {\n      if (input.__akSp40Bound) return; input.__akSp40Bound = true;\n      input.addEventListener('change', () => {\n        const files = Array.from(input.files || []);\n        const blocked = files.filter((f) => !String(f.type || '').startsWith('image/'));\n        if (blocked.length) { input.value = ''; toast('В комментариях MVP доступны текст и фото. PDF/файлы — через подарки, видео — в посте канала.'); }\n      }, true);\n    });\n    root.querySelectorAll('button,div,span,a').forEach((el) => {\n      const text = (el.textContent || '').trim();\n      if (isBlockedText(text) && !/фото|image/i.test(text)) {\n        const lower = text.toLowerCase();\n        if (/видео|video|файл|документ|pdf/.test(lower) && el.closest && !el.closest('.ak-sp40-cta')) {\n          if (/прикреп|выбрать|добавить|видео|файл|документ|pdf/i.test(text)) el.classList.add('ak-sp40-hidden-file');\n        }\n      }\n    });\n    root.querySelectorAll('a[href]').forEach((a) => {\n      const href = a.getAttribute('href') || '';\n      if (BLOCKED_EXT.test(href) || BLOCKED_EXT.test(a.textContent || '')) {\n        a.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toast('Файлы и видео вынесены из комментариев: используйте «Подарки/лид-магниты» или публикацию в канале.'); }, true);\n      }\n    });\n    root.querySelectorAll('video,[class*=video],[data-attachment-type=video]').forEach((el) => {\n      const box = el.closest && (el.closest('.comment-bubble,.comment,.message,.attachment') || el);\n      if (box && !box.__akSp40VideoDisabled) { box.__akSp40VideoDisabled = true; box.classList.add('ak-sp40-video-disabled'); box.textContent = 'Видео в комментариях отключено в MVP. Размещайте видео в посте канала.'; }\n    });\n  }\n  const nativeFetch = window.fetch ? window.fetch.bind(window) : null;\n  if (nativeFetch) window.fetch = async function sp40Fetch(resource, init) {\n    const url = String(typeof resource === 'string' ? resource : (resource && resource.url) || '');\n    const method = String((init && init.method) || (resource && resource.method) || 'GET').toUpperCase();\n    if (init && init.signal && (/\\/api\\/(comments|media)/i.test(url) || method !== 'GET')) { init = Object.assign({}, init); delete init.signal; }\n    if (method === 'POST' && /\\/api\\/comments/i.test(url) && typeof init?.body === 'string') {\n      try {\n        const obj = JSON.parse(init.body);\n        const list = Array.isArray(obj.attachments) ? obj.attachments : (obj.attachment ? [obj.attachment] : []);\n        const blocked = list.some((a) => { const t = String(a?.type || '').toLowerCase(); const n = String(a?.name || a?.fileName || a?.url || a?.previewUrl || '').toLowerCase(); return t === 'video' || t === 'file' || t === 'audio' || BLOCKED_EXT.test(n); });\n        if (blocked) { toast('PDF/файлы и видео отключены в комментариях. Используйте «Подарки» или сам пост канала.'); return new Response(JSON.stringify({ ok:false, error:'media_disabled_in_comments', userMessage:'PDF/файлы и видео отключены в комментариях MVP' }), { status:400, headers:{'Content-Type':'application/json'} }); }\n      } catch (_) {}\n    }\n    return nativeFetch(resource, init);\n  };\n  document.addEventListener('click', (e) => { const target = e.target && e.target.closest ? e.target.closest('button,div,span,a') : null; if (!target) return; const text = target.textContent || ''; if (/видео|файл|документ|pdf/i.test(text) && /прикреп|выбрать|добавить|видео|файл|документ|pdf/i.test(text) && !/фото/i.test(text)) { e.preventDefault(); e.stopPropagation(); toast('В комментариях доступны текст и фото. Файлы — через подарки, видео — через пост канала.'); } }, true);\n  function scan() { addCTA(); disableFileVideoUI(document); }\n  try { new MutationObserver(scan).observe(document.documentElement, { childList:true, subtree:true, characterData:true }); } catch (_) {}\n  setTimeout(scan, 200); setInterval(scan, 1600);\n})();\n`;
+}
+function patchAppJs(source) {
+  let out = String(source || "");
+  out = out.replace(/async function fetchJsonWithTimeout\(url, options = \{\}, timeout = 8000\) \{[\s\S]*?\n\}\nfunction isNearBottom/, `async function fetchJsonWithTimeout(url, options = {}, timeout = 120000) {\n  const response = await fetch(url, { ...options, cache: "no-store" });\n  const data = await response.json().catch(() => ({}));\n  return { response, data };\n}\nfunction isNearBottom`);
+  return out + clientPatch();
+}
+function installRoutes(app) {
+  if (!app || app.__akSp40Installed) return app;
+  app.__akSp40Installed = true;
+  app.get("/public/build-marker.txt", (req, res) => { noCache(res); res.type("text/plain").send(`${MARKER}\n${VERSION}\n`); });
+  app.get("/public/app.js", (req, res, next) => { const fp = path.join(__dirname, "public", "app.js"); if (!fs.existsSync(fp)) return next(); noCache(res); res.type("application/javascript; charset=utf-8").send(patchAppJs(fs.readFileSync(fp, "utf8"))); });
+  app.get("/viewer/pdf", (req, res) => { noCache(res); res.type("html").send(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:22px;color:#0f172a;background:#f3f8ff"><h3>Файлы вынесены из комментариев</h3><p>PDF и документы теперь выдаются через «Подарки/лид-магниты», чтобы не открывать технические ссылки и не ломать UX комментариев.</p></body>`); });
+  app.get("/api/promo/cta", (req, res) => { noCache(res); res.json({ ok: true, runtimeVersion: VERSION, sourceMarker: MARKER, cta: loadPromoDb().cta, mediaPolicy: loadPromoDb().mediaPolicy }); });
+  app.post("/api/admin/promo/cta", async (req, res) => { if (!adminOk(req, res)) return; noCache(res); try { const body = await jsonBody(req); const db = loadPromoDb(); db.cta = { ...db.cta, ...body, updatedAt: Date.now(), updatedAtIso: new Date().toISOString() }; savePromoDb(db); res.json({ ok: true, runtimeVersion: VERSION, cta: db.cta }); } catch (error) { res.status(error?.status || 400).json({ ok: false, error: error?.message || "promo_update_failed" }); } });
+  app.get("/debug/promo", (req, res) => { if (!adminOk(req, res)) return; noCache(res); res.json({ ok: true, runtimeVersion: VERSION, sourceMarker: MARKER, promo: loadPromoDb() }); });
+  app.get("/debug/compact", (req, res) => { if (!adminOk(req, res)) return; const media = loadMediaDb(); noCache(res); res.json({ ok: true, runtimeVersion: VERSION, sourceMarker: MARKER, counts: { mediaUploads: Object.keys(media.uploads || {}).length }, promo: loadPromoDb(), mediaEvents: (media.events || []).slice(0, 40) }); });
+  app.get("/debug/store-live", (req, res) => { if (!adminOk(req, res)) return; noCache(res); let snap = {}; try { snap = require("./store").getDebugSnapshot(); } catch (error) { snap = { ok: false, error: String(error?.message || error) }; } res.json({ ...snap, runtimeVersion: VERSION, buildVersion: VERSION, displayVersion: VERSION, sourceMarker: MARKER, generatedAt: Date.now(), promo: loadPromoDb() }); });
+  return app;
+}
+const originalLoad = Module._load;
+Module._load = function patchedLoad(request, parent, isMain) {
+  const loaded = originalLoad.apply(this, arguments);
+  if (String(request).includes("services/commentService")) return patchCommentService(loaded);
+  if (request === "express" && loaded && !loaded.__akSp40Wrapped) {
+    function wrapper(...args) { return installRoutes(loaded(...args)); }
+    Object.setPrototypeOf(wrapper, loaded); Object.assign(wrapper, loaded); wrapper.__akSp40Wrapped = true; return wrapper;
+  }
+  return loaded;
+};
+console.log(`[АдминКИТ] ${VERSION} layer loaded: ${MARKER}`);
+require("./media-core-sp39.txt");
