@@ -1,17 +1,17 @@
 {
-  "runtimeVersion": "SP37",
-  "buildVersion": "SP37",
-  "displayVersion": "SP37",
-  "sourceMarker": "adminkit-SP37-fixmedia-gift-debug-token",
-  "buildGeneratedAt": "2026-05-04T16:15:00Z",
+  "runtimeVersion": "SP38",
+  "buildVersion": "SP38",
+  "displayVersion": "SP38",
+  "sourceMarker": "adminkit-SP38-media-core-rebuild",
+  "buildGeneratedAt": "2026-05-04T16:45:00Z",
   "notes": [
-    "Fix debug export token semantics: /debug/export?token=... now expects GIFT_ADMIN_TOKEN only; GitHub PAT is read only from env GITHUB_DEBUG_TOKEN.",
-    "Add /debug/store-live?token=<GIFT_ADMIN_TOKEN> as no-cache live debug fallback even when GitHub export fails.",
-    "Add /debug/github-check?token=<GIFT_ADMIN_TOKEN> with safe masked env diagnostics for repo, branch and debug paths.",
-    "Make /debug/export return live debug in the response body even if GitHub returns 403/404/other write errors.",
-    "FixMedia: same-origin attachment download route now sends stable Content-Type, Content-Disposition and Accept-Ranges headers.",
-    "FixMedia: public video/image comment upload route now supports Range/206 for iOS/MAX WebView playback.",
-    "FixMedia: client hotfix removes shared AbortController signal from comment/media mutation fetches to prevent Fetch is aborted during file saves.",
-    "FixMedia: iOS visualViewport keyboard guard for the bottom composer/input area."
+    "Media core rebuild: introduce /api/media/upload, /api/media/status/:id and /api/media/file/:id.",
+    "Separate file upload from comment persistence through uploadId-based attachments.",
+    "Patch commentService so stored attachments are rehydrated from media upload state on list/create.",
+    "Video is stored as processing when needed and transcoded asynchronously to web-safe MP4 with Range support.",
+    "PDF/files/images are served from same-origin /api/media/file with stable Content-Type, Content-Disposition, Accept-Ranges and Content-Length headers.",
+    "Client runtime patch removes abort signals from media/comment mutation fetches and extends fetchJsonWithTimeout to avoid Fetch is aborted during file saves.",
+    "Hide technical 'не синхр.' text from the user UI; keep diagnostics in debug only.",
+    "Add /debug/media and /debug/uploads for focused media diagnostics."
   ]
 }
