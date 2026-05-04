@@ -1,2 +1,2 @@
-adminkit-SP37-fixmedia-gift-debug-token
-SP37
+adminkit-SP38-media-core-rebuild
+SP38
