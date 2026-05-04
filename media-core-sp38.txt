@@ -1,2 +1,168 @@
 "use strict";
-console.log("SP38 text runner");
+
+process.env.BUILD_VERSION = process.env.BUILD_VERSION || "SP38";
+process.env.RUNTIME_VERSION = process.env.RUNTIME_VERSION || "SP38";
+process.env.BUILD_SOURCE_MARKER = process.env.BUILD_SOURCE_MARKER || "adminkit-SP38-media-core-rebuild";
+
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
+const crypto = require("crypto");
+const Module = require("module");
+const { execFile } = require("child_process");
+const { promisify } = require("util");
+const execFileAsync = promisify(execFile);
+
+const VERSION = "SP38";
+const MARKER = "adminkit-SP38-media-core-rebuild";
+const DATA_DIR = path.join(__dirname, "data");
+const MEDIA_DIR = path.join(DATA_DIR, "media-uploads");
+const MEDIA_DB = path.join(DATA_DIR, "media-uploads.json");
+const MAX_BYTES = Math.max(1, Number(process.env.COMMENT_MEDIA_MAX_BYTES || 80 * 1024 * 1024));
+
+function ensureDir(dir) { fs.mkdirSync(dir, { recursive: true }); }
+function nowIso() { return new Date().toISOString(); }
+function jsonParseSafe(value, fallback) { try { return JSON.parse(value); } catch { return fallback; } }
+function noCache(res) { res.set({ "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache", "Expires": "0", "Surrogate-Control": "no-store" }); }
+function cleanName(value) { return path.basename(String(value || "attachment.bin").replace(/[\r\n]/g, " ")).replace(/[<>:"|?*\\/]/g, "_").slice(0, 180) || "attachment.bin"; }
+function safeExt({ fileName = "", mimeType = "", type = "file" } = {}) {
+  const ext = path.extname(String(fileName || "")).toLowerCase().replace(/[^a-z0-9.]/g, "").slice(0, 12);
+  if (/^\.[a-z0-9]{1,10}$/.test(ext)) return ext;
+  const mime = String(mimeType || "").toLowerCase();
+  if (mime.includes("jpeg") || mime.includes("jpg")) return ".jpg";
+  if (mime.includes("png")) return ".png";
+  if (mime.includes("webp")) return ".webp";
+  if (mime.includes("gif")) return ".gif";
+  if (mime.includes("pdf")) return ".pdf";
+  if (mime.includes("mp4")) return ".mp4";
+  if (mime.includes("quicktime")) return ".mov";
+  if (mime.includes("webm")) return ".webm";
+  if (type === "image") return ".jpg";
+  if (type === "video") return ".mp4";
+  return ".bin";
+}
+function detectType({ explicitType = "", mimeType = "", fileName = "" } = {}) {
+  const explicit = String(explicitType || "").trim().toLowerCase();
+  if (["image", "video", "audio", "file"].includes(explicit)) return explicit;
+  const mime = String(mimeType || "").toLowerCase();
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("audio/")) return "audio";
+  const name = String(fileName || "").toLowerCase();
+  if (/\.(jpg|jpeg|png|webp|gif|heic|heif)$/i.test(name)) return "image";
+  if (/\.(mp4|mov|webm|m4v)$/i.test(name)) return "video";
+  if (/\.(mp3|m4a|wav|ogg|aac)$/i.test(name)) return "audio";
+  return "file";
+}
+function loadDb() { ensureDir(DATA_DIR); const db = jsonParseSafe(fs.existsSync(MEDIA_DB) ? fs.readFileSync(MEDIA_DB, "utf8") : "{}", {}); if (!db.uploads || typeof db.uploads !== "object") db.uploads = {}; return db; }
+function saveDb(db) { ensureDir(DATA_DIR); fs.writeFileSync(MEDIA_DB, JSON.stringify(db || { uploads: {} }, null, 2)); }
+function upsert(upload) { const db = loadDb(); db.uploads[upload.id] = { ...(db.uploads[upload.id] || {}), ...upload, updatedAt: Date.now(), updatedAtIso: nowIso() }; saveDb(db); return db.uploads[upload.id]; }
+function getUpload(id) { const db = loadDb(); return db.uploads[String(id || "").trim()] || null; }
+function listUploads(limit = 250) { return Object.values(loadDb().uploads || {}).sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0)).slice(0, limit); }
+function fileUrl(id) { return `/api/media/file/${encodeURIComponent(String(id || ""))}`; }
+function attachmentFor(upload) {
+  if (!upload) return null;
+  const ready = upload.status === "ready";
+  const processing = upload.status === "processing";
+  const url = ready || upload.type !== "video" ? fileUrl(upload.id) : "";
+  return { id: upload.id, uploadId: upload.id, clientUploadId: upload.clientUploadId || upload.id, type: upload.type || "file", name: upload.fileName || "Вложение", mime: upload.mimeType || "application/octet-stream", size: Number(upload.size || 0) || 0, url, previewUrl: url, rawUrl: fileUrl(upload.id), posterUrl: upload.posterUrl || "", status: upload.status || "ready", processing, native: false, storage: "adminkit_media_core_sp38", transcodeError: upload.error || "" };
+}
+function rehydrateAttachment(att) { const id = String(att?.uploadId || att?.id || att?.mediaId || "").trim(); const media = id ? getUpload(id) : null; return media ? { ...att, ...attachmentFor(media), id: att.id || media.id, uploadId: media.id } : att; }
+function rehydrateComment(comment) { if (!comment || !Array.isArray(comment.attachments)) return comment; return { ...comment, attachments: comment.attachments.map(rehydrateAttachment).filter(Boolean) }; }
+function patchStoredAttachment(uploadId) {
+  try {
+    const { store, saveStore } = require("./store");
+    const media = getUpload(uploadId);
+    if (!store?.comments || !media) return false;
+    let changed = false;
+    Object.keys(store.comments).forEach((commentKey) => {
+      const list = Array.isArray(store.comments[commentKey]) ? store.comments[commentKey] : [];
+      list.forEach((comment) => {
+        if (!Array.isArray(comment.attachments)) return;
+        comment.attachments = comment.attachments.map((att) => {
+          if (String(att?.uploadId || att?.id || "") !== String(uploadId)) return att;
+          changed = true;
+          return { ...att, ...attachmentFor(media), id: att.id || uploadId, uploadId };
+        });
+      });
+    });
+    if (changed) saveStore();
+    return changed;
+  } catch (error) { console.warn("SP38 patchStoredAttachment failed", error?.message || error); return false; }
+}
+function readRawBody(req, maxBytes = MAX_BYTES) {
+  return new Promise((resolve, reject) => {
+    const chunks = []; let size = 0;
+    req.on("data", (chunk) => { size += chunk.length; if (size > maxBytes) { const e = new Error("upload_too_large"); e.status = 413; reject(e); try { req.destroy(e); } catch {} return; } chunks.push(chunk); });
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
+function boundaryOf(contentType = "") { const m = String(contentType || "").match(/boundary=(?:"([^"]+)"|([^;]+))/i); return String(m?.[1] || m?.[2] || "").trim(); }
+function parseDisposition(value = "") { const out = {}; String(value || "").split(";").forEach((part) => { const [k, ...rest] = part.trim().split("="); if (!k || !rest.length) return; let v = rest.join("=").trim(); if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1); out[k.trim().toLowerCase()] = v; }); return out; }
+function parseMultipart(buffer, contentType = "") {
+  const b = boundaryOf(contentType); if (!b) throw Object.assign(new Error("multipart_boundary_missing"), { status: 400 });
+  const boundary = Buffer.from("--" + b); const headerSep = Buffer.from("\r\n\r\n"); const fields = {}; const files = []; let cursor = 0;
+  while (cursor < buffer.length) {
+    const bs = buffer.indexOf(boundary, cursor); if (bs < 0) break;
+    let ps = bs + boundary.length; if (buffer[ps] === 45 && buffer[ps + 1] === 45) break; if (buffer[ps] === 13 && buffer[ps + 1] === 10) ps += 2;
+    const he = buffer.indexOf(headerSep, ps); if (he < 0) break;
+    const bodyStart = he + headerSep.length; const nb = buffer.indexOf(boundary, bodyStart); if (nb < 0) break;
+    let bodyEnd = nb; if (bodyEnd >= 2 && buffer[bodyEnd - 2] === 13 && buffer[bodyEnd - 1] === 10) bodyEnd -= 2;
+    const headers = {}; buffer.slice(ps, he).toString("utf8").split(/\r?\n/g).forEach((line) => { const idx = line.indexOf(":"); if (idx > 0) headers[line.slice(0, idx).trim().toLowerCase()] = line.slice(idx + 1).trim(); });
+    const disp = parseDisposition(headers["content-disposition"] || ""); const name = String(disp.name || "").trim(); const filename = String(disp.filename || "").trim(); const body = buffer.slice(bodyStart, bodyEnd);
+    if (name) { if (filename) files.push({ fieldName: name, fileName: cleanName(filename), mimeType: headers["content-type"] || "application/octet-stream", buffer: body }); else fields[name] = body.toString("utf8"); }
+    cursor = nb + boundary.length;
+  }
+  return { fields, files };
+}
+async function parseUpload(req) {
+  const contentType = String(req.get("content-type") || ""); const raw = await readRawBody(req);
+  if (/multipart\/form-data/i.test(contentType)) { const parsed = parseMultipart(raw, contentType); const file = parsed.files[0]; if (!file?.buffer?.length) throw Object.assign(new Error("upload_file_required"), { status: 400 }); const f = parsed.fields || {}; const fileName = cleanName(f.fileName || f.filename || f.name || file.fileName); const mimeType = String(f.mimeType || f.mime || file.mimeType || "application/octet-stream").trim(); const type = detectType({ explicitType: f.type || f.uploadType || "", mimeType, fileName }); return { fields: f, buffer: file.buffer, fileName, mimeType, type }; }
+  if (/application\/json/i.test(contentType)) { const body = jsonParseSafe(raw.toString("utf8"), {}); const data = String(body.base64 || body.dataUrl || body.data_url || body.content || ""); if (!data) throw Object.assign(new Error("upload_data_required"), { status: 400 }); const buffer = Buffer.from(data.includes(",") ? data.split(",").slice(1).join(",") : data, "base64"); const fileName = cleanName(body.fileName || body.filename || body.name || "attachment.bin"); const mimeType = String(body.mimeType || body.mime || "application/octet-stream").trim(); const type = detectType({ explicitType: body.type || body.uploadType || "", mimeType, fileName }); return { fields: body, buffer, fileName, mimeType, type }; }
+  if (!raw.length) throw Object.assign(new Error("upload_body_empty"), { status: 400 });
+  const fileName = cleanName(req.get("x-file-name") || req.query?.fileName || "attachment.bin"); const mimeType = contentType || "application/octet-stream"; const type = detectType({ explicitType: req.get("x-upload-type") || req.query?.type || "", mimeType, fileName }); return { fields: req.query || {}, buffer: raw, fileName, mimeType, type };
+}
+async function createUpload(parsed) {
+  ensureDir(MEDIA_DIR);
+  const id = "m_" + Date.now().toString(36) + "_" + crypto.randomBytes(5).toString("hex");
+  const storedName = id + safeExt(parsed);
+  const filePath = path.join(MEDIA_DIR, storedName);
+  fs.writeFileSync(filePath, parsed.buffer);
+  const canPlayAsIs = parsed.type !== "video" || /video\/mp4/i.test(parsed.mimeType) || /\.mp4$/i.test(parsed.fileName);
+  const media = upsert({ id, type: parsed.type, fileName: parsed.fileName, storedName, filePath, mimeType: parsed.mimeType, size: parsed.buffer.length, status: canPlayAsIs ? "ready" : "processing", error: "", commentKey: String(parsed.fields?.commentKey || ""), clientUploadId: String(parsed.fields?.clientUploadId || id), createdAt: Date.now(), createdAtIso: nowIso(), source: "sp38_media_core" });
+  if (parsed.type === "video" && !canPlayAsIs) setImmediate(() => transcodeVideo(id));
+  return media;
+}
+async function transcodeVideo(id) {
+  const media = getUpload(id); if (!media?.filePath || !fs.existsSync(media.filePath)) return;
+  ensureDir(MEDIA_DIR);
+  const outputPath = path.join(MEDIA_DIR, `${id}.mp4`); const posterPath = path.join(MEDIA_DIR, `${id}-poster.jpg`);
+  try {
+    await execFileAsync("ffmpeg", ["-y", "-hide_banner", "-loglevel", "error", "-err_detect", "ignore_err", "-i", media.filePath, "-map", "0:v:0", "-map", "0:a?", "-vf", "scale='min(720,iw)':-2:force_original_aspect_ratio=decrease", "-c:v", "libx264", "-preset", "veryfast", "-crf", "30", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-c:a", "aac", "-b:a", "96k", outputPath], { timeout: 120000, maxBuffer: 4 * 1024 * 1024 });
+    if (!fs.existsSync(outputPath) || !fs.statSync(outputPath).size) throw new Error("video_transcode_empty");
+    try { await execFileAsync("ffmpeg", ["-y", "-hide_banner", "-loglevel", "error", "-ss", "00:00:00.1", "-i", outputPath, "-frames:v", "1", "-vf", "scale=720:-2:force_original_aspect_ratio=decrease", posterPath], { timeout: 25000 }); } catch {}
+    const stat = fs.statSync(outputPath);
+    upsert({ ...media, filePath: outputPath, storedName: `${id}.mp4`, fileName: String(media.fileName || "video").replace(/\.[^.]+$/, "") + ".mp4", mimeType: "video/mp4", size: stat.size, status: "ready", error: "", posterUrl: fs.existsSync(posterPath) ? fileUrl(`${id}-poster`) : "" });
+  } catch (error) { upsert({ ...media, status: "error", error: String(error?.message || error).slice(0, 500) }); }
+  patchStoredAttachment(id);
+}
+const MIME = { ".mp4":"video/mp4", ".mov":"video/quicktime", ".webm":"video/webm", ".jpg":"image/jpeg", ".jpeg":"image/jpeg", ".png":"image/png", ".webp":"image/webp", ".gif":"image/gif", ".pdf":"application/pdf" };
+function serveUpload(req, res, media) {
+  if (!media?.filePath || !fs.existsSync(media.filePath)) { noCache(res); res.status(404).json({ ok:false, error:"media_file_not_found", runtimeVersion: VERSION }); return; }
+  const stat = fs.statSync(media.filePath); const size = stat.size; const ext = path.extname(media.filePath).toLowerCase(); const mime = media.mimeType || MIME[ext] || "application/octet-stream";
+  res.setHeader("Accept-Ranges", "bytes"); res.setHeader("Content-Type", mime); res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(media.fileName || path.basename(media.filePath))}`); res.setHeader("Cache-Control", "private, max-age=86400"); res.setHeader("X-Adminkit-Media-Core", "SP38");
+  const range = String(req.headers.range || ""); if (/^bytes=/i.test(range)) { const [rs, re] = range.replace(/bytes=/i, "").split("-"); let start = Number.parseInt(rs, 10); let end = re ? Number.parseInt(re, 10) : size - 1; if (!Number.isFinite(start)) start = 0; if (!Number.isFinite(end) || end >= size) end = size - 1; if (start >= size || end < start) { res.status(416).setHeader("Content-Range", `bytes */${size}`); res.end(); return; } res.status(206); res.setHeader("Content-Range", `bytes ${start}-${end}/${size}`); res.setHeader("Content-Length", String(end - start + 1)); fs.createReadStream(media.filePath, { start, end }).pipe(res); return; }
+  res.status(200).setHeader("Content-Length", String(size)); fs.createReadStream(media.filePath).pipe(res);
+}
+function handleFile(req, res) { const id = String(req.params?.id || "").replace(/\.[a-z0-9]+$/i, ""); const media = getUpload(id) || (id.endsWith("-poster") ? getUpload(id.replace(/-poster$/, "")) : null); if (id.endsWith("-poster")) { const posterPath = path.join(MEDIA_DIR, `${id}.jpg`); if (fs.existsSync(posterPath)) return serveUpload(req, res, { id, filePath: posterPath, fileName: `${id}.jpg`, mimeType: "image/jpeg" }); } return serveUpload(req, res, media); }
+async function handleUpload(req, res) { noCache(res); try { const media = await createUpload(await parseUpload(req)); const att = attachmentFor(media); res.json({ ok:true, runtimeVersion: VERSION, mediaCore:"SP38", upload: media, attachment: att, attachments:[att], url: att.url || att.rawUrl, previewUrl: att.previewUrl || att.rawUrl, uploadId: media.id, status: media.status }); } catch (error) { res.status(error?.status || 400).json({ ok:false, runtimeVersion: VERSION, error: error?.message || "media_upload_failed" }); } }
+function adminOk(req, res) { const token = String(req.query?.token || req.query?.adminToken || "").trim(); const expected = String(process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || "").trim(); if (!expected || token === expected) return true; noCache(res); res.status(403).json({ ok:false, error:"admin_forbidden", runtimeVersion: VERSION }); return false; }
+function debugSnapshot() { const snap = require("./store").getDebugSnapshot(); return { ...snap, runtimeVersion: VERSION, buildVersion: VERSION, displayVersion: VERSION, sourceMarker: MARKER, generatedAt: Date.now(), mediaCore: { version: VERSION, uploads: listUploads(80) } }; }
+function clientPatch() { return `\n;(() => {\nif (window.__ADMINKIT_SP38__) return; window.__ADMINKIT_SP38__ = true;\nconst nativeFetch = window.fetch ? window.fetch.bind(window) : null;\nif (nativeFetch) window.fetch = function(resource, init) { const url = String(typeof resource === 'string' ? resource : (resource && resource.url) || ''); const method = String((init && init.method) || (resource && resource.method) || 'GET').toUpperCase(); if (init && init.signal && (/\\/api\\/(comments|media)/i.test(url) || method !== 'GET')) { init = Object.assign({}, init); delete init.signal; } if (method === 'POST' && /\\/api\\/comments\\/.*(?:upload|attachment|media)/i.test(url)) { return nativeFetch('/api/media/upload', init || {}); } return nativeFetch(resource, init); };\nwindow.fetchJsonWithTimeout = async function(url, options = {}, timeout = 60000) { const response = await fetch(url, Object.assign({}, options, { cache: 'no-store' })); const data = await response.json().catch(() => ({})); return { response, data }; };\nwindow.apiRequestJson = async function(url, options = {}) { const response = await fetch(url, Object.assign({}, options, { cache: 'no-store' })); const data = await response.json().catch(() => ({})); if (!response.ok || data?.ok === false) { const e = new Error(data?.error || ('http_' + response.status)); e.payload = data; e.status = response.status; throw e; } return data; };\nfunction hideTech() { try { document.querySelectorAll('*').forEach((el) => { if (el.childNodes && el.childNodes.length === 1 && el.childNodes[0].nodeType === 3 && /не\\s*синхр/i.test(el.textContent || '')) el.textContent = (el.textContent || '').replace(/не\\s*синхр\\.?/ig, '').trim(); }); } catch (_) {} }\nnew MutationObserver(hideTech).observe(document.documentElement, { childList:true, subtree:true, characterData:true }); setInterval(hideTech, 1500);\n})();\n`; }
+function handleAppJs(req, res, next) { const fp = path.join(__dirname, "public", "app.js"); if (!fs.existsSync(fp)) return next(); res.setHeader("Content-Type", "application/javascript; charset=utf-8"); res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"); res.end(fs.readFileSync(fp, "utf8") + clientPatch()); }
+function installRoutes(app) { if (!app || app.__adminkitSP38Installed) return app; app.__adminkitSP38Installed = true; app.get("/public/app.js", handleAppJs); app.post("/api/media/upload", handleUpload); app.post(/^\/api\/comments\/.*(?:upload|attachment|media).*$/i, handleUpload); app.get("/api/media/status/:id", (req, res) => { noCache(res); const media = getUpload(req.params.id); if (!media) return res.status(404).json({ ok:false, error:"media_not_found", runtimeVersion: VERSION }); res.json({ ok:true, runtimeVersion: VERSION, upload: media, attachment: attachmentFor(media) }); }); app.get("/api/media/file/:id", handleFile); app.get("/debug/media", (req, res) => { if (!adminOk(req, res)) return; noCache(res); res.json({ ok:true, runtimeVersion: VERSION, sourceMarker: MARKER, media: listUploads(500) }); }); app.get("/debug/uploads", (req, res) => { if (!adminOk(req, res)) return; noCache(res); res.json({ ok:true, runtimeVersion: VERSION, sourceMarker: MARKER, media: listUploads(500) }); }); app.get("/debug/store-live", (req, res) => { if (!adminOk(req, res)) return; noCache(res); res.json(debugSnapshot()); }); return app; }
+const originalLoad = Module._load;
+Module._load = function(request, parent, isMain) { const loaded = originalLoad.apply(this, arguments); if (String(request).includes("services/commentService") && loaded && !loaded.__sp38Patched) { const oldCreate = loaded.createComment; const oldList = loaded.listComments; loaded.createComment = function(args) { if (args && Array.isArray(args.attachments)) args.attachments = args.attachments.map(rehydrateAttachment).filter(Boolean); const c = oldCreate.apply(this, arguments); (args.attachments || []).forEach((att) => { const id = String(att?.uploadId || att?.id || ""); const m = id ? getUpload(id) : null; if (m) upsert({ ...m, commentKey: args.commentKey || m.commentKey || "", commentId: c.id }); }); return rehydrateComment(c); }; loaded.listComments = function(...args) { return oldList.apply(this, args).map(rehydrateComment); }; loaded.__sp38Patched = true; } if (request === "express" && loaded && !loaded.__sp38ExpressWrapped) { function wrapper(...args) { return installRoutes(loaded(...args)); } Object.setPrototypeOf(wrapper, loaded); Object.assign(wrapper, loaded); wrapper.__sp38ExpressWrapped = true; return wrapper; } return loaded; };
+console.log(`[АдминКИТ] ${VERSION} media core loaded: ${MARKER}`);
+require("./sp37-bootstrap");
