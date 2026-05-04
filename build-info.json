@@ -1,14 +1,17 @@
 {
-  "runtimeVersion": "SP36",
-  "buildVersion": "SP36",
-  "displayVersion": "SP36",
-  "sourceMarker": "adminkit-SP36-silent-native-media-full",
-  "buildGeneratedAt": "2026-04-30T16:05:00Z",
+  "runtimeVersion": "SP37",
+  "buildVersion": "SP37",
+  "displayVersion": "SP37",
+  "sourceMarker": "adminkit-SP37-fixmedia-gift-debug-token",
+  "buildGeneratedAt": "2026-05-04T16:15:00Z",
   "notes": [
-    "Silent native-like media UI: remove noisy video processing labels and MAX-saved captions from file cards.",
-    "File attachments keep a private same-origin fallback download route while MAX payload is retained; no permanent /public/comment-uploads file link in UI.",
-    "Video upload prefers multipart to avoid base64 overhead, with JSON fallback only when needed.",
-    "Video transcode is tuned down to a lighter 540px MP4 for faster readiness in MAX WebView.",
-    "Photo comments remain lightweight preview-only and never sync full images to MAX."
+    "Fix debug export token semantics: /debug/export?token=... now expects GIFT_ADMIN_TOKEN only; GitHub PAT is read only from env GITHUB_DEBUG_TOKEN.",
+    "Add /debug/store-live?token=<GIFT_ADMIN_TOKEN> as no-cache live debug fallback even when GitHub export fails.",
+    "Add /debug/github-check?token=<GIFT_ADMIN_TOKEN> with safe masked env diagnostics for repo, branch and debug paths.",
+    "Make /debug/export return live debug in the response body even if GitHub returns 403/404/other write errors.",
+    "FixMedia: same-origin attachment download route now sends stable Content-Type, Content-Disposition and Accept-Ranges headers.",
+    "FixMedia: public video/image comment upload route now supports Range/206 for iOS/MAX WebView playback.",
+    "FixMedia: client hotfix removes shared AbortController signal from comment/media mutation fetches to prevent Fetch is aborted during file saves.",
+    "FixMedia: iOS visualViewport keyboard guard for the bottom composer/input area."
   ]
 }
