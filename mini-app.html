@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>АдминКит</title>
+  <link rel="stylesheet" href="/public/styles.css" />
+  <script src="https://st.max.ru/js/max-web-app.js"></script>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar telegram-like-topbar" id="miniAppTopbar" style="display:none">
+      <button id="backBtn" class="icon-btn" type="button" aria-label="Назад">‹</button>
+      <div class="title-pill comments-count-pill" id="commentsCountPill">0 комментариев</div>
+      <button id="searchBtn" class="icon-btn search-btn" type="button" aria-label="Поиск"><span class="search-icon" aria-hidden="true"></span></button>
+    </header>
+
+    <section id="commentSearchPanel" class="comment-search-panel hidden">
+      <input id="commentSearchInput" class="comment-search-input" type="search" placeholder="Поиск по комментариям" autocomplete="off" />
+      <button id="commentSearchClear" class="comment-search-clear" type="button">Отмена</button>
+    </section>
+
+    <section id="postError" class="card error-card" style="display:none"></section>
+
+    <section id="miniAppStartCard" class="post-card miniapp-start-card hidden">
+      <img id="miniAppStartLogo" class="miniapp-start-logo" src="/public/adminkit_start_logo.png" alt="АдминКит" />
+      <div id="miniAppStartText" class="miniapp-start-text"></div>
+      <div class="miniapp-start-menu single-col">
+        <button id="miniAppStartWorkBtn" class="miniapp-start-btn primary" type="button">Перейти в чат с ботом</button>
+        <button id="miniAppCommunityBtn" class="miniapp-start-btn linklike" type="button">Сообщество / новости</button>
+      </div>
+    </section>
+
+    <section class="post-card" id="postCard" style="display:none">
+      <div id="postMedia" class="post-media" style="display:none"></div>
+      <div id="postTitle" class="post-text">Загрузка…</div>
+      <div id="postNativeReactions" class="post-native-reactions hidden"></div>
+    </section>
+
+    <div class="discussion-label-wrap discussion-label-row" style="display:none">
+      <div class="discussion-label" id="discussionLabel">Начало обсуждения</div>
+      <a id="adminkitDiscussionLink" class="discussion-brand-link" href="https://max.ru/id781310320690_bot?start=menu" target="_blank" rel="noopener">🐋 АдминКИТ</a>
+    </div>
+
+    <section id="growthLeadCard" class="post-card growth-card hidden"></section>
+    <section id="trackedButtonsCard" class="post-card growth-buttons-card hidden"></section>
+    <section id="pollCard" class="post-card poll-card hidden"></section>
+
+    <section id="commentsWrap" style="display:none">
+      <div id="emptyState" class="empty-state">Комментариев пока нет</div>
+      <div id="commentsList" class="comments-list"></div>
+      <div id="commentInlineStatus" class="comment-status-inline hidden"></div>
+    </section>
+  </div>
+
+  <section class="composer" id="composerCard" style="display:none">
+    <div class="composer-shell">
+      <div id="composerReply" class="composer-reply hidden">
+        <div class="composer-reply-head">
+          <div class="composer-reply-title-wrap">
+            <span class="composer-reply-arrow">↩</span>
+            <div id="composerReplyName" class="composer-reply-name"></div>
+          </div>
+          <button id="composerReplyClose" class="composer-reply-close" type="button" aria-label="Отменить ответ">Отмена</button>
+        </div>
+        <div class="composer-reply-body">
+          <div class="composer-reply-line"></div>
+          <div id="composerReplyText" class="composer-reply-text"></div>
+        </div>
+      </div>
+
+      <div class="composer-row">
+        <div class="attach-btn-wrap" aria-label="Прикрепить файл">
+          <button id="attachBtn" class="attach-btn" type="button" aria-label="Прикрепить файл" tabindex="-1">📎</button>
+          <input id="attachmentInput" class="attachment-input-native" type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip" />
+        </div>
+        <div class="composer-input-shell">
+          <div class="avatar-wrap composer-avatar-wrap">
+            <img id="composerAvatar" class="avatar-image" alt="avatar" style="display:none" />
+            <div class="avatar-fallback" id="composerAvatarFallback">👤</div>
+          </div>
+          <div class="composer-input-main">
+            <input id="nameInput" class="text-input hidden-name" placeholder="Ваше имя" />
+            <textarea id="commentInput" class="text-input comment-line-input" rows="1" placeholder="Комментарий" autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false"></textarea>
+          </div>
+        </div>
+        <button id="sendBtn" class="send-btn" type="button" aria-label="Отправить">➤</button>
+      </div>
+      <div id="attachmentPreview" class="composer-attachments-preview hidden"></div>
+    </div>
+  </section>
+<section id="mediaPreviewModal" class="media-preview-modal hidden" aria-hidden="true">
+    <div class="media-preview-topbar">
+      <button id="mediaPreviewClose" class="media-preview-close" type="button" aria-label="Закрыть">×</button>
+      <div id="mediaPreviewTitle" class="media-preview-title">Предпросмотр</div>
+      <button id="mediaPreviewClear" class="media-preview-clear" type="button">Убрать</button>
+    </div>
+    <div id="mediaPreviewStage" class="media-preview-stage"></div>
+    <div id="mediaPreviewBottom" class="media-preview-bottom">
+      <div id="mediaPreviewStatus" class="media-preview-status hidden"></div>
+      <div class="media-preview-compose-row">
+        <textarea id="mediaPreviewCaption" class="media-preview-caption" rows="1" placeholder="Добавить подпись…" autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false"></textarea>
+        <button id="mediaPreviewSend" class="media-preview-send" type="button" aria-label="Отправить">↑</button>
+      </div>
+    </div>
+  </section>
+  <section id="mediaViewerModal" class="media-viewer-modal hidden" aria-hidden="true">
+    <button id="mediaViewerClose" class="media-viewer-close" type="button" aria-label="Закрыть">×</button>
+    <div id="mediaViewerStage" class="media-viewer-stage"></div>
+    <div id="mediaViewerCaption" class="media-viewer-caption hidden"></div>
+  </section>
+
+  <div id="sheetOverlay" class="sheet-overlay hidden"></div>
+  <div id="commentFocusModal" class="comment-focus-modal hidden" aria-hidden="true">
+    <div class="comment-focus-stack">
+      <div id="reactionBar" class="reaction-bar"></div>
+      <div id="emojiPicker" class="emoji-picker hidden"></div>
+      <div id="focusedCommentCard" class="focused-comment-card"></div>
+      <div id="actionSheet" class="action-sheet">
+        <button data-action="reply">↩︎ Ответить</button>
+        <button data-action="edit">✎ Изменить</button>
+        <button data-action="copy">⧉ Скопировать</button>
+        <button data-action="delete" class="danger">🗑 Удалить</button>
+        <button data-action="close">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/public/app.js"></script>
+</body>
+</html>

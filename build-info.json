@@ -1,0 +1,14 @@
+{
+  "runtimeVersion": "SP36",
+  "buildVersion": "SP36",
+  "displayVersion": "SP36",
+  "sourceMarker": "adminkit-SP36-silent-native-media-full",
+  "buildGeneratedAt": "2026-04-30T16:05:00Z",
+  "notes": [
+    "Silent native-like media UI: remove noisy video processing labels and MAX-saved captions from file cards.",
+    "File attachments keep a private same-origin fallback download route while MAX payload is retained; no permanent /public/comment-uploads file link in UI.",
+    "Video upload prefers multipart to avoid base64 overhead, with JSON fallback only when needed.",
+    "Video transcode is tuned down to a lighter 540px MP4 for faster readiness in MAX WebView.",
+    "Photo comments remain lightweight preview-only and never sync full images to MAX."
+  ]
+}

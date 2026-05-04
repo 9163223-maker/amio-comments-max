@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Статистика · АдминКит</title>
+  <link rel="stylesheet" href="/public/styles.css" />
+</head>
+<body>
+  <div class="page dashboard-page">
+    <header class="topbar dashboard-head">
+      <div class="title-pill">Статистика и growth · <a href="/posts" style="color:inherit;text-decoration:none;">Post Editor Pro</a></div>
+    </header>
+
+    <section class="dashboard-card">
+      <div class="form-grid three-col">
+        <label>
+          <span>Авторизованный канал</span>
+          <select id="channelSelect" class="settings-input"></select>
+        </label>
+        <label>
+          <span>Канал</span>
+          <select id="channelPicker" class="settings-input"></select>
+          <input id="channelId" class="settings-input" placeholder="-1001234567890" style="margin-top:8px;" />
+        </label>
+        <label>
+          <span>План</span>
+          <select id="planTier" class="settings-input">
+            <option value="free">Free</option>
+            <option value="start">Start</option>
+            <option value="pro">Pro</option>
+            <option value="agency">Agency</option>
+          </select>
+        </label>
+        <label>
+          <span>Бренд</span>
+          <input id="brandName" class="settings-input" placeholder="Amio" />
+        </label>
+      </div>
+
+      <div class="toggle-grid">
+        <label class="toggle-row"><input id="whiteLabelEnabled" type="checkbox" /> White-label</label>
+        <label class="toggle-row"><input id="agencyMode" type="checkbox" /> Agency mode</label>
+        <label class="toggle-row"><input id="leadMagnetEnabled" type="checkbox" /> Показывать free lead magnet</label>
+        <label class="toggle-row"><input id="keyboardLeadMagnetEnabled" type="checkbox" /> Кнопка lead magnet под постом</label>
+      </div>
+
+      <div class="form-grid two-col">
+        <label>
+          <span>Agency brand name</span>
+          <input id="agencyBrandName" class="settings-input" placeholder="Agency Studio" />
+        </label>
+        <label>
+          <span>Brand URL</span>
+          <input id="brandUrl" class="settings-input" placeholder="https://max.ru/your_bot" />
+        </label>
+      </div>
+
+      <div class="form-grid two-col">
+        <label>
+          <span>Текст lead magnet</span>
+          <input id="leadMagnetText" class="settings-input" placeholder="Подключить такие же комментарии в свой канал" />
+        </label>
+        <label>
+          <span>URL lead magnet</span>
+          <input id="leadMagnetUrl" class="settings-input" placeholder="https://max.ru/your_bot" />
+        </label>
+      </div>
+
+      <div class="form-grid two-col">
+        <label>
+          <span>Tracked buttons (по одной на строку: Текст | URL | postId1,postId2)</span>
+          <textarea id="trackedButtons" class="settings-textarea" rows="8"></textarea>
+        </label>
+        <label>
+          <span>Poll options (по одной на строку)</span>
+          <textarea id="pollOptions" class="settings-textarea" rows="8"></textarea>
+        </label>
+      </div>
+
+      <div class="form-grid two-col">
+        <label>
+          <span>Вопрос опроса</span>
+          <textarea id="pollQuestion" class="settings-textarea" rows="3"></textarea>
+        </label>
+        <label>
+          <span>Poll postIds (через запятую, необязательно)</span>
+          <textarea id="pollPostIds" class="settings-textarea" rows="3"></textarea>
+        </label>
+      </div>
+
+      <div class="toggle-grid">
+        <label class="toggle-row"><input id="pollEnabled" type="checkbox" /> Включить опрос</label>
+        <label class="toggle-row"><input id="pollAllowRevote" type="checkbox" /> Разрешить переголосование</label>
+      </div>
+
+      <label>
+        <span>Заметки</span>
+        <textarea id="notes" class="settings-textarea" rows="3"></textarea>
+      </label>
+
+      <div class="settings-actions">
+        <button id="loadBtn" class="primary-btn" type="button">Загрузить</button>
+        <button id="saveBtn" class="primary-btn" type="button">Сохранить</button>
+        <button id="refreshAnalyticsBtn" class="ghost-btn" type="button">Обновить analytics</button>
+      </div>
+
+      <div id="statusBox" class="status-box"></div>
+    </section>
+
+    <div class="dashboard-grid">
+      <section class="dashboard-card">
+        <h2>Основные метрики</h2>
+        <div class="kpi-grid">
+          <div class="kpi-card"><div class="label">Посты</div><div class="value" id="kpiPosts">0</div></div>
+          <div class="kpi-card"><div class="label">Комментарии</div><div class="value" id="kpiComments">0</div></div>
+          <div class="kpi-card"><div class="label">Реакции</div><div class="value" id="kpiReactions">0</div></div>
+          <div class="kpi-card"><div class="label">Клики</div><div class="value" id="kpiClicks">0</div></div>
+          <div class="kpi-card"><div class="label">Участники</div><div class="value" id="kpiCommenters">0</div></div>
+          <div class="kpi-card"><div class="label">Уник. клики</div><div class="value" id="kpiUniqueClickers">0</div></div>
+          <div class="kpi-card"><div class="label">Голоса</div><div class="value" id="kpiPollVotes">0</div></div>
+          <div class="kpi-card"><div class="label">Блоков модерации</div><div class="value" id="kpiBlocked">0</div></div>
+        </div>
+      </section>
+
+      <section class="dashboard-card">
+        <h2>Dashboard alerts</h2>
+        <div id="dashboardAlerts" class="simple-list"></div>
+      </section>
+
+      <section class="dashboard-card">
+        <h2>Top buttons</h2>
+        <div id="topButtons" class="simple-list"></div>
+      </section>
+
+      <section class="dashboard-card">
+        <h2>Посты канала</h2>
+        <div id="topPosts" class="simple-list"></div>
+      </section>
+
+      <section class="dashboard-card">
+        <h2>Статистика по выбранному посту</h2>
+        <div id="selectedPostStats" class="simple-list"></div>
+      </section>
+
+      <section class="dashboard-card">
+        <h2>Top commenters</h2>
+        <div id="topCommenters" class="simple-list"></div>
+      </section>
+
+      <section class="dashboard-card">
+        <h2>Recent clicks</h2>
+        <div id="recentClicks" class="simple-list"></div>
+      </section>
+    </div>
+  </div>
+  <script src="/public/dashboard.js"></script>
+</body>
+</html>

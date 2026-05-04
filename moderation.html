@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Модерация канала</title>
+  <link rel="stylesheet" href="/public/styles.css" />
+</head>
+<body>
+  <div class="page moderation-page">
+    <header class="topbar moderation-head">
+      <div class="title-pill">Модерация комментариев</div>
+    </header>
+
+    <section class="post-card moderation-card">
+      <div class="form-grid two-col">
+        <label>
+          <span>Channel ID</span>
+          <input id="channelId" class="settings-input" placeholder="-1001234567890" />
+        </label>
+        <label>
+          <span>Тарифный пресет</span>
+          <select id="tariffPreset" class="settings-input">
+            <option value="basic">Базовая скриптовая</option>
+            <option value="premium_ai">Премиум AI</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="toggle-grid">
+        <label class="toggle-row"><input id="enabled" type="checkbox" /> Включить модерацию</label>
+        <label class="toggle-row"><input id="basicEnabled" type="checkbox" /> Скриптовая модерация</label>
+        <label class="toggle-row"><input id="aiEnabled" type="checkbox" /> AI модерация</label>
+        <label class="toggle-row"><input id="applyPresetCommon" type="checkbox" /> Готовые общие стоп-слова</label>
+        <label class="toggle-row"><input id="blockInvites" type="checkbox" /> Блокировать инвайты</label>
+        <label class="toggle-row"><input id="blockLinks" type="checkbox" /> Блокировать избыток ссылок</label>
+      </div>
+
+      <div class="form-grid three-col compact-grid">
+        <label>
+          <span>Действие</span>
+          <select id="action" class="settings-input">
+            <option value="reject">Отклонять</option>
+            <option value="queue">Ставить в очередь</option>
+          </select>
+        </label>
+        <label>
+          <span>Макс. ссылок</span>
+          <input id="maxLinks" type="number" class="settings-input" min="0" max="20" />
+        </label>
+        <label>
+          <span>Повтор символов</span>
+          <input id="maxRepeatedChars" type="number" class="settings-input" min="2" max="20" />
+        </label>
+      </div>
+
+      <div class="form-grid two-col compact-grid">
+        <label>
+          <span>Мин. длина для CAPS-проверки</span>
+          <input id="minTextLengthForCapsCheck" type="number" class="settings-input" min="1" max="1000" />
+        </label>
+        <label>
+          <span>Порог CAPS ratio</span>
+          <input id="maxUppercaseRatio" type="number" class="settings-input" step="0.05" min="0" max="1" />
+        </label>
+      </div>
+
+      <div class="form-grid two-col">
+        <label>
+          <span>Свои стоп-слова / фразы (по одному на строку)</span>
+          <textarea id="customBlocklist" class="settings-textarea" rows="10"></textarea>
+        </label>
+        <label>
+          <span>Свои regex-правила (по одному на строку)</span>
+          <textarea id="regexRules" class="settings-textarea" rows="10"></textarea>
+        </label>
+      </div>
+
+      <div class="form-grid two-col">
+        <label>
+          <span>Whitelist userId / имена</span>
+          <textarea id="whitelistUsers" class="settings-textarea" rows="4"></textarea>
+        </label>
+        <label>
+          <span>Shadow-ban userId / имена</span>
+          <textarea id="shadowBanUsers" class="settings-textarea" rows="4"></textarea>
+        </label>
+      </div>
+
+      <label>
+        <span>Заметки</span>
+        <textarea id="notes" class="settings-textarea" rows="3"></textarea>
+      </label>
+
+      <div class="settings-actions">
+        <button id="loadBtn" class="primary-btn" type="button">Загрузить</button>
+        <button id="saveBtn" class="primary-btn" type="button">Сохранить</button>
+        <button id="applyBasicBtn" class="ghost-btn" type="button">Пресет basic</button>
+        <button id="applyPremiumBtn" class="ghost-btn" type="button">Пресет premium AI</button>
+      </div>
+
+      <div id="statusBox" class="status-box"></div>
+    </section>
+
+    <section class="post-card moderation-card">
+      <div class="section-head">
+        <h2>Последние решения модерации</h2>
+        <button id="logsBtn" class="ghost-btn" type="button">Обновить лог</button>
+      </div>
+      <div id="logs" class="logs-list"></div>
+    </section>
+
+    <section class="post-card moderation-card">
+      <div class="section-head">
+        <h2>Очередь AI/basic moderation</h2>
+        <button id="queueBtn" class="ghost-btn" type="button">Обновить очередь</button>
+      </div>
+      <div id="queueList" class="logs-list"></div>
+    </section>
+  </div>
+
+  <script src="/public/moderation.js"></script>
+</body>
+</html>
