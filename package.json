@@ -1,10 +1,10 @@
 {
   "name": "amio-comments-max",
-  "version": "40.2.0-sp402",
+  "version": "40.2.1-sp4021",
   "private": true,
-  "main": "media-core-sp402.txt",
+  "main": "media-core-sp4021.txt",
   "scripts": {
-    "start": "node media-core-sp402.txt",
+    "start": "node media-core-sp4021.txt",
     "stress:comments": "node test/comments-stress.mjs",
     "stress:global": "node test/global-menu-stress.mjs",
     "stress:all": "node test/comments-stress.mjs && node test/global-menu-stress.mjs"
@@ -15,7 +15,7 @@
   "dependencies": {
     "express": "^4.21.2"
   },
-  "displayVersion": "SP40.2",
-  "buildVersion": "SP40.2",
-  "sourceMarker": "adminkit-SP40.2-safety-layer"
+  "displayVersion": "SP40.2.1",
+  "buildVersion": "SP40.2.1",
+  "sourceMarker": "adminkit-SP40.2.1-runtime-marker-diagnostics"
 }
