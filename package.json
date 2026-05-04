@@ -1,10 +1,10 @@
 {
   "name": "amio-comments-max",
-  "version": "39.0.0-sp39",
+  "version": "40.0.0-sp40",
   "private": true,
-  "main": "media-core-sp39.txt",
+  "main": "media-core-sp40.txt",
   "scripts": {
-    "start": "node media-core-sp39.txt",
+    "start": "node media-core-sp40.txt",
     "stress:comments": "node test/comments-stress.mjs",
     "stress:global": "node test/global-menu-stress.mjs",
     "stress:all": "node test/comments-stress.mjs && node test/global-menu-stress.mjs"
@@ -15,7 +15,7 @@
   "dependencies": {
     "express": "^4.21.2"
   },
-  "displayVersion": "SP39",
-  "buildVersion": "SP39",
-  "sourceMarker": "adminkit-SP39-media-ux-reset"
+  "displayVersion": "SP40",
+  "buildVersion": "SP40",
+  "sourceMarker": "adminkit-SP40-mvp-reset-promo-tools"
 }
