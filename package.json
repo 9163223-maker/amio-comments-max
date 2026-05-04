@@ -1,10 +1,10 @@
 {
   "name": "amio-comments-max",
-  "version": "37.0.0-sp37",
+  "version": "38.0.0-sp38",
   "private": true,
-  "main": "sp37-bootstrap.js",
+  "main": "media-core-sp38.txt",
   "scripts": {
-    "start": "node sp37-bootstrap.js",
+    "start": "node media-core-sp38.txt",
     "stress:comments": "node test/comments-stress.mjs",
     "stress:global": "node test/global-menu-stress.mjs",
     "stress:all": "node test/comments-stress.mjs && node test/global-menu-stress.mjs"
@@ -15,7 +15,7 @@
   "dependencies": {
     "express": "^4.21.2"
   },
-  "displayVersion": "SP37",
-  "buildVersion": "SP37",
-  "sourceMarker": "adminkit-SP37-fixmedia-gift-debug-token"
+  "displayVersion": "SP38",
+  "buildVersion": "SP38",
+  "sourceMarker": "adminkit-SP38-media-core-rebuild"
 }
