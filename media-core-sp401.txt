@@ -1,0 +1,84 @@
+"use strict";
+
+process.env.BUILD_VERSION = "SP40.1";
+process.env.RUNTIME_VERSION = "SP40.1";
+process.env.BUILD_SOURCE_MARKER = "adminkit-SP40.1-custom-attachment-menu";
+
+const fs = require("fs");
+const path = require("path");
+const Module = require("module");
+
+const VERSION = "SP40.1";
+const MARKER = "adminkit-SP40.1-custom-attachment-menu";
+
+function noCache(res) {
+  res.set({
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0"
+  });
+}
+
+function adminOk(req, res) {
+  const token = String(req.query?.token || req.query?.adminToken || req.get?.("x-admin-token") || "").trim();
+  const expected = String(process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || "").trim();
+  if (!expected || token === expected) return true;
+  noCache(res);
+  res.status(403).json({ ok: false, error: "admin_forbidden", runtimeVersion: VERSION });
+  return false;
+}
+
+function patchAppJs(source) {
+  const patch = `\n;(() => {\n  if (window.__ADMINKIT_SP40_1__) return;\n  window.__ADMINKIT_SP40_1__ = true;\n\n  const STATE = { lastFileInput: null, nativeAllowedUntil: 0 };\n\n  function css() {\n    if (document.getElementById('ak401-css')) return;\n    const st = document.createElement('style');\n    st.id = 'ak401-css';\n    st.textContent = `\n      .ak401-backdrop{position:fixed;inset:0;z-index:2147483646;background:rgba(15,23,42,.22);display:none;align-items:flex-end;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,sans-serif}\n      .ak401-backdrop.open{display:flex}\n      .ak401-sheet{width:100%;max-width:720px;background:rgba(255,255,255,.96);border-radius:28px 28px 0 0;box-shadow:0 -12px 40px rgba(15,23,42,.18);padding:16px 16px calc(18px + env(safe-area-inset-bottom));box-sizing:border-box;backdrop-filter:blur(18px)}\n      .ak401-handle{width:42px;height:5px;border-radius:99px;background:#cbd5e1;margin:0 auto 14px}\n      .ak401-title{font-weight:800;font-size:18px;color:#0f172a;text-align:center;margin-bottom:4px}\n      .ak401-sub{font-size:13px;color:#64748b;text-align:center;margin-bottom:12px;line-height:1.35}\n      .ak401-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}\n      .ak401-item{border:0;border-radius:20px;background:#eff6ff;color:#0f172a;text-align:left;padding:13px 13px;min-height:74px;box-shadow:0 4px 14px rgba(37,99,235,.08);font:inherit}\n      .ak401-item b{display:block;font-size:15px;margin-bottom:4px;color:#1d4ed8}\n      .ak401-item span{font-size:12px;color:#64748b;line-height:1.25}\n      .ak401-item.disabled{background:#f8fafc;color:#94a3b8}\n      .ak401-item.disabled b{color:#64748b}\n      .ak401-cancel{width:100%;margin-top:10px;border:0;border-radius:18px;background:#f1f5f9;color:#1e293b;font-weight:700;padding:13px;font-size:16px}\n      .ak401-toast{position:fixed;left:18px;right:18px;bottom:calc(94px + env(safe-area-inset-bottom));z-index:2147483647;background:rgba(15,23,42,.94);color:#fff;border-radius:18px;padding:13px 16px;font:15px -apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 8px 26px rgba(0,0,0,.22);display:none;line-height:1.35}\n    `;\n    document.head && document.head.appendChild(st);\n  }\n\n  function toast(text) {\n    css();\n    let el = document.querySelector('.ak401-toast');\n    if (!el) { el = document.createElement('div'); el.className = 'ak401-toast'; document.body.appendChild(el); }\n    el.textContent = text;\n    el.style.display = 'block';\n    clearTimeout(el._t);\n    el._t = setTimeout(() => { el.style.display = 'none'; }, 3400);\n  }\n\n  function getInput() {\n    const inputs = Array.from(document.querySelectorAll('input[type=file]'));\n    const visible = inputs.find((i) => !i.disabled);\n    STATE.lastFileInput = visible || STATE.lastFileInput || null;\n    return STATE.lastFileInput;\n  }\n\n  function triggerPhotoPicker() {\n    const input = getInput();\n    closeSheet();\n    if (!input) { toast('Фото пока недоступно: элемент выбора не найден.'); return; }\n    try { input.accept = 'image/*'; } catch (_) {}\n    try { input.removeAttribute('multiple'); } catch (_) {}\n    STATE.nativeAllowedUntil = Date.now() + 1200;\n    input.__ak401AllowNative = true;\n    setTimeout(() => { try { input.click(); } catch (_) { toast('Не удалось открыть выбор фото.'); } }, 30);\n  }\n\n  function focusWithText(prefix) {\n    closeSheet();\n    const input = document.querySelector('textarea, input[type=text], [contenteditable=true]');\n    if (!input) { toast('Поле комментария не найдено.'); return; }\n    try {\n      input.focus();\n      if (input.isContentEditable) {\n        if (!input.textContent.trim()) input.textContent = prefix;\n        input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: prefix }));\n      } else {\n        if (!input.value.trim()) input.value = prefix;\n        input.dispatchEvent(new Event('input', { bubbles: true }));\n      }\n    } catch (_) {}\n  }\n\n  function sheet() {\n    css();\n    let root = document.querySelector('.ak401-backdrop');\n    if (root) return root;\n    root = document.createElement('div');\n    root.className = 'ak401-backdrop';\n    root.innerHTML = `\n      <div class="ak401-sheet" role="dialog" aria-modal="true">\n        <div class="ak401-handle"></div>\n        <div class="ak401-title">Что добавить?</div>\n        <div class="ak401-sub">В MVP комментариев доступны текст и фото. Файлы выдаются через подарки, видео публикуется в посте канала.</div>\n        <div class="ak401-grid">\n          <button class="ak401-item" data-ak401="photo"><b>🖼 Фото</b><span>Скрин или изображение к комментарию</span></button>\n          <button class="ak401-item" data-ak401="gift"><b>🎁 Подарок автора</b><span>PDF, чек-лист, гайд через лид-магнит</span></button>\n          <button class="ak401-item" data-ak401="lead"><b>📝 Заявка</b><span>Оставить запрос администратору</span></button>\n          <button class="ak401-item" data-ak401="question"><b>💬 Вопрос</b><span>Быстро начать вопрос автору</span></button>\n          <button class="ak401-item disabled" data-ak401="file"><b>📎 Файл</b><span>Доступен через раздел «Подарки»</span></button>\n          <button class="ak401-item disabled" data-ak401="video"><b>🎬 Видео</b><span>Лучше публиковать в посте канала</span></button>\n        </div>\n        <button class="ak401-cancel" data-ak401="cancel">Отмена</button>\n      </div>\n    `;\n    document.body.appendChild(root);\n    root.addEventListener('click', (e) => {\n      if (e.target === root) return closeSheet();\n      const btn = e.target.closest('[data-ak401]');\n      if (!btn) return;\n      const action = btn.getAttribute('data-ak401');\n      e.preventDefault(); e.stopPropagation();\n      if (action === 'photo') return triggerPhotoPicker();\n      if (action === 'gift') return toast('Файлы и PDF подключаются через раздел «Подарки/лид-магниты».');\n      if (action === 'lead') return focusWithText('Хочу оставить заявку: ');\n      if (action === 'question') return focusWithText('Вопрос: ');\n      if (action === 'file') return toast('Файлы в комментариях отключены. Используйте «Подарки/лид-магниты».');\n      if (action === 'video') return toast('Видео в комментариях отключено. Опубликуйте видео в посте канала.');\n      closeSheet();\n    }, true);\n    return root;\n  }\n\n  function openSheet() { sheet().classList.add('open'); }\n  function closeSheet() { const el = document.querySelector('.ak401-backdrop'); if (el) el.classList.remove('open'); }\n\n  function isAttachmentControl(el) {\n    if (!el) return false;\n    if (el.matches && el.matches('input[type=file]')) return true;\n    const s = [el.getAttribute?.('aria-label'), el.getAttribute?.('title'), el.getAttribute?.('data-testid'), el.className, el.id, el.textContent].filter(Boolean).join(' ').toLowerCase();\n    if (/📎|скреп|прикреп|attach|attachment|paperclip|upload|file|файл/.test(s)) return true;\n    if (el.querySelector && el.querySelector('input[type=file]')) return true;\n    return false;\n  }\n\n  function bindInputs() {\n    document.querySelectorAll('input[type=file]').forEach((input) => {\n      STATE.lastFileInput = input;\n      if (input.__ak401Bound) return;\n      input.__ak401Bound = true;\n      try { input.accept = 'image/*'; input.removeAttribute('multiple'); } catch (_) {}\n      input.addEventListener('click', (e) => {\n        if (input.__ak401AllowNative || Date.now() < STATE.nativeAllowedUntil) { input.__ak401AllowNative = false; return; }\n        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation && e.stopImmediatePropagation(); openSheet();\n      }, true);\n      input.addEventListener('change', () => {\n        const files = Array.from(input.files || []);\n        const blocked = files.filter((f) => !String(f.type || '').startsWith('image/'));\n        if (blocked.length) { input.value = ''; toast('В комментариях доступны только фото. PDF/файлы — через подарки, видео — в посте канала.'); }\n      }, true);\n    });\n  }\n\n  document.addEventListener('click', (e) => {\n    const target = e.target && e.target.closest ? e.target.closest('button,a,label,div,span,input') : e.target;\n    if (!target || !isAttachmentControl(target)) return;\n    const input = target.matches && target.matches('input[type=file]') ? target : (target.querySelector && target.querySelector('input[type=file]'));\n    if (input) STATE.lastFileInput = input;\n    if (Date.now() < STATE.nativeAllowedUntil) return;\n    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation && e.stopImmediatePropagation();\n    openSheet();\n  }, true);\n\n  const nativeFetch = window.fetch ? window.fetch.bind(window) : null;\n  if (nativeFetch) window.fetch = async function ak401Fetch(resource, init) {\n    const url = String(typeof resource === 'string' ? resource : (resource && resource.url) || '');\n    const method = String((init && init.method) || (resource && resource.method) || 'GET').toUpperCase();\n    if (init && init.signal && (/\\/api\\/(comments|media)/i.test(url) || method !== 'GET')) { init = Object.assign({}, init); delete init.signal; }\n    return nativeFetch(resource, init);\n  };\n\n  function scan() { bindInputs(); }\n  try { new MutationObserver(scan).observe(document.documentElement, { childList: true, subtree: true }); } catch (_) {}\n  setTimeout(scan, 200); setInterval(scan, 1200);\n})();\n`;
+  return String(source || "") + patch;
+}
+
+function installRoutes(app) {
+  if (!app || app.__akSp401Installed) return app;
+  app.__akSp401Installed = true;
+
+  app.get("/public/build-marker.txt", (req, res) => {
+    noCache(res);
+    res.type("text/plain").send(`${MARKER}\n${VERSION}\n`);
+  });
+
+  app.get("/public/app.js", (req, res, next) => {
+    const fp = path.join(__dirname, "public", "app.js");
+    if (!fs.existsSync(fp)) return next();
+    noCache(res);
+    res.type("application/javascript; charset=utf-8").send(patchAppJs(fs.readFileSync(fp, "utf8")));
+  });
+
+  app.get("/debug/attachment-menu", (req, res) => {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    res.json({
+      ok: true,
+      runtimeVersion: VERSION,
+      sourceMarker: MARKER,
+      menu: ["Фото", "Подарок автора", "Заявка", "Вопрос автору"],
+      blockedInComments: ["PDF", "файлы", "видео", "аудио"],
+      nativePickerMode: "only_after_photo_choice_accept_image_only"
+    });
+  });
+
+  return app;
+}
+
+const originalLoad = Module._load;
+Module._load = function patchedLoad(request, parent, isMain) {
+  const loaded = originalLoad.apply(this, arguments);
+  if (request === "express" && loaded && !loaded.__akSp401Wrapped) {
+    function wrapper(...args) {
+      return installRoutes(loaded(...args));
+    }
+    Object.setPrototypeOf(wrapper, loaded);
+    Object.assign(wrapper, loaded);
+    wrapper.__akSp401Wrapped = true;
+    return wrapper;
+  }
+  return loaded;
+};
+
+console.log(`[АдминКИТ] ${VERSION} layer loaded: ${MARKER}`);
+require("./media-core-sp40.txt");
