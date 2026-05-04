@@ -1,10 +1,10 @@
 {
   "name": "amio-comments-max",
-  "version": "40.1.0-sp401",
+  "version": "40.0.1-sp40-emergency-rollback",
   "private": true,
-  "main": "media-core-sp401.txt",
+  "main": "media-core-sp40.txt",
   "scripts": {
-    "start": "node media-core-sp401.txt",
+    "start": "node media-core-sp40.txt",
     "stress:comments": "node test/comments-stress.mjs",
     "stress:global": "node test/global-menu-stress.mjs",
     "stress:all": "node test/comments-stress.mjs && node test/global-menu-stress.mjs"
@@ -15,7 +15,7 @@
   "dependencies": {
     "express": "^4.21.2"
   },
-  "displayVersion": "SP40.1",
-  "buildVersion": "SP40.1",
-  "sourceMarker": "adminkit-SP40.1-custom-attachment-menu"
+  "displayVersion": "SP40-ROLLBACK",
+  "buildVersion": "SP40-ROLLBACK",
+  "sourceMarker": "adminkit-SP40-emergency-rollback-from-sp401"
 }
