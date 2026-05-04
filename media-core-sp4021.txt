@@ -1,0 +1,152 @@
+"use strict";
+
+process.env.BUILD_VERSION = "SP40.2.1";
+process.env.RUNTIME_VERSION = "SP40.2.1";
+process.env.BUILD_SOURCE_MARKER = "adminkit-SP40.2.1-runtime-marker-diagnostics";
+
+const fs = require("fs");
+const path = require("path");
+const Module = require("module");
+
+const VERSION = "SP40.2.1";
+const MARKER = "adminkit-SP40.2.1-runtime-marker-diagnostics";
+const STARTED_AT = new Date().toISOString();
+
+function noCache(res) {
+  res.set({
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Surrogate-Control": "no-store"
+  });
+}
+
+function adminOk(req, res) {
+  const token = String((req.query && (req.query.token || req.query.adminToken)) || (req.get && req.get("x-admin-token")) || "").trim();
+  const expected = String(process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || "").trim();
+  if (!expected || token === expected) return true;
+  noCache(res);
+  res.status(403).json({ ok: false, error: "admin_forbidden", runtimeVersion: VERSION });
+  return false;
+}
+
+function readJsonSafe(relPath) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, relPath), "utf8"));
+  } catch (error) {
+    return { _readError: String(error && error.message || error) };
+  }
+}
+
+function getStoreSnapshotRuntime() {
+  try {
+    const storeModule = require("./store");
+    if (!storeModule || typeof storeModule.getDebugSnapshot !== "function") return "not_available";
+    const snap = storeModule.getDebugSnapshot();
+    return String((snap && (snap.runtimeVersion || (snap.meta && snap.meta.runtimeVersion))) || "unknown");
+  } catch (error) {
+    return "error:" + String(error && error.message || error);
+  }
+}
+
+function buildRuntimeMarker() {
+  const packageJson = readJsonSafe("package.json");
+  const buildInfo = readJsonSafe("build-info.json");
+  return {
+    ok: true,
+    serverRuntime: VERSION,
+    serverSourceMarker: MARKER,
+    startedAt: STARTED_AT,
+    generatedAt: Date.now(),
+    generatedAtIso: new Date().toISOString(),
+    baseLayer: "SP40",
+    safetyLayer: "SP40.2",
+    diagnosticsLayer: "SP40.2.1",
+    frontendMutation: false,
+    newUxEnabled: false,
+    attachmentMenuExperiment: String(process.env.ATTACHMENT_MENU_EXPERIMENT || "0"),
+    packageRuntime: {
+      version: String(packageJson.version || ""),
+      start: String(packageJson.scripts && packageJson.scripts.start || ""),
+      main: String(packageJson.main || ""),
+      displayVersion: String(packageJson.displayVersion || ""),
+      sourceMarker: String(packageJson.sourceMarker || "")
+    },
+    buildInfoRuntime: {
+      runtimeVersion: String(buildInfo.runtimeVersion || ""),
+      buildVersion: String(buildInfo.buildVersion || ""),
+      displayVersion: String(buildInfo.displayVersion || ""),
+      sourceMarker: String(buildInfo.sourceMarker || "")
+    },
+    storeSnapshotRuntime: getStoreSnapshotRuntime(),
+    note: "Use /debug/runtime-marker for actual server runtime. /public/build-marker.txt may be handled by older base route."
+  };
+}
+
+function installRoutes(app) {
+  if (!app || app.__akSp4021Installed) return app;
+  app.__akSp4021Installed = true;
+
+  app.get("/debug/runtime-marker", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    res.json(buildRuntimeMarker());
+  });
+
+  app.get("/debug/selftest-4021", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    const marker = buildRuntimeMarker();
+    res.json({
+      ok: true,
+      runtimeVersion: VERSION,
+      sourceMarker: MARKER,
+      server: "alive",
+      layers: {
+        base: marker.baseLayer,
+        safety: marker.safetyLayer,
+        diagnostics: marker.diagnosticsLayer
+      },
+      frontendMutation: false,
+      newUxEnabled: false,
+      marker: marker
+    });
+  });
+
+  app.get("/debug/layers", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    res.json({
+      ok: true,
+      runtimeVersion: VERSION,
+      sourceMarker: MARKER,
+      layers: [
+        { name: "base", version: "SP40", purpose: "MVP reset and promo tools" },
+        { name: "safety", version: "SP40.2", purpose: "selftest/routes/frontend-patch diagnostics" },
+        { name: "diagnostics", version: "SP40.2.1", purpose: "non-conflicting runtime marker" }
+      ],
+      publicBuildMarkerNote: "/public/build-marker.txt can be intercepted by base SP40 route; use /debug/runtime-marker?token=admin as source of truth."
+    });
+  });
+
+  return app;
+}
+
+const originalLoad = Module._load;
+Module._load = function patchedLoad(request, parent, isMain) {
+  const loaded = originalLoad.apply(this, arguments);
+  if (request === "express" && loaded && !loaded.__akSp4021Wrapped) {
+    function wrapper() {
+      const app = loaded.apply(this, arguments);
+      return installRoutes(app);
+    }
+    Object.setPrototypeOf(wrapper, loaded);
+    Object.assign(wrapper, loaded);
+    wrapper.__akSp4021Wrapped = true;
+    return wrapper;
+  }
+  return loaded;
+};
+
+console.log("[АдминКИТ] " + VERSION + " diagnostics layer loaded: " + MARKER);
+require("./media-core-sp402.txt");
