@@ -1,0 +1,198 @@
+"use strict";
+
+process.env.BUILD_VERSION = "SP40.2";
+process.env.RUNTIME_VERSION = "SP40.2";
+process.env.BUILD_SOURCE_MARKER = "adminkit-SP40.2-safety-layer";
+
+const fs = require("fs");
+const path = require("path");
+const Module = require("module");
+
+const VERSION = "SP40.2";
+const MARKER = "adminkit-SP40.2-safety-layer";
+const STARTED_AT = new Date().toISOString();
+
+function noCache(res) {
+  res.set({
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Surrogate-Control": "no-store"
+  });
+}
+
+function adminOk(req, res) {
+  const token = String((req.query && (req.query.token || req.query.adminToken)) || (req.get && req.get("x-admin-token")) || "").trim();
+  const expected = String(process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || "").trim();
+  if (!expected || token === expected) return true;
+  noCache(res);
+  res.status(403).json({ ok: false, error: "admin_forbidden", runtimeVersion: VERSION });
+  return false;
+}
+
+function safeJsonRead(filePath, fallback) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function fileInfo(relPath) {
+  const full = path.join(__dirname, relPath);
+  try {
+    const stat = fs.statSync(full);
+    return { exists: true, size: stat.size, mtimeMs: stat.mtimeMs };
+  } catch (error) {
+    return { exists: false, error: String(error.message || error) };
+  }
+}
+
+function checkStore() {
+  try {
+    const storeModule = require("./store");
+    const hasStore = Boolean(storeModule && storeModule.store);
+    const hasDebug = typeof storeModule.getDebugSnapshot === "function";
+    let snapshotOk = false;
+    let snapshotRuntime = "";
+    if (hasDebug) {
+      const snap = storeModule.getDebugSnapshot();
+      snapshotOk = Boolean(snap && typeof snap === "object");
+      snapshotRuntime = String((snap && (snap.runtimeVersion || (snap.meta && snap.meta.runtimeVersion))) || "");
+    }
+    return { ok: true, hasStore, hasDebug, snapshotOk, snapshotRuntime };
+  } catch (error) {
+    return { ok: false, error: String(error.message || error) };
+  }
+}
+
+function checkConfig() {
+  try {
+    const config = require("./config");
+    return {
+      ok: true,
+      hasBotToken: Boolean(config && config.botToken),
+      hasAppBaseUrl: Boolean(config && config.appBaseUrl),
+      giftAdminTokenPresent: Boolean(process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN),
+      githubDebugTokenPresent: Boolean(process.env.GITHUB_DEBUG_TOKEN),
+      githubDebugRepo: String(process.env.GITHUB_DEBUG_REPO || "")
+    };
+  } catch (error) {
+    return { ok: false, error: String(error.message || error) };
+  }
+}
+
+function routeList() {
+  return [
+    "GET /public/build-marker.txt",
+    "GET /debug/selftest?token=admin",
+    "GET /debug/routes?token=admin",
+    "GET /debug/frontend-patch?token=admin",
+    "GET /debug/compact?token=admin",
+    "GET /debug/store-live?token=admin"
+  ];
+}
+
+function buildSelftest() {
+  const packageJson = safeJsonRead(path.join(__dirname, "package.json"), {});
+  const buildInfo = safeJsonRead(path.join(__dirname, "build-info.json"), {});
+  const checks = {
+    packageJson: {
+      ok: Boolean(packageJson && packageJson.scripts && packageJson.scripts.start),
+      version: String(packageJson.version || ""),
+      start: String(packageJson.scripts && packageJson.scripts.start || ""),
+      main: String(packageJson.main || "")
+    },
+    files: {
+      sp40: fileInfo("media-core-sp40.txt"),
+      sp402: fileInfo("media-core-sp402.txt"),
+      packageJson: fileInfo("package.json"),
+      publicAppJs: fileInfo(path.join("public", "app.js")),
+      buildInfo: fileInfo("build-info.json")
+    },
+    config: checkConfig(),
+    store: checkStore(),
+    frontendPatch: {
+      ok: true,
+      mode: "safety_only",
+      attachmentMenuExperiment: String(process.env.ATTACHMENT_MENU_EXPERIMENT || "0"),
+      activeClientMutation: false
+    }
+  };
+  const ok = Object.values(checks).every(function (item) { return item && item.ok !== false; });
+  return {
+    ok,
+    runtimeVersion: VERSION,
+    sourceMarker: MARKER,
+    startedAt: STARTED_AT,
+    generatedAt: Date.now(),
+    generatedAtIso: new Date().toISOString(),
+    buildInfo,
+    checks,
+    routes: routeList(),
+    rollout: {
+      base: "SP40",
+      mode: "safety_layer_only",
+      newUxEnabled: false,
+      nextSafeStep: "Add future features behind env flags only"
+    }
+  };
+}
+
+function installRoutes(app) {
+  if (!app || app.__akSp402Installed) return app;
+  app.__akSp402Installed = true;
+
+  app.get("/public/build-marker.txt", function (req, res) {
+    noCache(res);
+    res.type("text/plain").send(MARKER + "\n" + VERSION + "\nbase=SP40\nmode=safety_layer\n");
+  });
+
+  app.get("/debug/selftest", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    const result = buildSelftest();
+    res.status(result.ok ? 200 : 500).json(result);
+  });
+
+  app.get("/debug/routes", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    res.json({ ok: true, runtimeVersion: VERSION, sourceMarker: MARKER, routes: routeList() });
+  });
+
+  app.get("/debug/frontend-patch", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    res.json({
+      ok: true,
+      runtimeVersion: VERSION,
+      sourceMarker: MARKER,
+      mode: "safety_only",
+      attachmentMenuExperiment: String(process.env.ATTACHMENT_MENU_EXPERIMENT || "0"),
+      enabled: false,
+      note: "SP40.2 does not inject the broken SP40.1 custom attachment menu. Future UI experiments must be gated."
+    });
+  });
+
+  return app;
+}
+
+const originalLoad = Module._load;
+Module._load = function patchedLoad(request, parent, isMain) {
+  const loaded = originalLoad.apply(this, arguments);
+  if (request === "express" && loaded && !loaded.__akSp402Wrapped) {
+    function wrapper() {
+      const app = loaded.apply(this, arguments);
+      return installRoutes(app);
+    }
+    Object.setPrototypeOf(wrapper, loaded);
+    Object.assign(wrapper, loaded);
+    wrapper.__akSp402Wrapped = true;
+    return wrapper;
+  }
+  return loaded;
+};
+
+console.log("[АдминКИТ] " + VERSION + " safety layer loaded: " + MARKER);
+require("./media-core-sp40.txt");
