@@ -1,2 +1,2 @@
-adminkit-SP38-media-core-rebuild
-SP38
+adminkit-SP40.2.8-duplicate-post-guard
+SP40.2.8
