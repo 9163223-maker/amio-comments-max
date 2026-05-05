@@ -1,0 +1,291 @@
+"use strict";
+
+process.env.BUILD_VERSION = "SP41";
+process.env.RUNTIME_VERSION = "SP41";
+process.env.BUILD_SOURCE_MARKER = "adminkit-SP41-release-manager-feature-flags";
+
+const Module = require("module");
+
+const VERSION = "SP41";
+const MARKER = "adminkit-SP41-release-manager-feature-flags";
+const STARTED_AT = new Date().toISOString();
+
+function noCache(res) {
+  res.set({
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Surrogate-Control": "no-store"
+  });
+}
+
+function readEnv(name, fallback) {
+  const value = process.env[name];
+  if (value === undefined || value === null || value === "") return fallback;
+  return String(value).trim();
+}
+
+function adminOk(req, res) {
+  const token = String((req.query && (req.query.token || req.query.adminToken)) || (req.get && req.get("x-admin-token")) || "").trim();
+  const expected = String(process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || "").trim();
+  if (!expected || token === expected) return true;
+  noCache(res);
+  res.status(403).json({ ok: false, error: "admin_forbidden", runtimeVersion: VERSION });
+  return false;
+}
+
+function listEnv(value) {
+  return String(value || "")
+    .split(/[,:;\n\s]+/g)
+    .map(function (item) { return item.trim(); })
+    .filter(Boolean);
+}
+
+function getFeature(name, fallback) {
+  return readEnv(name, fallback || "0").toLowerCase();
+}
+
+function isFeatureEnabled(name, context) {
+  const value = getFeature(name, "0");
+  if (["1", "true", "on", "yes", "live"].includes(value)) return true;
+  if (value === "admin") {
+    const adminIds = listEnv(process.env.ADMIN_USER_IDS || process.env.ADMINKIT_ADMIN_USER_IDS || "");
+    const userId = String((context && context.userId) || "").trim();
+    return Boolean(userId && adminIds.includes(userId));
+  }
+  if (value === "shadow") return true;
+  return false;
+}
+
+function getFeatureState(name, fallback) {
+  const value = getFeature(name, fallback || "0");
+  return {
+    name: name,
+    value: value,
+    enabled: ["1", "true", "on", "yes", "live", "admin", "shadow"].includes(value),
+    live: ["1", "true", "on", "yes", "live"].includes(value),
+    adminOnly: value === "admin",
+    shadow: value === "shadow"
+  };
+}
+
+function buildReleaseState() {
+  const releaseMode = readEnv("ADMINKIT_RELEASE_MODE", "stable");
+  return {
+    ok: true,
+    runtimeVersion: VERSION,
+    sourceMarker: MARKER,
+    startedAt: STARTED_AT,
+    generatedAt: Date.now(),
+    generatedAtIso: new Date().toISOString(),
+    releaseMode: releaseMode,
+    stableVersion: readEnv("ADMINKIT_STABLE_VERSION", "SP40"),
+    stableFile: readEnv("ADMINKIT_STABLE_FILE", "media-core-sp40.txt"),
+    candidateVersion: readEnv("ADMINKIT_CANDIDATE_VERSION", ""),
+    candidateFile: readEnv("ADMINKIT_CANDIDATE_FILE", ""),
+    activeRuntime: VERSION,
+    baseLayer: "SP40",
+    safetyLayer: "SP40.2.1",
+    releaseManager: "SP41",
+    featureGateDefault: "off",
+    oneBotMode: true,
+    adminUserIdsConfigured: listEnv(process.env.ADMIN_USER_IDS || process.env.ADMINKIT_ADMIN_USER_IDS || "").length,
+    testChannelIdsConfigured: listEnv(process.env.TEST_CHANNEL_IDS || process.env.ADMINKIT_TEST_CHANNEL_IDS || "").length
+  };
+}
+
+function buildFeaturesState() {
+  return {
+    ok: true,
+    runtimeVersion: VERSION,
+    sourceMarker: MARKER,
+    features: {
+      FEATURE_ATTACHMENT_MENU: getFeatureState("FEATURE_ATTACHMENT_MENU", "0"),
+      FEATURE_AI_MODERATION: getFeatureState("FEATURE_AI_MODERATION", "0"),
+      FEATURE_PROMO_CTA: getFeatureState("FEATURE_PROMO_CTA", "1"),
+      FEATURE_HIGHLIGHTED_COMMENTS: getFeatureState("FEATURE_HIGHLIGHTED_COMMENTS", "0"),
+      FEATURE_AUTO_REPLIES: getFeatureState("FEATURE_AUTO_REPLIES", "0"),
+      FEATURE_GIFTS_IN_COMMENTS: getFeatureState("FEATURE_GIFTS_IN_COMMENTS", "1")
+    },
+    aiModeration: {
+      endpointConfigured: Boolean(readEnv("AI_MODERATION_URL", "")),
+      apiKeyPresent: Boolean(readEnv("AI_MODERATION_API_KEY", "") || readEnv("OPENROUTER_API_KEY", "")),
+      model: readEnv("AI_MODERATION_MODEL", "google/gemma-3-27b-it:free"),
+      timeoutMs: Number(readEnv("AI_MODERATION_TIMEOUT_MS", "12000")) || 12000,
+      failClosed: ["1", "true", "yes", "on"].includes(readEnv("AI_MODERATION_FAIL_CLOSED", "0").toLowerCase()),
+      openRouterBaseUrl: readEnv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1/chat/completions")
+    }
+  };
+}
+
+function readJsonBody(req, maxBytes) {
+  return new Promise(function (resolve, reject) {
+    const chunks = [];
+    let size = 0;
+    req.on("data", function (chunk) {
+      size += chunk.length;
+      if (size > (maxBytes || 1024 * 1024)) {
+        const err = new Error("payload_too_large");
+        err.status = 413;
+        reject(err);
+        try { req.destroy(err); } catch (_) {}
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", function () {
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}")); }
+      catch (error) { resolve({}); }
+    });
+    req.on("error", reject);
+  });
+}
+
+function extractJson(text) {
+  const raw = String(text || "").trim();
+  try { return JSON.parse(raw); } catch (_) {}
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    try { return JSON.parse(raw.slice(start, end + 1)); } catch (_) {}
+  }
+  return null;
+}
+
+function normalizeModeration(data, featureState) {
+  const parsed = data && typeof data === "object" ? data : {};
+  const allow = parsed.allow !== undefined ? Boolean(parsed.allow) : String(parsed.action || "allow") === "allow";
+  const action = String(parsed.action || (allow ? "allow" : "reject")).trim() || "allow";
+  const labels = Array.isArray(parsed.labels) ? parsed.labels : [];
+  const confidence = Number(parsed.confidence || 0) || 0;
+  const reason = String(parsed.reason || "").slice(0, 500);
+  if (featureState.shadow) {
+    return {
+      allow: true,
+      allowed: true,
+      action: "allow",
+      labels: labels.concat(["shadow_mode"]),
+      confidence: confidence,
+      reason: "shadow_mode:" + (reason || (allow ? "would_allow" : "would_block")),
+      shadow: true,
+      wouldAllow: allow,
+      wouldAction: action
+    };
+  }
+  return { allow: allow, allowed: allow, action: action, labels: labels, confidence: confidence, reason: reason };
+}
+
+async function callOpenRouterModeration(payload, featureState) {
+  const apiKey = readEnv("AI_MODERATION_API_KEY", "") || readEnv("OPENROUTER_API_KEY", "");
+  if (!apiKey) return { allow: true, action: "allow", labels: ["ai_key_missing"], confidence: 0, reason: "AI moderation key is not configured" };
+  const model = readEnv("AI_MODERATION_MODEL", "google/gemma-3-27b-it:free");
+  const url = readEnv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1/chat/completions");
+  const text = String((payload && payload.text) || "").slice(0, 5000);
+  if (!text.trim()) return { allow: true, action: "allow", labels: [], confidence: 1, reason: "empty_text" };
+  const timeoutMs = Math.max(1000, Number(readEnv("AI_MODERATION_TIMEOUT_MS", "12000")) || 12000);
+  const controller = new AbortController();
+  const timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Authorization": "Bearer " + apiKey,
+        "Content-Type": "application/json",
+        "HTTP-Referer": readEnv("OPENROUTER_SITE_URL", readEnv("APP_BASE_URL", "")),
+        "X-Title": readEnv("OPENROUTER_APP_NAME", "АдминКИТ")
+      },
+      body: JSON.stringify({
+        model: model,
+        temperature: 0,
+        max_tokens: 180,
+        messages: [
+          {
+            role: "system",
+            content: "Ты модератор комментариев русскоязычного канала. Ответь строго JSON без markdown. Схема: {\"allow\":boolean,\"action\":\"allow\"|\"reject\"|\"queue\",\"labels\":string[],\"confidence\":number,\"reason\":string}. Блокируй рекламный спам, оскорбления, токсичность, мошенничество, опасные ссылки, навязчивые внешние инвайты, порнографию и явную политику/провокации, если это запрещено настройками. Нейтральные вопросы и нормальные комментарии разрешай."
+          },
+          {
+            role: "user",
+            content: JSON.stringify({ text: text, userId: payload.userId || "", userName: payload.userName || "", settings: payload.settings || {}, channelId: payload.channelId || "" })
+          }
+        ]
+      })
+    });
+    const data = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error((data && (data.error && (data.error.message || data.error))) || "openrouter_http_" + response.status);
+    const content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    return normalizeModeration(extractJson(content) || { allow: true, action: "allow", labels: ["ai_parse_fallback"], confidence: 0, reason: "Could not parse model JSON" }, featureState);
+  } catch (error) {
+    const failClosed = ["1", "true", "yes", "on"].includes(readEnv("AI_MODERATION_FAIL_CLOSED", "0").toLowerCase());
+    if (failClosed && !featureState.shadow) return { allow: false, allowed: false, action: "reject", labels: ["ai_error"], confidence: 0, reason: "ai_error:" + String(error.message || error) };
+    return { allow: true, allowed: true, action: "allow", labels: ["ai_bypass"], confidence: 0, reason: "ai_bypassed:" + String(error.message || error) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function installRoutes(app) {
+  if (!app || app.__akSp41Installed) return app;
+  app.__akSp41Installed = true;
+
+  app.get("/debug/release", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    res.json(buildReleaseState());
+  });
+
+  app.get("/debug/features", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    res.json(buildFeaturesState());
+  });
+
+  app.get("/debug/canary", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    res.json({ ok: true, runtimeVersion: VERSION, sourceMarker: MARKER, oneBotMode: true, adminUserIds: listEnv(process.env.ADMIN_USER_IDS || process.env.ADMINKIT_ADMIN_USER_IDS || "").length, testChannelIds: listEnv(process.env.TEST_CHANNEL_IDS || process.env.ADMINKIT_TEST_CHANNEL_IDS || "").length, releaseMode: readEnv("ADMINKIT_RELEASE_MODE", "stable") });
+  });
+
+  app.post("/api/ai-moderation/openrouter", async function (req, res) {
+    noCache(res);
+    const feature = getFeatureState("FEATURE_AI_MODERATION", "0");
+    if (!feature.enabled) return res.json({ allow: true, allowed: true, action: "allow", labels: ["ai_feature_disabled"], confidence: 0, reason: "FEATURE_AI_MODERATION=0" });
+    try {
+      const body = await readJsonBody(req, 1024 * 1024);
+      const result = await callOpenRouterModeration(body, feature);
+      res.json(result);
+    } catch (error) {
+      res.status(error.status || 400).json({ allow: true, allowed: true, action: "allow", labels: ["ai_adapter_error"], confidence: 0, reason: String(error.message || error) });
+    }
+  });
+
+  app.get("/debug/ai-moderation-test", async function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    const feature = getFeatureState("FEATURE_AI_MODERATION", "0");
+    const text = String(req.query.text || "Тестовый безопасный комментарий");
+    const result = feature.enabled ? await callOpenRouterModeration({ text: text, userId: "debug", userName: "debug" }, feature) : { allow: true, action: "allow", labels: ["ai_feature_disabled"], confidence: 0, reason: "FEATURE_AI_MODERATION=0" };
+    res.json({ ok: true, runtimeVersion: VERSION, sourceMarker: MARKER, feature: feature, text: text, result: result });
+  });
+
+  return app;
+}
+
+const originalLoad = Module._load;
+Module._load = function patchedLoad(request, parent, isMain) {
+  const loaded = originalLoad.apply(this, arguments);
+  if (request === "express" && loaded && !loaded.__akSp41Wrapped) {
+    function wrapper() {
+      const app = loaded.apply(this, arguments);
+      return installRoutes(app);
+    }
+    Object.setPrototypeOf(wrapper, loaded);
+    Object.assign(wrapper, loaded);
+    wrapper.__akSp41Wrapped = true;
+    return wrapper;
+  }
+  return loaded;
+};
+
+console.log("[АдминКИТ] " + VERSION + " release manager loaded: " + MARKER);
+require("./media-core-sp4021.txt");
