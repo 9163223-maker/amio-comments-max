@@ -12,7 +12,7 @@
 - FixMedia: видео/публичные comment uploads отдаются с `Accept-Ranges` и `206 Partial Content`, чтобы iOS/MAX WebView мог открывать видео;
 - FixMedia: клиентский hotfix защищает upload/comment-save fetch от общего AbortController, который давал `Fetch is aborted`.
 
-Проверка после деплоя:
+Проверка после деплоя :
 
 ```text
 /debug
