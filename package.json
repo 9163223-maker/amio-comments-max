@@ -6,7 +6,7 @@
   "main": "media-core-sp4028.txt",
   "scripts": {
     "start": "node media-core-sp4028.txt",
-    "check": "node --check media-core-sp4028.txt"
+    "check": "node -e \"const fs=require('fs'),cp=require('child_process');fs.copyFileSync('media-core-sp4028.txt','/tmp/media-core-sp4028-check.js');cp.execFileSync(process.execPath,['--check','/tmp/media-core-sp4028-check.js'],{stdio:'inherit'});\""
   },
   "engines": {
     "node": ">=20"
