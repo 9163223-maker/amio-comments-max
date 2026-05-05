@@ -1,205 +1,56 @@
 'use strict';
+// SP40.2.8 QA aggregation layer. Safe wrapper over stable core.
+const fs = require('fs');
+const path = require('path');
+const Module = require('module');
 
-// AdminKIT SP40.2.8 — duplicate post guard + debug trace.
-// Safe wrapper over SP40 base. No new UX and no AI enforce.
+const RUNTIME = 'SP40.2.8';
+const SOURCE = 'adminkit-SP40.2.8-qa-aggregation-layer';
+const STARTED_AT = new Date().toISOString();
+const BASE = process.env.ADMINKIT_STABLE_VERSION || 'SP40';
+const CANDIDATE = process.env.ADMINKIT_CANDIDATE_VERSION || 'SP41';
+const RELEASE_MODE = process.env.ADMINKIT_RELEASE_MODE || 'stable';
+const FALLBACK = process.env.ADMINKIT_CORE_FILE || './media-core-sp4021.txt';
+const events = [];
+const installed = new WeakSet();
+let capturedApp = null;
 
-const crypto = require('crypto');
-const RUNTIME_VERSION = 'SP40.2.8';
-const SOURCE_MARKER = 'adminkit-SP40.2.8-duplicate-post-guard';
-const BASE_ENTRY = process.env.ADMINKIT_BASE_ENTRY || './media-core-sp4021.txt';
-const ADMIN_TOKEN = process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || 'admin';
-const TTL_MS = Number(process.env.COMMENT_DEDUPE_TTL_MS || 15000);
-const WAIT_MS = Number(process.env.COMMENT_DEDUPE_PENDING_WAIT_MS || 4500);
-
-const state = {
-  startedAt: new Date().toISOString(),
-  received: 0,
-  created: 0,
-  deduped: 0,
-  ignored: 0,
-  errors: 0,
-  cache: new Map(),
-  events: []
-};
-
-function ts(){ return Date.now(); }
-function hash(v){ return crypto.createHash('sha256').update(String(v || '')).digest('hex').slice(0, 12); }
-function norm(v){ return String(v || '').replace(/\s+/g, ' ').trim(); }
-function q(req){ return (req && req.query && typeof req.query === 'object') ? req.query : {}; }
-function b(req){ return (req && req.body && typeof req.body === 'object') ? req.body : {}; }
-function h(req, name){ return req && req.headers ? (req.headers[name] || req.headers[name.toLowerCase()] || '') : ''; }
-function byPath(obj, paths){
-  for (const p of paths) {
-    let cur = obj;
-    for (const part of p.split('.')) cur = cur && typeof cur === 'object' ? cur[part] : undefined;
-    if (cur !== undefined && cur !== null && cur !== '') return cur;
-  }
-  return '';
+const now = () => Date.now();
+const flag = (k, d='0') => String(process.env[k] ?? d);
+const mask = (v) => { const s = String(v || ''); return s ? { present:true, length:s.length, prefix:s.slice(0,8), suffix:s.slice(-4) } : { present:false, length:0 }; };
+const noCache = (res) => { res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate'); res.setHeader('Pragma','no-cache'); res.setHeader('Expires','0'); };
+const sendJson = (res, x) => { noCache(res); res.json(x); };
+const sendText = (res, s) => { noCache(res); res.setHeader('Content-Type','text/plain; charset=utf-8'); res.send(s); };
+function auth(req,res){ const t=process.env.GIFT_ADMIN_TOKEN||'admin'; if(String(req.query.token||'')!==String(t)){ res.status(403).json({ok:false,error:'forbidden',runtime:RUNTIME}); return false;} return true; }
+function push(e){ events.push({id:`${now()}_${Math.random().toString(36).slice(2,7)}`,at:now(),atIso:new Date().toISOString(),...e}); while(events.length>80) events.shift(); }
+function pkg(){ try{ const p=JSON.parse(fs.readFileSync(path.join(process.cwd(),'package.json'),'utf8')); return {ok:true,name:p.name,version:p.version,main:p.main,start:p.scripts&&p.scripts.start}; }catch(e){ return {ok:false,error:String(e.message||e)}; } }
+function finfo(name){ try{ const s=fs.statSync(path.join(process.cwd(),name)); return {exists:true,size:s.size,mtimeIso:s.mtime.toISOString()}; }catch(_){ return {exists:false}; } }
+function routes(app){ const out=[]; try{ for(const l of ((app&&app._router&&app._router.stack)||[])){ if(l.route&&l.route.path){ out.push(`${Object.keys(l.route.methods||{}).map(x=>x.toUpperCase()).join(',')||'USE'} ${l.route.path}`); } } }catch(e){ out.push('routes_error:'+String(e.message||e)); } return [...new Set(out)].sort(); }
+function features(){ return { FEATURE_ATTACHMENT_MENU:flag('FEATURE_ATTACHMENT_MENU','0'), FEATURE_PROMO_CTA:flag('FEATURE_PROMO_CTA','1'), FEATURE_HIGHLIGHTED_COMMENTS:flag('FEATURE_HIGHLIGHTED_COMMENTS','admin'), FEATURE_PINNED_COMMENT:flag('FEATURE_PINNED_COMMENT','0'), FEATURE_AUTHOR_BADGE:flag('FEATURE_AUTHOR_BADGE','0'), FEATURE_AUTO_REPLIES:flag('FEATURE_AUTO_REPLIES','0'), FEATURE_LEAD_CAPTURE:flag('FEATURE_LEAD_CAPTURE','0'), FEATURE_GIFTS_IN_COMMENTS:flag('FEATURE_GIFTS_IN_COMMENTS','1'), FEATURE_AI_MODERATION:flag('FEATURE_AI_MODERATION','shadow') }; }
+function aiCfg(){ return { provider:'openrouter', mode:flag('FEATURE_AI_MODERATION','shadow'), model:process.env.OPENROUTER_MODERATION_MODEL||process.env.OPENROUTER_MODEL||'openai/gpt-oss-20b:free', endpoint:process.env.OPENROUTER_BASE_URL||'https://openrouter.ai/api/v1/chat/completions', apiKey:mask(process.env.OPENROUTER_API_KEY), timeoutMs:Number(process.env.OPENROUTER_TIMEOUT_MS||12000), structuredOutput:flag('OPENROUTER_STRUCTURED_OUTPUT','0')==='1', failClosed:flag('AI_MODERATION_FAIL_CLOSED','0')==='1' }; }
+function regex(text){ const s=String(text||'').toLowerCase(), hits=[]; const rules=[['advertising',/(реклама|купите|покупайте|магазин|пишите\s+в\s+личку|кому\s+нужен|скидка|акция|buy\s+now)/i],['threat',/(убью|убить|kill\s+you|i\s+will\s+kill)/i],['abusive',/(хуй|сука|бляд|еба|fuck|shit|slut|тупая\s+скотина|скотина)/i],['drugs',/(наркотик|н4рк|cocaine|heroin)/i]]; for(const [l,r] of rules) if(r.test(s)) hits.push(l); return hits.length ? {allow:false,action:'reject',labels:hits,confidence:.8,reason:'regex_match'} : {allow:true,action:'allow',labels:[],confidence:.6,reason:'regex_clear'}; }
+function jsonLoose(t){ const s=String(t||'').trim(); try{return JSON.parse(s)}catch(_){ const m=s.match(/\{[\s\S]*\}/); if(m) return JSON.parse(m[0]); throw new Error('bad_json_ai_response'); } }
+async function openrouter(text, meta={}){ const c=aiCfg(), key=process.env.OPENROUTER_API_KEY; if(!key) return {ok:false,allow:true,action:'allow',labels:['ai_no_key'],confidence:0,reason:'OPENROUTER_API_KEY missing',error:'no_openrouter_key'}; const ctrl=new AbortController(); const timer=setTimeout(()=>ctrl.abort(),c.timeoutMs); const body={model:c.model,temperature:0,max_tokens:180,messages:[{role:'system',content:'Moderate Russian MAX channel comments. Return ONLY minified JSON: {"allow":boolean,"action":"allow"|"reject"|"review","labels":string[],"confidence":number,"reason":string}. Reject spam, direct ads, threats, harassment, insults, illegal goods, scams. Allow neutral criticism.'},{role:'user',content:JSON.stringify({text:String(text||''),meta})}]}; if(c.structuredOutput) body.response_format={type:'json_object'}; try{ const r=await fetch(c.endpoint,{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json','HTTP-Referer':process.env.APP_BASE_URL||'https://max.ru','X-Title':'Adminkit moderation QA'},body:JSON.stringify(body),signal:ctrl.signal}); const data=await r.json().catch(()=>({})); if(!r.ok) return {ok:false,allow:!c.failClosed,action:c.failClosed?'review':'allow',labels:['ai_http_error'],confidence:0,reason:`OpenRouter HTTP ${r.status}`,status:r.status,error:`openrouter_http_${r.status}`,raw:data}; const parsed=jsonLoose(data?.choices?.[0]?.message?.content); const allow=parsed.allow!==false&&parsed.action!=='reject'; return {ok:true,allow,action:allow?(parsed.action||'allow'):'reject',labels:Array.isArray(parsed.labels)?parsed.labels:[],confidence:Number(parsed.confidence||0),reason:String(parsed.reason||''),model:c.model,usage:data.usage,raw:parsed}; }catch(e){ return {ok:false,allow:!c.failClosed,action:c.failClosed?'review':'allow',labels:['ai_exception'],confidence:0,reason:String(e.message||e),error:'openrouter_exception'}; }finally{ clearTimeout(timer); } }
+function finalDecision(rx,ai){ if(ai&&ai.ok&&ai.allow===false) return {...ai,source:'ai',shadowOnly:true}; if(rx&&rx.allow===false) return {...rx,source:'regex',shadowOnly:true}; if(ai&&ai.ok) return {...ai,source:'ai',shadowOnly:true}; return {...rx,source:'regex',shadowOnly:true}; }
+function modSummary(){ const rows=events.filter(e=>e.type==='ai_shadow_result'); const reject=rows.filter(e=>e.final&&e.final.allow===false).length, allow=rows.filter(e=>e.final&&e.final.allow!==false).length, errors=rows.filter(e=>e.ai&&e.ai.ok===false).length; const lat=rows.map(e=>Number(e.latencyMs||0)).filter(Boolean).sort((a,b)=>a-b); const avg=lat.length?Math.round(lat.reduce((a,b)=>a+b,0)/lat.length):0; const p95=lat.length?lat[Math.min(lat.length-1,Math.floor(lat.length*.95))]:0; return {total:rows.length,aiOk:rows.length-errors,reject,allow,queue:0,errors,avgLatencyMs:avg,p95LatencyMs:p95}; }
+function qa(app=capturedApp){ const r=routes(app), required=['GET /debug/qa-lite','GET /debug/qa','GET /debug/qa-routes','GET /debug/qa-moderation','GET /debug/runtime-marker','GET /debug/ai-moderation','GET /debug/ai-shadow-events','DELETE /debug/ai-shadow-events','POST /api/ai-moderation/openrouter']; const missing=required.filter(x=>!r.includes(x)); const f=features(); const warnings=[]; if(!process.env.ADMIN_USER_IDS) warnings.push('ADMIN_USER_IDS_empty'); if(!process.env.TEST_CHANNEL_IDS) warnings.push('TEST_CHANNEL_IDS_empty'); if(f.FEATURE_ATTACHMENT_MENU!=='0') warnings.push('attachment_menu_experiment_not_off'); const blockers=[]; if(missing.length) blockers.push('required_routes_missing'); return {ok:true,runtime:RUNTIME,sourceMarker:SOURCE,generatedAt:now(),generatedAtIso:new Date().toISOString(),verdict:blockers.length?'BLOCKED':(warnings.length?'WARNING':'SAFE'),safe:blockers.length===0,baseLayer:BASE,safetyLayer:RUNTIME,startedAt:STARTED_AT,frontendMutation:false,newUxEnabled:false,attachmentMenuExperiment:flag('ATTACHMENT_MENU_EXPERIMENT','0'),release:{releaseMode:RELEASE_MODE,stableVersion:BASE,candidateVersion:CANDIDATE,canaryMode:process.env.ADMINKIT_CANARY_MODE||'admin',activeVersion:BASE,candidateActive:RELEASE_MODE==='candidate',packageSwitchAllowed:false,candidateExecutionAllowed:false},features:f,moderation:{...modSummary(),config:aiCfg()},packageRuntime:pkg(),files:{'media-core-sp4028.txt':finfo('media-core-sp4028.txt'),'media-core-sp4021.txt':finfo('media-core-sp4021.txt'),'media-core-sp402.txt':finfo('media-core-sp402.txt'),'media-core-sp40.txt':finfo('media-core-sp40.txt'),'package.json':finfo('package.json')},routes:{count:r.length,requiredOk:missing.length===0,missing,list:r},blockers,warnings,sourceOfTruth:'/debug/qa-lite?token=admin'}; }
+function install(app, expressLib){ if(!app||installed.has(app)) return; installed.add(app); capturedApp=app; const express=expressLib||require('express');
+  app.get('/public/build-marker.txt',(req,res)=>sendText(res,`${SOURCE}\n${RUNTIME}\nbase=${BASE}\nmode=qa_aggregation_layer\nsourceOfTruth=/debug/qa-lite?token=admin\n`));
+  app.get('/debug/runtime-marker',(req,res)=>{ if(auth(req,res)) sendJson(res,{ok:true,serverRuntime:RUNTIME,serverSourceMarker:SOURCE,startedAt:STARTED_AT,generatedAt:now(),baseLayer:BASE,safetyLayer:RUNTIME,frontendMutation:false,newUxEnabled:false,attachmentMenuExperiment:flag('ATTACHMENT_MENU_EXPERIMENT','0'),releaseGuard:{active:true,packageSwitchAllowed:false,candidateExecutionAllowed:false},packageRuntime:pkg()}); });
+  app.get('/debug/runtime-marker-sp4028',(req,res)=>{ if(auth(req,res)) sendJson(res,qa(app)); });
+  app.get('/debug/qa-lite',(req,res)=>{ if(!auth(req,res)) return; const q=qa(app),m=q.moderation; sendText(res,[`OK: ${q.verdict}`,`runtime: ${q.runtime}`,`base: ${q.baseLayer}`,`release: ${q.release.releaseMode}`,`candidate: ${q.release.candidateActive?'on':'off'}`,`AI moderation: ${q.features.FEATURE_AI_MODERATION} / model=${m.config.model} / events=${m.total} reject=${m.reject} allow=${m.allow} errors=${m.errors} avg=${m.avgLatencyMs}ms`,`routes: ${q.routes.requiredOk?'ok':'missing '+q.routes.missing.join(', ')}`,`blockers: ${q.blockers.length}${q.blockers.length?' '+q.blockers.join(','):''}`,`warnings: ${q.warnings.length}${q.warnings.length?' '+q.warnings.join(','):''}`,`sourceOfTruth: ${q.sourceOfTruth}`].join('\n')+'\n'); });
+  app.get('/debug/qa',(req,res)=>{ if(auth(req,res)) sendJson(res,qa(app)); });
+  app.get('/debug/qa-routes',(req,res)=>{ if(auth(req,res)) sendJson(res,{ok:true,runtime:RUNTIME,sourceMarker:SOURCE,routes:routes(app)}); });
+  app.get('/debug/qa-moderation',(req,res)=>{ if(auth(req,res)) sendJson(res,{ok:true,runtime:RUNTIME,sourceMarker:SOURCE,mode:features().FEATURE_AI_MODERATION,...modSummary(),rows:events.filter(e=>e.type==='ai_shadow_result').slice(-30)}); });
+  app.get('/debug/ai-moderation',(req,res)=>{ if(auth(req,res)) sendJson(res,{ok:true,runtimeVersion:RUNTIME,sourceMarker:SOURCE,...aiCfg()}); });
+  app.get('/debug/ai-shadow-events',(req,res)=>{ if(auth(req,res)) sendJson(res,{ok:true,runtimeVersion:RUNTIME,sourceMarker:SOURCE,count:events.length,events:events.slice(-60)}); });
+  app.delete('/debug/ai-shadow-events',(req,res)=>{ if(!auth(req,res)) return; const n=events.length; events.length=0; sendJson(res,{ok:true,runtimeVersion:RUNTIME,sourceMarker:SOURCE,removed:n}); });
+  app.get('/debug/qa-clear',(req,res)=>{ if(!auth(req,res)) return; const n=events.length; events.length=0; sendJson(res,{ok:true,runtimeVersion:RUNTIME,sourceMarker:SOURCE,removed:n}); });
+  app.post('/api/ai-moderation/openrouter',express.json({limit:'256kb'}),async(req,res)=>{ const started=now(), b=req.body||{}, text=String(b.text??b.comment??b.message??''), meta=b.meta||{commentKey:b.commentKey,userId:b.userId,userName:b.userName,channelId:b.channelId}; push({type:'ai_shadow_test_start',source:'api',payload:{text,meta}}); const rx=regex(text), ai=await openrouter(text,meta), final=finalDecision(rx,ai), latencyMs=now()-started; push({type:'ai_shadow_result',source:'api',latencyMs,text,regex:rx,ai,final,adminOverride:false}); sendJson(res,{ok:true,runtimeVersion:RUNTIME,sourceMarker:SOURCE,shadow:true,latencyMs,regex:rx,ai,final}); });
+  app.get('/api/ai-moderation/openrouter',async(req,res)=>{ if(!auth(req,res)) return; const text=String(req.query.text||'Реклама покупайте у меня машины вот ссылка'), started=now(), rx=regex(text), ai=await openrouter(text,{source:'debug_get'}), final=finalDecision(rx,ai), latencyMs=now()-started; push({type:'ai_shadow_result',source:'debug_get',latencyMs,text,regex:rx,ai,final,adminOverride:false}); sendJson(res,{ok:true,runtimeVersion:RUNTIME,sourceMarker:SOURCE,shadow:true,text,latencyMs,regex:rx,ai,final}); });
+  console.log(`[${RUNTIME}] QA routes installed`);
 }
-function log(type, data){
-  const row = Object.assign({ id: String(ts()) + '_' + Math.random().toString(36).slice(2, 7), type, at: ts(), atIso: new Date().toISOString() }, data || {});
-  state.events.push(row);
-  if (state.events.length > 250) state.events.splice(0, state.events.length - 250);
-  return row;
-}
-function purge(){
-  const n = ts();
-  for (const [k, v] of state.cache.entries()) if (!v || n - v.at > TTL_MS) state.cache.delete(k);
-}
-function payload(req){
-  const body = b(req), query = q(req);
-  const text = norm(byPath(body, ['text','comment','message','value','payload.text','data.text']) || byPath(query, ['text','comment','message']));
-  const commentKey = String(byPath(body, ['commentKey','threadKey','postKey','key','payload.commentKey','data.commentKey']) || byPath(query, ['commentKey','threadKey','postKey','key']) || '');
-  const userId = String(byPath(body, ['userId','uid','authorId','from.id','user.id','payload.userId','data.userId']) || byPath(query, ['userId','uid','authorId']) || h(req, 'x-user-id') || '');
-  const clientMutationId = String(byPath(body, ['clientMutationId','mutationId','requestId','dedupeKey','payload.clientMutationId','data.clientMutationId']) || byPath(query, ['clientMutationId','mutationId','requestId','dedupeKey']) || h(req, 'x-client-mutation-id') || '');
-  const attachmentHash = hash(JSON.stringify(body.attachments || body.files || body.media || []));
-  return { text, commentKey, userId, clientMutationId, attachmentHash, textHash: hash(text) };
-}
-function dedupeKey(p){
-  if (!p) return '';
-  if (p.clientMutationId) return 'cmid:' + hash(p.commentKey + '|' + p.userId + '|' + p.clientMutationId);
-  if (!p.text && !p.attachmentHash) return '';
-  return 'auto:' + hash([p.commentKey, p.userId, p.textHash, p.attachmentHash].join('|'));
-}
-function admin(req){ return String(q(req).token || '') === ADMIN_TOKEN; }
-function json(res, obj, code){
-  if (res.headersSent) return;
-  if (code) res.status(code);
-  res.setHeader('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('pragma', 'no-cache');
-  res.setHeader('expires', '0');
-  res.json(obj);
-}
-function wait(entry){
-  if (!entry || entry.status === 'done') return Promise.resolve(entry);
-  return new Promise(resolve => {
-    const start = ts();
-    const timer = setInterval(() => {
-      if (entry.status === 'done' || ts() - start >= WAIT_MS) { clearInterval(timer); resolve(entry); }
-    }, 50);
-  });
-}
-function capture(res, entry){
-  if (!res || res.__adminkitDedupeCapture) return;
-  res.__adminkitDedupeCapture = true;
-  const oldJson = res.json, oldSend = res.send;
-  res.json = function patchedJson(body){
-    try { entry.responseKind = 'json'; entry.responseBody = body; entry.statusCode = res.statusCode || 200; } catch(e) {}
-    return oldJson.apply(this, arguments);
-  };
-  res.send = function patchedSend(body){
-    try { entry.responseKind = entry.responseKind || 'send'; if (entry.responseBody === undefined) entry.responseBody = body; entry.statusCode = res.statusCode || 200; } catch(e) {}
-    return oldSend.apply(this, arguments);
-  };
-  res.once('finish', () => {
-    entry.status = 'done';
-    entry.elapsedMs = ts() - entry.at;
-    state.created += 1;
-    log('comment_post_created', { key: entry.publicKey, commentKey: entry.payload.commentKey, userId: entry.payload.userId, textHash: entry.payload.textHash, statusCode: entry.statusCode || res.statusCode || 200, elapsedMs: entry.elapsedMs });
-  });
-}
-function guard(req, res, next){
-  try {
-    purge();
-    state.received += 1;
-    const p = payload(req);
-    const key = dedupeKey(p);
-    if (!key) { state.ignored += 1; log('comment_post_no_dedupe_key', { path: req.path || req.url, payload: p }); return next(); }
-    const publicKey = key.slice(0, 18);
-    log('comment_post_received', { key: publicKey, path: req.path || req.url, commentKey: p.commentKey, userId: p.userId, textHash: p.textHash, textPreview: p.text.slice(0, 120), hasClientMutationId: Boolean(p.clientMutationId) });
-    const existing = state.cache.get(key);
-    if (existing && ts() - existing.at <= TTL_MS) {
-      state.deduped += 1;
-      log('comment_post_deduped', { key: publicKey, commentKey: p.commentKey, userId: p.userId, textHash: p.textHash, originalStatus: existing.status, ageMs: ts() - existing.at });
-      return wait(existing).then(done => {
-        const cached = done && done.responseBody;
-        if (cached && typeof cached === 'object') return json(res, Object.assign({}, cached, { ok: cached.ok !== false, deduped: true, duplicateGuard: RUNTIME_VERSION }), 200);
-        return json(res, { ok: true, deduped: true, duplicateGuard: RUNTIME_VERSION, pending: done && done.status !== 'done' }, 200);
-      }).catch(next);
-    }
-    const entry = { at: ts(), status: 'pending', payload: p, publicKey };
-    state.cache.set(key, entry);
-    capture(res, entry);
-    return next();
-  } catch (e) {
-    state.errors += 1;
-    log('comment_post_guard_error', { message: e && e.message ? e.message : String(e) });
-    return next();
-  }
-}
-function isCommentPath(path){
-  if (typeof path !== 'string') return false;
-  return path === '/api/comments' || path === '/comments' || path.includes('/api/comments') || path.endsWith('/comments');
-}
-function patchExpress(express){
-  if (!express || express.__adminkitSp4028Patched) return express;
-  express.__adminkitSp4028Patched = true;
-  const appProto = express.application;
-  if (appProto && appProto.post && !appProto.__adminkitSp4028PostPatched) {
-    appProto.__adminkitSp4028PostPatched = true;
-    const oldPost = appProto.post;
-    appProto.post = function patchedPost(path){
-      const args = Array.prototype.slice.call(arguments);
-      if (isCommentPath(path)) args.splice(1, 0, guard);
-      return oldPost.apply(this, args);
-    };
-  }
-  if (appProto && appProto.listen && !appProto.__adminkitSp4028ListenPatched) {
-    appProto.__adminkitSp4028ListenPatched = true;
-    const oldListen = appProto.listen;
-    appProto.listen = function patchedListen(){
-      try { installDebug(this); } catch(e) { log('debug_route_install_error', { message: e.message }); }
-      return oldListen.apply(this, arguments);
-    };
-  }
-  const oldRouter = express.Router;
-  if (typeof oldRouter === 'function' && !oldRouter.__adminkitSp4028RouterPatched) {
-    function Router(){
-      const router = oldRouter.apply(this, arguments);
-      if (router && router.post && !router.__adminkitSp4028PostPatched) {
-        router.__adminkitSp4028PostPatched = true;
-        const oldPost = router.post;
-        router.post = function patchedRouterPost(path){
-          const args = Array.prototype.slice.call(arguments);
-          if (isCommentPath(path)) args.splice(1, 0, guard);
-          return oldPost.apply(this, args);
-        };
-      }
-      return router;
-    }
-    Object.assign(Router, oldRouter);
-    Router.__adminkitSp4028RouterPatched = true;
-    express.Router = Router;
-  }
-  return express;
-}
-function installDebug(app){
-  if (!app || app.__adminkitSp4028DebugRoutes) return;
-  app.__adminkitSp4028DebugRoutes = true;
-  app.get('/debug/duplicate-posts', (req, res) => {
-    if (!admin(req)) return json(res, { ok:false, error:'forbidden' }, 403);
-    purge();
-    json(res, { ok:true, runtimeVersion:RUNTIME_VERSION, sourceMarker:SOURCE_MARKER, startedAt:state.startedAt, baseEntry:BASE_ENTRY, ttlMs:TTL_MS, pendingWaitMs:WAIT_MS, stats:{ received:state.received, created:state.created, deduped:state.deduped, ignored:state.ignored, errors:state.errors, cacheSize:state.cache.size }, cache:Array.from(state.cache.values()).slice(-25).map(e => ({ key:e.publicKey, status:e.status, ageMs:ts()-e.at, commentKey:e.payload.commentKey, userId:e.payload.userId, textHash:e.payload.textHash, textPreview:e.payload.text.slice(0,80), elapsedMs:e.elapsedMs||0, statusCode:e.statusCode||0 })), events:state.events.slice(-120) });
-  });
-  app.get('/debug/duplicate-posts-clear', (req, res) => {
-    if (!admin(req)) return json(res, { ok:false, error:'forbidden' }, 403);
-    const removed = state.events.length;
-    state.events = []; state.cache.clear(); state.received = 0; state.created = 0; state.deduped = 0; state.ignored = 0; state.errors = 0;
-    json(res, { ok:true, runtimeVersion:RUNTIME_VERSION, sourceMarker:SOURCE_MARKER, removed });
-  });
-  app.get('/debug/runtime-marker-sp4028', (req, res) => {
-    if (!admin(req)) return json(res, { ok:false, error:'forbidden' }, 403);
-    json(res, { ok:true, serverRuntime:RUNTIME_VERSION, serverSourceMarker:SOURCE_MARKER, baseEntry:BASE_ENTRY, baseLayer:'SP40', safetyLayer:'SP40.2.8', frontendMutation:false, newUxEnabled:false, duplicateGuard:{ active:true, ttlMs:TTL_MS, pendingWaitMs:WAIT_MS } });
-  });
-}
-
-try {
-  const express = require('express');
-  patchExpress(express);
-  log('sp4028_bootstrap_started', { baseEntry: BASE_ENTRY });
-  require(BASE_ENTRY);
-} catch (err) {
-  log('sp4028_bootstrap_failed', { message: err && err.stack ? err.stack : String(err) });
-  console.error('[SP40.2.8] bootstrap failed', err);
-  throw err;
-}
+const oldLoad=Module._load;
+Module._load=function(request,parent,isMain){ const loaded=oldLoad.apply(this,arguments); if(request==='express'&&typeof loaded==='function'&&!loaded.__adminkitSp4028Patched){ function wrapped(){ const app=loaded.apply(this,arguments); install(app,loaded); return app; } Object.setPrototypeOf(wrapped,loaded); Object.assign(wrapped,loaded); wrapped.__adminkitSp4028Patched=true; return wrapped; } return loaded; };
+try{ const core=path.resolve(process.cwd(),FALLBACK); console.log(`[${RUNTIME}] loading stable core ${core}`); require(core); console.log(`[${RUNTIME}] stable core loaded; QA active`); }
+catch(e){ console.error(`[${RUNTIME}] stable core failed`,e); const express=require('express'); const app=express(); install(app,express); app.get('/',(req,res)=>sendText(res,`${SOURCE}\n${RUNTIME}\ncore_load_failed=${String(e.message||e)}\n`)); app.listen(Number(process.env.PORT||3000),()=>console.log(`[${RUNTIME}] emergency diagnostic server`)); }
