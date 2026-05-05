@@ -1,0 +1,391 @@
+"use strict";
+
+process.env.BUILD_VERSION = "SP41";
+process.env.RUNTIME_VERSION = "SP41";
+process.env.BUILD_SOURCE_MARKER = "adminkit-SP41-release-manager-openrouter-adapter";
+
+const fs = require("fs");
+const path = require("path");
+const Module = require("module");
+
+const VERSION = "SP41";
+const MARKER = "adminkit-SP41-release-manager-openrouter-adapter";
+const STARTED_AT = new Date().toISOString();
+
+function noCache(res) {
+  res.set({
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Surrogate-Control": "no-store"
+  });
+}
+
+function adminToken() {
+  return String(process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || "").trim();
+}
+
+function adminOk(req, res) {
+  const token = String((req.query && (req.query.token || req.query.adminToken)) || (req.get && req.get("x-admin-token")) || "").trim();
+  const expected = adminToken();
+  if (!expected || token === expected) return true;
+  noCache(res);
+  res.status(403).json({ ok: false, error: "admin_forbidden", runtimeVersion: VERSION, expectedToken: "GIFT_ADMIN_TOKEN" });
+  return false;
+}
+
+function splitList(value) {
+  return String(value || "").split(/[\n,; ]+/g).map((x) => String(x || "").trim()).filter(Boolean);
+}
+
+function envFlag(name, fallback = "0") {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null || raw === "") return String(fallback);
+  return String(raw).trim().toLowerCase();
+}
+
+function featureValue(name, fallback = "0") {
+  return envFlag(name, fallback);
+}
+
+function boolFromFlag(value) {
+  return ["1", "true", "yes", "on", "enabled", "live"].includes(String(value || "").trim().toLowerCase());
+}
+
+function featureEnabled(name, context = {}) {
+  const value = featureValue(name, "0");
+  if (boolFromFlag(value)) return true;
+  if (value === "shadow") return true;
+  if (value === "admin" || value === "canary") return isAdminContext(context);
+  return false;
+}
+
+function isShadowFeature(name) {
+  return featureValue(name, "0") === "shadow" || envFlag("AI_MODERATION_MODE", "") === "shadow";
+}
+
+function isAdminContext(context = {}) {
+  if (context.admin === true) return true;
+  const adminIds = splitList(process.env.ADMIN_USER_IDS || "");
+  const testChannels = splitList(process.env.TEST_CHANNEL_IDS || "");
+  const userId = String(context.userId || context.user_id || "").trim();
+  const channelId = String(context.channelId || context.channel_id || "").trim();
+  if (userId && adminIds.includes(userId)) return true;
+  if (channelId && testChannels.includes(channelId)) return true;
+  return false;
+}
+
+function releaseState(context = {}) {
+  const releaseMode = envFlag("ADMINKIT_RELEASE_MODE", "stable");
+  const stableVersion = String(process.env.ADMINKIT_STABLE_VERSION || "SP40").trim() || "SP40";
+  const candidateVersion = String(process.env.ADMINKIT_CANDIDATE_VERSION || "SP41").trim() || "SP41";
+  const canaryMode = envFlag("ADMINKIT_CANARY_MODE", "admin");
+  let activeVersion = stableVersion;
+  let candidateActive = false;
+  if (releaseMode === "candidate_live") {
+    activeVersion = candidateVersion;
+    candidateActive = true;
+  } else if (releaseMode === "candidate_admin") {
+    candidateActive = canaryMode === "admin" ? isAdminContext(context) : false;
+    activeVersion = candidateActive ? candidateVersion : stableVersion;
+  }
+  return {
+    ok: true,
+    releaseMode,
+    stableVersion,
+    candidateVersion,
+    canaryMode,
+    activeVersion,
+    candidateActive,
+    serverRuntime: VERSION,
+    serverSourceMarker: MARKER,
+    safetyBase: "SP40.2.1",
+    startedAt: STARTED_AT
+  };
+}
+
+function featureState() {
+  const names = [
+    "FEATURE_ATTACHMENT_MENU",
+    "FEATURE_PROMO_CTA",
+    "FEATURE_HIGHLIGHTED_COMMENTS",
+    "FEATURE_PINNED_COMMENT",
+    "FEATURE_AUTHOR_BADGE",
+    "FEATURE_AUTO_REPLIES",
+    "FEATURE_LEAD_CAPTURE",
+    "FEATURE_GIFTS_IN_COMMENTS",
+    "FEATURE_AI_MODERATION"
+  ];
+  const features = {};
+  for (const name of names) features[name] = featureValue(name, name === "FEATURE_PROMO_CTA" || name === "FEATURE_GIFTS_IN_COMMENTS" ? "1" : "0");
+  return {
+    ok: true,
+    runtimeVersion: VERSION,
+    sourceMarker: MARKER,
+    features,
+    semantics: {
+      "0": "off",
+      "1": "on_for_all",
+      admin: "on_for_admin_or_test_channel_only",
+      shadow: "evaluate_and_log_without_blocking_or_changing_user_behavior"
+    },
+    mediaPolicy: {
+      COMMENT_MEDIA_POLICY: String(process.env.COMMENT_MEDIA_POLICY || "mvp"),
+      COMMENT_ALLOW_PHOTO: envFlag("COMMENT_ALLOW_PHOTO", "1"),
+      COMMENT_ALLOW_FILES: envFlag("COMMENT_ALLOW_FILES", "0"),
+      COMMENT_ALLOW_VIDEO: envFlag("COMMENT_ALLOW_VIDEO", "0"),
+      COMMENT_ALLOW_AUDIO: envFlag("COMMENT_ALLOW_AUDIO", "0")
+    },
+    allowlists: {
+      adminUserIdsPresent: splitList(process.env.ADMIN_USER_IDS || "").length,
+      testChannelIdsPresent: splitList(process.env.TEST_CHANNEL_IDS || "").length
+    }
+  };
+}
+
+function maskSecret(value = "") {
+  const clean = String(value || "").trim();
+  if (!clean) return { present: false, length: 0, prefix: "", suffix: "" };
+  return { present: true, length: clean.length, prefix: clean.slice(0, 8), suffix: clean.slice(-4) };
+}
+
+function readBody(req, maxBytes = 256 * 1024) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on("data", function (chunk) {
+      size += chunk.length;
+      if (size > maxBytes) {
+        const err = new Error("payload_too_large");
+        err.status = 413;
+        reject(err);
+        try { req.destroy(err); } catch {}
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", function () {
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}")); }
+      catch { resolve({}); }
+    });
+    req.on("error", reject);
+  });
+}
+
+function openRouterModel() {
+  return String(process.env.OPENROUTER_MODEL || process.env.AI_MODERATION_MODEL || "google/gemma-3-27b-it:free").trim();
+}
+
+function openRouterKey() {
+  return String(process.env.OPENROUTER_API_KEY || process.env.AI_MODERATION_API_KEY || "").trim();
+}
+
+function aiModerationInfo() {
+  return {
+    ok: true,
+    runtimeVersion: VERSION,
+    sourceMarker: MARKER,
+    provider: String(process.env.AI_MODERATION_PROVIDER || "openrouter"),
+    mode: String(process.env.AI_MODERATION_MODE || featureValue("FEATURE_AI_MODERATION", "0") || "0"),
+    feature: featureValue("FEATURE_AI_MODERATION", "0"),
+    endpoint: String(process.env.AI_MODERATION_URL || "https://openrouter.ai/api/v1/chat/completions"),
+    adapterRoute: "/api/ai-moderation/openrouter",
+    model: openRouterModel(),
+    apiKey: maskSecret(openRouterKey()),
+    timeoutMs: Number(process.env.AI_MODERATION_TIMEOUT_MS || 12000) || 12000,
+    failClosed: boolFromFlag(process.env.AI_MODERATION_FAIL_CLOSED || "0")
+  };
+}
+
+function buildModerationPrompt(payload = {}) {
+  const text = String(payload.text || "").slice(0, 5000);
+  const settings = payload.settings && typeof payload.settings === "object" ? payload.settings : {};
+  return [
+    {
+      role: "system",
+      content: "Ты модератор комментариев в русскоязычном канале. Верни только JSON без markdown. Поля: allow boolean, action allow|reject|queue, labels array, confidence number 0..1, reason string. Блокируй спам, токсичные оскорбления, угрозы, внешние рекламные ссылки, мошенничество, 18+ рекламу. Обычную критику, вопросы и нейтральные сообщения разрешай."
+    },
+    {
+      role: "user",
+      content: JSON.stringify({
+        text,
+        userId: payload.userId || "",
+        userName: payload.userName || "",
+        channelId: payload.channelId || "",
+        commentKey: payload.commentKey || "",
+        replyToId: payload.replyToId || "",
+        settings
+      })
+    }
+  ];
+}
+
+function parseModelJson(content = "") {
+  const raw = String(content || "").trim();
+  try { return JSON.parse(raw); } catch {}
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (match) {
+    try { return JSON.parse(match[0]); } catch {}
+  }
+  return { allow: true, action: "allow", labels: ["parse_error"], confidence: 0, reason: "model_json_parse_error", rawContent: raw.slice(0, 500) };
+}
+
+async function callOpenRouter(payload = {}) {
+  const key = openRouterKey();
+  if (!key) {
+    return { ok: false, error: "openrouter_key_missing", allow: true, action: "allow", labels: ["config_missing"], confidence: 0, reason: "OPENROUTER_API_KEY/AI_MODERATION_API_KEY is missing" };
+  }
+  const controller = new AbortController();
+  const timeoutMs = Math.max(1000, Number(process.env.AI_MODERATION_TIMEOUT_MS || 12000) || 12000);
+  const timeout = setTimeout(function () { controller.abort(); }, timeoutMs);
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Authorization": "Bearer " + key,
+        "Content-Type": "application/json",
+        "HTTP-Referer": String(process.env.APP_BASE_URL || "https://adminkit.local"),
+        "X-Title": "Adminkit MAX Moderation"
+      },
+      body: JSON.stringify({
+        model: openRouterModel(),
+        messages: buildModerationPrompt(payload),
+        temperature: 0,
+        max_tokens: 300,
+        response_format: { type: "json_object" }
+      })
+    });
+    const data = await response.json().catch(function () { return {}; });
+    if (!response.ok) {
+      return { ok: false, error: data.error || "openrouter_http_" + response.status, status: response.status, allow: true, action: "allow", labels: ["ai_http_error"], confidence: 0, reason: "OpenRouter HTTP " + response.status, raw: data };
+    }
+    const content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content || "";
+    const parsed = parseModelJson(content);
+    const allow = parsed.allow !== undefined ? Boolean(parsed.allow) : String(parsed.action || "allow") === "allow";
+    return {
+      ok: true,
+      allow,
+      action: String(parsed.action || (allow ? "allow" : "reject")),
+      labels: Array.isArray(parsed.labels) ? parsed.labels : [],
+      confidence: Number(parsed.confidence || 0) || 0,
+      reason: String(parsed.reason || ""),
+      model: openRouterModel(),
+      usage: data.usage || null,
+      raw: parsed
+    };
+  } catch (error) {
+    return { ok: false, error: String(error && error.message || error), allow: true, action: "allow", labels: ["ai_exception"], confidence: 0, reason: "AI moderation exception" };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function adapterAuthOk(req, res) {
+  const expected = openRouterKey();
+  if (!expected) return true;
+  const header = String((req.get && req.get("authorization")) || "").replace(/^Bearer\s+/i, "").trim();
+  if (header && header === expected) return true;
+  const admin = String((req.query && req.query.token) || "").trim();
+  if (admin && admin === adminToken()) return true;
+  res.status(403).json({ ok: false, error: "ai_adapter_forbidden", runtimeVersion: VERSION });
+  return false;
+}
+
+async function handleOpenRouterModeration(req, res) {
+  if (!adapterAuthOk(req, res)) return;
+  noCache(res);
+  const payload = await readBody(req).catch(function (error) { return { _readError: String(error && error.message || error) }; });
+  const mode = String(process.env.AI_MODERATION_MODE || featureValue("FEATURE_AI_MODERATION", "0") || "0").toLowerCase();
+  const enabled = featureEnabled("FEATURE_AI_MODERATION", { userId: payload.userId, channelId: payload.channelId, admin: false }) || mode === "shadow";
+  if (!enabled) {
+    return res.json({ ok: true, enabled: false, allow: true, action: "allow", labels: ["ai_disabled"], confidence: 0, reason: "AI moderation feature is disabled" });
+  }
+  const result = await callOpenRouter(payload);
+  if (mode === "shadow" || featureValue("FEATURE_AI_MODERATION", "0") === "shadow") {
+    return res.json({ ...result, allow: true, action: "allow", shadow: true, shadowDecision: { allow: result.allow, action: result.action, labels: result.labels, confidence: result.confidence, reason: result.reason } });
+  }
+  return res.json(result);
+}
+
+function patchConfigModule(config) {
+  if (!config || typeof config !== "object" || config.__akSp41Patched) return config;
+  try {
+    const provider = String(process.env.AI_MODERATION_PROVIDER || "openrouter").toLowerCase();
+    if (provider === "openrouter") {
+      const port = String(process.env.PORT || config.port || 3000);
+      config.aiModerationUrl = "http://127.0.0.1:" + port + "/api/ai-moderation/openrouter";
+      config.aiModerationApiKey = openRouterKey();
+      config.aiModerationModel = openRouterModel();
+      config.aiModerationTimeoutMs = Number(process.env.AI_MODERATION_TIMEOUT_MS || config.aiModerationTimeoutMs || 12000);
+      config.aiModerationFailClosed = boolFromFlag(process.env.AI_MODERATION_FAIL_CLOSED || "0");
+    }
+    config.__akSp41Patched = true;
+  } catch {}
+  return config;
+}
+
+function installRoutes(app) {
+  if (!app || app.__akSp41Installed) return app;
+  app.__akSp41Installed = true;
+
+  app.get("/debug/release", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    res.json({ ...releaseState({ admin: true }), runtimeVersion: VERSION, sourceMarker: MARKER });
+  });
+
+  app.get("/debug/features", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    res.json(featureState());
+  });
+
+  app.get("/debug/ai-moderation", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    res.json(aiModerationInfo());
+  });
+
+  app.get("/debug/runtime-marker-sp41", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    res.json({ ok: true, runtimeVersion: VERSION, sourceMarker: MARKER, release: releaseState({ admin: true }), features: featureState(), aiModeration: aiModerationInfo() });
+  });
+
+  app.post("/api/ai-moderation/openrouter", function (req, res) {
+    handleOpenRouterModeration(req, res).catch(function (error) {
+      res.status(500).json({ ok: false, error: String(error && error.message || error), runtimeVersion: VERSION });
+    });
+  });
+
+  app.get("/api/ai-moderation/openrouter", function (req, res) {
+    if (!adminOk(req, res)) return;
+    noCache(res);
+    res.json({ ok: true, runtimeVersion: VERSION, route: "/api/ai-moderation/openrouter", method: "POST", provider: "openrouter", model: openRouterModel(), mode: aiModerationInfo().mode });
+  });
+
+  return app;
+}
+
+const originalLoad = Module._load;
+Module._load = function patchedLoad(request, parent, isMain) {
+  const loaded = originalLoad.apply(this, arguments);
+  if (request === "./config" || request === "../config" || String(request).endsWith("/config")) return patchConfigModule(loaded);
+  if (request === "express" && loaded && !loaded.__akSp41Wrapped) {
+    function wrapper() {
+      const app = loaded.apply(this, arguments);
+      return installRoutes(app);
+    }
+    Object.setPrototypeOf(wrapper, loaded);
+    Object.assign(wrapper, loaded);
+    wrapper.__akSp41Wrapped = true;
+    return wrapper;
+  }
+  return loaded;
+};
+
+try { patchConfigModule(require("./config")); } catch {}
+
+console.log("[АдминКИТ] " + VERSION + " loaded: " + MARKER);
+require("./media-core-sp4021.txt");
