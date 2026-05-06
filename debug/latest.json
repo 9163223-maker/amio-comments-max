@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "runtime": "SP40.3",
+  "sourceMarker": "adminkit-SP40.3-cta-export-normalize",
+  "generatedAt": 1778073515863,
+  "generatedAtIso": "2026-05-06T13:18:35.863Z",
+  "startedAt": "2026-05-06T13:18:10.485Z",
+  "baseFile": "media-core-sp4029.txt",
+  "innerPort": 3200,
+  "features": {
+    "floatingCta": "1",
+    "clientTapGuard": "1",
+    "commentDedupe": "1"
+  },
+  "proxy": {
+    "proxied": 0,
+    "patchedHtml": 0,
+    "patchedJs": 0,
+    "proxyErrors": 0,
+    "childRestarts": 0,
+    "lastError": null
+  },
+  "githubExport": {
+    "repo": "9163223-maker/amio-comments-max",
+    "branch": "main",
+    "path": "debug/latest.json",
+    "litePath": "debug/latest-lite.json",
+    "rawToken": {
+      "present": true,
+      "length": 93,
+      "prefix": "github_p",
+      "suffix": "BjPW"
+    },
+    "normalizedToken": {
+      "present": true,
+      "length": 93,
+      "prefix": "github_p",
+      "suffix": "BjPW"
+    },
+    "tokenChanged": false,
+    "exports": 0,
+    "lastExport": null
+  },
+  "sourceOfTruth": "/debug/qa-lite?token=admin"
+}
