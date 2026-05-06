@@ -2,9 +2,9 @@
   "ok": true,
   "runtime": "SP40.3",
   "sourceMarker": "adminkit-SP40.3-cta-export-normalize",
-  "generatedAt": 1778073515863,
-  "generatedAtIso": "2026-05-06T13:18:35.863Z",
-  "startedAt": "2026-05-06T13:18:10.485Z",
+  "generatedAt": 1778075474006,
+  "generatedAtIso": "2026-05-06T13:51:14.006Z",
+  "startedAt": "2026-05-06T13:19:22.134Z",
   "baseFile": "media-core-sp4029.txt",
   "innerPort": 3200,
   "features": {
@@ -13,8 +13,8 @@
     "commentDedupe": "1"
   },
   "proxy": {
-    "proxied": 0,
-    "patchedHtml": 0,
+    "proxied": 71,
+    "patchedHtml": 4,
     "patchedJs": 0,
     "proxyErrors": 0,
     "childRestarts": 0,
