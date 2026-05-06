@@ -1,0 +1,14 @@
+OK: OK
+runtime: SP40.3
+base: media-core-sp4029.txt
+floatingCta: 1
+proxied: 0
+patchedHtml: 0
+patchedJs: 0
+proxyErrors: 0
+childRestarts: 0
+lastError: none
+githubToken: present=true rawLength=93 normalizedLength=93 tokenChanged=false
+exports: 0
+lastExport: none
+sourceOfTruth: /debug/qa-lite?token=admin
