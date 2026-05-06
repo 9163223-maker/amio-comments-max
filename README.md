@@ -2,7 +2,7 @@
 
 Сборка: `adminkit-SP37-fixmedia-gift-debug-token`
 
-Фокус аварийной  сборки:
+Фокус аварийной  сборки :
 - debug export снова вызывается старой короткой ссылкой `/debug/export?token=<GIFT_ADMIN_TOKEN>`;
 - GitHub PAT больше не должен передаваться в ссылке и берётся только из env `GITHUB_DEBUG_TOKEN`;
 - если GitHub вернул 403, endpoint всё равно отдаёт актуальный live-debug в ответе;
