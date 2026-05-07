@@ -1,0 +1,12 @@
+'use strict';
+process.env.ADMINKIT_PARENT_RUNTIME='SP40.4.3';
+const http=require('http');
+const {URL}=require('url');
+const RUNTIME='SP40.4.3';
+const SOURCE='adminkit-SP40.4.3-compact-cta-wrapper';
+const oldCreate=http.createServer;
+function sendJson(res,code,obj){const body=Buffer.from(JSON.stringify(obj));res.writeHead(code,{'content-type':'application/json; charset=utf-8','content-length':String(body.length),'cache-control':'no-store, no-cache, must-revalidate','x-adminkit-runtime':RUNTIME});res.end(body)}
+function sendText(res,body){res.writeHead(200,{'content-type':'text/plain; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','x-adminkit-runtime':RUNTIME});res.end(body)}
+function cta(){return{ok:true,enabled:true,active:true,type:'link',icon:'🐋',title:'АдминКИТ',text:'Инструменты автора',buttonText:'Открыть',button:'Открыть',url:'',ui:{variant:'compact',backgroundOpacity:0.54}}}
+http.createServer=function(handler){return oldCreate.call(http,function(req,res){try{const p=new URL(req.url,'http://x').pathname;if(p==='/api/promo/cta'||p==='/api/cta'||p==='/api/floating-cta')return sendJson(res,200,cta());if(p==='/debug/runtime-marker-sp4043')return sendText(res,SOURCE+'\n'+RUNTIME+'\nbase=media-core-sp404.txt\n');if(p==='/debug/sp4043')return sendText(res,'OK: PROD_CHECK_READY\nruntime: '+RUNTIME+'\nsourceMarker: '+SOURCE+'\nfloatingCta: compact_transparent\noldCenterCta: cleanup_next_commit\ncustomAttachmentMenu: photo_only\ncommentVideo: disabled\ncommentFiles: disabled\n');}catch(e){}return handler(req,res)})};
+require('./media-core-sp404.txt');
