@@ -1,0 +1,14 @@
+'use strict';
+const http=require('http');
+const cp=require('child_process');
+const fs=require('fs');
+const path=require('path');
+const RUNTIME='SP40.4.4';
+const SOURCE='adminkit-SP40.4.4-safe-proxy';
+const PORT=Number(process.env.PORT||3000);
+const INNER=Number(process.env.ADMINKIT_4044_INNER_PORT||(PORT===3000?3700:PORT+7));
+const BASE=process.env.ADMINKIT_BASE_FILE_4044||'media-core-sp404.txt';
+function start(){const f=path.join(process.cwd(),BASE);if(!fs.existsSync(f)){console.log('base missing '+BASE);return}cp.spawn(process.execPath,[f],{env:{...process.env,PORT:String(INNER),ADMINKIT_PARENT_RUNTIME:RUNTIME},stdio:['ignore','inherit','inherit']})}
+function proxy(req,res){const r=http.request({hostname:'127.0.0.1',port:INNER,method:req.method,path:req.url,headers:{...req.headers,host:'127.0.0.1:'+INNER}},rr=>{const a=[];rr.on('data',c=>a.push(c));rr.on('end',()=>{const b=Buffer.concat(a);const h={...rr.headers,'x-adminkit-runtime':RUNTIME};delete h['transfer-encoding'];delete h.connection;h['content-length']=String(b.length);res.writeHead(rr.statusCode||200,h);res.end(b)})});r.on('error',e=>{res.writeHead(502,{'content-type':'text/plain'});res.end('proxy error '+e.message)});req.pipe(r)}
+start();
+http.createServer((req,res)=>proxy(req,res)).listen(PORT,()=>console.log(SOURCE+' on '+PORT+' inner '+INNER));
