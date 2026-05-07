@@ -2,5 +2,14 @@
 process.env.BUILD_VERSION='SP40.4.7';
 process.env.RUNTIME_VERSION='SP40.4.7';
 process.env.BUILD_SOURCE_MARKER='adminkit-SP40.4.7-post-scoped-moderation';
-console.log('[SP40.4.7] runtime wrapper active');
+const Module=require('module');
+const active=new Map();
+const stats={captured:0,writes:0,menus:0,last:null};
+function S(v){return String(v||'').trim()}
+function pickPost(o){if(!o||typeof o!=='object')return null;let a=[o,o.payload,o.data,o.callback,o.message,o.body].filter(Boolean);for(let x of a){if(typeof x==='string'){try{x=JSON.parse(x)}catch{continue}}let ck=S(x.commentKey||x.comment_key),ch=S(x.channelId||x.channel_id),p=S(x.postId||x.post_id);if(!ch&&ck.includes(':'))ch=ck.split(':')[0];if(!p&&ck.includes(':'))p=ck.split(':').slice(1).join(':');if(ch&&p)return{channelId:ch,postId:p,commentKey:ck||ch+':'+p,preview:S(x.originalText||x.text||x.title).slice(0,80)}}return null}
+function remember(p){if(p&&p.channelId&&p.postId){active.set(p.channelId,p);stats.captured++;stats.last=p}}
+function patchStore(st){if(!st||st.__ak4047)return st;st.__ak4047=true;const os=st.setSetupState, og=st.getModerationSettings, ow=st.saveModerationSettings, od=st.getDebugSnapshot;if(os)st.setSetupState=function(u,state){remember(pickPost(state));return os.apply(this,arguments)};if(og)st.getModerationSettings=function(channelId){let r=og.apply(this,arguments)||{},p=active.get(S(channelId));return p?{...r,scope:'post',channelId:p.channelId,postId:p.postId,commentKey:p.commentKey}:r};if(ow)st.saveModerationSettings=function(channelId,settings={}){let p=active.get(S(channelId));if(p){if(!st.store.moderation)st.store.moderation={byChannel:{},logs:[]};if(!st.store.moderation.byPost)st.store.moderation.byPost={};let k=p.channelId+'::'+p.postId;st.store.moderation.byPost[k]={...(st.store.moderation.byPost[k]||{}),...(settings||{}),scope:'post',channelId:p.channelId,postId:p.postId,commentKey:p.commentKey,updatedAt:Date.now()};stats.writes++;try{st.saveStore&&st.saveStore()}catch{}return st.store.moderation.byPost[k]}return ow.apply(this,arguments)};if(od)st.getDebugSnapshot=function(){let d=od.apply(this,arguments);return{...d,sp4047:{postScopedModeration:'enabled',stats,active:[...active.values()],byPostCount:Object.keys(st.store?.moderation?.byPost||{}).length}}};return st}
+function patchMax(api){if(!api||api.__ak4047)return api;api.__ak4047=true;for(const f of ['sendMessage','editMessage']){let old=api[f];if(typeof old==='function')api[f]=function(a={}){let p=[...active.values()].slice(-1)[0],t=String(a.text||a.body||'');if(p&&t.includes('Модерация')&&t.includes('Область: правила всего канала')){stats.menus++;t=t.replace('Область: правила всего канала','Пост: '+(p.preview||p.postId)+'\nОбласть: правила этого поста');a={...a,text:t,body:t}}return old.call(this,a)}}return api}
+const old=Module._load;Module._load=function(r,p,i){let x=old.apply(this,arguments);if(r==='./store'||String(r).endsWith('/store'))return patchStore(x);if(String(r).includes('services/maxApi'))return patchMax(x);return x};
+console.log('[SP40.4.7] post-scoped moderation layer active');
 require('./media-core-sp4028.txt');
