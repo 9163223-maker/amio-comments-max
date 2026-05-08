@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "40.4-sp404-features-1-3-prod-check-rollback-from-sp4043",
+  "version": "40.5-postgres-storage-migration",
   "private": true,
   "main": "media-core-sp4044.txt",
   "scripts": {
@@ -14,6 +14,7 @@
     "form-data": "^4.0.1",
     "mime-types": "^2.1.35",
     "multer": "^1.4.5-lts.1",
-    "node-fetch": "^2.7.0"
+    "node-fetch": "^2.7.0",
+    "pg": "^8.13.1"
   }
 }
