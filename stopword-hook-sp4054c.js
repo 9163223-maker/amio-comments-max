@@ -1,8 +1,11 @@
 'use strict';
+try { require('./mod-ui-sp4055b.js'); } catch (e) { console.log('[SP40.5.5b mod-ui preload failed] ' + (e && e.message ? e.message : e)); }
 const Module = require('module');
-const RUNTIME = 'SP40.5.4c';
-const SOURCE = 'adminkit-SP40.5.4c-stopword-hook';
+const RUNTIME = 'SP40.5.5b';
+const SOURCE = 'adminkit-SP40.5.5b-stopword-hook';
 const state = global.__ADMINKIT_STOPWORD_HOOK__ = global.__ADMINKIT_STOPWORD_HOOK__ || { runtime: RUNTIME, sourceMarker: SOURCE, prompts: 0, saved: 0, bypass: 0, lastError: null };
+state.runtime = RUNTIME;
+state.sourceMarker = SOURCE;
 function parsePayload(value){ if(!value) return {}; if(typeof value === 'object') return value; try { return JSON.parse(String(value)); } catch { return { raw: String(value) }; } }
 function getCallback(update){ return update?.callback || update?.data?.callback || update?.message?.callback || null; }
 function getMessage(update){ return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || null; }
@@ -20,4 +23,4 @@ function wrapFunction(fn){ if(typeof fn !== 'function' || fn.__AK_STOPWORD_WRAPP
 function wrapBotModule(mod){ if(!mod || mod.__AK_STOPWORD_MODULE__) return mod; if(typeof mod === 'function') return wrapFunction(mod); if(typeof mod === 'object') { Object.keys(mod).forEach((key) => { if(typeof mod[key] === 'function') mod[key] = wrapFunction(mod[key]); }); Object.defineProperty(mod, '__AK_STOPWORD_MODULE__', { value: true, enumerable: false }); } return mod; }
 const oldLoad = Module._load;
 Module._load = function(request, parent, isMain){ const loaded = oldLoad.apply(this, arguments); try { if(String(request) === './bot' || String(request).endsWith('/bot') || String(request).endsWith('bot.js')) return wrapBotModule(loaded); } catch(e) { state.lastError = e.message || String(e); } return loaded; };
-console.log('[SP40.5.4c stopword-hook] loaded');
+console.log('[SP40.5.5b stopword-hook] loaded');
