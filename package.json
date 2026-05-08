@@ -1,10 +1,10 @@
 {
   "name": "amio-comments-max",
-  "version": "40.5.4e-pg-jsonb-compat",
+  "version": "40.5.4g-pg-ssl-url-normalize",
   "private": true,
   "main": "media-core-sp404.txt",
   "scripts": {
-    "start": "NODE_OPTIONS='--require ./pg-compat-sp4054e.js --require ./store-postgres-sp405.js --require ./stopword-hook-sp4054c.js' node media-core-sp404.txt"
+    "start": "NODE_OPTIONS='--require ./pg-url-normalize-sp4054g.js --require ./pg-compat-sp4054e.js --require ./store-postgres-sp405.js --require ./stopword-hook-sp4054c.js' node media-core-sp404.txt"
   },
   "dependencies": {
     "axios": "^1.7.9",
