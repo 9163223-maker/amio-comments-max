@@ -1,10 +1,10 @@
 {
   "name": "amio-comments-max",
-  "version": "40.5.2-postgres-store-heal-direct",
+  "version": "40.5.3-postgres-preload-stable-core",
   "private": true,
-  "main": "media-core-sp4044.txt",
+  "main": "media-core-sp404.txt",
   "scripts": {
-    "start": "node --require ./store-postgres-sp405.js media-core-sp4044.txt"
+    "start": "NODE_OPTIONS='--require ./store-postgres-sp405.js' node media-core-sp404.txt"
   },
   "dependencies": {
     "axios": "^1.7.9",
