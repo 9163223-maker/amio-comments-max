@@ -1,10 +1,10 @@
 {
   "name": "amio-comments-max",
-  "version": "40.5-postgres-storage-migration",
+  "version": "40.5.1-postgres-node-options-propagation",
   "private": true,
-  "main": "media-core-sp4044.txt",
+  "main": "media-core-sp4051.txt",
   "scripts": {
-    "start": "node media-core-sp4044.txt"
+    "start": "node media-core-sp4051.txt"
   },
   "dependencies": {
     "axios": "^1.7.9",
