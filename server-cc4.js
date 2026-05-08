@@ -1,7 +1,7 @@
 'use strict';
 const Module = require('module');
-const RUNTIME = 'CC4.4';
-const SOURCE = 'adminkit-CC4.4-active-server-cc4-entry';
+const RUNTIME = 'CC4.5';
+const SOURCE = 'adminkit-CC4.5-active-router-and-public-cta';
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
 process.env.BUILD_SOURCE_MARKER = SOURCE;
@@ -19,19 +19,19 @@ Module._load = function(request, parent, isMain) {
     if ((r === './store' || r.endsWith('/store') || r.endsWith('store.js')) && loaded) {
       return require('./cc43-store-hotfix').patchStore(loaded);
     }
-    if (r === 'express' && loaded && !loaded.__cc44Wrapped) {
+    if (r === 'express' && loaded && !loaded.__cc45Wrapped) {
       function wrappedExpress() {
         const app = loaded.apply(this, arguments);
-        if (app && !app.__cc44App) {
-          app.__cc44App = true;
+        if (app && !app.__cc45App) {
+          app.__cc45App = true;
           const oldPost = app.post.bind(app);
           app.post = (route, ...handlers) => String(route || '').includes('/webhook')
             ? oldPost(route, async (req, res, next) => {
                 try {
-                  const router = require('./cc43-menu-router');
+                  const router = require('./cc45-menu-router');
                   const mods = { store: require('./store'), api: require('./services/maxApi'), config: require('./config') };
                   if (await router.handle(req.body || {}, mods)) return res.json({ ok: true, handledBy: RUNTIME });
-                } catch (e) { console.error('[CC4.4 moderation]', e && e.message ? e.message : e); }
+                } catch (e) { console.error('[CC4.5 moderation]', e && e.message ? e.message : e); }
                 next();
               }, ...handlers)
             : oldPost(route, ...handlers);
@@ -43,9 +43,10 @@ Module._load = function(request, parent, isMain) {
               'sourceMarker: ' + SOURCE,
               'versionFormat: CC',
               'activeEntry: server-cc4.js',
-              'postModerationToggle: cc43_store_hotfix_active',
-              'singleModerationMenu: edit_current_message',
-              'legacyInlineCta: disabled_by_core',
+              'postModerationToggle: cc45_router_store',
+              'singleModerationMenu: edit_or_delete_previous',
+              'legacyInlineCta: force_removed_client_patch',
+              'floatingCta: cc45_compact_transparent',
               'keyboardSafeInput: enabled'
             ].join('\n') + '\n');
           });
@@ -58,14 +59,15 @@ Module._load = function(request, parent, isMain) {
       }
       Object.setPrototypeOf(wrappedExpress, loaded);
       Object.assign(wrappedExpress, loaded);
-      wrappedExpress.__cc44Wrapped = true;
+      wrappedExpress.__cc45Wrapped = true;
       return wrappedExpress;
     }
-  } catch (e) { console.warn('[CC4.4 patch skipped]', e && e.message ? e.message : e); }
+  } catch (e) { console.warn('[CC4.5 patch skipped]', e && e.message ? e.message : e); }
   return loaded;
 };
 
 require('./server-sp4058.js');
+require('./cc45-public-final').install();
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
 process.env.BUILD_SOURCE_MARKER = SOURCE;
