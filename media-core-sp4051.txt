@@ -1,0 +1,26 @@
+'use strict';
+const http=require('http');
+const cp=require('child_process');
+const fs=require('fs');
+const path=require('path');
+const {URL}=require('url');
+const RUNTIME='SP40.5.1';
+const SOURCE='adminkit-SP40.5.1-postgres-node-options-propagation';
+const PORT=Number(process.env.PORT||3000);
+const INNER=Number(process.env.ADMINKIT_4051_INNER_PORT||(PORT===3000?3800:PORT+11));
+const BASE=process.env.ADMINKIT_4051_BASE||'media-core-sp4044.txt';
+const PRELOAD=path.join(process.cwd(),'store-postgres-sp405.js');
+const DB_URL=process.env.DATABASE_URL||process.env.POSTGRES_URI||process.env.NF_ADMINKIT_POSTGRES_PROD_POSTGRES_URI||'';
+const startedAt=new Date().toISOString();
+const stats={proxied:0,proxyErrors:0,childRestarts:0,lastError:null};
+function h(ct){return{'content-type':ct,'cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-adminkit-runtime':RUNTIME}}
+function txt(res,s,code=200){res.writeHead(code,h('text/plain; charset=utf-8'));res.end(s)}
+function json(res,o,code=200){const b=Buffer.from(JSON.stringify(o));res.writeHead(code,{...h('application/json; charset=utf-8'),'content-length':String(b.length)});res.end(b)}
+function marker(){return [`OK: PROD_CHECK_READY`,`runtime: ${RUNTIME}`,`sourceMarker: ${SOURCE}`,`outerProxy: enabled`,`base: ${BASE}`,`inner: ${INNER}`,`databaseUrlPresent: ${!!DB_URL}`,`storage: postgres_preload`,`postgresPreloadPropagation: NODE_OPTIONS_TO_ALL_CHILDREN`,`jsonFallback: ${process.env.ADMINKIT_JSON_FALLBACK||'1'}`,`autoMigrate: ${process.env.ADMINKIT_AUTO_MIGRATE||'1'}`,`note: actual bot runs behind SP40.5 wrapper; open /debug/store-live or /debug/qa-child if needed`,`childRestarts: ${stats.childRestarts}`,`proxyErrors: ${stats.proxyErrors}`,`lastError: ${stats.lastError||'none'}`].join('\n')+'\n'}
+let child=null,stopping=false;
+function preloadNodeOptions(){const current=String(process.env.NODE_OPTIONS||'').trim();const req=`--require ${PRELOAD}`;return current.includes(PRELOAD)?current:(current?current+' ':'')+req}
+function start(){const f=path.join(process.cwd(),BASE);if(!fs.existsSync(f)){stats.lastError='base_missing:'+BASE;return}const env={...process.env,PORT:String(INNER),ADMINKIT_PARENT_RUNTIME:RUNTIME,ADMINKIT_STORE_DRIVER:process.env.ADMINKIT_STORE_DRIVER||'postgres',ADMINKIT_AUTO_MIGRATE:process.env.ADMINKIT_AUTO_MIGRATE||'1',ADMINKIT_JSON_FALLBACK:process.env.ADMINKIT_JSON_FALLBACK||'1',NODE_OPTIONS:preloadNodeOptions()};child=cp.spawn(process.execPath,[f],{env,stdio:['ignore','inherit','inherit']});child.on('exit',(code,signal)=>{child=null;if(!stopping){stats.childRestarts++;stats.lastError='child_exit:'+code+':'+signal;setTimeout(start,1200)}})}
+function proxy(req,res){stats.proxied++;const r=http.request({hostname:'127.0.0.1',port:INNER,method:req.method,path:req.url,headers:{...req.headers,host:'127.0.0.1:'+INNER},timeout:35000},rr=>{const a=[];rr.on('data',c=>a.push(c));rr.on('end',()=>{const b=Buffer.concat(a);const out={...rr.headers,'x-adminkit-runtime':RUNTIME};delete out['transfer-encoding'];delete out.connection;out['content-length']=String(b.length);res.writeHead(rr.statusCode||200,out);res.end(b)})});r.on('timeout',()=>r.destroy(new Error('proxy_timeout')));r.on('error',e=>{stats.proxyErrors++;stats.lastError=e.message;json(res,{ok:false,runtimeVersion:RUNTIME,error:'proxy_failed',message:e.message},502)});req.pipe(r)}
+process.on('SIGTERM',()=>{stopping=true;if(child)child.kill('SIGTERM');process.exit(0)});process.on('SIGINT',()=>{stopping=true;if(child)child.kill('SIGINT');process.exit(0)});
+start();
+http.createServer((req,res)=>{try{const p=new URL(req.url,'http://x').pathname;if(p==='/debug/qa-lite'||p==='/debug/sp4051'||p==='/debug/runtime-marker-sp4051')return txt(res,marker());if(p==='/debug/qa-sp4051'||p==='/debug/db-sp4051')return json(res,{ok:true,runtime:RUNTIME,runtimeVersion:RUNTIME,sourceMarker:SOURCE,startedAt,base:BASE,inner:INNER,databaseUrlPresent:!!DB_URL,storage:'postgres_preload',postgresPreloadPropagation:'NODE_OPTIONS_TO_ALL_CHILDREN',stats});return proxy(req,res)}catch(e){stats.proxyErrors++;stats.lastError=e.message;json(res,{ok:false,runtimeVersion:RUNTIME,error:e.message},500)}}).listen(PORT,()=>console.log(`${SOURCE} listening on ${PORT}, inner ${INNER}, base ${BASE}`));
