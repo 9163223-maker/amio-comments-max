@@ -1,52 +1,44 @@
 'use strict';
-const fs = require('fs');
-const path = require('path');
-const Module = require('module');
-const RUNTIME = 'SP40.5';
-const SOURCE = 'adminkit-SP40.5-postgres-store-preload';
-const TABLE = process.env.ADMINKIT_PG_TABLE || 'adminkit_store_kv';
-const STORE_KEY = 'store';
-const DATA_FILE = process.env.ADMINKIT_JSON_STORE_PATH || path.join(process.cwd(), 'data', 'store.json');
-const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.NF_ADMINKIT_POSTGRES_PROD_POSTGRES_URI || '';
-const ENABLED = String(process.env.ADMINKIT_STORE_DRIVER || 'postgres').toLowerCase() === 'postgres' && !!DB_URL;
-const AUTO_MIGRATE = String(process.env.ADMINKIT_AUTO_MIGRATE || '1') !== '0';
-const JSON_FALLBACK = String(process.env.ADMINKIT_JSON_FALLBACK || '1') !== '0';
-const state = global.__ADMINKIT_PG_STORE__ = global.__ADMINKIT_PG_STORE__ || {
-  runtime: RUNTIME,
-  sourceMarker: SOURCE,
-  enabled: ENABLED,
-  dbUrlPresent: !!DB_URL,
-  table: TABLE,
-  hydrateStatus: 'not_started',
-  lastSyncStatus: 'not_started',
-  lastError: null,
-  migratedFromJson: false,
-  hydrateAt: null,
-  lastSyncAt: null,
-  writes: 0,
-  skippedWrites: 0
-};
-let Pool = null;
-let pool = null;
-let storeModule = null;
-let hydrated = false;
-let hydrating = false;
-let syncing = false;
-let syncTimer = null;
-let suppressSync = false;
-function log(msg){ try { console.log('[SP40.5 pg-store] ' + msg); } catch(_){} }
-function clone(v){ try { return JSON.parse(JSON.stringify(v || {})); } catch { return {}; } }
-function readJsonStore(){ try { if (fs.existsSync(DATA_FILE)) return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8') || '{}'); } catch(e){ state.lastError = 'read_json:' + e.message; } return null; }
-function getPg(){ if(!ENABLED) return null; if(pool) return pool; try { Pool = require('pg').Pool; pool = new Pool({ connectionString: DB_URL, ssl: /sslmode=require|ssl=true/i.test(DB_URL) ? { rejectUnauthorized: false } : undefined }); return pool; } catch(e){ state.enabled=false; state.lastError='pg_require:' + e.message; log('pg unavailable: ' + e.message); return null; } }
-async function ensureDb(){ const pg=getPg(); if(!pg) return false; if(!AUTO_MIGRATE) return true; await pg.query(`CREATE TABLE IF NOT EXISTS ${TABLE} (key TEXT PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`); await pg.query(`CREATE TABLE IF NOT EXISTS adminkit_events (id BIGSERIAL PRIMARY KEY, event_type TEXT NOT NULL, tenant_id TEXT, channel_id TEXT, post_id TEXT, user_id TEXT, payload JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`); return true; }
-async function hydrate(){ if(hydrated||hydrating||!storeModule||!ENABLED) return; hydrating=true; state.hydrateStatus='running'; try { const pg=getPg(); if(!pg) throw new Error('pg_not_available'); await ensureDb(); const row=await pg.query(`SELECT data FROM ${TABLE} WHERE key=$1`, [STORE_KEY]); if(row.rows.length && row.rows[0].data && typeof row.rows[0].data==='object'){ suppressSync=true; try { if(typeof storeModule.saveStore==='function') storeModule.saveStore(row.rows[0].data); } finally { suppressSync=false; } state.hydrateStatus='loaded_from_postgres'; } else { const json = JSON_FALLBACK ? readJsonStore() : null; if(json && typeof json==='object' && Object.keys(json).length){ await pg.query(`INSERT INTO ${TABLE}(key,data,updated_at) VALUES($1,$2::jsonb,now()) ON CONFLICT(key) DO UPDATE SET data=EXCLUDED.data, updated_at=now()`, [STORE_KEY, JSON.stringify(json)]); state.migratedFromJson=true; state.hydrateStatus='migrated_json_to_postgres'; } else { const empty = typeof storeModule.createEmptyStore==='function' ? storeModule.createEmptyStore() : {}; await pg.query(`INSERT INTO ${TABLE}(key,data,updated_at) VALUES($1,$2::jsonb,now()) ON CONFLICT(key) DO NOTHING`, [STORE_KEY, JSON.stringify(empty)]); state.hydrateStatus='created_empty_postgres_store'; } }
-    hydrated=true; state.hydrateAt=new Date().toISOString(); log(state.hydrateStatus); } catch(e){ state.hydrateStatus='error'; state.lastError='hydrate:' + e.message; log('hydrate error: '+e.message); } finally { hydrating=false; } }
-async function syncNow(){ if(syncing||suppressSync||!ENABLED) return; syncing=true; try { const pg=getPg(); if(!pg) throw new Error('pg_not_available'); await ensureDb(); const json=readJsonStore(); if(!json || typeof json!=='object'){ state.skippedWrites++; state.lastSyncStatus='skipped_no_json'; return; } await pg.query(`INSERT INTO ${TABLE}(key,data,updated_at) VALUES($1,$2::jsonb,now()) ON CONFLICT(key) DO UPDATE SET data=EXCLUDED.data, updated_at=now()`, [STORE_KEY, JSON.stringify(json)]); state.writes++; state.lastSyncAt=new Date().toISOString(); state.lastSyncStatus='ok'; } catch(e){ state.lastSyncStatus='error'; state.lastError='sync:' + e.message; log('sync error: '+e.message); } finally { syncing=false; } }
-function scheduleSync(){ if(suppressSync||!ENABLED) return; clearTimeout(syncTimer); syncTimer=setTimeout(syncNow, 150); }
-function wrapStore(st){ if(!st||st.__ADMINKIT_PG_WRAPPED__) return st; Object.defineProperty(st, '__ADMINKIT_PG_WRAPPED__', { value:true, enumerable:false }); storeModule=st; setTimeout(hydrate, 10); const writeNames=['saveStore','savePost','savePostVersion','addComment','setComments','saveChannel','setSetupState','clearSetupState','setLikeState','setReactionState','saveChannelMemberSnapshot','saveGiftSettings','saveGiftCampaign','deleteGiftCampaign','recordGiftClaim','saveModerationSettings','logModerationAction','saveGrowthClick','savePollVote']; for(const name of writeNames){ const old=st[name]; if(typeof old==='function'){ st[name]=function(){ const result=old.apply(this, arguments); scheduleSync(); return result; }; } }
-  const oldDebug=st.getDebugSnapshot; if(typeof oldDebug==='function'){ st.getDebugSnapshot=function(){ const d=oldDebug.apply(this, arguments); return { ...d, postgresStore: clone(state) }; }; }
-  return st; }
-const oldLoad=Module._load;
-Module._load=function(request,parent,isMain){ const loaded=oldLoad.apply(this, arguments); try { if(request==='./store'||request==='store'||String(request).endsWith('/store')||String(request).endsWith('store.js')) return wrapStore(loaded); } catch(e){ state.lastError='module_patch:' + e.message; } return loaded; };
-process.on('SIGTERM',()=>{ try{ clearTimeout(syncTimer); syncNow().finally(()=>process.exit(0)); setTimeout(()=>process.exit(0),1000); }catch{process.exit(0)} });
-log('loaded; dbUrlPresent=' + (!!DB_URL));
+const fs=require('fs');
+const path=require('path');
+const Module=require('module');
+const RUNTIME='SP40.5.2';
+const SOURCE='adminkit-SP40.5.2-postgres-store-heal';
+const TABLE=process.env.ADMINKIT_PG_TABLE||'adminkit_store_kv';
+const STORE_KEY='store';
+const DATA_FILE=process.env.ADMINKIT_JSON_STORE_PATH||path.join(process.cwd(),'data','store.json');
+const DB_URL=process.env.DATABASE_URL||process.env.POSTGRES_URI||process.env.NF_ADMINKIT_POSTGRES_PROD_POSTGRES_URI||'';
+const ENABLED=String(process.env.ADMINKIT_STORE_DRIVER||'postgres').toLowerCase()==='postgres'&&!!DB_URL;
+const AUTO_MIGRATE=String(process.env.ADMINKIT_AUTO_MIGRATE||'1')!=='0';
+const JSON_FALLBACK=String(process.env.ADMINKIT_JSON_FALLBACK||'1')!=='0';
+const state=global.__ADMINKIT_PG_STORE__=global.__ADMINKIT_PG_STORE__||{runtime:RUNTIME,sourceMarker:SOURCE,enabled:ENABLED,dbUrlPresent:!!DB_URL,table:TABLE,hydrateStatus:'not_started',lastSyncStatus:'not_started',lastError:null,migratedFromJson:false,hydrateAt:null,lastSyncAt:null,writes:0,skippedWrites:0,healedChannels:0,removedFakeGlobal:0,autoChannels:0,outgoingSanitized:0};
+let Pool=null,pool=null,storeModule=null,hydrated=false,hydrating=false,syncing=false,syncTimer=null,suppressSync=false;
+function log(m){try{console.log('[SP40.5.2 pg-store] '+m)}catch{}}
+function clone(v){try{return JSON.parse(JSON.stringify(v||{}))}catch{return{}}}
+function readJsonStore(){try{if(fs.existsSync(DATA_FILE))return JSON.parse(fs.readFileSync(DATA_FILE,'utf8')||'{}')}catch(e){state.lastError='read_json:'+e.message}return null}
+function writeJsonStore(v){try{const d=path.dirname(DATA_FILE);if(!fs.existsSync(d))fs.mkdirSync(d,{recursive:true});fs.writeFileSync(DATA_FILE,JSON.stringify(v,null,process.env.STORE_PRETTY_JSON==='1'?2:0),'utf8')}catch(e){state.lastError='write_json:'+e.message}}
+function isFakeGlobal(v){const s=String(v||'').toLowerCase().trim();return s==='global'||s==='sp30-global'||s.includes('sp30-global')||s==='undefined'||s==='null'}
+function healStore(raw){const st=raw&&typeof raw==='object'?raw:{};st.posts=st.posts&&typeof st.posts==='object'?st.posts:{};st.channels=st.channels&&typeof st.channels==='object'?st.channels:{};st.moderation=st.moderation&&typeof st.moderation==='object'?st.moderation:{byChannel:{},logs:[]};let changed=false;
+  for(const k of Object.keys(st.channels)){const c=st.channels[k]||{};if(isFakeGlobal(k)||isFakeGlobal(c.channelId)||String(c.title||c.name||'').trim().toLowerCase()==='global'){delete st.channels[k];state.removedFakeGlobal++;changed=true}}
+  for(const k of Object.keys(st.posts)){const p=st.posts[k]||{};if(isFakeGlobal(k)||isFakeGlobal(p.postId)||isFakeGlobal(p.channelId)||isFakeGlobal(p.commentKey)){delete st.posts[k];if(st.comments)delete st.comments[k];if(st.likes)delete st.likes[k];if(st.reactions)delete st.reactions[k];state.removedFakeGlobal++;changed=true}}
+  for(const p of Object.values(st.posts)){if(!p||typeof p!=='object')continue;const ch=String(p.channelId||'').trim();if(!ch||isFakeGlobal(ch))continue;if(!st.channels[ch]){st.channels[ch]={channelId:ch,title:String(p.channelTitle||p.channelName||p.chatTitle||p.chatName||'Канал').trim()||'Канал',source:'auto_from_post',createdAt:Date.now(),updatedAt:Date.now()};state.autoChannels++;changed=true}else if(!st.channels[ch].channelId){st.channels[ch].channelId=ch;state.healedChannels++;changed=true}}
+  if(changed)st.__healedAt=Date.now();return st}
+function getPg(){if(!ENABLED)return null;if(pool)return pool;try{Pool=require('pg').Pool;const ssl=/sslmode=require|ssl=true/i.test(DB_URL)||String(process.env.TLS_ENABLED||'').toLowerCase()==='true'||/northflank|postgres/.test(DB_URL);pool=new Pool({connectionString:DB_URL,ssl:ssl?{rejectUnauthorized:false}:undefined});return pool}catch(e){state.enabled=false;state.lastError='pg_require:'+e.message;log('pg unavailable '+e.message);return null}}
+async function ensureDb(){const pg=getPg();if(!pg)return false;if(!AUTO_MIGRATE)return true;await pg.query(`CREATE TABLE IF NOT EXISTS ${TABLE} (key TEXT PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`);await pg.query(`CREATE TABLE IF NOT EXISTS adminkit_events (id BIGSERIAL PRIMARY KEY, event_type TEXT NOT NULL, tenant_id TEXT, channel_id TEXT, post_id TEXT, user_id TEXT, payload JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);return true}
+async function hydrate(){if(hydrated||hydrating||!storeModule||!ENABLED)return;hydrating=true;state.hydrateStatus='running';try{const pg=getPg();if(!pg)throw new Error('pg_not_available');await ensureDb();const row=await pg.query(`SELECT data FROM ${TABLE} WHERE key=$1`,[STORE_KEY]);if(row.rows.length&&row.rows[0].data&&typeof row.rows[0].data==='object'){const data=healStore(row.rows[0].data);suppressSync=true;try{if(typeof storeModule.saveStore==='function')storeModule.saveStore(data);else writeJsonStore(data)}finally{suppressSync=false}state.hydrateStatus='loaded_from_postgres'}else{const json=JSON_FALLBACK?healStore(readJsonStore()||{}):{};if(json&&typeof json==='object'&&Object.keys(json).length){await pg.query(`INSERT INTO ${TABLE}(key,data,updated_at) VALUES($1,$2::jsonb,now()) ON CONFLICT(key) DO UPDATE SET data=EXCLUDED.data, updated_at=now()`,[STORE_KEY,JSON.stringify(json)]);state.migratedFromJson=true;state.hydrateStatus='migrated_json_to_postgres'}else{await pg.query(`INSERT INTO ${TABLE}(key,data,updated_at) VALUES($1,$2::jsonb,now()) ON CONFLICT(key) DO NOTHING`,[STORE_KEY,JSON.stringify({})]);state.hydrateStatus='created_empty_postgres_store'}}hydrated=true;state.hydrateAt=new Date().toISOString();log(state.hydrateStatus)}catch(e){state.hydrateStatus='error';state.lastError='hydrate:'+e.message;log('hydrate error '+e.message)}finally{hydrating=false}}
+async function syncNow(){if(syncing||suppressSync||!ENABLED)return;syncing=true;try{const pg=getPg();if(!pg)throw new Error('pg_not_available');await ensureDb();const json=healStore(readJsonStore()||{});if(!json||typeof json!=='object'){state.skippedWrites++;state.lastSyncStatus='skipped_no_json';return}writeJsonStore(json);await pg.query(`INSERT INTO ${TABLE}(key,data,updated_at) VALUES($1,$2::jsonb,now()) ON CONFLICT(key) DO UPDATE SET data=EXCLUDED.data, updated_at=now()`,[STORE_KEY,JSON.stringify(json)]);state.writes++;state.lastSyncAt=new Date().toISOString();state.lastSyncStatus='ok'}catch(e){state.lastSyncStatus='error';state.lastError='sync:'+e.message;log('sync error '+e.message)}finally{syncing=false}}
+function scheduleSync(){if(suppressSync||!ENABLED)return;clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,150)}
+function ensureChannelForPost(st,args,result){try{const post=(result&&typeof result==='object'?result:null)||(args&&args[1]&&typeof args[1]==='object'?args[1]:null);if(!post)return;const ch=String(post.channelId||'').trim();if(!ch||isFakeGlobal(ch))return;if(typeof st.saveChannel==='function'){const list=typeof st.getChannelsList==='function'?st.getChannelsList():[];if(!list.some(c=>String(c.channelId||'')===ch)){st.saveChannel(ch,{channelId:ch,title:String(post.channelTitle||post.channelName||post.chatTitle||'Канал').trim()||'Канал',source:'auto_from_savePost'});state.autoChannels++}}}catch(e){state.lastError='ensure_channel:'+e.message}}
+function wrapStore(st){if(!st||st.__ADMINKIT_PG_WRAPPED__)return st;Object.defineProperty(st,'__ADMINKIT_PG_WRAPPED__',{value:true,enumerable:false});storeModule=st;setTimeout(hydrate,10);
+  const oldSaveStore=st.saveStore;if(typeof oldSaveStore==='function')st.saveStore=function(next){const res=oldSaveStore.call(this,healStore(next||{}));scheduleSync();return res};
+  const oldSavePost=st.savePost;if(typeof oldSavePost==='function')st.savePost=function(){const res=oldSavePost.apply(this,arguments);ensureChannelForPost(st,arguments,res);scheduleSync();return res};
+  const oldGetChannels=st.getChannelsList;if(typeof oldGetChannels==='function')st.getChannelsList=function(){let list=oldGetChannels.apply(this,arguments)||[];list=list.filter(c=>c&&!isFakeGlobal(c.channelId)&&String(c.title||c.name||'').trim().toLowerCase()!=='global');if(list.length)return list;const data=healStore(readJsonStore()||{});return Object.values(data.channels||{}).filter(c=>c&&!isFakeGlobal(c.channelId))};
+  const oldListPosts=st.listPostsByChannel;if(typeof oldListPosts==='function')st.listPostsByChannel=function(channelId,limit){if(isFakeGlobal(channelId))return [];return (oldListPosts.call(this,channelId,limit)||[]).filter(p=>p&&!isFakeGlobal(p.postId)&&!isFakeGlobal(p.channelId)&&!isFakeGlobal(p.commentKey))};
+  for(const name of ['savePostVersion','addComment','setComments','saveChannel','setSetupState','clearSetupState','setLikeState','setReactionState','saveChannelMemberSnapshot','saveGiftSettings','saveGiftCampaign','deleteGiftCampaign','recordGiftClaim','saveModerationSettings','logModerationAction','saveGrowthClick','savePollVote']){const old=st[name];if(typeof old==='function')st[name]=function(){const res=old.apply(this,arguments);scheduleSync();return res}}
+  const oldDebug=st.getDebugSnapshot;if(typeof oldDebug==='function')st.getDebugSnapshot=function(){const d=oldDebug.apply(this,arguments);return{...d,postgresStore:clone(state)}};return st}
+function walkButtons(v){if(!v||typeof v!=='object')return v;if(Array.isArray(v))return v.map(walkButtons).filter(Boolean);const t=String(v.text||v.label||'');const p=String(v.payload||v.data||'');if(/^\s*(1\.\s*)?Global\s*$/i.test(t)||/sp30-global|global/i.test(p)&&/moderation|mod|post/i.test(p))return null;for(const k of Object.keys(v))v[k]=walkButtons(v[k]);return v}
+function sanitizeText(t){let s=String(t||'');let before=s;s=s.replace(/Пост:\s*sp30-global/gi,'Пост: не выбран');s=s.replace(/\n?\s*1\.\s*Global\s*/gi,'');if(/Канал пока не выбран/i.test(s))s='Канал не выбран. Перешлите боту любой пост из нужного канала один раз — после этого канал и посты будут сохранены в PostgreSQL и не будут теряться после redeploy.';if(s!==before)state.outgoingSanitized++;return s}
+function patchMaxApi(api){if(!api||api.__ADMINKIT_PG_MAX_PATCHED__)return api;Object.defineProperty(api,'__ADMINKIT_PG_MAX_PATCHED__',{value:true,enumerable:false});for(const name of ['sendMessage','editMessage']){const old=api[name];if(typeof old==='function')api[name]=function(args={}){try{args={...args};if(args.text)args.text=sanitizeText(args.text);if(args.body)args.body=sanitizeText(args.body);if(args.attachments)args.attachments=walkButtons(clone(args.attachments));}catch(e){state.lastError='max_patch:'+e.message}return old.call(this,args)}}return api}
+const oldLoad=Module._load;Module._load=function(request,parent,isMain){const loaded=oldLoad.apply(this,arguments);try{if(request==='./store'||request==='store'||String(request).endsWith('/store')||String(request).endsWith('store.js'))return wrapStore(loaded);if(String(request).includes('services/maxApi'))return patchMaxApi(loaded)}catch(e){state.lastError='module_patch:'+e.message}return loaded};
+process.on('SIGTERM',()=>{try{clearTimeout(syncTimer);syncNow().finally(()=>process.exit(0));setTimeout(()=>process.exit(0),1000)}catch{process.exit(0)}});
+log('loaded; dbUrlPresent='+(!!DB_URL));
