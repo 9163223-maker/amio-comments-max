@@ -1,6 +1,6 @@
 'use strict';
-console.log('[SP40.5.6] clean entry');
-try { require('./pg-url-normalize-sp4054g.js'); } catch (e) { console.log('pg-url normalize skipped: ' + (e.message || e)); }
-try { require('./pg-compat-sp4054e.js'); } catch (e) { console.log('pg compat skipped: ' + (e.message || e)); }
-try { require('./store-postgres-sp405.js'); } catch (e) { console.log('pg store skipped: ' + (e.message || e)); }
+console.log('[SP40.5.6a] RED ALERT safe core: no proxy, no preload hooks, no postgres interception');
+process.env.BUILD_VERSION = 'SP40.5.6a';
+process.env.RUNTIME_VERSION = 'SP40.5.6a';
+process.env.BUILD_SOURCE_MARKER = 'adminkit-SP40.5.6a-safe-core-no-hooks';
 require('./media-core-sp4021.txt');
