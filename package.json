@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "40.5.9-clear-core-debug-aliases",
+  "version": "CC1",
   "private": true,
   "main": "server-sp4059-debug.js",
   "scripts": {
