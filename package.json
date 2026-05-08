@@ -1,10 +1,10 @@
 {
   "name": "amio-comments-max",
-  "version": "40.5.7-clear-core",
+  "version": "40.5.8-clear-core",
   "private": true,
-  "main": "server-sp4057.js",
+  "main": "server-sp4058.js",
   "scripts": {
-    "start": "node server-sp4057.js"
+    "start": "node server-sp4058.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
