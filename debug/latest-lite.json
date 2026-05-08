@@ -2,8 +2,8 @@ OK: OK
 runtime: SP40.3
 base: media-core-sp4029.txt
 floatingCta: 1
-proxied: 71
-patchedHtml: 4
+proxied: 0
+patchedHtml: 0
 patchedJs: 0
 proxyErrors: 0
 childRestarts: 0
