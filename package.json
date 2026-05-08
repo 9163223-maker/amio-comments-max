@@ -1,10 +1,10 @@
 {
   "name": "amio-comments-max",
-  "version": "40.5.3-postgres-preload-stable-core",
+  "version": "40.5.4c-stopword-callback-hook",
   "private": true,
   "main": "media-core-sp404.txt",
   "scripts": {
-    "start": "NODE_OPTIONS='--require ./store-postgres-sp405.js' node media-core-sp404.txt"
+    "start": "NODE_OPTIONS='--require ./store-postgres-sp405.js --require ./stopword-hook-sp4054c.js' node media-core-sp404.txt"
   },
   "dependencies": {
     "axios": "^1.7.9",
