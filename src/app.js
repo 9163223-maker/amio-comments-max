@@ -36,10 +36,22 @@ function createApp(config) {
       ok: true,
       runtimeVersion: config.runtimeVersion,
       sourceMarker: config.sourceMarker,
+      branchIntent: 'clear-core-v1',
+      entrypoint: 'server.js',
       generatedAt: Date.now(),
       storage: config.databaseUrl ? 'postgres' : 'not_configured',
       db,
-      routes: ['/healthz', config.webhookPath, '/app', '/api/comments', '/api/admin']
+      routes: ['/healthz', config.webhookPath, '/app', '/api/comments', '/api/admin'],
+      implemented: [
+        'clean_server_entrypoint',
+        'postgres_schema',
+        'comments_api',
+        'admin_moderation_scope_api',
+        'bot_router_shell',
+        'connect_forwarded_post_to_postgres',
+        'patch_comments_button'
+      ],
+      forbiddenLegacyRuntime: ['server-sp*.js', 'media-core*.txt', 'Module._load monkey patch']
     });
   });
 
