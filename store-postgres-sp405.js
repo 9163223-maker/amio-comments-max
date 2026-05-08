@@ -2,8 +2,8 @@
 const fs=require('fs');
 const path=require('path');
 const Module=require('module');
-const RUNTIME='SP40.5.2';
-const SOURCE='adminkit-SP40.5.2-postgres-store-heal';
+const RUNTIME='SP40.5.4b';
+const SOURCE='adminkit-SP40.5.4b-moderation-post-area';
 const TABLE=process.env.ADMINKIT_PG_TABLE||'adminkit_store_kv';
 const STORE_KEY='store';
 const DATA_FILE=process.env.ADMINKIT_JSON_STORE_PATH||path.join(process.cwd(),'data','store.json');
@@ -11,13 +11,16 @@ const DB_URL=process.env.DATABASE_URL||process.env.POSTGRES_URI||process.env.NF_
 const ENABLED=String(process.env.ADMINKIT_STORE_DRIVER||'postgres').toLowerCase()==='postgres'&&!!DB_URL;
 const AUTO_MIGRATE=String(process.env.ADMINKIT_AUTO_MIGRATE||'1')!=='0';
 const JSON_FALLBACK=String(process.env.ADMINKIT_JSON_FALLBACK||'1')!=='0';
-const state=global.__ADMINKIT_PG_STORE__=global.__ADMINKIT_PG_STORE__||{runtime:RUNTIME,sourceMarker:SOURCE,enabled:ENABLED,dbUrlPresent:!!DB_URL,table:TABLE,hydrateStatus:'not_started',lastSyncStatus:'not_started',lastError:null,migratedFromJson:false,hydrateAt:null,lastSyncAt:null,writes:0,skippedWrites:0,healedChannels:0,removedFakeGlobal:0,autoChannels:0,outgoingSanitized:0};
+const state=global.__ADMINKIT_PG_STORE__=global.__ADMINKIT_PG_STORE__||{runtime:RUNTIME,sourceMarker:SOURCE,enabled:ENABLED,dbUrlPresent:!!DB_URL,table:TABLE,hydrateStatus:'not_started',lastSyncStatus:'not_started',lastError:null,migratedFromJson:false,hydrateAt:null,lastSyncAt:null,writes:0,skippedWrites:0,healedChannels:0,removedFakeGlobal:0,autoChannels:0,outgoingSanitized:0,moderationPostAreaFixed:0,moderationPostButtonsFixed:0};
+state.runtime=RUNTIME;state.sourceMarker=SOURCE;
 let Pool=null,pool=null,storeModule=null,hydrated=false,hydrating=false,syncing=false,syncTimer=null,suppressSync=false;
-function log(m){try{console.log('[SP40.5.2 pg-store] '+m)}catch{}}
+function log(m){try{console.log('[SP40.5.4b pg-store] '+m)}catch{}}
 function clone(v){try{return JSON.parse(JSON.stringify(v||{}))}catch{return{}}}
 function readJsonStore(){try{if(fs.existsSync(DATA_FILE))return JSON.parse(fs.readFileSync(DATA_FILE,'utf8')||'{}')}catch(e){state.lastError='read_json:'+e.message}return null}
 function writeJsonStore(v){try{const d=path.dirname(DATA_FILE);if(!fs.existsSync(d))fs.mkdirSync(d,{recursive:true});fs.writeFileSync(DATA_FILE,JSON.stringify(v,null,process.env.STORE_PRETTY_JSON==='1'?2:0),'utf8')}catch(e){state.lastError='write_json:'+e.message}}
 function isFakeGlobal(v){const s=String(v||'').toLowerCase().trim();return s==='global'||s==='sp30-global'||s.includes('sp30-global')||s==='undefined'||s==='null'}
+function hasRealPostText(s){return /Пост:\s*(?!не выбран)(?!sp30-global)(?!global)([^\n]+)/i.test(String(s||''))}
+function looksModerationText(s){return /🛡️\s*Модерация|\bМодерация\b/i.test(String(s||''))}
 function healStore(raw){const st=raw&&typeof raw==='object'?raw:{};st.posts=st.posts&&typeof st.posts==='object'?st.posts:{};st.channels=st.channels&&typeof st.channels==='object'?st.channels:{};st.moderation=st.moderation&&typeof st.moderation==='object'?st.moderation:{byChannel:{},logs:[]};let changed=false;
   for(const k of Object.keys(st.channels)){const c=st.channels[k]||{};if(isFakeGlobal(k)||isFakeGlobal(c.channelId)||String(c.title||c.name||'').trim().toLowerCase()==='global'){delete st.channels[k];state.removedFakeGlobal++;changed=true}}
   for(const k of Object.keys(st.posts)){const p=st.posts[k]||{};if(isFakeGlobal(k)||isFakeGlobal(p.postId)||isFakeGlobal(p.channelId)||isFakeGlobal(p.commentKey)){delete st.posts[k];if(st.comments)delete st.comments[k];if(st.likes)delete st.likes[k];if(st.reactions)delete st.reactions[k];state.removedFakeGlobal++;changed=true}}
@@ -36,8 +39,10 @@ function wrapStore(st){if(!st||st.__ADMINKIT_PG_WRAPPED__)return st;Object.defin
   const oldListPosts=st.listPostsByChannel;if(typeof oldListPosts==='function')st.listPostsByChannel=function(channelId,limit){if(isFakeGlobal(channelId))return [];return (oldListPosts.call(this,channelId,limit)||[]).filter(p=>p&&!isFakeGlobal(p.postId)&&!isFakeGlobal(p.channelId)&&!isFakeGlobal(p.commentKey))};
   for(const name of ['savePostVersion','addComment','setComments','saveChannel','setSetupState','clearSetupState','setLikeState','setReactionState','saveChannelMemberSnapshot','saveGiftSettings','saveGiftCampaign','deleteGiftCampaign','recordGiftClaim','saveModerationSettings','logModerationAction','saveGrowthClick','savePollVote']){const old=st[name];if(typeof old==='function')st[name]=function(){const res=old.apply(this,arguments);scheduleSync();return res}}
   const oldDebug=st.getDebugSnapshot;if(typeof oldDebug==='function')st.getDebugSnapshot=function(){const d=oldDebug.apply(this,arguments);return{...d,postgresStore:clone(state)}};return st}
-function walkButtons(v){if(!v||typeof v!=='object')return v;if(Array.isArray(v))return v.map(walkButtons).filter(Boolean);const t=String(v.text||v.label||'');const p=String(v.payload||v.data||'');if(/^\s*(1\.\s*)?Global\s*$/i.test(t)||/sp30-global|global/i.test(p)&&/moderation|mod|post/i.test(p))return null;for(const k of Object.keys(v))v[k]=walkButtons(v[k]);return v}
-function sanitizeText(t){let s=String(t||'');let before=s;s=s.replace(/Пост:\s*sp30-global/gi,'Пост: не выбран');s=s.replace(/\n?\s*1\.\s*Global\s*/gi,'');if(/Канал пока не выбран/i.test(s))s='Канал не выбран. Перешлите боту любой пост из нужного канала один раз — после этого канал и посты будут сохранены в PostgreSQL и не будут теряться после redeploy.';if(s!==before)state.outgoingSanitized++;return s}
+function payloadHasRealPost(payload){const p=String(payload||'');return /postId|post_id|commentKey|comment_key/i.test(p)&&!/sp30-global|global/i.test(p)}
+function walkButtons(v){if(!v||typeof v!=='object')return v;if(Array.isArray(v))return v.map(walkButtons).filter(Boolean);const t=String(v.text||v.label||'');const p=String(v.payload||v.data||'');if(/^\s*(1\.\s*)?Global\s*$/i.test(t)||/sp30-global|global/i.test(p)&&/moderation|mod|post/i.test(p))return null;if(payloadHasRealPost(p)&&/Правила\s+всего\s+канала/i.test(t)){v.text=t.replace(/Правила\s+всего\s+канала/i,'Правила этого поста');state.moderationPostButtonsFixed++}for(const k of Object.keys(v))v[k]=walkButtons(v[k]);return v}
+function fixModerationPostAreaText(s){if(!looksModerationText(s)||!hasRealPostText(s))return s;let out=s;if(/Область:/i.test(out)){out=out.replace(/Область:\s*правила\s+всего\s+канала/gi,'Область: правила этого поста');out=out.replace(/Область:\s*правила\s+канала/gi,'Область: правила этого поста')}else{out=out.replace(/(Пост:[^\n]*\n)/i,'$1Область: правила этого поста\n')}if(out!==s)state.moderationPostAreaFixed++;return out}
+function sanitizeText(t){let s=String(t||'');let before=s;s=s.replace(/Пост:\s*sp30-global/gi,'Пост: не выбран');s=s.replace(/\n?\s*1\.\s*Global\s*/gi,'');s=fixModerationPostAreaText(s);if(/Канал пока не выбран/i.test(s))s='Канал не выбран. Перешлите боту любой пост из нужного канала один раз — после этого канал и посты будут сохранены в PostgreSQL и не будут теряться после redeploy.';if(s!==before)state.outgoingSanitized++;return s}
 function patchMaxApi(api){if(!api||api.__ADMINKIT_PG_MAX_PATCHED__)return api;Object.defineProperty(api,'__ADMINKIT_PG_MAX_PATCHED__',{value:true,enumerable:false});for(const name of ['sendMessage','editMessage']){const old=api[name];if(typeof old==='function')api[name]=function(args={}){try{args={...args};if(args.text)args.text=sanitizeText(args.text);if(args.body)args.body=sanitizeText(args.body);if(args.attachments)args.attachments=walkButtons(clone(args.attachments));}catch(e){state.lastError='max_patch:'+e.message}return old.call(this,args)}}return api}
 const oldLoad=Module._load;Module._load=function(request,parent,isMain){const loaded=oldLoad.apply(this,arguments);try{if(request==='./store'||request==='store'||String(request).endsWith('/store')||String(request).endsWith('store.js'))return wrapStore(loaded);if(String(request).includes('services/maxApi'))return patchMaxApi(loaded)}catch(e){state.lastError='module_patch:'+e.message}return loaded};
 process.on('SIGTERM',()=>{try{clearTimeout(syncTimer);syncNow().finally(()=>process.exit(0));setTimeout(()=>process.exit(0),1000)}catch{process.exit(0)}});
