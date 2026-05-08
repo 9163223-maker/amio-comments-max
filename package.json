@@ -1,10 +1,10 @@
 {
-  "name": "amio-comments-max",
-  "version": "40.5.8-clear-core",
+  "name": "adminkit-clear-core-v1",
+  "version": "1.0.0-alpha.1",
   "private": true,
-  "main": "server-sp4058.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node server-sp4058.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
