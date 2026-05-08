@@ -4,12 +4,22 @@ const Module = require('module');
 const fs = require('fs');
 const path = require('path');
 
-const RUNTIME = 'CC4';
-const SOURCE = 'adminkit-CC4-cta-and-moderation-fixes';
+const RUNTIME = 'CC4.1';
+const SOURCE = 'adminkit-CC4.1-debug-nocache-hotfix';
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
 process.env.BUILD_SOURCE_MARKER = SOURCE;
 console.log(`[${RUNTIME}] loaded`);
+
+function noCache(res) {
+  try {
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0'
+    });
+  } catch {}
+}
 
 const clean = (v) => String(v || '').replace(/^post:/i, '').replace(/^:+/, '').trim();
 const short = (v, n = 48) => { const s = String(v || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
