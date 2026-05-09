@@ -1,3 +1,3 @@
 'use strict';
-// CC5.1.1: legacy filename kept only as adapter to the clean hotfix router.
-module.exports = require('./cc51-router-hotfix');
+// CC5.2: legacy filename kept only as compatibility alias to the single clean router.
+module.exports = require('./cc52-moderation-router');
