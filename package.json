@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC5.2",
+  "version": "CC5.3",
   "private": true,
   "main": "main-cc5.js",
   "scripts": {
