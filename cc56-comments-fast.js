@@ -1,52 +1,109 @@
 'use strict';
-const fs=require('fs');
-const path=require('path');
-const RUNTIME='CC5.6.1';
-const SOURCE='adminkit-CC5.6.1-handoff-resolve-before-register';
-const appJs=path.join(__dirname,'public','app.js');
-const read=fs.readFileSync.bind(fs);
-let cache='',mtime=0;
+const fs = require('fs');
+const path = require('path');
+const RUNTIME = 'CC5.7';
+const SOURCE = 'adminkit-CC5.7-comments-open-independent';
+const appJs = path.join(__dirname, 'public', 'app.js');
+const read = fs.readFileSync.bind(fs);
+let cache = '';
+let mtime = 0;
 function noCache(res){try{res.set({'Cache-Control':'no-store, no-cache, must-revalidate, max-age=0',Pragma:'no-cache',Expires:'0'});}catch{}}
-function norm(v){return String(v||'').replace(/\s+/g,' ').trim();}
-function clean(v){return String(v||'').replace(/^ck:/i,'').replace(/^post:/i,'').replace(/^:+/,'').replace(/^['\"]+|['\"]+$/g,'').trim();}
-function hkey(v){const s=String(v||'').trim().replace(/^handoff[:=_-]?/i,'').replace(/^h_+/i,'').replace(/[^A-Za-z0-9_-]/g,'');return s?`h_${s}`:'';}
-function splitKey(k){const key=clean(k);const i=key.indexOf(':');return i>0?{commentKey:key,channelId:key.slice(0,i),postId:key.slice(i+1)}:{commentKey:key,channelId:'',postId:''};}
-function pickTitle(post,hand,postId){return norm(post?.originalText||post?.text||post?.caption||post?.title||hand?.title||hand?.originalText||postId||'Пост').slice(0,160);}
-async function resolveHandoff(token){
-  const key=hkey(token); if(!key) return {ok:false,reason:'token_missing'};
-  let hand=null,post=null;
-  try{const store=require('./store'); hand=(store.getHandoff&&store.getHandoff(key))||store.store?.handoffs?.[key]||null; if(!hand&&store.findPostByAnyId) post=store.findPostByAnyId(key)||null; if(hand?.commentKey&&store.getPost) post=store.getPost(hand.commentKey)||post; }catch(e){return {ok:false,reason:'store_error',error:e&&e.message?e.message:String(e),token:key};}
-  let scope=splitKey(hand?.commentKey||post?.commentKey||'');
-  const channelId=norm(scope.channelId||hand?.channelId||post?.channelId||'');
-  const postId=norm(scope.postId||hand?.postId||hand?.messageId||post?.postId||post?.messageId||'');
-  const commentKey=clean(scope.commentKey||(channelId&&postId?`${channelId}:${postId}`:''));
-  const title=pickTitle(post,hand,postId);
-  if(!channelId||!postId||!commentKey) return {ok:false,reason:'handoff_scope_missing',token:key,hasHandoff:!!hand,hasPost:!!post,channelId,postId,commentKey,title};
-  let reg=null; try{reg=await require('./cc54-public-post-register').registerPublicPost({channelId,postId,commentKey,title,channelTitle:hand?.channelTitle||post?.channelTitle||'',url:'handoff:'+key});}catch(e){reg={ok:false,error:e&&e.message?e.message:String(e)};}
-  return {ok:true,token:key,channelId,postId,commentKey,title,registered:reg?.registered||0,register:reg};
+function norm(v){return String(v || '').replace(/\s+/g, ' ').trim();}
+function clean(v){return norm(v).replace(/^ck:/i,'').replace(/^post:/i,'').replace(/^:+/,'').replace(/^['\"]+|['\"]+$/g,'');}
+function splitKey(v){const key=clean(v);const i=key.indexOf(':');return i>0?{commentKey:key,channelId:key.slice(0,i),postId:key.slice(i+1)}:{commentKey:key,channelId:'',postId:''};}
+function handoffKey(v){const raw=norm(v).replace(/^handoff[:=_-]?/i,'').replace(/^h_+/i,'').replace(/[^A-Za-z0-9_-]/g,'');return raw ? `h_${raw}` : '';}
+function pickTitle(post, hand, postId){return norm(post?.originalText || post?.text || post?.caption || post?.title || hand?.title || hand?.originalText || postId || 'Пост').slice(0,160);}
+async function resolveScope(input={}){
+  const direct = splitKey(input.commentKey || input.key || '');
+  if (direct.channelId && direct.postId) return {...direct,title:norm(input.title||'Пост')};
+  const token = handoffKey(input.handoff || input.handoffToken || input.commentKey || '');
+  if (!token) return {commentKey:clean(input.commentKey||''),channelId:'',postId:'',title:norm(input.title||'')};
+  let hand = null, post = null;
+  try {
+    const store = require('./store');
+    hand = store.getHandoff?.(token) || store.store?.handoffs?.[token] || null;
+    if (!hand && store.findPostByAnyId) post = store.findPostByAnyId(token) || null;
+    if (hand?.commentKey && store.getPost) post = store.getPost(hand.commentKey) || post;
+  } catch (e) {
+    return {commentKey:token,channelId:'',postId:'',title:norm(input.title||''),error:e?.message||String(e)};
+  }
+  const fromKey = splitKey(hand?.commentKey || post?.commentKey || '');
+  const channelId = norm(fromKey.channelId || hand?.channelId || post?.channelId || '');
+  const postId = norm(fromKey.postId || hand?.postId || hand?.messageId || post?.postId || post?.messageId || '');
+  const commentKey = clean(fromKey.commentKey || (channelId && postId ? `${channelId}:${postId}` : token));
+  return {commentKey,channelId,postId,title:pickTitle(post,hand,postId),handoff:token,hasHandoff:!!hand,hasPost:!!post};
 }
-function patch(){return `
+async function registerScope(input={}){
+  const scope = await resolveScope(input);
+  if (!scope.channelId || !scope.postId || !String(scope.commentKey||'').includes(':')) return {ok:false,registered:0,reason:'background_scope_not_ready',...scope};
+  try {
+    const out = await require('./cc54-public-post-register').registerPublicPost({...scope,url:input.url||''});
+    return {ok:!!out.ok, ...scope, register:out, registered:Number(out.registered||0)};
+  } catch (e) {
+    return {ok:false,registered:0,reason:'register_throw',error:e?.message||String(e),...scope};
+  }
+}
+function clientPatch(){return `
 ;(() => {
- if (window.__AK_CC561_FAST__) return; window.__AK_CC561_FAST__ = true;
- const R='CC5.6.1'; const marks=window.__AK_CC56_MARKS__={};
- const mark=n=>{marks[n]=Date.now();try{performance.mark('ak561:'+n)}catch{}};
- const st=()=>{try{return typeof state!=='undefined'?state:(window.state||window.appState||{})}catch{return {}}};
- const text=e=>String(e&&e.textContent||'').replace(/\\s+/g,' ').trim();
- const scope=()=>{const s=st();let ck=String(s.commentKey||'').replace(/^ck:/i,'').replace(/^post:/i,'').trim();let ch=String(s.channelId||'').trim();let pid='';if(ck.includes(':')){const i=ck.indexOf(':');ch=ch||ck.slice(0,i);pid=ck.slice(i+1)}return {commentKey:ck,channelId:ch,postId:pid,title:text(document.getElementById('postTitle'))||document.title||''}};
- const send=(eventType,payload={})=>{const body=JSON.stringify({eventType,payload:{...payload,runtime:R,ts:Date.now()}});try{if(navigator.sendBeacon&&navigator.sendBeacon('/api/cc55/client-event',new Blob([body],{type:'application/json'})))return}catch{}try{fetch('/api/cc55/client-event',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',keepalive:true,body})}catch{}};
- const isHandoff=v=>/^h_[A-Za-z0-9_-]{6,}$/.test(String(v||'').trim());
- async function resolveIfNeeded(){const s=st();const token=isHandoff(s.commentKey)?s.commentKey:(isHandoff(s.handoffToken)?s.handoffToken:''); if(!token||new URLSearchParams(location.search).get('cc56Resolved')==='1')return false; send('handoff_resolve_attempt',{ok:true,token}); try{const r=await fetch('/api/cc56/resolve-handoff?token='+encodeURIComponent(token),{cache:'no-store'});const data=await r.json().catch(()=>({ok:false,error:'bad_json'}));send('handoff_resolve_result',data); if(data&&data.ok&&data.commentKey&&String(data.commentKey).includes(':')){const u=new URL(location.href);u.searchParams.set('commentKey',data.commentKey);u.searchParams.set('channelId',data.channelId||data.commentKey.split(':')[0]);u.searchParams.set('postId',data.postId||data.commentKey.split(':').slice(1).join(':'));u.searchParams.set('cc56Resolved','1');location.replace(u.toString());return true;}}catch(e){send('handoff_resolve_result',{ok:false,error:String(e&&e.message?e.message:e),token})} return false;}
- const ready=()=>{const s=scope();const list=document.getElementById('commentsList');return !document.body.classList.contains('miniapp-start-mode')&&(s.commentKey.includes(':')||text(document.getElementById('postTitle'))||(list&&getComputedStyle(list).display!=='none'))};
- const style=document.createElement('style');style.textContent='.ak56-float-cta{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:2147481000;display:flex;gap:8px;align-items:center;max-width:72vw;padding:8px 13px;border-radius:999px;background:rgba(255,255,255,.36);border:1px solid rgba(255,255,255,.70);box-shadow:0 12px 30px rgba(31,111,190,.10);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);color:rgba(47,117,194,.70);font:700 14px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;text-decoration:none;opacity:.66}.ak56-keyboard .ak56-float-cta,.miniapp-start-mode .ak56-float-cta{display:none!important}.ak56-float-cta .x{color:rgba(86,111,140,.5);font-weight:800}';(document.head||document.documentElement).appendChild(style);
- let cta=false,reg=false,stable=false;
- function mountCta(){if(cta)return;cta=true;setTimeout(()=>{if(!ready()||document.getElementById('ak56-float-cta'))return;const a=document.createElement('a');a.id='ak56-float-cta';a.className='ak56-float-cta';a.href='/';a.innerHTML='<span>🐋</span><span>Подключить комментарии</span><span class="x">×</span>';a.onclick=e=>{if(e.target.classList.contains('x')){e.preventDefault();a.remove()}};document.body.appendChild(a);mark('floatingCtaVisible');send('floating_cta_visible',{ok:true,...scope()})},1400)}
- async function register(reason){if(reg)return;const s=scope();const ok=!!(s.channelId&&s.postId&&s.commentKey.includes(':'));send('public_post_register_attempt',{ok,reason,...s});if(!ok)return;reg=true;try{const r=await fetch('/api/cc54/register-public-post',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({...s,url:location.pathname})});const data=await r.json().catch(()=>({ok:false,error:'bad_json'}));window.__AK_CC56_LAST_POST_REGISTER__=data;send('public_post_register_result',{...data,...s})}catch(e){reg=false;send('public_post_register_result',{ok:false,error:String(e&&e.message?e.message:e),...s})}}
- function tick(reason){if(!ready())return;if(!stable){stable=true;mark('commentsReady');send('comments_first_stable_paint',{ok:true,...scope()});mountCta()}setTimeout(()=>register(reason+':250'),250);setTimeout(()=>register(reason+':1200'),1200)}
- document.addEventListener('focusin',()=>document.body.classList.add('ak56-keyboard'),true);document.addEventListener('focusout',()=>setTimeout(()=>document.body.classList.remove('ak56-keyboard'),160),true);
- mark('clientLoaded');send('comments_client_loaded',{ok:true,...scope()});resolveIfNeeded().then(did=>{if(did)return;let n=0;const t=setInterval(()=>{n++;tick('poll');if(reg||n>80)clearInterval(t);if(n===80)send('comments_ready_timeout',{ok:false,...scope()})},150);try{new MutationObserver(()=>tick('mut')).observe(document.documentElement,{childList:true,subtree:true,characterData:true})}catch{}});
- window.__AK_CC56_COMMENTS_PERF__=()=>({runtime:R,marks,scope:scope(),registered:window.__AK_CC56_LAST_POST_REGISTER__||null});
+  if (window.__AK_CC57_OPEN_INDEPENDENT__) return;
+  window.__AK_CC57_OPEN_INDEPENDENT__ = true;
+  const R = 'CC5.7';
+  const startedAt = Date.now();
+  const marks = window.__AK_CC57_MARKS__ = { clientLoadedAt: startedAt };
+  const appState = () => { try { return typeof state !== 'undefined' ? state : (window.state || window.appState || {}); } catch { return {}; } };
+  const txt = (el) => String(el && el.textContent || '').replace(/\\s+/g,' ').trim();
+  const isH = (v) => /^h_[A-Za-z0-9_-]{6,}$/.test(String(v||'').trim());
+  const scope = () => {
+    const s = appState();
+    let ck = String(s.commentKey || '').replace(/^ck:/i,'').replace(/^post:/i,'').trim();
+    let ch = String(s.channelId || '').trim();
+    let pid = '';
+    if (ck.includes(':')) { const i = ck.indexOf(':'); ch = ch || ck.slice(0,i); pid = ck.slice(i+1); }
+    const token = isH(ck) ? ck : (isH(s.handoffToken) ? String(s.handoffToken).trim() : '');
+    return { commentKey: ck, channelId: ch, postId: pid, handoff: token, title: txt(document.getElementById('postTitle')) || document.title || '' };
+  };
+  const send = (eventType, payload = {}) => {
+    const body = JSON.stringify({ eventType, payload: { ...payload, runtime: R, ts: Date.now() } });
+    try { if (navigator.sendBeacon && navigator.sendBeacon('/api/cc55/client-event', new Blob([body], {type:'application/json'}))) return; } catch {}
+    try { fetch('/api/cc55/client-event', { method:'POST', headers:{'Content-Type':'application/json'}, cache:'no-store', keepalive:true, body }); } catch {}
+  };
+  const hasShell = () => !!(document.getElementById('commentsList') || document.getElementById('commentInput') || document.getElementById('composerCard'));
+  const hasVisibleContent = () => {
+    const list = document.getElementById('commentsList');
+    const input = document.getElementById('commentInput');
+    return !!(input || (list && getComputedStyle(list).display !== 'none') || txt(document.getElementById('postTitle')));
+  };
+  function registerLater(reason) {
+    const s = scope();
+    send('comments_open_independent', { ok:true, reason, ...s });
+    try {
+      fetch('/api/cc57/register-background', { method:'POST', headers:{'Content-Type':'application/json'}, cache:'no-store', keepalive:true, body:JSON.stringify({ ...s, reason, url:location.href }) })
+        .then(r => r.json().catch(() => ({ok:false,error:'bad_json'})))
+        .then(data => { window.__AK_CC57_LAST_REGISTER__ = data; send('public_post_register_result', { ...data, ...scope() }); })
+        .catch(e => send('public_post_register_result', { ok:false, error:String(e && e.message ? e.message : e), ...scope() }));
+    } catch (e) { send('public_post_register_result', { ok:false, error:String(e && e.message ? e.message : e), ...s }); }
+  }
+  let painted = false, registered = false;
+  function tick(reason) {
+    if (!painted && hasShell()) { painted = true; marks.shellAt = Date.now(); send('comments_shell_visible', { ok:true, ms:marks.shellAt-startedAt, ...scope() }); }
+    if (!registered && hasVisibleContent()) { registered = true; marks.firstPaintAt = Date.now(); send('comments_first_stable_paint', { ok:true, ms:marks.firstPaintAt-startedAt, ...scope() }); setTimeout(() => registerLater(reason + ':after_paint'), 900); }
+  }
+  send('comments_client_loaded', { ok:true, ...scope() });
+  let n = 0;
+  const timer = setInterval(() => { n += 1; tick('poll'); if (registered || n > 120) clearInterval(timer); if (n === 120) send('comments_open_timeout', { ok:false, ...scope() }); }, 100);
+  try { new MutationObserver(() => tick('mut')).observe(document.documentElement, { childList:true, subtree:true, characterData:true }); } catch {}
+  window.__AK_CC57_COMMENTS_PERF__ = () => ({ runtime:R, marks, scope:scope(), register:window.__AK_CC57_LAST_REGISTER__ || null });
 })();
 `}
-function build(){const s=fs.statSync(appJs);if(cache&&mtime===Number(s.mtimeMs||0))return cache;mtime=Number(s.mtimeMs||0);cache=String(read(appJs,'utf8')||'')+patch();return cache;}
-function install(app){if(!app||app.__cc56CommentsFast)return app;app.__cc56CommentsFast=true;app.get('/api/cc56/resolve-handoff',async(req,res)=>{noCache(res);try{res.json({runtimeVersion:RUNTIME,...await resolveHandoff(req.query?.token||req.query?.h||''),generatedAt:Date.now()});}catch(e){res.status(500).json({ok:false,runtimeVersion:RUNTIME,error:e&&e.message?e.message:String(e)})}});app.get('/public/app.js',(req,res,next)=>{try{noCache(res);res.type('application/javascript; charset=utf-8').send(build())}catch(e){console.error('[CC5.6.1 comments fast]',e&&e.message?e.message:e);next()}});app.get('/debug/comments-shell',(req,res)=>{noCache(res);res.json({ok:true,runtimeVersion:RUNTIME,sourceMarker:SOURCE,commentsShell:'fast_after_app_handoff_resolver',fullscreenShell:'disabled',floatingCta:'delayed_after_comments_ready',publicPostRegister:'handoff_resolved_server_side',appJsBytes:Buffer.byteLength(build(),'utf8'),generatedAt:Date.now()})});return app}
-module.exports={RUNTIME,SOURCE,install,buildClientSource:build,resolveHandoff};
+function build(){const s=fs.statSync(appJs);const mt=Number(s.mtimeMs||0);if(cache&&mtime===mt)return cache;mtime=mt;cache=String(read(appJs,'utf8')||'')+clientPatch();return cache;}
+function install(app){
+  if(!app || app.__cc57CommentsOpenIndependent) return app;
+  app.__cc57CommentsOpenIndependent = true;
+  try { app.use('/api/cc57/register-background', require('express').json({limit:'64kb'})); } catch {}
+  app.post('/api/cc57/register-background', async (req,res) => { noCache(res); try { res.json({runtimeVersion:RUNTIME, ...(await registerScope(req.body||{})), generatedAt:Date.now()}); } catch(e) { res.status(500).json({ok:false,runtimeVersion:RUNTIME,error:e?.message||String(e)}); } });
+  app.get('/api/cc57/resolve-scope', async (req,res) => { noCache(res); try { res.json({ok:true,runtimeVersion:RUNTIME, ...(await resolveScope(req.query||{})), generatedAt:Date.now()}); } catch(e) { res.status(500).json({ok:false,runtimeVersion:RUNTIME,error:e?.message||String(e)}); } });
+  app.get('/public/app.js', (req,res,next) => { try { noCache(res); res.type('application/javascript; charset=utf-8').send(build()); } catch(e) { console.error('[CC5.7 comments open]', e?.message||e); next(); } });
+  app.get('/debug/comments-shell', (req,res) => { noCache(res); res.json({ok:true,runtimeVersion:RUNTIME,sourceMarker:SOURCE,commentsShell:'open_first_independent',dbRegistration:'background_after_paint_only',blocksAppOpen:false,blocksPosting:false,redirects:false,appJsBytes:Buffer.byteLength(build(),'utf8'),generatedAt:Date.now()}); });
+  return app;
+}
+module.exports={RUNTIME,SOURCE,install,buildClientSource:build,resolveScope,registerScope};
