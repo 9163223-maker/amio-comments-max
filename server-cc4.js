@@ -1,7 +1,7 @@
 'use strict';
 const Module = require('module');
-const RUNTIME = 'CC4.6';
-const SOURCE = 'adminkit-CC4.6-moderation-flow-and-post-scope';
+const RUNTIME = 'CC4.7';
+const SOURCE = 'adminkit-CC4.7-hard-store-moderation-persistence';
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
 process.env.BUILD_SOURCE_MARKER = SOURCE;
@@ -10,6 +10,12 @@ console.log('[' + RUNTIME + '] active server-cc4.js');
 function noCache(res) {
   try { res.set({'Cache-Control':'no-store, no-cache, must-revalidate, max-age=0', Pragma:'no-cache', Expires:'0'}); } catch {}
 }
+function patchStoreHard(loaded) {
+  try { return require('./cc46-store-hardfix').patchStore(loaded); } catch (e) {
+    console.error('[CC4.7 store hardfix failed]', e && e.message ? e.message : e);
+    return loaded;
+  }
+}
 
 const oldLoad = Module._load;
 Module._load = function(request, parent, isMain) {
@@ -17,21 +23,22 @@ Module._load = function(request, parent, isMain) {
   try {
     const r = String(request || '');
     if ((r === './store' || r.endsWith('/store') || r.endsWith('store.js')) && loaded) {
-      return require('./cc43-store-hotfix').patchStore(loaded);
+      return patchStoreHard(loaded);
     }
-    if (r === 'express' && loaded && !loaded.__cc46Wrapped) {
+    if (r === 'express' && loaded && !loaded.__cc47Wrapped) {
       function wrappedExpress() {
         const app = loaded.apply(this, arguments);
-        if (app && !app.__cc46App) {
-          app.__cc46App = true;
+        if (app && !app.__cc47App) {
+          app.__cc47App = true;
           const oldPost = app.post.bind(app);
           app.post = (route, ...handlers) => String(route || '').includes('/webhook')
             ? oldPost(route, async (req, res, next) => {
                 try {
+                  const store = patchStoreHard(require('./store'));
                   const router = require('./cc45-menu-router');
-                  const mods = { store: require('./store'), api: require('./services/maxApi'), config: require('./config') };
+                  const mods = { store, api: require('./services/maxApi'), config: require('./config') };
                   if (await router.handle(req.body || {}, mods)) return res.json({ ok: true, handledBy: RUNTIME });
-                } catch (e) { console.error('[CC4.6 moderation]', e && e.message ? e.message : e); }
+                } catch (e) { console.error('[CC4.7 moderation]', e && e.message ? e.message : e); }
                 next();
               }, ...handlers)
             : oldPost(route, ...handlers);
@@ -43,7 +50,7 @@ Module._load = function(request, parent, isMain) {
               'sourceMarker: ' + SOURCE,
               'versionFormat: CC',
               'activeEntry: server-cc4.js',
-              'postModerationToggle: cc46_flow_keys_fixed',
+              'postModerationToggle: cc47_hard_store_persistence',
               'postScopeContinuation: fixed',
               'stopwordContinuation: fixed',
               'singleModerationMenu: edit_on_callback_send_on_text',
@@ -54,21 +61,30 @@ Module._load = function(request, parent, isMain) {
           });
           app.get('/debug/runtime-marker', (req, res) => {
             noCache(res);
-            res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, activeEntry: 'server-cc4.js', postModerationToggle: 'cc46_flow_keys_fixed', generatedAt: Date.now() });
+            res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, activeEntry: 'server-cc4.js', postModerationToggle: 'cc47_hard_store_persistence', generatedAt: Date.now() });
+          });
+          app.get('/debug/mod-rules', (req, res) => {
+            noCache(res);
+            const store = patchStoreHard(require('./store'));
+            const commentKey = String(req.query.commentKey || '').trim();
+            const channelId = String(req.query.channelId || '').trim();
+            const scope = commentKey ? { scope: 'post', channelId, commentKey } : { scope: 'channel', channelId, commentKey: '' };
+            res.json({ ok: true, runtimeVersion: RUNTIME, scope, postRules: commentKey ? store.getPostModerationSettings(commentKey) : null, channelRules: store.getModerationSettings(channelId), lastWrite: store.getSetupState?.('cc46:lastRulesWrite') || null, generatedAt: Date.now() });
           });
         }
         return app;
       }
       Object.setPrototypeOf(wrappedExpress, loaded);
       Object.assign(wrappedExpress, loaded);
-      wrappedExpress.__cc46Wrapped = true;
+      wrappedExpress.__cc47Wrapped = true;
       return wrappedExpress;
     }
-  } catch (e) { console.warn('[CC4.6 patch skipped]', e && e.message ? e.message : e); }
+  } catch (e) { console.warn('[CC4.7 patch skipped]', e && e.message ? e.message : e); }
   return loaded;
 };
 
 require('./server-sp4058.js');
+try { patchStoreHard(require('./store')); } catch {}
 require('./cc45-public-final').install();
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
