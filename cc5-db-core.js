@@ -2,7 +2,7 @@
 
 const { Pool } = require('pg');
 
-const RUNTIME = 'CC5.0';
+const RUNTIME = 'CC5.3';
 const DATABASE_URL = String(process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.POSTGRES_URL || '').trim();
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
@@ -12,6 +12,7 @@ const pool = DATABASE_URL ? new Pool({
   connectionTimeoutMillis: 4500
 }) : null;
 let initPromise = null;
+let lastInitError = '';
 
 const clean = (v) => String(v || '').replace(/^post:/i, '').replace(/^ck:/i, '').replace(/^:+/, '').replace(/^['\"]+|['\"]+$/g, '').trim();
 const norm = (v) => String(v || '').replace(/\s+/g, ' ').trim();
@@ -80,6 +81,7 @@ async function init() {
   if (!pool) return { ok: false, error: 'database_url_missing' };
   if (initPromise) return initPromise;
   initPromise = (async () => {
+    await pool.query('select 1');
     await pool.query(`
       create table if not exists ak_admins (
         admin_id text primary key,
@@ -142,8 +144,13 @@ async function init() {
         updated_at timestamptz default now()
       );
     `);
+    lastInitError = '';
     return { ok: true };
-  })();
+  })().catch((error) => {
+    lastInitError = error && error.message ? error.message : String(error);
+    initPromise = null;
+    throw error;
+  });
   return initPromise;
 }
 async function query(sql, params = []) { await init(); return pool.query(sql, params); }
@@ -243,13 +250,13 @@ async function clearFlow(adminId) { if (!adminId) return; await query(`delete fr
 async function getMenu(adminId) { if (!adminId) return ''; const { rows } = await query(`select message_id from ak_menu_state where admin_id=$1`, [adminId]); return rows[0]?.message_id || ''; }
 async function setMenu(adminId, messageIdValue) { if (!adminId || !messageIdValue) return; await query(`insert into ak_menu_state(admin_id,message_id,updated_at) values($1,$2,now()) on conflict(admin_id) do update set message_id=excluded.message_id, updated_at=now()`, [adminId, messageIdValue]); }
 async function stats() {
-  const out = { dbUrlPresent: !!DATABASE_URL, reachable: false, admins: 0, channels: 0, links: 0, posts: 0, rules: 0 };
+  const out = { dbUrlPresent: !!DATABASE_URL, reachable: false, admins: 0, channels: 0, links: 0, posts: 0, rules: 0, lastInitError };
   if (!pool) return out;
-  await init();
+  try { await init(); } catch (error) { out.lastInitError = error && error.message ? error.message : String(error); return out; }
   out.reachable = true;
   for (const [k, table] of Object.entries({ admins: 'ak_admins', channels: 'ak_channels', links: 'ak_admin_channels', posts: 'ak_posts', rules: 'ak_moderation_rules' })) {
-    const { rows } = await pool.query(`select count(*)::int as n from ${table}`);
-    out[k] = rows[0]?.n || 0;
+    try { const { rows } = await pool.query(`select count(*)::int as n from ${table}`); out[k] = rows[0]?.n || 0; }
+    catch (error) { out[`${k}Error`] = error && error.message ? error.message : String(error); }
   }
   return out;
 }
