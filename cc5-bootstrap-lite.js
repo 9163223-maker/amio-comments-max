@@ -1,7 +1,7 @@
 'use strict';
 const Module = require('module');
-const RUNTIME = 'CC6.4';
-const SOURCE = 'adminkit-CC6.4-moderation-db-truth';
+const RUNTIME = 'CC6.5';
+const SOURCE = 'adminkit-CC6.5-moderation-title-repair';
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
 process.env.BUILD_SOURCE_MARKER = SOURCE;
@@ -44,15 +44,16 @@ function releaseGateStatus(stats, selfTest) {
 }
 
 function addRoutes(app) {
-  if (!app || app.__cc64clean) return app;
-  app.__cc64clean = true;
+  if (!app || app.__cc65clean) return app;
+  app.__cc65clean = true;
 
-  // CC6.4: keep approved legacy comments UI; add DB truth visibility and channel-title guard.
+  // CC6.5: keep approved legacy comments UI; repair channel title display for moderation.
   // DB work remains background-only and must never block comments opening or posting.
-  try { require('./cc64-moderation-db-truth').install(app); } catch (error) { console.error('[CC6.4 DB truth]', error && error.message ? error.message : error); }
-  try { require('./cc63-comments-runtime-audit').install(app); } catch (error) { console.error('[CC6.4 runtime audit]', error && error.message ? error.message : error); }
-  try { require('./cc55-feature-gate').install(app); } catch (error) { console.warn('[CC6.4 feature gate]', error && error.message ? error.message : error); }
-  try { require('./cc54-public-post-register').install(app); } catch (error) { console.warn('[CC6.4 public register]', error && error.message ? error.message : error); }
+  try { require('./cc65-moderation-title-repair').install(app); } catch (error) { console.error('[CC6.5 title repair]', error && error.message ? error.message : error); }
+  try { require('./cc64-moderation-db-truth').install(app); } catch (error) { console.error('[CC6.5 DB truth]', error && error.message ? error.message : error); }
+  try { require('./cc63-comments-runtime-audit').install(app); } catch (error) { console.error('[CC6.5 runtime audit]', error && error.message ? error.message : error); }
+  try { require('./cc55-feature-gate').install(app); } catch (error) { console.warn('[CC6.5 feature gate]', error && error.message ? error.message : error); }
+  try { require('./cc54-public-post-register').install(app); } catch (error) { console.warn('[CC6.5 public register]', error && error.message ? error.message : error); }
   try { require('./cc52-db-debug-routes').install(app); } catch {}
   try { require('./cc53-db-diagnose').install(app); } catch {}
 
@@ -65,6 +66,10 @@ function addRoutes(app) {
     const dbTruth = await (async () => {
       try { return await require('./cc64-moderation-db-truth').collectTruth({ query: { token: String(req.query.token || ''), limit: 20 } }); }
       catch (error) { return { verdict: 'db_truth_unavailable', summary: {}, error: error && error.message ? error.message : String(error) }; }
+    })();
+    const titleStatus = await (async () => {
+      try { return await require('./cc65-moderation-title-repair').titleStatus(); }
+      catch (error) { return { channelTitleIsId: -1, error: error && error.message ? error.message : String(error) }; }
     })();
     const releaseGate = releaseGateStatus(stats, selfTest);
     const manual = releaseGate === 'pass' ? 'allowed' : 'blocked';
@@ -79,7 +84,7 @@ function addRoutes(app) {
       'commentsRoute: legacy_index_public_app',
       'usesLegacyAppJs: true',
       'uiPolicy: keep_approved_legacy_comments_ui_and_functions',
-      'cleanCoreScope: runtime_audit_backend_routes_db_registration_and_moderation_db_truth',
+      'cleanCoreScope: runtime_audit_backend_routes_db_registration_moderation_db_truth_and_title_repair',
       'standalonePrototypeDisabled: true',
       'commentsOpenBlocksDb: false',
       'commentsPostBlocksDb: false',
@@ -99,6 +104,7 @@ function addRoutes(app) {
       'moderationDbRules: ' + (dbTruth.summary?.rules || 0),
       'moderationDbPostRules: ' + (dbTruth.summary?.postRules || 0),
       'moderationDbChannelTitleIsId: ' + (dbTruth.summary?.channelTitleIsId || 0),
+      'moderationTitleRepairChannelTitleIsId: ' + (titleStatus.channelTitleIsId ?? 'unknown'),
       'moderationDbPostRulesWithoutPost: ' + (dbTruth.summary?.postRulesWithoutPost || 0),
       'moderationDbServicePosts: ' + (dbTruth.summary?.servicePosts || 0),
       'legacyRouterFallback: disabled',
@@ -108,6 +114,7 @@ function addRoutes(app) {
       'dbScanRoute: enabled',
       'dbDiagnoseRoute: enabled',
       'modDbTruthRoute: enabled',
+      'modTitleRepairRoute: enabled',
       'publicPostRegister: background_only',
       'routerSelfTest: ' + (selfTest.ok ? 'pass' : 'fail'),
       'dbUrlPresent: ' + Boolean(stats.dbUrlPresent),
@@ -116,7 +123,7 @@ function addRoutes(app) {
       'dbChannels: ' + (stats.channels || 0),
       'dbPosts: ' + (stats.posts || 0),
       'dbRules: ' + (stats.rules || 0),
-      'debugTruth: qa_lite_matches_comments_runtime_and_moderation_db_truth',
+      'debugTruth: qa_lite_matches_comments_runtime_moderation_db_truth_and_title_repair',
       'featureGateReason: comments_open_is_not_blocked_by_feature_gate'
     ].join('\n') + '\n');
   });
@@ -133,12 +140,12 @@ const oldLoad = Module._load;
 Module._load = function patchedExpressLoad(request, parent, isMain) {
   const loaded = oldLoad.apply(this, arguments);
   try {
-    if (String(request || '') === 'express' && loaded && !loaded.__cc64wrap) {
+    if (String(request || '') === 'express' && loaded && !loaded.__cc65wrap) {
       function expressWrapper() {
         const app = loaded.apply(this, arguments);
         addRoutes(app);
-        if (app && !app.__cc64post) {
-          app.__cc64post = true;
+        if (app && !app.__cc65post) {
+          app.__cc65post = true;
           const oldPost = app.post.bind(app);
           const routeName = '/web' + 'hook';
           app.post = (route, ...handlers) => String(route || '').includes(routeName)
@@ -148,7 +155,7 @@ Module._load = function patchedExpressLoad(request, parent, isMain) {
                     return res.json({ ok: true, handledBy: RUNTIME });
                   }
                 } catch (error) {
-                  console.error('[CC6.4 router]', error && error.message ? error.message : error);
+                  console.error('[CC6.5 router]', error && error.message ? error.message : error);
                 }
                 next();
               }, ...handlers)
@@ -158,15 +165,15 @@ Module._load = function patchedExpressLoad(request, parent, isMain) {
       }
       Object.setPrototypeOf(expressWrapper, loaded);
       Object.assign(expressWrapper, loaded);
-      expressWrapper.__cc64wrap = true;
+      expressWrapper.__cc65wrap = true;
       return expressWrapper;
     }
   } catch (error) {
-    console.warn('[CC6.4 bootstrap]', error && error.message ? error.message : error);
+    console.warn('[CC6.5 bootstrap]', error && error.message ? error.message : error);
   }
   return loaded;
 };
 
-require('./cc5-db-core').init().catch(error => console.error('[CC6.4 DB]', error && error.message ? error.message : error));
+require('./cc5-db-core').init().catch(error => console.error('[CC6.5 DB]', error && error.message ? error.message : error));
 require('./server-sp4058.js');
 try { require('./cc45-public-final').install(); } catch {}
