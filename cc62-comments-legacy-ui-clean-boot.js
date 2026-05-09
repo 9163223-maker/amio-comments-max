@@ -3,6 +3,8 @@
 const RUNTIME = 'CC6.2';
 const SOURCE = 'adminkit-CC6.2-legacy-ui-clean-boot';
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 
 function noCache(res){
   try{res.set({'Cache-Control':'no-store, no-cache, must-revalidate, max-age=0',Pragma:'no-cache',Expires:'0'});}catch{}
@@ -11,6 +13,46 @@ function norm(v){return String(v || '').replace(/\s+/g, ' ').trim();}
 function clean(v){return norm(v).replace(/^ck:/i,'').replace(/^post:/i,'').replace(/^:+/,'').replace(/^['\"]+|['\"]+$/g,'');}
 function splitKey(v){const key=clean(v);const i=key.indexOf(':');return i>0?{commentKey:key,channelId:key.slice(0,i),postId:key.slice(i+1)}:{commentKey:key,channelId:'',postId:''};}
 function handoffKey(v){const raw=norm(v).replace(/^handoff[:=_-]?/i,'').replace(/^h_+/i,'').replace(/[^A-Za-z0-9_-]/g,'');return raw?`h_${raw}`:'';}
+
+function auditLegacyAppJs(){
+  const appPath = path.join(__dirname, 'public', 'app.js');
+  let source = '';
+  try { source = fs.readFileSync(appPath, 'utf8'); } catch (error) {
+    return { ok:false, reason:'app_js_read_failed', error:error?.message || String(error), appPath };
+  }
+  const required = {
+    topNavigation: ['miniAppTopbar','backBtn','searchBtn'],
+    attachments: ['attachBtn','attachmentMenu','attachmentInput'],
+    reactions: ['reactionBar','sendReaction','QUICK_REACTIONS'],
+    actionSheet: ['actionSheet','positionActionSheet','selectedComment'],
+    replies: ['composerReply','clearComposerReply','replyToId'],
+    mediaViewer: ['mediaPreviewModal','mediaViewerModal'],
+    maxBridge: ['getPossibleWebApps','initBridgeUi','getBridgeUser'],
+    legacyUi: ['commentsList','composerCard','renderComments']
+  };
+  const checks = Object.fromEntries(Object.entries(required).map(([name,tokens]) => [name, {
+    ok: tokens.every(token => source.includes(token)),
+    tokens: Object.fromEntries(tokens.map(token => [token, source.includes(token)]))
+  }]));
+  const allOk = Object.values(checks).every(item => item.ok);
+  const suspicious = {
+    standalonePrototypeMarkers: ['cc60_standalone_clean_route','cc61_clean_boot_ui_preserved','clean_boot_ui_preserved'].filter(token => source.includes(token)),
+    hardRedirects: (source.match(/window\.location\.href\s*=/g) || []).length,
+    fetchCalls: (source.match(/fetch\(/g) || []).length,
+    mutationObservers: (source.match(/MutationObserver/g) || []).length,
+    timers: (source.match(/setInterval|setTimeout/g) || []).length
+  };
+  return {
+    ok: allOk,
+    runtimeVersion:RUNTIME,
+    appJsBytes: Buffer.byteLength(source, 'utf8'),
+    appJsApproxKb: Math.round(Buffer.byteLength(source, 'utf8') / 1024),
+    checks,
+    suspicious,
+    verdict: allOk ? 'approved_legacy_ui_tokens_present' : 'legacy_ui_tokens_missing',
+    generatedAt: Date.now()
+  };
+}
 
 async function resolveScope(input = {}){
   const direct = splitKey(input.commentKey || input.key || '');
@@ -91,6 +133,10 @@ function install(app){
       generatedAt:Date.now()
     });
   });
+  app.get('/debug/app-audit',(req,res)=>{
+    noCache(res);
+    res.json(auditLegacyAppJs());
+  });
   return app;
 }
-module.exports={RUNTIME,SOURCE,install,resolveScope,registerDbBackground};
+module.exports={RUNTIME,SOURCE,install,resolveScope,registerDbBackground,auditLegacyAppJs};
