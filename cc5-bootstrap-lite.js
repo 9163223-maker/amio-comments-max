@@ -1,7 +1,7 @@
 'use strict';
 const Module = require('module');
-const RUNTIME = 'CC6.5';
-const SOURCE = 'adminkit-CC6.5-moderation-title-repair';
+const RUNTIME = 'CC6.5.1';
+const SOURCE = 'adminkit-CC6.5.1-debug-truth-alignment';
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
 process.env.BUILD_SOURCE_MARKER = SOURCE;
@@ -43,17 +43,20 @@ function releaseGateStatus(stats, selfTest) {
   return 'pass';
 }
 
-function addRoutes(app) {
-  if (!app || app.__cc65clean) return app;
-  app.__cc65clean = true;
+async function collectDbTruth(req) {
+  const truth = await require('./cc64-moderation-db-truth').collectTruth({ query: { token: String(req.query.token || ''), limit: 20 } });
+  return { ...truth, runtimeVersion: RUNTIME, sourceMarker: SOURCE, wrappedFrom: truth.runtimeVersion || 'CC6.4' };
+}
 
-  // CC6.5: keep approved legacy comments UI; repair channel title display for moderation.
-  // DB work remains background-only and must never block comments opening or posting.
-  try { require('./cc65-moderation-title-repair').install(app); } catch (error) { console.error('[CC6.5 title repair]', error && error.message ? error.message : error); }
-  try { require('./cc64-moderation-db-truth').install(app); } catch (error) { console.error('[CC6.5 DB truth]', error && error.message ? error.message : error); }
-  try { require('./cc63-comments-runtime-audit').install(app); } catch (error) { console.error('[CC6.5 runtime audit]', error && error.message ? error.message : error); }
-  try { require('./cc55-feature-gate').install(app); } catch (error) { console.warn('[CC6.5 feature gate]', error && error.message ? error.message : error); }
-  try { require('./cc54-public-post-register').install(app); } catch (error) { console.warn('[CC6.5 public register]', error && error.message ? error.message : error); }
+function addRoutes(app) {
+  if (!app || app.__cc651clean) return app;
+  app.__cc651clean = true;
+
+  try { require('./cc65-moderation-title-repair').install(app); } catch (error) { console.error('[CC6.5.1 title repair]', error && error.message ? error.message : error); }
+  try { require('./cc64-moderation-db-truth').install(app); } catch (error) { console.error('[CC6.5.1 DB truth]', error && error.message ? error.message : error); }
+  try { require('./cc63-comments-runtime-audit').install(app); } catch (error) { console.error('[CC6.5.1 runtime audit]', error && error.message ? error.message : error); }
+  try { require('./cc55-feature-gate').install(app); } catch (error) { console.warn('[CC6.5.1 feature gate]', error && error.message ? error.message : error); }
+  try { require('./cc54-public-post-register').install(app); } catch (error) { console.warn('[CC6.5.1 public register]', error && error.message ? error.message : error); }
   try { require('./cc52-db-debug-routes').install(app); } catch {}
   try { require('./cc53-db-diagnose').install(app); } catch {}
 
@@ -64,7 +67,7 @@ function addRoutes(app) {
     const runtimeAudit = (() => { try { return require('./cc63-comments-runtime-audit').summarizeRuntime(); } catch { return { appOpenOk: false, verdict: 'audit_not_loaded' }; } })();
     const statsAudit = (() => { try { return require('./cc63-comments-runtime-audit').auditLegacyAppJs(); } catch { return { ok: false }; } })();
     const dbTruth = await (async () => {
-      try { return await require('./cc64-moderation-db-truth').collectTruth({ query: { token: String(req.query.token || ''), limit: 20 } }); }
+      try { return await collectDbTruth(req); }
       catch (error) { return { verdict: 'db_truth_unavailable', summary: {}, error: error && error.message ? error.message : String(error) }; }
     })();
     const titleStatus = await (async () => {
@@ -84,7 +87,7 @@ function addRoutes(app) {
       'commentsRoute: legacy_index_public_app',
       'usesLegacyAppJs: true',
       'uiPolicy: keep_approved_legacy_comments_ui_and_functions',
-      'cleanCoreScope: runtime_audit_backend_routes_db_registration_moderation_db_truth_and_title_repair',
+      'cleanCoreScope: runtime_audit_backend_routes_db_registration_moderation_db_truth_title_repair_debug_alignment',
       'standalonePrototypeDisabled: true',
       'commentsOpenBlocksDb: false',
       'commentsPostBlocksDb: false',
@@ -99,6 +102,8 @@ function addRoutes(app) {
       'appJsApproxKb: ' + (statsAudit.appJsApproxKb || 0),
       'moderationRouter: cc55_single_router',
       'moderationDbTruth: ' + (dbTruth.verdict || 'unknown'),
+      'moderationDbTruthRuntime: ' + RUNTIME,
+      'moderationDbTruthEngine: cc64_collectTruth',
       'moderationDbChannels: ' + (dbTruth.summary?.channels || 0),
       'moderationDbPosts: ' + (dbTruth.summary?.posts || 0),
       'moderationDbRules: ' + (dbTruth.summary?.rules || 0),
@@ -123,7 +128,7 @@ function addRoutes(app) {
       'dbChannels: ' + (stats.channels || 0),
       'dbPosts: ' + (stats.posts || 0),
       'dbRules: ' + (stats.rules || 0),
-      'debugTruth: qa_lite_matches_comments_runtime_moderation_db_truth_and_title_repair',
+      'debugTruth: qa_lite_matches_comments_runtime_moderation_db_truth_title_repair_and_runtime_alignment',
       'featureGateReason: comments_open_is_not_blocked_by_feature_gate'
     ].join('\n') + '\n');
   });
@@ -133,6 +138,36 @@ function addRoutes(app) {
     res.json(routerSelfTest());
   });
 
+  app.get('/debug/mod-db-truth-lite-current', async (req, res) => {
+    noCache(res);
+    try {
+      const truth = await collectDbTruth(req);
+      const lines = [
+        'OK: ' + (truth.verdict === 'db_links_and_rules_look_consistent' ? 'DB_TRUTH_READY' : 'WARNING'),
+        'runtime: ' + RUNTIME,
+        'sourceMarker: ' + SOURCE,
+        'engine: cc64_collectTruth',
+        'wrappedFrom: ' + (truth.wrappedFrom || 'unknown'),
+        'verdict: ' + (truth.verdict || 'unknown'),
+        'admins: ' + (truth.summary?.admins || 0),
+        'channels: ' + (truth.summary?.channels || 0),
+        'posts: ' + (truth.summary?.posts || 0),
+        'rules: ' + (truth.summary?.rules || 0),
+        'channelRules: ' + (truth.summary?.channelRules || 0),
+        'postRules: ' + (truth.summary?.postRules || 0),
+        'channelTitleIsId: ' + (truth.summary?.channelTitleIsId || 0),
+        'postRulesWithoutPost: ' + (truth.summary?.postRulesWithoutPost || 0),
+        'servicePosts: ' + (truth.summary?.servicePosts || 0),
+        'latestChannel: ' + (truth.channels && truth.channels[0] ? `${truth.channels[0].title} (${truth.channels[0].channelId})` : 'none'),
+        'latestPost: ' + (truth.posts && truth.posts[0] ? `${truth.posts[0].title} / ${truth.posts[0].commentKey}` : 'none'),
+        'latestRule: ' + (truth.rules && truth.rules[0] ? `${truth.rules[0].scopeType} / ${truth.rules[0].postId || 'channel'} / ${JSON.stringify(truth.rules[0].customBlocklist || [])}` : 'none')
+      ];
+      res.type('text/plain').send(lines.join('\n') + '\n');
+    } catch (error) {
+      res.status(500).type('text/plain').send('ERROR: ' + (error && error.message ? error.message : String(error)) + '\n');
+    }
+  });
+
   return app;
 }
 
@@ -140,12 +175,12 @@ const oldLoad = Module._load;
 Module._load = function patchedExpressLoad(request, parent, isMain) {
   const loaded = oldLoad.apply(this, arguments);
   try {
-    if (String(request || '') === 'express' && loaded && !loaded.__cc65wrap) {
+    if (String(request || '') === 'express' && loaded && !loaded.__cc651wrap) {
       function expressWrapper() {
         const app = loaded.apply(this, arguments);
         addRoutes(app);
-        if (app && !app.__cc65post) {
-          app.__cc65post = true;
+        if (app && !app.__cc651post) {
+          app.__cc651post = true;
           const oldPost = app.post.bind(app);
           const routeName = '/web' + 'hook';
           app.post = (route, ...handlers) => String(route || '').includes(routeName)
@@ -155,7 +190,7 @@ Module._load = function patchedExpressLoad(request, parent, isMain) {
                     return res.json({ ok: true, handledBy: RUNTIME });
                   }
                 } catch (error) {
-                  console.error('[CC6.5 router]', error && error.message ? error.message : error);
+                  console.error('[CC6.5.1 router]', error && error.message ? error.message : error);
                 }
                 next();
               }, ...handlers)
@@ -165,15 +200,15 @@ Module._load = function patchedExpressLoad(request, parent, isMain) {
       }
       Object.setPrototypeOf(expressWrapper, loaded);
       Object.assign(expressWrapper, loaded);
-      expressWrapper.__cc65wrap = true;
+      expressWrapper.__cc651wrap = true;
       return expressWrapper;
     }
   } catch (error) {
-    console.warn('[CC6.5 bootstrap]', error && error.message ? error.message : error);
+    console.warn('[CC6.5.1 bootstrap]', error && error.message ? error.message : error);
   }
   return loaded;
 };
 
-require('./cc5-db-core').init().catch(error => console.error('[CC6.5 DB]', error && error.message ? error.message : error));
+require('./cc5-db-core').init().catch(error => console.error('[CC6.5.1 DB]', error && error.message ? error.message : error));
 require('./server-sp4058.js');
 try { require('./cc45-public-final').install(); } catch {}
