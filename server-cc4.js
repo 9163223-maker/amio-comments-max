@@ -1,7 +1,7 @@
 'use strict';
 const Module = require('module');
-const RUNTIME = 'CC4.7';
-const SOURCE = 'adminkit-CC4.7-hard-store-moderation-persistence';
+const RUNTIME = 'CC4.8';
+const SOURCE = 'adminkit-CC4.8-menu-renders-saved-rules';
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
 process.env.BUILD_SOURCE_MARKER = SOURCE;
@@ -12,7 +12,7 @@ function noCache(res) {
 }
 function patchStoreHard(loaded) {
   try { return require('./cc46-store-hardfix').patchStore(loaded); } catch (e) {
-    console.error('[CC4.7 store hardfix failed]', e && e.message ? e.message : e);
+    console.error('[CC4.8 store hardfix failed]', e && e.message ? e.message : e);
     return loaded;
   }
 }
@@ -25,20 +25,20 @@ Module._load = function(request, parent, isMain) {
     if ((r === './store' || r.endsWith('/store') || r.endsWith('store.js')) && loaded) {
       return patchStoreHard(loaded);
     }
-    if (r === 'express' && loaded && !loaded.__cc47Wrapped) {
+    if (r === 'express' && loaded && !loaded.__cc48Wrapped) {
       function wrappedExpress() {
         const app = loaded.apply(this, arguments);
-        if (app && !app.__cc47App) {
-          app.__cc47App = true;
+        if (app && !app.__cc48App) {
+          app.__cc48App = true;
           const oldPost = app.post.bind(app);
           app.post = (route, ...handlers) => String(route || '').includes('/webhook')
             ? oldPost(route, async (req, res, next) => {
                 try {
                   const store = patchStoreHard(require('./store'));
-                  const router = require('./cc45-menu-router');
+                  const router = require('./cc48-menu-router');
                   const mods = { store, api: require('./services/maxApi'), config: require('./config') };
                   if (await router.handle(req.body || {}, mods)) return res.json({ ok: true, handledBy: RUNTIME });
-                } catch (e) { console.error('[CC4.7 moderation]', e && e.message ? e.message : e); }
+                } catch (e) { console.error('[CC4.8 moderation]', e && e.message ? e.message : e); }
                 next();
               }, ...handlers)
             : oldPost(route, ...handlers);
@@ -50,7 +50,7 @@ Module._load = function(request, parent, isMain) {
               'sourceMarker: ' + SOURCE,
               'versionFormat: CC',
               'activeEntry: server-cc4.js',
-              'postModerationToggle: cc47_hard_store_persistence',
+              'postModerationToggle: cc48_menu_uses_saved_rules',
               'postScopeContinuation: fixed',
               'stopwordContinuation: fixed',
               'singleModerationMenu: edit_on_callback_send_on_text',
@@ -61,7 +61,7 @@ Module._load = function(request, parent, isMain) {
           });
           app.get('/debug/runtime-marker', (req, res) => {
             noCache(res);
-            res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, activeEntry: 'server-cc4.js', postModerationToggle: 'cc47_hard_store_persistence', generatedAt: Date.now() });
+            res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, activeEntry: 'server-cc4.js', postModerationToggle: 'cc48_menu_uses_saved_rules', generatedAt: Date.now() });
           });
           app.get('/debug/mod-rules', (req, res) => {
             noCache(res);
@@ -76,10 +76,10 @@ Module._load = function(request, parent, isMain) {
       }
       Object.setPrototypeOf(wrappedExpress, loaded);
       Object.assign(wrappedExpress, loaded);
-      wrappedExpress.__cc47Wrapped = true;
+      wrappedExpress.__cc48Wrapped = true;
       return wrappedExpress;
     }
-  } catch (e) { console.warn('[CC4.7 patch skipped]', e && e.message ? e.message : e); }
+  } catch (e) { console.warn('[CC4.8 patch skipped]', e && e.message ? e.message : e); }
   return loaded;
 };
 
