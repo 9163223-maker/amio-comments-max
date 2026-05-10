@@ -4,8 +4,8 @@
 // Safe Core Freeze: this module does not touch Dockerfile, package.json, boot, express, app.post, Module._load, webhook bootstrap, debug/store, or debug/ping.
 // It is intentionally isolated and must be connected only by an existing safe router layer after self-test passes.
 
-const VERSION = 'menu-v3-feature-adapter-1';
-const SOURCE = 'adminkit-menu-v3-feature-adapter-safe-isolated';
+const VERSION = 'menu-v3-feature-adapter-2';
+const SOURCE = 'adminkit-menu-v3-feature-adapter-data-aware-safe-isolated';
 
 const MAIN_ROUTES = [
   ['channels:home', '📺 Каналы'],
@@ -64,6 +64,11 @@ function nav(owner) {
   ];
 }
 
+function postTitle(post, index) {
+  const title = normalize(post && post.title) || normalize(post && post.postId) || `Пост ${index + 1}`;
+  return `${index + 1}. ${title}`;
+}
+
 function mainHome() {
   return {
     ok: true,
@@ -118,14 +123,77 @@ function sectionHome(owner) {
   };
 }
 
-function choosePost(owner) {
+function choosePost(owner, context = {}) {
+  const dataContext = context.dataContext || {};
+  const posts = Array.isArray(dataContext.posts) ? dataContext.posts : [];
+  if (dataContext.ok && posts.length) {
+    const rows = posts.map((post, index) => [button(postTitle(post, index), `${owner}:post`, {
+      owner,
+      postId: normalize(post.postId),
+      commentKey: normalize(post.commentKey),
+      channelId: normalize(dataContext.channelId),
+      channelTitle: normalize(dataContext.channelTitle),
+      postTitle: normalize(post.title),
+    })]);
+    return {
+      ok: true,
+      route: `${owner}:choose_post`,
+      owner,
+      dataBound: true,
+      text: `${SECTION_TITLES[owner] || owner} → выбор поста\n\n📺 ${normalize(dataContext.channelTitle) || 'Канал'}\nПостов найдено: ${posts.length}\n\nВыберите пост.`,
+      attachments: keyboard([...rows, ...nav(owner)]),
+    };
+  }
+
   return {
     ok: true,
     route: `${owner}:choose_post`,
     owner,
     needsData: 'posts',
-    text: `${SECTION_TITLES[owner] || owner} → выбор поста\n\nСписок постов должен передать внешний безопасный router-adapter. Этот feature-adapter не читает базу и не трогает core.`,
+    text: `${SECTION_TITLES[owner] || owner} → выбор поста\n\nПосты пока не переданы в экран. Безопасный feature-adapter не читает базу сам и не трогает core.`,
     attachments: keyboard(nav(owner)),
+  };
+}
+
+function postScreen(owner, context = {}) {
+  const payload = context.payload || context.post || {};
+  const title = normalize(payload.postTitle) || normalize(payload.title) || normalize(payload.postId) || 'выбранный пост';
+  const rowsByOwner = {
+    comments: [
+      [button('✅/⏸ Комменты', 'comments:toggle', payload), button('🖼 Баннер', 'comments_banner:home', payload)],
+      [button('❤️ Реакции', 'comments_reactions:home', payload), button('📷 Фото', 'comments_photo:home', payload)],
+      [button('📌 К списку', 'comments:choose_post')],
+    ],
+    moderation: [
+      [button('🛡 Правила канала', 'moderation:channel', payload), button('🎯 Правила поста', 'moderation:post', payload)],
+      [button('➕ Стоп-слово', 'moderation:add_word', payload), button('📋 Журнал', 'moderation:logs', payload)],
+      [button('📌 К списку', 'moderation:choose_post')],
+    ],
+    editor: [
+      [button('✏️ Текст', 'editor:edit_text', payload), button('👀 Предпросмотр', 'editor:preview', payload)],
+      [button('💾 Сохранить', 'editor:save', payload), button('↩️ Оригинал', 'editor:restore_original', payload)],
+      [button('📌 К списку', 'editor:choose_post')],
+    ],
+    buttons: [
+      [button('➕ Добавить кнопку', 'buttons:add', payload), button('📋 Кнопки поста', 'buttons:list', payload)],
+      [button('📌 К списку', 'buttons:choose_post')],
+    ],
+    gifts: [
+      [button('🎁 Создать подарок', 'gifts:create', payload), button('🧪 Тест выдачи', 'gifts:test_send', payload)],
+      [button('🔐 Проверка подписки', 'gifts:check_subscription', payload)],
+      [button('📌 К списку', 'gifts:choose_post')],
+    ],
+    stats: [
+      [button('📊 Статистика поста', 'stats:post', payload), button('📤 Экспорт', 'stats:export_post', payload)],
+      [button('📌 К списку', 'stats:choose_post')],
+    ],
+  };
+  return {
+    ok: true,
+    route: `${owner}:post`,
+    owner,
+    text: `${SECTION_TITLES[owner] || owner} → пост\n\n📝 ${title}\n\nВыберите действие.`,
+    attachments: keyboard([...(rowsByOwner[owner] || []), ...nav(owner)]),
   };
 }
 
@@ -141,13 +209,14 @@ function safeError(route, error) {
   };
 }
 
-function render(route, context) {
+function render(route, context = {}) {
   try {
     const safeRoute = normalize(route || 'main:home');
     if (safeRoute === 'main:home' || safeRoute === 'start' || safeRoute === '/start') return mainHome();
     const owner = ownerOf(safeRoute);
     if (safeRoute.endsWith(':home')) return sectionHome(owner);
-    if (safeRoute.endsWith(':choose_post')) return choosePost(owner);
+    if (safeRoute.endsWith(':choose_post')) return choosePost(owner, context);
+    if (safeRoute.endsWith(':post')) return postScreen(owner, context);
     if (safeRoute.startsWith('help:')) return sectionHome('help');
     return sectionHome(owner);
   } catch (error) {
@@ -157,7 +226,15 @@ function render(route, context) {
 
 function selfTest() {
   const routes = ['main:home', ...MAIN_ROUTES.map(([route]) => route), 'comments:choose_post', 'moderation:choose_post', 'editor:choose_post', 'gifts:choose_post'];
-  const results = routes.map(route => render(route, {}));
+  const sampleContext = {
+    dataContext: {
+      ok: true,
+      channelId: 'test-channel',
+      channelTitle: 'Тестовый канал',
+      posts: [{ postId: '1', commentKey: 'test-channel:1', title: 'Тестовый пост' }],
+    },
+  };
+  const results = routes.map(route => render(route, route.endsWith(':choose_post') ? sampleContext : {}));
   return {
     ok: results.every(result => result && result.text && Array.isArray(result.attachments)),
     version: VERSION,
