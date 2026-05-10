@@ -1,10 +1,10 @@
 {
   "name": "amio-comments-max",
-  "version": "CC6.5.3.3",
+  "version": "CC6.5.3.7",
   "private": true,
-  "main": "main-cc6533.js",
+  "main": "main-cc6537.js",
   "scripts": {
-    "start": "node main-cc6533.js"
+    "start": "node main-cc6537.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
