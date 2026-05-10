@@ -1,17 +1,14 @@
 {
-  "runtimeVersion": "SP38",
-  "buildVersion": "SP38",
-  "displayVersion": "SP38",
-  "sourceMarker": "adminkit-SP38-media-core-rebuild",
-  "buildGeneratedAt": "2026-05-04T16:45:00Z",
+  "runtimeVersion": "CC6.5.4.8-SAFE-DIAG",
+  "buildVersion": "CC6.5.4.8-SAFE-DIAG",
+  "displayVersion": "CC6.5.4.8-SAFE-DIAG",
+  "packageVersion": "CC6.5.4.8",
+  "sourceMarker": "adminkit-CC6.5.4.8-safe-diagnostic-boot",
+  "buildGeneratedAt": "2026-05-10T22:58:00Z",
   "notes": [
-    "Media core rebuild: introduce /api/media/upload, /api/media/status/:id and /api/media/file/:id.",
-    "Separate file upload from comment persistence through uploadId-based attachments.",
-    "Patch commentService so stored attachments are rehydrated from media upload state on list/create.",
-    "Video is stored as processing when needed and transcoded asynchronously to web-safe MP4 with Range support.",
-    "PDF/files/images are served from same-origin /api/media/file with stable Content-Type, Content-Disposition, Accept-Ranges and Content-Length headers.",
-    "Client runtime patch removes abort signals from media/comment mutation fetches and extends fetchJsonWithTimeout to avoid Fetch is aborted during file saves.",
-    "Hide technical 'не синхр.' text from the user UI; keep diagnostics in debug only.",
-    "Add /debug/media and /debug/uploads for focused media diagnostics."
+    "Emergency safe diagnostic boot after broken V3 live renderer wrapper.",
+    "Server must start; V3 renderer debug endpoints are exposed without attaching business renderer to webhook.",
+    "Production Menu Map V3 remains fixed; V3 Renderer business logic will be reattached only after isolated startup test.",
+    "No legacy data reset. Connected channel persistence remains untouched."
   ]
 }
