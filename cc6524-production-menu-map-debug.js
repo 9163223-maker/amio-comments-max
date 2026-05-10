@@ -1,11 +1,11 @@
 'use strict';
 
 // CC6.5.2.4 production menu map debug/QA layer.
-// Exposes a stable production map where every button has owner, tariffGate and status.
+// Exposes production menu map v2 where every button has owner, tariffGate and status.
 
 const Module = require('module');
 const RUNTIME = 'CC6.5.2.4';
-const SOURCE = 'adminkit-CC6.5.2.4-production-menu-map';
+const SOURCE = 'adminkit-CC6.5.2.4-production-menu-map-v2';
 
 function noCache(res) {
   try {
@@ -16,117 +16,51 @@ function noCache(res) {
     });
   } catch {}
 }
-
-function norm(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
-
-function loadMap() {
-  return require('./production-menu-map');
-}
-
-function sendText(res, lines) {
-  noCache(res);
-  return res.type('text/plain').send(lines.join('\n') + '\n');
-}
-
+function norm(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function loadMap() { return require('./production-menu-map-v2'); }
+function sendText(res, lines) { noCache(res); return res.type('text/plain').send(lines.join('\n') + '\n'); }
 function sendProductionMenuSummary(req, res) {
   const map = loadMap();
   const lines = map.getProductionMenuSummaryLines();
-  return sendText(res, [
-    ...lines,
-    'runtime: ' + RUNTIME,
-    'sourceMarker: ' + SOURCE,
-    'debugJson: /debug/production-menu-map',
-    'debugOwner: /debug/production-menu-owner?owner=comments'
-  ]);
+  return sendText(res, [...lines, 'runtime: ' + RUNTIME, 'sourceMarker: ' + SOURCE, 'debugJson: /debug/production-menu-map', 'debugOwner: /debug/production-menu-owner?owner=comments']);
 }
-
 function sendProductionMenuMap(req, res) {
   noCache(res);
   const map = loadMap();
-  return res.json({
-    ok: true,
-    runtimeVersion: RUNTIME,
-    sourceMarker: SOURCE,
-    validation: map.validateProductionMenuMap(),
-    menu: map.getProductionMenuMap()
-  });
+  return res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, validation: map.validateProductionMenuMap(), menu: map.getProductionMenuMap() });
 }
-
 function sendProductionMenuValidation(req, res) {
   noCache(res);
   const map = loadMap();
   const validation = map.validateProductionMenuMap();
-  return res.json({
-    ok: validation.ok,
-    runtimeVersion: RUNTIME,
-    sourceMarker: SOURCE,
-    validation
-  });
+  return res.json({ ok: validation.ok, runtimeVersion: RUNTIME, sourceMarker: SOURCE, validation });
 }
-
 function sendOwner(req, res) {
   noCache(res);
   const owner = norm(req.query?.owner || '').toLowerCase();
   const map = loadMap();
-  if (!owner) {
-    return res.status(400).json({
-      ok: false,
-      error: 'owner_required',
-      example: '/debug/production-menu-owner?owner=comments',
-      owners: map.OWNER_ORDER
-    });
-  }
-  return res.json({
-    ok: true,
-    runtimeVersion: RUNTIME,
-    sourceMarker: SOURCE,
-    owner,
-    items: map.getByOwner(owner)
-  });
+  if (!owner) return res.status(400).json({ ok: false, error: 'owner_required', example: '/debug/production-menu-owner?owner=comments', owners: map.OWNER_ORDER });
+  return res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, owner, items: map.getByOwner(owner) });
 }
-
 function sendRoute(req, res) {
   noCache(res);
   const route = norm(req.query?.route || '');
   const map = loadMap();
-  if (!route) {
-    return res.status(400).json({
-      ok: false,
-      error: 'route_required',
-      example: '/debug/production-menu-route?route=comments:choose_post'
-    });
-  }
+  if (!route) return res.status(400).json({ ok: false, error: 'route_required', example: '/debug/production-menu-route?route=comments:choose_post' });
   const item = map.getRoute(route);
-  return res.json({
-    ok: Boolean(item),
-    runtimeVersion: RUNTIME,
-    sourceMarker: SOURCE,
-    route,
-    item
-  });
+  return res.json({ ok: Boolean(item), runtimeVersion: RUNTIME, sourceMarker: SOURCE, route, item });
 }
-
 function sendTariffMatrix(req, res) {
   noCache(res);
   const map = loadMap();
-  const items = map.MENU_ITEMS;
-  const matrix = items.reduce((acc, item) => {
+  const matrix = map.MENU_ITEMS.reduce((acc, item) => {
     const tariff = item.tariffGate || 'unknown';
     if (!acc[tariff]) acc[tariff] = [];
     acc[tariff].push({ route: item.route, owner: item.owner, title: item.title, status: item.status, visible: item.visible });
     return acc;
   }, {});
-  return res.json({
-    ok: true,
-    runtimeVersion: RUNTIME,
-    sourceMarker: SOURCE,
-    tariffs: map.TARIFF,
-    matrix
-  });
+  return res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, tariffs: map.TARIFF, matrix });
 }
-
 function installExpressPatch() {
   if (Module._load.__cc6524ProductionMenuMapPatch) return;
   const oldLoad = Module._load;
@@ -160,7 +94,6 @@ function installExpressPatch() {
   patchedLoad.__cc6524ProductionMenuMapPatch = true;
   Module._load = patchedLoad;
 }
-
 function install() {
   process.env.BUILD_VERSION = RUNTIME;
   process.env.RUNTIME_VERSION = RUNTIME;
@@ -168,5 +101,4 @@ function install() {
   installExpressPatch();
   return { ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE };
 }
-
 module.exports = { RUNTIME, SOURCE, install };
