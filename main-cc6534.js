@@ -1,0 +1,14 @@
+'use strict';
+require('./cc6524-production-menu-map-debug').install();
+require('./cc6522-persistence-hotfix').install();
+require('./cc6526-production-test-ui').install();
+require('./cc6527-channel-access-check').install();
+require('./cc6528-access-status-route').install();
+require('./cc6532-moderation-icons-toggle-fix').install();
+require('./cc6534-legacy-moderation-bypass').install();
+require('./cc6533-router-priority-debug').install();
+require('./cc652-silent-callbacks').install();
+process.env.BUILD_VERSION='CC6.5.3.4';
+process.env.RUNTIME_VERSION='CC6.5.3.4';
+process.env.BUILD_SOURCE_MARKER='adminkit-CC6.5.3.4-legacy-moderation-bypass';
+require('./cc5-bootstrap-lite');
