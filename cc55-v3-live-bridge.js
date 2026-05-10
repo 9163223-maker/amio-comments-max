@@ -4,8 +4,8 @@ const db = require('./cc5-db-core');
 const api = require('./services/maxApi');
 const config = require('./config');
 const v3 = require('./menu-v3-feature-adapter-fixed');
-const RUNTIME = 'CC6.5.5.3-V3-BRIDGE';
-const SOURCE = 'adminkit-CC6.5.5.3-v3-live-bridge-selftest-truth';
+const RUNTIME = 'CC6.5.5.4-V3-BRIDGE';
+const SOURCE = 'adminkit-CC6.5.5.4-v3-live-bridge-bot-started-menu';
 
 const norm = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 
@@ -14,15 +14,51 @@ function adminId(u = {}) { return db.adminId(u); }
 function callback(u = {}) { return db.cb(u); }
 function route(u = {}) { return v3.routeFromUpdate(u); }
 
+function updateType(u = {}) {
+  return norm(
+    u.update_type ||
+    u.updateType ||
+    u.type ||
+    u.event_type ||
+    u.eventType ||
+    u.data?.update_type ||
+    u.data?.updateType ||
+    u.update?.update_type ||
+    u.update?.updateType ||
+    ''
+  ).toLowerCase();
+}
+
+function actionName(u = {}) {
+  const p = payload(u);
+  return norm(
+    p.r ||
+    p.route ||
+    p.action ||
+    p.command ||
+    p.payload ||
+    u.payload ||
+    u.data?.payload ||
+    u.update?.payload ||
+    db.action(u) ||
+    ''
+  ).toLowerCase();
+}
+
+function isBotStartedMenu(u = {}) {
+  const t = updateType(u);
+  const a = actionName(u);
+  return ['bot_started', 'botstarted'].includes(t) && ['menu', 'start', '/start', 'main:home', 'ak_main_menu', 'главное меню'].includes(a);
+}
+
 function messageIdFromResult(result) {
   const match = JSON.stringify(result || {}).match(/"(?:message_id|messageId|id)"\s*:\s*"([^"{}]+)"/);
   return match ? match[1] : '';
 }
 
 function isMain(u = {}) {
-  const p = payload(u);
-  const a = norm(p.r || p.route || p.action || db.action(u) || '').toLowerCase();
-  return ['ak_main_menu', 'main:home', 'main_menu', 'menu_main', 'home', 'start', '/start', 'главное меню'].includes(a) || /главн.*меню/.test(a);
+  const a = actionName(u);
+  return ['ak_main_menu', 'main:home', 'main_menu', 'menu_main', 'home', 'start', '/start', 'menu', 'главное меню'].includes(a) || /главн.*меню/.test(a);
 }
 
 function isTextMain(u = {}) {
@@ -32,8 +68,7 @@ function isTextMain(u = {}) {
 }
 
 function isMod(u = {}) {
-  const p = payload(u);
-  const a = norm(p.r || p.route || p.action || db.action(u) || '').toLowerCase();
+  const a = actionName(u);
   return a.startsWith('mod_') || a.startsWith('moderation:') || a === 'модерация';
 }
 
@@ -69,7 +104,7 @@ async function repairKnownChannelTitles(uid, explicit = '') {
   return { checked, updated };
 }
 
-async function handleTextMain(update, uid) {
+async function handleMainMenu(update, uid, mode = 'main') {
   const packet = await v3.renderScreen('main:home', uid, {});
   const result = await api.sendMessage({
     ['bot'+'Token']: config['bot'+'Token'],
@@ -87,9 +122,13 @@ async function handleTextMain(update, uid) {
     handledBy: RUNTIME,
     sourceMarker: SOURCE,
     route: 'main:home',
-    mode: 'text-main',
+    mode,
     messageId: mid
   };
+}
+
+async function handleTextMain(update, uid) {
+  return handleMainMenu(update, uid, 'text-main');
 }
 
 async function handle(update = {}) {
@@ -97,6 +136,11 @@ async function handle(update = {}) {
 
   const uid = adminId(update);
   if (!uid) return false;
+
+  if (isBotStartedMenu(update)) {
+    await handleMainMenu(update, uid, 'bot-started-menu');
+    return true;
+  }
 
   if (isTextMain(update)) {
     await handleTextMain(update, uid);
@@ -154,6 +198,7 @@ function selfTest() {
     canonicalModerationOk: !!baseTest.ok,
     mainMenuOwnedByV3: v3.canHandleRoute('main:home') === true,
     textStartOwnedByV3Bridge: true,
+    botStartedMenuOwnedByV3: isBotStartedMenu({ update_type: 'bot_started', payload: 'menu' }),
     commentsChoosePostOwnedByV3: v3.canHandleRoute('comments:choose_post') === true,
     editorChoosePostOwnedByV3: v3.canHandleRoute('editor:choose_post') === true,
     moderationOwnedByCanonicalRouter: v3.canHandleRoute('moderation:choose_post') === false,
@@ -178,5 +223,6 @@ module.exports = {
   handle,
   selfTest,
   isMainMenuAction: isMain,
+  isBotStartedMenu,
   repairKnownChannelTitles
 };
