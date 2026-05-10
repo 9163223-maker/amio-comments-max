@@ -1,15 +1,15 @@
 'use strict';
 
-const menuReliability = require('./cc6521-start-logo-hotfix');
-const silentCallbacks = require('./cc652-silent-callbacks');
+const cleanMenu = require('./cc6523-clean-menu-router');
 const persistence = require('./cc6522-persistence-hotfix');
+const silentCallbacks = require('./cc652-silent-callbacks');
 
-menuReliability.install();
-silentCallbacks.install();
+cleanMenu.install();
 persistence.install();
+silentCallbacks.install();
 
-process.env.BUILD_VERSION = 'CC6.5.2.2';
-process.env.RUNTIME_VERSION = 'CC6.5.2.2';
-process.env.BUILD_SOURCE_MARKER = 'adminkit-CC6.5.2.2-persistence-hotfix';
+process.env.BUILD_VERSION = 'CC6.5.2.3';
+process.env.RUNTIME_VERSION = 'CC6.5.2.3';
+process.env.BUILD_SOURCE_MARKER = 'adminkit-CC6.5.2.3-clean-menu-router';
 
 require('./cc5-bootstrap-lite');
