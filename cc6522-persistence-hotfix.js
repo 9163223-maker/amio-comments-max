@@ -1,21 +1,25 @@
 'use strict';
 
 // CC6.5.2.2 persistence hotfix.
-// Production rule: minor UI/menu updates must not erase connected channels, posts or admin context.
+// Rule: minor UI/menu updates must not reset connected channels, posts or admin context.
 // PostgreSQL is the durable source; runtime store is rehydrated from DB after every redeploy.
 
 const Module = require('module');
 
 const RUNTIME = 'CC6.5.2.2';
 const SOURCE = 'adminkit-CC6.5.2.2-persistence-hotfix';
+const RETRY_DELAYS_MS = [0, 900, 2500, 6000];
 const state = {
   installed: false,
   storePatched: false,
+  channelServicePatched: false,
   expressPatched: false,
   hydrationStartedAt: 0,
   hydrationFinishedAt: 0,
   hydrationOk: false,
   hydrationError: '',
+  hydrationAttempts: 0,
+  lastHydrationReason: '',
   hydratedChannels: 0,
   hydratedPosts: 0,
   hydratedFlows: 0,
@@ -29,22 +33,22 @@ const state = {
 
 function norm(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
 function noCache(res) { try { res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0', Pragma: 'no-cache', Expires: '0' }); } catch {} }
+function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 function hasDb() { return Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.POSTGRES_URL); }
-function safeJson(value) { try { return JSON.stringify(value || {}); } catch { return '{}'; } }
 function channelIdOf(item = {}) { return norm(item.channel_id || item.channelId || item.id || item.chat_id || item.chatId || ''); }
 function titleOf(item = {}) { return norm(item.title || item.channelTitle || item.name || item.chatTitle || channelIdOf(item)); }
 function adminOf(data = {}) { return norm(data.adminId || data.userId || data.ownerId || data.createdBy || data.admin_id || ''); }
 function activeChannelOf(data = {}) { return norm(data.activeChannelId || data.selectedChannelId || data.channelId || data.channel_id || data.currentChannelId || ''); }
+function isRetryableDbError(error) { return /timeout|terminated|econn|connection|socket|pool|closed/i.test(String(error?.message || error || '')); }
 
 async function countTable(db, table) {
   try { const { rows } = await db.query(`select count(*)::int as n from ${table}`); return rows[0]?.n || 0; }
   catch (error) { return { error: error?.message || String(error) }; }
 }
-
 async function collectDbCounts() {
-  if (!hasDb()) return { dbUrlPresent: false };
+  if (!hasDb()) return { dbUrlPresent: false, reachable: false };
   const db = require('./cc5-db-core');
-  const counts = { dbUrlPresent: true };
+  const counts = { dbUrlPresent: true, reachable: false };
   try {
     await db.init();
     counts.reachable = true;
@@ -54,132 +58,161 @@ async function collectDbCounts() {
     counts.posts = await countTable(db, 'ak_posts');
     counts.flowStates = await countTable(db, 'ak_flow_state');
   } catch (error) {
-    counts.reachable = false;
     counts.error = error?.message || String(error);
   }
   return counts;
 }
+async function queryRetry(db, sql, params = []) {
+  let lastError = null;
+  for (let i = 0; i < RETRY_DELAYS_MS.length; i += 1) {
+    if (RETRY_DELAYS_MS[i]) await sleep(RETRY_DELAYS_MS[i]);
+    try { return await db.query(sql, params); }
+    catch (error) {
+      lastError = error;
+      if (!isRetryableDbError(error)) break;
+    }
+  }
+  throw lastError;
+}
 
-async function hydrateFromDb(reason = 'boot') {
+function resetHydrationCounters(reason) {
   state.hydrationStartedAt = Date.now();
   state.hydrationFinishedAt = 0;
   state.hydrationOk = false;
   state.hydrationError = '';
+  state.hydrationAttempts += 1;
+  state.lastHydrationReason = reason;
   state.hydratedChannels = 0;
   state.hydratedPosts = 0;
   state.hydratedFlows = 0;
   state.hydratedAdminLinks = 0;
+}
+
+async function hydrateOnce(reason = 'boot') {
+  const db = require('./cc5-db-core');
+  const store = require('./store');
+  await db.init();
+
+  const channels = await queryRetry(db, `
+    select c.channel_id as "channelId", coalesce(nullif(c.title,''), c.channel_id) as title,
+           c.raw as raw, c.updated_at as "updatedAt"
+    from ak_channels c
+    order by c.updated_at desc
+    limit 200
+  `);
+  for (const row of channels.rows || []) {
+    const channelId = channelIdOf(row);
+    if (!channelId || typeof store.saveChannel !== 'function') continue;
+    store.saveChannel(channelId, {
+      title: titleOf(row),
+      channelTitle: titleOf(row),
+      restoredFromDb: true,
+      restoredReason: reason,
+      dbUpdatedAt: row.updatedAt || null,
+      raw: row.raw || {}
+    });
+    state.hydratedChannels += 1;
+  }
+
+  const links = await queryRetry(db, `
+    select ac.admin_id as "adminId", ac.channel_id as "channelId",
+           coalesce(nullif(c.title,''), c.channel_id) as title, ac.updated_at as "updatedAt"
+    from ak_admin_channels ac
+    left join ak_channels c on c.channel_id = ac.channel_id
+    order by ac.updated_at desc
+    limit 500
+  `);
+  for (const row of links.rows || []) {
+    const adminId = norm(row.adminId);
+    const channelId = channelIdOf(row);
+    if (!adminId || !channelId || typeof store.setSetupState !== 'function') continue;
+    store.setSetupState(adminId, {
+      activeChannelId: channelId,
+      selectedChannelId: channelId,
+      channelId,
+      channelTitle: titleOf(row),
+      restoredFromDb: true,
+      restoredReason: reason,
+      updatedAt: Date.now()
+    });
+    state.hydratedAdminLinks += 1;
+    if (!state.lastAdminId) state.lastAdminId = adminId;
+    if (!state.lastActiveChannelId) state.lastActiveChannelId = channelId;
+  }
+
+  const posts = await queryRetry(db, `
+    select admin_id as "adminId", channel_id as "channelId", post_id as "postId",
+           message_id as "messageId", comment_key as "commentKey",
+           coalesce(nullif(title,''), post_id) as title, raw, updated_at as "updatedAt"
+    from ak_posts
+    order by updated_at desc
+    limit 500
+  `);
+  for (const row of posts.rows || []) {
+    const commentKey = norm(row.commentKey || (row.channelId && row.postId ? `${row.channelId}:${row.postId}` : ''));
+    if (!commentKey || typeof store.savePost !== 'function') continue;
+    store.savePost(commentKey, {
+      channelId: norm(row.channelId),
+      postId: norm(row.postId),
+      messageId: norm(row.messageId),
+      originalText: titleOf(row),
+      linkedByName: titleOf(row),
+      title: titleOf(row),
+      restoredFromDb: true,
+      restoredReason: reason,
+      dbUpdatedAt: row.updatedAt || null,
+      raw: row.raw || {}
+    });
+    state.hydratedPosts += 1;
+  }
+
+  const flows = await queryRetry(db, `select admin_id as "adminId", flow from ak_flow_state order by updated_at desc limit 200`);
+  for (const row of flows.rows || []) {
+    if (!row.adminId || typeof store.setSetupState !== 'function') continue;
+    const flow = row.flow && typeof row.flow === 'object' ? row.flow : {};
+    const activeChannelId = activeChannelOf(flow);
+    store.setSetupState(row.adminId, {
+      ...flow,
+      ...(activeChannelId ? { activeChannelId, selectedChannelId: activeChannelId, channelId: activeChannelId } : {}),
+      restoredFromDb: true,
+      restoredReason: reason,
+      updatedAt: Date.now()
+    });
+    state.hydratedFlows += 1;
+    if (!state.lastAdminId) state.lastAdminId = row.adminId;
+    if (!state.lastActiveChannelId && activeChannelId) state.lastActiveChannelId = activeChannelId;
+  }
+}
+
+async function hydrateFromDb(reason = 'boot') {
   if (!hasDb()) {
+    resetHydrationCounters(reason);
     state.hydrationFinishedAt = Date.now();
     state.hydrationError = 'database_url_missing';
-    state.dbCounts = { dbUrlPresent: false };
-    return { ok: false, error: 'database_url_missing' };
-  }
-
-  try {
-    const db = require('./cc5-db-core');
-    const store = require('./store');
-    await db.init();
-
-    const channels = await db.query(`
-      select c.channel_id as "channelId", coalesce(nullif(c.title,''), c.channel_id) as title, c.raw as raw,
-             c.updated_at as "updatedAt"
-      from ak_channels c
-      order by c.updated_at desc
-      limit 200
-    `);
-    for (const row of channels.rows || []) {
-      const channelId = channelIdOf(row);
-      if (!channelId || typeof store.saveChannel !== 'function') continue;
-      store.saveChannel(channelId, {
-        title: titleOf(row),
-        channelTitle: titleOf(row),
-        restoredFromDb: true,
-        restoredReason: reason,
-        dbUpdatedAt: row.updatedAt || null,
-        raw: row.raw || {}
-      });
-      state.hydratedChannels += 1;
-    }
-
-    const links = await db.query(`
-      select ac.admin_id as "adminId", ac.channel_id as "channelId", coalesce(nullif(c.title,''), c.channel_id) as title,
-             ac.updated_at as "updatedAt"
-      from ak_admin_channels ac
-      left join ak_channels c on c.channel_id = ac.channel_id
-      order by ac.updated_at desc
-      limit 500
-    `);
-    for (const row of links.rows || []) {
-      const adminId = norm(row.adminId);
-      const channelId = channelIdOf(row);
-      if (!adminId || !channelId || typeof store.setSetupState !== 'function') continue;
-      store.setSetupState(adminId, {
-        activeChannelId: channelId,
-        selectedChannelId: channelId,
-        channelId,
-        channelTitle: titleOf(row),
-        restoredFromDb: true,
-        restoredReason: reason,
-        updatedAt: Date.now()
-      });
-      state.hydratedAdminLinks += 1;
-      if (!state.lastAdminId) state.lastAdminId = adminId;
-      if (!state.lastActiveChannelId) state.lastActiveChannelId = channelId;
-    }
-
-    const posts = await db.query(`
-      select admin_id as "adminId", channel_id as "channelId", post_id as "postId", message_id as "messageId",
-             comment_key as "commentKey", coalesce(nullif(title,''), post_id) as title, raw, updated_at as "updatedAt"
-      from ak_posts
-      order by updated_at desc
-      limit 500
-    `);
-    for (const row of posts.rows || []) {
-      const commentKey = norm(row.commentKey || (row.channelId && row.postId ? `${row.channelId}:${row.postId}` : ''));
-      if (!commentKey || typeof store.savePost !== 'function') continue;
-      store.savePost(commentKey, {
-        channelId: norm(row.channelId),
-        postId: norm(row.postId),
-        messageId: norm(row.messageId),
-        originalText: titleOf(row),
-        linkedByName: titleOf(row),
-        title: titleOf(row),
-        restoredFromDb: true,
-        restoredReason: reason,
-        dbUpdatedAt: row.updatedAt || null,
-        raw: row.raw || {}
-      });
-      state.hydratedPosts += 1;
-    }
-
-    const flows = await db.query(`select admin_id as "adminId", flow from ak_flow_state order by updated_at desc limit 200`);
-    for (const row of flows.rows || []) {
-      if (!row.adminId || typeof store.setSetupState !== 'function') continue;
-      const flow = row.flow && typeof row.flow === 'object' ? row.flow : {};
-      const activeChannelId = activeChannelOf(flow);
-      store.setSetupState(row.adminId, {
-        ...flow,
-        ...(activeChannelId ? { activeChannelId, selectedChannelId: activeChannelId, channelId: activeChannelId } : {}),
-        restoredFromDb: true,
-        restoredReason: reason,
-        updatedAt: Date.now()
-      });
-      state.hydratedFlows += 1;
-      if (!state.lastAdminId) state.lastAdminId = row.adminId;
-      if (!state.lastActiveChannelId && activeChannelId) state.lastActiveChannelId = activeChannelId;
-    }
-
-    state.dbCounts = await collectDbCounts();
-    state.hydrationOk = true;
-    state.hydrationFinishedAt = Date.now();
-    return { ok: true, ...snapshot() };
-  } catch (error) {
-    state.hydrationError = error?.message || String(error);
-    state.hydrationFinishedAt = Date.now();
-    state.dbCounts = await collectDbCounts();
+    state.dbCounts = { dbUrlPresent: false, reachable: false };
     return { ok: false, error: state.hydrationError, ...snapshot() };
   }
+
+  let lastError = null;
+  for (let attempt = 0; attempt < RETRY_DELAYS_MS.length; attempt += 1) {
+    resetHydrationCounters(`${reason}:attempt_${attempt + 1}`);
+    if (RETRY_DELAYS_MS[attempt]) await sleep(RETRY_DELAYS_MS[attempt]);
+    try {
+      await hydrateOnce(reason);
+      state.dbCounts = await collectDbCounts();
+      state.hydrationOk = true;
+      state.hydrationError = '';
+      state.hydrationFinishedAt = Date.now();
+      return { ok: true, ...snapshot() };
+    } catch (error) {
+      lastError = error;
+      state.hydrationError = error?.message || String(error);
+      state.hydrationFinishedAt = Date.now();
+      if (!isRetryableDbError(error)) break;
+    }
+  }
+  state.dbCounts = await collectDbCounts();
+  return { ok: false, error: lastError?.message || String(lastError || 'hydrate_failed'), ...snapshot() };
 }
 
 function patchStoreExports() {
@@ -192,9 +225,8 @@ function patchStoreExports() {
     store.saveChannel = function saveChannelPersistent(channelId, data = {}) {
       const saved = original(channelId, data);
       const adminId = adminOf(data);
-      const title = titleOf(data) || channelId;
       if (adminId && channelId && hasDb()) {
-        require('./cc5-db-core').upsertChannel(adminId, String(channelId), title, { source: 'cc6522_saveChannel', data })
+        require('./cc5-db-core').upsertChannel(adminId, String(channelId), titleOf(data) || String(channelId), { source: 'cc6522_saveChannel', data })
           .then(() => { state.lastWriteBackAt = Date.now(); state.lastWriteBackError = ''; })
           .catch((error) => { state.lastWriteBackError = error?.message || String(error); });
       }
@@ -214,10 +246,7 @@ function patchStoreExports() {
         state.lastActiveChannelId = activeChannelId;
       }
       if (adminId && hasDb()) {
-        const flow = {
-          ...(saved || {}),
-          ...(activeChannelId ? { activeChannelId, selectedChannelId: activeChannelId, channelId: activeChannelId } : {})
-        };
+        const flow = { ...(saved || {}), ...(activeChannelId ? { activeChannelId, selectedChannelId: activeChannelId, channelId: activeChannelId } : {}) };
         require('./cc5-db-core').setFlow(adminId, flow)
           .then(() => { state.lastWriteBackAt = Date.now(); state.lastWriteBackError = ''; })
           .catch((error) => { state.lastWriteBackError = error?.message || String(error); });
@@ -237,14 +266,7 @@ function patchStoreExports() {
       const result = original(adminId);
       if (adminId && activeChannelId) {
         try {
-          original(adminId);
-          store.setSetupState(adminId, {
-            activeChannelId,
-            selectedChannelId: activeChannelId,
-            channelId: activeChannelId,
-            restoredAfterClear: true,
-            updatedAt: Date.now()
-          });
+          store.setSetupState(adminId, { activeChannelId, selectedChannelId: activeChannelId, channelId: activeChannelId, restoredAfterClear: true, updatedAt: Date.now() });
         } catch {}
       }
       return result;
@@ -264,7 +286,7 @@ function patchChannelService() {
     channelService.listChannels = function listChannelsPersistent() {
       let items = [];
       try { items = originalList ? originalList() : []; } catch { items = []; }
-      if ((!items || !items.length) && state.hydrationOk && typeof store.getChannelsList === 'function') {
+      if ((!items || !items.length) && typeof store.getChannelsList === 'function') {
         try { items = store.getChannelsList(); } catch { items = []; }
       }
       return Array.isArray(items) ? items : [];
@@ -281,31 +303,8 @@ function patchChannelService() {
       return saved;
     };
     channelService.__cc6522 = true;
+    state.channelServicePatched = true;
   } catch {}
-}
-
-function snapshot() {
-  return {
-    runtimeVersion: RUNTIME,
-    sourceMarker: SOURCE,
-    installed: state.installed,
-    storePatched: state.storePatched,
-    expressPatched: state.expressPatched,
-    dbUrlPresent: hasDb(),
-    hydrationStartedAt: state.hydrationStartedAt,
-    hydrationFinishedAt: state.hydrationFinishedAt,
-    hydrationOk: state.hydrationOk,
-    hydrationError: state.hydrationError,
-    hydratedChannels: state.hydratedChannels,
-    hydratedAdminLinks: state.hydratedAdminLinks,
-    hydratedPosts: state.hydratedPosts,
-    hydratedFlows: state.hydratedFlows,
-    lastWriteBackAt: state.lastWriteBackAt,
-    lastWriteBackError: state.lastWriteBackError,
-    lastAdminId: state.lastAdminId,
-    lastActiveChannelId: state.lastActiveChannelId,
-    dbCounts: state.dbCounts
-  };
 }
 
 function localCounts() {
@@ -318,9 +317,21 @@ function localCounts() {
   } catch {}
   return out;
 }
+function snapshot() {
+  return { runtimeVersion: RUNTIME, sourceMarker: SOURCE, installed: state.installed, storePatched: state.storePatched, channelServicePatched: state.channelServicePatched, expressPatched: state.expressPatched, dbUrlPresent: hasDb(), hydrationStartedAt: state.hydrationStartedAt, hydrationFinishedAt: state.hydrationFinishedAt, hydrationOk: state.hydrationOk, hydrationError: state.hydrationError, hydrationAttempts: state.hydrationAttempts, lastHydrationReason: state.lastHydrationReason, hydratedChannels: state.hydratedChannels, hydratedAdminLinks: state.hydratedAdminLinks, hydratedPosts: state.hydratedPosts, hydratedFlows: state.hydratedFlows, lastWriteBackAt: state.lastWriteBackAt, lastWriteBackError: state.lastWriteBackError, lastAdminId: state.lastAdminId, lastActiveChannelId: state.lastActiveChannelId, dbCounts: state.dbCounts, localCounts: localCounts() };
+}
 
+async function ensureHydrated(reason = 'debug_auto') {
+  state.dbCounts = await collectDbCounts();
+  const local = localCounts();
+  const dbHasData = Number(state.dbCounts.channels || 0) > 0 || Number(state.dbCounts.adminChannelLinks || 0) > 0 || Number(state.dbCounts.posts || 0) > 0;
+  const localMissingData = local.channels === 0 || (Number(state.dbCounts.posts || 0) > 0 && local.posts === 0);
+  if ((!state.hydrationOk || localMissingData) && dbHasData) return hydrateFromDb(reason);
+  return { ok: state.hydrationOk, ...snapshot() };
+}
 function sendText(res, lines) { noCache(res); return res.type('text/plain').send(lines.join('\n') + '\n'); }
 async function sendPersistence(req, res) {
+  await ensureHydrated('debug_persistence_auto');
   state.dbCounts = await collectDbCounts();
   const local = localCounts();
   return sendText(res, [
@@ -332,6 +343,7 @@ async function sendPersistence(req, res) {
     'postgresReachable: ' + Boolean(state.dbCounts.reachable),
     'hydrationOk: ' + Boolean(state.hydrationOk),
     'hydrationError: ' + (state.hydrationError || ''),
+    'hydrationAttempts: ' + state.hydrationAttempts,
     'hydratedChannels: ' + state.hydratedChannels,
     'hydratedAdminLinks: ' + state.hydratedAdminLinks,
     'hydratedPosts: ' + state.hydratedPosts,
@@ -344,11 +356,8 @@ async function sendPersistence(req, res) {
     'lastActiveChannelId: ' + (state.lastActiveChannelId || '')
   ]);
 }
-async function sendRehydrate(req, res) {
-  const result = await hydrateFromDb('manual_debug');
-  return res.json({ ok: Boolean(result.ok), ...snapshot(), localCounts: localCounts() });
-}
-function sendState(req, res) { noCache(res); return res.json({ ok: true, ...snapshot(), localCounts: localCounts() }); }
+async function sendRehydrate(req, res) { const result = await hydrateFromDb('manual_debug'); return res.json({ ok: Boolean(result.ok), ...snapshot() }); }
+function sendState(req, res) { noCache(res); return res.json({ ok: true, ...snapshot() }); }
 
 function patchExpress() {
   if (Module._load.__cc6522PersistencePatch) return;
@@ -382,6 +391,11 @@ function patchExpress() {
   state.expressPatched = true;
 }
 
+function scheduleBootHydration() {
+  hydrateFromDb('boot').catch((error) => { state.hydrationError = error?.message || String(error); state.hydrationFinishedAt = Date.now(); });
+  setTimeout(() => { if (!state.hydrationOk) hydrateFromDb('boot_retry_5s').catch(() => {}); }, 5000);
+  setTimeout(() => { if (!state.hydrationOk) hydrateFromDb('boot_retry_20s').catch(() => {}); }, 20000);
+}
 function install() {
   process.env.BUILD_VERSION = RUNTIME;
   process.env.RUNTIME_VERSION = RUNTIME;
@@ -390,8 +404,8 @@ function install() {
   patchStoreExports();
   patchChannelService();
   patchExpress();
-  hydrateFromDb('boot').catch((error) => { state.hydrationError = error?.message || String(error); state.hydrationFinishedAt = Date.now(); });
+  scheduleBootHydration();
   return { ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE };
 }
 
-module.exports = { RUNTIME, SOURCE, install, hydrateFromDb, snapshot };
+module.exports = { RUNTIME, SOURCE, install, hydrateFromDb, snapshot, ensureHydrated };
