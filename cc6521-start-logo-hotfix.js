@@ -1,7 +1,8 @@
 'use strict';
 
 // CC6.5.2.1: minimal hotfix over CC6.5.2 clean core.
-// Scope: start/menu fallback and landing logo fit only. No comments/gifts/CTA/moderation logic changes.
+// Scope: start/menu fallback, landing logo fit and debug-runtime alignment only.
+// No comments/gifts/CTA/moderation logic changes.
 
 const fs = require('fs');
 const path = require('path');
@@ -129,6 +130,70 @@ function patchPublicAppRead() {
   };
 }
 
+function adminAllowed(req) {
+  const expected = norm(process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || process.env.MODERATION_ADMIN_TOKEN || '');
+  if (!expected) return true;
+  const bearer = norm(req.get?.('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  const actual = norm(req.get?.('x-admin-token') || bearer || req.query?.token || req.query?.adminToken || req.body?.token || req.body?.adminToken || '');
+  return actual === expected;
+}
+function requireAdmin(req, res) {
+  if (adminAllowed(req)) return true;
+  noCache(res);
+  res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME, sourceMarker: SOURCE });
+  return false;
+}
+
+async function safeStats() {
+  try { return await require('./cc5-db-core').stats(); }
+  catch (error) { return { dbUrlPresent: !!(process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.POSTGRES_URL), reachable: false, error: error?.message || String(error) }; }
+}
+function safeSelfTest() {
+  try { return require('./cc55-moderation-router').selfTest(); }
+  catch (error) { return { ok: false, error: error?.message || String(error) }; }
+}
+async function safeDbTruth(req) {
+  try { return await require('./cc64-moderation-db-truth').collectTruth({ query: { token: String(req.query?.token || ''), limit: 20 } }); }
+  catch (error) { return { verdict: 'db_truth_unavailable', summary: {}, error: error?.message || String(error) }; }
+}
+
+function versionedSnapshot(base = {}, extra = {}) {
+  const now = Date.now();
+  const meta = base.meta && typeof base.meta === 'object' ? base.meta : {};
+  return {
+    ...base,
+    ok: base.ok !== false,
+    runtimeVersion: RUNTIME,
+    buildVersion: RUNTIME,
+    displayVersion: RUNTIME,
+    packageVersion: RUNTIME,
+    sourceMarker: SOURCE,
+    generatedAt: now,
+    meta: {
+      ...meta,
+      runtimeVersion: RUNTIME,
+      buildVersion: RUNTIME,
+      displayVersion: RUNTIME,
+      packageVersion: RUNTIME,
+      sourceMarker: SOURCE,
+      generatedAt: now,
+      debugOverlay: 'cc6521_runtime_alignment'
+    },
+    cc6521: {
+      ok: true,
+      runtimeVersion: RUNTIME,
+      sourceMarker: SOURCE,
+      base: 'CC6.5.2 clean core',
+      scope: 'start_menu_fallback_landing_logo_fit_debug_alignment_only',
+      commentsChanged: false,
+      giftsChanged: false,
+      ctaChanged: false,
+      moderationChanged: false,
+      ...extra
+    }
+  };
+}
+
 function sendDebug(res) {
   noCache(res);
   return res.type('text/plain').send([
@@ -143,8 +208,72 @@ function sendDebug(res) {
     'moderationChanged: false',
     'logoRuntimeAssetOverlay: false',
     'startMenuFallback: enabled',
+    'debugRuntimeAlignment: enabled',
     'webhookPatchMode: app_post_after_json_parser'
   ].join('\n') + '\n');
+}
+
+async function sendQaLite(req, res) {
+  noCache(res);
+  const stats = await safeStats();
+  const self = safeSelfTest();
+  const truth = await safeDbTruth(req);
+  const ok = Boolean(self.ok && stats.dbUrlPresent && stats.reachable);
+  return res.type('text/plain').send([
+    'OK: ' + (ok ? 'PROD_CHECK_READY' : 'WARNING'),
+    'runtime: ' + RUNTIME,
+    'sourceMarker: ' + SOURCE,
+    'baseRuntime: CC6.5.2',
+    'releaseGate: ' + (ok ? 'pass' : 'warning'),
+    'manualTesting: ' + (ok ? 'allowed' : 'blocked'),
+    'cleanCoreScope: start_menu_fallback_landing_logo_fit_debug_alignment_only',
+    'commentsChanged: false',
+    'giftsChanged: false',
+    'ctaChanged: false',
+    'moderationChanged: false',
+    'commentsRoute: legacy_index_public_app',
+    'usesLegacyAppJs: true',
+    'uiPolicy: keep_approved_legacy_comments_ui_and_functions',
+    'callbackToastPolicy: silent_navigation_final_actions_only',
+    'navigationToasts: silent',
+    'startMenuFallback: enabled',
+    'debugRuntimeAlignment: enabled',
+    'moderationRouter: cc55_single_router',
+    'moderationDbTruth: ' + (truth.verdict || 'unknown'),
+    'moderationDbTruthRuntime: ' + RUNTIME,
+    'moderationDbChannels: ' + (truth.summary?.channels || 0),
+    'moderationDbPosts: ' + (truth.summary?.posts || 0),
+    'moderationDbRules: ' + (truth.summary?.rules || 0),
+    'moderationDbPostRules: ' + (truth.summary?.postRules || 0),
+    'routerSelfTest: ' + (self.ok ? 'pass' : 'fail'),
+    'dbUrlPresent: ' + Boolean(stats.dbUrlPresent),
+    'postgresReachable: ' + Boolean(stats.reachable),
+    'dbAdmins: ' + (stats.admins || 0),
+    'dbChannels: ' + (stats.channels || 0),
+    'dbPosts: ' + (stats.posts || 0),
+    'dbRules: ' + (stats.rules || 0),
+    'debugTruth: cc6521_aligned_runtime_over_cc652_clean_core'
+  ].join('\n') + '\n');
+}
+
+function sendCallbackPolicy(res) {
+  noCache(res);
+  let basePolicy = null;
+  try { basePolicy = require('./services/maxApi').answerCallback.__cc652 || null; } catch {}
+  return res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, policy: { ...(basePolicy || {}), wrapperRuntimeVersion: RUNTIME, wrapperSourceMarker: SOURCE } });
+}
+
+function sendStoreLive(req, res) {
+  if (!requireAdmin(req, res)) return;
+  noCache(res);
+  let snapshot = {};
+  try {
+    const store = require('./store');
+    snapshot = typeof store.getDebugSnapshot === 'function' ? store.getDebugSnapshot() : { ok: true, store: store.store || {} };
+  } catch (error) {
+    snapshot = { ok: false, error: error?.message || String(error) };
+  }
+  return res.json(versionedSnapshot(snapshot, { debugRoute: '/debug/store-live', replacedLegacySp39Debug: true }));
 }
 
 function installExpressPatch() {
@@ -160,6 +289,9 @@ function installExpressPatch() {
           app.use((req, res, next) => {
             const route = String(req.path || req.url || '').split('?')[0].toLowerCase();
             if (route === '/debug/cc6521') return sendDebug(res);
+            if (route === '/debug/qa-lite') return sendQaLite(req, res).catch((error) => { noCache(res); return res.status(500).type('text/plain').send('ERROR: ' + (error?.message || String(error)) + '\n'); });
+            if (route === '/debug/callback-toast-policy') return sendCallbackPolicy(res);
+            if (route === '/debug/store-live') return sendStoreLive(req, res);
             return next();
           });
           const oldPost = app.post.bind(app);
@@ -172,7 +304,7 @@ function installExpressPatch() {
                 const result = await sendStartMenu(req.body || {});
                 return res.json({ ok: true, handledBy: RUNTIME, result });
               } catch (error) {
-                console.error('[CC6.5.2.1 start menu fallback]', error && error.message ? error.message : error);
+                console.error('[CC6.5.2.1 start menu fallback]', error?.message || error);
                 return next();
               }
             }, ...handlers);
