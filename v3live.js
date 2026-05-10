@@ -1,2 +1,2 @@
-'use strict';
-module.exports = require('./production-menu-v3-canonical-live');
+const R='CC6.5.4.7-SAFE-BOOT'
+exports.install=function(){process.env.RUNTIME_VERSION=R;process.env.BUILD_VERSION=R;return{ok:true,runtimeVersion:R,safeBoot:true}}
