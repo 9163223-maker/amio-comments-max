@@ -1,12 +1,12 @@
 'use strict';
-require('./cc6529-moderation-compact-ui').install();
+require('./cc6530-moderation-compact-grid').install();
 require('./cc6528-access-status-route').install();
 require('./cc6527-channel-access-check').install();
 require('./cc6526-production-test-ui').install();
 require('./cc6524-production-menu-map-debug').install();
 require('./cc6522-persistence-hotfix').install();
 require('./cc652-silent-callbacks').install();
-process.env.BUILD_VERSION='CC6.5.2.9';
-process.env.RUNTIME_VERSION='CC6.5.2.9';
-process.env.BUILD_SOURCE_MARKER='adminkit-CC6.5.2.9-moderation-compact-ui';
+process.env.BUILD_VERSION='CC6.5.3.0';
+process.env.RUNTIME_VERSION='CC6.5.3.0';
+process.env.BUILD_SOURCE_MARKER='adminkit-CC6.5.3.0-moderation-compact-grid';
 require('./cc5-bootstrap-lite');
