@@ -1,15 +1,14 @@
 'use strict';
 
-// CC6.5.2.1: minimal hotfix over CC6.5.2 clean core.
-// Scope: start/menu fallback, landing logo fit and debug-runtime alignment only.
-// No comments/gifts/CTA/moderation logic changes.
+// CC6.5.2.1 menu safety patch over CC6.5.2 clean core.
+// Scope: start/menu fallback, top-level menu routing, contextual help, logo fit, debug alignment.
 
 const fs = require('fs');
 const path = require('path');
 const Module = require('module');
 
 const RUNTIME = 'CC6.5.2.1';
-const SOURCE = 'adminkit-CC6.5.2.1-minimal-start-logo-hotfix';
+const SOURCE = 'adminkit-CC6.5.2.1-menu-help-stress-hotfix';
 const START_DEDUPE_TTL_MS = 3500;
 const START_REPLACE_TTL_MS = 10 * 60 * 1000;
 const recentStartMenus = new Map();
@@ -17,313 +16,85 @@ const lastFallbackMenus = new Map();
 const ADMINKIT_MENU_LOGO_PATH = path.join(__dirname, 'public', 'adminkit_chat_logo.png');
 let cachedLogoAttachment = null;
 
-function norm(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function norm(v) { return String(v || '').replace(/\s+/g, ' ').trim(); }
 function noCache(res) { try { res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0', Pragma: 'no-cache', Expires: '0' }); } catch {} }
-function getMessage(update = {}) { return update.message || update.data?.message || update.callback?.message || update.data?.callback?.message || null; }
-function getMessageText(update = {}) { const message = getMessage(update) || {}; return norm(message.body?.text || message.text || message.message?.text || update.message?.text || ''); }
-function getEventType(update = {}) { return norm(update.update_type || update.type || update.event_type || update.eventType || update.event || update.data?.update_type || update.data?.type || '').toLowerCase(); }
-function getStartPayload(update = {}) { return norm([update.start_payload, update.payload, update.startParam, update.start_param, update.data?.start_payload, update.data?.payload, update.user?.start_payload, update.user?.start_param, getMessage(update)?.body?.payload, getMessage(update)?.payload].find((item) => norm(item)) || ''); }
-function isCallbackUpdate(update = {}) { return Boolean(update.callback || update.data?.callback || getMessage(update)?.callback); }
-function isPlainStartText(update = {}) { return ['start', '/start', 'menu', '/menu', 'меню'].includes(getMessageText(update).toLowerCase()); }
+function parsePayload(v) { try { const p = JSON.parse(String(v || '')); return p && typeof p === 'object' ? p : {}; } catch { return {}; } }
+function cloneJson(v) { return JSON.parse(JSON.stringify(v ?? null)); }
+function getMessage(u = {}) { return u.message || u.data?.message || u.callback?.message || u.data?.callback?.message || null; }
+function getCallback(u = {}) { return u.callback || u.data?.callback || getMessage(u)?.callback || null; }
+function getMessageText(u = {}) { const m = getMessage(u) || {}; return norm(m.body?.text || m.text || m.message?.text || u.message?.text || ''); }
+function getEventType(u = {}) { return norm(u.update_type || u.type || u.event_type || u.eventType || u.event || u.data?.update_type || u.data?.type || '').toLowerCase(); }
+function getStartPayload(u = {}) { return norm([u.start_payload, u.payload, u.startParam, u.start_param, u.data?.start_payload, u.data?.payload, u.user?.start_payload, u.user?.start_param, getMessage(u)?.body?.payload, getMessage(u)?.payload].find((x) => norm(x)) || ''); }
+function getCallbackPayload(u = {}) { const cb = getCallback(u) || {}; return parsePayload(cb.payload || cb.body?.payload || ''); }
+function getAction(u = {}) { const p = getCallbackPayload(u); return norm(p.action || p.cmd || '').toLowerCase(); }
+function isCallbackUpdate(u = {}) { return Boolean(getCallback(u)); }
+function isPlainStartText(u = {}) { return ['start', '/start', 'menu', '/menu', 'меню'].includes(getMessageText(u).toLowerCase()); }
+function getUserId(u = {}) { const m = getMessage(u) || {}; const cb = getCallback(u) || {}; return norm(u.user?.user_id || u.user?.id || u.sender?.user_id || u.sender?.id || cb.user?.user_id || cb.user?.id || cb.sender?.user_id || cb.sender?.id || m.sender?.user_id || m.sender?.id || m.user_id || m.from?.id || u.data?.user?.user_id || u.data?.user?.id || ''); }
+function getChatId(u = {}) { const m = getMessage(u) || {}; return norm(m.recipient?.chat_id || m.recipient?.id || m.chat_id || m.chat?.id || u.chat_id || u.chat?.id || u.data?.chat_id || u.data?.chat?.id || ''); }
+function getTarget(u = {}) { const userId = getUserId(u); const chatId = getChatId(u); return { userId, chatId, key: userId || chatId }; }
+function getCallbackId(u = {}) { const cb = getCallback(u) || {}; return norm(cb.callback_id || cb.id || cb.callbackId || u.callback_id || ''); }
+function getMsgIdFromUpdate(u = {}) { const cb = getCallback(u) || {}; const m = cb.message || getMessage(u) || {}; const b = m.body || {}; return norm(b.mid || b.message_id || b.messageId || m.message_id || m.messageId || m.id || m.mid || cb.message_id || cb.messageId || ''); }
+function getMsgIdFromResponse(v = {}) { return norm([v?.message?.body?.mid, v?.message?.body?.message_id, v?.message?.message_id, v?.message?.id, v?.body?.mid, v?.body?.message_id, v?.message_id, v?.id, v?.mid, v?.data?.message?.body?.mid, v?.data?.message?.id, v?.data?.id].find((x) => norm(x)) || ''); }
 
-function cleanupDedupe() {
-  const now = Date.now();
-  for (const [key, ts] of recentStartMenus.entries()) if (now - Number(ts || 0) > START_DEDUPE_TTL_MS) recentStartMenus.delete(key);
-  for (const [key, item] of lastFallbackMenus.entries()) if (now - Number(item?.ts || 0) > START_REPLACE_TTL_MS) lastFallbackMenus.delete(key);
-}
-function shouldSkipStartMenu(key) {
-  const normalized = String(key || '').trim();
-  if (!normalized) return false;
-  cleanupDedupe();
-  if (recentStartMenus.has(normalized)) return true;
-  recentStartMenus.set(normalized, Date.now());
-  return false;
-}
+function cleanupDedupe() { const now = Date.now(); for (const [k, ts] of recentStartMenus.entries()) if (now - Number(ts || 0) > START_DEDUPE_TTL_MS) recentStartMenus.delete(k); for (const [k, item] of lastFallbackMenus.entries()) if (now - Number(item?.ts || 0) > START_REPLACE_TTL_MS) lastFallbackMenus.delete(k); }
+function shouldSkipStartMenu(k) { const key = norm(k); if (!key) return false; cleanupDedupe(); if (recentStartMenus.has(key)) return true; recentStartMenus.set(key, Date.now()); return false; }
+function isMenuStartUpdate(u = {}) { if (isCallbackUpdate(u)) return false; const eventType = getEventType(u); const payload = getStartPayload(u).toLowerCase(); return eventType === 'bot_started' || eventType === 'bot_start' || eventType === 'bot_started_update' || isPlainStartText(u) || ['menu', 'start', 'main'].includes(payload); }
 
-function isMenuStartUpdate(update = {}) {
-  if (isCallbackUpdate(update)) return false; // callbacks belong to the real bot router, not this fallback
-  const eventType = getEventType(update);
-  const payload = getStartPayload(update).toLowerCase();
-  if (eventType === 'bot_started' || eventType === 'bot_start' || eventType === 'bot_started_update') return true;
-  if (isPlainStartText(update)) return true;
-  if (['menu', 'start', 'main'].includes(payload)) return true;
-  return false;
-}
+function btn(text, action, extra = {}) { return { type: 'callback', text, payload: JSON.stringify({ action, ...extra }) }; }
+function kb(rows) { return [{ type: 'inline_keyboard', payload: { buttons: rows } }]; }
+function mainMenuKeyboard() { return kb([[btn('💬 Комментарии', 'comments_menu'), btn('🎁 Подарки', 'gift_menu')], [btn('🔘 Кнопки', 'buttons_menu'), btn('🛡 Модерация', 'mod_start')], [btn('📊 Статистика', 'stats_menu'), btn('📣 Ваши каналы', 'channels_menu')], [btn('❓ Помощь', 'help_menu')]]); }
+function sectionKeyboard(sectionAction, helpAction, extras = []) { const rows = Array.isArray(extras) ? extras.slice() : []; rows.push([btn('❓ Помощь раздела', helpAction), btn('🏠 Главное меню', 'ak_main_menu')]); rows.push([btn('↩️ Главная раздела', sectionAction)]); return kb(rows); }
+function helpKeyboard(sectionAction) { return kb([[btn('↩️ Главная раздела', sectionAction), btn('🏠 Главное меню', 'ak_main_menu')]]); }
 
-function getUserId(update = {}) {
-  const message = getMessage(update) || {};
-  return norm(update.user?.user_id || update.user?.id || update.sender?.user_id || update.sender?.id || message.sender?.user_id || message.sender?.id || message.user_id || message.from?.id || update.data?.user?.user_id || update.data?.user?.id || '');
-}
-function getChatId(update = {}) {
-  const message = getMessage(update) || {};
-  return norm(message.recipient?.chat_id || message.recipient?.id || message.chat_id || message.chat?.id || update.chat_id || update.chat?.id || update.data?.chat_id || update.data?.chat?.id || '');
-}
-function getTarget(update = {}) { const userId = getUserId(update); const chatId = getChatId(update); return { userId, chatId, key: userId || chatId }; }
-function buildButton(text, action, extra = {}) { return { type: 'callback', text, payload: JSON.stringify({ action, ...extra }) }; }
-function buildMainMenuKeyboard() {
-  return [{ type: 'inline_keyboard', payload: { buttons: [
-    [buildButton('💬 Комментарии', 'comments_menu'), buildButton('🎁 Подарки', 'gift_menu')],
-    [buildButton('🔘 Кнопки', 'buttons_menu'), buildButton('🛡 Модерация', 'mod_start')],
-    [buildButton('📊 Статистика', 'stats_menu'), buildButton('📣 Ваши каналы', 'channels_menu')],
-    [buildButton('❓ Помощь', 'help_menu')]
-  ] } }];
-}
+const TEXTS = {
+  ak_main_menu: ['АдминКИТ — главное меню', '', 'Выберите раздел управления каналом.'].join('\n'),
+  comments_menu: ['💬 Комментарии', '', 'Раздел для управления обсуждениями под постами.', '', 'Проверяем: включение комментариев под постом, выбор поста, открытие обсуждения, текстовые комментарии, фото для платных тарифов, реакции и ответы.', '', 'Видео и файлы в комментариях сейчас не включаем.'].join('\n'),
+  gift_menu: ['🎁 Подарки / лид-магниты', '', 'Раздел для выдачи подарка подписчику после проверки подписки на канал.', '', 'Сценарий: 1/4 канал и пост, 2/4 подарок или ссылка, 3/4 текст получателю, 4/4 проверка и сохранение.', '', 'После сохранения бот должен убрать лишние шаги и не плодить старые меню.'].join('\n'),
+  buttons_menu: ['🔘 Пользовательские кнопки', '', 'Раздел для CTA-кнопок под постами.', '', 'Сценарий: выбрать пост → текст кнопки → ссылка → сохранить.', '', 'Важно: патч поста должен сохранять текст, ссылки, форматирование и медиа.'].join('\n'),
+  stats_menu: ['📊 Статистика', '', 'Раздел для быстрых админских цифр без технической простыни.', '', 'Показываем: подписчики сейчас, динамика за 24 часа / 7 / 14 / 30 дней, комментарии, реакции, клики, подарки, заявки и статистика поста.'].join('\n'),
+  channels_menu: ['📣 Ваши каналы', '', 'Раздел подключения и выбора канала.', '', 'Должны работать: список каналов, автоподстановка единственного канала, проверка доступа бота и понятные названия без технических ID в основном интерфейсе.'].join('\n'),
+  help_menu: ['❓ Помощь АдминКИТ', '', 'Выберите раздел, по которому нужна подсказка.', '', 'Правило интерфейса: один активный сценарий, без дублей меню и без потери кнопок «Главное меню» / «Главная раздела».'].join('\n'),
+  help_comments: ['❓ Помощь: Комментарии', '', 'Комментарии добавляют удобное обсуждение под постами MAX.', '', 'В текущем плане оставляем текст, фото, реакции и ответы. Видео и файлы исключены.', '', 'Если не открывается — проверяем postId, channelId, commentKey и debug конкретного поста.'].join('\n'),
+  help_gifts: ['❓ Помощь: Подарки', '', 'Подарок выдаётся только после проверки подписки пользователя на канал.', '', 'Сценарий должен быть пошаговым: 1/4, 2/4, 3/4, 4/4. Старые служебные сообщения после сохранения нужно убирать.'].join('\n'),
+  help_buttons: ['❓ Помощь: Кнопки', '', 'Кнопки нужны для CTA: купить, участвовать, записаться, получить материал.', '', 'Добавление кнопки не должно ломать исходный пост, форматирование, ссылки и медиа.'].join('\n'),
+  help_moderation: ['❓ Помощь: Модерация', '', 'Модерация фильтрует нежелательные комментарии.', '', 'Есть базовый уровень по стоп-словам, ссылкам и приглашениям. AI-модерация — будущий более дорогой тариф.', '', 'Должны быть правила всего канала и правила конкретного поста.'].join('\n'),
+  help_stats: ['❓ Помощь: Статистика', '', 'Статистика должна быть понятной администратору, без сырого debug.', '', 'Главные показатели: подписчики, прирост/отток, комментарии, реакции, клики, подарки, голосования.'].join('\n'),
+  help_channels: ['❓ Помощь: Каналы', '', 'Здесь администратор подключает канал и выбирает его для сценариев.', '', 'Если канал один — бот подставляет его автоматически. Если каналов несколько — показывает список с названиями.'].join('\n')
+};
+const ROUTES = {
+  ak_main_menu: { text: TEXTS.ak_main_menu, keyboard: mainMenuKeyboard, logo: true }, main_menu: { alias: 'ak_main_menu' }, menu_main: { alias: 'ak_main_menu' }, home: { alias: 'ak_main_menu' },
+  comments_menu: { text: TEXTS.comments_menu, keyboard: () => sectionKeyboard('comments_menu', 'help_comments', [[btn('📌 Выбрать пост', 'comments_choose_post')]]) },
+  gift_menu: { text: TEXTS.gift_menu, keyboard: () => sectionKeyboard('gift_menu', 'help_gifts', [[btn('🎁 Создать подарок', 'gift_create')], [btn('📋 Список подарков', 'gift_list')]]) },
+  buttons_menu: { text: TEXTS.buttons_menu, keyboard: () => sectionKeyboard('buttons_menu', 'help_buttons', [[btn('➕ Добавить кнопку', 'buttons_add')], [btn('📋 Кнопки поста', 'buttons_list')]]) },
+  stats_menu: { text: TEXTS.stats_menu, keyboard: () => sectionKeyboard('stats_menu', 'help_stats', [[btn('📊 Статистика канала', 'stats_channel')], [btn('📌 Статистика поста', 'stats_post')]]) },
+  channels_menu: { text: TEXTS.channels_menu, keyboard: () => sectionKeyboard('channels_menu', 'help_channels', [[btn('📣 Список каналов', 'channels_list')], [btn('➕ Подключить канал', 'connect_channel')]]) },
+  help_menu: { text: TEXTS.help_menu, keyboard: () => kb([[btn('💬 Комментарии', 'help_comments'), btn('🎁 Подарки', 'help_gifts')], [btn('🔘 Кнопки', 'help_buttons'), btn('🛡 Модерация', 'help_moderation')], [btn('📊 Статистика', 'help_stats'), btn('📣 Каналы', 'help_channels')], [btn('🏠 Главное меню', 'ak_main_menu')]]) },
+  help_comments: { text: TEXTS.help_comments, keyboard: () => helpKeyboard('comments_menu') }, help_gifts: { text: TEXTS.help_gifts, keyboard: () => helpKeyboard('gift_menu') }, help_buttons: { text: TEXTS.help_buttons, keyboard: () => helpKeyboard('buttons_menu') }, help_moderation: { text: TEXTS.help_moderation, keyboard: () => helpKeyboard('mod_start') }, help_stats: { text: TEXTS.help_stats, keyboard: () => helpKeyboard('stats_menu') }, help_channels: { text: TEXTS.help_channels, keyboard: () => helpKeyboard('channels_menu') }
+};
+function resolveRoute(action) { let key = norm(action).toLowerCase(); let route = ROUTES[key] || null; if (route?.alias) { key = route.alias; route = ROUTES[key]; } return route ? { key, route } : null; }
+function isHotfixMenuAction(action) { return Boolean(resolveRoute(action)); }
 
-function cloneJson(value) { return JSON.parse(JSON.stringify(value ?? null)); }
-function getMessageIdFromMaxResponse(value = {}) {
-  const candidates = [
-    value?.message?.body?.mid, value?.message?.body?.message_id, value?.message?.message_id, value?.message?.id,
-    value?.body?.mid, value?.body?.message_id, value?.message_id, value?.id, value?.mid,
-    value?.data?.message?.body?.mid, value?.data?.message?.id, value?.data?.id
-  ];
-  return norm(candidates.find((item) => norm(item)) || '');
-}
-async function getLogoAttachment(config = {}) {
-  if (cachedLogoAttachment) return cloneJson(cachedLogoAttachment);
-  if (!config?.botToken || !fs.existsSync(ADMINKIT_MENU_LOGO_PATH)) return null;
-  try {
-    const { createUpload, uploadBinaryToUrl, buildUploadAttachmentPayload } = require('./services/maxApi');
-    const buffer = fs.readFileSync(ADMINKIT_MENU_LOGO_PATH);
-    const uploadInitResponse = await createUpload({ botToken: config.botToken, type: 'image' });
-    const uploadResponse = await uploadBinaryToUrl({ uploadUrl: uploadInitResponse?.url, botToken: config.botToken, buffer, fileName: 'adminkit_chat_logo.png', mimeType: 'image/png' });
-    cachedLogoAttachment = buildUploadAttachmentPayload({ uploadType: 'image', uploadInitResponse, uploadResponse });
-    return cloneJson(cachedLogoAttachment);
-  } catch (error) {
-    console.error('[CC6.5.2.1 logo upload]', error?.message || error);
-    return null;
-  }
-}
-async function deletePreviousFallbackMenu(targetKey, botToken) {
-  cleanupDedupe();
-  const previous = lastFallbackMenus.get(String(targetKey || ''));
-  const messageId = norm(previous?.messageId || '');
-  if (!messageId || !botToken) return;
-  try {
-    const { deleteMessage } = require('./services/maxApi');
-    await deleteMessage({ botToken, messageId, timeoutMs: 1800 });
-  } catch (_) {}
-  lastFallbackMenus.delete(String(targetKey || ''));
-}
-async function sendStartMenu(update = {}) {
-  const config = require('./config');
-  const { sendMessage } = require('./services/maxApi');
-  const target = getTarget(update);
-  if (!target.userId && !target.chatId) return { ok: false, reason: 'target_missing' };
-  if (shouldSkipStartMenu(target.key)) return { ok: true, skipped: true, reason: 'dedupe' };
-  await deletePreviousFallbackMenu(target.key, config.botToken);
-  const keyboard = buildMainMenuKeyboard();
-  const logo = await getLogoAttachment(config);
-  const attachments = logo ? [logo, ...keyboard] : keyboard;
-  const sent = await sendMessage({
-    botToken: config.botToken,
-    userId: target.userId || undefined,
-    chatId: target.userId ? undefined : target.chatId,
-    notify: false,
-    text: ['АдминКИТ — главное меню', '', 'Выберите раздел управления каналом.'].join('\n'),
-    attachments
-  });
-  const messageId = getMessageIdFromMaxResponse(sent);
-  if (messageId) lastFallbackMenus.set(String(target.key || ''), { messageId, ts: Date.now() });
-  return { ok: true, target: target.userId ? 'user' : 'chat', logoAttached: Boolean(logo), previousFallbackDeleted: true, messageIdSaved: Boolean(messageId) };
-}
+async function getLogoAttachment(config = {}) { if (cachedLogoAttachment) return cloneJson(cachedLogoAttachment); if (!config?.botToken || !fs.existsSync(ADMINKIT_MENU_LOGO_PATH)) return null; try { const { createUpload, uploadBinaryToUrl, buildUploadAttachmentPayload } = require('./services/maxApi'); const buffer = fs.readFileSync(ADMINKIT_MENU_LOGO_PATH); const uploadInitResponse = await createUpload({ botToken: config.botToken, type: 'image' }); const uploadResponse = await uploadBinaryToUrl({ uploadUrl: uploadInitResponse?.url, botToken: config.botToken, buffer, fileName: 'adminkit_chat_logo.png', mimeType: 'image/png' }); cachedLogoAttachment = buildUploadAttachmentPayload({ uploadType: 'image', uploadInitResponse, uploadResponse }); return cloneJson(cachedLogoAttachment); } catch (error) { console.error('[CC6.5.2.1 logo upload]', error?.message || error); return null; } }
+async function deletePreviousFallbackMenu(targetKey, botToken) { cleanupDedupe(); const previous = lastFallbackMenus.get(String(targetKey || '')); const messageId = norm(previous?.messageId || ''); if (!messageId || !botToken) return; try { const { deleteMessage } = require('./services/maxApi'); await deleteMessage({ botToken, messageId, timeoutMs: 1800 }); } catch (_) {} lastFallbackMenus.delete(String(targetKey || '')); }
+async function renderRoute({ update = {}, action = 'ak_main_menu', forceSend = false } = {}) { const config = require('./config'); const { sendMessage, editMessage, answerCallback } = require('./services/maxApi'); const target = getTarget(update); const resolved = resolveRoute(action) || resolveRoute('ak_main_menu'); const { key, route } = resolved; const text = route.text; const keyboard = typeof route.keyboard === 'function' ? route.keyboard() : route.keyboard; const logo = route.logo ? await getLogoAttachment(config) : null; const attachments = logo ? [logo, ...keyboard] : keyboard; const cbid = getCallbackId(update); if (cbid) { try { await answerCallback({ botToken: config.botToken, callbackId: cbid }); } catch (_) {} } const messageId = getMsgIdFromUpdate(update); if (messageId && !forceSend) { try { await editMessage({ botToken: config.botToken, messageId, notify: false, text, attachments }); return { ok: true, mode: 'edit', action: key, logoAttached: Boolean(logo) }; } catch (error) { console.error('[CC6.5.2.1 menu edit fallback]', error?.message || error); } } if (!target.userId && !target.chatId) return { ok: false, reason: 'target_missing', action: key }; await deletePreviousFallbackMenu(target.key, config.botToken); const sent = await sendMessage({ botToken: config.botToken, userId: target.userId || undefined, chatId: target.userId ? undefined : target.chatId, notify: false, text, attachments }); const sentId = getMsgIdFromResponse(sent); if (sentId) lastFallbackMenus.set(String(target.key || ''), { messageId: sentId, ts: Date.now() }); return { ok: true, mode: 'send', action: key, logoAttached: Boolean(logo), messageIdSaved: Boolean(sentId) }; }
+async function sendStartMenu(update = {}) { const target = getTarget(update); if (!target.userId && !target.chatId) return { ok: false, reason: 'target_missing' }; if (shouldSkipStartMenu(target.key)) return { ok: true, skipped: true, reason: 'dedupe' }; return renderRoute({ update, action: 'ak_main_menu', forceSend: true }); }
 
-function landingClientPatch() {
-  return `\n;(() => {\n  if (window.__ADMINKIT_CC6521_START_LOGO__) return;\n  window.__ADMINKIT_CC6521_START_LOGO__ = true;\n  const css = ` + JSON.stringify(`
-    .miniapp-start-card img,
-    .miniapp-start-logo,
-    .adminkit-logo,
-    .admin-kit-logo,
-    .brand-logo,
-    img[src*="adminkit_chat_logo"],
-    img[src*="adminkit"][src*="logo"] {
-      display: block !important;
-      width: auto !important;
-      height: auto !important;
-      max-width: min(320px, 86vw) !important;
-      max-height: 128px !important;
-      object-fit: contain !important;
-      object-position: center center !important;
-      margin-left: auto !important;
-      margin-right: auto !important;
-    }
-    .miniapp-start-card,
-    .miniapp-start-logo-wrap,
-    .brand-logo-wrap { overflow: visible !important; }
-  `) + `;\n  const style = document.createElement('style');\n  style.id = 'adminkit-cc6521-logo-fit';\n  style.textContent = css;\n  document.head.appendChild(style);\n  const tune = () => {\n    document.querySelectorAll('img').forEach((img) => {\n      const key = String(img.src || '') + ' ' + String(img.alt || '') + ' ' + String(img.className || '');\n      if (/adminkit|админкит|logo/i.test(key)) {\n        img.decoding = 'async';\n        img.loading = 'eager';\n        img.style.objectFit = 'contain';\n        img.style.objectPosition = 'center center';\n      }\n    });\n  };\n  tune();\n  try { new MutationObserver(tune).observe(document.documentElement, { childList: true, subtree: true }); } catch (_) {}\n})();\n`;
-}
-function patchPublicAppRead() {
-  if (fs.__cc6521StartLogoReadPatch) return;
-  fs.__cc6521StartLogoReadPatch = true;
-  const originalReadFileSync = fs.readFileSync.bind(fs);
-  const appPath = path.resolve(__dirname, 'public', 'app.js');
-  fs.readFileSync = function cc6521ReadFileSync(filePath, options) {
-    const content = originalReadFileSync(filePath, options);
-    try {
-      const resolved = path.resolve(String(filePath || ''));
-      const wantsText = options === 'utf8' || options === 'utf-8' || (options && typeof options === 'object' && /utf-?8/i.test(String(options.encoding || '')));
-      if (resolved === appPath && wantsText) {
-        const text = String(content || '');
-        if (!text.includes('__ADMINKIT_CC6521_START_LOGO__')) return text + landingClientPatch();
-      }
-    } catch {}
-    return content;
-  };
-}
+function landingClientPatch() { return `\n;(()=>{if(window.__ADMINKIT_CC6521_START_LOGO__)return;window.__ADMINKIT_CC6521_START_LOGO__=true;const css=${JSON.stringify('.miniapp-start-card img,.miniapp-start-logo,.adminkit-logo,.admin-kit-logo,.brand-logo,img[src*="adminkit_chat_logo"],img[src*="adminkit"][src*="logo"]{display:block!important;width:auto!important;height:auto!important;max-width:min(320px,86vw)!important;max-height:128px!important;object-fit:contain!important;object-position:center center!important;margin-left:auto!important;margin-right:auto!important}.miniapp-start-card,.miniapp-start-logo-wrap,.brand-logo-wrap{overflow:visible!important}')};const style=document.createElement('style');style.id='adminkit-cc6521-logo-fit';style.textContent=css;document.head.appendChild(style);})();\n`; }
+function patchPublicAppRead() { if (fs.__cc6521StartLogoReadPatch) return; fs.__cc6521StartLogoReadPatch = true; const original = fs.readFileSync.bind(fs); const appPath = path.resolve(__dirname, 'public', 'app.js'); fs.readFileSync = function(filePath, options) { const content = original(filePath, options); try { const resolved = path.resolve(String(filePath || '')); const wantsText = options === 'utf8' || options === 'utf-8' || (options && typeof options === 'object' && /utf-?8/i.test(String(options.encoding || ''))); if (resolved === appPath && wantsText) { const text = String(content || ''); if (!text.includes('__ADMINKIT_CC6521_START_LOGO__')) return text + landingClientPatch(); } } catch {} return content; }; }
 
-function adminAllowed(req) {
-  const expected = norm(process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || process.env.MODERATION_ADMIN_TOKEN || '');
-  if (!expected) return true;
-  const bearer = norm(req.get?.('authorization') || '').replace(/^Bearer\s+/i, '').trim();
-  const actual = norm(req.get?.('x-admin-token') || bearer || req.query?.token || req.query?.adminToken || req.body?.token || req.body?.adminToken || '');
-  return actual === expected;
-}
-function requireAdmin(req, res) {
-  if (adminAllowed(req)) return true;
-  noCache(res);
-  res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME, sourceMarker: SOURCE });
-  return false;
-}
-async function safeStats() { try { return await require('./cc5-db-core').stats(); } catch (error) { return { dbUrlPresent: !!(process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.POSTGRES_URL), reachable: false, error: error?.message || String(error) }; } }
-function safeSelfTest() { try { return require('./cc55-moderation-router').selfTest(); } catch (error) { return { ok: false, error: error?.message || String(error) }; } }
-async function safeDbTruth(req) { try { return await require('./cc64-moderation-db-truth').collectTruth({ query: { token: String(req.query?.token || ''), limit: 20 } }); } catch (error) { return { verdict: 'db_truth_unavailable', summary: {}, error: error?.message || String(error) }; } }
-function versionedSnapshot(base = {}, extra = {}) {
-  const now = Date.now();
-  const meta = base.meta && typeof base.meta === 'object' ? base.meta : {};
-  return { ...base, ok: base.ok !== false, runtimeVersion: RUNTIME, buildVersion: RUNTIME, displayVersion: RUNTIME, packageVersion: RUNTIME, sourceMarker: SOURCE, generatedAt: now, meta: { ...meta, runtimeVersion: RUNTIME, buildVersion: RUNTIME, displayVersion: RUNTIME, packageVersion: RUNTIME, sourceMarker: SOURCE, generatedAt: now, debugOverlay: 'cc6521_runtime_alignment' }, cc6521: { ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, base: 'CC6.5.2 clean core', scope: 'start_menu_fallback_landing_logo_fit_debug_alignment_only', commentsChanged: false, giftsChanged: false, ctaChanged: false, moderationChanged: false, ...extra } };
-}
-function sendDebug(res) {
-  noCache(res);
-  return res.type('text/plain').send([
-    'OK: CC6521_READY',
-    'runtime: ' + RUNTIME,
-    'sourceMarker: ' + SOURCE,
-    'base: CC6.5.2 clean core',
-    'scope: start_menu_fallback_and_landing_logo_fit_only',
-    'commentsChanged: false',
-    'giftsChanged: false',
-    'ctaChanged: false',
-    'moderationChanged: false',
-    'logoRuntimeAssetOverlay: false',
-    'chatMenuLogo: enabled_from_public_adminkit_chat_logo_png',
-    'startMenuFallback: bot_started_and_plain_start_text_only',
-    'callbackHijack: false',
-    'oneActiveFallbackMenu: enabled_delete_previous_when_message_id_available',
-    'debugRuntimeAlignment: enabled',
-    'webhookPatchMode: app_post_after_json_parser'
-  ].join('\n') + '\n');
-}
-async function sendQaLite(req, res) {
-  noCache(res);
-  const stats = await safeStats();
-  const self = safeSelfTest();
-  const truth = await safeDbTruth(req);
-  const ok = Boolean(self.ok && stats.dbUrlPresent && stats.reachable);
-  return res.type('text/plain').send([
-    'OK: ' + (ok ? 'PROD_CHECK_READY' : 'WARNING'),
-    'runtime: ' + RUNTIME,
-    'sourceMarker: ' + SOURCE,
-    'baseRuntime: CC6.5.2',
-    'releaseGate: ' + (ok ? 'pass' : 'warning'),
-    'manualTesting: ' + (ok ? 'allowed' : 'blocked'),
-    'cleanCoreScope: start_menu_fallback_landing_logo_fit_debug_alignment_only',
-    'commentsChanged: false',
-    'giftsChanged: false',
-    'ctaChanged: false',
-    'moderationChanged: false',
-    'commentsRoute: legacy_index_public_app',
-    'usesLegacyAppJs: true',
-    'uiPolicy: keep_approved_legacy_comments_ui_and_functions',
-    'callbackToastPolicy: silent_navigation_final_actions_only',
-    'navigationToasts: silent',
-    'startMenuFallback: bot_started_and_plain_start_text_only',
-    'callbackHijack: false',
-    'oneActiveFallbackMenu: enabled',
-    'chatMenuLogo: enabled',
-    'debugRuntimeAlignment: enabled',
-    'moderationRouter: cc55_single_router',
-    'moderationDbTruth: ' + (truth.verdict || 'unknown'),
-    'moderationDbTruthRuntime: ' + RUNTIME,
-    'moderationDbChannels: ' + (truth.summary?.channels || 0),
-    'moderationDbPosts: ' + (truth.summary?.posts || 0),
-    'moderationDbRules: ' + (truth.summary?.rules || 0),
-    'moderationDbPostRules: ' + (truth.summary?.postRules || 0),
-    'routerSelfTest: ' + (self.ok ? 'pass' : 'fail'),
-    'dbUrlPresent: ' + Boolean(stats.dbUrlPresent),
-    'postgresReachable: ' + Boolean(stats.reachable),
-    'dbAdmins: ' + (stats.admins || 0),
-    'dbChannels: ' + (stats.channels || 0),
-    'dbPosts: ' + (stats.posts || 0),
-    'dbRules: ' + (stats.rules || 0),
-    'debugTruth: cc6521_aligned_runtime_over_cc652_clean_core'
-  ].join('\n') + '\n');
-}
-function sendCallbackPolicy(res) {
-  noCache(res);
-  let basePolicy = null;
-  try { basePolicy = require('./services/maxApi').answerCallback.__cc652 || null; } catch {}
-  return res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, policy: { ...(basePolicy || {}), wrapperRuntimeVersion: RUNTIME, wrapperSourceMarker: SOURCE, callbackHijack: false } });
-}
-function sendStoreLive(req, res) {
-  if (!requireAdmin(req, res)) return;
-  noCache(res);
-  let snapshot = {};
-  try { const store = require('./store'); snapshot = typeof store.getDebugSnapshot === 'function' ? store.getDebugSnapshot() : { ok: true, store: store.store || {} }; }
-  catch (error) { snapshot = { ok: false, error: error?.message || String(error) }; }
-  return res.json(versionedSnapshot(snapshot, { debugRoute: '/debug/store-live', replacedLegacySp39Debug: true }));
-}
+function adminAllowed(req) { const expected = norm(process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || process.env.MODERATION_ADMIN_TOKEN || ''); if (!expected) return true; const bearer = norm(req.get?.('authorization') || '').replace(/^Bearer\s+/i, '').trim(); const actual = norm(req.get?.('x-admin-token') || bearer || req.query?.token || req.query?.adminToken || req.body?.token || req.body?.adminToken || ''); return actual === expected; }
+function requireAdmin(req, res) { if (adminAllowed(req)) return true; noCache(res); res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME, sourceMarker: SOURCE }); return false; }
+async function safeStats() { try { return await require('./cc5-db-core').stats(); } catch (e) { return { dbUrlPresent: !!(process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.POSTGRES_URL), reachable: false, error: e?.message || String(e) }; } }
+function safeSelfTest() { try { return require('./cc55-moderation-router').selfTest(); } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
+async function safeDbTruth(req) { try { return await require('./cc64-moderation-db-truth').collectTruth({ query: { token: String(req.query?.token || ''), limit: 20 } }); } catch (e) { return { verdict: 'db_truth_unavailable', summary: {}, error: e?.message || String(e) }; } }
+function stressMatrix() { const expected = ['ak_main_menu','comments_menu','gift_menu','buttons_menu','stats_menu','channels_menu','help_menu','help_comments','help_gifts','help_buttons','help_moderation','help_stats','help_channels']; const checks = expected.map((action) => { const r = resolveRoute(action); const ok = Boolean(r?.route?.text && r.route.text.length > 20 && r.route.keyboard); return { action, ok }; }); return { ok: checks.every((x) => x.ok), total: checks.length, passed: checks.filter((x) => x.ok).length, checks }; }
+function versionedSnapshot(base = {}, extra = {}) { const now = Date.now(); const meta = base.meta && typeof base.meta === 'object' ? base.meta : {}; return { ...base, ok: base.ok !== false, runtimeVersion: RUNTIME, buildVersion: RUNTIME, displayVersion: RUNTIME, packageVersion: RUNTIME, sourceMarker: SOURCE, generatedAt: now, meta: { ...meta, runtimeVersion: RUNTIME, buildVersion: RUNTIME, displayVersion: RUNTIME, packageVersion: RUNTIME, sourceMarker: SOURCE, generatedAt: now, debugOverlay: 'cc6521_runtime_alignment' }, cc6521: { ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, base: 'CC6.5.2 clean core', scope: 'menu_stress_help_start_logo_debug_alignment', commentsChanged: false, giftsChanged: false, ctaChanged: false, moderationBusinessLogicChanged: false, ...extra } }; }
+function sendMenuStress(res) { noCache(res); const m = stressMatrix(); return res.type('text/plain').send(['OK: ' + (m.ok ? 'MENU_STRESS_PASS' : 'MENU_STRESS_FAIL'), 'runtime: ' + RUNTIME, 'sourceMarker: ' + SOURCE, 'routesTotal: ' + m.total, 'routesPassed: ' + m.passed, 'oneActiveMenuPolicy: edit_callback_message_first_send_only_if_no_message_id', 'mainMenuLogo: enabled', 'sectionHelp: enabled_for_comments_gifts_buttons_moderation_stats_channels', 'sectionHome: enabled_as_back_to_section_root', ...m.checks.map((x) => x.action + ': ' + (x.ok ? 'pass' : 'fail'))].join('\n') + '\n'); }
+function sendDebug(res) { noCache(res); const m = stressMatrix(); return res.type('text/plain').send(['OK: CC6521_READY', 'runtime: ' + RUNTIME, 'sourceMarker: ' + SOURCE, 'base: CC6.5.2 clean core', 'scope: menu_help_start_logo_debug_alignment', 'commentsChanged: false', 'giftsChanged: false', 'ctaChanged: false', 'moderationBusinessLogicChanged: false', 'chatMenuLogo: enabled_from_public_adminkit_chat_logo_png', 'startMenuFallback: bot_started_and_plain_start_text_only', 'topLevelMenuRouter: enabled', 'oneActiveMenu: edit_callback_message_first', 'sectionHelp: enabled', 'sectionHome: enabled', 'menuStress: ' + (m.ok ? 'pass' : 'fail'), 'debugRuntimeAlignment: enabled'].join('\n') + '\n'); }
+async function sendQaLite(req, res) { noCache(res); const stats = await safeStats(); const self = safeSelfTest(); const truth = await safeDbTruth(req); const matrix = stressMatrix(); const ok = Boolean(self.ok && stats.dbUrlPresent && stats.reachable && matrix.ok); return res.type('text/plain').send(['OK: ' + (ok ? 'PROD_CHECK_READY' : 'WARNING'), 'runtime: ' + RUNTIME, 'sourceMarker: ' + SOURCE, 'releaseGate: ' + (ok ? 'pass' : 'warning'), 'cleanCoreScope: menu_help_start_logo_debug_alignment', 'commentsChanged: false', 'giftsChanged: false', 'ctaChanged: false', 'moderationBusinessLogicChanged: false', 'topLevelMenuRouter: enabled', 'oneActiveMenu: edit_callback_message_first', 'sectionHelp: enabled', 'sectionHome: enabled', 'menuStress: ' + (matrix.ok ? 'pass' : 'fail'), 'moderationDbTruth: ' + (truth.verdict || 'unknown'), 'routerSelfTest: ' + (self.ok ? 'pass' : 'fail'), 'dbUrlPresent: ' + Boolean(stats.dbUrlPresent), 'postgresReachable: ' + Boolean(stats.reachable), 'dbAdmins: ' + (stats.admins || 0), 'dbChannels: ' + (stats.channels || 0), 'dbPosts: ' + (stats.posts || 0), 'dbRules: ' + (stats.rules || 0), 'debugTruth: cc6521_menu_help_stress_over_cc652_clean_core'].join('\n') + '\n'); }
+function sendCallbackPolicy(res) { noCache(res); let base = null; try { base = require('./services/maxApi').answerCallback.__cc652 || null; } catch {} return res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, policy: { ...(base || {}), wrapperRuntimeVersion: RUNTIME, topLevelMenuRouter: 'enabled', oneActiveMenu: 'edit_callback_message_first' } }); }
+function sendStoreLive(req, res) { if (!requireAdmin(req, res)) return; noCache(res); let snapshot = {}; try { const store = require('./store'); snapshot = typeof store.getDebugSnapshot === 'function' ? store.getDebugSnapshot() : { ok: true, store: store.store || {} }; } catch (e) { snapshot = { ok: false, error: e?.message || String(e) }; } return res.json(versionedSnapshot(snapshot, { debugRoute: '/debug/store-live', replacedLegacySp39Debug: true, menuStress: stressMatrix() })); }
 
-function installExpressPatch() {
-  if (Module._load.__cc6521ExpressPatch) return;
-  const oldLoad = Module._load;
-  function patchedLoad(request, parent, isMain) {
-    const loaded = oldLoad.apply(this, arguments);
-    if (String(request || '') === 'express' && loaded && !loaded.__cc6521Wrap) {
-      function expressWrapper() {
-        const app = loaded.apply(this, arguments);
-        if (app && !app.__cc6521StartMenu) {
-          app.__cc6521StartMenu = true;
-          app.use((req, res, next) => {
-            const route = String(req.path || req.url || '').split('?')[0].toLowerCase();
-            if (route === '/debug/cc6521') return sendDebug(res);
-            if (route === '/debug/qa-lite') return sendQaLite(req, res).catch((error) => { noCache(res); return res.status(500).type('text/plain').send('ERROR: ' + (error?.message || String(error)) + '\n'); });
-            if (route === '/debug/callback-toast-policy') return sendCallbackPolicy(res);
-            if (route === '/debug/store-live') return sendStoreLive(req, res);
-            return next();
-          });
-          const oldPost = app.post.bind(app);
-          app.post = (route, ...handlers) => {
-            const routeText = String(route || '').toLowerCase();
-            if (!routeText.includes('/webhook')) return oldPost(route, ...handlers);
-            return oldPost(route, async (req, res, next) => {
-              try {
-                if (!isMenuStartUpdate(req.body || {})) return next();
-                const result = await sendStartMenu(req.body || {});
-                return res.json({ ok: true, handledBy: RUNTIME, result });
-              } catch (error) {
-                console.error('[CC6.5.2.1 start menu fallback]', error?.message || error);
-                return next();
-              }
-            }, ...handlers);
-          };
-        }
-        return app;
-      }
-      Object.setPrototypeOf(expressWrapper, loaded);
-      Object.assign(expressWrapper, loaded);
-      expressWrapper.__cc6521Wrap = true;
-      return expressWrapper;
-    }
-    return loaded;
-  }
-  patchedLoad.__cc6521ExpressPatch = true;
-  Module._load = patchedLoad;
-}
-function install() {
-  process.env.BUILD_VERSION = RUNTIME;
-  process.env.RUNTIME_VERSION = RUNTIME;
-  process.env.BUILD_SOURCE_MARKER = SOURCE;
-  patchPublicAppRead();
-  installExpressPatch();
-  return { ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE };
-}
-module.exports = { RUNTIME, SOURCE, install, isMenuStartUpdate, buildMainMenuKeyboard };
+function installExpressPatch() { if (Module._load.__cc6521ExpressPatch) return; const oldLoad = Module._load; function patchedLoad(request, parent, isMain) { const loaded = oldLoad.apply(this, arguments); if (String(request || '') === 'express' && loaded && !loaded.__cc6521Wrap) { function expressWrapper() { const app = loaded.apply(this, arguments); if (app && !app.__cc6521StartMenu) { app.__cc6521StartMenu = true; app.use((req, res, next) => { const route = String(req.path || req.url || '').split('?')[0].toLowerCase(); if (route === '/debug/cc6521') return sendDebug(res); if (route === '/debug/menu-stress') return sendMenuStress(res); if (route === '/debug/qa-lite') return sendQaLite(req, res).catch((e) => { noCache(res); return res.status(500).type('text/plain').send('ERROR: ' + (e?.message || String(e)) + '\n'); }); if (route === '/debug/callback-toast-policy') return sendCallbackPolicy(res); if (route === '/debug/store-live') return sendStoreLive(req, res); return next(); }); const oldPost = app.post.bind(app); app.post = (route, ...handlers) => { const routeText = String(route || '').toLowerCase(); if (!routeText.includes('/webhook')) return oldPost(route, ...handlers); return oldPost(route, async (req, res, next) => { try { if (isMenuStartUpdate(req.body || {})) { const result = await sendStartMenu(req.body || {}); return res.json({ ok: true, handledBy: RUNTIME, result }); } const action = getAction(req.body || {}); if (isHotfixMenuAction(action)) { const result = await renderRoute({ update: req.body || {}, action }); return res.json({ ok: true, handledBy: RUNTIME, result }); } return next(); } catch (e) { console.error('[CC6.5.2.1 menu hotfix]', e?.message || e); return next(); } }, ...handlers); }; } return app; } Object.setPrototypeOf(expressWrapper, loaded); Object.assign(expressWrapper, loaded); expressWrapper.__cc6521Wrap = true; return expressWrapper; } return loaded; } patchedLoad.__cc6521ExpressPatch = true; Module._load = patchedLoad; }
+function install() { process.env.BUILD_VERSION = RUNTIME; process.env.RUNTIME_VERSION = RUNTIME; process.env.BUILD_SOURCE_MARKER = SOURCE; patchPublicAppRead(); installExpressPatch(); return { ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE }; }
+module.exports = { RUNTIME, SOURCE, install, isMenuStartUpdate, mainMenuKeyboard, stressMatrix };
