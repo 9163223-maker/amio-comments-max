@@ -1,4 +1,4 @@
 'use strict';
 
-require('./cc6539-functional-canonical-router').install();
+require('./cc6542-hotfix-router').install();
 require('./cc5-bootstrap-lite');
