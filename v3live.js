@@ -1,2 +1,5 @@
-const R='CC6.5.4.7-SAFE-BOOT'
-exports.install=function(){process.env.RUNTIME_VERSION=R;process.env.BUILD_VERSION=R;return{ok:true,runtimeVersion:R,safeBoot:true}}
+const Module=require('module')
+const R='CC6.5.4.8-SAFE-DIAG'
+const S='adminkit-CC6.5.4.8-safe-diagnostic-boot'
+function payload(){return{ok:true,runtime:R,sourceMarker:S,safeDiagnosticBoot:true,serverMustStart:true,v3LiveBusinessLogic:false,reason:'safe diagnostic boot only; V3 renderer is not attached to webhook'}}
+exports.install=function(){process.env.RUNTIME_VERSION=R;process.env.BUILD_VERSION=R;process.env.BUILD_SOURCE_MARKER=S;if(Module._load.__v3SafeDiag)return payload();const old=Module._load;Module._load=function(req,parent,isMain){const loaded=old.apply(this,arguments);if(String(req)==='express'&&loaded&&!loaded.__v3SafeDiagWrap){function wrap(){const app=loaded.apply(this,arguments);if(app&&!app.__v3SafeDiag){app.__v3SafeDiag=true;app.use((req,res,next)=>{const p=String(req.path||req.url||'').split('?')[0];if(p==='/debug/production-menu-v3-renderer'){res.set({'Cache-Control':'no-store'});return res.json(payload())}if(p==='/debug/production-menu-v3-renderer-stress'){res.set({'Cache-Control':'no-store'});return res.json({...payload(),recentEvents:[]})}next()})}return app}Object.setPrototypeOf(wrap,loaded);Object.assign(wrap,loaded);wrap.__v3SafeDiagWrap=true;return wrap}return loaded};Module._load.__v3SafeDiag=true;return payload()}
