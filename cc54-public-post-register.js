@@ -37,6 +37,7 @@ async function registerPublicPost(input={}){
 function install(app){
   if(!app||app.__cc54PublicPostRegister) return app;
   app.__cc54PublicPostRegister=true;
+  try{require('./features/menu-v3/debug-routes').install(app);}catch(e){console.warn('[menu-v3 adapter debug]',e&&e.message?e.message:e);}
   try{app.use('/api/cc54/register-public-post', require('express').json({limit:'64kb'}));}catch{}
   app.post('/api/cc54/register-public-post', async(req,res)=>{
     noCache(res);
