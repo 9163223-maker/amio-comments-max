@@ -1,16 +1,15 @@
 {
-  "runtimeVersion": "CC6.5.7.4-CLEAN-V3-MENU-NORMALIZER",
-  "buildVersion": "CC6.5.7.4-CLEAN-V3-MENU-NORMALIZER",
-  "displayVersion": "CC6.5.7.4",
-  "packageVersion": "CC6.5.7.4",
-  "sourceMarker": "adminkit-CC6.5.7.4-clean-v3-menu-normalized-live",
-  "buildGeneratedAt": "2026-05-11T10:02:00Z",
+  "runtimeVersion": "CC6.5.7.6-CLEAN-V3-SINGLE-MENU",
+  "buildVersion": "CC6.5.7.6-CLEAN-V3-SINGLE-MENU",
+  "displayVersion": "CC6.5.7.6",
+  "packageVersion": "CC6.5.7.6",
+  "sourceMarker": "adminkit-CC6.5.7.6-clean-v3-single-active-menu",
+  "buildGeneratedAt": "2026-05-11T11:16:00Z",
   "notes": [
-    "Clean V3 menu core remains the main menu renderer through clean-v3-menu-core-db.js.",
-    "Added clean-v3-menu-normalizer.js to normalize DB data after menu init.",
-    "Fixed duplicated main:home route by moving nav_main service node to nav:main.",
-    "Added cleanup for manual placeholder CHANNEL_ID / POST_ID records from ak_posts and ak_channels.",
-    "Short public /debug/menu-v3-live endpoint remains available for concise menu checks.",
+    "Clean V3 menu remains DB-driven and active.",
+    "Live MAX clicks are confirmed: menu events and sessions increase.",
+    "Bridge now extracts message_id from nested/numeric MAX responses to persist active menu message id reliably.",
+    "This fixes duplicate main menu creation when user presses Start after an existing menu was already sent.",
     "OpenApp comments launch remains unchanged and is kept as the correct baseline.",
     "Comments module itself is not rewritten in this build."
   ]
