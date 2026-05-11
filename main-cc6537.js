@@ -1,5 +1,6 @@
 'use strict';
 
+require('./adminkit-safe-launch-core').install();
 require('./v3-silent-menu-callbacks').install();
 require('./v3-comments-launch-fix').install();
 require('./v3-repatch-comments-links').install();
