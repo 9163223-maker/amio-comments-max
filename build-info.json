@@ -1,15 +1,16 @@
 {
-  "runtimeVersion": "CC6.5.8.7-CLEAN-V3-BANNER-LOOKUP-V2",
-  "buildVersion": "CC6.5.8.7-CLEAN-V3-BANNER-LOOKUP-V2",
-  "displayVersion": "CC6.5.8.7",
-  "packageVersion": "CC6.5.8.7",
-  "sourceMarker": "adminkit-CC6.5.8.7-banner-lookup-by-commentkey-postid-and-debug-latest",
-  "buildGeneratedAt": "2026-05-11T14:55:00Z",
+  "runtimeVersion": "CC6.5.8.8-CLEAN-V3-BANNER-IN-APP-V3",
+  "buildVersion": "CC6.5.8.8-CLEAN-V3-BANNER-IN-APP-V3",
+  "displayVersion": "CC6.5.8.8",
+  "packageVersion": "CC6.5.8.8",
+  "sourceMarker": "adminkit-CC6.5.8.8-explicit-app-js-route-title-postid-banner-render",
+  "buildGeneratedAt": "2026-05-11T15:02:00Z",
   "notes": [
     "Point fix only: Clean V3 menu tree is untouched.",
-    "Adds /api/comments/banner2 with lookup by commentKey, channelId+postId, or postId only.",
-    "Adds /debug/banner-live-v2 that shows latest configured banners even without query params.",
-    "Injects the banner2 client renderer into the comments OpenApp screen.",
-    "Keeps existing OpenApp launch and comments UI unchanged."
+    "Keeps saved banners confirmed by /debug/banner-live-v2 latest list.",
+    "Adds /api/comments/banner3 with lookup by commentKey, postId, or post title fallback.",
+    "Adds /debug/banner-live-v3 and keeps /debug/banner-live-v2 compatible.",
+    "Adds explicit /app.js and /public/app.js patched responses so the OpenApp comments screen receives the banner renderer even when static middleware serves app.js before fs patching.",
+    "OpenApp comments launch and existing comments UI remain untouched."
   ]
 }
