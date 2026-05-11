@@ -4,8 +4,8 @@ const db = require('./cc5-db-core');
 const api = require('./services/maxApi');
 const config = require('./config');
 const v3 = require('./menu-v3-feature-adapter-fixed');
-const RUNTIME = 'CC6.5.5.6-V3-BRIDGE';
-const SOURCE = 'adminkit-CC6.5.5.6-v3-live-bridge-real-start-takeover';
+const RUNTIME = 'CC6.5.7.6-V3-BRIDGE-SINGLE-MENU';
+const SOURCE = 'adminkit-CC6.5.7.6-v3-bridge-stable-menu-message-id';
 
 const norm = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 
@@ -81,9 +81,37 @@ function isBotStartedMenu(u = {}) {
   return ['menu', 'start', '/start', 'main:home', 'ak_main_menu', 'главное меню'].includes(a) || /главн.*меню/.test(a);
 }
 
+function findMessageId(value, seen = new Set()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) return '';
+  seen.add(value);
+
+  for (const key of ['message_id', 'messageId', 'mid']) {
+    const direct = norm(value[key]);
+    if (direct) return direct;
+  }
+
+  if (value.message && typeof value.message === 'object') {
+    const fromMessage = norm(value.message.message_id || value.message.messageId || value.message.mid || value.message.id);
+    if (fromMessage) return fromMessage;
+  }
+
+  const rootId = norm(value.id);
+  if (rootId && (Object.prototype.hasOwnProperty.call(value, 'text') || Object.prototype.hasOwnProperty.call(value, 'attachments') || Object.prototype.hasOwnProperty.call(value, 'body'))) return rootId;
+
+  for (const nested of Object.values(value)) {
+    const found = findMessageId(nested, seen);
+    if (found) return found;
+  }
+  return '';
+}
+
 function messageIdFromResult(result) {
-  const match = JSON.stringify(result || {}).match(/"(?:message_id|messageId|id)"\s*:\s*"([^"{}]+)"/);
-  return match ? match[1] : '';
+  const fromObject = findMessageId(result);
+  if (fromObject) return fromObject;
+  const match = JSON.stringify(result || {}).match(/\"(?:message_id|messageId|mid|id)\"\s*:\s*\"([^\"{}]+)\"/);
+  if (match) return match[1];
+  const numeric = JSON.stringify(result || {}).match(/\"(?:message_id|messageId|mid)\"\s*:\s*(\d+)/);
+  return numeric ? numeric[1] : '';
 }
 
 function isMain(u = {}) {
@@ -135,10 +163,12 @@ async function repairKnownChannelTitles(uid, explicit = '') {
   return { checked, updated };
 }
 
-async function cleanupLastMenu(uid) {
+async function cleanupLastMenu(uid, nextMid = '') {
   try {
     const old = await db.getMenu(uid);
-    if (old) await api.deleteMessage({ ['bot'+'Token']: config['bot'+'Token'], messageId: old, timeoutMs: 1200 });
+    if (old && String(old) !== String(nextMid || '')) {
+      await api.deleteMessage({ ['bot'+'Token']: config['bot'+'Token'], messageId: old, timeoutMs: 1500 });
+    }
   } catch {}
 }
 
@@ -162,7 +192,8 @@ async function handleMainMenu(update, uid, mode = 'main') {
     sourceMarker: SOURCE,
     route: 'main:home',
     mode,
-    messageId: mid
+    messageId: mid,
+    singleMenuCleanup: true
   };
 }
 
@@ -242,14 +273,15 @@ function selfTest() {
     commentsChoosePostOwnedByV3: v3.canHandleRoute('comments:choose_post') === true,
     editorChoosePostOwnedByV3: v3.canHandleRoute('editor:choose_post') === true,
     moderationOwnedByCanonicalRouter: v3.canHandleRoute('moderation:choose_post') === false,
-    compactCallbackPayloads: !!(v3Checks.compactCallbacks || v3Checks.compactPayloads || v3Test.compactCallbacks)
+    compactCallbackPayloads: !!(v3Checks.compactCallbacks || v3Checks.compactPayloads || v3Test.compactCallbacks),
+    stableMessageIdExtraction: messageIdFromResult({ message: { id: 12345 } }) === '12345' && messageIdFromResult({ message_id: 67890 }) === '67890'
   };
 
   return {
     ok: Object.values(checks).every(Boolean),
     runtime: RUNTIME,
     sourceMarker: SOURCE,
-    bridge: 'v3_live_bridge',
+    bridge: 'v3_live_bridge_single_menu',
     checks,
     fixedSelfTestTruth: true,
     v3Adapter: v3Test,
@@ -264,5 +296,6 @@ module.exports = {
   selfTest,
   isMainMenuAction: isMain,
   isBotStartedMenu,
-  repairKnownChannelTitles
+  repairKnownChannelTitles,
+  messageIdFromResult
 };
