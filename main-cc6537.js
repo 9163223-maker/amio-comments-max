@@ -1,5 +1,6 @@
 'use strict';
 
+require('./adminkit-comments-preboot-physical-patch').install();
 require('./adminkit-comments-safe-preboot-appjs-route').install();
 require('./adminkit-comments-core-parser-patch').install();
 require('./adminkit-comments-appjs-file-patch').install();
