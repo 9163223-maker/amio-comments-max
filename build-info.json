@@ -1,15 +1,15 @@
 {
-  "runtimeVersion": "CC6.5.7.6-CLEAN-V3-SINGLE-MENU",
-  "buildVersion": "CC6.5.7.6-CLEAN-V3-SINGLE-MENU",
-  "displayVersion": "CC6.5.7.6",
-  "packageVersion": "CC6.5.7.6",
-  "sourceMarker": "adminkit-CC6.5.7.6-clean-v3-single-active-menu",
-  "buildGeneratedAt": "2026-05-11T11:16:00Z",
+  "runtimeVersion": "CC6.5.7.7-CLEAN-V3-POST-REGISTRY",
+  "buildVersion": "CC6.5.7.7-CLEAN-V3-POST-REGISTRY",
+  "displayVersion": "CC6.5.7.7",
+  "packageVersion": "CC6.5.7.7",
+  "sourceMarker": "adminkit-CC6.5.7.7-clean-v3-autoregister-channel-posts",
+  "buildGeneratedAt": "2026-05-11T11:45:00Z",
   "notes": [
     "Clean V3 menu remains DB-driven and active.",
-    "Live MAX clicks are confirmed: menu events and sessions increase.",
-    "Bridge now extracts message_id from nested/numeric MAX responses to persist active menu message id reliably.",
-    "This fixes duplicate main menu creation when user presses Start after an existing menu was already sent.",
+    "Single active menu is kept: bridge extracts and persists nested/numeric MAX message_id values.",
+    "Added automatic postRegistry sync in cc55-v3-live-bridge.js: incoming channel post webhooks are registered into ak_posts for admins linked to the channel.",
+    "The registration layer looks for channelId + postId and skips bot menu/start/callback service updates.",
     "OpenApp comments launch remains unchanged and is kept as the correct baseline.",
     "Comments module itself is not rewritten in this build."
   ]
