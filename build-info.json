@@ -1,14 +1,14 @@
 {
-  "runtimeVersion": "CC6.5.6.1-SILENT-CALLBACKS-DIRECT-COMMENTS",
-  "buildVersion": "CC6.5.6.1-SILENT-CALLBACKS-DIRECT-COMMENTS",
-  "displayVersion": "CC6.5.6.1",
+  "runtimeVersion": "CC6.5.6.2-ROLLBACK-DIRECT-COMMENTS-LINK",
+  "buildVersion": "CC6.5.6.2-ROLLBACK-DIRECT-COMMENTS-LINK",
+  "displayVersion": "CC6.5.6.2",
   "packageVersion": "CC6.5.6.1",
-  "sourceMarker": "adminkit-CC6.5.6.1-silent-menu-direct-comments-safe-app",
-  "buildGeneratedAt": "2026-05-11T08:52:00Z",
+  "sourceMarker": "adminkit-CC6.5.6.2-rollback-external-confirmation-and-repatch",
+  "buildGeneratedAt": "2026-05-11T09:08:00Z",
   "notes": [
-    "Safe rollback of public app DOM cleanup: v3-native-hints-cleanup no longer patches public/app.js.",
-    "Native MAX callback toast notifications like 'Открыто' and 'Главное меню' are suppressed through services/maxApi answerCallback wrapper.",
-    "Comment buttons now prefer direct APP_BASE_URL /app links over bot deep-links when APP_BASE_URL is available.",
-    "This build is intended to restore mini-app comments opening and remove native menu toast overlays."
+    "Rolled back direct https /app comments link because MAX treats it as an external URL and shows confirmation dialog.",
+    "Silent menu callback fix remains active to suppress native MAX toast notifications such as 'Открыто'.",
+    "Added /debug/repatch-comments-links endpoint to force repatch posts that were already written with the wrong direct https link.",
+    "public/app.js DOM cleanup remains disabled in safe mode."
   ]
 }
