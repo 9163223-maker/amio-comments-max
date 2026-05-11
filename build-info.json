@@ -1,13 +1,13 @@
 {
-  "runtimeVersion": "CC6.6.1-SAFE-PREBOOT-APPJS",
-  "buildVersion": "CC6.6.1-SAFE-PREBOOT-APPJS",
-  "displayVersion": "CC6.6.1",
+  "runtimeVersion": "CC6.6.2-SAFE-PREBOOT-PHYSICAL",
+  "buildVersion": "CC6.6.2-SAFE-PREBOOT-PHYSICAL",
+  "displayVersion": "CC6.6.2",
   "packageVersion": "CC6.5.9.3",
-  "sourceMarker": "adminkit-CC6.6.1-safe-preboot-before-public-appjs",
-  "buildGeneratedAt": "2026-05-11T18:35:00Z",
+  "sourceMarker": "adminkit-CC6.6.2-physical-preboot-before-legacy-appjs",
+  "buildGeneratedAt": "2026-05-11T18:55:00Z",
   "notes": [
-    "Adds isolated safe preboot route for /app.js and /public/app.js before static app code.",
-    "Preboot reads OpenApp payload before legacy app.js and rewrites URL params to commentKey/channelId/postId.",
+    "Fixes blank-screen risk by physically prepending safe preboot into public/app.js at boot.",
+    "Preboot reads OpenApp payload before legacy app code and rewrites URL params to commentKey/channelId/postId.",
     "Menu tree and banner modules are untouched.",
     "Post Zero rule: all new automatic posts must preserve comment launch across future updates."
   ]
