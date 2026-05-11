@@ -1,17 +1,14 @@
 {
-  "runtimeVersion": "CC6.5.7.8-CLEAN-V3-POST-PATCHER-DB-SYNC",
-  "buildVersion": "CC6.5.7.8-CLEAN-V3-POST-PATCHER-DB-SYNC",
-  "displayVersion": "CC6.5.7.8",
-  "packageVersion": "CC6.5.7.8",
-  "sourceMarker": "adminkit-CC6.5.7.8-sync-comment-button-patched-posts-into-ak-posts",
-  "buildGeneratedAt": "2026-05-11T11:58:00Z",
+  "runtimeVersion": "CC6.5.7.9-CLEAN-V3-STORE-BACKFILL",
+  "buildVersion": "CC6.5.7.9-CLEAN-V3-STORE-BACKFILL",
+  "displayVersion": "CC6.5.7.9",
+  "packageVersion": "CC6.5.7.9",
+  "sourceMarker": "adminkit-CC6.5.7.9-backfill-old-store-posts-to-ak-posts",
+  "buildGeneratedAt": "2026-05-11T12:22:00Z",
   "notes": [
-    "Clean V3 menu remains DB-driven and active.",
-    "Single active menu remains enabled and activeMenu message_id is tracked.",
-    "New fix: services/postPatcher.js now syncs every post patched with the Comments/OpenApp button into PostgreSQL ak_posts.",
-    "This fixes the case where posts 6576/6577 have Comments buttons in the channel but do not appear in Clean V3 menu memory.",
-    "Webhook-based post registry from CC6.5.7.7 remains, but the reliable source is now the post patcher itself.",
-    "OpenApp comments launch remains unchanged and is kept as the correct baseline.",
-    "Comments module itself is not rewritten in this build."
+    "New posts patched with the Comments/OpenApp button now sync into PostgreSQL ak_posts.",
+    "Clean V3 normalizer backfills legacy store posts into ak_posts on menu init.",
+    "Older already-patched posts like 6576 and 6577 should appear in Clean V3 menu memory after deploy.",
+    "OpenApp comments launch remains unchanged."
   ]
 }
