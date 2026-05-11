@@ -1,14 +1,14 @@
 {
-  "runtimeVersion": "CC6.6.3-POST-ZERO2-SAFE-CORE",
-  "buildVersion": "CC6.6.3-POST-ZERO2-SAFE-CORE",
-  "displayVersion": "CC6.6.3",
+  "runtimeVersion": "CC6.6.4-POST-ZERO2-CONTROL-REDEPLOY",
+  "buildVersion": "CC6.6.4-POST-ZERO2-CONTROL-REDEPLOY",
+  "displayVersion": "CC6.6.4",
   "packageVersion": "CC6.5.9.3",
-  "sourceMarker": "adminkit-CC6.6.3-post-zero2-quarantine-legacy-appjs-patchers",
-  "buildGeneratedAt": "2026-05-11T19:05:00Z",
+  "sourceMarker": "adminkit-CC6.6.4-control-redeploy-post-zero2-safe-layer",
+  "buildGeneratedAt": "2026-05-11T19:58:00Z",
   "notes": [
-    "Quarantines legacy app.js route/file patchers that could override the safe preboot and cause a blank mini-app screen.",
-    "Only one safe physical preboot remains responsible for reading the OpenApp payload before legacy comments UI.",
-    "Menu tree and banner modules are untouched.",
-    "Post Zero 2 rule: create a new automatic post after this build; it must keep opening comments after future feature updates."
+    "Control redeploy only: no comments boot/app/menu/banner code changed.",
+    "Post Zero 2 opened comments before this commit and must keep opening comments after this redeploy.",
+    "Safe physical preboot remains the only boot owner for OpenApp payload parsing.",
+    "Menu tree and banner modules are untouched."
   ]
 }
