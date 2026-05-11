@@ -2,6 +2,7 @@
 
 require('./v3-silent-menu-callbacks').install();
 require('./v3-comments-launch-fix').install();
+require('./v3-repatch-comments-links').install();
 require('./production-menu-v3-renderer-v2').install();
 require('./production-menu-map-v3-fixed-debug').install();
 require('./cc6542-hotfix-router').install();
