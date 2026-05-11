@@ -1,15 +1,15 @@
 {
-  "runtimeVersion": "CC6.5.8.5-CLEAN-V3-FUNCTION-POINTS",
-  "buildVersion": "CC6.5.8.5-CLEAN-V3-FUNCTION-POINTS",
-  "displayVersion": "CC6.5.8.5",
-  "packageVersion": "CC6.5.8.5",
-  "sourceMarker": "adminkit-CC6.5.8.5-comments-repatch-and-banner-confirm",
-  "buildGeneratedAt": "2026-05-11T14:10:00Z",
+  "runtimeVersion": "CC6.5.8.6-CLEAN-V3-BANNER-IN-APP",
+  "buildVersion": "CC6.5.8.6-CLEAN-V3-BANNER-IN-APP",
+  "displayVersion": "CC6.5.8.6",
+  "packageVersion": "CC6.5.8.6",
+  "sourceMarker": "adminkit-CC6.5.8.6-no-menu-multiply-and-render-banner-in-comments",
+  "buildGeneratedAt": "2026-05-11T14:30:00Z",
   "notes": [
-    "Point-connects functional actions into the existing Clean V3 tree without rebuilding the menu tree.",
-    "Adds a comments:repatch action available from the selected post card as '🔁 Обновить кнопку'. It uses the existing postPatcher and keeps OpenApp launch policy unchanged.",
-    "Overrides only comments:post rendering to add the repatch button; main menu, comments choose-post and OpenApp comments UI are untouched.",
-    "Banner input now sends a fresh confirmation card below the user's text/link/button message, so the admin sees that the value was saved.",
-    "Banner callbacks remain routed directly to the banner flow from CC6.5.8.4."
+    "Point fix only: no rebuild of the Clean V3 menu tree.",
+    "Stops banner text/link/button saves from creating a second full menu card; it edits the active banner menu where possible and sends only a small confirmation.",
+    "Adds /api/comments/banner and /debug/banner-live for the configured per-post banner.",
+    "Injects a tiny client renderer into public/app.js at runtime so the saved banner appears inside the comments OpenApp screen.",
+    "OpenApp comments launch and existing comments UI remain untouched."
   ]
 }
