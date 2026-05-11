@@ -4,15 +4,41 @@ const db = require('./cc5-db-core');
 const api = require('./services/maxApi');
 const config = require('./config');
 const v3 = require('./menu-v3-feature-adapter-fixed');
-const RUNTIME = 'CC6.5.5.4-V3-BRIDGE';
-const SOURCE = 'adminkit-CC6.5.5.4-v3-live-bridge-bot-started-menu';
+const RUNTIME = 'CC6.5.5.6-V3-BRIDGE';
+const SOURCE = 'adminkit-CC6.5.5.6-v3-live-bridge-real-start-takeover';
 
 const norm = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 
+function deepValuesByKey(obj, keys, out = [], seen = new Set()) {
+  if (!obj || typeof obj !== 'object' || seen.has(obj)) return out;
+  seen.add(obj);
+  const wanted = new Set(keys.map((k) => String(k).toLowerCase()));
+  for (const [k, v] of Object.entries(obj)) {
+    if (wanted.has(String(k).toLowerCase())) {
+      const s = norm(v);
+      if (s && s !== '[object Object]') out.push(s);
+    }
+    if (v && typeof v === 'object') deepValuesByKey(v, keys, out, seen);
+  }
+  return out;
+}
+
+function firstDeep(obj, keys) {
+  return deepValuesByKey(obj, keys)[0] || '';
+}
+
 function payload(u = {}) { return db.payload(u) || {}; }
-function adminId(u = {}) { return db.adminId(u); }
+function adminId(u = {}) {
+  const direct = norm(db.adminId(u));
+  if (direct) return direct;
+  const vals = deepValuesByKey(u, ['user_id', 'userId', 'sender_id', 'senderId', 'from_id', 'fromId', 'id']);
+  return vals.find((v) => v && !String(v).startsWith('-') && /^\d+$/.test(String(v))) || '';
+}
 function callback(u = {}) { return db.cb(u); }
 function route(u = {}) { return v3.routeFromUpdate(u); }
+function messageText(u = {}) {
+  return norm(db.text(u) || firstDeep(u, ['text', 'message_text', 'body_text', 'command']));
+}
 
 function updateType(u = {}) {
   return norm(
@@ -25,6 +51,7 @@ function updateType(u = {}) {
     u.data?.updateType ||
     u.update?.update_type ||
     u.update?.updateType ||
+    firstDeep(u, ['update_type', 'updateType', 'event_type', 'eventType']) ||
     ''
   ).toLowerCase();
 }
@@ -41,6 +68,8 @@ function actionName(u = {}) {
     u.data?.payload ||
     u.update?.payload ||
     db.action(u) ||
+    firstDeep(u, ['payload', 'callback_data', 'callbackData', 'action', 'command']) ||
+    messageText(u) ||
     ''
   ).toLowerCase();
 }
@@ -48,7 +77,8 @@ function actionName(u = {}) {
 function isBotStartedMenu(u = {}) {
   const t = updateType(u);
   const a = actionName(u);
-  return ['bot_started', 'botstarted'].includes(t) && ['menu', 'start', '/start', 'main:home', 'ak_main_menu', 'главное меню'].includes(a);
+  if (['bot_started', 'botstarted', 'bot_start', 'botstart'].includes(t)) return true;
+  return ['menu', 'start', '/start', 'main:home', 'ak_main_menu', 'главное меню'].includes(a) || /главн.*меню/.test(a);
 }
 
 function messageIdFromResult(result) {
@@ -63,12 +93,13 @@ function isMain(u = {}) {
 
 function isTextMain(u = {}) {
   if (callback(u)) return false;
-  const t = norm(db.text(u)).toLowerCase();
-  return ['/start', 'start', 'старт', 'меню', 'главное меню'].includes(t) || /главн.*меню/.test(t);
+  const t = norm(messageText(u) || actionName(u)).toLowerCase();
+  return ['/start', 'start', 'старт', 'меню', 'главное меню', 'начать'].includes(t) || /главн.*меню/.test(t);
 }
 
 function isMod(u = {}) {
-  const a = actionName(u);
+  const p = payload(u);
+  const a = norm(p.r || p.route || p.action || db.action(u) || '').toLowerCase();
   return a.startsWith('mod_') || a.startsWith('moderation:') || a === 'модерация';
 }
 
@@ -104,8 +135,16 @@ async function repairKnownChannelTitles(uid, explicit = '') {
   return { checked, updated };
 }
 
+async function cleanupLastMenu(uid) {
+  try {
+    const old = await db.getMenu(uid);
+    if (old) await api.deleteMessage({ ['bot'+'Token']: config['bot'+'Token'], messageId: old, timeoutMs: 1200 });
+  } catch {}
+}
+
 async function handleMainMenu(update, uid, mode = 'main') {
   const packet = await v3.renderScreen('main:home', uid, {});
+  await cleanupLastMenu(uid);
   const result = await api.sendMessage({
     ['bot'+'Token']: config['bot'+'Token'],
     userId: uid,
@@ -198,7 +237,8 @@ function selfTest() {
     canonicalModerationOk: !!baseTest.ok,
     mainMenuOwnedByV3: v3.canHandleRoute('main:home') === true,
     textStartOwnedByV3Bridge: true,
-    botStartedMenuOwnedByV3: isBotStartedMenu({ update_type: 'bot_started', payload: 'menu' }),
+    botStartedMenuOwnedByV3: isBotStartedMenu({ update_type: 'bot_started', payload: 'menu', user: { id: '1' } }),
+    realStartTextOwnedByV3Bridge: isTextMain({ message: { text: 'Начать', sender: { id: '1' } } }),
     commentsChoosePostOwnedByV3: v3.canHandleRoute('comments:choose_post') === true,
     editorChoosePostOwnedByV3: v3.canHandleRoute('editor:choose_post') === true,
     moderationOwnedByCanonicalRouter: v3.canHandleRoute('moderation:choose_post') === false,
