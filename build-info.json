@@ -1,17 +1,16 @@
 {
-  "runtimeVersion": "CC6.5.8.2-CLEAN-V3-COMMENTS-BANNER-ACTION",
-  "buildVersion": "CC6.5.8.2-CLEAN-V3-COMMENTS-BANNER-ACTION",
-  "displayVersion": "CC6.5.8.2",
-  "packageVersion": "CC6.5.8.2",
-  "sourceMarker": "adminkit-CC6.5.8.2-comments-banner-toggle-only",
-  "buildGeneratedAt": "2026-05-11T13:24:00Z",
+  "runtimeVersion": "CC6.5.8.3-CLEAN-V3-COMMENTS-BANNER-FLOW",
+  "buildVersion": "CC6.5.8.3-CLEAN-V3-COMMENTS-BANNER-FLOW",
+  "displayVersion": "CC6.5.8.3",
+  "packageVersion": "CC6.5.8.3",
+  "sourceMarker": "adminkit-CC6.5.8.3-comments-banner-text-link-button-flow",
+  "buildGeneratedAt": "2026-05-11T13:31:00Z",
   "notes": [
-    "Connects the Clean V3 comments banner action route comments_banner:home.",
-    "Banner status is stored per post in ak_post_settings_v3.banner_enabled.",
-    "The fix touches only the comments banner action path and does not change OpenApp comments launch.",
-    "Comments enable/disable from CC6.5.8.0 remains included.",
-    "Main route guard from CC6.5.8.1 remains included.",
-    "Post registry sync and store backfill remain active.",
-    "Single active menu remains enabled and activeMenu message_id is tracked."
+    "Banner is no longer just enabled/disabled: it now has a setup flow.",
+    "Added per-post banner storage in ak_comment_banners_v3: enabled, banner_text, link_url, button_text and action_type.",
+    "Connected routes: comments_banner:home, comments_banner:toggle, comments_banner:edit_text, comments_banner:edit_url, comments_banner:edit_button, comments_banner:preview, comments_banner:clear and comments_banner:cancel.",
+    "Text input after prompt is captured through Clean V3 flow state and saved to the selected post banner config.",
+    "The fix touches only the comments banner setup path and does not change OpenApp comments launch.",
+    "Comments enable/disable, main route guard, post registry sync and single active menu remain included."
   ]
 }
