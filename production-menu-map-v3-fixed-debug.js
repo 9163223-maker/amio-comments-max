@@ -3,8 +3,8 @@
 const Module = require('module');
 const menuMap = require('./production-menu-map-v3-fixed');
 
-const RUNTIME = 'CC6.5.5.9-ADMIN-KIT-STATUS';
-const SOURCE = 'adminkit-CC6.5.5.9-unified-admin-kit-status';
+const RUNTIME = 'CC6.5.6.0-ADMIN-KIT-STATUS';
+const SOURCE = 'adminkit-CC6.5.6.0-unified-admin-kit-status-v3-native-hints';
 
 function noCache(res) {
   try {
@@ -63,14 +63,17 @@ function adminKitStatus() {
   const bridge = safeRequire('./cc55-v3-live-bridge');
   const adapter = safeRequire('./menu-v3-feature-adapter-fixed');
   const canonical = safeRequire('./cc52-moderation-router');
+  const hintsCleanup = safeRequire('./v3-native-hints-cleanup');
 
   const mapValidation = compactValidation();
   const bridgeSelfTest = safeCall(bridge.selfTest, { ok: false, reason: 'bridge_selfTest_missing' });
   const adapterSelfTest = safeCall(adapter.selfTest, { ok: false, reason: 'adapter_selfTest_missing' });
   const canonicalSelfTest = safeCall(canonical.selfTest, { ok: false, reason: 'canonical_selfTest_missing' });
+  const hintsCleanupSelfTest = safeCall(hintsCleanup.selfTest, { ok: false, reason: 'hints_cleanup_selfTest_missing' });
 
   const bridgeChecks = bridgeSelfTest && bridgeSelfTest.checks ? bridgeSelfTest.checks : {};
   const adapterChecks = adapterSelfTest && adapterSelfTest.checks ? adapterSelfTest.checks : {};
+  const hintsPolicy = hintsCleanupSelfTest && hintsCleanupSelfTest.policy ? hintsCleanupSelfTest.policy : {};
 
   const statusChecks = {
     server: true,
@@ -86,6 +89,12 @@ function adminKitStatus() {
     v3AdapterLoaded: !adapter.__requireError,
     v3AdapterOk: !!adapterSelfTest.ok,
     canonicalModerationOk: !!canonicalSelfTest.ok,
+    v3NativeHintsCleanupLoaded: !hintsCleanup.__requireError,
+    v3NativeHintsCleanupOk: !!hintsCleanupSelfTest.ok,
+    nativeHintsOnlyInline: !!hintsPolicy.nativeHintsOnlyInline,
+    noOverlayHints: !!hintsPolicy.disablesOverlayHints,
+    noLegacyGrowthCta: !!hintsPolicy.disablesLegacyGrowthCta,
+    photoOnlyAttachmentPolicy: !!hintsPolicy.photoOnlyAttachmentPolicy,
     productionSingleMainMenu: !!(adapterChecks.productionSingleMainMenu || bridgeChecks.productionSingleMainMenu),
     compactCallbacks: !!(adapterChecks.compactCallbacks || bridgeChecks.compactCallbackPayloads || bridgeChecks.compactCallbacks),
     mainMenuOwnedByV3: !!(bridgeChecks.mainMenuOwnedByV3 || adapterChecks.rendererHasMain),
@@ -112,6 +121,12 @@ function adminKitStatus() {
     'v3AdapterLoaded',
     'v3AdapterOk',
     'canonicalModerationOk',
+    'v3NativeHintsCleanupLoaded',
+    'v3NativeHintsCleanupOk',
+    'nativeHintsOnlyInline',
+    'noOverlayHints',
+    'noLegacyGrowthCta',
+    'photoOnlyAttachmentPolicy',
     'productionSingleMainMenu',
     'compactCallbacks',
     'mainMenuOwnedByV3',
@@ -142,6 +157,10 @@ function adminKitStatus() {
     expected: {
       singleMainMenu: 'V3_COMPACT',
       noLegacyMainMenuOverlay: true,
+      nativeHintsOnlyInline: true,
+      overlayHintsForbidden: true,
+      oldGrowthCtaForbidden: true,
+      photoOnlyAttachmentMenu: true,
       noBootChangesForMenu: true,
       noDebugStorePingChangesForMenu: true
     },
@@ -151,11 +170,14 @@ function adminKitStatus() {
       bridgeSource: bridge.SOURCE || null,
       adapterRuntime: adapter.RUNTIME || null,
       adapterSource: adapter.SOURCE || null,
+      hintsCleanupRuntime: hintsCleanup.RUNTIME || hintsCleanupSelfTest.runtimeVersion || null,
+      hintsCleanupSource: hintsCleanup.SOURCE || hintsCleanupSelfTest.sourceMarker || null,
       canonicalRuntime: canonicalSelfTest.runtime || canonicalSelfTest.runtimeVersion || null
     },
     map: mapValidation,
     bridgeSelfTest,
     adapterSelfTest,
+    hintsCleanupSelfTest,
     canonicalSelfTest
   };
 }
