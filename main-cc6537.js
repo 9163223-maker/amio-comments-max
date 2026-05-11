@@ -1,6 +1,5 @@
 'use strict';
 
-require('./adminkit-post-zero-safe-layer').install();
 require('./adminkit-comments-core-parser-patch').install();
 require('./adminkit-comments-appjs-file-patch').install();
 require('./adminkit-comments-appjs-route').install();
@@ -23,5 +22,6 @@ require('./production-menu-map-v3-fixed-debug').install();
 require('./cc6542-hotfix-router').install();
 require('./v3-native-hints-cleanup').install();
 require('./v3-openapp-payload-bridge').install();
+require('./adminkit-post-zero-safe-layer').install();
 require('./cc5-bootstrap-lite');
 require('./v3-disable-growth-cta').install();
