@@ -4,8 +4,8 @@ const Module = require('module');
 const db = require('./cc5-db-core');
 const menu = require('./clean-v3-menu-core-db');
 
-const RUNTIME = 'CC6.5.7.5-CLEAN-V3-MENU-OK';
-const SOURCE = 'adminkit-CC6.5.7.5-ultra-short-menu-health';
+const RUNTIME = 'CC6.5.7.6-CLEAN-V3-SINGLE-MENU-OK';
+const SOURCE = 'adminkit-CC6.5.7.6-ultra-short-menu-health-single-menu';
 
 function noCache(res) {
   try {
@@ -37,10 +37,12 @@ async function okPayload() {
   `);
   const { rows: eventRows } = await q(`select count(*)::int as events from ak_menu_events_v3`);
   const { rows: sessionRows } = await q(`select count(*)::int as sessions from ak_menu_session_v3`);
+  const { rows: stateRows } = await q(`select message_id as "messageId", updated_at as "updatedAt" from ak_menu_state where admin_id=$1 limit 1`, [adminId]);
   const channels = await db.getChannels(adminId).catch(() => []);
   const activeChannel = channels.find((c) => !String(c.channelId || '').includes('CHANNEL_ID')) || channels[0] || null;
   const posts = activeChannel?.channelId ? await db.getPosts(adminId, activeChannel.channelId, 10).catch(() => []) : [];
   const c = nodeRows[0] || {};
+  const activeMenuMessageId = stateRows[0]?.messageId || '';
   const checks = {
     main: Number(c.main_route || 0) === 1,
     mainButtons: Number(c.main_buttons || 0) === 12,
@@ -48,12 +50,14 @@ async function okPayload() {
     choosePost: Number(c.choose_post || 0) === 1,
     commentsPost: Number(c.comments_post || 0) === 1,
     noPlaceholders: !channels.some((ch) => String(ch.channelId || '').includes('CHANNEL_ID')) && !posts.some((p) => String(p.postId || '').includes('POST_ID') || String(p.commentKey || '').includes('CHANNEL_ID')),
-    openAppUntouched: true
+    openAppUntouched: true,
+    singleMenuFixIncluded: true,
+    activeMenuMessageTracked: !!activeMenuMessageId
   };
   return {
     ok: Object.values(checks).every(Boolean),
     runtimeVersion: RUNTIME,
-    status: 'CLEAN_V3_MENU_OK',
+    status: 'CLEAN_V3_SINGLE_MENU_OK',
     checks,
     counts: {
       nodes: Number(c.nodes || 0),
@@ -63,9 +67,13 @@ async function okPayload() {
       events: Number(eventRows[0]?.events || 0),
       sessions: Number(sessionRows[0]?.sessions || 0)
     },
+    activeMenu: {
+      messageId: activeMenuMessageId,
+      updatedAt: stateRows[0]?.updatedAt || null
+    },
     channel: activeChannel ? { channelId: activeChannel.channelId, title: activeChannel.title } : null,
     posts: posts.map((p) => ({ title: p.title, postId: p.postId })).slice(0, 10),
-    nextTest: 'Open MAX bot: Start → Comments → Choose post. Then refresh this URL: events/sessions should increase.'
+    nextTest: 'Open MAX bot: press Start twice. There should be one active menu, and activeMenu.messageId should be present.'
   };
 }
 
@@ -106,6 +114,7 @@ function selfTest() {
     endpoint: '/debug/menu-v3-ok',
     public: true,
     compact: true,
+    singleMenuFixIncluded: true,
     commentsModuleTouched: false,
     openAppTouched: false
   };
