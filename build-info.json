@@ -1,15 +1,14 @@
 {
-  "runtimeVersion": "CC6.5.9.0-OPENAPP-PAYLOAD-BRIDGE-V2",
-  "buildVersion": "CC6.5.9.0-OPENAPP-PAYLOAD-BRIDGE-V2",
-  "displayVersion": "CC6.5.9.0",
-  "packageVersion": "CC6.5.9.0",
-  "sourceMarker": "adminkit-CC6.5.9.0-direct-openapp-payload-cp-double-underscore",
-  "buildGeneratedAt": "2026-05-11T15:32:00Z",
+  "runtimeVersion": "CC6.5.9.1-OPENAPP-SAFE-ROLLBACK",
+  "buildVersion": "CC6.5.9.1-OPENAPP-SAFE-ROLLBACK",
+  "displayVersion": "CC6.5.9.1",
+  "packageVersion": "CC6.5.9.1",
+  "sourceMarker": "adminkit-CC6.5.9.1-restore-safe-startapp-parse-legacy-cp",
+  "buildGeneratedAt": "2026-05-11T15:40:00Z",
   "notes": [
-    "Point fix only: Clean V3 menu tree is untouched.",
-    "Existing posts should not require repatching after every code update.",
-    "OpenApp now reads direct MAX payload fields, not only URL/search/startapp values.",
-    "Legacy cp__negativeChannel_postId payloads are restored back to channelId:postId commentKey.",
-    "Banner and menu modules are unchanged."
+    "Rollback unsafe direct open_app payload override from CC6.5.9.0.",
+    "Safe block is restored: normal startapp/start_param/handoff priority is kept.",
+    "Only legacy cp__negativeChannel_postId parsing is added as fallback.",
+    "Menu tree, banner settings, DOM visibility and comment UI are untouched."
   ]
 }
