@@ -1,15 +1,15 @@
 {
-  "runtimeVersion": "CC6.5.8.9-OPENAPP-PAYLOAD-BRIDGE",
-  "buildVersion": "CC6.5.8.9-OPENAPP-PAYLOAD-BRIDGE",
-  "displayVersion": "CC6.5.8.9",
-  "packageVersion": "CC6.5.8.9",
-  "sourceMarker": "adminkit-CC6.5.8.9-read-open-app-payload-and-legacy-cp-post",
-  "buildGeneratedAt": "2026-05-11T15:20:00Z",
+  "runtimeVersion": "CC6.5.9.0-OPENAPP-PAYLOAD-BRIDGE-V2",
+  "buildVersion": "CC6.5.9.0-OPENAPP-PAYLOAD-BRIDGE-V2",
+  "displayVersion": "CC6.5.9.0",
+  "packageVersion": "CC6.5.9.0",
+  "sourceMarker": "adminkit-CC6.5.9.0-direct-openapp-payload-cp-double-underscore",
+  "buildGeneratedAt": "2026-05-11T15:32:00Z",
   "notes": [
     "Point fix only: Clean V3 menu tree is untouched.",
     "Existing posts should not require repatching after every code update.",
-    "OpenApp now parses legacy cp_channel_post payloads and resolves them to commentKey on the client side.",
-    "New handoff payloads remain supported.",
-    "Banner V3 remains active through explicit app.js route and /api/comments/banner3."
+    "OpenApp now reads direct MAX payload fields, not only URL/search/startapp values.",
+    "Legacy cp__negativeChannel_postId payloads are restored back to channelId:postId commentKey.",
+    "Banner and menu modules are unchanged."
   ]
 }
