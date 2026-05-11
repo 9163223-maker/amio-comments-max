@@ -4,8 +4,8 @@ const Module = require('module');
 const db = require('./cc5-db-core');
 const menu = require('./clean-v3-menu-core-db');
 
-const RUNTIME = 'CC6.5.7.2-CLEAN-V3-MENU-DEBUG';
-const SOURCE = 'adminkit-CC6.5.7.2-clean-v3-menu-debug-admin-token';
+const RUNTIME = 'CC6.5.7.3-CLEAN-V3-MENU-LIVE';
+const SOURCE = 'adminkit-CC6.5.7.3-clean-v3-menu-brief-live-debug';
 
 function noCache(res) {
   try {
@@ -52,6 +52,63 @@ async function tree() {
     byParent[parent].push(row);
   }
   return { ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, total: rows.length, byParent, rows };
+}
+
+async function brief() {
+  await menu.init();
+  const { rows: counts } = await query(`
+    select
+      count(*)::int as nodes,
+      count(*) filter (where parent_key='main' and visible=true)::int as main_buttons,
+      count(*) filter (where parent_key='comments' and visible=true)::int as comments_buttons,
+      count(*) filter (where route='comments:choose_post')::int as has_choose_post,
+      count(*) filter (where route='comments:post')::int as has_comments_post,
+      count(*) filter (where route='main:home')::int as has_main
+    from ak_menu_nodes_v3
+  `);
+  const { rows: mainRows } = await query(`
+    select sort_order, node_key, route, title
+    from ak_menu_nodes_v3
+    where parent_key='main' and visible=true
+    order by sort_order asc, node_key asc
+  `);
+  const { rows: commentRows } = await query(`
+    select sort_order, node_key, route, title, dynamic_kind
+    from ak_menu_nodes_v3
+    where parent_key='comments' and visible=true
+    order by sort_order asc, node_key asc
+  `);
+  const { rows: eventRows } = await query(`select count(*)::int as events from ak_menu_events_v3`);
+  const { rows: sessionRows } = await query(`select count(*)::int as sessions from ak_menu_session_v3`);
+
+  let data = null;
+  try { data = await menu.dataSelfTest(process.env.DEBUG_ADMIN_ID || process.env.ADMIN_ID || '17507246'); } catch {}
+  const posts = Array.isArray(data?.posts) ? data.posts.map((p) => ({ postId: p.postId, title: p.title, commentKey: p.commentKey })) : [];
+  const channels = Array.isArray(data?.channels) ? data.channels.map((c) => ({ channelId: c.channelId, title: c.title })) : [];
+
+  const c = counts[0] || {};
+  return {
+    ok: true,
+    runtimeVersion: RUNTIME,
+    sourceMarker: SOURCE,
+    status: 'CLEAN_V3_MENU_LIVE_BRIEF',
+    checks: {
+      cleanMenuCore: true,
+      dbNodes: Number(c.nodes || 0) >= 30,
+      mainRouteExists: Number(c.has_main || 0) === 1,
+      mainButtons: Number(c.main_buttons || 0),
+      commentsButtons: Number(c.comments_buttons || 0),
+      choosePostRouteExists: Number(c.has_choose_post || 0) === 1,
+      commentsPostRouteExists: Number(c.has_comments_post || 0) === 1,
+      eventsLogged: Number(eventRows[0]?.events || 0),
+      sessions: Number(sessionRows[0]?.sessions || 0),
+      commentsOpenAppTouched: false
+    },
+    mainMenu: mainRows,
+    commentsMenu: commentRows,
+    channels,
+    posts
+  };
 }
 
 async function events(limit = 50, adminId = '') {
@@ -115,6 +172,12 @@ function install() {
         if (app && !app.__adminkitCleanV3MenuDebug) {
           app.__adminkitCleanV3MenuDebug = true;
 
+          app.get('/debug/menu-v3-live', async (req, res) => {
+            noCache(res);
+            try { res.json(await brief()); }
+            catch (error) { res.status(500).json({ ok: false, runtimeVersion: RUNTIME, error: error && error.message ? error.message : String(error || 'brief_failed') }); }
+          });
+
           app.get('/debug/menu-v3-tree', async (req, res) => {
             if (!adminOk(req, res)) return;
             noCache(res);
@@ -168,8 +231,9 @@ function selfTest() {
     ok: true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
-    tokenPolicy: 'token=admin is accepted for clean-v3 menu debug endpoints',
+    tokenPolicy: 'menu-v3-live is public and concise; full endpoints accept token=admin',
     endpoints: {
+      live: '/debug/menu-v3-live',
       status: '/debug/menu-v3-status?token=admin',
       tree: '/debug/menu-v3-tree?token=admin',
       events: '/debug/menu-v3-events?token=admin&limit=50',
@@ -181,4 +245,4 @@ function selfTest() {
   };
 }
 
-module.exports = { RUNTIME, SOURCE, install, selfTest, tree, events, sessions, render, status };
+module.exports = { RUNTIME, SOURCE, install, selfTest, tree, brief, events, sessions, render, status };
