@@ -1,17 +1,17 @@
 {
-  "runtimeVersion": "CC6.5.8.1-CLEAN-V3-MAIN-ROUTE-GUARD",
-  "buildVersion": "CC6.5.8.1-CLEAN-V3-MAIN-ROUTE-GUARD",
-  "displayVersion": "CC6.5.8.1",
-  "packageVersion": "CC6.5.8.1",
-  "sourceMarker": "adminkit-CC6.5.8.1-force-main-home-to-real-main-node",
-  "buildGeneratedAt": "2026-05-11T13:12:00Z",
+  "runtimeVersion": "CC6.5.8.2-CLEAN-V3-COMMENTS-BANNER-ACTION",
+  "buildVersion": "CC6.5.8.2-CLEAN-V3-COMMENTS-BANNER-ACTION",
+  "displayVersion": "CC6.5.8.2",
+  "packageVersion": "CC6.5.8.2",
+  "sourceMarker": "adminkit-CC6.5.8.2-comments-banner-toggle-only",
+  "buildGeneratedAt": "2026-05-11T13:24:00Z",
   "notes": [
-    "Fixes the case where the service nav_main node could be selected instead of the real main node for route main:home.",
-    "main:home now always resolves to node_key=main; nav_main is treated only as a navigation label.",
-    "Clean V3 comments post actions from CC6.5.8.0 remain included.",
-    "Callback payload r/route/action still cannot overwrite the new target route.",
-    "Post registry sync remains active; new posts with Comments button appear in ak_posts and in Choose post.",
-    "Single active menu remains enabled and activeMenu message_id is tracked.",
-    "OpenApp comments launch remains unchanged."
+    "Connects the Clean V3 comments banner action route comments_banner:home.",
+    "Banner status is stored per post in ak_post_settings_v3.banner_enabled.",
+    "The fix touches only the comments banner action path and does not change OpenApp comments launch.",
+    "Comments enable/disable from CC6.5.8.0 remains included.",
+    "Main route guard from CC6.5.8.1 remains included.",
+    "Post registry sync and store backfill remain active.",
+    "Single active menu remains enabled and activeMenu message_id is tracked."
   ]
 }
