@@ -4,8 +4,8 @@ const db = require('./cc5-db-core');
 const api = require('./services/maxApi');
 const config = require('./config');
 
-const RUNTIME = 'CLEAN-V3-MENU-1.1';
-const SOURCE = 'adminkit-clean-v3-db-tree-menu-events-v1-1';
+const RUNTIME = 'CLEAN-V3-MENU-1.2';
+const SOURCE = 'adminkit-clean-v3-db-tree-menu-events-v1-2-post-actions';
 
 // Код хранит только стабильные ключи, route и порядок.
 // Тексты/названия засеваются в БД один раз и дальше могут редактироваться в БД.
@@ -29,10 +29,11 @@ const SEED_NODES = [
   ['comments_choose_post', 'comments', 30, 'comments:choose_post', 'comments', '📌 Выбрать пост', 'Выбор поста из зарегистрированных публикаций.', true, 'post_picker', false],
   ['comments_preview', 'comments', 40, 'comments:preview', 'comments', '👀 Как это выглядит', 'Предпросмотр обсуждения.', true, '', false],
   ['comments_settings', 'comments', 50, 'comments:settings', 'comments', '⚙️ Настройки', 'Настройки обсуждений.', true, '', false],
-  ['comments_banner', 'comments', 60, 'comments_banner:home', 'comments', '🖼 Баннер', 'Аккуратная подпись/баннер внутри обсуждения.', true, '', false],
+  ['comments_banner', 'comments', 60, 'comments_banner:home', 'comments', '🖼 Баннер', 'Аккуратная подпись/баннер внутри обсуждения.', true, 'comments_simple', false],
   ['comments_photo', 'comments', 70, 'comments_photo:home', 'comments', '📷 Фото', 'Фото в комментариях. Видео и файлы не включаем.', true, '', false],
-  ['comments_reactions', 'comments', 80, 'comments_reactions:home', 'comments', '❤️ Реакции и ответы', 'Реакции и ответы внутри обсуждения.', true, '', false],
+  ['comments_reactions', 'comments', 80, 'comments_reactions:home', 'comments', '❤️ Реакции и ответы', 'Реакции и ответы внутри обсуждения.', true, 'comments_simple', false],
   ['comments_post', 'comments', 900, 'comments:post', 'comments', '💬 Комментарии → пост', 'Действия с выбранным постом.', false, 'post_action', false],
+  ['comments_toggle', 'comments', 910, 'comments:toggle', 'comments', '✅/⏸ Комменты', 'Включение и отключение комментариев для выбранного поста.', false, 'post_toggle', false],
 
   ['editor_choose_post', 'editor', 10, 'editor:choose_post', 'editor', '📌 Выбрать пост', 'Выберите пост для редактирования.', true, 'post_picker', false],
   ['editor_history', 'editor', 20, 'editor:history', 'editor', '🕘 История', 'История изменений.', true, '', false],
@@ -43,6 +44,8 @@ const SEED_NODES = [
   ['channels_verify', 'channels', 30, 'channels:verify_access', 'channels', '✅ Проверить права', 'Проверить права бота в канале.', true, '', false],
   ['channels_access', 'channels', 40, 'channels:access', 'channels', '🔐 Доступы', 'Доступы и права.', true, '', false],
 
+  ['help_comments', '', 880, 'help:comments', 'help', '❓ Помощь: комментарии', 'Раздел комментариев: выбор поста, включение/отключение, баннер, реакции и фото.', false, 'help_context', false],
+  ['help_main', '', 881, 'help:main', 'help', '❓ Помощь', 'Главная помощь по АдминКИТ.', false, 'help_context', false],
   ['nav_help', '', 900, 'help:context', 'nav', '❓ Помощь', 'Помощь', false, '', false],
   ['nav_section', '', 910, 'section:home', 'nav', '↩️ Раздел', 'Вернуться в раздел', false, '', false],
   ['nav_main', '', 920, 'main:home', 'nav', '🏠 Главное меню', 'Главное меню', false, '', false]
@@ -52,12 +55,15 @@ let initPromise = null;
 const norm = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 const lower = (v) => norm(v).toLowerCase();
 const ownerOf = (route = '') => String(route || '').split(':')[0] || 'main';
+const CONTROL_PAYLOAD_KEYS = new Set(['r', 'route', 'action', 'command', 'payload']);
 
 function callbackButton(text, route, extra = {}) {
   const payload = { r: route };
   Object.entries(extra || {}).forEach(([key, value]) => {
+    const k = String(key || '').trim();
+    if (!k || CONTROL_PAYLOAD_KEYS.has(k)) return;
     const next = norm(value);
-    if (next) payload[key] = next;
+    if (next) payload[k] = next;
   });
   return { type: 'callback', text, payload: JSON.stringify(payload) };
 }
@@ -109,6 +115,16 @@ async function init() {
         current_node_key text not null default 'main',
         message_id text not null default '',
         updated_at timestamptz default now()
+      );
+      create table if not exists ak_post_settings_v3 (
+        admin_id text not null,
+        channel_id text not null,
+        post_id text not null,
+        comments_enabled boolean not null default true,
+        banner_enabled boolean not null default true,
+        reactions_enabled boolean not null default true,
+        updated_at timestamptz default now(),
+        primary key(admin_id, channel_id, post_id)
       );
     `);
 
@@ -192,6 +208,15 @@ async function navRows(node) {
 async function getChannels(adminId = '') { try { return await db.getChannels(adminId); } catch { return []; } }
 async function getPosts(adminId = '', channelId = '', limit = 30) { try { return await db.getPosts(adminId, channelId, limit); } catch { return []; } }
 
+async function selectedPost(adminId, payload = {}) {
+  const channels = await getChannels(adminId);
+  const channel = channels[0] || null;
+  const channelId = norm(payload.c || payload.channelId || channel?.channelId || '');
+  const posts = channelId ? await getPosts(adminId, channelId, 50) : [];
+  const post = posts.find((item) => (payload.p && String(item.postId) === String(payload.p)) || (payload.k && String(item.commentKey) === String(payload.k))) || null;
+  return { channel, channelId, posts, post, title: norm(post?.title || payload.t || payload.p || 'Пост') };
+}
+
 async function postPicker(adminId, node, payload = {}) {
   const channels = await getChannels(adminId);
   const channel = channels[0] || null;
@@ -207,24 +232,61 @@ async function postPicker(adminId, node, payload = {}) {
 }
 
 async function postAction(adminId, node, payload = {}) {
-  const channels = await getChannels(adminId);
-  const channel = channels[0] || null;
-  const channelId = norm(payload.c || channel?.channelId || '');
-  const posts = channelId ? await getPosts(adminId, channelId, 50) : [];
-  const post = posts.find((item) => (payload.p && String(item.postId) === String(payload.p)) || (payload.k && String(item.commentKey) === String(payload.k))) || null;
-  const title = norm(post?.title || payload.t || payload.p || 'Пост');
+  const picked = await selectedPost(adminId, payload);
   const owner = node.owner || ownerOf(node.route);
+  const cleanPayload = { c: picked.channelId, p: payload.p || picked.post?.postId || '', k: payload.k || picked.post?.commentKey || '' };
   const rows = owner === 'comments'
     ? [
-        [callbackButton('✅/⏸ Комменты', 'comments:toggle', payload), callbackButton('🖼 Баннер', 'comments_banner:home', payload)],
-        [callbackButton('❤️ Реакции', 'comments_reactions:home', payload), callbackButton('📌 К списку', 'comments:choose_post', payload)]
+        [callbackButton('✅/⏸ Комменты', 'comments:toggle', cleanPayload), callbackButton('🖼 Баннер', 'comments_banner:home', cleanPayload)],
+        [callbackButton('❤️ Реакции', 'comments_reactions:home', cleanPayload), callbackButton('📌 К списку', 'comments:choose_post', { c: picked.channelId })]
       ]
     : [
-        [callbackButton('✏️ Текст', 'editor:edit_text', payload), callbackButton('👀 Предпросмотр', 'editor:preview', payload)],
-        [callbackButton('💾 Сохранить', 'editor:save', payload), callbackButton('↩️ Оригинал', 'editor:restore_original', payload)],
-        [callbackButton('📌 К списку', 'editor:choose_post', payload)]
+        [callbackButton('✏️ Текст', 'editor:edit_text', cleanPayload), callbackButton('👀 Предпросмотр', 'editor:preview', cleanPayload)],
+        [callbackButton('💾 Сохранить', 'editor:save', cleanPayload), callbackButton('↩️ Оригинал', 'editor:restore_original', cleanPayload)],
+        [callbackButton('📌 К списку', 'editor:choose_post', { c: picked.channelId })]
       ];
-  return { text: [node.title, '', `📝 ${title.slice(0, 80)}`, '', 'Выберите действие.'].join('\n'), attachments: keyboard([...rows, ...(await navRows(node))]) };
+  return { text: [node.title, '', `📝 ${picked.title.slice(0, 80)}`, '', 'Выберите действие.'].join('\n'), attachments: keyboard([...rows, ...(await navRows(node))]) };
+}
+
+async function commentsToggle(adminId, node, payload = {}) {
+  const picked = await selectedPost(adminId, payload);
+  const channelId = picked.channelId;
+  const postId = norm(payload.p || picked.post?.postId || '');
+  let enabled = true;
+  if (channelId && postId) {
+    const current = await db.query('select comments_enabled from ak_post_settings_v3 where admin_id=$1 and channel_id=$2 and post_id=$3 limit 1', [adminId, channelId, postId]);
+    const was = current.rows[0] ? current.rows[0].comments_enabled !== false : true;
+    enabled = !was;
+    await db.query(`insert into ak_post_settings_v3(admin_id,channel_id,post_id,comments_enabled,updated_at) values($1,$2,$3,$4,now()) on conflict(admin_id,channel_id,post_id) do update set comments_enabled=excluded.comments_enabled, updated_at=now()`, [adminId, channelId, postId, enabled]);
+  }
+  const cleanPayload = { c: channelId, p: postId, k: payload.k || picked.post?.commentKey || '' };
+  return {
+    text: [node.title, '', `📝 ${picked.title.slice(0, 80)}`, '', enabled ? 'Статус: комментарии включены.' : 'Статус: комментарии отключены.', '', 'Настройка сохранена в базе Clean V3.'].join('\n'),
+    attachments: keyboard([
+      [callbackButton('↩️ К посту', 'comments:post', cleanPayload), callbackButton('📌 К списку', 'comments:choose_post', { c: channelId })],
+      ...(await navRows(node))
+    ])
+  };
+}
+
+async function commentsSimple(adminId, node, payload = {}) {
+  const picked = await selectedPost(adminId, payload);
+  const cleanPayload = { c: picked.channelId, p: payload.p || picked.post?.postId || '', k: payload.k || picked.post?.commentKey || '' };
+  return {
+    text: [node.title, '', picked.post ? `📝 ${picked.title.slice(0, 80)}` : '', '', node.body || 'Раздел в подготовке.', '', 'Выберите действие.'].filter((x) => x !== '').join('\n'),
+    attachments: keyboard([
+      [callbackButton('↩️ К посту', 'comments:post', cleanPayload), callbackButton('📌 К списку', 'comments:choose_post', { c: picked.channelId })],
+      ...(await navRows(node))
+    ])
+  };
+}
+
+async function helpContext(adminId, node, payload = {}) {
+  const owner = String(node.route || '').split(':')[1] || node.owner || 'main';
+  const lines = owner === 'comments'
+    ? ['Помощь по комментариям:', '— выберите пост из списка;', '— включайте/отключайте комментарии для поста;', '— баннер и реакции будут настраиваться в этой ветке;', '— новые посты теперь автоматически попадают в память после установки кнопки «Комментарии».']
+    : ['Помощь по АдминКИТ:', 'Выберите нужный раздел главного меню.'];
+  return { text: [node.title, '', ...lines].join('\n'), attachments: keyboard(await navRows({ ...node, owner: owner === 'comments' ? 'comments' : 'main', route: `${owner}:home`, node_key: 'help_context_virtual' })) };
 }
 
 async function channelsHome(adminId, node) {
@@ -241,13 +303,22 @@ async function renderScreen(route = 'main:home', adminId = '', payload = {}) {
   await logEvent({ adminId, route: node.route, nodeKey: node.node_key, owner: node.owner, eventType: 'render', payload });
   if (node.dynamic_kind === 'post_picker') return postPicker(adminId, node, payload);
   if (node.dynamic_kind === 'post_action') return postAction(adminId, node, payload);
+  if (node.dynamic_kind === 'post_toggle') return commentsToggle(adminId, node, payload);
+  if (node.dynamic_kind === 'comments_simple') return commentsSimple(adminId, node, payload);
+  if (node.dynamic_kind === 'help_context') return helpContext(adminId, node, payload);
   if (node.node_key === 'channels') return channelsHome(adminId, node);
   const children = await getChildren(node.node_key);
   const rows = rows2(children.map((child) => callbackButton(child.title, child.route)));
   return { text: [node.title, '', node.body || 'Выберите действие.'].join('\n'), attachments: keyboard([...rows, ...(await navRows(node))]) };
 }
 
-function resultMessageId(result) { const m = JSON.stringify(result || {}).match(/"(?:message_id|messageId|id)"\s*:\s*"([^"{}]+)"/); return m ? m[1] : ''; }
+function resultMessageId(result) {
+  const raw = JSON.stringify(result || {});
+  const str = raw.match(/"(?:message_id|messageId|id)"\s*:\s*"([^"{}]+)"/);
+  if (str) return str[1];
+  const num = raw.match(/"(?:message_id|messageId|id)"\s*:\s*(\d+)/);
+  return num ? num[1] : '';
+}
 async function silentAnswer(update) { const id = db.callbackId(update); if (!id) return; try { await api.answerCallback({ botToken: config.botToken, callbackId: id, notification: '' }); } catch {} }
 async function sendOrEdit(update, adminId, packet) {
   const mid = db.messageId(update);
@@ -311,8 +382,13 @@ function selfTest() {
     productionMainButtons: mainVisible.length,
     productionMainRows: Math.ceil(mainVisible.length / 2),
     compactCallbacks: true,
+    callbackRouteNotOverwrittenByOldPayload: JSON.parse(callbackButton('x', 'comments:toggle', { r: 'comments:post', c: '1' }).payload).r === 'comments:toggle',
     commentsChoosePostOwnedByComments: canHandleRoute('comments:choose_post'),
     commentsPostOwnedByComments: canHandleRoute('comments:post'),
+    commentsToggleOwnedByComments: canHandleRoute('comments:toggle'),
+    commentsBannerOwnedByComments: canHandleRoute('comments_banner:home'),
+    commentsReactionsOwnedByComments: canHandleRoute('comments_reactions:home'),
+    commentsHelpOwnedByComments: canHandleRoute('help:comments'),
     editorChoosePostOwnedByEditor: canHandleRoute('editor:choose_post'),
     editorPostOwnedByEditor: canHandleRoute('editor:post'),
     moderationOwnedByCanonicalRouter: !canHandleRoute('moderation:choose_post'),
@@ -322,7 +398,7 @@ function selfTest() {
     postPickerReadsAkPosts: true,
     commentsLaunchUntouched: true
   };
-  return { ok: Object.values(checks).every(Boolean), runtime: RUNTIME, sourceMarker: SOURCE, architecture: 'clean-v3-menu-db-tree', commentsModuleTouched: false, openAppPolicy: 'kept_as_is', adapterVersion: 'clean-v3-menu-db-tree-1.1', checks };
+  return { ok: Object.values(checks).every(Boolean), runtime: RUNTIME, sourceMarker: SOURCE, architecture: 'clean-v3-menu-db-tree', commentsModuleTouched: false, openAppPolicy: 'kept_as_is', adapterVersion: 'clean-v3-menu-db-tree-1.2', checks };
 }
 
 module.exports = { RUNTIME, SOURCE, init, handle, renderScreen, renderDebug, dataSelfTest, selfTest, canHandleRoute, routeFromUpdate, logEvent };
