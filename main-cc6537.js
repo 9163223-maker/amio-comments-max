@@ -1,6 +1,10 @@
 'use strict';
 
-// SAFE CORE: only one physical preboot owns public/app.js before the legacy comments UI.
+// SAFE COMMENTS BOOT CORE: protected layer for opening comments from MAX open_app payload.
+// Feature modules must not edit this launch layer.
+require('./adminkit-safe-comments-boot-core').install();
+
+// SAFE CORE: physical app.js preboot kept for compatibility with already patched post buttons.
 // Do not re-enable legacy appjs route/file patchers without a specific regression test.
 require('./adminkit-comments-preboot-physical-patch').install();
 
