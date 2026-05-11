@@ -1,15 +1,16 @@
 {
-  "runtimeVersion": "CC6.5.7.0-CLEAN-V3-MENU-DB",
-  "buildVersion": "CC6.5.7.0-CLEAN-V3-MENU-DB",
-  "displayVersion": "CC6.5.7.0",
-  "packageVersion": "CC6.5.7.0",
-  "sourceMarker": "adminkit-CC6.5.7.0-clean-v3-db-driven-menu",
-  "buildGeneratedAt": "2026-05-11T09:55:00Z",
+  "runtimeVersion": "CC6.5.7.4-CLEAN-V3-MENU-NORMALIZER",
+  "buildVersion": "CC6.5.7.4-CLEAN-V3-MENU-NORMALIZER",
+  "displayVersion": "CC6.5.7.4",
+  "packageVersion": "CC6.5.7.4",
+  "sourceMarker": "adminkit-CC6.5.7.4-clean-v3-menu-normalized-live",
+  "buildGeneratedAt": "2026-05-11T10:02:00Z",
   "notes": [
-    "Clean V3 menu core is introduced as the main menu renderer through clean-v3-menu-core-db.js.",
-    "Menu structure is stored in PostgreSQL tables ak_menu_nodes_v3, ak_menu_events_v3 and ak_menu_session_v3.",
-    "Code keeps stable route keys and order; titles, body text, visibility, dynamic kind and metadata live in DB.",
-    "Every menu render and callback is logged to ak_menu_events_v3.",
+    "Clean V3 menu core remains the main menu renderer through clean-v3-menu-core-db.js.",
+    "Added clean-v3-menu-normalizer.js to normalize DB data after menu init.",
+    "Fixed duplicated main:home route by moving nav_main service node to nav:main.",
+    "Added cleanup for manual placeholder CHANNEL_ID / POST_ID records from ak_posts and ak_channels.",
+    "Short public /debug/menu-v3-live endpoint remains available for concise menu checks.",
     "OpenApp comments launch remains unchanged and is kept as the correct baseline.",
     "Comments module itself is not rewritten in this build."
   ]
