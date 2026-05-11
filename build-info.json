@@ -1,15 +1,15 @@
 {
-  "runtimeVersion": "CC6.5.6.4-OPENAPP-PAYLOAD-BRIDGE",
-  "buildVersion": "CC6.5.6.4-OPENAPP-PAYLOAD-BRIDGE",
-  "displayVersion": "CC6.5.6.4",
+  "runtimeVersion": "CC6.5.6.5-POST-REGISTRY-BRIDGE",
+  "buildVersion": "CC6.5.6.5-POST-REGISTRY-BRIDGE",
+  "displayVersion": "CC6.5.6.5",
   "packageVersion": "CC6.5.6.4",
-  "sourceMarker": "adminkit-CC6.5.6.4-open-app-button-payload-bridge-no-cta",
-  "buildGeneratedAt": "2026-05-11T09:28:00Z",
+  "sourceMarker": "adminkit-CC6.5.6.5-openapp-kept-manual-post-registration",
+  "buildGeneratedAt": "2026-05-11T09:42:00Z",
   "notes": [
-    "Comment buttons use MAX open_app button type instead of ordinary external https link.",
-    "open_app payload is sanitized to MAX-safe characters and uses handoff token when available.",
-    "Mini-app public/app.js now reads open_app payload as a launch source through a narrow parsing bridge.",
-    "Growth CTA 'Подключить комментарии' remains disabled through targeted growthLeadCard-only patch.",
+    "OpenApp remains the correct comments launch method and is kept as the baseline.",
+    "Added /debug/register-post endpoint to register fresh channel posts into ak_posts when they did not reach the bot webhook.",
+    "The post picker uses PostgreSQL ak_posts, not the legacy JSON store, so fresh posts must be registered there.",
+    "Growth CTA remains disabled through targeted growthLeadCard-only patch.",
     "Silent menu callback fix remains active to suppress native MAX toast notifications such as 'Открыто'."
   ]
 }
