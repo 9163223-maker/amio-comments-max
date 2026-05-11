@@ -1,14 +1,15 @@
 {
-  "runtimeVersion": "CC6.5.6.2-ROLLBACK-DIRECT-COMMENTS-LINK",
-  "buildVersion": "CC6.5.6.2-ROLLBACK-DIRECT-COMMENTS-LINK",
-  "displayVersion": "CC6.5.6.2",
-  "packageVersion": "CC6.5.6.1",
-  "sourceMarker": "adminkit-CC6.5.6.2-rollback-external-confirmation-and-repatch",
-  "buildGeneratedAt": "2026-05-11T09:08:00Z",
+  "runtimeVersion": "CC6.5.6.4-OPENAPP-PAYLOAD-BRIDGE",
+  "buildVersion": "CC6.5.6.4-OPENAPP-PAYLOAD-BRIDGE",
+  "displayVersion": "CC6.5.6.4",
+  "packageVersion": "CC6.5.6.4",
+  "sourceMarker": "adminkit-CC6.5.6.4-open-app-button-payload-bridge-no-cta",
+  "buildGeneratedAt": "2026-05-11T09:28:00Z",
   "notes": [
-    "Rolled back direct https /app comments link because MAX treats it as an external URL and shows confirmation dialog.",
-    "Silent menu callback fix remains active to suppress native MAX toast notifications such as 'Открыто'.",
-    "Added /debug/repatch-comments-links endpoint to force repatch posts that were already written with the wrong direct https link.",
-    "public/app.js DOM cleanup remains disabled in safe mode."
+    "Comment buttons use MAX open_app button type instead of ordinary external https link.",
+    "open_app payload is sanitized to MAX-safe characters and uses handoff token when available.",
+    "Mini-app public/app.js now reads open_app payload as a launch source through a narrow parsing bridge.",
+    "Growth CTA 'Подключить комментарии' remains disabled through targeted growthLeadCard-only patch.",
+    "Silent menu callback fix remains active to suppress native MAX toast notifications such as 'Открыто'."
   ]
 }
