@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC6.5.9.2",
+  "version": "CC6.5.9.3",
   "main": "main-cc6537.js",
   "scripts": { "start": "node main-cc6537.js" },
   "dependencies": {
