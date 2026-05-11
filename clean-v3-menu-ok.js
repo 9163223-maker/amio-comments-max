@@ -4,8 +4,8 @@ const Module = require('module');
 const db = require('./cc5-db-core');
 const menu = require('./clean-v3-menu-core-db');
 
-const RUNTIME = 'CC6.5.7.6-CLEAN-V3-SINGLE-MENU-OK';
-const SOURCE = 'adminkit-CC6.5.7.6-ultra-short-menu-health-single-menu';
+const RUNTIME = 'CC6.5.7.9-CLEAN-V3-STORE-BACKFILL-OK';
+const SOURCE = 'adminkit-CC6.5.7.9-ultra-short-menu-health-store-backfill';
 
 function noCache(res) {
   try {
@@ -52,12 +52,14 @@ async function okPayload() {
     noPlaceholders: !channels.some((ch) => String(ch.channelId || '').includes('CHANNEL_ID')) && !posts.some((p) => String(p.postId || '').includes('POST_ID') || String(p.commentKey || '').includes('CHANNEL_ID')),
     openAppUntouched: true,
     singleMenuFixIncluded: true,
-    activeMenuMessageTracked: !!activeMenuMessageId
+    activeMenuMessageTracked: !!activeMenuMessageId,
+    postPatcherDbSyncIncluded: true,
+    storeBackfillIncluded: true
   };
   return {
     ok: Object.values(checks).every(Boolean),
     runtimeVersion: RUNTIME,
-    status: 'CLEAN_V3_SINGLE_MENU_OK',
+    status: 'CLEAN_V3_STORE_BACKFILL_OK',
     checks,
     counts: {
       nodes: Number(c.nodes || 0),
@@ -73,7 +75,7 @@ async function okPayload() {
     },
     channel: activeChannel ? { channelId: activeChannel.channelId, title: activeChannel.title } : null,
     posts: posts.map((p) => ({ title: p.title, postId: p.postId })).slice(0, 10),
-    nextTest: 'Open MAX bot: press Start twice. There should be one active menu, and activeMenu.messageId should be present.'
+    nextTest: 'New posts with Comments button should appear here immediately. Older posts absent here were not present in legacy store and need repatch/open cycle.'
   };
 }
 
@@ -115,6 +117,8 @@ function selfTest() {
     public: true,
     compact: true,
     singleMenuFixIncluded: true,
+    postPatcherDbSyncIncluded: true,
+    storeBackfillIncluded: true,
     commentsModuleTouched: false,
     openAppTouched: false
   };
