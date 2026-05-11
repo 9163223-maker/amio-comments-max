@@ -1,14 +1,15 @@
 {
-  "runtimeVersion": "CC6.5.4.8-SAFE-DIAG",
-  "buildVersion": "CC6.5.4.8-SAFE-DIAG",
-  "displayVersion": "CC6.5.4.8-SAFE-DIAG",
-  "packageVersion": "CC6.5.4.8",
-  "sourceMarker": "adminkit-CC6.5.4.8-safe-diagnostic-boot",
-  "buildGeneratedAt": "2026-05-10T22:58:00Z",
+  "runtimeVersion": "CC6.5.6.0-V3-NATIVE-HINTS-CLEANUP",
+  "buildVersion": "CC6.5.6.0-V3-NATIVE-HINTS-CLEANUP",
+  "displayVersion": "CC6.5.6.0",
+  "packageVersion": "CC6.5.6.0",
+  "sourceMarker": "adminkit-CC6.5.6.0-v3-native-hints-no-overlap",
+  "buildGeneratedAt": "2026-05-11T08:31:00Z",
   "notes": [
-    "Emergency safe diagnostic boot after broken V3 live renderer wrapper.",
-    "Server must start; V3 renderer debug endpoints are exposed without attaching business renderer to webhook.",
-    "Production Menu Map V3 remains fixed; V3 Renderer business logic will be reattached only after isolated startup test.",
-    "No legacy data reset. Connected channel persistence remains untouched."
+    "V3 native hint policy: only inline hints are allowed in approved places.",
+    "Overlay/floating/tour/onboarding hints are disabled on the public client.",
+    "Legacy growth CTA overlays are suppressed; aggressive powered-by blocks remain disabled.",
+    "Comment attachment UI is constrained to photo-only in the public client.",
+    "Main menu, webhook, debug/store and debug/ping are not patched by this V3 hint cleanup."
   ]
 }
