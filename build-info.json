@@ -1,14 +1,14 @@
 {
-  "runtimeVersion": "CC6.6.2-SAFE-PREBOOT-PHYSICAL",
-  "buildVersion": "CC6.6.2-SAFE-PREBOOT-PHYSICAL",
-  "displayVersion": "CC6.6.2",
+  "runtimeVersion": "CC6.6.3-POST-ZERO2-SAFE-CORE",
+  "buildVersion": "CC6.6.3-POST-ZERO2-SAFE-CORE",
+  "displayVersion": "CC6.6.3",
   "packageVersion": "CC6.5.9.3",
-  "sourceMarker": "adminkit-CC6.6.2-physical-preboot-before-legacy-appjs",
-  "buildGeneratedAt": "2026-05-11T18:55:00Z",
+  "sourceMarker": "adminkit-CC6.6.3-post-zero2-quarantine-legacy-appjs-patchers",
+  "buildGeneratedAt": "2026-05-11T19:05:00Z",
   "notes": [
-    "Fixes blank-screen risk by physically prepending safe preboot into public/app.js at boot.",
-    "Preboot reads OpenApp payload before legacy app code and rewrites URL params to commentKey/channelId/postId.",
+    "Quarantines legacy app.js route/file patchers that could override the safe preboot and cause a blank mini-app screen.",
+    "Only one safe physical preboot remains responsible for reading the OpenApp payload before legacy comments UI.",
     "Menu tree and banner modules are untouched.",
-    "Post Zero rule: all new automatic posts must preserve comment launch across future updates."
+    "Post Zero 2 rule: create a new automatic post after this build; it must keep opening comments after future feature updates."
   ]
 }
