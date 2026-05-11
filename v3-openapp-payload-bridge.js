@@ -3,8 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const RUNTIME = 'CC6.5.6.4-OPENAPP-PAYLOAD-BRIDGE';
-const SOURCE = 'adminkit-CC6.5.6.4-read-open-app-payload';
+const RUNTIME = 'CC6.5.8.9-OPENAPP-PAYLOAD-BRIDGE';
+const SOURCE = 'adminkit-CC6.5.8.9-read-open-app-payload-and-legacy-cp-post';
 const MARKER = '__ADMINKIT_OPENAPP_PAYLOAD_BRIDGE__';
 
 function patchSource(input) {
@@ -32,7 +32,17 @@ function patchSource(input) {
     'const startappRawValue = getBestParam("startapp") || getBestParam("payload") || getBestParam("open_app_payload") || getBestParam("start_param") || getBestParam("WebAppStartParam") || getBestParam("handoff") || getBestParam("postId") || getBestParam("post_id") || "";'
   );
 
-  return source + '\n;window.' + MARKER + ' = { runtimeVersion: ' + JSON.stringify(RUNTIME) + ', sourceMarker: ' + JSON.stringify(SOURCE) + ', enabled: true };\n';
+  source = source.replace(
+    '  const handoff = extractHandoffToken(decoded);\n  if (handoff) return handoff;\n  const directKey = decoded.match(/-?\\d+:-?\\d+/);',
+    '  const handoff = extractHandoffToken(decoded);\n  if (handoff) return handoff;\n  const cp = decoded.match(/(?:^|[^A-Za-z0-9_-])cp_(-?\\d+)_(-?\\d{8,})(?:$|[^A-Za-z0-9_-])/);\n  if (cp) return `ck:${cp[1]}:${cp[2]}`;\n  const directKey = decoded.match(/-?\\d+:-?\\d+/);'
+  );
+
+  source = source.replace(
+    '  if (handoff) return handoff;\n  const directKey = decoded.match(/-?\\d+:-?\\d+/);\n  if (directKey) return directKey[0];\n  return "";\n}',
+    '  if (handoff) return handoff;\n  const cp = decoded.match(/(?:^|[^A-Za-z0-9_-])cp_(-?\\d+)_(-?\\d{8,})(?:$|[^A-Za-z0-9_-])/);\n  if (cp) return `${cp[1]}:${cp[2]}`;\n  const directKey = decoded.match(/-?\\d+:-?\\d+/);\n  if (directKey) return directKey[0];\n  return "";\n}'
+  );
+
+  return source + '\n;window.' + MARKER + ' = { runtimeVersion: ' + JSON.stringify(RUNTIME) + ', sourceMarker: ' + JSON.stringify(SOURCE) + ', enabled: true, parsesLegacyCpPayload: true, repatchNeeded: false };\n';
 }
 
 function install() {
@@ -65,6 +75,8 @@ function selfTest() {
       readsOpenAppPayload: true,
       readsStartapp: true,
       readsHandoff: true,
+      parsesLegacyCpPayload: true,
+      existingPostsDoNotNeedRepatch: true,
       doesNotHideDom: true,
       doesNotChangeUi: true
     }
