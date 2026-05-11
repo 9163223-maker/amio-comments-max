@@ -1,15 +1,14 @@
 {
-  "runtimeVersion": "CC6.5.6.0-V3-NATIVE-HINTS-CLEANUP",
-  "buildVersion": "CC6.5.6.0-V3-NATIVE-HINTS-CLEANUP",
-  "displayVersion": "CC6.5.6.0",
-  "packageVersion": "CC6.5.6.0",
-  "sourceMarker": "adminkit-CC6.5.6.0-v3-native-hints-no-overlap",
-  "buildGeneratedAt": "2026-05-11T08:31:00Z",
+  "runtimeVersion": "CC6.5.6.1-SILENT-CALLBACKS-DIRECT-COMMENTS",
+  "buildVersion": "CC6.5.6.1-SILENT-CALLBACKS-DIRECT-COMMENTS",
+  "displayVersion": "CC6.5.6.1",
+  "packageVersion": "CC6.5.6.1",
+  "sourceMarker": "adminkit-CC6.5.6.1-silent-menu-direct-comments-safe-app",
+  "buildGeneratedAt": "2026-05-11T08:52:00Z",
   "notes": [
-    "V3 native hint policy: only inline hints are allowed in approved places.",
-    "Overlay/floating/tour/onboarding hints are disabled on the public client.",
-    "Legacy growth CTA overlays are suppressed; aggressive powered-by blocks remain disabled.",
-    "Comment attachment UI is constrained to photo-only in the public client.",
-    "Main menu, webhook, debug/store and debug/ping are not patched by this V3 hint cleanup."
+    "Safe rollback of public app DOM cleanup: v3-native-hints-cleanup no longer patches public/app.js.",
+    "Native MAX callback toast notifications like 'Открыто' and 'Главное меню' are suppressed through services/maxApi answerCallback wrapper.",
+    "Comment buttons now prefer direct APP_BASE_URL /app links over bot deep-links when APP_BASE_URL is available.",
+    "This build is intended to restore mini-app comments opening and remove native menu toast overlays."
   ]
 }
