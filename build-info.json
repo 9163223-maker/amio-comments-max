@@ -1,14 +1,17 @@
 {
-  "runtimeVersion": "CC6.5.7.9-CLEAN-V3-STORE-BACKFILL",
-  "buildVersion": "CC6.5.7.9-CLEAN-V3-STORE-BACKFILL",
-  "displayVersion": "CC6.5.7.9",
-  "packageVersion": "CC6.5.7.9",
-  "sourceMarker": "adminkit-CC6.5.7.9-backfill-old-store-posts-to-ak-posts",
-  "buildGeneratedAt": "2026-05-11T12:22:00Z",
+  "runtimeVersion": "CC6.5.8.0-CLEAN-V3-COMMENTS-POST-ACTIONS",
+  "buildVersion": "CC6.5.8.0-CLEAN-V3-COMMENTS-POST-ACTIONS",
+  "displayVersion": "CC6.5.8.0",
+  "packageVersion": "CC6.5.8.0",
+  "sourceMarker": "adminkit-CC6.5.8.0-comments-post-actions-callback-routes",
+  "buildGeneratedAt": "2026-05-11T12:58:00Z",
   "notes": [
-    "New posts patched with the Comments/OpenApp button now sync into PostgreSQL ak_posts.",
-    "Clean V3 normalizer backfills legacy store posts into ak_posts on menu init.",
-    "Older already-patched posts like 6576 and 6577 should appear in Clean V3 menu memory after deploy.",
+    "Clean V3 menu remains DB-driven and active.",
+    "Fixed comments post action buttons: old callback payload r/route/action can no longer overwrite the new target route.",
+    "Added Clean V3 routes/screens for comments:toggle, comments_banner:home, comments_reactions:home and help:comments.",
+    "The Comments post screen buttons should now execute actions instead of redrawing the same post screen.",
+    "Post registry sync from postPatcher remains active; new posts with Comments button appear in ak_posts and in Choose post.",
+    "Single active menu remains enabled and activeMenu message_id is tracked.",
     "OpenApp comments launch remains unchanged."
   ]
 }
