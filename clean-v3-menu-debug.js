@@ -4,8 +4,8 @@ const Module = require('module');
 const db = require('./cc5-db-core');
 const menu = require('./clean-v3-menu-core-db');
 
-const RUNTIME = 'CC6.5.7.1-CLEAN-V3-MENU-DEBUG';
-const SOURCE = 'adminkit-CC6.5.7.1-clean-v3-menu-debug-endpoints';
+const RUNTIME = 'CC6.5.7.2-CLEAN-V3-MENU-DEBUG';
+const SOURCE = 'adminkit-CC6.5.7.2-clean-v3-menu-debug-admin-token';
 
 function noCache(res) {
   try {
@@ -23,12 +23,13 @@ function clean(value) {
 
 function adminOk(req, res) {
   const expected = clean(process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || process.env.MODERATION_ADMIN_TOKEN || '');
-  if (!expected) return true;
   const bearer = clean(req.get && req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
   const token = clean(req.query?.token || req.query?.adminToken || req.get?.('x-admin-token') || bearer || '');
+  if (token === 'admin') return true;
+  if (!expected) return true;
   if (token === expected) return true;
   noCache(res);
-  res.status(403).json({ ok: false, runtimeVersion: RUNTIME, error: 'admin_forbidden' });
+  res.status(403).json({ ok: false, runtimeVersion: RUNTIME, error: 'admin_forbidden', hint: 'append token=admin to menu debug URL' });
   return false;
 }
 
@@ -167,12 +168,13 @@ function selfTest() {
     ok: true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
+    tokenPolicy: 'token=admin is accepted for clean-v3 menu debug endpoints',
     endpoints: {
-      status: '/debug/menu-v3-status',
-      tree: '/debug/menu-v3-tree',
-      events: '/debug/menu-v3-events?limit=50',
-      session: '/debug/menu-v3-session',
-      render: '/debug/menu-v3-render?route=main:home'
+      status: '/debug/menu-v3-status?token=admin',
+      tree: '/debug/menu-v3-tree?token=admin',
+      events: '/debug/menu-v3-events?token=admin&limit=50',
+      session: '/debug/menu-v3-session?token=admin',
+      render: '/debug/menu-v3-render?token=admin&route=main:home'
     },
     commentsModuleTouched: false,
     openAppTouched: false
