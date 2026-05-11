@@ -8,6 +8,7 @@ require('./clean-v3-main-route-guard').install();
 require('./clean-v3-menu-normalizer').install();
 require('./clean-v3-comments-banner-action').install();
 require('./clean-v3-comments-banner-router-fix').install();
+require('./clean-v3-comments-function-points-v2').install();
 require('./clean-v3-menu-debug').install();
 require('./clean-v3-menu-ok').install();
 require('./production-menu-v3-renderer-v2').install();
