@@ -113,7 +113,6 @@ async function sendMessage({ botToken, userId, chatId, text, attachments, format
   if (attachments !== undefined) body.attachments = attachments;
   if (format !== undefined) body.format = format;
   if (link !== undefined) body.link = link;
-  if (link !== undefined) body.link = link;
 
   return maxApi("/messages", {
     token: botToken,
@@ -125,7 +124,6 @@ async function sendMessage({ botToken, userId, chatId, text, attachments, format
     body
   });
 }
-
 
 async function deleteMessage({ botToken, messageId, timeoutMs = 2500 }) {
   if (!messageId) throw new Error("messageId is required");
@@ -171,7 +169,6 @@ async function getChatMembers({ botToken, chatId, userIds, marker, count }) {
     }
   });
 }
-
 
 async function getChat({ botToken, chatId }) {
   if (!chatId) throw new Error("chatId is required");
@@ -245,7 +242,6 @@ function buildUploadAttachmentPayload({ uploadType, uploadInitResponse, uploadRe
   throw new Error("upload_payload_missing");
 }
 
-
 async function getAllChatMembers({ botToken, chatId, pageSize = 100, limit = 5000 } = {}) {
   const members = [];
   let marker = undefined;
@@ -264,18 +260,23 @@ async function getAllChatMembers({ botToken, chatId, pageSize = 100, limit = 500
   return members.slice(0, safeLimit);
 }
 
+function cleanStartappPayload(value = "") {
+  return String(value || "").trim().replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 512);
+}
+
 function buildStartappPayload({ handoffToken, commentKey, postId, channelId } = {}) {
-  const normalizedHandoff = String(handoffToken || "").trim();
+  const normalizedHandoff = cleanStartappPayload(handoffToken);
   if (normalizedHandoff) return normalizedHandoff;
 
-  const normalizedCommentKey = String(commentKey || "").trim();
-  if (normalizedCommentKey) return `ck:${normalizedCommentKey}`;
+  // MAX startapp payload supports only A-Z a-z 0-9 _ -.
+  // Do not pass raw commentKey with ':' here; use handoff whenever possible.
+  const normalizedChannelId = cleanStartappPayload(channelId);
+  const normalizedPostId = cleanStartappPayload(postId);
+  if (normalizedChannelId && normalizedPostId) return cleanStartappPayload(`cp_${normalizedChannelId}_${normalizedPostId}`);
+  if (normalizedPostId) return cleanStartappPayload(`post_${normalizedPostId}`);
 
-  const normalizedChannelId = String(channelId || "").trim();
-  const normalizedPostId = String(postId || "").trim();
-  if (normalizedChannelId && normalizedPostId) return `cp:${normalizedChannelId}:${normalizedPostId}`;
-  if (normalizedPostId) return `post:${normalizedPostId}`;
-  return "";
+  const normalizedCommentKey = cleanStartappPayload(commentKey);
+  return normalizedCommentKey ? cleanStartappPayload(`ck_${normalizedCommentKey}`) : "";
 }
 
 function buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey }) {
@@ -300,6 +301,25 @@ function buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, hando
 
   const botDeepLink = buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken: normalizedHandoff, postId: normalizedPostId, channelId: normalizedChannelId, commentKey: normalizedCommentKey });
   return botDeepLink || `/app?${queryString}`;
+}
+
+function normalizeBotUsername({ botUsername = "", maxDeepLinkBase = "" } = {}) {
+  const direct = String(botUsername || "").trim().replace(/^@/, "").replace(/^https?:\/\/max\.ru\//i, "").replace(/[/?#].*$/, "");
+  if (direct) return direct;
+  const base = String(maxDeepLinkBase || "").trim().replace(/^https?:\/\/max\.ru\//i, "").replace(/[/?#].*$/, "");
+  return base;
+}
+
+function buildOpenAppButton({ text, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey }) {
+  const webApp = normalizeBotUsername({ botUsername, maxDeepLinkBase });
+  const payload = buildStartappPayload({ handoffToken, commentKey, postId, channelId });
+  if (!webApp) return null;
+  return {
+    type: "open_app",
+    text: String(text || "💬 Комментарии").trim(),
+    web_app: webApp,
+    ...(payload ? { payload } : {})
+  };
 }
 
 function buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey }) {
@@ -384,16 +404,21 @@ function buildCommentsKeyboard({ appBaseUrl, botUsername, maxDeepLinkBase, hando
 
   if (showPrimaryButton) {
     const buttonText = String(primaryButtonText || "").trim() || buildCommentsButtonText(count, buttonSuffix);
-    const appLink = buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey });
-    const botLink = buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey });
-    const launchLink = botLink || appLink || "";
-    rows.push([
-      {
-        type: "link",
-        text: buttonText,
-        ...(launchLink ? { url: launchLink } : {})
-      }
-    ]);
+    const openAppButton = buildOpenAppButton({ text: buttonText, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey });
+    if (openAppButton) {
+      rows.push([openAppButton]);
+    } else {
+      const appLink = buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey });
+      const botLink = buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey });
+      const launchLink = botLink || appLink || "";
+      rows.push([
+        {
+          type: "link",
+          text: buttonText,
+          ...(launchLink ? { url: launchLink } : {})
+        }
+      ]);
+    }
   }
 
   const normalizedExtraRows = Array.isArray(extraRows) ? extraRows.filter((row) => Array.isArray(row) && row.length) : [];
@@ -433,5 +458,6 @@ module.exports = {
   buildCommentsKeyboard,
   buildBotStartLink,
   buildStartappPayload,
+  buildOpenAppButton,
   buildGiftKeyboardRows
 };
