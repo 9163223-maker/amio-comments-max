@@ -1,16 +1,15 @@
 {
-  "runtimeVersion": "CC6.5.8.8-CLEAN-V3-BANNER-IN-APP-V3",
-  "buildVersion": "CC6.5.8.8-CLEAN-V3-BANNER-IN-APP-V3",
-  "displayVersion": "CC6.5.8.8",
-  "packageVersion": "CC6.5.8.8",
-  "sourceMarker": "adminkit-CC6.5.8.8-explicit-app-js-route-title-postid-banner-render",
-  "buildGeneratedAt": "2026-05-11T15:02:00Z",
+  "runtimeVersion": "CC6.5.8.9-OPENAPP-PAYLOAD-BRIDGE",
+  "buildVersion": "CC6.5.8.9-OPENAPP-PAYLOAD-BRIDGE",
+  "displayVersion": "CC6.5.8.9",
+  "packageVersion": "CC6.5.8.9",
+  "sourceMarker": "adminkit-CC6.5.8.9-read-open-app-payload-and-legacy-cp-post",
+  "buildGeneratedAt": "2026-05-11T15:20:00Z",
   "notes": [
     "Point fix only: Clean V3 menu tree is untouched.",
-    "Keeps saved banners confirmed by /debug/banner-live-v2 latest list.",
-    "Adds /api/comments/banner3 with lookup by commentKey, postId, or post title fallback.",
-    "Adds /debug/banner-live-v3 and keeps /debug/banner-live-v2 compatible.",
-    "Adds explicit /app.js and /public/app.js patched responses so the OpenApp comments screen receives the banner renderer even when static middleware serves app.js before fs patching.",
-    "OpenApp comments launch and existing comments UI remain untouched."
+    "Existing posts should not require repatching after every code update.",
+    "OpenApp now parses legacy cp_channel_post payloads and resolves them to commentKey on the client side.",
+    "New handoff payloads remain supported.",
+    "Banner V3 remains active through explicit app.js route and /api/comments/banner3."
   ]
 }
