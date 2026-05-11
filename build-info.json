@@ -1,15 +1,16 @@
 {
-  "runtimeVersion": "CC6.5.6.5-POST-REGISTRY-BRIDGE",
-  "buildVersion": "CC6.5.6.5-POST-REGISTRY-BRIDGE",
-  "displayVersion": "CC6.5.6.5",
-  "packageVersion": "CC6.5.6.4",
-  "sourceMarker": "adminkit-CC6.5.6.5-openapp-kept-manual-post-registration",
-  "buildGeneratedAt": "2026-05-11T09:42:00Z",
+  "runtimeVersion": "CC6.5.7.0-CLEAN-V3-MENU-DB",
+  "buildVersion": "CC6.5.7.0-CLEAN-V3-MENU-DB",
+  "displayVersion": "CC6.5.7.0",
+  "packageVersion": "CC6.5.7.0",
+  "sourceMarker": "adminkit-CC6.5.7.0-clean-v3-db-driven-menu",
+  "buildGeneratedAt": "2026-05-11T09:55:00Z",
   "notes": [
-    "OpenApp remains the correct comments launch method and is kept as the baseline.",
-    "Added /debug/register-post endpoint to register fresh channel posts into ak_posts when they did not reach the bot webhook.",
-    "The post picker uses PostgreSQL ak_posts, not the legacy JSON store, so fresh posts must be registered there.",
-    "Growth CTA remains disabled through targeted growthLeadCard-only patch.",
-    "Silent menu callback fix remains active to suppress native MAX toast notifications such as 'Открыто'."
+    "Clean V3 menu core is introduced as the main menu renderer through clean-v3-menu-core-db.js.",
+    "Menu structure is stored in PostgreSQL tables ak_menu_nodes_v3, ak_menu_events_v3 and ak_menu_session_v3.",
+    "Code keeps stable route keys and order; titles, body text, visibility, dynamic kind and metadata live in DB.",
+    "Every menu render and callback is logged to ak_menu_events_v3.",
+    "OpenApp comments launch remains unchanged and is kept as the correct baseline.",
+    "Comments module itself is not rewritten in this build."
   ]
 }
