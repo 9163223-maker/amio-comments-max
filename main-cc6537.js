@@ -6,6 +6,7 @@ require('./v3-repatch-comments-links').install();
 require('./v3-register-post-debug').install();
 require('./clean-v3-main-route-guard').install();
 require('./clean-v3-menu-normalizer').install();
+require('./clean-v3-comments-banner-action').install();
 require('./clean-v3-menu-debug').install();
 require('./clean-v3-menu-ok').install();
 require('./production-menu-v3-renderer-v2').install();
