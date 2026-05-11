@@ -1,14 +1,14 @@
 {
-  "runtimeVersion": "CC6.5.9.1-OPENAPP-SAFE-ROLLBACK",
-  "buildVersion": "CC6.5.9.1-OPENAPP-SAFE-ROLLBACK",
-  "displayVersion": "CC6.5.9.1",
-  "packageVersion": "CC6.5.9.1",
-  "sourceMarker": "adminkit-CC6.5.9.1-restore-safe-startapp-parse-legacy-cp",
-  "buildGeneratedAt": "2026-05-11T15:40:00Z",
+  "runtimeVersion": "CC6.6.1-SAFE-PREBOOT-APPJS",
+  "buildVersion": "CC6.6.1-SAFE-PREBOOT-APPJS",
+  "displayVersion": "CC6.6.1",
+  "packageVersion": "CC6.5.9.3",
+  "sourceMarker": "adminkit-CC6.6.1-safe-preboot-before-public-appjs",
+  "buildGeneratedAt": "2026-05-11T18:35:00Z",
   "notes": [
-    "Rollback unsafe direct open_app payload override from CC6.5.9.0.",
-    "Safe block is restored: normal startapp/start_param/handoff priority is kept.",
-    "Only legacy cp__negativeChannel_postId parsing is added as fallback.",
-    "Menu tree, banner settings, DOM visibility and comment UI are untouched."
+    "Adds isolated safe preboot route for /app.js and /public/app.js before static app code.",
+    "Preboot reads OpenApp payload before legacy app.js and rewrites URL params to commentKey/channelId/postId.",
+    "Menu tree and banner modules are untouched.",
+    "Post Zero rule: all new automatic posts must preserve comment launch across future updates."
   ]
 }
