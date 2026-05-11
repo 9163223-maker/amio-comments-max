@@ -1,5 +1,6 @@
 'use strict';
 
+require('./adminkit-post-zero-safe-layer').install();
 require('./adminkit-comments-core-parser-patch').install();
 require('./adminkit-comments-appjs-file-patch').install();
 require('./adminkit-comments-appjs-route').install();
