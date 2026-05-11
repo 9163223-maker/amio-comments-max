@@ -1,14 +1,11 @@
 'use strict';
 
+// SAFE CORE: only one physical preboot owns public/app.js before the legacy comments UI.
+// Do not re-enable legacy appjs route/file patchers without a specific regression test.
 require('./adminkit-comments-preboot-physical-patch').install();
-require('./adminkit-comments-safe-preboot-appjs-route').install();
-require('./adminkit-comments-core-parser-patch').install();
-require('./adminkit-comments-appjs-file-patch').install();
-require('./adminkit-comments-appjs-route').install();
-require('./adminkit-comments-safe-launcher').install();
-require('./adminkit-safe-launch-core').install();
+
+// Menu / admin functions. These must not touch the comments app.js boot path.
 require('./v3-silent-menu-callbacks').install();
-require('./v3-comments-launch-fix').install();
 require('./v3-repatch-comments-links').install();
 require('./v3-register-post-debug').install();
 require('./clean-v3-main-route-guard').install();
@@ -23,7 +20,6 @@ require('./production-menu-v3-renderer-v2').install();
 require('./production-menu-map-v3-fixed-debug').install();
 require('./cc6542-hotfix-router').install();
 require('./v3-native-hints-cleanup').install();
-require('./v3-openapp-payload-bridge').install();
 require('./adminkit-post-zero-safe-layer').install();
 require('./cc5-bootstrap-lite');
 require('./v3-disable-growth-cta').install();
