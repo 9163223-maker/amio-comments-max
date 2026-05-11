@@ -4,8 +4,8 @@ const db = require('./cc5-db-core');
 const api = require('./services/maxApi');
 const config = require('./config');
 const v3 = require('./menu-v3-feature-adapter-fixed');
-const RUNTIME = 'CC6.5.7.6-V3-BRIDGE-SINGLE-MENU';
-const SOURCE = 'adminkit-CC6.5.7.6-v3-bridge-stable-menu-message-id';
+const RUNTIME = 'CC6.5.7.7-V3-BRIDGE-POST-REGISTRY';
+const SOURCE = 'adminkit-CC6.5.7.7-v3-bridge-autoregister-channel-posts';
 
 const norm = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 
@@ -131,6 +131,101 @@ function isMod(u = {}) {
   return a.startsWith('mod_') || a.startsWith('moderation:') || a === 'модерация';
 }
 
+function pickNegativeId(values = []) {
+  return values.map(norm).find((v) => /^-\d{5,}$/.test(v)) || '';
+}
+
+function pickPostId(values = []) {
+  return values.map(norm).find((v) => /^\d{6,}$/.test(v)) || '';
+}
+
+function extractChannelPostCandidate(update = {}) {
+  if (callback(update) || isBotStartedMenu(update) || isTextMain(update)) return null;
+
+  const p = payload(update);
+  const allChannelIds = [
+    p.channelId,
+    p.channel_id,
+    p.channel,
+    ...deepValuesByKey(update, ['channel_id', 'channelId', 'chat_id', 'chatId'])
+  ];
+  const channelId = pickNegativeId(allChannelIds);
+  if (!channelId) return null;
+
+  const allPostIds = [
+    p.postId,
+    p.post_id,
+    p.messageId,
+    p.message_id,
+    ...deepValuesByKey(update, ['post_id', 'postId', 'message_id', 'messageId', 'mid'])
+  ];
+  const postId = pickPostId(allPostIds);
+  if (!postId) return null;
+
+  const title = norm(
+    p.postTitle ||
+    p.title ||
+    messageText(update) ||
+    firstDeep(update, ['caption', 'originalText', 'text']) ||
+    `Пост ${postId}`
+  ).slice(0, 120) || `Пост ${postId}`;
+
+  // Do not register service/menu texts as channel posts.
+  if (/Панель управления MAX-каналом|Выберите раздел|Главное меню/i.test(title)) return null;
+
+  const channelTitle = norm(p.channelTitle || p.chatTitle || firstDeep(update, ['channel_title', 'channelTitle', 'chat_title', 'title', 'name']) || channelId);
+  const messageId = norm(firstDeep(update, ['message_id', 'messageId', 'mid']) || postId);
+
+  return {
+    channelId,
+    postId,
+    title,
+    channelTitle,
+    commentKey: `${channelId}:${postId}`,
+    messageId,
+    updateType: updateType(update) || 'unknown'
+  };
+}
+
+async function adminIdsForChannel(channelId, fallbackUid = '') {
+  const ids = new Set();
+  if (fallbackUid) ids.add(String(fallbackUid));
+  try {
+    const result = await db.query('select admin_id from ak_admin_channels where channel_id=$1 order by updated_at desc limit 20', [channelId]);
+    for (const row of result.rows || []) {
+      if (row.admin_id) ids.add(String(row.admin_id));
+    }
+  } catch {}
+  if (!ids.size) {
+    const fallback = norm(process.env.DEBUG_ADMIN_ID || process.env.ADMIN_ID || '17507246');
+    if (fallback) ids.add(fallback);
+  }
+  return [...ids];
+}
+
+async function registerPostCandidate(update = {}, fallbackUid = '') {
+  try {
+    const candidate = extractChannelPostCandidate(update);
+    if (!candidate) return { ok: true, skipped: true, reason: 'not_channel_post_candidate' };
+
+    const admins = await adminIdsForChannel(candidate.channelId, fallbackUid);
+    const registered = [];
+    for (const uid of admins) {
+      const result = await db.upsertPost(uid, candidate.channelId, candidate.postId, candidate.title, {
+        source: 'v3_bridge_post_registry_autosync',
+        runtimeVersion: RUNTIME,
+        commentKey: candidate.commentKey,
+        channelTitle: candidate.channelTitle,
+        updateType: candidate.updateType
+      }, candidate.messageId);
+      if (result) registered.push(result);
+    }
+    return { ok: true, registered: registered.length, candidate, admins };
+  } catch (error) {
+    return { ok: false, error: error && error.message ? error.message : String(error || 'post_registry_failed') };
+  }
+}
+
 async function repairTitle(channelId) {
   if (!channelId || !/^[-0-9]+$/.test(String(channelId))) return null;
   try {
@@ -205,6 +300,8 @@ async function handle(update = {}) {
   await db.init();
 
   const uid = adminId(update);
+  await registerPostCandidate(update, uid);
+
   if (!uid) return false;
 
   if (isBotStartedMenu(update)) {
@@ -274,14 +371,15 @@ function selfTest() {
     editorChoosePostOwnedByV3: v3.canHandleRoute('editor:choose_post') === true,
     moderationOwnedByCanonicalRouter: v3.canHandleRoute('moderation:choose_post') === false,
     compactCallbackPayloads: !!(v3Checks.compactCallbacks || v3Checks.compactPayloads || v3Test.compactCallbacks),
-    stableMessageIdExtraction: messageIdFromResult({ message: { id: 12345 } }) === '12345' && messageIdFromResult({ message_id: 67890 }) === '67890'
+    stableMessageIdExtraction: messageIdFromResult({ message: { id: 12345 } }) === '12345' && messageIdFromResult({ message_id: 67890 }) === '67890',
+    postRegistryAutosync: !!extractChannelPostCandidate({ update_type: 'message_created', message: { message_id: '116551099027039870', text: 'Тест 6542', recipient: { chat_id: '-73175958664622' } } })
   };
 
   return {
     ok: Object.values(checks).every(Boolean),
     runtime: RUNTIME,
     sourceMarker: SOURCE,
-    bridge: 'v3_live_bridge_single_menu',
+    bridge: 'v3_live_bridge_single_menu_post_registry',
     checks,
     fixedSelfTestTruth: true,
     v3Adapter: v3Test,
@@ -297,5 +395,7 @@ module.exports = {
   isMainMenuAction: isMain,
   isBotStartedMenu,
   repairKnownChannelTitles,
-  messageIdFromResult
+  messageIdFromResult,
+  extractChannelPostCandidate,
+  registerPostCandidate
 };
