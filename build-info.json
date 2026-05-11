@@ -1,16 +1,16 @@
 {
-  "runtimeVersion": "CC6.5.8.0-CLEAN-V3-COMMENTS-POST-ACTIONS",
-  "buildVersion": "CC6.5.8.0-CLEAN-V3-COMMENTS-POST-ACTIONS",
-  "displayVersion": "CC6.5.8.0",
-  "packageVersion": "CC6.5.8.0",
-  "sourceMarker": "adminkit-CC6.5.8.0-comments-post-actions-callback-routes",
-  "buildGeneratedAt": "2026-05-11T12:58:00Z",
+  "runtimeVersion": "CC6.5.8.1-CLEAN-V3-MAIN-ROUTE-GUARD",
+  "buildVersion": "CC6.5.8.1-CLEAN-V3-MAIN-ROUTE-GUARD",
+  "displayVersion": "CC6.5.8.1",
+  "packageVersion": "CC6.5.8.1",
+  "sourceMarker": "adminkit-CC6.5.8.1-force-main-home-to-real-main-node",
+  "buildGeneratedAt": "2026-05-11T13:12:00Z",
   "notes": [
-    "Clean V3 menu remains DB-driven and active.",
-    "Fixed comments post action buttons: old callback payload r/route/action can no longer overwrite the new target route.",
-    "Added Clean V3 routes/screens for comments:toggle, comments_banner:home, comments_reactions:home and help:comments.",
-    "The Comments post screen buttons should now execute actions instead of redrawing the same post screen.",
-    "Post registry sync from postPatcher remains active; new posts with Comments button appear in ak_posts and in Choose post.",
+    "Fixes the case where the service nav_main node could be selected instead of the real main node for route main:home.",
+    "main:home now always resolves to node_key=main; nav_main is treated only as a navigation label.",
+    "Clean V3 comments post actions from CC6.5.8.0 remain included.",
+    "Callback payload r/route/action still cannot overwrite the new target route.",
+    "Post registry sync remains active; new posts with Comments button appear in ak_posts and in Choose post.",
     "Single active menu remains enabled and activeMenu message_id is tracked.",
     "OpenApp comments launch remains unchanged."
   ]
