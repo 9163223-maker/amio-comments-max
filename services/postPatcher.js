@@ -1,3 +1,4 @@
+const db = require("../cc5-db-core");
 const {
   savePost,
   saveChannel,
@@ -18,6 +19,8 @@ const {
 const { findGiftCampaignForPost } = require("./giftService");
 const { buildCustomKeyboardRows } = require("./keyboardBuilderService");
 
+const DB_SYNC_RUNTIME = "CC6.5.7.8-POST-PATCHER-DB-SYNC";
+
 function normalizeAttachments(value) {
   return Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : [];
 }
@@ -28,6 +31,53 @@ function stripInlineKeyboard(attachments) {
 
 function stableStringify(value) {
   return JSON.stringify(value || []);
+}
+
+function clean(value) {
+  return String(value || "").trim();
+}
+
+async function adminIdsForChannel(channelId, fallbackAdminId = "") {
+  const ids = new Set();
+  const fallback = clean(fallbackAdminId || process.env.DEBUG_ADMIN_ID || process.env.ADMIN_ID || "17507246");
+  if (fallback) ids.add(fallback);
+  try {
+    await db.init();
+    const result = await db.query("select admin_id from ak_admin_channels where channel_id=$1 order by updated_at desc limit 20", [String(channelId || "")]);
+    for (const row of result.rows || []) {
+      if (row.admin_id) ids.add(String(row.admin_id));
+    }
+  } catch {}
+  return [...ids];
+}
+
+async function syncPatchedPostToDb({
+  channelId,
+  postId,
+  messageId,
+  title,
+  channelTitle,
+  linkedByUserId,
+  commentKey,
+  source = "post_patcher"
+}) {
+  const ch = clean(channelId);
+  const post = clean(postId);
+  if (!ch || !post || ch === "CHANNEL_ID" || post === "POST_ID") return { ok: true, skipped: true, reason: "invalid_channel_or_post" };
+
+  const admins = await adminIdsForChannel(ch, linkedByUserId);
+  const registered = [];
+  for (const adminId of admins) {
+    const result = await db.upsertPost(adminId, ch, post, String(title || post).slice(0, 120), {
+      source,
+      runtimeVersion: DB_SYNC_RUNTIME,
+      commentKey: clean(commentKey || `${ch}:${post}`),
+      channelTitle: clean(channelTitle || ch)
+    }, clean(messageId || post));
+    if (result) registered.push(result);
+  }
+
+  return { ok: true, runtimeVersion: DB_SYNC_RUNTIME, registered: registered.length, admins, channelId: ch, postId: post, commentKey: clean(commentKey || `${ch}:${post}`) };
 }
 
 async function patchStoredPost({
@@ -198,6 +248,16 @@ async function tryPatchChannelPost({
 
   const existingPost = getPost(commentKey);
   if (existingPost && String(existingPost.messageId || "") === String(messageId || "") && existingPost.lastPatchedFingerprint) {
+    await syncPatchedPostToDb({
+      channelId,
+      postId,
+      messageId,
+      title: existingPost.originalText || originalText || postId,
+      channelTitle: existingPost.channelTitle || channelTitle,
+      linkedByUserId: existingPost.linkedByUserId || linkedByUserId,
+      commentKey,
+      source: "post_patcher_existing_already_patched"
+    });
     return {
       commentKey,
       botStartLink: buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken: existingPost.handoffToken, postId, channelId, commentKey }),
@@ -245,6 +305,17 @@ async function tryPatchChannelPost({
     autoModeEnabled: true
   });
 
+  await syncPatchedPostToDb({
+    channelId,
+    postId,
+    messageId,
+    title: originalText || postId,
+    channelTitle,
+    linkedByUserId,
+    commentKey,
+    source: "post_patcher_try_patch_channel_post"
+  });
+
   const patchAttempt = await patchStoredPost({
     botToken,
     appBaseUrl,
@@ -268,5 +339,7 @@ async function tryPatchChannelPost({
 
 module.exports = {
   tryPatchChannelPost,
-  patchStoredPost
+  patchStoredPost,
+  syncPatchedPostToDb,
+  DB_SYNC_RUNTIME
 };
