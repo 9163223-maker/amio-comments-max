@@ -1,14 +1,14 @@
 {
-  "runtimeVersion": "CC6.6.4-POST-ZERO2-CONTROL-REDEPLOY",
-  "buildVersion": "CC6.6.4-POST-ZERO2-CONTROL-REDEPLOY",
-  "displayVersion": "CC6.6.4",
+  "runtimeVersion": "CC6.6.5-SAFE-COMMENTS-BOOT-CORE",
+  "buildVersion": "CC6.6.5-SAFE-COMMENTS-BOOT-CORE",
+  "displayVersion": "CC6.6.5",
   "packageVersion": "CC6.5.9.3",
-  "sourceMarker": "adminkit-CC6.6.4-control-redeploy-post-zero2-safe-layer",
-  "buildGeneratedAt": "2026-05-11T19:58:00Z",
+  "sourceMarker": "adminkit-CC6.6.5-immutable-safe-comments-boot-core",
+  "buildGeneratedAt": "2026-05-11T20:10:00Z",
   "notes": [
-    "Control redeploy only: no comments boot/app/menu/banner code changed.",
-    "Post Zero 2 opened comments before this commit and must keep opening comments after this redeploy.",
-    "Safe physical preboot remains the only boot owner for OpenApp payload parsing.",
+    "Added separate protected comments boot core before all legacy modules.",
+    "The boot core injects no-cache HTML/app.js startup parsing and must not be touched by feature modules.",
+    "It parses commentKey, channelId+postId, cp__ legacy payloads, signed negative channel ids, and handoff tokens.",
     "Menu tree and banner modules are untouched."
   ]
 }
