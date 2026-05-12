@@ -3,9 +3,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const RUNTIME = 'CC6.5.6.3-DISABLE-GROWTH-CTA';
-const SOURCE = 'adminkit-CC6.5.6.3-hide-connect-comments-cta';
+const RUNTIME = 'CC6.7.2-DISABLE-GROWTH-CTA-LOAD-ONE-ACTIVE-MENU';
+const SOURCE = 'adminkit-hide-cta-load-v3-one-active-menu';
 const MARKER = '__ADMINKIT_V3_DISABLE_GROWTH_CTA__';
+
+let oneActiveMenu = null;
+let oneActiveError = '';
 
 function clientPatch(runtime, source, marker) {
   if (window[marker]) return;
@@ -21,7 +24,6 @@ function clientPatch(runtime, source, marker) {
         leadCard.style.setProperty('display', 'none', 'important');
         leadCard.style.setProperty('pointer-events', 'none', 'important');
       }
-
       document.querySelectorAll('[data-ak-cta-url], .growth-lead-wrap, .growth-brand-pill, .floating-cta, .powered-by-card, .adminkit-powered-card').forEach((element) => {
         const text = String(element.textContent || '').toLowerCase();
         if (/подключить|комментарии|cta|полезная ссылка|powered|админкит/.test(text)) {
@@ -33,34 +35,16 @@ function clientPatch(runtime, source, marker) {
     } catch (_) {}
   }
 
-  try {
-    window.__adminkitRenderCta = function disabledAdminkitRenderCta() {
-      hideGrowthLeadCard();
-    };
-  } catch (_) {}
-
-  try {
-    if (typeof renderLeadMagnet === 'function') {
-      renderLeadMagnet = function disabledRenderLeadMagnet() { hideGrowthLeadCard(); };
-    }
-  } catch (_) {}
+  try { window.__adminkitRenderCta = function disabledAdminkitRenderCta() { hideGrowthLeadCard(); }; } catch (_) {}
+  try { if (typeof renderLeadMagnet === 'function') renderLeadMagnet = function disabledRenderLeadMagnet() { hideGrowthLeadCard(); }; } catch (_) {}
 
   hideGrowthLeadCard();
   setTimeout(hideGrowthLeadCard, 0);
   setTimeout(hideGrowthLeadCard, 250);
   setTimeout(hideGrowthLeadCard, 1000);
+  try { const observer = new MutationObserver(hideGrowthLeadCard); observer.observe(document.documentElement, { childList: true, subtree: true }); } catch (_) {}
 
-  try {
-    const observer = new MutationObserver(hideGrowthLeadCard);
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-  } catch (_) {}
-
-  window.__adminkitGrowthCtaPolicy = {
-    runtimeVersion: runtime,
-    sourceMarker: source,
-    leadCtaDisabled: true,
-    reason: 'do_not_show_connect_comments_cta_inside_discussion'
-  };
+  window.__adminkitGrowthCtaPolicy = { runtimeVersion: runtime, sourceMarker: source, leadCtaDisabled: true, reason: 'do_not_show_connect_comments_cta_inside_discussion' };
 }
 
 function buildClientPatch() {
@@ -70,10 +54,8 @@ function buildClientPatch() {
 function patchPublicAppRead() {
   if (fs.__adminkitDisableGrowthCtaPatched) return;
   fs.__adminkitDisableGrowthCtaPatched = true;
-
   const originalReadFileSync = fs.readFileSync.bind(fs);
   const publicAppPath = path.resolve(path.join(__dirname, 'public', 'app.js'));
-
   fs.readFileSync = function adminkitDisableGrowthCtaReadFileSync(filePath, options) {
     const content = originalReadFileSync(filePath, options);
     try {
@@ -88,8 +70,19 @@ function patchPublicAppRead() {
   };
 }
 
+function installOneActiveMenu() {
+  try {
+    const mod = require('./v3-one-active-menu-edit');
+    oneActiveMenu = mod && typeof mod.install === 'function' ? mod.install() : { ok: false, error: 'install_missing' };
+  } catch (error) {
+    oneActiveError = error && error.message ? error.message : String(error || 'one_active_install_failed');
+    oneActiveMenu = { ok: false, error: oneActiveError };
+  }
+}
+
 function install() {
   patchPublicAppRead();
+  installOneActiveMenu();
   return selfTest();
 }
 
@@ -99,13 +92,9 @@ function selfTest() {
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     patchesPublicAppRead: !!fs.__adminkitDisableGrowthCtaPatched,
-    policy: {
-      hideGrowthLeadCard: true,
-      hideConnectCommentsCta: true,
-      doesNotHideCommentsShell: true,
-      doesNotPatchLaunchLinks: true,
-      doesNotPatchCallbackAnswers: true
-    }
+    oneActiveMenu,
+    oneActiveError,
+    policy: { hideGrowthLeadCard: true, hideConnectCommentsCta: true, doesNotHideCommentsShell: true, doesNotPatchLaunchLinks: true, doesNotPatchCallbackAnswers: true, loadsOneActiveMenu: true }
   };
 }
 
