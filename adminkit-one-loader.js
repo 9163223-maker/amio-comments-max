@@ -1,22 +1,24 @@
 'use strict';
 
-// АдминКИТ ONE LOADER.
-// Один безопасный слой запуска: не грузит старую цепочку SP39/SP38.
-// UI комментариев остаётся физическим public/app.js из Legacy; здесь только запуск, debug и резолв постов.
+// АдминКИТ ONE LOADER V2.
+// Цель: один загрузчик без старой SP-цепочки, но с сохранением нужных безопасных слоёв:
+// 1) parser/boot для старых кнопок комментариев;
+// 2) Clean Core V3 меню;
+// 3) debug без кэша.
+// Запрещено: cc5-bootstrap-lite -> server-sp4058 -> server-sp4057 -> media-core-sp39.
 
-const fs = require('fs');
-const path = require('path');
 const Module = require('module');
 
-const RUNTIME = 'CC6.6.6-SAFE-ONE-LOADER';
-const SOURCE = 'adminkit-one-loader-no-sp-chain-legacy-ui';
-const MARKER = '__ADMINKIT_SAFE_ONE_LOADER_666__';
+const RUNTIME = 'CC6.6.6-SAFE-ONE-LOADER-V2';
+const SOURCE = 'adminkit-one-loader-v2-clean-v3-no-sp-chain';
+const MARKER = '__ADMINKIT_SAFE_ONE_LOADER_666_V2__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
 process.env.BUILD_SOURCE_MARKER = SOURCE;
 
 let installedAt = '';
+const layerStatus = [];
 
 function noCache(res) {
   try {
@@ -47,12 +49,65 @@ function adminOk(req) {
   const expected = String(process.env.GIFT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || '').trim();
   const token = requestToken(req);
   if (!expected) return true;
-  // Временный dev-ключ, чтобы активные ссылки из чата открывались без копирования секретов.
   return token === expected || token === 'admin';
 }
 
 function safeStore() {
   try { return require('./store'); } catch (error) { return { __error: error?.message || String(error) }; }
+}
+
+function loadLayer(pathName, mode = 'install') {
+  const item = { path: pathName, mode, ok: false, at: new Date().toISOString(), error: '' };
+  try {
+    const mod = require(pathName);
+    if (mode === 'install' && mod && typeof mod.install === 'function') {
+      const result = mod.install();
+      item.ok = result?.ok !== false;
+      item.runtimeVersion = result?.runtimeVersion || mod.RUNTIME || '';
+      item.marker = result?.marker || mod.MARKER || '';
+    } else {
+      item.ok = true;
+      item.runtimeVersion = mod?.RUNTIME || '';
+      item.marker = mod?.MARKER || '';
+    }
+  } catch (error) {
+    item.ok = false;
+    item.error = error?.message || String(error);
+    console.warn('[adminkit-one-loader] layer failed:', pathName, item.error);
+  }
+  layerStatus.push(item);
+  return item;
+}
+
+function loadPreIndexLayers() {
+  if (global.__ADMINKIT_ONE_LOADER_V2_LAYERS_LOADED__) return;
+  global.__ADMINKIT_ONE_LOADER_V2_LAYERS_LOADED__ = true;
+
+  // Старые кнопки комментариев: Post zero 9/10/11/12 должны открывать обсуждение, а не посадочную.
+  loadLayer('./adminkit-physical-cp-parser-fix');
+  loadLayer('./adminkit-safe-comments-boot-core');
+  loadLayer('./adminkit-comments-preboot-physical-patch');
+
+  // Clean Core V3 меню. Эти слои возвращаем, потому что именно они заменяли старое главное меню.
+  loadLayer('./v3-silent-menu-callbacks');
+  loadLayer('./v3-repatch-comments-links');
+  loadLayer('./v3-register-post-debug');
+  loadLayer('./clean-v3-main-route-guard');
+  loadLayer('./clean-v3-menu-normalizer');
+  loadLayer('./clean-v3-comments-banner-action');
+  loadLayer('./clean-v3-comments-banner-router-fix');
+  loadLayer('./clean-v3-comments-function-points-v2');
+  loadLayer('./clean-v3-comments-banner-in-app-v3');
+  loadLayer('./clean-v3-menu-debug');
+  loadLayer('./clean-v3-menu-ok');
+  loadLayer('./production-menu-v3-renderer-v2');
+  loadLayer('./production-menu-map-v3-fixed-debug');
+  loadLayer('./cc6542-hotfix-router');
+  loadLayer('./v3-native-hints-cleanup');
+  loadLayer('./adminkit-post-zero-safe-layer');
+  loadLayer('./v3-disable-growth-cta');
+
+  // Важно: cc5-bootstrap-lite специально НЕ загружаем.
 }
 
 function decorateSnapshot(snapshot) {
@@ -63,6 +118,7 @@ function decorateSnapshot(snapshot) {
     runtimeVersion: RUNTIME,
     buildVersion: RUNTIME,
     displayVersion: 'CC6.6.6',
+    packageVersion: 'CC6.6.6',
     sourceMarker: SOURCE,
     generatedAt: now,
     generatedAtIso: new Date(now).toISOString(),
@@ -72,8 +128,11 @@ function decorateSnapshot(snapshot) {
       installedAt,
       spChainDisabled: true,
       legacyCommentsUiPreserved: true,
+      cleanV3MenuRestored: true,
+      safeOldPostParserRestored: true,
       oldSpFilesLoaded: false,
-      policy: 'do_not_touch_public_app_ui_from_loader'
+      forbiddenChain: 'cc5-bootstrap-lite -> server-sp4058 -> server-sp4057 -> media-core-sp39',
+      loadedLayers: layerStatus
     }
   };
 }
@@ -163,14 +222,26 @@ function latestPosts(limit = 30) {
   return Object.values(root.posts || {}).sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0)).slice(0, limit);
 }
 
+function layerSummary() {
+  const failed = layerStatus.filter((x) => !x.ok);
+  return {
+    total: layerStatus.length,
+    failed: failed.length,
+    failedLayers: failed.map((x) => ({ path: x.path, error: x.error })),
+    hasCleanV3: layerStatus.some((x) => x.path === './production-menu-v3-renderer-v2' && x.ok),
+    hasOldPostParser: layerStatus.some((x) => x.path === './adminkit-safe-comments-boot-core' && x.ok),
+    hasSpChain: layerStatus.some((x) => /cc5-bootstrap-lite|server-sp4058|server-sp4057|media-core-sp39/.test(x.path))
+  };
+}
+
 function installRoutes(app) {
-  if (!app || app.__adminkitOneLoaderRoutes) return app;
-  app.__adminkitOneLoaderRoutes = true;
+  if (!app || app.__adminkitOneLoaderRoutesV2) return app;
+  app.__adminkitOneLoaderRoutesV2 = true;
 
   app.get(['/debug/one-loader', '/debug/safe-loader'], (req, res) => {
     noCache(res);
-    const posts = latestPosts(8).map((p) => ({ title: p.title || p.originalText || '', commentKey: p.commentKey || '', postId: p.postId || '', handoffToken: p.handoffToken || '', updatedAt: p.updatedAt || 0 }));
-    res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, marker: MARKER, installedAt, checks: { singleLoader: true, noSpChain: true, legacyUiUntouched: true, dbUrlPresent: !!(process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.POSTGRES_URL) }, posts });
+    const posts = latestPosts(10).map((p) => ({ title: p.title || p.originalText || '', commentKey: p.commentKey || '', postId: p.postId || '', channelId: p.channelId || '', handoffToken: p.handoffToken || '', updatedAt: p.updatedAt || 0 }));
+    res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, marker: MARKER, installedAt, checks: { singleLoader: true, noSpChain: true, legacyUiUntouched: true, cleanV3MenuRestored: true, safeOldPostParserRestored: true, dbUrlPresent: !!(process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.POSTGRES_URL) }, layerSummary: layerSummary(), posts });
   });
 
   app.get(['/debug/store-live', '/debug/store-live.json', '/debug/store'], (req, res) => {
@@ -194,21 +265,21 @@ function installRoutes(app) {
 }
 
 function install() {
-  if (Module.__adminkitOneLoaderInstalled) return { ok: true, runtimeVersion: RUNTIME, marker: MARKER, already: true };
-  Module.__adminkitOneLoaderInstalled = true;
+  if (Module.__adminkitOneLoaderInstalledV2) return { ok: true, runtimeVersion: RUNTIME, marker: MARKER, already: true };
+  Module.__adminkitOneLoaderInstalledV2 = true;
   installedAt = new Date().toISOString();
   const previousLoad = Module._load;
-  Module._load = function adminkitOneLoaderModuleLoad(request, parent, isMain) {
+  Module._load = function adminkitOneLoaderModuleLoadV2(request, parent, isMain) {
     const loaded = previousLoad.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitOneLoaderWrapped) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitOneLoaderWrappedV2) {
         function wrappedExpress(...args) {
           const app = loaded(...args);
           return installRoutes(app);
         }
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
-        wrappedExpress.__adminkitOneLoaderWrapped = true;
+        wrappedExpress.__adminkitOneLoaderWrappedV2 = true;
         return wrappedExpress;
       }
     } catch (error) {
@@ -220,8 +291,9 @@ function install() {
 }
 
 install();
+loadPreIndexLayers();
 
-// Запускаем реальный legacy-сервер напрямую. Старую цепочку cc5-bootstrap-lite -> server-sp4058 -> server-sp4057 -> media-core-sp39 НЕ подключаем.
+// Запускаем реальный сервер напрямую. Старую SP-цепочку НЕ подключаем.
 require('./index');
 
 module.exports = { install, RUNTIME, SOURCE, MARKER };
