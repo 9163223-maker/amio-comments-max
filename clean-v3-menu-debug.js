@@ -4,8 +4,8 @@ const Module = require('module');
 const db = require('./cc5-db-core');
 const menu = require('./clean-v3-menu-core-db');
 
-const RUNTIME = 'CC6.5.7.3-CLEAN-V3-MENU-LIVE';
-const SOURCE = 'adminkit-CC6.5.7.3-clean-v3-menu-brief-live-debug';
+const RUNTIME = 'CC6.5.7.4-CLEAN-V3-MENU-LIVE-SHORT';
+const SOURCE = 'adminkit-clean-v3-menu-debug-with-short-summary';
 
 function noCache(res) {
   try {
@@ -111,6 +111,55 @@ async function brief() {
   };
 }
 
+async function short() {
+  await menu.init();
+  const { rows } = await query(`
+    select
+      count(*)::int as nodes,
+      count(*) filter (where parent_key='main' and visible=true)::int as main_buttons,
+      count(*) filter (where parent_key='comments' and visible=true)::int as comments_buttons,
+      count(*) filter (where parent_key='channels' and visible=true)::int as channels_buttons,
+      count(*) filter (where parent_key='moderation' and visible=true)::int as moderation_buttons,
+      count(*) filter (where parent_key='editor' and visible=true)::int as editor_buttons,
+      count(*) filter (where parent_key='buttons' and visible=true)::int as buttons_buttons,
+      count(*) filter (where parent_key='gifts' and visible=true)::int as gifts_buttons,
+      count(*) filter (where parent_key='stats' and visible=true)::int as stats_buttons,
+      count(*) filter (where route='main:home')::int as main_route,
+      count(*) filter (where route='comments:old_post')::int as comments_old_post,
+      count(*) filter (where route='comments:choose_post')::int as comments_choose_post,
+      count(*) filter (where route='comments_photo:home')::int as comments_photo,
+      count(*) filter (where route='comments_reactions:home')::int as comments_reactions
+    from ak_menu_nodes_v3
+  `);
+  const c = rows[0] || {};
+  const missing = [];
+  if (Number(c.main_route || 0) !== 1) missing.push('main:home');
+  if (Number(c.comments_old_post || 0) !== 1) missing.push('comments:old_post');
+  if (Number(c.comments_choose_post || 0) !== 1) missing.push('comments:choose_post');
+  if (Number(c.comments_photo || 0) !== 1) missing.push('comments_photo:home');
+  if (Number(c.comments_reactions || 0) !== 1) missing.push('comments_reactions:home');
+  return {
+    ok: missing.length === 0,
+    runtimeVersion: RUNTIME,
+    status: 'SHORT',
+    nodes: Number(c.nodes || 0),
+    mainButtons: Number(c.main_buttons || 0),
+    sections: {
+      channels: Number(c.channels_buttons || 0),
+      comments: Number(c.comments_buttons || 0),
+      moderation: Number(c.moderation_buttons || 0),
+      editor: Number(c.editor_buttons || 0),
+      buttons: Number(c.buttons_buttons || 0),
+      gifts: Number(c.gifts_buttons || 0),
+      stats: Number(c.stats_buttons || 0)
+    },
+    missing: missing.length,
+    missingRoutes: missing,
+    commentsOpenAppTouched: false,
+    patcherTouched: false
+  };
+}
+
 async function events(limit = 50, adminId = '') {
   await menu.init();
   const safeLimit = Math.max(1, Math.min(Number(limit || 50), 200));
@@ -172,6 +221,12 @@ function install() {
         if (app && !app.__adminkitCleanV3MenuDebug) {
           app.__adminkitCleanV3MenuDebug = true;
 
+          app.get(['/debug/menu-v3-short', '/debug/menu-v3-summary-short'], async (req, res) => {
+            noCache(res);
+            try { res.json(await short()); }
+            catch (error) { res.status(500).json({ ok: false, runtimeVersion: RUNTIME, error: error && error.message ? error.message : String(error || 'short_failed') }); }
+          });
+
           app.get('/debug/menu-v3-live', async (req, res) => {
             noCache(res);
             try { res.json(await brief()); }
@@ -231,8 +286,9 @@ function selfTest() {
     ok: true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
-    tokenPolicy: 'menu-v3-live is public and concise; full endpoints accept token=admin',
+    tokenPolicy: 'menu-v3-live and menu-v3-short are public and concise; full endpoints accept token=admin',
     endpoints: {
+      short: '/debug/menu-v3-short',
       live: '/debug/menu-v3-live',
       status: '/debug/menu-v3-status?token=admin',
       tree: '/debug/menu-v3-tree?token=admin',
@@ -241,8 +297,9 @@ function selfTest() {
       render: '/debug/menu-v3-render?token=admin&route=main:home'
     },
     commentsModuleTouched: false,
-    openAppTouched: false
+    openAppTouched: false,
+    patcherTouched: false
   };
 }
 
-module.exports = { RUNTIME, SOURCE, install, selfTest, tree, brief, events, sessions, render, status };
+module.exports = { RUNTIME, SOURCE, install, selfTest, tree, brief, short, events, sessions, render, status };
