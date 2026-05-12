@@ -1,14 +1,15 @@
 'use strict';
 
 // АдминКИТ ONE LOADER V3 — самостоятельный вход.
-// Не подключает adminkit-one-loader.js V2, чтобы V2 больше не перетирал runtime/debug.
-// Сохраняет рабочий Legacy Telegram-style comments UI и Clean Core V3 menu.
+// CC6.7.2: V3 functional menu actions + one-active-menu guard are loaded directly here.
+// This file is the real package main, so every critical V3 layer must be listed here,
+// not only inside v3live.js.
 
 const Module = require('module');
 
-const RUNTIME = 'CC6.6.7-SAFE-ONE-LOADER-V3';
-const SOURCE = 'adminkit-one-loader-v3-standalone-no-v2-hard-menu-callbacks';
-const MARKER = '__ADMINKIT_SAFE_ONE_LOADER_667_V3_STANDALONE__';
+const RUNTIME = 'CC6.7.2-SAFE-ONE-LOADER-V3';
+const SOURCE = 'adminkit-one-loader-v3-direct-one-active-menu-functional-actions';
+const MARKER = '__ADMINKIT_SAFE_ONE_LOADER_672_V3_STANDALONE__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -81,6 +82,9 @@ function loadPreIndexLayers() {
   if (global.__ADMINKIT_ONE_LOADER_V3_STANDALONE_LAYERS__) return;
   global.__ADMINKIT_ONE_LOADER_V3_STANDALONE_LAYERS__ = true;
 
+  // Must be first: wraps sendMessage so menu screens edit/reuse one active menu.
+  loadLayer('./v3-one-active-menu-edit');
+
   loadLayer('./adminkit-v3-main-menu-hard-override');
 
   // Старые кнопки комментариев: старые Post zero должны открывать обсуждение, а не посадочную.
@@ -88,8 +92,9 @@ function loadPreIndexLayers() {
   loadLayer('./adminkit-safe-comments-boot-core');
   loadLayer('./adminkit-comments-preboot-physical-patch');
 
-  // Только дописывает title в уже открытом Legacy UI, если там осталось «Загрузка...».
+  // Title fallback for comments UI.
   loadLayer('./adminkit-comments-title-resolve-patch');
+  loadLayer('./v3-comments-title-db-fallback');
 
   // Clean Core V3 menu stack. Не подключаем cc5-bootstrap-lite / server-sp4058 / server-sp4057 / media-core-sp39.
   loadLayer('./v3-silent-menu-callbacks');
@@ -106,7 +111,15 @@ function loadPreIndexLayers() {
   loadLayer('./production-menu-v3-renderer-v2');
   loadLayer('./production-menu-map-v3-fixed-debug');
   loadLayer('./cc6542-hotfix-router');
+
+  // Functional menu tree + callback router.
+  loadLayer('./v3-menu-actions-adapter');
   loadLayer('./v3-menu-callback-hard-router');
+
+  // Diagnostics.
+  loadLayer('./v3-menu-stress-test');
+  loadLayer('./v3-menu-stress-summary');
+
   loadLayer('./v3-native-hints-cleanup');
   loadLayer('./adminkit-post-zero-safe-layer');
   loadLayer('./v3-disable-growth-cta');
@@ -140,33 +153,12 @@ function resolvePostFromRequest(req) {
   let commentKey = '';
   let source = '';
   for (const candidate of candidates) {
-    try {
-      if (typeof mod.getPost === 'function') {
-        post = mod.getPost(candidate);
-        if (post) { commentKey = normalize(post.commentKey || candidate); source = 'getPost'; break; }
-      }
-    } catch {}
-    try {
-      if (typeof mod.resolveCommentKeyFromHandoff === 'function') {
-        const key = normalize(mod.resolveCommentKeyFromHandoff(candidate));
-        if (key && typeof mod.getPost === 'function') {
-          post = mod.getPost(key);
-          if (post) { commentKey = key; source = 'handoff'; break; }
-        }
-      }
-    } catch {}
-    try {
-      if (typeof mod.findPostByAnyId === 'function') {
-        post = mod.findPostByAnyId(candidate);
-        if (post) { commentKey = normalize(post.commentKey || candidate); source = 'findPostByAnyId'; break; }
-      }
-    } catch {}
+    try { if (typeof mod.getPost === 'function') { post = mod.getPost(candidate); if (post) { commentKey = normalize(post.commentKey || candidate); source = 'getPost'; break; } } } catch {}
+    try { if (typeof mod.resolveCommentKeyFromHandoff === 'function') { const key = normalize(mod.resolveCommentKeyFromHandoff(candidate)); if (key && typeof mod.getPost === 'function') { post = mod.getPost(key); if (post) { commentKey = key; source = 'handoff'; break; } } } } catch {}
+    try { if (typeof mod.findPostByAnyId === 'function') { post = mod.findPostByAnyId(candidate); if (post) { commentKey = normalize(post.commentKey || candidate); source = 'findPostByAnyId'; break; } } } catch {}
   }
   if (!post && rawChannelId && rawPostId && typeof mod.findPostByChannelAndPost === 'function') {
-    try {
-      post = mod.findPostByChannelAndPost(rawChannelId, rawPostId);
-      if (post) { commentKey = normalize(post.commentKey || (rawChannelId + ':' + rawPostId)); source = 'channel+post'; }
-    } catch {}
+    try { post = mod.findPostByChannelAndPost(rawChannelId, rawPostId); if (post) { commentKey = normalize(post.commentKey || (rawChannelId + ':' + rawPostId)); source = 'channel+post'; } } catch {}
   }
   if (!post) return { ok: false, runtimeVersion: RUNTIME, error: 'post_not_resolved', candidates };
   return { ok: true, runtimeVersion: RUNTIME, source, commentKey, post };
@@ -178,6 +170,9 @@ function layerSummary() {
     total: layerStatus.length,
     failed: failed.length,
     failedLayers: failed.map((x) => ({ path: x.path, error: x.error })),
+    hasOneActiveMenu: layerStatus.some((x) => x.path === './v3-one-active-menu-edit' && x.ok),
+    hasMenuActions: layerStatus.some((x) => x.path === './v3-menu-actions-adapter' && x.ok),
+    hasStressSummary: layerStatus.some((x) => x.path === './v3-menu-stress-summary' && x.ok),
     hasCleanV3: layerStatus.some((x) => x.path === './production-menu-v3-renderer-v2' && x.ok),
     hasCleanV3HardOverride: layerStatus.some((x) => x.path === './adminkit-v3-main-menu-hard-override' && x.ok),
     hasV3MenuCallbackHardRouter: layerStatus.some((x) => x.path === './v3-menu-callback-hard-router' && x.ok),
@@ -194,8 +189,8 @@ function decorateSnapshot(snapshot) {
     ok: snapshot?.ok !== false,
     runtimeVersion: RUNTIME,
     buildVersion: RUNTIME,
-    displayVersion: 'CC6.6.7-v3',
-    packageVersion: 'CC6.6.7-v3',
+    displayVersion: 'CC6.7.2-v3',
+    packageVersion: 'CC6.7.2-v3',
     sourceMarker: SOURCE,
     generatedAt: now,
     generatedAtIso: new Date(now).toISOString(),
@@ -210,6 +205,9 @@ function decorateSnapshot(snapshot) {
       cleanV3MenuRestored: true,
       cleanV3MenuHardOverride: true,
       v3MenuCallbackHardRouter: true,
+      oneActiveMenu: true,
+      menuActions: true,
+      stressSummary: true,
       safeOldPostParserRestored: true,
       commentsTitleResolvePatch: true,
       oldSpFilesLoaded: false,
@@ -238,26 +236,19 @@ function installRoutes(app) {
   app.get(['/debug/one-loader', '/debug/safe-loader'], (req, res) => {
     noCache(res);
     let callbackRouter = null;
+    let oneActiveMenu = null;
+    let menuActions = null;
+    let stressSummary = null;
     try { callbackRouter = require('./v3-menu-callback-hard-router').selfTest(); } catch (error) { callbackRouter = { ok: false, error: error?.message || String(error) }; }
-    res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, marker: MARKER, installedAt, checks: { singleLoader: true, standalone: true, v2Loaded: false, noSpChain: true, legacyUiUntouched: true, cleanV3MenuRestored: true, cleanV3MenuHardOverride: true, v3MenuCallbackHardRouter: callbackRouter?.ok !== false, safeOldPostParserRestored: true, commentsTitleResolvePatch: true, dbUrlPresent: !!(process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.POSTGRES_URL) }, callbackRouter, layerSummary: layerSummary(), posts: latestPosts(12).map((p) => ({ title: p.title || p.originalText || '', commentKey: p.commentKey || '', postId: p.postId || '', channelId: p.channelId || '', handoffToken: p.handoffToken || '', updatedAt: p.updatedAt || 0 })) });
+    try { oneActiveMenu = require('./v3-one-active-menu-edit').selfTest(); } catch (error) { oneActiveMenu = { ok: false, error: error?.message || String(error) }; }
+    try { menuActions = require('./v3-menu-actions-adapter').selfTest(); } catch (error) { menuActions = { ok: false, error: error?.message || String(error) }; }
+    try { stressSummary = require('./v3-menu-stress-summary').selfTest(); } catch (error) { stressSummary = { ok: false, error: error?.message || String(error) }; }
+    res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, marker: MARKER, installedAt, checks: { singleLoader: true, standalone: true, v2Loaded: false, noSpChain: true, legacyUiUntouched: true, cleanV3MenuRestored: true, cleanV3MenuHardOverride: true, v3MenuCallbackHardRouter: callbackRouter?.ok !== false, oneActiveMenu: oneActiveMenu?.ok !== false, menuActions: menuActions?.ok !== false, stressSummary: stressSummary?.ok !== false, safeOldPostParserRestored: true, commentsTitleResolvePatch: true, dbUrlPresent: !!(process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.POSTGRES_URL) }, callbackRouter, oneActiveMenu, menuActions, stressSummary, layerSummary: layerSummary(), posts: latestPosts(12).map((p) => ({ title: p.title || p.originalText || '', commentKey: p.commentKey || '', postId: p.postId || '', channelId: p.channelId || '', handoffToken: p.handoffToken || '', updatedAt: p.updatedAt || 0 })) });
   });
 
-  app.get(['/debug/store-live', '/debug/store-live.json', '/debug/store'], (req, res) => {
-    noCache(res);
-    if (!adminOk(req)) return res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME, hint: 'use ?token=admin during dev or set GIFT_ADMIN_TOKEN' });
-    res.json(debugSnapshot());
-  });
-
-  app.get(['/debug/posts-live', '/debug/posts-map'], (req, res) => {
-    noCache(res);
-    if (!adminOk(req)) return res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME });
-    res.json({ ok: true, runtimeVersion: RUNTIME, posts: latestPosts(50).map((p) => ({ title: p.title || p.originalText || '', commentKey: p.commentKey || '', postId: p.postId || '', channelId: p.channelId || '', handoffToken: p.handoffToken || '', updatedAt: p.updatedAt || 0 })) });
-  });
-
-  app.get(['/api/posts/resolve', '/api/post/resolve', '/api/comments/post-resolve'], (req, res) => {
-    noCache(res);
-    res.json(resolvePostFromRequest(req));
-  });
+  app.get(['/debug/store-live', '/debug/store-live.json', '/debug/store'], (req, res) => { noCache(res); if (!adminOk(req)) return res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME, hint: 'use ?token=admin during dev or set GIFT_ADMIN_TOKEN' }); res.json(debugSnapshot()); });
+  app.get(['/debug/posts-live', '/debug/posts-map'], (req, res) => { noCache(res); if (!adminOk(req)) return res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME }); res.json({ ok: true, runtimeVersion: RUNTIME, posts: latestPosts(50).map((p) => ({ title: p.title || p.originalText || '', commentKey: p.commentKey || '', postId: p.postId || '', channelId: p.channelId || '', handoffToken: p.handoffToken || '', updatedAt: p.updatedAt || 0 })) }); });
+  app.get(['/api/posts/resolve', '/api/post/resolve', '/api/comments/post-resolve'], (req, res) => { noCache(res); res.json(resolvePostFromRequest(req)); });
   return app;
 }
 
@@ -270,18 +261,13 @@ function install() {
     const loaded = previousLoad.apply(this, arguments);
     try {
       if (String(request) === 'express' && loaded && !loaded.__adminkitOneLoaderWrappedV3Standalone) {
-        function wrappedExpress(...args) {
-          const app = loaded(...args);
-          return installRoutes(app);
-        }
+        function wrappedExpress(...args) { const app = loaded(...args); return installRoutes(app); }
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
         wrappedExpress.__adminkitOneLoaderWrappedV3Standalone = true;
         return wrappedExpress;
       }
-    } catch (error) {
-      console.warn('[one-loader-v3] express wrap skipped:', error?.message || error);
-    }
+    } catch (error) { console.warn('[one-loader-v3] express wrap skipped:', error?.message || error); }
     return loaded;
   };
   return { ok: true, runtimeVersion: RUNTIME, marker: MARKER, installedAt };
@@ -289,8 +275,6 @@ function install() {
 
 install();
 loadPreIndexLayers();
-
-// Важно: V2-loader здесь НЕ подключается. Запускаем реальный сервер напрямую.
 require('./index');
 
 module.exports = { install, RUNTIME, SOURCE, MARKER, layerSummary };
