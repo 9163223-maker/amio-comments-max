@@ -1,29 +1,19 @@
 'use strict';
 
-// АдминКИТ V3 menu callback hard router.
-// Purpose: V3 main menu can be rendered by output guards, but legacy webhook code may not
-// route callback payloads like { r: 'comments:home' }. This layer intercepts only V3 admin
-// menu callback routes, renders the Clean V3 screen, and leaves comments/openApp/post launch
-// logic untouched.
+// АдминКИТ V3 menu callback hard router v2.
+// Fixes the case where bot.handleWebhook is called as (config, update) or (req, res)
+// instead of (update). The router now scans all arguments and nested body/data objects.
+// It intercepts only V3 admin menu callback routes and does not touch open_app comments.
 
 const Module = require('module');
 
-const RUNTIME = 'CC6.6.7-V3-MENU-CALLBACK-HARD-ROUTER';
-const SOURCE = 'adminkit-v3-menu-callback-hard-router-render-only';
+const RUNTIME = 'CC6.6.8-V3-MENU-CALLBACK-HARD-ROUTER-V2';
+const SOURCE = 'adminkit-v3-menu-callback-hard-router-scan-all-args';
 
 const MAIN_ROUTES = [
-  'channels:home',
-  'comments:home',
-  'moderation:home',
-  'editor:home',
-  'buttons:home',
-  'gifts:home',
-  'highlight:home',
-  'polls:home',
-  'stats:home',
-  'billing:home',
-  'referrals:home',
-  'help:home'
+  'channels:home', 'comments:home', 'moderation:home', 'editor:home',
+  'buttons:home', 'gifts:home', 'highlight:home', 'polls:home',
+  'stats:home', 'billing:home', 'referrals:home', 'help:home'
 ];
 
 const MAIN_LABELS = {
@@ -65,23 +55,11 @@ let lastHandledAt = '';
 let lastError = '';
 let wrappedExports = [];
 
-function norm(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
-
-function lower(value) {
-  return norm(value).toLowerCase();
-}
+function norm(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function lower(value) { return norm(value).toLowerCase(); }
 
 function noCache(res) {
-  try {
-    res.set({
-      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
-      Pragma: 'no-cache',
-      Expires: '0',
-      'Surrogate-Control': 'no-store'
-    });
-  } catch {}
+  try { res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0', Pragma: 'no-cache', Expires: '0', 'Surrogate-Control': 'no-store' }); } catch {}
 }
 
 function callbackButton(text, route, extra = {}) {
@@ -94,47 +72,25 @@ function callbackButton(text, route, extra = {}) {
   });
   return { type: 'callback', text, payload: JSON.stringify(payload) };
 }
+function keyboard(rows) { return [{ type: 'inline_keyboard', payload: { buttons: rows.filter((row) => Array.isArray(row) && row.length) } }]; }
+function rows2(buttons) { const rows = []; for (let i = 0; i < buttons.length; i += 2) rows.push(buttons.slice(i, i + 2)); return rows; }
 
-function keyboard(rows) {
-  return [{ type: 'inline_keyboard', payload: { buttons: rows.filter((row) => Array.isArray(row) && row.length) } }];
-}
-
-function rows2(buttons) {
-  const rows = [];
-  for (let i = 0; i < buttons.length; i += 2) rows.push(buttons.slice(i, i + 2));
-  return rows;
-}
-
-function safeDb() {
-  try { return require('./cc5-db-core'); } catch { return null; }
-}
-
-function safeMenu() {
-  try { return require('./clean-v3-menu-core-db'); } catch { return null; }
-}
-
+function safeDb() { try { return require('./cc5-db-core'); } catch { return null; } }
+function safeMenu() { try { return require('./clean-v3-menu-core-db'); } catch { return null; } }
 function safeMenuMapRoutes() {
   try {
     const menuMap = require('./production-menu-map-v3-fixed');
     const items = Array.isArray(menuMap.items) ? menuMap.items : [];
     return new Set(items.map((item) => norm(item.route)).filter(Boolean));
-  } catch {
-    return new Set();
-  }
+  } catch { return new Set(); }
 }
-
 const MAP_ROUTES = safeMenuMapRoutes();
 
 function parseJson(value) {
   if (value && typeof value === 'object') return value;
   const s = norm(value);
   if (!s) return {};
-  try {
-    const parsed = JSON.parse(s);
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
+  try { const parsed = JSON.parse(s); return parsed && typeof parsed === 'object' ? parsed : {}; } catch { return {}; }
 }
 
 function deepFirst(obj, keys = [], seen = new Set()) {
@@ -159,36 +115,22 @@ function deepFirst(obj, keys = [], seen = new Set()) {
 }
 
 function getCallback(update = {}) {
-  return update?.callback || update?.data?.callback || update?.message?.callback || update?.update?.callback || null;
+  return update?.callback || update?.data?.callback || update?.message?.callback || update?.update?.callback || update?.body?.callback || update?.body?.data?.callback || update?.body?.message?.callback || null;
 }
 
 function getPayload(update = {}) {
   const db = safeDb();
-  try {
-    const p = db && typeof db.payload === 'function' ? db.payload(update) : null;
-    if (p && typeof p === 'object' && Object.keys(p).length) return p;
-  } catch {}
+  try { const p = db && typeof db.payload === 'function' ? db.payload(update) : null; if (p && typeof p === 'object' && Object.keys(p).length) return p; } catch {}
   const cb = getCallback(update) || {};
-  return parseJson(cb.payload || cb.data || cb.callback_data || cb.value || update.payload || deepFirst(update, ['payload', 'callback_data', 'data', 'value']));
+  return parseJson(cb.payload || cb.data || cb.callback_data || cb.value || update.payload || update.body?.payload || deepFirst(update, ['payload', 'callback_data', 'data', 'value']));
 }
 
 function routeFromUpdate(update = {}) {
   const menu = safeMenu();
-  try {
-    if (menu && typeof menu.routeFromUpdate === 'function') return norm(menu.routeFromUpdate(update));
-  } catch {}
+  try { if (menu && typeof menu.routeFromUpdate === 'function') return norm(menu.routeFromUpdate(update)); } catch {}
   const p = getPayload(update);
   const raw = norm(p.r || p.route || p.action || p.command || p.payload || deepFirst(update, ['route', 'action', 'command']));
-  const mapped = {
-    ak_main_menu: 'main:home',
-    main_menu: 'main:home',
-    menu_main: 'main:home',
-    home: 'main:home',
-    start: 'main:home',
-    '/start': 'main:home',
-    menu: 'main:home',
-    'главное меню': 'main:home'
-  };
+  const mapped = { ak_main_menu: 'main:home', main_menu: 'main:home', menu_main: 'main:home', home: 'main:home', start: 'main:home', '/start': 'main:home', menu: 'main:home', 'главное меню': 'main:home' };
   return mapped[lower(raw)] || raw;
 }
 
@@ -203,22 +145,30 @@ function isV3MenuRoute(route = '') {
   return false;
 }
 
+function findUpdateArg(args = []) {
+  const list = [];
+  for (const arg of args) {
+    if (!arg || typeof arg !== 'object') continue;
+    list.push(arg);
+    if (arg.body && typeof arg.body === 'object') list.push(arg.body);
+    if (arg.update && typeof arg.update === 'object') list.push(arg.update);
+    if (arg.data && typeof arg.data === 'object') list.push(arg.data);
+  }
+  for (const candidate of list) {
+    if (getCallback(candidate)) return candidate;
+    const route = routeFromUpdate(candidate);
+    if (isV3MenuRoute(route) && deepFirst(candidate, ['callback_id', 'callbackId', 'payload', 'callback_data'])) return candidate;
+  }
+  return null;
+}
+
 function navRows(owner = 'main') {
   if (!owner || owner === 'main') return [];
-  return [
-    [callbackButton('❓ Помощь', `help:${owner}`), callbackButton('↩️ Раздел', `${owner}:home`)],
-    [callbackButton('🏠 Главное меню', 'main:home')]
-  ];
+  return [[callbackButton('❓ Помощь', `help:${owner}`), callbackButton('↩️ Раздел', `${owner}:home`)], [callbackButton('🏠 Главное меню', 'main:home')]];
 }
-
 function fallbackMainScreen() {
-  const buttons = MAIN_ROUTES.map((route) => callbackButton(MAIN_LABELS[route] || route, route));
-  return {
-    text: '🐋 АдминКИТ\n\nПанель управления MAX-каналом. Выберите раздел.',
-    attachments: keyboard(rows2(buttons))
-  };
+  return { text: '🐋 АдминКИТ\n\nПанель управления MAX-каналом. Выберите раздел.', attachments: keyboard(rows2(MAIN_ROUTES.map((route) => callbackButton(MAIN_LABELS[route] || route, route)))) };
 }
-
 function fallbackScreen(route = 'main:home') {
   const r = norm(route) || 'main:home';
   if (r === 'main:home') return fallbackMainScreen();
@@ -226,10 +176,7 @@ function fallbackScreen(route = 'main:home') {
   const homeRoute = MAIN_ROUTES.includes(`${owner}:home`) ? `${owner}:home` : r;
   const title = MAIN_LABELS[homeRoute] || MAIN_LABELS[r] || 'АдминКИТ';
   const body = FALLBACK_BODIES[homeRoute] || FALLBACK_BODIES[r] || 'Раздел открыт. Функции подключаются по V3-карте.';
-  return {
-    text: [title, '', body, '', 'Выберите действие.'].join('\n'),
-    attachments: keyboard([...navRows(owner)])
-  };
+  return { text: [title, '', body, '', 'Выберите действие.'].join('\n'), attachments: keyboard(navRows(owner)) };
 }
 
 function resultMessageId(result) {
@@ -246,7 +193,7 @@ async function answerCallback(update) {
   const config = require('./config');
   let callbackId = '';
   try { callbackId = db && typeof db.callbackId === 'function' ? db.callbackId(update) : ''; } catch {}
-  if (!callbackId) callbackId = norm(deepFirst(getCallback(update) || {}, ['callback_id', 'callbackId', 'id']));
+  if (!callbackId) callbackId = norm(deepFirst(getCallback(update) || update, ['callback_id', 'callbackId', 'id']));
   if (!callbackId) return;
   try { await api.answerCallback({ botToken: config.botToken, callbackId, notification: '' }); } catch {}
 }
@@ -258,17 +205,13 @@ async function sendOrEdit(update, adminId, packet) {
   let messageId = '';
   try { messageId = db && typeof db.messageId === 'function' ? db.messageId(update) : ''; } catch {}
   if (!messageId) messageId = norm(deepFirst(update, ['message_id', 'messageId', 'mid']));
-
   if (messageId) {
     try {
       await api.editMessage({ botToken: config.botToken, messageId, text: packet.text, attachments: packet.attachments || [], notify: false });
       try { if (db && typeof db.setMenu === 'function') await db.setMenu(adminId, messageId); } catch {}
       return { mode: 'edit', messageId };
-    } catch (error) {
-      lastError = error && error.message ? error.message : String(error || 'edit_failed');
-    }
+    } catch (error) { lastError = error && error.message ? error.message : String(error || 'edit_failed'); }
   }
-
   const result = await api.sendMessage({ botToken: config.botToken, userId: adminId, text: packet.text, attachments: packet.attachments || [], notify: false });
   const nextId = resultMessageId(result);
   try { if (nextId && db && typeof db.setMenu === 'function') await db.setMenu(adminId, nextId); } catch {}
@@ -278,39 +221,27 @@ async function sendOrEdit(update, adminId, packet) {
 async function renderPacket(route, adminId, payload) {
   const menu = safeMenu();
   if (menu && typeof menu.renderScreen === 'function') {
-    try {
-      const packet = await menu.renderScreen(route, adminId, payload || {});
-      if (packet && packet.text) return packet;
-    } catch (error) {
-      lastError = error && error.message ? error.message : String(error || 'render_failed');
-    }
+    try { const packet = await menu.renderScreen(route, adminId, payload || {}); if (packet && packet.text) return packet; }
+    catch (error) { lastError = error && error.message ? error.message : String(error || 'render_failed'); }
   }
   fallbackRendered += 1;
   return fallbackScreen(route);
 }
 
 async function handleUpdate(update = {}) {
-  const cb = getCallback(update);
-  if (!cb) return false;
+  if (!getCallback(update)) return false;
   const route = routeFromUpdate(update);
   if (!isV3MenuRoute(route)) return false;
-
   const db = safeDb();
   let adminId = '';
   try { adminId = db && typeof db.adminId === 'function' ? db.adminId(update) : ''; } catch {}
   if (!adminId) adminId = norm(deepFirst(update, ['user_id', 'userId', 'sender_id', 'from_id']));
   if (!adminId) return false;
-
   const payload = getPayload(update);
   await answerCallback(update);
   const packet = await renderPacket(route, adminId, payload);
   const result = await sendOrEdit(update, adminId, packet);
-  try {
-    const menu = safeMenu();
-    if (menu && typeof menu.logEvent === 'function') {
-      await menu.logEvent({ adminId, route, owner: route.split(':')[0] || 'main', eventType: 'hard_router_callback', payload, messageId: result.messageId || '' });
-    }
-  } catch {}
+  try { const menu = safeMenu(); if (menu && typeof menu.logEvent === 'function') await menu.logEvent({ adminId, route, owner: route.split(':')[0] || 'main', eventType: 'hard_router_callback', payload, messageId: result.messageId || '' }); } catch {}
   handledCallbacks += 1;
   lastHandledAt = new Date().toISOString();
   return { ok: true, handledBy: RUNTIME, sourceMarker: SOURCE, route, result };
@@ -319,8 +250,11 @@ async function handleUpdate(update = {}) {
 function wrapFunction(fn, name) {
   return async function v3MenuCallbackHardRouterWrapper(...args) {
     try {
-      const handled = await handleUpdate(args[0] || {});
-      if (handled) return handled;
+      const update = findUpdateArg(args);
+      if (update) {
+        const handled = await handleUpdate(update);
+        if (handled) return handled;
+      }
     } catch (error) {
       lastError = error && error.message ? error.message : String(error || 'hard_router_failed');
       console.warn('[v3-menu-callback-hard-router] fallback to original:', name, lastError);
@@ -356,10 +290,7 @@ function installExpressDebugRoute() {
         const app = loaded.apply(this, arguments);
         if (app && !app.__adminkitV3MenuCallbackHardRouterDebug) {
           app.__adminkitV3MenuCallbackHardRouterDebug = true;
-          app.get(['/debug/v3-menu-callback-router', '/debug/v3-menu-callback-hard-router'], (req, res) => {
-            noCache(res);
-            res.json(selfTest());
-          });
+          app.get(['/debug/v3-menu-callback-router', '/debug/v3-menu-callback-hard-router'], (req, res) => { noCache(res); res.json(selfTest()); });
         }
         return app;
       }
@@ -395,18 +326,10 @@ function selfTest() {
     fallbackRendered,
     lastHandledAt,
     lastError,
-    policy: {
-      interceptsOnlyCallbacks: true,
-      v3AdminMenuRoutesOnly: true,
-      commentsOpenAppUntouched: true,
-      postPatcherUntouched: true,
-      oldPatchedPostsUntouched: true
-    },
-    routes: {
-      mainRoutes: MAIN_ROUTES,
-      debug: '/debug/v3-menu-callback-router'
-    }
+    argumentDetection: 'scan_all_args_and_nested_body',
+    policy: { interceptsOnlyCallbacks: true, v3AdminMenuRoutesOnly: true, commentsOpenAppUntouched: true, postPatcherUntouched: true, oldPatchedPostsUntouched: true },
+    routes: { mainRoutes: MAIN_ROUTES, debug: '/debug/v3-menu-callback-router' }
   };
 }
 
-module.exports = { RUNTIME, SOURCE, install, selfTest, handleUpdate, isV3MenuRoute, routeFromUpdate };
+module.exports = { RUNTIME, SOURCE, install, selfTest, handleUpdate, isV3MenuRoute, routeFromUpdate, findUpdateArg };
