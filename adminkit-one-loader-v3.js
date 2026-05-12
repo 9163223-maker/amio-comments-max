@@ -6,9 +6,9 @@
 
 const Module = require('module');
 
-const RUNTIME = 'CC6.6.6-SAFE-ONE-LOADER-V3';
-const SOURCE = 'adminkit-one-loader-v3-standalone-no-v2';
-const MARKER = '__ADMINKIT_SAFE_ONE_LOADER_666_V3_STANDALONE__';
+const RUNTIME = 'CC6.6.7-SAFE-ONE-LOADER-V3';
+const SOURCE = 'adminkit-one-loader-v3-standalone-no-v2-hard-menu-callbacks';
+const MARKER = '__ADMINKIT_SAFE_ONE_LOADER_667_V3_STANDALONE__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -62,6 +62,7 @@ function loadLayer(pathName, mode = 'install') {
       item.ok = result?.ok !== false;
       item.runtimeVersion = result?.runtimeVersion || mod.RUNTIME || '';
       item.marker = result?.marker || mod.MARKER || '';
+      item.result = result;
     } else {
       item.ok = true;
       item.runtimeVersion = mod?.RUNTIME || '';
@@ -105,6 +106,7 @@ function loadPreIndexLayers() {
   loadLayer('./production-menu-v3-renderer-v2');
   loadLayer('./production-menu-map-v3-fixed-debug');
   loadLayer('./cc6542-hotfix-router');
+  loadLayer('./v3-menu-callback-hard-router');
   loadLayer('./v3-native-hints-cleanup');
   loadLayer('./adminkit-post-zero-safe-layer');
   loadLayer('./v3-disable-growth-cta');
@@ -178,6 +180,7 @@ function layerSummary() {
     failedLayers: failed.map((x) => ({ path: x.path, error: x.error })),
     hasCleanV3: layerStatus.some((x) => x.path === './production-menu-v3-renderer-v2' && x.ok),
     hasCleanV3HardOverride: layerStatus.some((x) => x.path === './adminkit-v3-main-menu-hard-override' && x.ok),
+    hasV3MenuCallbackHardRouter: layerStatus.some((x) => x.path === './v3-menu-callback-hard-router' && x.ok),
     hasOldPostParser: layerStatus.some((x) => x.path === './adminkit-safe-comments-boot-core' && x.ok),
     hasTitleResolvePatch: layerStatus.some((x) => x.path === './adminkit-comments-title-resolve-patch' && x.ok),
     hasSpChain: layerStatus.some((x) => /cc5-bootstrap-lite|server-sp4058|server-sp4057|media-core-sp39/.test(x.path))
@@ -191,8 +194,8 @@ function decorateSnapshot(snapshot) {
     ok: snapshot?.ok !== false,
     runtimeVersion: RUNTIME,
     buildVersion: RUNTIME,
-    displayVersion: 'CC6.6.6-v3',
-    packageVersion: 'CC6.6.6-v3',
+    displayVersion: 'CC6.6.7-v3',
+    packageVersion: 'CC6.6.7-v3',
     sourceMarker: SOURCE,
     generatedAt: now,
     generatedAtIso: new Date(now).toISOString(),
@@ -206,6 +209,7 @@ function decorateSnapshot(snapshot) {
       legacyCommentsUiPreserved: true,
       cleanV3MenuRestored: true,
       cleanV3MenuHardOverride: true,
+      v3MenuCallbackHardRouter: true,
       safeOldPostParserRestored: true,
       commentsTitleResolvePatch: true,
       oldSpFilesLoaded: false,
@@ -233,7 +237,9 @@ function installRoutes(app) {
 
   app.get(['/debug/one-loader', '/debug/safe-loader'], (req, res) => {
     noCache(res);
-    res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, marker: MARKER, installedAt, checks: { singleLoader: true, standalone: true, v2Loaded: false, noSpChain: true, legacyUiUntouched: true, cleanV3MenuRestored: true, cleanV3MenuHardOverride: true, safeOldPostParserRestored: true, commentsTitleResolvePatch: true, dbUrlPresent: !!(process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.POSTGRES_URL) }, layerSummary: layerSummary(), posts: latestPosts(12).map((p) => ({ title: p.title || p.originalText || '', commentKey: p.commentKey || '', postId: p.postId || '', channelId: p.channelId || '', handoffToken: p.handoffToken || '', updatedAt: p.updatedAt || 0 })) });
+    let callbackRouter = null;
+    try { callbackRouter = require('./v3-menu-callback-hard-router').selfTest(); } catch (error) { callbackRouter = { ok: false, error: error?.message || String(error) }; }
+    res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, marker: MARKER, installedAt, checks: { singleLoader: true, standalone: true, v2Loaded: false, noSpChain: true, legacyUiUntouched: true, cleanV3MenuRestored: true, cleanV3MenuHardOverride: true, v3MenuCallbackHardRouter: callbackRouter?.ok !== false, safeOldPostParserRestored: true, commentsTitleResolvePatch: true, dbUrlPresent: !!(process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.POSTGRES_URL) }, callbackRouter, layerSummary: layerSummary(), posts: latestPosts(12).map((p) => ({ title: p.title || p.originalText || '', commentKey: p.commentKey || '', postId: p.postId || '', channelId: p.channelId || '', handoffToken: p.handoffToken || '', updatedAt: p.updatedAt || 0 })) });
   });
 
   app.get(['/debug/store-live', '/debug/store-live.json', '/debug/store'], (req, res) => {
