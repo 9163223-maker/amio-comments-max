@@ -1,5 +1,9 @@
 'use strict';
 
+// PHYSICAL CP PARSER FIX: patches public/app.js once at boot so legacy cp__channel_post payloads
+// open comments, not landing. This must stay before the server/static app starts.
+require('./adminkit-physical-cp-parser-fix').install();
+
 // SAFE COMMENTS BOOT CORE: protected layer for opening comments from MAX open_app payload.
 // Feature modules must not edit this launch layer.
 require('./adminkit-safe-comments-boot-core').install();
