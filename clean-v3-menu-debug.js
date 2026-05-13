@@ -3,7 +3,7 @@
 const Module = require('module');
 const hardRoot = require('./menu-v3-hard-root');
 
-const RUNTIME = 'HARD-V3-MENU-DEBUG-1.0';
+const RUNTIME = 'HARD-V3-MENU-DEBUG-1.2-ASYNC-SELFTEST';
 
 function noCache(res) {
   try { res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0', Pragma: 'no-cache', Expires: '0' }); } catch {}
@@ -19,8 +19,27 @@ function install() {
         const app = loaded.apply(this, arguments);
         if (app && !app.__hardV3DebugRoutes) {
           app.__hardV3DebugRoutes = true;
-          app.get('/debug/menu-v3-hard', (req, res) => { noCache(res); res.json({ ok: true, runtimeVersion: RUNTIME, hardRoot: hardRoot.selfTest() }); });
-          app.get('/debug/menu-v3-hard-render', (req, res) => { noCache(res); res.json({ ok: true, runtimeVersion: RUNTIME, route: req.query?.route || 'main:home', screen: hardRoot.render(req.query?.route || 'main:home') }); });
+          app.get('/debug/menu-v3-hard', async (req, res) => {
+            noCache(res);
+            try {
+              const adminId = String(req.query?.adminId || req.query?.admin || '').trim();
+              const asyncTest = hardRoot.selfTestAsync ? await hardRoot.selfTestAsync(adminId) : null;
+              res.json({ ok: true, runtimeVersion: RUNTIME, hardRoot: hardRoot.selfTest(), asyncTest });
+            } catch (error) {
+              res.status(500).json({ ok: false, runtimeVersion: RUNTIME, error: error && error.message ? error.message : String(error) });
+            }
+          });
+          app.get('/debug/menu-v3-hard-render', async (req, res) => {
+            noCache(res);
+            try {
+              const route = String(req.query?.route || 'main:home').trim() || 'main:home';
+              const adminId = String(req.query?.adminId || req.query?.admin || '').trim();
+              const screen = hardRoot.renderAsync ? await hardRoot.renderAsync(route, adminId, {}) : hardRoot.render(route);
+              res.json({ ok: true, runtimeVersion: RUNTIME, route, screen });
+            } catch (error) {
+              res.status(500).json({ ok: false, runtimeVersion: RUNTIME, error: error && error.message ? error.message : String(error) });
+            }
+          });
         }
         return app;
       }
