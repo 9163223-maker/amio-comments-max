@@ -1,8 +1,10 @@
 'use strict';
 
 const hardRoot = require('./menu-v3-hard-root');
+let dbCommentGuard = null;
+try { dbCommentGuard = require('./db-v3-comment-guard'); } catch {}
 
-const RUNTIME = 'HARD-V3-MENU-WEBHOOK-ROUTER-1.0';
+const RUNTIME = 'HARD-V3-MENU-WEBHOOK-ROUTER-1.1-DB-GUARD';
 const MARKER = '__HARD_V3_MENU_WEBHOOK_ROUTER__';
 
 function isWebhookPath(path) {
@@ -13,6 +15,7 @@ function isWebhookPath(path) {
 }
 
 function install() {
+  try { if (dbCommentGuard && typeof dbCommentGuard.install === 'function') dbCommentGuard.install(); } catch (error) { console.warn('[hard-v3-router] db comment guard skipped:', error?.message || error); }
   if (global[MARKER]) return selfTest(true);
   global[MARKER] = true;
 
@@ -31,7 +34,7 @@ function install() {
       const oldPost = app.post.bind(app);
       app.post = function hardV3PostWrapper(path, ...handlers) {
         if (!isWebhookPath(path)) return oldPost(path, ...handlers);
-        const guard = async function hardV3MenuWebhookGuard(req, res, next) {
+        const menuGuard = async function hardV3MenuWebhookGuard(req, res, next) {
           try {
             const result = await hardRoot.tryHandleExpress(req);
             if (result && result.handled) {
@@ -42,7 +45,7 @@ function install() {
           }
           return next();
         };
-        return oldPost(path, guard, ...handlers);
+        return oldPost(path, menuGuard, ...handlers);
       };
       return app;
     }
@@ -57,7 +60,9 @@ function install() {
 }
 
 function selfTest(already = false) {
-  return { ok: true, runtimeVersion: RUNTIME, marker: MARKER, already, hardRoot: hardRoot.selfTest ? hardRoot.selfTest() : null, policy: 'intercept_webhook_posts_before_legacy_handlers_and_handle_only_hard_v3_routes' };
+  let guard = null;
+  try { guard = dbCommentGuard && dbCommentGuard.selfTest ? dbCommentGuard.selfTest() : null; } catch (error) { guard = { ok: false, error: error?.message || String(error) }; }
+  return { ok: true, runtimeVersion: RUNTIME, marker: MARKER, already, hardRoot: hardRoot.selfTest ? hardRoot.selfTest() : null, dbCommentGuard: guard, policy: 'intercept_webhook_posts_before_legacy_handlers_and_handle_only_hard_v3_routes' };
 }
 
 module.exports = { RUNTIME, MARKER, install, selfTest };
