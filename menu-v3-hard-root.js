@@ -1,2 +1,2 @@
 'use strict';
-module.exports = require('./menu-v3-five-sections-v27-db-only');
+module.exports = require('./menu-v3-five-sections-v28-db-only');
