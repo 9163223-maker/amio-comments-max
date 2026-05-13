@@ -5,14 +5,15 @@ const api = require('./services/maxApi');
 const store = require('./store');
 const db = require('./cc5-db-core');
 
-const RUNTIME = 'HARD-V3-ADMIN-MENU-1.2-CHANNELS-COMMENTS-READY';
+const RUNTIME = 'HARD-V3-ADMIN-MENU-1.3-CHANNELS-COMMENTS-BANNER';
 
 const STAGE_ROUTES = [
   'main:home',
   'channels:home','channels:list','channels:connect','channels:set_active','channels:active','channels:verify','channels:access','channels:admins',
-  'comments:home','comments:auto_new','comments:auto_on','comments:auto_off','comments:old_post','comments:choose_post','comments:post','comments:preview','comments:settings','comments:toggle_on','comments:toggle_off','comments:photo','comments:photo_on','comments:photo_off','comments:reactions','comments:reactions_on','comments:reactions_off','help:channels','help:comments','help:home','help:main'
+  'comments:home','comments:auto_new','comments:auto_on','comments:auto_off','comments:old_post','comments:choose_post','comments:post','comments:preview','comments:settings','comments:toggle_on','comments:toggle_off','comments:photo','comments:photo_on','comments:photo_off','comments:reactions','comments:reactions_on','comments:reactions_off','comments:banner','comments:banner_on','comments:banner_off','comments:banner_default','comments:banner_text','help:channels','help:comments','help:home','help:main'
 ];
 const KNOWN = new Set(STAGE_ROUTES);
+const DEFAULT_BANNER_TEXT = 'Разработано АдминКИТ';
 
 const clean = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 const cut = (v, n = 64) => { const s = clean(v); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
@@ -71,6 +72,7 @@ async function selectedPost(adminId, p = {}){
   const postId = clean(p.postId || p.p || st.selectedPostId || '');
   return list.find((x)=>clean(x.commentKey)===key || clean(x.postId)===postId) || list[0] || null;
 }
+function bannerText(st){ return clean(st.commentsBannerText) || DEFAULT_BANNER_TEXT; }
 
 function btn(label, route, extra={}){ return { type:'callback', text:label, payload:JSON.stringify({ r:route, ...extra }) }; }
 function keyboard(items, owner='main'){
@@ -81,8 +83,8 @@ function keyboard(items, owner='main'){
   return [{ type:'inline_keyboard', payload:{ buttons:rows } }];
 }
 function screen(title, lines, items=[], owner='main'){
-  const body = Array.isArray(lines) ? lines.filter((x)=>x !== '').join('\n') : String(lines || '');
-  return { text:[title,'',body].join('\n'), attachments:keyboard(items, owner) };
+  const bodyText = Array.isArray(lines) ? lines.filter((x)=>x !== '').join('\n') : String(lines || '');
+  return { text:[title,'',bodyText].join('\n'), attachments:keyboard(items, owner) };
 }
 function postLabel(p, i){ return `${i+1}. ${cut(p.title || p.originalText || p.postId || 'Пост', 42)}`; }
 
@@ -117,7 +119,7 @@ async function renderAsync(route='main:home', adminId='', p={}){
     catch(error){ return screen('👥 Администраторы', [`Канал: ${ch.title}`, 'Не удалось получить список через MAX API.', `Ошибка: ${clean(error?.message || error)}`], [['✅ Проверить права','channels:verify']], 'channels'); }
   }
 
-  if (route === 'comments:home') return screen('💬 Комментарии', [`Канал: ${ch.title}`, 'Готовые функции: авто-режим, старый пост, выбор поста, настройки, фото, реакции и предпросмотр.'], [['⚡ Авто для новых','comments:auto_new'], ['📌 Старый пост','comments:old_post'], ['📌 Выбрать пост','comments:choose_post'], ['👀 Как это выглядит','comments:preview'], ['⚙️ Настройки','comments:settings'], ['📷 Фото','comments:photo'], ['❤️ Реакции и ответы','comments:reactions']], 'comments');
+  if (route === 'comments:home') return screen('💬 Комментарии', [`Канал: ${ch.title}`, 'Готовые функции: авто-режим, старый пост, выбор поста, настройки, баннер, фото, реакции и предпросмотр.'], [['⚡ Авто для новых','comments:auto_new'], ['📌 Старый пост','comments:old_post'], ['📌 Выбрать пост','comments:choose_post'], ['👀 Как это выглядит','comments:preview'], ['⚙️ Настройки','comments:settings'], ['🖼 Баннер','comments:banner'], ['📷 Фото','comments:photo'], ['❤️ Реакции и ответы','comments:reactions']], 'comments');
   if (route === 'comments:auto_new') return screen('⚡ Авто для новых постов', [`Канал: ${ch.title}`, `Статус: ${st.commentsAutoNew === false ? 'выключено' : 'включено'}`, 'Новые посты, попавшие в webhook/память бота, связываются с обсуждением. Старые посты подключаются через «Старый пост».'], [['✅ Включить','comments:auto_on'], ['⏸ Выключить','comments:auto_off'], ['📌 Старый пост','comments:old_post']], 'comments');
   if (route === 'comments:auto_on') { await setFlow(adminId, { commentsAutoNew:true }); return screen('✅ Авто для новых включено', [`Канал: ${ch.title}`, 'Состояние сохранено.'], [], 'comments'); }
   if (route === 'comments:auto_off') { await setFlow(adminId, { commentsAutoNew:false }); return screen('⏸ Авто для новых выключено', [`Канал: ${ch.title}`, 'Состояние сохранено.'], [], 'comments'); }
@@ -129,12 +131,17 @@ async function renderAsync(route='main:home', adminId='', p={}){
   }
   if (route === 'comments:post') {
     const picked = await selectedPost(adminId, p); if (picked) await setFlow(adminId, { selectedPostId:picked.postId, selectedCommentKey:picked.commentKey, activeChannelId:ch.channelId, activeChannelTitle:ch.title });
-    return screen('💬 Комментарии → пост', picked ? [`Пост выбран: ${cut(picked.title || picked.postId, 80)}`, `commentKey: ${picked.commentKey}`, 'Дальше доступны действия для этого поста.'] : ['Пост не выбран.'], [['✅/⏸ Комментарии','comments:settings'], ['👀 Как выглядит','comments:preview'], ['📷 Фото','comments:photo'], ['❤️ Реакции','comments:reactions']], 'comments');
+    return screen('💬 Комментарии → пост', picked ? [`Пост выбран: ${cut(picked.title || picked.postId, 80)}`, `commentKey: ${picked.commentKey}`, 'Дальше доступны действия для этого поста.'] : ['Пост не выбран.'], [['✅/⏸ Комментарии','comments:settings'], ['👀 Как выглядит','comments:preview'], ['🖼 Баннер','comments:banner'], ['📷 Фото','comments:photo'], ['❤️ Реакции','comments:reactions']], 'comments');
   }
-  if (route === 'comments:preview') { const picked = await selectedPost(adminId, p); return screen('👀 Как это выглядит', picked ? [`Пост: ${cut(picked.title || picked.postId, 80)}`, 'Откройте обсуждение из кнопки в посте. Telegram-style UI комментариев не трогаем.'] : ['Пост не выбран. Выберите пост, чтобы проверить обсуждение.'], [['📌 Выбрать пост','comments:choose_post']], 'comments'); }
-  if (route === 'comments:settings') return screen('⚙️ Настройки комментариев', [`Канал: ${ch.title}`, `Комментарии: ${st.commentsEnabled === false ? 'выключены' : 'включены'}`, `Фото: ${st.commentsPhoto === false ? 'выключено' : 'включено'}`, `Реакции и ответы: ${st.commentsReactions === false ? 'выключены' : 'включены'}`], [['✅ Комментарии ON','comments:toggle_on'], ['⏸ Комментарии OFF','comments:toggle_off'], ['📷 Фото','comments:photo'], ['❤️ Реакции','comments:reactions']], 'comments');
+  if (route === 'comments:preview') { const picked = await selectedPost(adminId, p); return screen('👀 Как это выглядит', picked ? [`Пост: ${cut(picked.title || picked.postId, 80)}`, `Баннер: ${st.commentsBanner === false ? 'выключен' : 'включен'} — ${bannerText(st)}`, 'Откройте обсуждение из кнопки в посте. Telegram-style UI комментариев не трогаем.'] : ['Пост не выбран. Выберите пост, чтобы проверить обсуждение.'], [['📌 Выбрать пост','comments:choose_post'], ['🖼 Баннер','comments:banner']], 'comments'); }
+  if (route === 'comments:settings') return screen('⚙️ Настройки комментариев', [`Канал: ${ch.title}`, `Комментарии: ${st.commentsEnabled === false ? 'выключены' : 'включены'}`, `Баннер: ${st.commentsBanner === false ? 'выключен' : 'включен'}`, `Фото: ${st.commentsPhoto === false ? 'выключено' : 'включено'}`, `Реакции и ответы: ${st.commentsReactions === false ? 'выключены' : 'включены'}`], [['✅ Комментарии ON','comments:toggle_on'], ['⏸ Комментарии OFF','comments:toggle_off'], ['🖼 Баннер','comments:banner'], ['📷 Фото','comments:photo'], ['❤️ Реакции','comments:reactions']], 'comments');
   if (route === 'comments:toggle_on') { await setFlow(adminId, { commentsEnabled:true }); return screen('✅ Комментарии включены', 'Состояние сохранено. При следующем патче поста комментарии остаются включёнными.', [], 'comments'); }
   if (route === 'comments:toggle_off') { await setFlow(adminId, { commentsEnabled:false }); return screen('⏸ Комментарии выключены', 'Состояние сохранено. Текст поста и привязка в базе не удаляются.', [], 'comments'); }
+  if (route === 'comments:banner') return screen('🖼 Баннер в комментариях', [`Статус: ${st.commentsBanner === false ? 'выключен' : 'включен'}`, `Текст: ${bannerText(st)}`, 'Баннер — аккуратная подпись внутри обсуждения, без агрессивной рекламы.'], [['✅ Баннер ON','comments:banner_on'], ['⏸ Баннер OFF','comments:banner_off'], ['✏️ Изменить текст','comments:banner_text'], ['↩️ По умолчанию','comments:banner_default']], 'comments');
+  if (route === 'comments:banner_on') { await setFlow(adminId, { commentsBanner:true }); return screen('✅ Баннер включён', [`Состояние сохранено.`, `Текст: ${bannerText(await state(adminId))}`], [], 'comments'); }
+  if (route === 'comments:banner_off') { await setFlow(adminId, { commentsBanner:false }); return screen('⏸ Баннер выключен', 'Состояние сохранено. Баннер не должен показываться внутри обсуждения.', [], 'comments'); }
+  if (route === 'comments:banner_default') { await setFlow(adminId, { commentsBanner:true, commentsBannerText:DEFAULT_BANNER_TEXT }); return screen('↩️ Баннер по умолчанию', [`Состояние сохранено.`, `Текст: ${DEFAULT_BANNER_TEXT}`], [], 'comments'); }
+  if (route === 'comments:banner_text') { await setFlow(adminId, { mode:'await_comments_banner_text', section:'comments' }); return screen('✏️ Текст баннера', ['Действие активно.', 'Пришлите следующим сообщением новый короткий текст баннера.', 'Пример: Разработано АдминКИТ'], [], 'comments'); }
   if (route === 'comments:photo') return screen('📷 Фото в комментариях', [`Статус: ${st.commentsPhoto === false ? 'выключено' : 'включено'}`, 'Разрешаем только фото. Видео и файлы не включаем.'], [['✅ Фото ON','comments:photo_on'], ['⏸ Фото OFF','comments:photo_off']], 'comments');
   if (route === 'comments:photo_on') { await setFlow(adminId, { commentsPhoto:true }); return screen('✅ Фото включены', 'Состояние сохранено: фото разрешены.', [], 'comments'); }
   if (route === 'comments:photo_off') { await setFlow(adminId, { commentsPhoto:false }); return screen('⏸ Фото выключены', 'Состояние сохранено: фото запрещены.', [], 'comments'); }
@@ -143,7 +150,7 @@ async function renderAsync(route='main:home', adminId='', p={}){
   if (route === 'comments:reactions_off') { await setFlow(adminId, { commentsReactions:false }); return screen('⏸ Реакции выключены', 'Состояние сохранено.', [], 'comments'); }
 
   if (route === 'help:channels') return screen('❓ Помощь: Каналы', 'Каналы: подключение, список, выбор активного канала и live-проверка прав.', [], 'channels');
-  if (route === 'help:comments') return screen('❓ Помощь: Комментарии', 'Комментарии: авто-режим, старый пост, выбор поста, настройки, фото, реакции и предпросмотр.', [], 'comments');
+  if (route === 'help:comments') return screen('❓ Помощь: Комментарии', 'Комментарии: авто-режим, старый пост, выбор поста, настройки, баннер, фото, реакции и предпросмотр.', [], 'comments');
   return screen('❓ Помощь', 'Сейчас в чистом V3 готовы только Главное меню, Каналы и Комментарии.', [], 'main');
 }
 function render(route='main:home'){ if(route==='main:home') return screen('🐋 АдминКИТ','Панель управления MAX-каналом. Сейчас включены только Каналы и Комментарии.', [['📺 Каналы','channels:home'], ['💬 Комментарии','comments:home']], 'main'); return screen('V3', `Маршрут ${route}. Для полной проверки используйте async render/debug.`, [], route.split(':')[0] || 'main'); }
@@ -155,15 +162,23 @@ async function send(update, packet){
 async function answer(update){ const id = callbackId(update); if (!id) return; try { await api.answerCallback({ botToken:config.botToken, callbackId:id, notification:'' }); } catch {} }
 async function tryHandleExpress(req){
   const update = req.body || {}; const route = routeFrom(update); const hasCb = !!cb(update); const isStart = route === 'main:home' && (!!text(update) || /started|start/i.test(clean(update?.update_type || update?.type || update?.event_type || '')));
+  const adminId = adminIdFromUpdate(update);
+  const st = await state(adminId);
+  const messageText = text(update);
+  if (!hasCb && messageText && st.mode === 'await_comments_banner_text') {
+    await setFlow(adminId, { mode:'', section:'comments', commentsBanner:true, commentsBannerText:cut(messageText, 80) });
+    const sent = await send(update, await renderAsync('comments:banner', adminId, {}));
+    return { handled:true, runtime:RUNTIME, route:'comments:banner_text_saved', sentKind:sent.kind };
+  }
   if (!KNOWN.has(route) && !isStart) return { handled:false, runtime:RUNTIME, route };
   try { await db.upsertFromUpdate(update); } catch {}
-  const adminId = adminIdFromUpdate(update); if (hasCb) await answer(update);
+  if (hasCb) await answer(update);
   const sent = await send(update, await renderAsync(route, adminId, payload(update)));
   return { handled:true, runtime:RUNTIME, route, sentKind:sent.kind };
 }
 async function selfTestAsync(adminId=''){
   const bad=[]; for (const r of STAGE_ROUTES) { try { const s = await renderAsync(r, adminId, {}); if (!s?.text || !Array.isArray(s.attachments)) bad.push(r); } catch(e) { bad.push(`${r}:${e.message}`); } }
-  return { ok: bad.length===0, runtimeVersion:RUNTIME, checked:STAGE_ROUTES.length, badRoutes:bad, readySections:['main','channels','comments'], patcherTouched:false, commentsUiTouched:false, postgresUsed:true };
+  return { ok: bad.length===0, runtimeVersion:RUNTIME, checked:STAGE_ROUTES.length, badRoutes:bad, readySections:['main','channels','comments'], commentsFeatures:['auto_new','old_post','choose_post','settings','banner','photo','reactions'], patcherTouched:false, commentsUiTouched:false, postgresUsed:true };
 }
-function selfTest(){ return { ok:true, runtimeVersion:RUNTIME, mode:'stage_1_main_channels_comments_real_actions', mainButtons:2, channelsRoutes:8, commentsRoutes:16, patcherTouched:false, commentsUiTouched:false, postgresTouched:false }; }
+function selfTest(){ return { ok:true, runtimeVersion:RUNTIME, mode:'stage_1_main_channels_comments_banner_real_actions', mainButtons:2, channelsRoutes:8, commentsRoutes:20, patcherTouched:false, commentsUiTouched:false, postgresTouched:false }; }
 module.exports = { RUNTIME, tryHandleExpress, render, renderAsync, selfTest, selfTestAsync };
