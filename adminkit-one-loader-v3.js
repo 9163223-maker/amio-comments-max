@@ -1,15 +1,14 @@
 'use strict';
 
-// АдминКИТ ONE LOADER V3 — самостоятельный вход.
-// CC6.7.2: V3 functional menu actions + one-active-menu guard are loaded directly here.
-// This file is the real package main, so every critical V3 layer must be listed here,
-// not only inside v3live.js.
+// АдминКИТ HARD V3 LOADER — чистое меню с нуля.
+// Оставляем только: сохранение/патч старых постов, Postgres/store, Telegram-style comments UI.
+// Старые меню-слои, override-слои и callback-надстройки больше не грузим.
 
 const Module = require('module');
 
-const RUNTIME = 'CC6.7.2-SAFE-ONE-LOADER-V3';
-const SOURCE = 'adminkit-one-loader-v3-direct-one-active-menu-functional-actions';
-const MARKER = '__ADMINKIT_SAFE_ONE_LOADER_672_V3_STANDALONE__';
+const RUNTIME = 'CC6.7.3-HARD-V3-CLEAN-MENU-ROOT';
+const SOURCE = 'adminkit-hard-v3-clean-menu-only-channels-comments';
+const MARKER = '__ADMINKIT_HARD_V3_CLEAN_MENU_ROOT__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -72,57 +71,29 @@ function loadLayer(pathName, mode = 'install') {
   } catch (error) {
     item.ok = false;
     item.error = error?.message || String(error);
-    console.warn('[one-loader-v3] layer failed:', pathName, item.error);
+    console.warn('[hard-v3-loader] layer failed:', pathName, item.error);
   }
   layerStatus.push(item);
   return item;
 }
 
 function loadPreIndexLayers() {
-  if (global.__ADMINKIT_ONE_LOADER_V3_STANDALONE_LAYERS__) return;
-  global.__ADMINKIT_ONE_LOADER_V3_STANDALONE_LAYERS__ = true;
+  if (global.__ADMINKIT_HARD_V3_CLEAN_MENU_LAYERS__) return;
+  global.__ADMINKIT_HARD_V3_CLEAN_MENU_LAYERS__ = true;
 
-  // Must be first: wraps sendMessage so menu screens edit/reuse one active menu.
-  loadLayer('./v3-one-active-menu-edit');
+  // Новый чистый webhook-router меню. Должен стоять ДО require('./index'), чтобы перехватить /start и callbacks раньше старого bot.js.
+  loadLayer('./hard-v3-menu-webhook-router');
 
-  loadLayer('./adminkit-v3-main-menu-hard-override');
+  // Debug нового дерева меню.
+  loadLayer('./clean-v3-menu-debug');
 
-  // Старые кнопки комментариев: старые Post zero должны открывать обсуждение, а не посадочную.
+  // Оставляем только слои, которые нужны для старых пропатченных постов и заголовка в комментариях.
+  // Это не меню-слои.
   loadLayer('./adminkit-physical-cp-parser-fix');
   loadLayer('./adminkit-safe-comments-boot-core');
   loadLayer('./adminkit-comments-preboot-physical-patch');
-
-  // Title fallback for comments UI.
   loadLayer('./adminkit-comments-title-resolve-patch');
   loadLayer('./v3-comments-title-db-fallback');
-
-  // Clean Core V3 menu stack. Не подключаем cc5-bootstrap-lite / server-sp4058 / server-sp4057 / media-core-sp39.
-  loadLayer('./v3-silent-menu-callbacks');
-  loadLayer('./v3-repatch-comments-links');
-  loadLayer('./v3-register-post-debug');
-  loadLayer('./clean-v3-main-route-guard');
-  loadLayer('./clean-v3-menu-normalizer');
-  loadLayer('./clean-v3-comments-banner-action');
-  loadLayer('./clean-v3-comments-banner-router-fix');
-  loadLayer('./clean-v3-comments-function-points-v2');
-  loadLayer('./clean-v3-comments-banner-in-app-v3');
-  loadLayer('./clean-v3-menu-debug');
-  loadLayer('./clean-v3-menu-ok');
-  loadLayer('./production-menu-v3-renderer-v2');
-  loadLayer('./production-menu-map-v3-fixed-debug');
-  loadLayer('./cc6542-hotfix-router');
-
-  // Functional menu tree + callback router.
-  loadLayer('./v3-menu-actions-adapter');
-  loadLayer('./v3-menu-callback-hard-router');
-
-  // Diagnostics.
-  loadLayer('./v3-menu-stress-test');
-  loadLayer('./v3-menu-stress-summary');
-
-  loadLayer('./v3-native-hints-cleanup');
-  loadLayer('./adminkit-post-zero-safe-layer');
-  loadLayer('./v3-disable-growth-cta');
 }
 
 function latestPosts(limit = 30) {
@@ -144,14 +115,8 @@ function resolvePostFromRequest(req) {
   const rawPostId = normalize(q.postId || body.postId || q.post_id || body.post_id || q.messageId || body.messageId || '');
   const candidates = [];
   const add = (v) => { const x = normalize(v); if (x && !candidates.includes(x)) candidates.push(x); };
-  add(rawCommentKey);
-  add(rawHandoff);
-  if (rawChannelId && rawPostId) add(rawChannelId + ':' + rawPostId);
-  if (rawPostId) add(rawPostId);
-
-  let post = null;
-  let commentKey = '';
-  let source = '';
+  add(rawCommentKey); add(rawHandoff); if (rawChannelId && rawPostId) add(rawChannelId + ':' + rawPostId); if (rawPostId) add(rawPostId);
+  let post = null; let commentKey = ''; let source = '';
   for (const candidate of candidates) {
     try { if (typeof mod.getPost === 'function') { post = mod.getPost(candidate); if (post) { commentKey = normalize(post.commentKey || candidate); source = 'getPost'; break; } } } catch {}
     try { if (typeof mod.resolveCommentKeyFromHandoff === 'function') { const key = normalize(mod.resolveCommentKeyFromHandoff(candidate)); if (key && typeof mod.getPost === 'function') { post = mod.getPost(key); if (post) { commentKey = key; source = 'handoff'; break; } } } } catch {}
@@ -170,15 +135,11 @@ function layerSummary() {
     total: layerStatus.length,
     failed: failed.length,
     failedLayers: failed.map((x) => ({ path: x.path, error: x.error })),
-    hasOneActiveMenu: layerStatus.some((x) => x.path === './v3-one-active-menu-edit' && x.ok),
-    hasMenuActions: layerStatus.some((x) => x.path === './v3-menu-actions-adapter' && x.ok),
-    hasStressSummary: layerStatus.some((x) => x.path === './v3-menu-stress-summary' && x.ok),
-    hasCleanV3: layerStatus.some((x) => x.path === './production-menu-v3-renderer-v2' && x.ok),
-    hasCleanV3HardOverride: layerStatus.some((x) => x.path === './adminkit-v3-main-menu-hard-override' && x.ok),
-    hasV3MenuCallbackHardRouter: layerStatus.some((x) => x.path === './v3-menu-callback-hard-router' && x.ok),
+    hasHardV3MenuWebhookRouter: layerStatus.some((x) => x.path === './hard-v3-menu-webhook-router' && x.ok),
+    hasHardV3MenuDebug: layerStatus.some((x) => x.path === './clean-v3-menu-debug' && x.ok),
     hasOldPostParser: layerStatus.some((x) => x.path === './adminkit-safe-comments-boot-core' && x.ok),
     hasTitleResolvePatch: layerStatus.some((x) => x.path === './adminkit-comments-title-resolve-patch' && x.ok),
-    hasSpChain: layerStatus.some((x) => /cc5-bootstrap-lite|server-sp4058|server-sp4057|media-core-sp39/.test(x.path))
+    forbiddenOldMenuLayersLoaded: layerStatus.filter((x) => /v3-one-active-menu-edit|adminkit-v3-main-menu-hard-override|v3-menu-actions-adapter|v3-menu-callback-hard-router|production-menu-v3-renderer|production-menu-map|clean-v3-main-route-guard|clean-v3-menu-normalizer|clean-v3-menu-ok|cc6542-hotfix-router|v3-menu-stress/.test(x.path)).map((x) => x.path)
   };
 }
 
@@ -189,8 +150,8 @@ function decorateSnapshot(snapshot) {
     ok: snapshot?.ok !== false,
     runtimeVersion: RUNTIME,
     buildVersion: RUNTIME,
-    displayVersion: 'CC6.7.2-v3',
-    packageVersion: 'CC6.7.2-v3',
+    displayVersion: 'CC6.7.3-hard-v3-clean-menu',
+    packageVersion: 'CC6.7.3-hard-v3-clean-menu',
     sourceMarker: SOURCE,
     generatedAt: now,
     generatedAtIso: new Date(now).toISOString(),
@@ -199,19 +160,12 @@ function decorateSnapshot(snapshot) {
       marker: MARKER,
       installedAt,
       standalone: true,
-      v2Loaded: false,
-      spChainDisabled: true,
-      legacyCommentsUiPreserved: true,
-      cleanV3MenuRestored: true,
-      cleanV3MenuHardOverride: true,
-      v3MenuCallbackHardRouter: true,
-      oneActiveMenu: true,
-      menuActions: true,
-      stressSummary: true,
-      safeOldPostParserRestored: true,
-      commentsTitleResolvePatch: true,
-      oldSpFilesLoaded: false,
-      forbiddenChain: 'cc5-bootstrap-lite -> server-sp4058 -> server-sp4057 -> media-core-sp39',
+      cleanMenuFromScratch: true,
+      hardV3MenuRoot: true,
+      oldMenuLayersRemoved: true,
+      patcherPreserved: true,
+      postgresPreserved: true,
+      commentsUiPreserved: true,
       layerSummary: layerSummary(),
       loadedLayers: layerStatus
     }
@@ -230,22 +184,15 @@ function debugSnapshot() {
 }
 
 function installRoutes(app) {
-  if (!app || app.__adminkitOneLoaderRoutesV3Standalone) return app;
-  app.__adminkitOneLoaderRoutesV3Standalone = true;
-
+  if (!app || app.__adminkitHardV3CleanRoutes) return app;
+  app.__adminkitHardV3CleanRoutes = true;
   app.get(['/debug/one-loader', '/debug/safe-loader'], (req, res) => {
     noCache(res);
-    let callbackRouter = null;
-    let oneActiveMenu = null;
-    let menuActions = null;
-    let stressSummary = null;
-    try { callbackRouter = require('./v3-menu-callback-hard-router').selfTest(); } catch (error) { callbackRouter = { ok: false, error: error?.message || String(error) }; }
-    try { oneActiveMenu = require('./v3-one-active-menu-edit').selfTest(); } catch (error) { oneActiveMenu = { ok: false, error: error?.message || String(error) }; }
-    try { menuActions = require('./v3-menu-actions-adapter').selfTest(); } catch (error) { menuActions = { ok: false, error: error?.message || String(error) }; }
-    try { stressSummary = require('./v3-menu-stress-summary').selfTest(); } catch (error) { stressSummary = { ok: false, error: error?.message || String(error) }; }
-    res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, marker: MARKER, installedAt, checks: { singleLoader: true, standalone: true, v2Loaded: false, noSpChain: true, legacyUiUntouched: true, cleanV3MenuRestored: true, cleanV3MenuHardOverride: true, v3MenuCallbackHardRouter: callbackRouter?.ok !== false, oneActiveMenu: oneActiveMenu?.ok !== false, menuActions: menuActions?.ok !== false, stressSummary: stressSummary?.ok !== false, safeOldPostParserRestored: true, commentsTitleResolvePatch: true, dbUrlPresent: !!(process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.POSTGRES_URL) }, callbackRouter, oneActiveMenu, menuActions, stressSummary, layerSummary: layerSummary(), posts: latestPosts(12).map((p) => ({ title: p.title || p.originalText || '', commentKey: p.commentKey || '', postId: p.postId || '', channelId: p.channelId || '', handoffToken: p.handoffToken || '', updatedAt: p.updatedAt || 0 })) });
+    let hardMenu = null; let webhookRouter = null;
+    try { hardMenu = require('./menu-v3-hard-root').selfTest(); } catch (error) { hardMenu = { ok: false, error: error?.message || String(error) }; }
+    try { webhookRouter = require('./hard-v3-menu-webhook-router').selfTest(); } catch (error) { webhookRouter = { ok: false, error: error?.message || String(error) }; }
+    res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, marker: MARKER, installedAt, hardMenu, webhookRouter, layerSummary: layerSummary(), posts: latestPosts(12).map((p) => ({ title: p.title || p.originalText || '', commentKey: p.commentKey || '', postId: p.postId || '', channelId: p.channelId || '', handoffToken: p.handoffToken || '', updatedAt: p.updatedAt || 0 })) });
   });
-
   app.get(['/debug/store-live', '/debug/store-live.json', '/debug/store'], (req, res) => { noCache(res); if (!adminOk(req)) return res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME, hint: 'use ?token=admin during dev or set GIFT_ADMIN_TOKEN' }); res.json(debugSnapshot()); });
   app.get(['/debug/posts-live', '/debug/posts-map'], (req, res) => { noCache(res); if (!adminOk(req)) return res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME }); res.json({ ok: true, runtimeVersion: RUNTIME, posts: latestPosts(50).map((p) => ({ title: p.title || p.originalText || '', commentKey: p.commentKey || '', postId: p.postId || '', channelId: p.channelId || '', handoffToken: p.handoffToken || '', updatedAt: p.updatedAt || 0 })) }); });
   app.get(['/api/posts/resolve', '/api/post/resolve', '/api/comments/post-resolve'], (req, res) => { noCache(res); res.json(resolvePostFromRequest(req)); });
@@ -253,21 +200,21 @@ function installRoutes(app) {
 }
 
 function install() {
-  if (Module.__adminkitOneLoaderInstalledV3Standalone) return { ok: true, runtimeVersion: RUNTIME, marker: MARKER, already: true };
-  Module.__adminkitOneLoaderInstalledV3Standalone = true;
+  if (Module.__adminkitHardV3CleanInstalled) return { ok: true, runtimeVersion: RUNTIME, marker: MARKER, already: true };
+  Module.__adminkitHardV3CleanInstalled = true;
   installedAt = new Date().toISOString();
   const previousLoad = Module._load;
-  Module._load = function adminkitOneLoaderModuleLoadV3(request, parent, isMain) {
+  Module._load = function adminkitHardV3CleanModuleLoad(request, parent, isMain) {
     const loaded = previousLoad.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitOneLoaderWrappedV3Standalone) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitHardV3CleanWrapped) {
         function wrappedExpress(...args) { const app = loaded(...args); return installRoutes(app); }
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
-        wrappedExpress.__adminkitOneLoaderWrappedV3Standalone = true;
+        wrappedExpress.__adminkitHardV3CleanWrapped = true;
         return wrappedExpress;
       }
-    } catch (error) { console.warn('[one-loader-v3] express wrap skipped:', error?.message || error); }
+    } catch (error) { console.warn('[hard-v3-loader] express wrap skipped:', error?.message || error); }
     return loaded;
   };
   return { ok: true, runtimeVersion: RUNTIME, marker: MARKER, installedAt };
