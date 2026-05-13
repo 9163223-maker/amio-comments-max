@@ -93,6 +93,21 @@ function resolveChannelId(commentKey = "") {
   return getChannelIdFromCommentKey(commentKey);
 }
 
+function makePublicError(message, code, status = 403) {
+  const error = new Error(message);
+  error.status = status;
+  error.code = code;
+  error.publicMessage = message;
+  return error;
+}
+
+function checkCommentsEnabled(commentKey = "") {
+  const post = getPost(commentKey);
+  if (post?.commentsDisabled === true || post?.commentsEnabled === false) {
+    throw makePublicError("Комментарии к этому посту выключены.", "comments_disabled", 403);
+  }
+}
+
 function countLinks(text) {
   return (String(text || "").match(/(?:https?:\/\/|www\.|t\.me\/|telegram\.me\/|discord\.gg|wa\.me|chat\.whatsapp\.com)/giu) || []).length;
 }
@@ -174,6 +189,7 @@ function createComment({ commentKey, userId, userName, text, avatarUrl, replyToI
   const cleanText = sanitizeText(text);
   const cleanAttachments = sanitizeAttachments(attachments);
   if (!cleanText && !cleanAttachments.length) throw new Error("text_or_attachment_required");
+  checkCommentsEnabled(commentKey);
   checkModeration({ commentKey, userId, userName, text: cleanText });
   return addComment(commentKey, { userId: String(userId || "guest"), userName: String(userName || "Гость"), avatarUrl: String(avatarUrl || ""), text: cleanText, attachments: cleanAttachments, replyToId: String(replyToId || "").trim(), editedAt: 0 });
 }
@@ -203,6 +219,7 @@ function toggleReaction({ commentKey, commentId, userId, emoji }) {
 function updateComment({ commentKey, commentId, userId, text }) {
   const cleanText = sanitizeText(text);
   if (!cleanText) throw new Error("text_required");
+  checkCommentsEnabled(commentKey);
   checkModeration({ commentKey, userId, text: cleanText });
   const comments = getComments(commentKey);
   let found = null;
