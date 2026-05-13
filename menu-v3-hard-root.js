@@ -5,7 +5,7 @@ const api = require('./services/maxApi');
 const store = require('./store');
 const db = require('./cc5-db-core');
 
-const RUNTIME = 'HARD-V3-ADMIN-MENU-1.5-ONE-CURRENT';
+const RUNTIME = 'HARD-V3-ADMIN-MENU-1.6-START-EVENT';
 const clean = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 const cut = (v, n = 80) => { const s = clean(v); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 const mem = new Map();
@@ -23,11 +23,39 @@ function msg(u){ const b=body(u); return b.message || u?.message || b.callback?.
 function cb(u){ const b=body(u); return b.callback || u?.callback || b.message?.callback || null; }
 function text(u){ const m=msg(u); return clean(m?.body?.text || m?.text || body(u)?.text || ''); }
 function payload(u){ const c=cb(u); const raw=c?.payload || c?.data || ''; if(typeof raw==='string'){ try{return JSON.parse(raw);}catch{return {r:raw};} } return raw && typeof raw==='object' ? raw : {}; }
-function uid(u){ const c=cb(u), m=msg(u); return clean(c?.user?.user_id || c?.user?.id || m?.sender?.user_id || m?.sender?.id || ''); }
+function uid(u){ const c=cb(u), m=msg(u); return clean(c?.user?.user_id || c?.user?.id || m?.sender?.user_id || m?.sender?.id || body(u)?.user?.user_id || body(u)?.user?.id || ''); }
 function cid(u){ const m=msg(u), c=cb(u); return clean(m?.recipient?.chat_id || m?.recipient?.id || m?.chat_id || m?.chat?.id || c?.message?.recipient?.chat_id || body(u)?.chat_id || ''); }
+function chatType(u){ const m=msg(u); return clean(m?.recipient?.chat_type || m?.recipient?.type || m?.chat_type || m?.chat?.type || body(u)?.chat_type || '').toLowerCase(); }
 function adminId(u){ return uid(u) || cid(u) || ''; }
 function callbackId(u){ const c=cb(u); return clean(c?.callback_id || c?.id || c?.callbackId || ''); }
-function routeFrom(u){ const p=payload(u); const raw=clean(p.r || p.route || text(u)); const k=raw.toLowerCase(); return ['/start','start','старт','меню','menu','главное меню','🏠 главное меню'].includes(k) ? 'main:home' : raw; }
+function startWords(k){ return ['/start','start','старт','меню','menu','главное меню','🏠 главное меню','начать','вы начали общение с ботом'].includes(k); }
+function routeFrom(u){ const p=payload(u); const raw=clean(p.r || p.route || text(u)); const k=raw.toLowerCase(); return startWords(k) ? 'main:home' : raw; }
+function hasDeepKey(value, names, seen=new Set()){
+ if(!value||typeof value!=='object'||seen.has(value)) return false; seen.add(value);
+ for(const [k,v] of Object.entries(value)){ if(names.includes(String(k||'').toLowerCase()) && v) return true; if(hasDeepKey(v,names,seen)) return true; }
+ return false;
+}
+function looksLikeForwardedPost(u){
+ const m=msg(u) || {}; const b=m.body || body(u) || {};
+ if(hasDeepKey(b,['forward','link','attachments','attachment','media','photo','video','file'])) return true;
+ if(hasDeepKey(m,['forward','link','attachments','attachment','media','photo','video','file'])) return true;
+ const t=text(u).toLowerCase();
+ return /переслано|forwarded/.test(t);
+}
+function isStartLikeMessage(u, st={}){
+ if(cb(u)) return false;
+ if(looksLikeForwardedPost(u)) return false;
+ const mode=clean(st.mode||'');
+ if(mode && /^await_(channel_forward|old_post_forward)/.test(mode)) return false;
+ const t=text(u).toLowerCase();
+ if(startWords(t)) return true;
+ const ct=chatType(u);
+ const hasMessage=!!msg(u);
+ const systemStart=/message|bot|start|chat/i.test(clean(body(u)?.update_type || body(u)?.type || body(u)?.event_type || u?.update_type || u?.type || ''));
+ // MAX often sends the blue system row “Вы начали общение с ботом” to the chat, while webhook body has no usable text.
+ // In a private/admin chat, a clean non-forward message with empty text must open our new hard V3 main menu and must not fall through to legacy bot.js.
+ return hasMessage && !t && !looksLikeForwardedPost(u) && (ct==='' || ct==='dialog' || ct==='private' || ct==='chat' || systemStart);
+}
 
 async function flow(id){ if(!id) return {}; try { return await db.getFlow(id) || {}; } catch { return mem.get(id) || {}; } }
 async function state(id){ const f=await flow(id); return f.menuV3 || {}; }
@@ -100,7 +128,16 @@ function extractMessageId(x){ const seen=new Set(); function walk(v){ if(!v||typ
 async function deleteOldMenu(oldId,newId){ if(!oldId||oldId===newId) return {deleted:false,reason:'empty_or_same'}; try{ await api.deleteMessage({botToken:config.botToken,messageId:oldId,timeoutMs:1800}); return {deleted:true}; }catch(e){ return {deleted:false,error:clean(e?.message||e)}; } }
 async function send(u, packet){ const id=adminId(u); const before=await state(id); const targets=[]; const c=cid(u), user=uid(u); if(c) targets.push({chatId:c,kind:'chatId'}); if(user&&user!==c) targets.push({userId:user,kind:'userId'}); let last=null; for(const t of targets){ try{ const {kind,...q}=t; const result=await api.sendMessage({botToken:config.botToken,...q,text:packet.text,attachments:packet.attachments,notify:false}); const newId=extractMessageId(result); const oldId=clean(before.lastMenuMessageId||''); const cleanup=await deleteOldMenu(oldId,newId); if(newId) await save(id,{lastMenuMessageId:newId,lastMenuRoute:routeFrom(u),lastMenuChatId:c,lastMenuKind:kind,lastMenuAt:Date.now(),lastMenuCleanup:cleanup}); return {ok:true,kind,result,newId,cleanup}; }catch(e){ last=e; } } throw last||new Error('no_send_target'); }
 async function answer(u){ const id=callbackId(u); if(id) try{ await api.answerCallback({botToken:config.botToken,callbackId:id,notification:''}); }catch{} }
-async function tryHandleExpress(req){ const u=req.body||{}; const route=routeFrom(u); const id=adminId(u); const hasCb=!!cb(u); const message=text(u); const st=await state(id); if(!hasCb&&message&&st.mode==='await_banner_text'){ await save(id,{mode:'',commentsBanner:true,commentsBannerText:cut(message,120)}); return {handled:true,runtime:RUNTIME,route:'comments:banner_text_saved',sentKind:(await send(u,await renderAsync('comments:banner',id,{}))).kind}; } if(!hasCb&&message&&st.mode==='await_banner_button'){ await save(id,{mode:'',commentsBanner:true,commentsBannerButton:cut(message,40)}); return {handled:true,runtime:RUNTIME,route:'comments:banner_button_saved',sentKind:(await send(u,await renderAsync('comments:banner',id,{}))).kind}; } if(!hasCb&&message&&st.mode==='await_banner_link'){ await save(id,{mode:'',commentsBanner:true,commentsBannerLink:cut(message,200)}); return {handled:true,runtime:RUNTIME,route:'comments:banner_link_saved',sentKind:(await send(u,await renderAsync('comments:banner',id,{}))).kind}; } const isStart=route==='main:home'&&(!!message||/started|start/i.test(clean(u?.update_type||u?.type||u?.event_type||''))); if(!ROUTES.has(route)&&!isStart) return {handled:false,runtime:RUNTIME,route}; try{ await db.upsertFromUpdate(u); }catch{} if(hasCb) await answer(u); return {handled:true,runtime:RUNTIME,route,sentKind:(await send(u,await renderAsync(route,id,payload(u)))).kind}; }
-async function selfTestAsync(id=''){ const bad=[]; for(const r of ROUTES){ try{ const s=await renderAsync(r,id,{}); if(!s?.text||!Array.isArray(s.attachments)) bad.push(r); }catch(e){ bad.push(r+':'+e.message); } } return {ok:bad.length===0,runtimeVersion:RUNTIME,checked:ROUTES.size,badRoutes:bad,readySections:['main','channels','comments'],banner:'text_button_link_scope_place_preview_reset',menuDelivery:'send_new_menu_then_delete_previous_saved_menu',oneCurrentMenuPolicy:true,menuPositionPolicy:'new menu is always sent as the latest chat message',patcherTouched:false,commentsUiTouched:false,postgresUsed:true}; }
-function selfTest(){ return {ok:true,runtimeVersion:RUNTIME,mainButtons:2,sections:['channels','comments'],banner:'full_controls',menuDelivery:'one_current_menu_best_effort_delete_previous',patcherTouched:false,commentsUiTouched:false}; }
+async function tryHandleExpress(req){ const u=req.body||{}; let route=routeFrom(u); const id=adminId(u); const hasCb=!!cb(u); const message=text(u); const st=await state(id);
+ if(!hasCb&&message&&st.mode==='await_banner_text'){ await save(id,{mode:'',commentsBanner:true,commentsBannerText:cut(message,120)}); return {handled:true,runtime:RUNTIME,route:'comments:banner_text_saved',sentKind:(await send(u,await renderAsync('comments:banner',id,{}))).kind}; }
+ if(!hasCb&&message&&st.mode==='await_banner_button'){ await save(id,{mode:'',commentsBanner:true,commentsBannerButton:cut(message,40)}); return {handled:true,runtime:RUNTIME,route:'comments:banner_button_saved',sentKind:(await send(u,await renderAsync('comments:banner',id,{}))).kind}; }
+ if(!hasCb&&message&&st.mode==='await_banner_link'){ await save(id,{mode:'',commentsBanner:true,commentsBannerLink:cut(message,200)}); return {handled:true,runtime:RUNTIME,route:'comments:banner_link_saved',sentKind:(await send(u,await renderAsync('comments:banner',id,{}))).kind}; }
+ if(isStartLikeMessage(u,st)) route='main:home';
+ const isStart=route==='main:home';
+ if(!ROUTES.has(route)&&!isStart) return {handled:false,runtime:RUNTIME,route,reason:'not_hard_v3_route'};
+ try{ await db.upsertFromUpdate(u); }catch{}
+ if(hasCb) await answer(u);
+ return {handled:true,runtime:RUNTIME,route,sentKind:(await send(u,await renderAsync(route,id,payload(u)))).kind}; }
+async function selfTestAsync(id=''){ const bad=[]; for(const r of ROUTES){ try{ const s=await renderAsync(r,id,{}); if(!s?.text||!Array.isArray(s.attachments)) bad.push(r); }catch(e){ bad.push(r+':'+e.message); } } return {ok:bad.length===0,runtimeVersion:RUNTIME,checked:ROUTES.size,badRoutes:bad,readySections:['main','channels','comments'],banner:'text_button_link_scope_place_preview_reset',menuDelivery:'send_new_menu_then_delete_previous_saved_menu',oneCurrentMenuPolicy:true,menuPositionPolicy:'new menu is always sent as the latest chat message',startEventHandled:true,patcherTouched:false,commentsUiTouched:false,postgresUsed:true}; }
+function selfTest(){ return {ok:true,runtimeVersion:RUNTIME,mainButtons:2,sections:['channels','comments'],banner:'full_controls',menuDelivery:'one_current_menu_best_effort_delete_previous',startEventHandled:true,patcherTouched:false,commentsUiTouched:false}; }
 module.exports={RUNTIME,tryHandleExpress,render,renderAsync,selfTest,selfTestAsync};
