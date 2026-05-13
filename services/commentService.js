@@ -1,4 +1,3 @@
-
 const {
   getComments,
   addComment,
@@ -6,7 +5,10 @@ const {
   setLikeState,
   getReactionsMap,
   setReactionState,
-  setComments
+  setComments,
+  getModerationSettings,
+  getPost,
+  getChannelIdFromCommentKey
 } = require("../store");
 
 function sanitizeText(value) {
@@ -15,8 +17,6 @@ function sanitizeText(value) {
 
 function stripLargeInlinePayload(value = "") {
   const raw = String(value || "").trim();
-  // Комментарии не должны хранить base64-файлы в store.json.
-  // Большие dataUrl вызывали паузы, временное исчезновение списка и риск порчи store.
   if (/^(data|blob):/i.test(raw)) return "";
   return raw.slice(0, 4096);
 }
@@ -27,9 +27,7 @@ function sanitizeAttachmentPayload(source = {}) {
   const normalized = {};
   const sourcePayload = payload || maxAttachment?.payload || {};
   ["token", "url", "download_url", "link", "file_id", "image_id", "photo_id", "video_id", "audio_id", "document_id"].forEach((key) => {
-    if (sourcePayload?.[key] !== undefined && sourcePayload?.[key] !== null) {
-      normalized[key] = stripLargeInlinePayload(sourcePayload[key]);
-    }
+    if (sourcePayload?.[key] !== undefined && sourcePayload?.[key] !== null) normalized[key] = stripLargeInlinePayload(sourcePayload[key]);
   });
   if (sourcePayload?.photos && typeof sourcePayload.photos === "object") {
     const photos = {};
@@ -84,16 +82,60 @@ function sanitizeAttachments(value) {
   }).filter(Boolean);
 }
 
+function toArray(value) {
+  if (Array.isArray(value)) return value.map((x) => String(x || "").trim()).filter(Boolean);
+  return String(value || "").split(/[\n,;]/g).map((x) => String(x || "").trim()).filter(Boolean);
+}
+
+function resolveChannelId(commentKey = "") {
+  const post = getPost(commentKey);
+  if (post?.channelId) return String(post.channelId).trim();
+  return getChannelIdFromCommentKey(commentKey);
+}
+
+function countLinks(text) {
+  return (String(text || "").match(/(?:https?:\/\/|www\.|t\.me\/|telegram\.me\/|discord\.gg|wa\.me|chat\.whatsapp\.com)/giu) || []).length;
+}
+
+function checkModeration({ commentKey, userId, userName, text }) {
+  const channelId = resolveChannelId(commentKey);
+  const settings = getModerationSettings(channelId);
+  if (!settings || settings.enabled === false) return { allowed: true, channelId, settings };
+
+  const normalizedText = String(text || "").replace(/\s+/g, " ").trim();
+  const lowered = normalizedText.toLowerCase();
+  const reasons = [];
+  const matchedWords = [];
+
+  if (settings.stopwordsEnabled !== false && settings.basicEnabled !== false) {
+    const words = [
+      ...(settings.applyPresetCommon !== false ? toArray(settings.presetStopwords || []) : []),
+      ...toArray(settings.customBlocklist || settings.stopwords || settings.moderationStopwords || [])
+    ];
+    for (const word of words) {
+      const w = String(word || "").trim().toLowerCase();
+      if (w && lowered.includes(w)) matchedWords.push(w);
+    }
+    if (matchedWords.length) reasons.push("stopwords_match");
+  }
+
+  if (settings.blockLinks && countLinks(normalizedText) > Number(settings.maxLinks || 0)) reasons.push("links_blocked");
+  if (settings.blockInvites !== false && /(t\.me\/|telegram\.me\/|discord\.gg|chat\.whatsapp\.com|joinchat|invite)/iu.test(normalizedText)) reasons.push("invite_link");
+
+  if (!reasons.length) return { allowed: true, channelId, settings };
+  const error = new Error("comment_blocked_by_moderation");
+  error.status = 403;
+  error.code = "moderation_blocked";
+  error.publicMessage = "Комментарий не опубликован: сработала модерация.";
+  error.data = { channelId, userId: String(userId || "guest"), userName: String(userName || "Гость"), reasons, matchedWords };
+  throw error;
+}
+
 function buildReplyPreview(allComments, replyToId) {
   if (!replyToId) return null;
   const parent = allComments.find((item) => item.id === replyToId);
   if (!parent) return null;
-  return {
-    id: parent.id,
-    userId: String(parent.userId || ""),
-    userName: String(parent.userName || "Гость"),
-    text: String(parent.text || "").slice(0, 180)
-  };
+  return { id: parent.id, userId: String(parent.userId || ""), userName: String(parent.userName || "Гость"), text: String(parent.text || "").slice(0, 180) };
 }
 
 function enrichComments(commentKey, comments, currentUserId = "") {
@@ -101,53 +143,25 @@ function enrichComments(commentKey, comments, currentUserId = "") {
   const reactionsMap = getReactionsMap(commentKey);
   const normalizedUserId = String(currentUserId || "").trim();
   const usersById = new Map();
-
   comments.forEach((item) => {
     const id = String(item.userId || "").trim();
     if (!id || usersById.has(id)) return;
-    usersById.set(id, {
-      userId: id,
-      userName: String(item.userName || "Гость"),
-      avatarUrl: String(item.avatarUrl || "")
-    });
+    usersById.set(id, { userId: id, userName: String(item.userName || "Гость"), avatarUrl: String(item.avatarUrl || "") });
   });
-
   return comments.map((item) => {
     const reactionUsers = reactionsMap?.[item.id] || {};
-    const reactionCounts = {};
-    const ownReactions = [];
-    const reactionDetails = [];
-
+    const reactionCounts = {}, ownReactions = [], reactionDetails = [];
     Object.entries(reactionUsers).forEach(([emoji, byUser]) => {
       const normalizedEmoji = String(emoji || "").trim();
       if (!normalizedEmoji) return;
-      const users = Object.entries(byUser || {})
-        .filter(([, isOn]) => Boolean(isOn))
-        .map(([userId]) => String(userId));
+      const users = Object.entries(byUser || {}).filter(([, isOn]) => Boolean(isOn)).map(([userId]) => String(userId));
       if (users.length) {
         reactionCounts[normalizedEmoji] = users.length;
         if (normalizedUserId && users.includes(normalizedUserId)) ownReactions.push(normalizedEmoji);
-        reactionDetails.push({
-          emoji: normalizedEmoji,
-          count: users.length,
-          active: normalizedUserId ? users.includes(normalizedUserId) : false,
-          users: users.slice(0, 3).map((userId) => usersById.get(userId) || {
-            userId,
-            userName: "",
-            avatarUrl: ""
-          })
-        });
+        reactionDetails.push({ emoji: normalizedEmoji, count: users.length, active: normalizedUserId ? users.includes(normalizedUserId) : false, users: users.slice(0, 3).map((userId) => usersById.get(userId) || { userId, userName: "", avatarUrl: "" }) });
       }
     });
-
-    return {
-      ...item,
-      likedByMe: normalizedUserId ? Boolean(likesMap?.[item.id]?.[normalizedUserId]) : false,
-      reactionCounts,
-      reactionDetails,
-      ownReactions,
-      replyTo: buildReplyPreview(comments, item.replyToId)
-    };
+    return { ...item, likedByMe: normalizedUserId ? Boolean(likesMap?.[item.id]?.[normalizedUserId]) : false, reactionCounts, reactionDetails, ownReactions, replyTo: buildReplyPreview(comments, item.replyToId) };
   });
 }
 
@@ -160,16 +174,8 @@ function createComment({ commentKey, userId, userName, text, avatarUrl, replyToI
   const cleanText = sanitizeText(text);
   const cleanAttachments = sanitizeAttachments(attachments);
   if (!cleanText && !cleanAttachments.length) throw new Error("text_or_attachment_required");
-
-  return addComment(commentKey, {
-    userId: String(userId || "guest"),
-    userName: String(userName || "Гость"),
-    avatarUrl: String(avatarUrl || ""),
-    text: cleanText,
-    attachments: cleanAttachments,
-    replyToId: String(replyToId || "").trim(),
-    editedAt: 0
-  });
+  checkModeration({ commentKey, userId, userName, text: cleanText });
+  return addComment(commentKey, { userId: String(userId || "guest"), userName: String(userName || "Гость"), avatarUrl: String(avatarUrl || ""), text: cleanText, attachments: cleanAttachments, replyToId: String(replyToId || "").trim(), editedAt: 0 });
 }
 
 function toggleLike({ commentKey, commentId, userId }) {
@@ -177,15 +183,8 @@ function toggleLike({ commentKey, commentId, userId }) {
   const likesMap = getLikesMap(commentKey);
   const current = Boolean(likesMap?.[commentId]?.[String(userId || "guest")]);
   const next = !current;
-
   setLikeState(commentKey, commentId, userId, next);
-
-  const updated = comments.map((item) => {
-    if (item.id !== commentId) return item;
-    const likes = Math.max(0, Number(item.likes || 0) + (next ? 1 : -1));
-    return { ...item, likes };
-  });
-
+  const updated = comments.map((item) => item.id !== commentId ? item : { ...item, likes: Math.max(0, Number(item.likes || 0) + (next ? 1 : -1)) });
   setComments(commentKey, updated);
   return updated.find((item) => item.id === commentId) || null;
 }
@@ -194,7 +193,6 @@ function toggleReaction({ commentKey, commentId, userId, emoji }) {
   const normalizedEmoji = String(emoji || "").trim();
   const normalizedUserId = String(userId || "guest").trim();
   if (!normalizedEmoji) throw new Error("emoji_required");
-
   const reactionMap = getReactionsMap(commentKey);
   const current = Boolean(reactionMap?.[commentId]?.[normalizedEmoji]?.[normalizedUserId]);
   const next = !current;
@@ -205,13 +203,12 @@ function toggleReaction({ commentKey, commentId, userId, emoji }) {
 function updateComment({ commentKey, commentId, userId, text }) {
   const cleanText = sanitizeText(text);
   if (!cleanText) throw new Error("text_required");
+  checkModeration({ commentKey, userId, text: cleanText });
   const comments = getComments(commentKey);
   let found = null;
   const updated = comments.map((item) => {
     if (item.id !== commentId) return item;
-    if (String(item.userId || "") !== String(userId || "")) {
-      throw new Error("forbidden");
-    }
+    if (String(item.userId || "") !== String(userId || "")) throw new Error("forbidden");
     found = { ...item, text: cleanText, editedAt: Date.now() };
     return found;
   });
@@ -225,16 +222,8 @@ function deleteComment({ commentKey, commentId, userId }) {
   const target = comments.find((item) => item.id === commentId);
   if (!target) throw new Error("comment_not_found");
   if (String(target.userId || "") !== String(userId || "")) throw new Error("forbidden");
-  const updated = comments.filter((item) => item.id !== commentId);
-  setComments(commentKey, updated);
+  setComments(commentKey, comments.filter((item) => item.id !== commentId));
   return true;
 }
 
-module.exports = {
-  listComments,
-  createComment,
-  toggleLike,
-  toggleReaction,
-  updateComment,
-  deleteComment
-};
+module.exports = { listComments, createComment, toggleLike, toggleReaction, updateComment, deleteComment };
