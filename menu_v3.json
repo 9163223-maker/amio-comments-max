@@ -1,0 +1,203 @@
+{
+  "main": {
+    "id": "main:home",
+    "title": "🐋 АдминКИТ",
+    "description": "Главная панель управления MAX‑каналом",
+    "buttons": [
+      { "id": "channels:home", "text": "📺 Каналы" },
+      { "id": "comments:home", "text": "💬 Комментарии" },
+      { "id": "moderation:home", "text": "🛡 Модерация" },
+      { "id": "editor:home", "text": "✏️ Редактор постов" },
+      { "id": "buttons:home", "text": "🔘 Кнопки под постами" },
+      { "id": "gifts:home", "text": "🎁 Подарки / лид‑магниты" },
+      { "id": "highlight:home", "text": "📌 Выделение" },
+      { "id": "polls:home", "text": "📊 Опросы" },
+      { "id": "stats:home", "text": "📈 Статистика" },
+      { "id": "tariffs:home", "text": "💵 Тарифы" },
+      { "id": "referrals:home", "text": "🤝 Рефералы" },
+      { "id": "help:home", "text": "❓ Помощь" }
+    ]
+  },
+  "channels": {
+    "home": { "id": "channels:home", "title": "📺 Каналы", "description": "Управление подключёнными каналами", "buttons": [
+      { "id": "channels:list", "text": "📋 Мои каналы" },
+      { "id": "channels:connect", "text": "➕ Подключить" },
+      { "id": "channels:active", "text": "🔁 Активный канал" },
+      { "id": "channels:check", "text": "✅ Проверить права" },
+      { "id": "channels:permissions", "text": "🔐 Доступы" },
+      { "id": "channels:admins", "text": "👥 Администраторы" }
+    ] },
+    "list": { "id": "channels:list", "title": "Мои каналы", "description": "Список каналов, подключённых к боту. Выберите канал, чтобы сделать его активным.", "buttons": [] },
+    "connect": { "id": "channels:connect", "title": "Подключить канал", "description": "Инструкция по подключению нового канала. Перешлите сюда любой пост из канала, где бот имеет права администратора, чтобы связать канал.", "buttons": [] },
+    "active": { "id": "channels:active", "title": "Активный канал", "description": "Выберите один из подключённых каналов, чтобы работать с ним в разделе администрирования.", "buttons": [] },
+    "check": { "id": "channels:check", "title": "Проверка прав", "description": "Проверка, является ли бот администратором канала и имеет ли право редактировать сообщения.", "buttons": [] },
+    "permissions": { "id": "channels:permissions", "title": "Доступы", "description": "Просмотр и управление разрешениями бота и администраторов в канале.", "buttons": [] },
+    "admins": { "id": "channels:admins", "title": "Администраторы", "description": "Список администраторов канала и настройка прав каждого администратора.", "buttons": [] }
+  },
+  "comments": {
+    "home": { "id": "comments:home", "title": "💬 Комментарии", "description": "Управление обсуждениями под постами.", "buttons": [
+      { "id": "comments:auto", "text": "⚡ Авто для новых" },
+      { "id": "comments:old", "text": "📌 Старый пост" },
+      { "id": "comments:select", "text": "📌 Выбрать пост" },
+      { "id": "comments:preview", "text": "👀 Как это выглядит" },
+      { "id": "comments:settings", "text": "⚙️ Настройки" },
+      { "id": "comments:banner", "text": "🖼 Баннер" },
+      { "id": "comments:photo", "text": "📷 Фото" },
+      { "id": "comments:reactions", "text": "❤️ Реакции и ответы" },
+      { "id": "comments:chat", "text": "💬 Чат обсуждения" }
+    ] },
+    "auto": { "id": "comments:auto", "title": "Авто для новых постов", "description": "Переключатель: автоматически добавлять кнопку Комментарии ко всем новым постам в канале.", "buttons": [] },
+    "old": { "id": "comments:old", "title": "Старый пост", "description": "Чтобы подключить обсуждение к уже опубликованному посту, перешлите его сюда.", "buttons": [] },
+    "select": { "id": "comments:select", "title": "Выбрать пост", "description": "Выберите пост из списка сохранённых, чтобы управлять его обсуждением.", "buttons": [] },
+    "preview": { "id": "comments:preview", "title": "Как это выглядит", "description": "Показывает, как выглядит обсуждение выбранного поста в интерфейсе Max.", "buttons": [] },
+    "settings": { "id": "comments:settings", "title": "Настройки комментариев", "description": "Управление комментариями: включить/выключить, разрешить фото, разрешить реакции и ответы.", "buttons": [
+      { "id": "comments:settings:comments-on", "text": "✅ Комментарии ON" },
+      { "id": "comments:settings:comments-off", "text": "⏸ Комментарии OFF" },
+      { "id": "comments:settings:photo-on", "text": "📷 Фото ON" },
+      { "id": "comments:settings:photo-off", "text": "🚫 Фото OFF" },
+      { "id": "comments:settings:reactions-on", "text": "❤️ Реакции ON" },
+      { "id": "comments:settings:reactions-off", "text": "💔 Реакции OFF" }
+    ] },
+    "banner": { "id": "comments:banner", "title": "Настройка баннера", "description": "Настройка подписи/баннера, который отображается в обсуждениях.", "buttons": [
+      { "id": "comments:banner:on", "text": "✅ Включить" },
+      { "id": "comments:banner:off", "text": "⏸ Выключить" },
+      { "id": "comments:banner:text", "text": "✏️ Текст" },
+      { "id": "comments:banner:button", "text": "🔘 Кнопка" },
+      { "id": "comments:banner:link", "text": "🔗 Ссылка/действие" },
+      { "id": "comments:banner:scope", "text": "🎯 Область" },
+      { "id": "comments:banner:position", "text": "📍 Позиция" },
+      { "id": "comments:banner:preview", "text": "👀 Предпросмотр" },
+      { "id": "comments:banner:reset", "text": "↩️ Сброс" }
+    ] },
+    "photo": { "id": "comments:photo", "title": "Настройка фото в комментариях", "description": "Разрешить или запретить пользователям отправлять фотографии в комментариях; видео и файлы не разрешены.", "buttons": [] },
+    "reactions": { "id": "comments:reactions", "title": "Реакции и ответы", "description": "Включить или выключить реакции и ответы в обсуждениях.", "buttons": [] },
+    "chat": { "id": "comments:chat", "title": "Чат обсуждения", "description": "Создаёт отдельный чат для выбранного поста; используется кнопка типа chat API Max.", "buttons": [] }
+  },
+  "moderation": {
+    "home": { "id": "moderation:home", "title": "🛡 Модерация", "description": "Настройки и инструменты модерации для канала.", "buttons": [
+      { "id": "moderation:rules", "text": "📜 Правила канала" },
+      { "id": "moderation:stopwords", "text": "🚫 Стоп‑слова" },
+      { "id": "moderation:links", "text": "🔗 Ссылки" },
+      { "id": "moderation:invites", "text": "🔗 Инвайты" },
+      { "id": "moderation:ai", "text": "🧠 AI‑фильтр" },
+      { "id": "moderation:log", "text": "📖 Журнал" },
+      { "id": "moderation:review", "text": "✅ Проверить комментарий" },
+      { "id": "moderation:request_contact", "text": "📞 Запрос контакта" },
+      { "id": "moderation:request_location", "text": "📍 Запрос геолокации" }
+    ] },
+    "rules": { "id": "moderation:rules", "title": "Правила канала", "description": "Редактируйте правила и описание канала.", "buttons": [] },
+    "stopwords": { "id": "moderation:stopwords", "title": "Стоп‑слова", "description": "Управление списком запрещённых слов: просмотр, добавление и удаление.", "buttons": [] },
+    "links": { "id": "moderation:links", "title": "Ссылки", "description": "Разрешить или запретить отправку ссылок в комментариях.", "buttons": [] },
+    "invites": { "id": "moderation:invites", "title": "Инвайты", "description": "Разрешить или запретить приглашения в комментариях.", "buttons": [] },
+    "ai": { "id": "moderation:ai", "title": "AI‑фильтр", "description": "Включить/выключить интеллектуальную фильтрацию спама и токсичности.", "buttons": [] },
+    "log": { "id": "moderation:log", "title": "Журнал модерации", "description": "Просмотр истории модерационных действий.", "buttons": [] },
+    "review": { "id": "moderation:review", "title": "Проверить комментарий", "description": "Проверка и удаление конкретных комментариев.", "buttons": [] },
+    "request_contact": { "id": "moderation:request_contact", "title": "Запрос контакта", "description": "Отправляет пользователю кнопку запроса контакта.", "buttons": [] },
+    "request_location": { "id": "moderation:request_location", "title": "Запрос геолокации", "description": "Отправляет пользователю кнопку запроса геолокации.", "buttons": [] }
+  },
+  "editor": { "home": { "id": "editor:home", "title": "✏️ Редактор постов", "description": "Редактирование опубликованных постов.", "buttons": [
+      { "id": "editor:select", "text": "📌 Выбрать пост" },
+      { "id": "editor:edit", "text": "✏️ Изменить текст" },
+      { "id": "editor:history", "text": "📖 История" }
+    ] },
+    "select": { "id": "editor:select", "title": "Выбор поста", "description": "Выберите пост для редактирования.", "buttons": [] },
+    "edit": { "id": "editor:edit", "title": "Изменить текст поста", "description": "Редактирование текста выбранного поста без потери комментариев, ссылок и медиа.", "buttons": [] },
+    "history": { "id": "editor:history", "title": "История поста", "description": "Просмотр и восстановление предыдущих версий поста.", "buttons": [] }
+  },
+  "buttons": { "home": { "id": "buttons:home", "title": "🔘 Кнопки под постами", "description": "Управление inline‑кнопками под постами.", "buttons": [
+      { "id": "buttons:select", "text": "📌 Выбрать пост" },
+      { "id": "buttons:add", "text": "➕ Добавить кнопку" },
+      { "id": "buttons:list", "text": "📋 Кнопки поста" },
+      { "id": "buttons:preview", "text": "👀 Предпросмотр" }
+    ] },
+    "select": { "id": "buttons:select", "title": "Выбрать пост", "description": "Выберите пост для управления кнопками.", "buttons": [] },
+    "add": { "id": "buttons:add", "title": "Добавить кнопку", "description": "Мастер создания кнопки: выберите пост, укажите текст и задайте действие.", "buttons": [] },
+    "list": { "id": "buttons:list", "title": "Кнопки поста", "description": "Список кнопок у выбранного поста, возможность удалить кнопки.", "buttons": [] },
+    "preview": { "id": "buttons:preview", "title": "Предпросмотр кнопок", "description": "Просмотр поста с текущими кнопками перед сохранением.", "buttons": [] }
+  },
+  "gifts": { "home": { "id": "gifts:home", "title": "🎁 Подарки / лид‑магниты", "description": "Создание и управление подарками и лид‑магнитами.", "buttons": [
+      { "id": "gifts:create", "text": "➕ Создать подарок" },
+      { "id": "gifts:select", "text": "📌 Выбрать пост" },
+      { "id": "gifts:list", "text": "📋 Список подарков" },
+      { "id": "gifts:subscribe", "text": "🔐 Проверка подписки" },
+      { "id": "gifts:test", "text": "🧪 Тестовая выдача" },
+      { "id": "gifts:request_contact", "text": "📞 Запрос контакта" }
+    ] },
+    "create": { "id": "gifts:create", "title": "Создать подарок", "description": "Мастер создания подарка: 1) выбрать канал и пост; 2) загрузить файл или указать ссылку; 3) написать сообщение получателю; 4) подтвердить и сохранить.", "buttons": [] },
+    "select": { "id": "gifts:select", "title": "Выбрать пост", "description": "Выберите пост для привязки подарка/лид‑магнита.", "buttons": [] },
+    "list": { "id": "gifts:list", "title": "Список подарков", "description": "Перечень активных подарков и лид‑магнитов в канале.", "buttons": [] },
+    "subscribe": { "id": "gifts:subscribe", "title": "Проверка подписки", "description": "Проверяет, подписался ли пользователь на канал.", "buttons": [] },
+    "test": { "id": "gifts:test", "title": "Тестовая выдача", "description": "Отправляет подарок администратору для проверки.", "buttons": [] },
+    "request_contact": { "id": "gifts:request_contact", "title": "Запрос контактных данных", "description": "Добавляет кнопку request_contact для получения телефона или адреса пользователя при выдаче подарка.", "buttons": [] }
+  },
+  "highlight": { "home": { "id": "highlight:home", "title": "📌 Выделение", "description": "Отмечайте важные посты как выделенные.", "buttons": [
+      { "id": "highlight:set", "text": "📌 Выделить пост" },
+      { "id": "highlight:list", "text": "📋 Список выделенных" },
+      { "id": "highlight:remove", "text": "❌ Снять выделение" }
+    ] },
+    "set": { "id": "highlight:set", "title": "Выделить пост", "description": "Позволяет отметить пост как важный.", "buttons": [] },
+    "list": { "id": "highlight:list", "title": "Список выделенных", "description": "Просмотр всех выделенных постов.", "buttons": [] },
+    "remove": { "id": "highlight:remove", "title": "Снять выделение", "description": "Убрать отметку выделения с поста.", "buttons": [] }
+  },
+  "polls": { "home": { "id": "polls:home", "title": "📊 Опросы", "description": "Создание и управление опросами.", "buttons": [
+      { "id": "polls:create", "text": "➕ Создать опрос" },
+      { "id": "polls:select", "text": "📌 Выбрать пост" },
+      { "id": "polls:list", "text": "📋 Список опросов" },
+      { "id": "polls:stop", "text": "⏸ Завершить опрос" },
+      { "id": "polls:results", "text": "📊 Результаты" },
+      { "id": "polls:likes", "text": "👍 Лайк/Дизлайк" }
+    ] },
+    "create": { "id": "polls:create", "title": "Создать опрос", "description": "Мастер создания опроса с вводом вариантов ответов.", "buttons": [] },
+    "select": { "id": "polls:select", "title": "Выбрать пост для опроса", "description": "Выберите пост, к которому хотите прикрепить опрос.", "buttons": [] },
+    "list": { "id": "polls:list", "title": "Список опросов", "description": "Перечень активных опросов в канале.", "buttons": [] },
+    "stop": { "id": "polls:stop", "title": "Завершить опрос", "description": "Остановить приём голосов и подвести итоги.", "buttons": [] },
+    "results": { "id": "polls:results", "title": "Результаты голосования", "description": "Просмотр результатов опроса.", "buttons": [] },
+    "likes": { "id": "polls:likes", "title": "Лайк/Дизлайк", "description": "Создание простого опроса с вариантами лайк/дизлайк.", "buttons": [] }
+  },
+  "stats": { "home": { "id": "stats:home", "title": "📈 Статистика", "description": "Статистика канала, постов и взаимодействий.", "buttons": [
+      { "id": "stats:channel", "text": "📺 Канал" },
+      { "id": "stats:post", "text": "📌 Пост" },
+      { "id": "stats:comments", "text": "💬 Комментарии" },
+      { "id": "stats:reactions", "text": "❤️ Реакции" },
+      { "id": "stats:gifts", "text": "🎁 Подарки" },
+      { "id": "stats:clicks", "text": "🖱️ Клики" },
+      { "id": "stats:deeplinks", "text": "🔗 Deep‑links" }
+    ] },
+    "channel": { "id": "stats:channel", "title": "Статистика канала", "description": "Подробная статистика канала.", "buttons": [] },
+    "post": { "id": "stats:post", "title": "Статистика поста", "description": "Статистика конкретного поста: просмотры, комментарии, реакции, клики.", "buttons": [] },
+    "comments": { "id": "stats:comments", "title": "Статистика комментариев", "description": "Количество комментариев, активность, средняя глубина обсуждений.", "buttons": [] },
+    "reactions": { "id": "stats:reactions", "title": "Статистика реакций", "description": "Количество лайков и дизлайков.", "buttons": [] },
+    "gifts": { "id": "stats:gifts", "title": "Статистика подарков", "description": "Количество выданных подарков и лид‑магнитов, конверсия.", "buttons": [] },
+    "clicks": { "id": "stats:clicks", "title": "Статистика кликов", "description": "Сколько раз пользователи нажали на кнопки в постах.", "buttons": [] },
+    "deeplinks": { "id": "stats:deeplinks", "title": "Статистика deep‑links", "description": "Количество переходов по deep‑linkам.", "buttons": [] }
+  },
+  "tariffs": { "home": { "id": "tariffs:home", "title": "💵 Тарифы", "description": "Информация о тарифных планах.", "buttons": [
+      { "id": "tariffs:current", "text": "💼 Мой тариф" },
+      { "id": "tariffs:update", "text": "🔄 Обновить тариф" },
+      { "id": "tariffs:list", "text": "📋 Список тарифов" }
+    ] },
+    "current": { "id": "tariffs:current", "title": "Мой тариф", "description": "Показывает текущий тариф и доступные лимиты.", "buttons": [] },
+    "update": { "id": "tariffs:update", "title": "Обновить тариф", "description": "Ссылка для обновления/продления тарифа.", "buttons": [] },
+    "list": { "id": "tariffs:list", "title": "Список тарифов", "description": "Просмотр и сравнение тарифов.", "buttons": [] }
+  },
+  "referrals": { "home": { "id": "referrals:home", "title": "🤝 Рефералы", "description": "Партнёрская программа.", "buttons": [
+      { "id": "referrals:link", "text": "🔗 Моя ссылка" },
+      { "id": "referrals:subscribers", "text": "📋 Подписчики" },
+      { "id": "referrals:income", "text": "💰 Доход" },
+      { "id": "referrals:clicks", "text": "🖱️ Клики" }
+    ] },
+    "link": { "id": "referrals:link", "title": "Моя реферальная ссылка", "description": "Генерирует персональную реферальную ссылку.", "buttons": [] },
+    "subscribers": { "id": "referrals:subscribers", "title": "Подписчики", "description": "Количество пользователей, привлечённых по реферальной ссылке.", "buttons": [] },
+    "income": { "id": "referrals:income", "title": "Доход", "description": "Отчёт по бонусам реферальной программы.", "buttons": [] },
+    "clicks": { "id": "referrals:clicks", "title": "Статистика кликов", "description": "Переходы по реферальной ссылке.", "buttons": [] }
+  },
+  "help": { "home": { "id": "help:home", "title": "❓ Помощь", "description": "Справка, правила и поддержка.", "buttons": [
+      { "id": "help:rules", "text": "📜 Правила" },
+      { "id": "help:faq", "text": "❓ FAQ" },
+      { "id": "help:support", "text": "👨‍💼 Поддержка" }
+    ] },
+    "rules": { "id": "help:rules", "title": "Правила сервиса", "description": "Общие правила пользования ботом и каналом.", "buttons": [] },
+    "faq": { "id": "help:faq", "title": "Часто задаваемые вопросы", "description": "Ответы на популярные вопросы.", "buttons": [] },
+    "support": { "id": "help:support", "title": "Служба поддержки", "description": "Контактные данные и форма обратной связи.", "buttons": [] }
+  }
+}
