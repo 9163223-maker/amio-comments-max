@@ -1,6 +1,7 @@
 'use strict';
 
 // HARD V3 current root.
-// Only five working sections are exposed now: channels, comments, gifts, buttons, moderation.
+// Five working sections: channels, comments, gifts, buttons, moderation.
+// Client-friendly output: no raw channel/post IDs in normal menu screens.
 // Preserved boundaries: no patcher changes, no Telegram-style comments UI changes, Postgres/store remain connected.
-module.exports = require('./menu-v3-five-sections-v22');
+module.exports = require('./menu-v3-five-sections-v23');
