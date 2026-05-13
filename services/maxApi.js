@@ -103,16 +103,65 @@ async function editMessage({ botToken, messageId, text, attachments, notify = fa
   });
 }
 
+function flattenAttachmentButtonText(attachments = []) {
+  const result = [];
+  const walk = (value) => {
+    if (!value || typeof value !== "object") return;
+    if (typeof value.text === "string") result.push(value.text);
+    if (Array.isArray(value)) value.forEach(walk);
+    else Object.values(value).forEach(walk);
+  };
+  walk(attachments);
+  return result.join(" ");
+}
+
+function isLegacyAdminMainMenuPayload({ text, attachments }) {
+  const normalizedText = String(text || "").replace(/\s+/g, " ").trim();
+  const buttonText = flattenAttachmentButtonText(attachments);
+  const all = `${normalizedText} ${buttonText}`;
+  return (
+    /Привет,\s*Alex P/i.test(all) ||
+    (/АдминКИТ\s+—\s+панель управления MAX-каналом/i.test(all) && /модерация|редактор|кнопки под постами|подарки/i.test(all)) ||
+    (/Выберите раздел:\s*комментарии/i.test(all) && /Каналы и подключение/i.test(all))
+  );
+}
+
+function buildHardV3CleanMainMenuPayload() {
+  return {
+    text: "🐋 АдминКИТ\n\nГотовые разделы: Каналы и Комментарии.",
+    attachments: [
+      {
+        type: "inline_keyboard",
+        payload: {
+          buttons: [
+            [
+              { type: "callback", text: "📺 Каналы", payload: JSON.stringify({ r: "channels:home" }) },
+              { type: "callback", text: "💬 Комментарии", payload: JSON.stringify({ r: "comments:home" }) }
+            ]
+          ]
+        }
+      }
+    ]
+  };
+}
+
+function normalizeOutgoingAdminMenu({ text, attachments }) {
+  if (!isLegacyAdminMainMenuPayload({ text, attachments })) return { text, attachments, replaced: false };
+  const next = buildHardV3CleanMainMenuPayload();
+  return { ...next, replaced: true };
+}
+
 async function sendMessage({ botToken, userId, chatId, text, attachments, format, link, notify = false }) {
   if (!userId && !chatId) {
     throw new Error("userId_or_chatId_required");
   }
 
+  const normalized = normalizeOutgoingAdminMenu({ text, attachments });
   const body = { notify };
-  if (text !== undefined) body.text = text;
-  if (attachments !== undefined) body.attachments = attachments;
-  if (format !== undefined) body.format = format;
-  if (link !== undefined) body.link = link;
+  if (normalized.text !== undefined) body.text = normalized.text;
+  if (normalized.attachments !== undefined) body.attachments = normalized.attachments;
+  if (format !== undefined && !normalized.replaced) body.format = format;
+  if (link !== undefined && !normalized.replaced) body.link = link;
 
   return maxApi("/messages", {
     token: botToken,
@@ -268,8 +317,6 @@ function buildStartappPayload({ handoffToken, commentKey, postId, channelId } = 
   const normalizedHandoff = cleanStartappPayload(handoffToken);
   if (normalizedHandoff) return normalizedHandoff;
 
-  // MAX startapp payload supports only A-Z a-z 0-9 _ -.
-  // Do not pass raw commentKey with ':' here; use handoff whenever possible.
   const normalizedChannelId = cleanStartappPayload(channelId);
   const normalizedPostId = cleanStartappPayload(postId);
   if (normalizedChannelId && normalizedPostId) return cleanStartappPayload(`cp_${normalizedChannelId}_${normalizedPostId}`);
