@@ -25,13 +25,9 @@ function appendQueryParams(url, query) {
 }
 
 async function maxApi(path, { token, method = "GET", query = null, body, timeoutMs = 9000 } = {}) {
-  if (!token) {
-    throw new Error("BOT_TOKEN is missing");
-  }
-
+  if (!token) throw new Error("BOT_TOKEN is missing");
   const url = new URL(`${API_BASE_URL}${path}`);
   appendQueryParams(url, query);
-
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs || 9000)));
   let response;
@@ -55,133 +51,41 @@ async function maxApi(path, { token, method = "GET", query = null, body, timeout
   } finally {
     clearTimeout(timeout);
   }
-
   const data = await readJsonSafe(response);
-
   if (!response.ok) {
     const error = new Error(`MAX API ${response.status} ${method} ${path}`);
     error.status = response.status;
     error.data = data;
     throw error;
   }
-
   return data;
 }
 
-async function getSubscriptions({ botToken }) {
-  return maxApi("/subscriptions", { token: botToken, method: "GET" });
-}
-
+async function getSubscriptions({ botToken }) { return maxApi("/subscriptions", { token: botToken, method: "GET" }); }
 async function registerWebhook({ botToken, webhookUrl, secret }) {
-  return maxApi("/subscriptions", {
-    token: botToken,
-    method: "POST",
-    body: {
-      url: webhookUrl,
-      update_types: ["message_callback", "message_created", "bot_started"],
-      ...(secret ? { secret } : {})
-    }
-  });
+  return maxApi("/subscriptions", { token: botToken, method: "POST", body: { url: webhookUrl, update_types: ["message_callback", "message_created", "bot_started"], ...(secret ? { secret } : {}) } });
 }
-
 async function editMessage({ botToken, messageId, text, attachments, notify = false, format, link }) {
-  if (!messageId) {
-    throw new Error("messageId is required");
-  }
-
+  if (!messageId) throw new Error("messageId is required");
   const body = { notify };
   if (text !== undefined) body.text = text;
   if (attachments !== undefined) body.attachments = attachments;
   if (format !== undefined) body.format = format;
   if (link !== undefined) body.link = link;
-
-  return maxApi("/messages", {
-    token: botToken,
-    method: "PUT",
-    query: { message_id: messageId },
-    body
-  });
+  return maxApi("/messages", { token: botToken, method: "PUT", query: { message_id: messageId }, body });
 }
-
-function flattenAttachmentButtonText(attachments = []) {
-  const result = [];
-  const walk = (value) => {
-    if (!value || typeof value !== "object") return;
-    if (typeof value.text === "string") result.push(value.text);
-    if (Array.isArray(value)) value.forEach(walk);
-    else Object.values(value).forEach(walk);
-  };
-  walk(attachments);
-  return result.join(" ");
-}
-
-function isLegacyAdminMainMenuPayload({ text, attachments }) {
-  const normalizedText = String(text || "").replace(/\s+/g, " ").trim();
-  const buttonText = flattenAttachmentButtonText(attachments);
-  const all = `${normalizedText} ${buttonText}`;
-  return (
-    /Привет,\s*Alex P/i.test(all) ||
-    (/АдминКИТ\s+—\s+панель управления MAX-каналом/i.test(all) && /модерация|редактор|кнопки под постами|подарки/i.test(all)) ||
-    (/Выберите раздел:\s*комментарии/i.test(all) && /Каналы и подключение/i.test(all))
-  );
-}
-
-function buildHardV3CleanMainMenuPayload() {
-  return {
-    text: "🐋 АдминКИТ\n\nГотовые разделы: Каналы и Комментарии.",
-    attachments: [
-      {
-        type: "inline_keyboard",
-        payload: {
-          buttons: [
-            [
-              { type: "callback", text: "📺 Каналы", payload: JSON.stringify({ r: "channels:home" }) },
-              { type: "callback", text: "💬 Комментарии", payload: JSON.stringify({ r: "comments:home" }) }
-            ]
-          ]
-        }
-      }
-    ]
-  };
-}
-
-function normalizeOutgoingAdminMenu({ text, attachments }) {
-  if (!isLegacyAdminMainMenuPayload({ text, attachments })) return { text, attachments, replaced: false };
-  const next = buildHardV3CleanMainMenuPayload();
-  return { ...next, replaced: true };
-}
-
 async function sendMessage({ botToken, userId, chatId, text, attachments, format, link, notify = false }) {
-  if (!userId && !chatId) {
-    throw new Error("userId_or_chatId_required");
-  }
-
-  const normalized = normalizeOutgoingAdminMenu({ text, attachments });
+  if (!userId && !chatId) throw new Error("userId_or_chatId_required");
   const body = { notify };
-  if (normalized.text !== undefined) body.text = normalized.text;
-  if (normalized.attachments !== undefined) body.attachments = normalized.attachments;
-  if (format !== undefined && !normalized.replaced) body.format = format;
-  if (link !== undefined && !normalized.replaced) body.link = link;
-
-  return maxApi("/messages", {
-    token: botToken,
-    method: "POST",
-    query: {
-      ...(userId ? { user_id: userId } : {}),
-      ...(chatId ? { chat_id: chatId } : {})
-    },
-    body
-  });
+  if (text !== undefined) body.text = text;
+  if (attachments !== undefined) body.attachments = attachments;
+  if (format !== undefined) body.format = format;
+  if (link !== undefined) body.link = link;
+  return maxApi("/messages", { token: botToken, method: "POST", query: { ...(userId ? { user_id: userId } : {}), ...(chatId ? { chat_id: chatId } : {}) }, body });
 }
-
 async function deleteMessage({ botToken, messageId, timeoutMs = 2500 }) {
   if (!messageId) throw new Error("messageId is required");
-  const data = await maxApi("/messages", {
-    token: botToken,
-    method: "DELETE",
-    query: { message_id: messageId },
-    timeoutMs
-  });
+  const data = await maxApi("/messages", { token: botToken, method: "DELETE", query: { message_id: messageId }, timeoutMs });
   if (data && Object.prototype.hasOwnProperty.call(data, "success") && data.success === false) {
     const error = new Error(data.message || `MAX API DELETE /messages returned success=false for ${messageId}`);
     error.data = data;
@@ -189,108 +93,38 @@ async function deleteMessage({ botToken, messageId, timeoutMs = 2500 }) {
   }
   return data;
 }
-
 async function answerCallback({ botToken, callbackId, notification, message }) {
-  if (!callbackId) {
-    return { success: false, skipped: true, reason: "callback_id_missing" };
-  }
-
-  return maxApi("/answers", {
-    token: botToken,
-    method: "POST",
-    query: { callback_id: callbackId },
-    body: {
-      ...(notification ? { notification } : {}),
-      ...(message ? { message } : {})
-    }
-  });
+  if (!callbackId) return { success: false, skipped: true, reason: "callback_id_missing" };
+  return maxApi("/answers", { token: botToken, method: "POST", query: { callback_id: callbackId }, body: { ...(notification ? { notification } : {}), ...(message ? { message } : {}) } });
 }
-
 async function getChatMembers({ botToken, chatId, userIds, marker, count }) {
   if (!chatId) throw new Error("chatId is required");
-  return maxApi(`/chats/${encodeURIComponent(String(chatId))}/members`, {
-    token: botToken,
-    method: "GET",
-    query: {
-      ...(Array.isArray(userIds) && userIds.length ? { user_ids: userIds } : {}),
-      ...(marker ? { marker } : {}),
-      ...(count ? { count } : {})
-    }
-  });
+  return maxApi(`/chats/${encodeURIComponent(String(chatId))}/members`, { token: botToken, method: "GET", query: { ...(Array.isArray(userIds) && userIds.length ? { user_ids: userIds } : {}), ...(marker ? { marker } : {}), ...(count ? { count } : {}) } });
 }
-
-async function getChat({ botToken, chatId }) {
-  if (!chatId) throw new Error("chatId is required");
-  return maxApi(`/chats/${encodeURIComponent(String(chatId))}`, {
-    token: botToken,
-    method: "GET"
-  });
-}
-
-async function getBotChatMember({ botToken, chatId }) {
-  if (!chatId) throw new Error("chatId is required");
-  return maxApi(`/chats/${encodeURIComponent(String(chatId))}/members/me`, {
-    token: botToken,
-    method: "GET"
-  });
-}
-
-async function getMessage({ botToken, messageId }) {
-  if (!messageId) throw new Error("messageId is required");
-  return maxApi(`/messages/${encodeURIComponent(String(messageId))}`, {
-    token: botToken,
-    method: "GET"
-  });
-}
-
-async function createUpload({ botToken, type }) {
-  const normalizedType = String(type || "file").trim().toLowerCase();
-  return maxApi("/uploads", {
-    token: botToken,
-    method: "POST",
-    query: { type: normalizedType }
-  });
-}
-
+async function getChat({ botToken, chatId }) { if (!chatId) throw new Error("chatId is required"); return maxApi(`/chats/${encodeURIComponent(String(chatId))}`, { token: botToken, method: "GET" }); }
+async function getBotChatMember({ botToken, chatId }) { if (!chatId) throw new Error("chatId is required"); return maxApi(`/chats/${encodeURIComponent(String(chatId))}/members/me`, { token: botToken, method: "GET" }); }
+async function getMessage({ botToken, messageId }) { if (!messageId) throw new Error("messageId is required"); return maxApi(`/messages/${encodeURIComponent(String(messageId))}`, { token: botToken, method: "GET" }); }
+async function createUpload({ botToken, type }) { return maxApi("/uploads", { token: botToken, method: "POST", query: { type: String(type || "file").trim().toLowerCase() } }); }
 async function uploadBinaryToUrl({ uploadUrl, botToken, buffer, fileName, mimeType }) {
   if (!uploadUrl) throw new Error("upload_url_missing");
   if (!buffer || !buffer.length) throw new Error("upload_buffer_empty");
-
   const form = new FormData();
   const blob = new Blob([buffer], { type: mimeType || "application/octet-stream" });
   form.append("data", blob, fileName || "upload.bin");
-
-  const response = await fetch(uploadUrl, {
-    method: "POST",
-    headers: {
-      ...(botToken ? { Authorization: botToken } : {})
-    },
-    body: form
-  });
-
+  const response = await fetch(uploadUrl, { method: "POST", headers: { ...(botToken ? { Authorization: botToken } : {}) }, body: form });
   const data = await readJsonSafe(response);
-  if (!response.ok) {
-    const error = new Error(`MAX UPLOAD ${response.status}`);
-    error.status = response.status;
-    error.data = data;
-    throw error;
-  }
+  if (!response.ok) { const error = new Error(`MAX UPLOAD ${response.status}`); error.status = response.status; error.data = data; throw error; }
   return data || {};
 }
-
 function buildUploadAttachmentPayload({ uploadType, uploadInitResponse, uploadResponse }) {
   const normalizedType = String(uploadType || "file").trim().toLowerCase();
   const result = uploadResponse && typeof uploadResponse === "object" ? uploadResponse : {};
   const init = uploadInitResponse && typeof uploadInitResponse === "object" ? uploadInitResponse : {};
-
   if (result.token) return { type: normalizedType, payload: result };
-  if ((normalizedType === "video" || normalizedType === "audio") && init.token) {
-    return { type: normalizedType, payload: { token: init.token } };
-  }
+  if ((normalizedType === "video" || normalizedType === "audio") && init.token) return { type: normalizedType, payload: { token: init.token } };
   if (Object.keys(result).length) return { type: normalizedType, payload: result };
   throw new Error("upload_payload_missing");
 }
-
 async function getAllChatMembers({ botToken, chatId, pageSize = 100, limit = 5000 } = {}) {
   const members = [];
   let marker = undefined;
@@ -308,30 +142,22 @@ async function getAllChatMembers({ botToken, chatId, pageSize = 100, limit = 500
   }
   return members.slice(0, safeLimit);
 }
-
-function cleanStartappPayload(value = "") {
-  return String(value || "").trim().replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 512);
-}
-
+function cleanStartappPayload(value = "") { return String(value || "").trim().replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 512); }
 function buildStartappPayload({ handoffToken, commentKey, postId, channelId } = {}) {
   const normalizedHandoff = cleanStartappPayload(handoffToken);
   if (normalizedHandoff) return normalizedHandoff;
-
   const normalizedChannelId = cleanStartappPayload(channelId);
   const normalizedPostId = cleanStartappPayload(postId);
   if (normalizedChannelId && normalizedPostId) return cleanStartappPayload(`cp_${normalizedChannelId}_${normalizedPostId}`);
   if (normalizedPostId) return cleanStartappPayload(`post_${normalizedPostId}`);
-
   const normalizedCommentKey = cleanStartappPayload(commentKey);
   return normalizedCommentKey ? cleanStartappPayload(`ck_${normalizedCommentKey}`) : "";
 }
-
 function buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey }) {
   const normalizedPostId = String(postId || "").trim();
   const normalizedChannelId = String(channelId || "").trim();
   const normalizedCommentKey = String(commentKey || "").trim();
   const normalizedAppBaseUrl = String(appBaseUrl || "").trim().replace(/\/$/, "");
-
   const normalizedHandoff = String(handoffToken || "").trim();
   const query = new URLSearchParams();
   const startapp = buildStartappPayload({ handoffToken: normalizedHandoff, commentKey: normalizedCommentKey, postId: normalizedPostId, channelId: normalizedChannelId });
@@ -340,57 +166,34 @@ function buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, hando
   if (normalizedPostId) query.set("postId", normalizedPostId);
   if (normalizedChannelId) query.set("channelId", normalizedChannelId);
   if (normalizedCommentKey) query.set("commentKey", normalizedCommentKey);
-
   const queryString = query.toString();
-  if (normalizedAppBaseUrl) {
-    return `${normalizedAppBaseUrl}/app?${queryString}`;
-  }
-
+  if (normalizedAppBaseUrl) return `${normalizedAppBaseUrl}/app?${queryString}`;
   const botDeepLink = buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken: normalizedHandoff, postId: normalizedPostId, channelId: normalizedChannelId, commentKey: normalizedCommentKey });
   return botDeepLink || `/app?${queryString}`;
 }
-
 function normalizeBotUsername({ botUsername = "", maxDeepLinkBase = "" } = {}) {
   const direct = String(botUsername || "").trim().replace(/^@/, "").replace(/^https?:\/\/max\.ru\//i, "").replace(/[/?#].*$/, "");
   if (direct) return direct;
-  const base = String(maxDeepLinkBase || "").trim().replace(/^https?:\/\/max\.ru\//i, "").replace(/[/?#].*$/, "");
-  return base;
+  return String(maxDeepLinkBase || "").trim().replace(/^https?:\/\/max\.ru\//i, "").replace(/[/?#].*$/, "");
 }
-
 function buildOpenAppButton({ text, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey }) {
   const webApp = normalizeBotUsername({ botUsername, maxDeepLinkBase });
   const payload = buildStartappPayload({ handoffToken, commentKey, postId, channelId });
   if (!webApp) return null;
-  return {
-    type: "open_app",
-    text: String(text || "💬 Комментарии").trim(),
-    web_app: webApp,
-    ...(payload ? { payload } : {})
-  };
+  return { type: "open_app", text: String(text || "💬 Комментарии").trim(), web_app: webApp, ...(payload ? { payload } : {}) };
 }
-
 function buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey }) {
   const normalizedBase = String(maxDeepLinkBase || "").trim().replace(/\/$/, "");
   const normalizedBotUsername = String(botUsername || "").trim().replace(/^@/, "");
   const startapp = buildStartappPayload({ handoffToken, commentKey, postId, channelId });
-
   if (!startapp) return "";
-
   const query = new URLSearchParams();
   query.set("startapp", startapp);
   const queryString = query.toString();
-
-  if (normalizedBase) {
-    return `${normalizedBase}?${queryString}`;
-  }
-
-  if (normalizedBotUsername) {
-    return `https://max.ru/${normalizedBotUsername}?${queryString}`;
-  }
-
+  if (normalizedBase) return `${normalizedBase}?${queryString}`;
+  if (normalizedBotUsername) return `https://max.ru/${normalizedBotUsername}?${queryString}`;
   return "";
 }
-
 function buildCommentsButtonText(count = 0, suffix = "") {
   const total = Number(count || 0);
   const normalizedSuffix = String(suffix || "").trim();
@@ -401,110 +204,31 @@ function buildCommentsButtonText(count = 0, suffix = "") {
   else text = `💬 ${total} комментариев`;
   return normalizedSuffix ? `${text}${normalizedSuffix}` : text;
 }
-
-function buildGiftCallbackPayload({ campaignId, commentKey, channelId, postId }) {
-  return JSON.stringify({
-    action: "gift_claim",
-    campaignId: String(campaignId || "").trim(),
-    commentKey: String(commentKey || "").trim(),
-    channelId: String(channelId || "").trim(),
-    postId: String(postId || "").trim()
-  });
-}
-
-function normalizeMaxUrl(url = "") {
-  return String(url || "").trim().replace(/^https:\/\/web\.max\.ru\//i, "https://max.ru/");
-}
-
+function buildGiftCallbackPayload({ campaignId, commentKey, channelId, postId }) { return JSON.stringify({ action: "gift_claim", campaignId: String(campaignId || "").trim(), commentKey: String(commentKey || "").trim(), channelId: String(channelId || "").trim(), postId: String(postId || "").trim() }); }
+function normalizeMaxUrl(url = "") { return String(url || "").trim().replace(/^https:\/\/web\.max\.ru\//i, "https://max.ru/"); }
 function buildGiftKeyboardRows({ campaign, commentKey, channelId, postId }) {
   if (!campaign?.enabled) return [];
-
   const rows = [];
-  if (campaign.showSubscribeButton === true && campaign.subscribeUrl) {
-    rows.push([
-      {
-        type: "link",
-        text: String(campaign.subscribeButtonText || "🔔 Подписаться").trim(),
-        url: normalizeMaxUrl(campaign.subscribeUrl)
-      }
-    ]);
-  }
-
-  rows.push([
-    {
-      type: "callback",
-      text: String(campaign.giftButtonText || "🎁 Получить подарок").trim(),
-      payload: buildGiftCallbackPayload({
-        campaignId: campaign.id,
-        commentKey,
-        channelId,
-        postId
-      })
-    }
-  ]);
-
+  if (campaign.showSubscribeButton === true && campaign.subscribeUrl) rows.push([{ type: "link", text: String(campaign.subscribeButtonText || "🔔 Подписаться").trim(), url: normalizeMaxUrl(campaign.subscribeUrl) }]);
+  rows.push([{ type: "callback", text: String(campaign.giftButtonText || "🎁 Получить подарок").trim(), payload: buildGiftCallbackPayload({ campaignId: campaign.id, commentKey, channelId, postId }) }]);
   return rows;
 }
-
 function buildCommentsKeyboard({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, count = 0, extraRows = [], buttonSuffix = '', primaryButtonText = '', showPrimaryButton = true }) {
   const rows = [];
-
   if (showPrimaryButton) {
     const buttonText = String(primaryButtonText || "").trim() || buildCommentsButtonText(count, buttonSuffix);
     const openAppButton = buildOpenAppButton({ text: buttonText, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey });
-    if (openAppButton) {
-      rows.push([openAppButton]);
-    } else {
+    if (openAppButton) rows.push([openAppButton]);
+    else {
       const appLink = buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey });
       const botLink = buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey });
       const launchLink = botLink || appLink || "";
-      rows.push([
-        {
-          type: "link",
-          text: buttonText,
-          ...(launchLink ? { url: launchLink } : {})
-        }
-      ]);
+      rows.push([{ type: "link", text: buttonText, ...(launchLink ? { url: launchLink } : {}) }]);
     }
   }
-
   const normalizedExtraRows = Array.isArray(extraRows) ? extraRows.filter((row) => Array.isArray(row) && row.length) : [];
   rows.push(...normalizedExtraRows);
-
   if (!rows.length) return [];
-
-  return [
-    {
-      type: "inline_keyboard",
-      payload: {
-        buttons: rows
-      }
-    }
-  ];
+  return [{ type: "inline_keyboard", payload: { buttons: rows } }];
 }
-
-module.exports = {
-  API_BASE_URL,
-  maxApi,
-  getSubscriptions,
-  registerWebhook,
-  editMessage,
-  sendMessage,
-  answerCallback,
-  deleteMessage,
-  getChatMembers,
-  getAllChatMembers,
-  getChat,
-  getBotChatMember,
-  getMessage,
-  createUpload,
-  uploadBinaryToUrl,
-  buildUploadAttachmentPayload,
-  buildMiniAppLaunchUrl,
-  buildCommentsButtonText,
-  buildCommentsKeyboard,
-  buildBotStartLink,
-  buildStartappPayload,
-  buildOpenAppButton,
-  buildGiftKeyboardRows
-};
+module.exports = { API_BASE_URL, maxApi, getSubscriptions, registerWebhook, editMessage, sendMessage, answerCallback, deleteMessage, getChatMembers, getAllChatMembers, getChat, getBotChatMember, getMessage, createUpload, uploadBinaryToUrl, buildUploadAttachmentPayload, buildMiniAppLaunchUrl, buildCommentsButtonText, buildCommentsKeyboard, buildBotStartLink, buildStartappPayload, buildOpenAppButton, buildGiftKeyboardRows };
