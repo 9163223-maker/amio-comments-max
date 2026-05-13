@@ -2,19 +2,20 @@
 
 const state = require('./db-v3-state');
 
-const RUNTIME = 'DB-V3-COMMENT-GUARD-1.0';
+const RUNTIME = 'DB-V3-COMMENT-GUARD-1.1-ALL-WRITES';
 const MARKER = '__DB_V3_COMMENT_GUARD__';
 const clean = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 const lower = (v) => clean(v).toLowerCase();
 
-function pathText(path) {
-  if (Array.isArray(path)) return path.map(pathText).join(' ');
-  if (path instanceof RegExp) return String(path);
-  return String(path || '');
-}
-function isCommentMutation(path) {
-  const s = pathText(path).toLowerCase();
-  return s.includes('/api/comments') || s.includes('comments');
+function urlKey(req) {
+  const raw = String(req.originalUrl || req.url || req.path || '').trim();
+  let m = raw.match(/\/api\/comments\/([^/?#]+)/i);
+  if (m?.[1]) return decodeURIComponent(m[1]);
+  m = raw.match(/commentKey=([^&#]+)/i);
+  if (m?.[1]) return decodeURIComponent(m[1]);
+  m = raw.match(/comment_key=([^&#]+)/i);
+  if (m?.[1]) return decodeURIComponent(m[1]);
+  return '';
 }
 function isModeratedWrite(req) {
   const p = String(req.path || req.originalUrl || req.url || '').toLowerCase();
@@ -26,7 +27,13 @@ function commentKeyFrom(req) {
   const b = req.body || {};
   const q = req.query || {};
   const p = req.params || {};
-  return clean(b.commentKey || b.comment_key || q.commentKey || q.comment_key || p.commentKey || p.comment_key || p.key || q.key || b.key || '');
+  return clean(
+    b.commentKey || b.comment_key ||
+    q.commentKey || q.comment_key ||
+    p.commentKey || p.comment_key || p.key ||
+    q.key || b.key ||
+    urlKey(req) || ''
+  );
 }
 function commentTextFrom(req) {
   const b = req.body || {};
@@ -72,14 +79,11 @@ function install() {
       const app = loaded(...args);
       if (!app || app.__dbV3CommentGuardAppWrapped) return app;
       app.__dbV3CommentGuardAppWrapped = true;
-      try {
-        app.get('/debug/db-comment-guard', (req, res) => res.json(selfTest(false)));
-      } catch {}
+      try { app.get('/debug/db-comment-guard', (req, res) => res.json(selfTest(false))); } catch {}
       ['post', 'put', 'patch'].forEach((method) => {
         const old = app[method]?.bind(app);
         if (!old) return;
         app[method] = function dbV3CommentGuardRoute(path, ...handlers) {
-          if (!isCommentMutation(path)) return old(path, ...handlers);
           return old(path, check, ...handlers);
         };
       });
@@ -93,6 +97,6 @@ function install() {
   return selfTest(false);
 }
 function selfTest(already = false) {
-  return { ok: true, runtimeVersion: RUNTIME, marker: MARKER, already, source: 'Postgres', checks: ['comments_enabled', 'custom_stopwords', 'links', 'invites'], storeUsed: false };
+  return { ok: true, runtimeVersion: RUNTIME, marker: MARKER, already, source: 'Postgres', appliesTo: 'all_post_put_patch_routes', keySources: ['body.commentKey', 'query.commentKey', 'params.commentKey', 'url /api/comments/:commentKey'], checks: ['comments_enabled', 'custom_stopwords', 'links', 'invites'], storeUsed: false };
 }
 module.exports = { RUNTIME, MARKER, install, selfTest };
