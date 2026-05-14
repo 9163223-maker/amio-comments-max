@@ -12,6 +12,7 @@ const {
   buildCommentsKeyboard,
   buildMiniAppLaunchUrl,
   buildBotStartLink,
+  buildStableOpenPayload,
   editMessage,
   buildGiftKeyboardRows,
   getMessage
@@ -19,7 +20,7 @@ const {
 const { findGiftCampaignForPost } = require("./giftService");
 const { buildCustomKeyboardRows } = require("./keyboardBuilderService");
 
-const DB_SYNC_RUNTIME = "CC6.5.7.8-POST-PATCHER-DB-SYNC";
+const DB_SYNC_RUNTIME = "CC7.4.0-POST-PATCHER-STABLE-PAYLOAD-SNAPSHOT";
 
 function normalizeAttachments(value) {
   return Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : [];
@@ -35,6 +36,49 @@ function stableStringify(value) {
 
 function clean(value) {
   return String(value || "").trim();
+}
+
+function cloneObject(value, fallback = null) {
+  if (!value || typeof value !== "object") return fallback;
+  try { return JSON.parse(JSON.stringify(value)); } catch { return fallback; }
+}
+
+function buildPostSnapshotRaw({
+  source,
+  commentKey,
+  channelId,
+  postId,
+  messageId,
+  title,
+  channelTitle,
+  originalText,
+  sourceAttachments,
+  originalLink,
+  originalFormat,
+  handoffToken,
+  stablePayload,
+  linkedByUserId,
+  linkedByName
+} = {}) {
+  return {
+    source: clean(source || "post_patcher"),
+    runtimeVersion: DB_SYNC_RUNTIME,
+    commentKey: clean(commentKey),
+    channelId: clean(channelId),
+    postId: clean(postId),
+    messageId: clean(messageId || postId),
+    title: clean(title || originalText || postId),
+    channelTitle: clean(channelTitle || channelId),
+    originalText: String(originalText || ""),
+    originalFormat: originalFormat === undefined ? null : originalFormat,
+    originalLink: cloneObject(originalLink, null),
+    sourceAttachments: stripInlineKeyboard(sourceAttachments || []),
+    handoffToken: clean(handoffToken),
+    stablePayload: clean(stablePayload),
+    linkedByUserId: clean(linkedByUserId),
+    linkedByName: clean(linkedByName),
+    patchedAt: new Date().toISOString()
+  };
 }
 
 async function adminIdsForChannel(channelId, fallbackAdminId = "") {
@@ -58,26 +102,48 @@ async function syncPatchedPostToDb({
   title,
   channelTitle,
   linkedByUserId,
+  linkedByName,
   commentKey,
+  originalText,
+  sourceAttachments,
+  originalLink,
+  originalFormat,
+  handoffToken,
+  stablePayload,
   source = "post_patcher"
 }) {
   const ch = clean(channelId);
   const post = clean(postId);
   if (!ch || !post || ch === "CHANNEL_ID" || post === "POST_ID") return { ok: true, skipped: true, reason: "invalid_channel_or_post" };
 
+  const ck = clean(commentKey || `${ch}:${post}`);
+  const payload = clean(stablePayload || buildStableOpenPayload({ commentKey: ck, channelId: ch, postId: post, messageId: messageId || post }));
+  const raw = buildPostSnapshotRaw({
+    source,
+    commentKey: ck,
+    channelId: ch,
+    postId: post,
+    messageId: messageId || post,
+    title: title || originalText || post,
+    channelTitle,
+    originalText: originalText || title || "",
+    sourceAttachments,
+    originalLink,
+    originalFormat,
+    handoffToken,
+    stablePayload: payload,
+    linkedByUserId,
+    linkedByName
+  });
+
   const admins = await adminIdsForChannel(ch, linkedByUserId);
   const registered = [];
   for (const adminId of admins) {
-    const result = await db.upsertPost(adminId, ch, post, String(title || post).slice(0, 120), {
-      source,
-      runtimeVersion: DB_SYNC_RUNTIME,
-      commentKey: clean(commentKey || `${ch}:${post}`),
-      channelTitle: clean(channelTitle || ch)
-    }, clean(messageId || post));
+    const result = await db.upsertPost(adminId, ch, post, String(title || originalText || post).slice(0, 120), raw, clean(messageId || post));
     if (result) registered.push(result);
   }
 
-  return { ok: true, runtimeVersion: DB_SYNC_RUNTIME, registered: registered.length, admins, channelId: ch, postId: post, commentKey: clean(commentKey || `${ch}:${post}`) };
+  return { ok: true, runtimeVersion: DB_SYNC_RUNTIME, registered: registered.length, admins, channelId: ch, postId: post, commentKey: ck, stablePayload: payload };
 }
 
 async function patchStoredPost({
@@ -119,16 +185,42 @@ async function patchStoredPost({
     } catch {}
   }
 
+  const stablePayload = clean(post.stablePayload || buildStableOpenPayload({
+    commentKey,
+    postId: post.postId,
+    channelId: post.channelId,
+    messageId: post.messageId || post.postId
+  }));
+
   const handoffToken = String(post.handoffToken || "").trim() || saveHandoff(makeHandoffToken(commentKey), {
     commentKey,
     postId: String(post.postId || ""),
     channelId: String(post.channelId || ""),
-    messageId: String(post.messageId || "")
+    messageId: String(post.messageId || ""),
+    stablePayload
   });
 
-  if (handoffToken && handoffToken !== post.handoffToken) {
-    savePost(commentKey, { handoffToken });
+  if ((handoffToken && handoffToken !== post.handoffToken) || (stablePayload && stablePayload !== post.stablePayload)) {
+    savePost(commentKey, { handoffToken, stablePayload });
   }
+
+  await syncPatchedPostToDb({
+    channelId: post.channelId,
+    postId: post.postId,
+    messageId: post.messageId,
+    title: originalText || post.originalText || post.postId,
+    channelTitle: post.channelTitle,
+    linkedByUserId: post.linkedByUserId,
+    linkedByName: post.linkedByName,
+    commentKey,
+    originalText,
+    sourceAttachments: originalAttachments,
+    originalLink,
+    originalFormat,
+    handoffToken,
+    stablePayload,
+    source: "post_patcher_patch_stored_post_snapshot"
+  });
 
   const giftCampaign = findGiftCampaignForPost({
     channelId: post.channelId,
@@ -160,6 +252,7 @@ async function patchStoredPost({
     postId: post.postId,
     channelId: post.channelId,
     commentKey,
+    messageId: post.messageId || post.postId,
     count: commentCount,
     extraRows: [...customRows, ...giftRows],
     buttonSuffix: "",
@@ -170,7 +263,7 @@ async function patchStoredPost({
   const nextFingerprint = stableStringify(mergedAttachments);
 
   if (stableStringify(post.patchedAttachments) === nextFingerprint) {
-    return { ok: true, commentCount, skipped: true, reason: "already_patched", giftCampaignId: giftCampaign?.id || "" };
+    return { ok: true, commentCount, skipped: true, reason: "already_patched", giftCampaignId: giftCampaign?.id || "", stablePayload };
   }
 
   try {
@@ -200,10 +293,11 @@ async function patchStoredPost({
       lastPatchedFingerprint: nextFingerprint,
       lastPatchedAt: Date.now(),
       lastPatchError: null,
+      stablePayload,
       giftCampaignId: giftCampaign?.id || ""
     });
 
-    return { ok: true, commentCount, patchResult, giftCampaignId: giftCampaign?.id || "" };
+    return { ok: true, commentCount, patchResult, giftCampaignId: giftCampaign?.id || "", stablePayload };
   } catch (error) {
     const patchError = {
       status: error?.status || 0,
@@ -214,6 +308,7 @@ async function patchStoredPost({
     savePost(commentKey, {
       lastPatchError: patchError,
       lastPatchAttemptAt: Date.now(),
+      stablePayload,
       giftCampaignId: giftCampaign?.id || ""
     });
 
@@ -221,7 +316,8 @@ async function patchStoredPost({
       ok: false,
       commentCount,
       error: patchError,
-      giftCampaignId: giftCampaign?.id || ""
+      giftCampaignId: giftCampaign?.id || "",
+      stablePayload
     };
   }
 }
@@ -245,6 +341,7 @@ async function tryPatchChannelPost({
   autoMode = false
 }) {
   const commentKey = makeCommentKey(channelId, postId);
+  const stablePayload = buildStableOpenPayload({ commentKey, postId, channelId, messageId: messageId || postId });
 
   const existingPost = getPost(commentKey);
   if (existingPost && String(existingPost.messageId || "") === String(messageId || "") && existingPost.lastPatchedFingerprint) {
@@ -255,19 +352,27 @@ async function tryPatchChannelPost({
       title: existingPost.originalText || originalText || postId,
       channelTitle: existingPost.channelTitle || channelTitle,
       linkedByUserId: existingPost.linkedByUserId || linkedByUserId,
+      linkedByName: existingPost.linkedByName || linkedByName,
       commentKey,
+      originalText: existingPost.originalText || originalText || "",
+      sourceAttachments: existingPost.sourceAttachments || sourceAttachments || [],
+      originalLink: existingPost.originalLink || originalLink || null,
+      originalFormat: existingPost.originalFormat !== undefined ? existingPost.originalFormat : originalFormat,
+      handoffToken: existingPost.handoffToken,
+      stablePayload: existingPost.stablePayload || stablePayload,
       source: "post_patcher_existing_already_patched"
     });
     return {
       commentKey,
-      botStartLink: buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken: existingPost.handoffToken, postId, channelId, commentKey }),
-      miniAppLink: buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken: existingPost.handoffToken, postId, channelId, commentKey }),
+      botStartLink: buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken: existingPost.handoffToken, postId, channelId, commentKey, messageId }),
+      miniAppLink: buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken: existingPost.handoffToken, postId, channelId, commentKey, messageId }),
       fallbackLink: `${String(appBaseUrl || "").replace(/\/$/, "")}/fallback?postId=${encodeURIComponent(String(postId || ""))}`,
       post: existingPost,
       patchResult: null,
       patchError: null,
       commentCount: getComments(commentKey).length,
-      skipped: true
+      skipped: true,
+      stablePayload: existingPost.stablePayload || stablePayload
     };
   }
 
@@ -275,7 +380,8 @@ async function tryPatchChannelPost({
     commentKey,
     postId: String(postId || ""),
     channelId: String(channelId || ""),
-    messageId: String(messageId || "")
+    messageId: String(messageId || ""),
+    stablePayload
   });
 
   const postRecord = savePost(commentKey, {
@@ -293,6 +399,7 @@ async function tryPatchChannelPost({
     linkedByName: String(linkedByName || ""),
     autoMode: Boolean(autoMode),
     handoffToken,
+    stablePayload,
     createdAt: Date.now()
   });
 
@@ -312,7 +419,14 @@ async function tryPatchChannelPost({
     title: originalText || postId,
     channelTitle,
     linkedByUserId,
+    linkedByName,
     commentKey,
+    originalText,
+    sourceAttachments,
+    originalLink,
+    originalFormat,
+    handoffToken,
+    stablePayload,
     source: "post_patcher_try_patch_channel_post"
   });
 
@@ -326,14 +440,15 @@ async function tryPatchChannelPost({
 
   return {
     commentKey,
-    botStartLink: buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey }),
-    miniAppLink: buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey }),
+    botStartLink: buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, messageId }),
+    miniAppLink: buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, messageId }),
     fallbackLink: `${String(appBaseUrl || "").replace(/\/$/, "")}/fallback?postId=${encodeURIComponent(String(postId || ""))}`,
     post: postRecord,
     patchResult: patchAttempt.ok ? patchAttempt.patchResult : null,
     patchError: patchAttempt.ok ? null : patchAttempt.error || { message: patchAttempt.reason || "patch_failed" },
     commentCount: patchAttempt.commentCount || 0,
-    giftCampaignId: patchAttempt.giftCampaignId || ""
+    giftCampaignId: patchAttempt.giftCampaignId || "",
+    stablePayload: patchAttempt.stablePayload || stablePayload
   };
 }
 
