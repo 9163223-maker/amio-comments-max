@@ -1,14 +1,14 @@
 {
-  "runtimeVersion": "CC6.6.5-SAFE-COMMENTS-BOOT-CORE",
-  "buildVersion": "CC6.6.5-SAFE-COMMENTS-BOOT-CORE",
-  "displayVersion": "CC6.6.5",
-  "packageVersion": "CC6.5.9.3",
-  "sourceMarker": "adminkit-CC6.6.5-immutable-safe-comments-boot-core",
-  "buildGeneratedAt": "2026-05-11T20:10:00Z",
+  "runtimeVersion": "CC6.8.3-HARD-V3-DBFIRST-COMMENTS-ROOT",
+  "buildVersion": "CC6.8.3-HARD-V3-DBFIRST-COMMENTS-ROOT",
+  "displayVersion": "CC6.8.3",
+  "packageVersion": "CC6.8.3-v4",
+  "sourceMarker": "adminkit-v4-683-dbfirst-comments-render",
+  "buildGeneratedAt": "2026-05-14T09:45:00Z",
   "notes": [
-    "Added separate protected comments boot core before all legacy modules.",
-    "The boot core injects no-cache HTML/app.js startup parsing and must not be touched by feature modules.",
-    "It parses commentKey, channelId+postId, cp__ legacy payloads, signed negative channel ids, and handoff tokens.",
-    "Menu tree and banner modules are untouched."
+    "Post meta for comments is resolved from Postgres only.",
+    "Numeric MAX startapp values such as 22 or 23 are resolved through ak_posts title fallback.",
+    "The comment screen must not show default duplicate chips before DB meta is loaded.",
+    "The first chip is static: Начало обсуждения. Only the second chip is dynamic: default АдминКИТ or custom CTA."
   ]
 }
