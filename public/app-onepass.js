@@ -1,8 +1,8 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.2.1-APPJS-ONEPASS-RAW-PARAMS';
-const MARKER = '__ADMINKIT_CC7_2_1_APPJS_ONEPASS__';
+const RUNTIME = 'CC7.4.3-APPJS-COMPACT-PAYLOAD-SCAN';
+const MARKER = '__ADMINKIT_CC7_4_3_APPJS_COMPACT_PAYLOAD_SCAN__';
 if (window[MARKER]) return;
 window[MARKER] = true;
 
@@ -86,35 +86,87 @@ function derivePostNumber(text) {
   if (!s) return '';
   let m = s.match(/(?:^|[^\w])(post|пост)[:=\s-]*(\d{1,4})(?:$|[^\w])/i);
   if (m) return m[2];
-  m = s.match(/(?:^|[?&#\s])(startapp|start_param|WebAppStartParam|post|postId|post_id|title)=(?:Post\s*)?(\d{1,4})(?:$|[&#\s])/i);
+  m = s.match(/(?:^|[?&#\s])(startapp|start_param|WebAppStartParam|payload|startPayload|start_payload|post|postId|post_id|title)=(?:Post\s*)?(\d{1,4})(?:$|[&#\s])/i);
   if (m) return m[2];
   m = s.match(/^\d{1,4}$/);
   if (m) return m[0];
   return '';
 }
+function parseCompactPayload(text) {
+  const s = clean(safeDecode(text));
+  const out = { commentKey: '', channelId: '', postId: '', handoff: '' };
+  if (!s) return out;
+  let m = s.match(/(?:^|[^A-Za-z0-9_-])(cp_(-?\d{3,})_(-?\d{1,}))(?:$|[^A-Za-z0-9_-])/) || s.match(/^(cp_(-?\d{3,})_(-?\d{1,}))$/);
+  if (m) {
+    out.handoff = m[1];
+    out.channelId = m[2];
+    out.postId = m[3];
+    out.commentKey = out.channelId + ':' + out.postId;
+    return out;
+  }
+  m = s.match(/(?:^|[^A-Za-z0-9_-])(ck_(-?\d{3,})_(-?\d{1,}))(?:$|[^A-Za-z0-9_-])/) || s.match(/^(ck_(-?\d{3,})_(-?\d{1,}))$/);
+  if (m) {
+    out.handoff = m[1];
+    out.channelId = m[2];
+    out.postId = m[3];
+    out.commentKey = out.channelId + ':' + out.postId;
+    return out;
+  }
+  m = s.match(/(-?\d{3,}):(-?\d{1,})/);
+  if (m) {
+    out.channelId = m[1];
+    out.postId = m[2];
+    out.commentKey = out.channelId + ':' + out.postId;
+  }
+  return out;
+}
 function scanParams() {
   const result = { commentKey: '', handoff: '', channelId: '', postId: '', title: '', raw: '', rawPieces: [] };
+  function applyCompact(value) {
+    const parsed = parseCompactPayload(value);
+    if (parsed.handoff && !result.handoff) result.handoff = parsed.handoff;
+    if (parsed.commentKey && !result.commentKey) result.commentKey = parsed.commentKey;
+    if (parsed.channelId && !result.channelId) result.channelId = parsed.channelId;
+    if (parsed.postId && !result.postId) result.postId = parsed.postId;
+    return Boolean(parsed.commentKey || parsed.channelId || parsed.postId || parsed.handoff);
+  }
   function addRaw(value) {
     const v = String(value || '');
     if (!v) return;
     addUnique(result.rawPieces, v);
     addUnique(result.rawPieces, safeDecode(v));
+    applyCompact(v);
   }
   function setValue(key, value) {
     const v = clean(safeDecode(value));
     if (!v) return;
     addRaw(v);
+    applyCompact(v);
     if ((key === 'commentKey' || key === 'key') && !result.commentKey) result.commentKey = v.replace(/^ck:/i, '');
-    if ((key === 'handoff' || key === 'startapp' || key === 'start_param' || key === 'WebAppStartParam') && !result.handoff) result.handoff = v;
-    if ((key === 'channelId' || key === 'channel') && !result.channelId) result.channelId = v;
-    if ((key === 'postId' || key === 'post_id' || key === 'messageId') && !result.postId) result.postId = v.replace(/^post:/i, '');
+    if ((key === 'handoff' || key === 'startapp' || key === 'start_param' || key === 'WebAppStartParam' || key === 'payload' || key === 'startPayload' || key === 'start_payload' || key === 'button_payload' || key === 'launch_payload' || key === 'web_app_payload') && !result.handoff) result.handoff = v;
+    if ((key === 'channelId' || key === 'channel' || key === 'channel_id') && !result.channelId) result.channelId = v;
+    if ((key === 'postId' || key === 'post_id' || key === 'messageId' || key === 'message_id') && !result.postId) result.postId = v.replace(/^post:/i, '');
     if ((key === 'title' || key === 'postTitle' || key === 'postText') && !result.title) result.title = v;
   }
+  function scanObject(obj, depth) {
+    if (!obj || typeof obj !== 'object' || depth > 4) return;
+    try { addRaw(JSON.stringify(obj).slice(0, 2000)); } catch (_) {}
+    Object.entries(obj).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      if (typeof value === 'object') {
+        scanObject(value, depth + 1);
+      } else {
+        setValue(key, value);
+      }
+    });
+  }
   function scan(raw) {
+    if (raw && typeof raw === 'object') { scanObject(raw, 0); return; }
     raw = String(raw || '');
     if (!raw) return;
     addRaw(raw);
     for (const variant of [raw, safeDecode(raw)]) {
+      applyCompact(variant);
       const parts = [variant];
       if (variant.includes('?')) parts.push(variant.split('?').slice(1).join('?'));
       if (variant.includes('#')) parts.push(variant.split('#').slice(1).join('#'));
@@ -124,11 +176,13 @@ function scanParams() {
           for (const pair of params.entries()) setValue(pair[0], pair[1]);
         } catch (_) {}
       }
+      const compact = variant.match(/(cp_-?\d{3,}_-?\d{1,}|ck_-?\d{3,}_-?\d{1,})/i);
+      if (compact) setValue('handoff', compact[1]);
       const ck = variant.match(/-?\d{6,}:-?\d{3,}/);
       if (ck) setValue('commentKey', ck[0]);
       const handoff = variant.match(/h_[A-Za-z0-9_-]{6,}/);
       if (handoff) setValue('handoff', handoff[0]);
-      const postId = variant.match(/(?:postId|post_id|messageId|post)[:=](-?\d{1,})/i);
+      const postId = variant.match(/(?:postId|post_id|messageId|message_id|post)[:=](-?\d{1,})/i);
       if (postId) setValue('postId', postId[1]);
       const title = variant.match(/\b(Post\s*new!!\s*\d+!|Post\s*new\s*\d+|Post\s*zero\s*\d+|Post\s*\d+|Пост\s*\d+)\b/i);
       if (title) setValue('title', title[1]);
@@ -144,11 +198,15 @@ function scanParams() {
   getPossibleWebApps().forEach((app) => {
     try {
       const unsafe = (app && app.initDataUnsafe) || {};
-      ['start_param', 'startapp', 'postId', 'post_id', 'commentKey', 'channelId', 'title', 'postTitle'].forEach((key) => setValue(key, unsafe[key]));
+      ['start_param', 'startapp', 'WebAppStartParam', 'payload', 'startPayload', 'start_payload', 'button_payload', 'launch_payload', 'web_app_payload', 'postId', 'post_id', 'messageId', 'message_id', 'commentKey', 'channelId', 'channel_id', 'title', 'postTitle'].forEach((key) => setValue(key, unsafe[key]));
+      scanObject(unsafe, 0);
       scan(app && app.initData);
       scan(app && app.startParam);
       scan(app && app.launchParams);
       scan(app && app.params);
+      scan(app && app.payload);
+      scan(app && app.startPayload);
+      scan(app && app.start_payload);
     } catch (_) {}
   });
 
@@ -159,6 +217,7 @@ function scanParams() {
   }
   if (!result.postId) {
     for (const piece of result.rawPieces) {
+      applyCompact(piece);
       const number = derivePostNumber(piece);
       if (number) { result.postId = number; break; }
     }
@@ -189,6 +248,7 @@ const state = {
   currentUserId: getBridgeUserId(), currentUserName: getBridgeUserName(), currentUserAvatarUrl: getBridgeAvatarUrl(),
   comments: [], meta: {}, commentsCount: 0, pollTimer: null, requestInFlight: false
 };
+window.__ADMINKIT_CC7_4_3_STATE__ = state;
 window.__ADMINKIT_CC7_2_STATE__ = state;
 
 function setInlineStatus(message, isError) {
@@ -205,6 +265,7 @@ function buildOpenStateUrl() {
   if (state.postId) q.set('postId', state.postId);
   if (state.title) q.set('title', state.title);
   if (state.raw) q.set('raw', state.raw);
+  q.set('appRuntime', RUNTIME);
   q.set('t', Date.now());
   return '/api/adminkit/comment-open-state?' + q.toString();
 }
@@ -356,6 +417,7 @@ function boot() {
   if (!(state.commentKey || state.handoff || state.postId || state.title || state.raw)) { showMiniStart(); return; }
 
   const initial = loadOpenStateSync();
+  window.__ADMINKIT_CC7_4_3_INITIAL__ = initial;
   window.__ADMINKIT_CC7_2_INITIAL__ = initial;
   if (initial && initial.ok) {
     renderOpenState(initial);
