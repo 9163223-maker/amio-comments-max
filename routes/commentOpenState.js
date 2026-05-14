@@ -1,12 +1,13 @@
 'use strict';
 
-// CC7.1 clean architecture step 2.
+// CC7.2.5
 // Express routes for the comments initial state.
+// Fix focus: keep new posts stable after the next deploy and expose clear diagnostics.
 // This module is explicit: no Module._load, no public/app.js patching, no UI changes.
 
 const postMetaService = require('../services/postMetaService');
 
-const RUNTIME = 'CC7.1-COMMENT-OPEN-STATE-ROUTE';
+const RUNTIME = 'CC7.2.5-COMMENT-OPEN-STATE-ROUTE';
 
 function setNoCache(res) {
   try {
@@ -26,6 +27,20 @@ function safeError(error) {
 async function buildStateFromRequest(req, options = {}) {
   const params = postMetaService.parseParamsFromRequest(req);
   return postMetaService.buildCommentOpenState(params, options);
+}
+
+function requestSnapshot(req) {
+  return {
+    method: req.method,
+    url: req.url,
+    originalUrl: req.originalUrl,
+    path: req.path,
+    query: req.query || {},
+    headers: {
+      referer: req.get ? (req.get('referer') || req.get('referrer') || '') : '',
+      userAgent: req.get ? (req.get('user-agent') || '') : ''
+    }
+  };
 }
 
 async function commentOpenStateHandler(req, res) {
@@ -59,20 +74,21 @@ async function debugCommentOpenStateHandler(req, res) {
     const params = postMetaService.parseParamsFromRequest(req);
     const state = await postMetaService.buildCommentOpenState(params, { includeComments: true });
     return res.json({
-      ok: true,
+      ok: Boolean(state && state.meta),
       routeRuntimeVersion: RUNTIME,
+      serviceRuntimeVersion: postMetaService.RUNTIME || '',
       service: postMetaService.selfTest ? postMetaService.selfTest() : null,
-      request: {
-        url: req.url,
-        originalUrl: req.originalUrl,
-        query: req.query || {}
-      },
-      state
+      request: requestSnapshot(req),
+      params,
+      state,
+      error: state && state.error ? state.error : ''
     });
   } catch (error) {
     return res.json({
       ok: false,
       routeRuntimeVersion: RUNTIME,
+      serviceRuntimeVersion: postMetaService.RUNTIME || '',
+      request: requestSnapshot(req),
       error: safeError(error)
     });
   }
@@ -85,8 +101,8 @@ function registerCommentOpenStateRoutes(app) {
   app.get('/api/adminkit/comment-open-state', commentOpenStateHandler);
   app.get('/debug/comment-open-state', debugCommentOpenStateHandler);
 
-  // Temporary compatibility endpoint while old debug links still exist.
-  // It returns the same DB-based meta, but the clean route is /api/adminkit/comment-open-state.
+  // Compatibility endpoint while old debug links still exist.
+  // It returns the same resolver result, but the clean route is /api/adminkit/comment-open-state.
   app.get('/debug/post-meta-clean', async (req, res) => {
     setNoCache(res);
     try {
@@ -96,6 +112,7 @@ function registerCommentOpenStateRoutes(app) {
         ok: Boolean(meta),
         routeRuntimeVersion: RUNTIME,
         serviceRuntimeVersion: postMetaService.RUNTIME || '',
+        request: requestSnapshot(req),
         params,
         meta,
         error: meta ? '' : 'post_meta_not_found'
@@ -105,6 +122,7 @@ function registerCommentOpenStateRoutes(app) {
         ok: false,
         routeRuntimeVersion: RUNTIME,
         serviceRuntimeVersion: postMetaService.RUNTIME || '',
+        request: requestSnapshot(req),
         params: null,
         meta: null,
         error: safeError(error)
@@ -119,12 +137,13 @@ function selfTest() {
   return {
     ok: true,
     runtimeVersion: RUNTIME,
+    serviceRuntimeVersion: postMetaService.RUNTIME || '',
     endpoints: [
       '/api/adminkit/comment-open-state',
       '/debug/comment-open-state',
       '/debug/post-meta-clean'
     ],
-    policy: 'explicit_express_routes_no_loader_no_ui_patch_no_module_load'
+    policy: 'explicit_express_routes_with_no_cache_and_debug_payload_snapshot'
   };
 }
 
