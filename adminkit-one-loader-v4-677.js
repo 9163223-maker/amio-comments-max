@@ -29,7 +29,6 @@ function load(pathName) {
 load('./adminkit-v4-post-meta-title-resolver');
 load('./adminkit-v4-ui-db-fix');
 load('./adminkit-comments-dbfirst-render');
-load('./adminkit-comments-source-ui-core');
 const old = require('./adminkit-one-loader-v4');
 
 function layerSummary() {
@@ -41,7 +40,7 @@ function layerSummary() {
     hasPostMetaTitleFallback: preLayers.some(x => x.path === './adminkit-v4-post-meta-title-resolver' && x.ok),
     hasV4DbHelperMetaResolve: preLayers.some(x => x.path === './adminkit-v4-ui-db-fix' && x.ok),
     hasDbFirstCommentsRender: preLayers.some(x => x.path === './adminkit-comments-dbfirst-render' && x.ok),
-    hasCommentsSourceUiCore: preLayers.some(x => x.path === './adminkit-comments-source-ui-core' && x.ok)
+    hasCommentsSourceUiCore: false
   };
 }
 
