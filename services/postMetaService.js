@@ -1,13 +1,17 @@
 'use strict';
 
-// CC7.1 clean architecture step 1.
-// Pure Postgres service for comment open state/post meta.
-// No Express wrapping, no Module._load, no public/app.js patching, no store/history decisions.
+// CC7.2.4
+// Comment open state resolver.
+// Important fix: open_app in MAX passes start_param/startapp payload (usually h_<token>).
+// The previous clean Postgres-only resolver could not translate that handoff token to commentKey,
+// so both old and new posts opened without a post context.
 
 const db = require('../cc5-db-core');
 const stateDb = require('../db-v3-state');
+let storeApi = null;
+try { storeApi = require('../store'); } catch (_) { storeApi = null; }
 
-const RUNTIME = 'CC7.1-POST-META-SERVICE';
+const RUNTIME = 'CC7.2.4-POST-META-HANDOFF-RESOLVE';
 
 function clean(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -102,6 +106,48 @@ function pushTitleVariants(target, value) {
   }
 }
 
+function normalizeHandoffToken(value = '') {
+  const text = clean(safeDecode(value));
+  const match = text.match(/(?:^|[^\w-])(h_[A-Za-z0-9_-]{6,})(?:$|[^\w-])/) || text.match(/^(h_[A-Za-z0-9_-]{6,})$/);
+  return match ? match[1] : '';
+}
+
+function resolveCommentKeyFromHandoffSafe(token = '') {
+  const handoff = normalizeHandoffToken(token);
+  if (!handoff || !storeApi || typeof storeApi.resolveCommentKeyFromHandoff !== 'function') return '';
+  try { return clean(storeApi.resolveCommentKeyFromHandoff(handoff)); } catch (_) { return ''; }
+}
+
+function parseCompactPayload(value = {}) {
+  const text = clean(safeDecode(value));
+  const out = { commentKey: '', channelId: '', postId: '' };
+  if (!text) return out;
+
+  let m = text.match(/^cp_(-?\d{3,})_(-?\d{1,})$/i);
+  if (m) {
+    out.channelId = m[1];
+    out.postId = m[2];
+    out.commentKey = `${out.channelId}:${out.postId}`;
+    return out;
+  }
+
+  m = text.match(/^ck_(-?\d{3,})_(-?\d{1,})$/i);
+  if (m) {
+    out.channelId = m[1];
+    out.postId = m[2];
+    out.commentKey = `${out.channelId}:${out.postId}`;
+    return out;
+  }
+
+  m = text.match(/(-?\d{3,}):(-?\d{1,})/);
+  if (m) {
+    out.channelId = m[1];
+    out.postId = m[2];
+    out.commentKey = `${out.channelId}:${out.postId}`;
+  }
+  return out;
+}
+
 function normalizeParams(input = {}) {
   const rawPieces = [
     input.url,
@@ -135,8 +181,13 @@ function normalizeParams(input = {}) {
   for (const item of rawText) {
     const text = safeDecode(item);
 
+    const compact = parseCompactPayload(text);
+    if (!commentKey && compact.commentKey) commentKey = compact.commentKey;
+    if (!channelId && compact.channelId) channelId = compact.channelId;
+    if (!postId && compact.postId) postId = compact.postId;
+
     if (!commentKey) {
-      const match = text.match(/-?\d{6,}:-?\d{3,}/);
+      const match = text.match(/-?\d{3,}:-?\d{1,}/);
       if (match) commentKey = match[0];
     }
 
@@ -146,7 +197,7 @@ function normalizeParams(input = {}) {
     }
 
     if (!postId) {
-      const match = text.match(/(?:postId|post_id|messageId)[:=](-?\d{1,})/i);
+      const match = text.match(/(?:postId|post_id|messageId|post)[:=](-?\d{1,})/i);
       if (match) postId = match[1];
     }
 
@@ -157,6 +208,9 @@ function normalizeParams(input = {}) {
 
     if (!displayPostNumber) displayPostNumber = extractDisplayPostNumber(text);
   }
+
+  const handoffCommentKey = resolveCommentKeyFromHandoffSafe(handoff);
+  if (!commentKey && handoffCommentKey) commentKey = handoffCommentKey;
 
   if (commentKey && commentKey.includes(':')) {
     const [channelPart, postPart] = commentKey.split(':');
@@ -178,6 +232,7 @@ function normalizeParams(input = {}) {
 
   const keys = uniq([
     commentKey,
+    handoffCommentKey,
     handoff,
     postId && /^\d{5,}$/.test(postId) ? postId : '',
     ...rawText
@@ -190,6 +245,7 @@ function normalizeParams(input = {}) {
   return {
     commentKey,
     handoff,
+    handoffResolvedCommentKey: handoffCommentKey,
     channelId,
     postId,
     displayPostNumber,
@@ -303,7 +359,7 @@ async function resolvePostMeta(input = {}) {
       button: customButtonText,
       link: clean(row.comments_banner_link)
     },
-    source: 'Postgres ak_posts + ak_post_settings',
+    source: 'Postgres ak_posts + ak_post_settings + store handoff resolver',
     resolvedAt: new Date().toISOString()
   };
 }
@@ -348,7 +404,8 @@ function selfTest() {
       'resolvePostMeta',
       'buildCommentOpenState'
     ],
-    policy: 'pure_service_postgres_only_no_express_wrap_no_client_patch_no_store_history_decisions'
+    storeHandoffResolver: Boolean(storeApi && typeof storeApi.resolveCommentKeyFromHandoff === 'function'),
+    policy: 'postgres_meta_plus_store_handoff_resolve_for_max_open_app_start_param'
   };
 }
 
