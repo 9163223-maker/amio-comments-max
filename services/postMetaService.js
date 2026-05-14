@@ -1,17 +1,16 @@
 'use strict';
 
-// CC7.2.4
+// CC7.2.5
 // Comment open state resolver.
-// Important fix: open_app in MAX passes start_param/startapp payload (usually h_<token>).
-// The previous clean Postgres-only resolver could not translate that handoff token to commentKey,
-// so both old and new posts opened without a post context.
+// Focus: posts created on the current architecture must keep resolving after the next deploy.
+// Resolution order: Postgres ak_posts/ak_post_settings -> store handoff/posts fallback.
 
 const db = require('../cc5-db-core');
 const stateDb = require('../db-v3-state');
 let storeApi = null;
 try { storeApi = require('../store'); } catch (_) { storeApi = null; }
 
-const RUNTIME = 'CC7.2.4-POST-META-HANDOFF-RESOLVE';
+const RUNTIME = 'CC7.2.5-POST-META-DEPLOY-STABILITY-FALLBACK';
 
 function clean(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -53,6 +52,10 @@ function isBadTitle(value) {
     /^[a-f0-9]{16,}$/i.test(text);
 }
 
+function isAdminUiTitle(value) {
+  return /админкит|главное меню|выберите|статус:|комментарии|подарки|кнопки|модерация/i.test(clean(value));
+}
+
 function pickPostTitle(row = {}) {
   const raw = row.raw && typeof row.raw === 'object' ? row.raw : {};
   const candidates = [
@@ -65,15 +68,17 @@ function pickPostTitle(row = {}) {
     raw.postText,
     raw.post_text,
     row.title,
-    raw.title
+    raw.title,
+    row.postTitle,
+    row.postText
   ];
 
   for (const candidate of candidates) {
     const title = cut(candidate, 320);
-    if (!isBadTitle(title) && !/админкит|главное меню|выберите|статус:/i.test(title)) return title;
+    if (!isBadTitle(title) && !isAdminUiTitle(title)) return title;
   }
 
-  return clean(row.title) || clean(row.post_id) || 'Пост';
+  return clean(row.title) || clean(row.post_id || row.postId) || 'Пост';
 }
 
 function extractDisplayPostNumber(value) {
@@ -97,7 +102,7 @@ function extractDisplayPostNumber(value) {
 
 function pushTitleVariants(target, value) {
   const text = clean(safeDecode(value));
-  if (!text || isBadTitle(text)) return;
+  if (!text || isBadTitle(text) || isAdminUiTitle(text)) return;
 
   target.push(text);
   const number = extractDisplayPostNumber(text);
@@ -209,7 +214,9 @@ function normalizeParams(input = {}) {
     if (!displayPostNumber) displayPostNumber = extractDisplayPostNumber(text);
   }
 
-  const handoffCommentKey = resolveCommentKeyFromHandoffSafe(handoff);
+  const normalizedHandoff = normalizeHandoffToken(handoff) || normalizeHandoffToken(rawText.join(' '));
+  if (!handoff && normalizedHandoff) handoff = normalizedHandoff;
+  const handoffCommentKey = resolveCommentKeyFromHandoffSafe(handoff || normalizedHandoff);
   if (!commentKey && handoffCommentKey) commentKey = handoffCommentKey;
 
   if (commentKey && commentKey.includes(':')) {
@@ -233,18 +240,20 @@ function normalizeParams(input = {}) {
   const keys = uniq([
     commentKey,
     handoffCommentKey,
+    normalizedHandoff,
     handoff,
     postId && /^\d{5,}$/.test(postId) ? postId : '',
     ...rawText
   ]);
 
   const likeKeys = uniq([...keys, ...titleCandidates])
-    .filter((value) => value.length >= 4)
+    .filter((value) => value.length >= 4 && value.length <= 1024)
     .map(escapeLike);
 
   return {
     commentKey,
     handoff,
+    normalizedHandoff,
     handoffResolvedCommentKey: handoffCommentKey,
     channelId,
     postId,
@@ -284,11 +293,41 @@ async function ensureSchema() {
   await stateDb.ensure();
 }
 
-async function resolvePostMeta(input = {}) {
-  const params = input && input.keys ? input : normalizeParams(input);
+function rowToMeta(row = {}, source = 'Postgres ak_posts + ak_post_settings') {
+  const customButtonText = clean(row.comments_banner_button || row.comments_banner_text || row.commentsBannerButton || row.commentsBannerText || '');
+  return {
+    adminId: row.admin_id || row.adminId || '',
+    commentKey: row.comment_key || row.commentKey || '',
+    channelId: row.channel_id || row.channelId || '',
+    channelTitle: clean(row.channel_title || row.channelTitle) || 'Подключённый канал',
+    postId: row.post_id || row.postId || '',
+    messageId: row.message_id || row.messageId || '',
+    postTitle: pickPostTitle(row),
+    commentsEnabled: row.comments_enabled !== false && row.commentsEnabled !== false,
+    commentsPhoto: row.comments_photo !== false && row.commentsPhoto !== false,
+    commentsReactions: row.comments_reactions !== false && row.commentsReactions !== false,
+    banner: {
+      enabled: row.comments_banner !== false && row.commentsBanner !== false,
+      staticLabel: 'Начало обсуждения',
+      text: customButtonText,
+      button: customButtonText,
+      link: clean(row.comments_banner_link || row.commentsBannerLink)
+    },
+    source,
+    resolvedAt: new Date().toISOString()
+  };
+}
+
+async function resolvePostMetaFromDb(params = {}) {
   await ensureSchema();
 
   const { keys, channelId, postId, titleCandidates, likeKeys } = params;
+  const longPostId = postId && String(postId).length > 4 ? postId : '';
+  const shortTitleCandidates = uniq([
+    ...titleCandidates,
+    params.displayPostNumber ? `Post ${params.displayPostNumber}` : '',
+    postId && /^\d{1,4}$/.test(postId) ? `Post ${postId}` : ''
+  ]);
 
   const { rows } = await db.query(`
     select
@@ -319,49 +358,152 @@ async function resolvePostMeta(input = {}) {
     ) s on true
     where
       (coalesce(array_length($1::text[], 1), 0) > 0 and p.comment_key = any($1::text[]))
-      or ($2 <> '' and $3 <> '' and length($3) > 4 and p.channel_id = $2 and (p.post_id = $3 or p.message_id = $3))
-      or ($3 <> '' and length($3) > 4 and (p.post_id = $3 or p.message_id = $3))
+      or ($2 <> '' and $3 <> '' and p.channel_id = $2 and (p.post_id = $3 or p.message_id = $3))
+      or ($3 <> '' and (p.post_id = $3 or p.message_id = $3))
       or (coalesce(array_length($4::text[], 1), 0) > 0 and lower(coalesce(p.title,'')) = any(select lower(x) from unnest($4::text[]) x))
       or (coalesce(array_length($5::text[], 1), 0) > 0 and p.raw::text ilike any($5::text[]))
     order by
       case
         when coalesce(array_length($1::text[], 1), 0) > 0 and p.comment_key = any($1::text[]) then 1
-        when $2 <> '' and $3 <> '' and length($3) > 4 and p.channel_id = $2 and (p.post_id = $3 or p.message_id = $3) then 2
-        when $3 <> '' and length($3) > 4 and (p.post_id = $3 or p.message_id = $3) then 3
+        when $2 <> '' and $3 <> '' and p.channel_id = $2 and (p.post_id = $3 or p.message_id = $3) then 2
+        when $3 <> '' and (p.post_id = $3 or p.message_id = $3) then 3
         when coalesce(array_length($4::text[], 1), 0) > 0 and lower(coalesce(p.title,'')) = any(select lower(x) from unnest($4::text[]) x) then 4
         when coalesce(array_length($5::text[], 1), 0) > 0 and p.raw::text ilike any($5::text[]) then 5
         else 9
       end,
       p.updated_at desc
     limit 1
-  `, [keys, channelId, postId, titleCandidates, likeKeys]);
+  `, [keys, channelId, longPostId, shortTitleCandidates, likeKeys]);
 
   const row = rows[0];
-  if (!row) return null;
+  return row ? rowToMeta(row, 'Postgres ak_posts + ak_post_settings') : null;
+}
 
-  const customButtonText = clean(row.comments_banner_button || row.comments_banner_text || '');
+function getStorePostByKey(key = '') {
+  if (!storeApi || typeof storeApi.getPost !== 'function') return null;
+  try { return storeApi.getPost(key); } catch (_) { return null; }
+}
 
-  return {
-    adminId: row.admin_id,
-    commentKey: row.comment_key,
-    channelId: row.channel_id,
-    channelTitle: clean(row.channel_title) || 'Подключённый канал',
-    postId: row.post_id,
-    messageId: row.message_id,
-    postTitle: pickPostTitle(row),
-    commentsEnabled: row.comments_enabled !== false,
-    commentsPhoto: row.comments_photo !== false,
-    commentsReactions: row.comments_reactions !== false,
-    banner: {
-      enabled: row.comments_banner !== false,
-      staticLabel: 'Начало обсуждения',
-      text: customButtonText,
-      button: customButtonText,
-      link: clean(row.comments_banner_link)
-    },
-    source: 'Postgres ak_posts + ak_post_settings + store handoff resolver',
-    resolvedAt: new Date().toISOString()
+function getStorePostsList() {
+  if (!storeApi || typeof storeApi.getPostsList !== 'function') return [];
+  try {
+    const list = storeApi.getPostsList();
+    return Array.isArray(list) ? list : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function findStorePostByAnyId(value = '') {
+  if (!storeApi || typeof storeApi.findPostByAnyId !== 'function') return null;
+  try { return storeApi.findPostByAnyId(value); } catch (_) { return null; }
+}
+
+function safeGetChannel(channelId = '') {
+  if (!storeApi || typeof storeApi.getChannel !== 'function') return null;
+  try { return storeApi.getChannel(channelId); } catch (_) { return null; }
+}
+
+function titleMatchesPost(post = {}, titleCandidates = []) {
+  const title = clean(post.title || post.postTitle || post.postText || pickPostTitle(post));
+  if (!title) return false;
+  const normalized = title.toLowerCase();
+  return titleCandidates.some((item) => clean(item).toLowerCase() === normalized);
+}
+
+function numberMatchesPost(post = {}, displayPostNumber = '') {
+  const n = clean(displayPostNumber);
+  if (!n) return false;
+  const title = clean(post.title || post.postTitle || post.postText || pickPostTitle(post));
+  return new RegExp(`\\b(Post|Пост)\\s*${n}\\b`, 'i').test(title);
+}
+
+function postToMeta(post = {}, params = {}, source = 'store fallback') {
+  const commentKey = clean(post.commentKey || params.commentKey || params.handoffResolvedCommentKey || (post.channelId && post.postId ? `${post.channelId}:${post.postId}` : ''));
+  if (!commentKey) return null;
+
+  const raw = post.raw && typeof post.raw === 'object' ? post.raw : {};
+  const channelId = clean(post.channelId || post.channel_id || raw.channelId || params.channelId || (commentKey.includes(':') ? commentKey.split(':')[0] : ''));
+  const postId = clean(post.postId || post.post_id || post.messageId || raw.postId || raw.messageId || params.postId || (commentKey.includes(':') ? commentKey.split(':')[1] : ''));
+  const channel = safeGetChannel(channelId);
+  const row = {
+    adminId: post.adminId || post.admin_id || raw.adminId || '',
+    channelId,
+    postId,
+    messageId: clean(post.messageId || post.message_id || raw.messageId || ''),
+    commentKey,
+    title: clean(post.title || post.postTitle || raw.title || raw.originalText || params.title || (params.displayPostNumber ? `Post ${params.displayPostNumber}` : '')),
+    raw: { ...raw, originalText: raw.originalText || post.originalText || post.text || post.caption || '' },
+    channelTitle: clean(post.channelTitle || raw.channelTitle || channel?.title || 'Подключённый канал'),
+    commentsEnabled: post.commentsEnabled !== false && post.commentsDisabled !== true,
+    commentsPhoto: post.commentsPhoto !== false,
+    commentsReactions: post.commentsReactions !== false,
+    commentsBanner: post.commentsBanner !== false,
+    commentsBannerText: clean(post.commentsBannerText || post.bannerText || ''),
+    commentsBannerButton: clean(post.commentsBannerButton || post.bannerButton || ''),
+    commentsBannerLink: clean(post.commentsBannerLink || post.bannerLink || '')
   };
+  return rowToMeta(row, source);
+}
+
+function resolvePostMetaFromStore(params = {}) {
+  if (!storeApi) return null;
+
+  const candidates = uniq([
+    params.commentKey,
+    params.handoffResolvedCommentKey,
+    params.handoff,
+    params.normalizedHandoff,
+    params.postId,
+    params.title,
+    ...params.titleCandidates,
+    ...params.rawText
+  ]);
+
+  for (const key of [params.commentKey, params.handoffResolvedCommentKey]) {
+    const direct = getStorePostByKey(key);
+    if (direct) return postToMeta(direct, params, 'store.getPost direct commentKey fallback');
+  }
+
+  for (const candidate of candidates) {
+    const found = findStorePostByAnyId(candidate);
+    if (found) return postToMeta(found, params, 'store.findPostByAnyId fallback');
+  }
+
+  const posts = getStorePostsList();
+  const byTitle = posts.find((post) => titleMatchesPost(post, params.titleCandidates));
+  if (byTitle) return postToMeta(byTitle, params, 'store title fallback');
+
+  const byNumber = posts.find((post) => numberMatchesPost(post, params.displayPostNumber || params.postId));
+  if (byNumber) return postToMeta(byNumber, params, 'store post-number title fallback');
+
+  return null;
+}
+
+async function resolvePostMeta(input = {}) {
+  const params = input && input.keys ? input : normalizeParams(input);
+  const trace = { runtimeVersion: RUNTIME, attempts: [], dbError: '' };
+
+  try {
+    const meta = await resolvePostMetaFromDb(params);
+    trace.attempts.push({ source: 'postgres', ok: Boolean(meta) });
+    if (meta) {
+      meta.resolutionTrace = trace;
+      return meta;
+    }
+  } catch (error) {
+    trace.dbError = error && error.message ? error.message : String(error);
+    trace.attempts.push({ source: 'postgres', ok: false, error: trace.dbError });
+  }
+
+  const storeMeta = resolvePostMetaFromStore(params);
+  trace.attempts.push({ source: 'store', ok: Boolean(storeMeta) });
+  if (storeMeta) {
+    storeMeta.resolutionTrace = trace;
+    return storeMeta;
+  }
+
+  return null;
 }
 
 async function buildCommentOpenState(input = {}, options = {}) {
@@ -390,6 +532,7 @@ async function buildCommentOpenState(input = {}, options = {}) {
     meta,
     comments,
     commentsCount: comments.length,
+    resolverTrace: meta && meta.resolutionTrace ? meta.resolutionTrace : null,
     error: meta ? '' : 'post_meta_not_found'
   };
 }
@@ -404,8 +547,11 @@ function selfTest() {
       'resolvePostMeta',
       'buildCommentOpenState'
     ],
+    storeAvailable: Boolean(storeApi),
     storeHandoffResolver: Boolean(storeApi && typeof storeApi.resolveCommentKeyFromHandoff === 'function'),
-    policy: 'postgres_meta_plus_store_handoff_resolve_for_max_open_app_start_param'
+    storeFindPostByAnyId: Boolean(storeApi && typeof storeApi.findPostByAnyId === 'function'),
+    storeGetPostsList: Boolean(storeApi && typeof storeApi.getPostsList === 'function'),
+    policy: 'postgres_first_store_fallback_keep_new_posts_stable_across_deploys'
   };
 }
 
