@@ -1,8 +1,8 @@
 'use strict';
 
-const RUNTIME = 'CC6.8.3-HARD-V3-DBFIRST-COMMENTS-ROOT';
-const SOURCE = 'adminkit-v4-683-dbfirst-comments-render';
-const MARKER = '__ADMINKIT_V4_683_DBFIRST_COMMENTS_ROOT__';
+const RUNTIME = 'CC6.8.4-HARD-V3-COMMENTS-OPEN-ROOT';
+const SOURCE = 'adminkit-v4-684-comments-open-core';
+const MARKER = '__ADMINKIT_V4_684_COMMENTS_OPEN_ROOT__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -20,15 +20,19 @@ function load(pathName) {
     item.result = result;
   } catch (error) {
     item.error = error?.message || String(error);
-    console.warn('[adminkit-v4-683-loader] layer failed:', pathName, item.error);
+    console.warn('[adminkit-v4-684-loader] layer failed:', pathName, item.error);
   }
   preLayers.push(item);
   return item;
 }
 
+// Route first: /api/adminkit/post-meta must return DB meta for numeric startapp/title.
 load('./adminkit-v4-post-meta-title-resolver');
+// DB helper and menu state saver.
 load('./adminkit-v4-ui-db-fix');
-load('./adminkit-comments-dbfirst-render');
+// Client core: open screen immediately, no duplicate discussion chips, no permanent "Загрузка...".
+load('./adminkit-comments-open-core-684');
+
 const old = require('./adminkit-one-loader-v4');
 
 function layerSummary() {
@@ -39,7 +43,8 @@ function layerSummary() {
     oldLayerSummary: old && typeof old.layerSummary === 'function' ? old.layerSummary() : null,
     hasPostMetaNumericStartappFallback: preLayers.some(x => x.path === './adminkit-v4-post-meta-title-resolver' && x.ok),
     hasV4DbHelperMetaResolve: preLayers.some(x => x.path === './adminkit-v4-ui-db-fix' && x.ok),
-    hasDbFirstNoFlickerCommentsRender: preLayers.some(x => x.path === './adminkit-comments-dbfirst-render' && x.ok),
+    hasCommentsOpenCoreNoFlicker: preLayers.some(x => x.path === './adminkit-comments-open-core-684' && x.ok),
+    removedDbFirstHideLayer: true,
     hasCommentsSourceUiCore: false
   };
 }
