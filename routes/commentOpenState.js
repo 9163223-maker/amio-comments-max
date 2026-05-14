@@ -1,13 +1,13 @@
 'use strict';
 
-// CC7.2.5
+// CC7.4.0
 // Express routes for the comments initial state.
-// Fix focus: keep new posts stable after the next deploy and expose clear diagnostics.
+// Fix focus: stable post identity after redeploy via self-contained ak_ payload and postSnapshot diagnostics.
 // This module is explicit: no Module._load, no public/app.js patching, no UI changes.
 
 const postMetaService = require('../services/postMetaService');
 
-const RUNTIME = 'CC7.2.5-COMMENT-OPEN-STATE-ROUTE';
+const RUNTIME = 'CC7.4.0-COMMENT-OPEN-STATE-STABLE-PAYLOAD';
 
 function setNoCache(res) {
   try {
@@ -61,6 +61,7 @@ async function commentOpenStateHandler(req, res) {
       serviceRuntimeVersion: postMetaService.RUNTIME || '',
       params: null,
       meta: null,
+      postSnapshot: null,
       comments: [],
       commentsCount: 0,
       error: safeError(error)
@@ -81,6 +82,9 @@ async function debugCommentOpenStateHandler(req, res) {
       request: requestSnapshot(req),
       params,
       state,
+      meta: state ? state.meta : null,
+      postSnapshot: state ? state.postSnapshot : null,
+      resolverTrace: state ? state.resolverTrace : null,
       error: state && state.error ? state.error : ''
     });
   } catch (error) {
@@ -115,6 +119,7 @@ function registerCommentOpenStateRoutes(app) {
         request: requestSnapshot(req),
         params,
         meta,
+        postSnapshot: meta && meta.postSnapshot ? meta.postSnapshot : null,
         error: meta ? '' : 'post_meta_not_found'
       });
     } catch (error) {
@@ -125,6 +130,7 @@ function registerCommentOpenStateRoutes(app) {
         request: requestSnapshot(req),
         params: null,
         meta: null,
+        postSnapshot: null,
         error: safeError(error)
       });
     }
@@ -143,7 +149,7 @@ function selfTest() {
       '/debug/comment-open-state',
       '/debug/post-meta-clean'
     ],
-    policy: 'explicit_express_routes_with_no_cache_and_debug_payload_snapshot'
+    policy: 'explicit_express_routes_no_cache_stable_payload_debug_post_snapshot'
   };
 }
 
