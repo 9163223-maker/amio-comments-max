@@ -1,8 +1,8 @@
 'use strict';
 
-// CC7.2.3 clean runtime bridge.
-// Keeps the existing UI layout, but guarantees /public/app.js is served from public/app-onepass.js.
-// Also wraps express.static so an older physical public/app.js cannot win before our explicit route.
+// CC7.2.5 clean runtime bridge.
+// Keeps the existing UI layout, guarantees /public/app.js is served from public/app-onepass.js,
+// and exposes the CC7.2.5 comment-open-state resolver in /debug/cc7.
 
 const fs = require('fs');
 const path = require('path');
@@ -10,9 +10,9 @@ const Module = require('module');
 
 const { registerCommentOpenStateRoutes } = require('./routes/commentOpenState');
 
-const RUNTIME = 'CC7.2.3-APPJS-STATIC-BYPASS-BRIDGE';
-const SOURCE = 'adminkit-cc7-2-3-appjs-static-bypass-route';
-const MARKER = '__ADMINKIT_CC7_2_3_APPJS_STATIC_BYPASS_BRIDGE__';
+const RUNTIME = 'CC7.2.5-APPJS-STATIC-BYPASS-BRIDGE';
+const SOURCE = 'adminkit-cc7-2-5-appjs-static-bypass-route';
+const MARKER = '__ADMINKIT_CC7_2_5_APPJS_STATIC_BYPASS_BRIDGE__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -50,7 +50,7 @@ function loadLayer(pathName) {
   } catch (error) {
     item.ok = false;
     item.error = error?.message || String(error);
-    console.warn('[cc7.2.3-onepass-bridge] layer failed:', pathName, item.error);
+    console.warn('[cc7.2.5-onepass-bridge] layer failed:', pathName, item.error);
   }
   loadedLayers.push(item);
   return item;
@@ -63,8 +63,8 @@ function readOnepassAppJs() {
 }
 
 function installRoutes(app) {
-  if (!app || app.__adminkitCc723OnepassRoutes) return app;
-  app.__adminkitCc723OnepassRoutes = true;
+  if (!app || app.__adminkitCc725OnepassRoutes) return app;
+  app.__adminkitCc725OnepassRoutes = true;
 
   registerCommentOpenStateRoutes(app);
 
@@ -105,7 +105,7 @@ function installRoutes(app) {
       service: 'amio-comments-max',
       runtimeVersion: RUNTIME,
       buildVersion: RUNTIME,
-      displayVersion: 'CC7.2.3',
+      displayVersion: 'CC7.2.5',
       sourceMarker: SOURCE,
       generatedAt: Date.now(),
       installedAt
@@ -116,28 +116,28 @@ function installRoutes(app) {
 }
 
 function patchExpressStatic(expressModule) {
-  if (!expressModule || expressModule.__adminkitCc723StaticWrapped) return expressModule;
+  if (!expressModule || expressModule.__adminkitCc725StaticWrapped) return expressModule;
   const originalStatic = expressModule.static;
   if (typeof originalStatic !== 'function') return expressModule;
-  expressModule.static = function adminkitCc723Static(...args) {
+  expressModule.static = function adminkitCc725Static(...args) {
     const middleware = originalStatic.apply(this, args);
-    return function adminkitCc723StaticMiddleware(req, res, next) {
+    return function adminkitCc725StaticMiddleware(req, res, next) {
       if (isAppJsRequest(req)) return next();
       return middleware(req, res, next);
     };
   };
-  expressModule.__adminkitCc723StaticWrapped = true;
+  expressModule.__adminkitCc725StaticWrapped = true;
   return expressModule;
 }
 
 function installExpressWrap() {
-  if (Module.__adminkitCc723OnepassExpressWrap) return;
-  Module.__adminkitCc723OnepassExpressWrap = true;
+  if (Module.__adminkitCc725OnepassExpressWrap) return;
+  Module.__adminkitCc725OnepassExpressWrap = true;
   const prev = Module._load;
-  Module._load = function adminkitCc723OnepassLoad(request, parent, isMain) {
+  Module._load = function adminkitCc725OnepassLoad(request, parent, isMain) {
     const loaded = prev.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitCc723OnepassWrapped) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitCc725OnepassWrapped) {
         patchExpressStatic(loaded);
         function wrappedExpress(...args) {
           const app = loaded(...args);
@@ -146,11 +146,11 @@ function installExpressWrap() {
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
         patchExpressStatic(wrappedExpress);
-        wrappedExpress.__adminkitCc723OnepassWrapped = true;
+        wrappedExpress.__adminkitCc725OnepassWrapped = true;
         return wrappedExpress;
       }
     } catch (error) {
-      console.warn('[cc7.2.3-onepass-bridge] express wrap skipped:', error?.message || error);
+      console.warn('[cc7.2.5-onepass-bridge] express wrap skipped:', error?.message || error);
     }
     return loaded;
   };
