@@ -1,15 +1,15 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.2-APPJS-ONEPASS';
-const ONEPASS_MARKER = '__ADMINKIT_CC7_2_APPJS_ONEPASS__';
-if (window[ONEPASS_MARKER]) return;
-window[ONEPASS_MARKER] = true;
+const RUNTIME = 'CC7.2.1-APPJS-ONEPASS-RAW-PARAMS';
+const MARKER = '__ADMINKIT_CC7_2_1_APPJS_ONEPASS__';
+if (window[MARKER]) return;
+window[MARKER] = true;
 
 function byId(id) { return document.getElementById(id); }
-function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
-function safeDecode(value) {
-  let current = String(value || '');
+function clean(v) { return String(v || '').replace(/\s+/g, ' ').trim(); }
+function safeDecode(v) {
+  let current = String(v || '');
   for (let i = 0; i < 5; i += 1) {
     try {
       const decoded = decodeURIComponent(current.replace(/\+/g, '%20'));
@@ -19,8 +19,8 @@ function safeDecode(value) {
   }
   return current;
 }
-function escapeHtml(value) {
-  return String(value || '')
+function escapeHtml(v) {
+  return String(v || '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -59,8 +59,7 @@ function initBridgeUi() {
   try { app && app.disableClosingConfirmation && app.disableClosingConfirmation(); } catch (_) {}
 }
 function getBridgeUser() {
-  const apps = getPossibleWebApps();
-  for (const app of apps) {
+  for (const app of getPossibleWebApps()) {
     const user = (app && app.initDataUnsafe && app.initDataUnsafe.user) || (app && app.user);
     if (user) return user;
   }
@@ -78,107 +77,117 @@ function getBridgeAvatarUrl() {
   const user = getBridgeUser();
   return clean((user && user.photo_url) || '');
 }
-
+function addUnique(list, value) {
+  const text = clean(value);
+  if (text && !list.includes(text)) list.push(text);
+}
+function derivePostNumber(text) {
+  const s = clean(safeDecode(text));
+  if (!s) return '';
+  let m = s.match(/(?:^|[^\w])(post|пост)[:=\s-]*(\d{1,4})(?:$|[^\w])/i);
+  if (m) return m[2];
+  m = s.match(/(?:^|[?&#\s])(startapp|start_param|WebAppStartParam|post|postId|post_id|title)=(?:Post\s*)?(\d{1,4})(?:$|[&#\s])/i);
+  if (m) return m[2];
+  m = s.match(/^\d{1,4}$/);
+  if (m) return m[0];
+  return '';
+}
 function scanParams() {
-  const result = { commentKey: '', handoff: '', channelId: '', postId: '', title: '', raw: '' };
-  function add(key, value) {
+  const result = { commentKey: '', handoff: '', channelId: '', postId: '', title: '', raw: '', rawPieces: [] };
+  function addRaw(value) {
+    const v = String(value || '');
+    if (!v) return;
+    addUnique(result.rawPieces, v);
+    addUnique(result.rawPieces, safeDecode(v));
+  }
+  function setValue(key, value) {
     const v = clean(safeDecode(value));
     if (!v) return;
-    if ((key === 'commentKey' || key === 'key') && !result.commentKey) result.commentKey = v;
+    addRaw(v);
+    if ((key === 'commentKey' || key === 'key') && !result.commentKey) result.commentKey = v.replace(/^ck:/i, '');
     if ((key === 'handoff' || key === 'startapp' || key === 'start_param' || key === 'WebAppStartParam') && !result.handoff) result.handoff = v;
     if ((key === 'channelId' || key === 'channel') && !result.channelId) result.channelId = v;
-    if ((key === 'postId' || key === 'post_id' || key === 'messageId') && !result.postId) result.postId = v;
+    if ((key === 'postId' || key === 'post_id' || key === 'messageId') && !result.postId) result.postId = v.replace(/^post:/i, '');
     if ((key === 'title' || key === 'postTitle' || key === 'postText') && !result.title) result.title = v;
   }
   function scan(raw) {
     raw = String(raw || '');
     if (!raw) return;
-    result.raw += (result.raw ? ' ' : '') + raw;
-    const variants = [raw, safeDecode(raw)];
-    variants.forEach((variant) => {
+    addRaw(raw);
+    for (const variant of [raw, safeDecode(raw)]) {
       const parts = [variant];
       if (variant.includes('?')) parts.push(variant.split('?').slice(1).join('?'));
       if (variant.includes('#')) parts.push(variant.split('#').slice(1).join('#'));
-      parts.forEach((part) => {
+      for (const part of parts) {
         try {
           const params = new URLSearchParams(String(part || '').replace(/^#|^\?/g, ''));
-          for (const pair of params.entries()) add(pair[0], pair[1]);
+          for (const pair of params.entries()) setValue(pair[0], pair[1]);
         } catch (_) {}
-      });
+      }
       const ck = variant.match(/-?\d{6,}:-?\d{3,}/);
-      if (ck) add('commentKey', ck[0]);
+      if (ck) setValue('commentKey', ck[0]);
       const handoff = variant.match(/h_[A-Za-z0-9_-]{6,}/);
-      if (handoff) add('handoff', handoff[0]);
-      const postId = variant.match(/(?:postId|post_id|messageId)[:=](-?\d{1,})/i);
-      if (postId) add('postId', postId[1]);
+      if (handoff) setValue('handoff', handoff[0]);
+      const postId = variant.match(/(?:postId|post_id|messageId|post)[:=](-?\d{1,})/i);
+      if (postId) setValue('postId', postId[1]);
       const title = variant.match(/\b(Post\s*new!!\s*\d+!|Post\s*new\s*\d+|Post\s*zero\s*\d+|Post\s*\d+|Пост\s*\d+)\b/i);
-      if (title) add('title', title[1]);
-    });
+      if (title) setValue('title', title[1]);
+      const number = derivePostNumber(variant);
+      if (number) {
+        if (!result.postId) result.postId = number;
+        if (!result.title) result.title = 'Post ' + number;
+      }
+    }
   }
+
   try { scan(location.href); scan(location.search); scan(location.hash); scan(document.referrer || ''); } catch (_) {}
   getPossibleWebApps().forEach((app) => {
     try {
       const unsafe = (app && app.initDataUnsafe) || {};
-      ['start_param', 'startapp', 'postId', 'post_id', 'commentKey', 'channelId', 'title', 'postTitle'].forEach((key) => add(key, unsafe[key]));
+      ['start_param', 'startapp', 'postId', 'post_id', 'commentKey', 'channelId', 'title', 'postTitle'].forEach((key) => setValue(key, unsafe[key]));
       scan(app && app.initData);
       scan(app && app.startParam);
       scan(app && app.launchParams);
       scan(app && app.params);
     } catch (_) {}
   });
+
   if (result.commentKey && result.commentKey.includes(':')) {
     const parts = result.commentKey.split(':');
-    if (!result.channelId) result.channelId = parts[0] || '';
-    if (!result.postId) result.postId = parts[1] || '';
+    if (!result.channelId && parts[0]) result.channelId = clean(parts[0]);
+    if (!result.postId && parts[1]) result.postId = clean(parts[1]);
   }
+  if (!result.postId) {
+    for (const piece of result.rawPieces) {
+      const number = derivePostNumber(piece);
+      if (number) { result.postId = number; break; }
+    }
+  }
+  if (!result.title && result.postId && /^\d{1,4}$/.test(result.postId)) result.title = 'Post ' + result.postId;
+  result.raw = result.rawPieces.join(' ').slice(0, 4000);
   return result;
 }
 
 const refs = {
-  postCard: byId('postCard'),
-  postTitle: byId('postTitle'),
-  postMedia: byId('postMedia'),
-  postNativeReactions: byId('postNativeReactions'),
-  commentsList: byId('commentsList'),
-  emptyState: byId('emptyState'),
-  nameInput: byId('nameInput'),
-  commentInput: byId('commentInput'),
-  sendBtn: byId('sendBtn'),
-  searchBtn: byId('searchBtn'),
-  attachBtn: byId('attachBtn'),
-  attachmentInput: byId('attachmentInput'),
-  commentsCountPill: byId('commentsCountPill'),
-  adminkitDiscussionLink: byId('adminkitDiscussionLink'),
-  backBtn: byId('backBtn'),
-  composerAvatar: byId('composerAvatar'),
-  composerAvatarFallback: byId('composerAvatarFallback'),
-  discussionLabel: byId('discussionLabel'),
-  composerCard: byId('composerCard'),
-  postError: byId('postError'),
-  commentInlineStatus: byId('commentInlineStatus'),
-  commentsWrap: byId('commentsWrap'),
-  miniAppStartCard: byId('miniAppStartCard'),
-  miniAppStartText: byId('miniAppStartText'),
-  miniAppStartWorkBtn: byId('miniAppStartWorkBtn'),
-  miniAppCommunityBtn: byId('miniAppCommunityBtn'),
+  postCard: byId('postCard'), postTitle: byId('postTitle'), postMedia: byId('postMedia'),
+  commentsList: byId('commentsList'), emptyState: byId('emptyState'), nameInput: byId('nameInput'),
+  commentInput: byId('commentInput'), sendBtn: byId('sendBtn'), attachBtn: byId('attachBtn'),
+  attachmentInput: byId('attachmentInput'), commentsCountPill: byId('commentsCountPill'),
+  adminkitDiscussionLink: byId('adminkitDiscussionLink'), backBtn: byId('backBtn'),
+  composerAvatar: byId('composerAvatar'), composerAvatarFallback: byId('composerAvatarFallback'),
+  discussionLabel: byId('discussionLabel'), composerCard: byId('composerCard'), postError: byId('postError'),
+  commentInlineStatus: byId('commentInlineStatus'), commentsWrap: byId('commentsWrap'),
+  miniAppStartCard: byId('miniAppStartCard'), miniAppStartText: byId('miniAppStartText'),
+  miniAppStartWorkBtn: byId('miniAppStartWorkBtn'), miniAppCommunityBtn: byId('miniAppCommunityBtn'),
   miniAppTopbar: byId('miniAppTopbar')
 };
 
 const params = scanParams();
 const state = {
-  commentKey: params.commentKey,
-  handoff: params.handoff,
-  channelId: params.channelId,
-  postId: params.postId,
-  title: params.title,
-  currentUserId: getBridgeUserId(),
-  currentUserName: getBridgeUserName(),
-  currentUserAvatarUrl: getBridgeAvatarUrl(),
-  comments: [],
-  meta: {},
-  commentsCount: 0,
-  pollTimer: null,
-  requestInFlight: false
+  commentKey: params.commentKey, handoff: params.handoff, channelId: params.channelId,
+  postId: params.postId, title: params.title, raw: params.raw,
+  currentUserId: getBridgeUserId(), currentUserName: getBridgeUserName(), currentUserAvatarUrl: getBridgeAvatarUrl(),
+  comments: [], meta: {}, commentsCount: 0, pollTimer: null, requestInFlight: false
 };
 window.__ADMINKIT_CC7_2_STATE__ = state;
 
@@ -195,6 +204,7 @@ function buildOpenStateUrl() {
   if (state.channelId) q.set('channelId', state.channelId);
   if (state.postId) q.set('postId', state.postId);
   if (state.title) q.set('title', state.title);
+  if (state.raw) q.set('raw', state.raw);
   q.set('t', Date.now());
   return '/api/adminkit/comment-open-state?' + q.toString();
 }
@@ -206,9 +216,7 @@ function loadOpenStateSync() {
     xhr.send(null);
     if (xhr.status >= 200 && xhr.status < 400) return JSON.parse(xhr.responseText || '{}');
     return { ok: false, error: 'http_' + xhr.status };
-  } catch (error) {
-    return { ok: false, error: String((error && error.message) || error) };
-  }
+  } catch (error) { return { ok: false, error: String((error && error.message) || error) }; }
 }
 async function loadOpenStateAsync() {
   const response = await fetch(buildOpenStateUrl(), { cache: 'no-store' });
@@ -216,7 +224,6 @@ async function loadOpenStateAsync() {
   if (!response.ok || data.ok === false) throw new Error(data.error || ('http_' + response.status));
   return data;
 }
-
 function showMiniStart() {
   document.body && document.body.classList && document.body.classList.add('miniapp-start-mode');
   if (refs.miniAppTopbar) refs.miniAppTopbar.style.display = 'none';
@@ -226,11 +233,7 @@ function showMiniStart() {
   if (wrap) wrap.style.display = 'none';
   if (refs.composerCard) refs.composerCard.style.display = 'none';
   if (refs.miniAppStartCard) refs.miniAppStartCard.classList.remove('hidden');
-  if (refs.miniAppStartText) {
-    refs.miniAppStartText.innerHTML = '<div class="miniapp-start-copy strong">АдминКИТ — система управления MAX</div>' +
-      '<div class="miniapp-start-copy">Комментарии, подарки, кнопки и статистика канала — в одном месте.</div>' +
-      '<div class="miniapp-start-copy subtle">После нажатия откроется чат с ботом.</div>';
-  }
+  if (refs.miniAppStartText) refs.miniAppStartText.innerHTML = '<div class="miniapp-start-copy strong">АдминКИТ — система управления MAX</div><div class="miniapp-start-copy">Комментарии, подарки, кнопки и статистика канала — в одном месте.</div><div class="miniapp-start-copy subtle">После нажатия откроется чат с ботом.</div>';
 }
 function hideMiniStart() {
   document.body && document.body.classList && document.body.classList.remove('miniapp-start-mode');
@@ -263,29 +266,19 @@ function applyMeta(meta) {
     refs.adminkitDiscussionLink.target = '_blank';
     refs.adminkitDiscussionLink.rel = 'noopener noreferrer';
   }
-  if (refs.postError) {
-    refs.postError.textContent = '';
-    refs.postError.style.display = 'none';
-  }
+  if (refs.postError) { refs.postError.textContent = ''; refs.postError.style.display = 'none'; }
 }
-function renderCommentAttachment(attachment) {
-  if (!attachment) return '';
-  const type = clean(attachment.type || attachment.kind || '');
-  const url = clean(attachment.url || attachment.previewUrl || attachment.posterUrl || '');
-  const name = clean(attachment.name || attachment.fileName || 'файл');
+function renderAttachment(attachment) {
+  const type = clean(attachment && (attachment.type || attachment.kind));
+  const url = clean(attachment && (attachment.url || attachment.previewUrl || attachment.posterUrl));
+  const name = clean(attachment && (attachment.name || attachment.fileName)) || 'файл';
   if (!url) return '';
-  if (type === 'image' || /\.(jpg|jpeg|png|webp|gif)$/i.test(url)) {
-    return '<div class="comment-attachment comment-attachment-image"><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(name) + '" loading="lazy"></div>';
-  }
-  if (type === 'video' || /\.(mp4|mov|webm)$/i.test(url)) {
-    return '<div class="comment-attachment comment-attachment-video"><video controls playsinline src="' + escapeHtml(url) + '"></video></div>';
-  }
+  if (type === 'image' || /\.(jpg|jpeg|png|webp|gif)$/i.test(url)) return '<div class="comment-attachment comment-attachment-image"><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(name) + '" loading="lazy"></div>';
+  if (type === 'video' || /\.(mp4|mov|webm)$/i.test(url)) return '<div class="comment-attachment comment-attachment-video"><video controls playsinline src="' + escapeHtml(url) + '"></video></div>';
   return '<a class="comment-attachment comment-attachment-file" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(name) + '</a>';
 }
 function renderComments(list) {
   state.comments = Array.isArray(list) ? list : [];
-  state.commentsCount = state.comments.length;
-  if (refs.commentsCountPill) refs.commentsCountPill.textContent = pluralComments(state.commentsCount);
   if (refs.emptyState) {
     refs.emptyState.textContent = state.comments.length ? '' : 'Комментариев пока нет';
     refs.emptyState.style.display = state.comments.length ? 'none' : 'block';
@@ -297,16 +290,8 @@ function renderComments(list) {
     const own = Boolean(state.currentUserId && userId && String(state.currentUserId) === String(userId));
     const text = clean(comment.text || comment.body || '');
     const time = formatTime(comment.createdAt || comment.created_at || comment.updatedAt || comment.updated_at);
-    const attachments = (Array.isArray(comment.attachments) ? comment.attachments : []).map(renderCommentAttachment).join('');
-    return '<div class="comment-row ' + (own ? 'own' : 'other') + '" data-comment-id="' + escapeHtml(comment.id || '') + '">' +
-      '<div class="comment-avatar">' + escapeHtml(userName.charAt(0).toUpperCase() || 'Г') + '</div>' +
-      '<div class="comment-bubble">' +
-        (own ? '' : '<div class="comment-author">' + escapeHtml(userName) + '</div>') +
-        (text ? '<div class="comment-text">' + escapeHtml(text) + '</div>' : '') +
-        attachments +
-        '<div class="comment-time">' + escapeHtml(time) + '</div>' +
-      '</div>' +
-    '</div>';
+    const attachments = (Array.isArray(comment.attachments) ? comment.attachments : []).map(renderAttachment).join('');
+    return '<div class="comment-row ' + (own ? 'own' : 'other') + '" data-comment-id="' + escapeHtml(comment.id || '') + '"><div class="comment-avatar">' + escapeHtml(userName.charAt(0).toUpperCase() || 'Г') + '</div><div class="comment-bubble">' + (own ? '' : '<div class="comment-author">' + escapeHtml(userName) + '</div>') + (text ? '<div class="comment-text">' + escapeHtml(text) + '</div>' : '') + attachments + '<div class="comment-time">' + escapeHtml(time) + '</div></div></div>';
   }).join('');
 }
 function renderOpenState(data) {
@@ -316,20 +301,13 @@ function renderOpenState(data) {
   const list = Array.isArray(data.comments) ? data.comments : [];
   const count = Number(data.commentsCount || list.length || 0) || 0;
   renderComments(list);
-  state.commentsCount = count;
   if (refs.commentsCountPill) refs.commentsCountPill.textContent = pluralComments(count);
 }
 async function refreshOpenState() {
   if (state.requestInFlight) return;
   state.requestInFlight = true;
-  try {
-    const data = await loadOpenStateAsync();
-    renderOpenState(data);
-  } catch (_) {
-    // Не перерисовываем в Загрузка/пустоту при сетевой ошибке: оставляем последний нормальный экран.
-  } finally {
-    state.requestInFlight = false;
-  }
+  try { renderOpenState(await loadOpenStateAsync()); } catch (_) {}
+  finally { state.requestInFlight = false; }
 }
 function outgoingUserName() { return clean(state.currentUserName || (refs.nameInput && refs.nameInput.value) || 'Гость'); }
 function outgoingUserId() { return clean(state.currentUserId || (refs.nameInput && refs.nameInput.value) || 'guest'); }
@@ -340,41 +318,22 @@ async function sendComment() {
   if (refs.sendBtn) refs.sendBtn.disabled = true;
   try {
     const response = await fetch('/api/comments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        commentKey: state.commentKey,
-        userId: outgoingUserId(),
-        userName: outgoingUserName(),
-        avatarUrl: state.currentUserAvatarUrl || '',
-        text: text,
-        attachments: []
-      })
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commentKey: state.commentKey, userId: outgoingUserId(), userName: outgoingUserName(), avatarUrl: state.currentUserAvatarUrl || '', text, attachments: [] })
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) {
-      const friendly = clean(data.message || data.userMessage || data.friendlyMessage) || 'Комментарий не опубликован: сработала модерация или правила обсуждения.';
-      setInlineStatus(friendly, true);
+      setInlineStatus(clean(data.message || data.userMessage || data.friendlyMessage) || 'Комментарий не опубликован: сработала модерация или правила обсуждения.', true);
       return;
     }
     if (refs.commentInput) refs.commentInput.value = '';
     await refreshOpenState();
-  } catch (_) {
-    setInlineStatus('Не удалось отправить комментарий. Попробуйте ещё раз.', true);
-  } finally {
-    if (refs.sendBtn) refs.sendBtn.disabled = false;
-  }
+  } catch (_) { setInlineStatus('Не удалось отправить комментарий. Попробуйте ещё раз.', true); }
+  finally { if (refs.sendBtn) refs.sendBtn.disabled = false; }
 }
 function bindEvents() {
   if (refs.sendBtn) refs.sendBtn.addEventListener('click', sendComment);
-  if (refs.commentInput) {
-    refs.commentInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        sendComment();
-      }
-    });
-  }
+  if (refs.commentInput) refs.commentInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); } });
   if (refs.backBtn) refs.backBtn.addEventListener('click', () => { try { history.back(); } catch (_) {} });
   if (refs.attachBtn && refs.attachmentInput) refs.attachBtn.addEventListener('click', () => refs.attachmentInput.click());
   if (refs.miniAppStartWorkBtn) refs.miniAppStartWorkBtn.addEventListener('click', () => {
@@ -388,26 +347,13 @@ function bindEvents() {
     try { if (app && app.openMaxLink) app.openMaxLink(target); else location.href = target; } catch (_) { location.href = target; }
   });
 }
-
 function boot() {
   initBridgeUi();
   bindEvents();
-  if (state.currentUserName && refs.nameInput) {
-    refs.nameInput.value = state.currentUserName;
-    refs.nameInput.readOnly = true;
-    refs.nameInput.style.display = 'none';
-  }
-  if (state.currentUserAvatarUrl && refs.composerAvatar) {
-    refs.composerAvatar.src = state.currentUserAvatarUrl;
-    refs.composerAvatar.style.display = 'block';
-    if (refs.composerAvatarFallback) refs.composerAvatarFallback.style.display = 'none';
-  }
+  if (state.currentUserName && refs.nameInput) { refs.nameInput.value = state.currentUserName; refs.nameInput.readOnly = true; refs.nameInput.style.display = 'none'; }
+  if (state.currentUserAvatarUrl && refs.composerAvatar) { refs.composerAvatar.src = state.currentUserAvatarUrl; refs.composerAvatar.style.display = 'block'; if (refs.composerAvatarFallback) refs.composerAvatarFallback.style.display = 'none'; }
 
-  const hasCommentContext = Boolean(state.commentKey || state.handoff || state.postId || state.title);
-  if (!hasCommentContext) {
-    showMiniStart();
-    return;
-  }
+  if (!(state.commentKey || state.handoff || state.postId || state.title || state.raw)) { showMiniStart(); return; }
 
   const initial = loadOpenStateSync();
   window.__ADMINKIT_CC7_2_INITIAL__ = initial;
@@ -417,9 +363,10 @@ function boot() {
     hideMiniStart();
     applyMeta({ postTitle: state.title || (state.postId ? ('Post ' + state.postId) : '') });
     renderComments([]);
+    if (refs.commentsCountPill) refs.commentsCountPill.textContent = '0 комментариев';
     if (refs.postError) {
-      refs.postError.textContent = 'Не удалось открыть обсуждение. Попробуйте обновить экран.';
-      refs.postError.style.display = 'block';
+      refs.postError.textContent = state.title || state.postId ? '' : 'Не удалось определить пост. Обновите экран.';
+      refs.postError.style.display = refs.postError.textContent ? 'block' : 'none';
     }
   }
   state.pollTimer = setInterval(refreshOpenState, 5000);
