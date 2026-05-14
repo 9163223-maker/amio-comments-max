@@ -1,8 +1,8 @@
 'use strict';
 
-const RUNTIME = 'CC6.8.1-HARD-V3-DB-GUARD-ROOT';
-const SOURCE = 'adminkit-v4-681-post-meta-title-fallback';
-const MARKER = '__ADMINKIT_V4_681_POST_META_TITLE_FALLBACK__';
+const RUNTIME = 'CC6.8.2-HARD-V3-DBFIRST-COMMENTS-ROOT';
+const SOURCE = 'adminkit-v4-682-dbfirst-comments-render';
+const MARKER = '__ADMINKIT_V4_682_DBFIRST_COMMENTS_ROOT__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -20,7 +20,7 @@ function load(pathName) {
     item.result = result;
   } catch (error) {
     item.error = error?.message || String(error);
-    console.warn('[adminkit-v4-681-loader] layer failed:', pathName, item.error);
+    console.warn('[adminkit-v4-682-loader] layer failed:', pathName, item.error);
   }
   preLayers.push(item);
   return item;
@@ -28,6 +28,7 @@ function load(pathName) {
 
 load('./adminkit-v4-post-meta-title-resolver');
 load('./adminkit-v4-ui-db-fix');
+load('./adminkit-comments-dbfirst-render');
 load('./adminkit-comments-source-ui-core');
 const old = require('./adminkit-one-loader-v4');
 
@@ -39,6 +40,7 @@ function layerSummary() {
     oldLayerSummary: old && typeof old.layerSummary === 'function' ? old.layerSummary() : null,
     hasPostMetaTitleFallback: preLayers.some(x => x.path === './adminkit-v4-post-meta-title-resolver' && x.ok),
     hasV4DbHelperMetaResolve: preLayers.some(x => x.path === './adminkit-v4-ui-db-fix' && x.ok),
+    hasDbFirstCommentsRender: preLayers.some(x => x.path === './adminkit-comments-dbfirst-render' && x.ok),
     hasCommentsSourceUiCore: preLayers.some(x => x.path === './adminkit-comments-source-ui-core' && x.ok)
   };
 }
