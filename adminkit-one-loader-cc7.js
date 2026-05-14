@@ -1,8 +1,8 @@
 'use strict';
 
-// CC7.3.0 clean runtime bridge.
+// CC7.3.1 clean runtime bridge.
 // No UI overlay, no floating hints, no client recovery layer.
-// Comments buttons now use explicit /app URL params by default in services/maxApi.js.
+// Comment buttons stay native open_app by default. External /app link buttons are disabled for product UX.
 
 const fs = require('fs');
 const path = require('path');
@@ -10,13 +10,18 @@ const Module = require('module');
 
 const { registerCommentOpenStateRoutes } = require('./routes/commentOpenState');
 
-const RUNTIME = 'CC7.3.0-EXPLICIT-APP-URL-COMMENT-BUTTONS';
-const SOURCE = 'adminkit-cc7-3-0-explicit-app-url-comment-buttons';
-const MARKER = '__ADMINKIT_CC7_3_0_EXPLICIT_APP_URL_COMMENT_BUTTONS__';
+const RUNTIME = 'CC7.3.1-NATIVE-OPEN-APP-NO-EXTERNAL-LINK';
+const SOURCE = 'adminkit-cc7-3-1-native-open-app-no-external-link';
+const MARKER = '__ADMINKIT_CC7_3_1_NATIVE_OPEN_APP_NO_EXTERNAL_LINK__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
 process.env.BUILD_SOURCE_MARKER = SOURCE;
+// services/maxApi.js supports this switch. Keep native open_app as the default here,
+// but do not overwrite an explicit Northflank env value.
+if (process.env.ADMINKIT_USE_OPEN_APP_BUTTON === undefined) {
+  process.env.ADMINKIT_USE_OPEN_APP_BUTTON = '1';
+}
 
 const loadedLayers = [];
 let installedAt = '';
@@ -50,7 +55,7 @@ function loadLayer(pathName) {
   } catch (error) {
     item.ok = false;
     item.error = error?.message || String(error);
-    console.warn('[cc7.3.0-clean] layer failed:', pathName, item.error);
+    console.warn('[cc7.3.1-clean] layer failed:', pathName, item.error);
   }
   loadedLayers.push(item);
   return item;
@@ -63,8 +68,8 @@ function readOnepassAppJs() {
 }
 
 function installRoutes(app) {
-  if (!app || app.__adminkitCc730OnepassRoutes) return app;
-  app.__adminkitCc730OnepassRoutes = true;
+  if (!app || app.__adminkitCc731OnepassRoutes) return app;
+  app.__adminkitCc731OnepassRoutes = true;
 
   registerCommentOpenStateRoutes(app);
 
@@ -91,8 +96,9 @@ function installRoutes(app) {
       sourceMarker: SOURCE,
       marker: MARKER,
       installedAt,
-      policy: 'clean_no_recovery_layers_explicit_app_url_comment_buttons',
+      policy: 'clean_no_recovery_layers_native_open_app_no_external_link_buttons',
       appOnepass,
+      useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
       loadedLayers,
       commentOpenStateRoute: require('./routes/commentOpenState').selfTest()
     });
@@ -105,8 +111,9 @@ function installRoutes(app) {
       service: 'amio-comments-max',
       runtimeVersion: RUNTIME,
       buildVersion: RUNTIME,
-      displayVersion: 'CC7.3.0',
+      displayVersion: 'CC7.3.1',
       sourceMarker: SOURCE,
+      useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
       generatedAt: Date.now(),
       installedAt
     });
@@ -116,28 +123,28 @@ function installRoutes(app) {
 }
 
 function patchExpressStatic(expressModule) {
-  if (!expressModule || expressModule.__adminkitCc730StaticWrapped) return expressModule;
+  if (!expressModule || expressModule.__adminkitCc731StaticWrapped) return expressModule;
   const originalStatic = expressModule.static;
   if (typeof originalStatic !== 'function') return expressModule;
-  expressModule.static = function adminkitCc730Static(...args) {
+  expressModule.static = function adminkitCc731Static(...args) {
     const middleware = originalStatic.apply(this, args);
-    return function adminkitCc730StaticMiddleware(req, res, next) {
+    return function adminkitCc731StaticMiddleware(req, res, next) {
       if (isAppJsRequest(req)) return next();
       return middleware(req, res, next);
     };
   };
-  expressModule.__adminkitCc730StaticWrapped = true;
+  expressModule.__adminkitCc731StaticWrapped = true;
   return expressModule;
 }
 
 function installExpressWrap() {
-  if (Module.__adminkitCc730OnepassExpressWrap) return;
-  Module.__adminkitCc730OnepassExpressWrap = true;
+  if (Module.__adminkitCc731OnepassExpressWrap) return;
+  Module.__adminkitCc731OnepassExpressWrap = true;
   const prev = Module._load;
-  Module._load = function adminkitCc730OnepassLoad(request, parent, isMain) {
+  Module._load = function adminkitCc731OnepassLoad(request, parent, isMain) {
     const loaded = prev.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitCc730OnepassWrapped) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitCc731OnepassWrapped) {
         patchExpressStatic(loaded);
         function wrappedExpress(...args) {
           const app = loaded(...args);
@@ -146,11 +153,11 @@ function installExpressWrap() {
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
         patchExpressStatic(wrappedExpress);
-        wrappedExpress.__adminkitCc730OnepassWrapped = true;
+        wrappedExpress.__adminkitCc731OnepassWrapped = true;
         return wrappedExpress;
       }
     } catch (error) {
-      console.warn('[cc7.3.0-clean] express wrap skipped:', error?.message || error);
+      console.warn('[cc7.3.1-clean] express wrap skipped:', error?.message || error);
     }
     return loaded;
   };
@@ -168,7 +175,8 @@ function layerSummary() {
     uiRedesign: false,
     servedAppJs: 'public/app-onepass.js',
     commentsOpenStateRoute: 'routes/commentOpenState.js',
-    policy: 'clean_no_recovery_layers_no_overlay_no_float_hints_explicit_app_url_buttons'
+    useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
+    policy: 'clean_no_recovery_layers_no_overlay_no_float_hints_native_open_app'
   };
 }
 
