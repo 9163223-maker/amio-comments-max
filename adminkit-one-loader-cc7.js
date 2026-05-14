@@ -1,8 +1,8 @@
 'use strict';
 
-// CC7.3.1 clean runtime bridge.
+// CC7.4.0 clean runtime bridge.
 // No UI overlay, no floating hints, no client recovery layer.
-// Comment buttons stay native open_app by default. External /app link buttons are disabled for product UX.
+// Native open_app remains the product path. Post identity is carried by stable ak_ payload.
 
 const fs = require('fs');
 const path = require('path');
@@ -10,15 +10,13 @@ const Module = require('module');
 
 const { registerCommentOpenStateRoutes } = require('./routes/commentOpenState');
 
-const RUNTIME = 'CC7.3.1-NATIVE-OPEN-APP-NO-EXTERNAL-LINK';
-const SOURCE = 'adminkit-cc7-3-1-native-open-app-no-external-link';
-const MARKER = '__ADMINKIT_CC7_3_1_NATIVE_OPEN_APP_NO_EXTERNAL_LINK__';
+const RUNTIME = 'CC7.4.0-STABLE-POST-IDENTITY';
+const SOURCE = 'adminkit-cc7-4-0-stable-post-identity';
+const MARKER = '__ADMINKIT_CC7_4_0_STABLE_POST_IDENTITY__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
 process.env.BUILD_SOURCE_MARKER = SOURCE;
-// services/maxApi.js supports this switch. Keep native open_app as the default here,
-// but do not overwrite an explicit Northflank env value.
 if (process.env.ADMINKIT_USE_OPEN_APP_BUTTON === undefined) {
   process.env.ADMINKIT_USE_OPEN_APP_BUTTON = '1';
 }
@@ -55,7 +53,7 @@ function loadLayer(pathName) {
   } catch (error) {
     item.ok = false;
     item.error = error?.message || String(error);
-    console.warn('[cc7.3.1-clean] layer failed:', pathName, item.error);
+    console.warn('[cc7.4.0-clean] layer failed:', pathName, item.error);
   }
   loadedLayers.push(item);
   return item;
@@ -68,8 +66,8 @@ function readOnepassAppJs() {
 }
 
 function installRoutes(app) {
-  if (!app || app.__adminkitCc731OnepassRoutes) return app;
-  app.__adminkitCc731OnepassRoutes = true;
+  if (!app || app.__adminkitCc740OnepassRoutes) return app;
+  app.__adminkitCc740OnepassRoutes = true;
 
   registerCommentOpenStateRoutes(app);
 
@@ -90,32 +88,43 @@ function installRoutes(app) {
     } catch (error) {
       appOnepass = { exists: false, bytes: 0, error: error?.message || String(error) };
     }
+    let buildInfo = null;
+    try {
+      buildInfo = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'build-info.json'), 'utf8'));
+    } catch (_) {}
     res.json({
       ok: true,
       runtimeVersion: RUNTIME,
       sourceMarker: SOURCE,
       marker: MARKER,
       installedAt,
-      policy: 'clean_no_recovery_layers_native_open_app_no_external_link_buttons',
+      policy: 'clean_no_recovery_layers_native_open_app_stable_ak_payload_post_snapshot',
       appOnepass,
       useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
+      buildInfo,
       loadedLayers,
       commentOpenStateRoute: require('./routes/commentOpenState').selfTest()
     });
   });
 
-  app.get(['/debug/ping', '/debug/version'], (req, res) => {
+  app.get(['/debug/ping', '/debug/version', '/debug/build-info'], (req, res) => {
     noCache(res);
+    let buildInfo = null;
+    try {
+      buildInfo = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'build-info.json'), 'utf8'));
+    } catch (_) {}
     res.json({
       ok: true,
       service: 'amio-comments-max',
       runtimeVersion: RUNTIME,
       buildVersion: RUNTIME,
-      displayVersion: 'CC7.3.1',
+      displayVersion: 'CC7.4.0',
       sourceMarker: SOURCE,
       useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
+      buildInfo,
       generatedAt: Date.now(),
-      installedAt
+      installedAt,
+      commentOpenStateRoute: require('./routes/commentOpenState').selfTest()
     });
   });
 
@@ -123,28 +132,28 @@ function installRoutes(app) {
 }
 
 function patchExpressStatic(expressModule) {
-  if (!expressModule || expressModule.__adminkitCc731StaticWrapped) return expressModule;
+  if (!expressModule || expressModule.__adminkitCc740StaticWrapped) return expressModule;
   const originalStatic = expressModule.static;
   if (typeof originalStatic !== 'function') return expressModule;
-  expressModule.static = function adminkitCc731Static(...args) {
+  expressModule.static = function adminkitCc740Static(...args) {
     const middleware = originalStatic.apply(this, args);
-    return function adminkitCc731StaticMiddleware(req, res, next) {
+    return function adminkitCc740StaticMiddleware(req, res, next) {
       if (isAppJsRequest(req)) return next();
       return middleware(req, res, next);
     };
   };
-  expressModule.__adminkitCc731StaticWrapped = true;
+  expressModule.__adminkitCc740StaticWrapped = true;
   return expressModule;
 }
 
 function installExpressWrap() {
-  if (Module.__adminkitCc731OnepassExpressWrap) return;
-  Module.__adminkitCc731OnepassExpressWrap = true;
+  if (Module.__adminkitCc740OnepassExpressWrap) return;
+  Module.__adminkitCc740OnepassExpressWrap = true;
   const prev = Module._load;
-  Module._load = function adminkitCc731OnepassLoad(request, parent, isMain) {
+  Module._load = function adminkitCc740OnepassLoad(request, parent, isMain) {
     const loaded = prev.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitCc731OnepassWrapped) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitCc740OnepassWrapped) {
         patchExpressStatic(loaded);
         function wrappedExpress(...args) {
           const app = loaded(...args);
@@ -153,11 +162,11 @@ function installExpressWrap() {
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
         patchExpressStatic(wrappedExpress);
-        wrappedExpress.__adminkitCc731OnepassWrapped = true;
+        wrappedExpress.__adminkitCc740OnepassWrapped = true;
         return wrappedExpress;
       }
     } catch (error) {
-      console.warn('[cc7.3.1-clean] express wrap skipped:', error?.message || error);
+      console.warn('[cc7.4.0-clean] express wrap skipped:', error?.message || error);
     }
     return loaded;
   };
@@ -176,7 +185,7 @@ function layerSummary() {
     servedAppJs: 'public/app-onepass.js',
     commentsOpenStateRoute: 'routes/commentOpenState.js',
     useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
-    policy: 'clean_no_recovery_layers_no_overlay_no_float_hints_native_open_app'
+    policy: 'clean_no_recovery_layers_no_overlay_no_float_hints_native_open_app_stable_payload'
   };
 }
 
@@ -186,7 +195,6 @@ function boot() {
   installedAt = new Date().toISOString();
   installExpressWrap();
 
-  // Backend-only layers kept temporarily. No old comments repaint/observer layers are loaded here.
   loadLayer('./db-v3-store-comment-guard');
   loadLayer('./db-v3-comment-guard');
   loadLayer('./hard-v3-menu-webhook-router');
