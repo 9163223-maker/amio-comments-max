@@ -1,5 +1,10 @@
 const API_BASE_URL = "https://platform-api.max.ru";
 
+// CC7.3: by default the comments button uses a normal link with explicit /app query params.
+// This is intentional: no client recovery layers and no guessing from MAX open_app payload.
+// Native open_app can be enabled only deliberately via ADMINKIT_USE_OPEN_APP_BUTTON=1.
+const USE_OPEN_APP_BUTTON = String(process.env.ADMINKIT_USE_OPEN_APP_BUTTON || "").trim() === "1";
+
 async function readJsonSafe(response) {
   try {
     return await response.json();
@@ -177,6 +182,7 @@ function normalizeBotUsername({ botUsername = "", maxDeepLinkBase = "" } = {}) {
   return String(maxDeepLinkBase || "").trim().replace(/^https?:\/\/max\.ru\//i, "").replace(/[/?#].*$/, "");
 }
 function buildOpenAppButton({ text, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey }) {
+  if (!USE_OPEN_APP_BUTTON) return null;
   const webApp = normalizeBotUsername({ botUsername, maxDeepLinkBase });
   const payload = buildStartappPayload({ handoffToken, commentKey, postId, channelId });
   if (!webApp) return null;
@@ -222,7 +228,7 @@ function buildCommentsKeyboard({ appBaseUrl, botUsername, maxDeepLinkBase, hando
     else {
       const appLink = buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey });
       const botLink = buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey });
-      const launchLink = botLink || appLink || "";
+      const launchLink = appLink || botLink || "";
       rows.push([{ type: "link", text: buttonText, ...(launchLink ? { url: launchLink } : {}) }]);
     }
   }
