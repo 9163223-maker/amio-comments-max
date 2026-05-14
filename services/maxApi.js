@@ -1,10 +1,11 @@
 const API_BASE_URL = "https://platform-api.max.ru";
 
-// CC7.3.2
-// Product rule: the comments button must never use an external code.run /app URL in the channel.
-// Primary path: native MAX open_app. Fallback: internal max.ru bot deep link with startapp.
-// Direct appBaseUrl /app links are kept only for debug/returned metadata, not for the visible comment button.
+// CC7.4.1
+// Product rule: comments button must never use a visible external code.run /app URL.
+// Native open_app stays primary. Payload is deterministic and short: cp_<channelId>_<postId>.
+// Legacy h_ handoff is fallback only, because in-memory handoff may disappear after redeploy.
 const USE_OPEN_APP_BUTTON = String(process.env.ADMINKIT_USE_OPEN_APP_BUTTON || "1").trim() !== "0";
+const MAX_STARTAPP_PAYLOAD_BYTES = 512;
 
 async function readJsonSafe(response) {
   try { return await response.json(); } catch { return null; }
@@ -201,18 +202,24 @@ async function getAllChatMembers({ botToken, chatId, pageSize = 100, limit = 500
 }
 
 function cleanStartappPayload(value = "") {
-  return String(value || "").trim().replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 512);
+  return String(value || "").trim().replace(/[^A-Za-z0-9_-]/g, "_").slice(0, MAX_STARTAPP_PAYLOAD_BYTES);
 }
 
-function buildStartappPayload({ handoffToken, commentKey, postId, channelId } = {}) {
-  const normalizedHandoff = cleanStartappPayload(handoffToken);
-  if (normalizedHandoff) return normalizedHandoff;
+function buildStableOpenPayload({ commentKey, postId, channelId, messageId } = {}) {
   const normalizedChannelId = cleanStartappPayload(channelId);
-  const normalizedPostId = cleanStartappPayload(postId);
+  const normalizedPostId = cleanStartappPayload(postId || messageId);
   if (normalizedChannelId && normalizedPostId) return cleanStartappPayload(`cp_${normalizedChannelId}_${normalizedPostId}`);
-  if (normalizedPostId) return cleanStartappPayload(`post_${normalizedPostId}`);
   const normalizedCommentKey = cleanStartappPayload(commentKey);
-  return normalizedCommentKey ? cleanStartappPayload(`ck_${normalizedCommentKey}`) : "";
+  if (normalizedCommentKey) return cleanStartappPayload(`ck_${normalizedCommentKey}`);
+  return "";
+}
+
+function buildStartappPayload({ handoffToken, commentKey, postId, channelId, messageId } = {}) {
+  // CC7.4.1: deterministic compact post identity wins. Legacy h_ is fallback only.
+  const stable = buildStableOpenPayload({ commentKey, postId, channelId, messageId });
+  if (stable) return stable;
+  const normalizedHandoff = cleanStartappPayload(handoffToken);
+  return normalizedHandoff || "";
 }
 
 function normalizeBotUsername({ botUsername = "", maxDeepLinkBase = "" } = {}) {
@@ -228,23 +235,23 @@ function normalizeBotUsername({ botUsername = "", maxDeepLinkBase = "" } = {}) {
     .replace(/[/?#].*$/, "");
 }
 
-function buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey }) {
+function buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, messageId }) {
   const bot = normalizeBotUsername({ botUsername, maxDeepLinkBase });
-  const startapp = buildStartappPayload({ handoffToken, commentKey, postId, channelId });
+  const startapp = buildStartappPayload({ handoffToken, commentKey, postId, channelId, messageId });
   if (!bot || !startapp) return "";
   const query = new URLSearchParams();
   query.set("startapp", startapp);
   return `https://max.ru/${bot}?${query.toString()}`;
 }
 
-function buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey }) {
+function buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, messageId }) {
   const normalizedPostId = String(postId || "").trim();
   const normalizedChannelId = String(channelId || "").trim();
   const normalizedCommentKey = String(commentKey || "").trim();
   const normalizedAppBaseUrl = String(appBaseUrl || "").trim().replace(/\/$/, "");
   const normalizedHandoff = String(handoffToken || "").trim();
   const query = new URLSearchParams();
-  const startapp = buildStartappPayload({ handoffToken: normalizedHandoff, commentKey: normalizedCommentKey, postId: normalizedPostId, channelId: normalizedChannelId });
+  const startapp = buildStartappPayload({ handoffToken: normalizedHandoff, commentKey: normalizedCommentKey, postId: normalizedPostId, channelId: normalizedChannelId, messageId });
   if (startapp) query.set("startapp", startapp);
   if (normalizedHandoff) query.set("handoff", normalizedHandoff);
   if (normalizedPostId) query.set("postId", normalizedPostId);
@@ -252,13 +259,13 @@ function buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, hando
   if (normalizedCommentKey) query.set("commentKey", normalizedCommentKey);
   const queryString = query.toString();
   if (normalizedAppBaseUrl) return `${normalizedAppBaseUrl}/app?${queryString}`;
-  return buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken: normalizedHandoff, postId: normalizedPostId, channelId: normalizedChannelId, commentKey: normalizedCommentKey }) || `/app?${queryString}`;
+  return buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken: normalizedHandoff, postId: normalizedPostId, channelId: normalizedChannelId, commentKey: normalizedCommentKey, messageId }) || `/app?${queryString}`;
 }
 
-function buildOpenAppButton({ text, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey }) {
+function buildOpenAppButton({ text, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, messageId }) {
   if (!USE_OPEN_APP_BUTTON) return null;
   const webApp = normalizeBotUsername({ botUsername, maxDeepLinkBase });
-  const payload = buildStartappPayload({ handoffToken, commentKey, postId, channelId });
+  const payload = buildStartappPayload({ handoffToken, commentKey, postId, channelId, messageId });
   if (!webApp || !payload) return null;
   return { type: "open_app", text: String(text || "💬 Комментарии").trim(), web_app: webApp, payload };
 }
@@ -298,15 +305,15 @@ function buildGiftKeyboardRows({ campaign, commentKey, channelId, postId }) {
   return rows;
 }
 
-function buildCommentsKeyboard({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, count = 0, extraRows = [], buttonSuffix = '', primaryButtonText = '', showPrimaryButton = true }) {
+function buildCommentsKeyboard({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, count = 0, extraRows = [], buttonSuffix = '', primaryButtonText = '', showPrimaryButton = true, messageId = '' }) {
   const rows = [];
   if (showPrimaryButton) {
     const buttonText = String(primaryButtonText || "").trim() || buildCommentsButtonText(count, buttonSuffix);
-    const openAppButton = buildOpenAppButton({ text: buttonText, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey });
+    const openAppButton = buildOpenAppButton({ text: buttonText, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, messageId });
     if (openAppButton) {
       rows.push([openAppButton]);
     } else {
-      const internalMaxLink = buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey });
+      const internalMaxLink = buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, messageId });
       if (internalMaxLink) {
         rows.push([{ type: "link", text: buttonText, url: internalMaxLink }]);
       } else {
@@ -342,6 +349,7 @@ module.exports = {
   buildCommentsKeyboard,
   buildBotStartLink,
   buildStartappPayload,
+  buildStableOpenPayload,
   buildOpenAppButton,
   buildGiftKeyboardRows
 };
