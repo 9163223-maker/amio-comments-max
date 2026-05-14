@@ -1,0 +1,430 @@
+;(() => {
+'use strict';
+
+const RUNTIME = 'CC7.2-APPJS-ONEPASS';
+const ONEPASS_MARKER = '__ADMINKIT_CC7_2_APPJS_ONEPASS__';
+if (window[ONEPASS_MARKER]) return;
+window[ONEPASS_MARKER] = true;
+
+function byId(id) { return document.getElementById(id); }
+function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function safeDecode(value) {
+  let current = String(value || '');
+  for (let i = 0; i < 5; i += 1) {
+    try {
+      const decoded = decodeURIComponent(current.replace(/\+/g, '%20'));
+      if (decoded === current) break;
+      current = decoded;
+    } catch (_) { break; }
+  }
+  return current;
+}
+function escapeHtml(value) {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+function formatTime(ts) {
+  if (!ts) return '';
+  try { return new Date(ts).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; }
+}
+function pluralComments(n) {
+  const count = Math.max(0, Number(n || 0) || 0);
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (count === 0) return '0 комментариев';
+  if (mod10 === 1 && mod100 !== 11) return count + ' комментарий';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return count + ' комментария';
+  return count + ' комментариев';
+}
+function getPossibleWebApps() {
+  return [
+    window.WebApp,
+    window.Telegram && window.Telegram.WebApp,
+    window.Max && window.Max.WebApp,
+    window.MAX && window.MAX.WebApp,
+    window.maxWebApp,
+    window.MAXWebApp,
+    window.MiniApp,
+    window.max && window.max.WebApp
+  ].filter(Boolean);
+}
+function initBridgeUi() {
+  const app = getPossibleWebApps()[0];
+  try { app && app.ready && app.ready(); } catch (_) {}
+  try { app && app.expand && app.expand(); } catch (_) {}
+  try { app && app.disableClosingConfirmation && app.disableClosingConfirmation(); } catch (_) {}
+}
+function getBridgeUser() {
+  const apps = getPossibleWebApps();
+  for (const app of apps) {
+    const user = (app && app.initDataUnsafe && app.initDataUnsafe.user) || (app && app.user);
+    if (user) return user;
+  }
+  return null;
+}
+function getBridgeUserName() {
+  const user = getBridgeUser();
+  return clean((user && (user.first_name || user.username || user.last_name)) || '');
+}
+function getBridgeUserId() {
+  const user = getBridgeUser();
+  return clean((user && user.id) || '');
+}
+function getBridgeAvatarUrl() {
+  const user = getBridgeUser();
+  return clean((user && user.photo_url) || '');
+}
+
+function scanParams() {
+  const result = { commentKey: '', handoff: '', channelId: '', postId: '', title: '', raw: '' };
+  function add(key, value) {
+    const v = clean(safeDecode(value));
+    if (!v) return;
+    if ((key === 'commentKey' || key === 'key') && !result.commentKey) result.commentKey = v;
+    if ((key === 'handoff' || key === 'startapp' || key === 'start_param' || key === 'WebAppStartParam') && !result.handoff) result.handoff = v;
+    if ((key === 'channelId' || key === 'channel') && !result.channelId) result.channelId = v;
+    if ((key === 'postId' || key === 'post_id' || key === 'messageId') && !result.postId) result.postId = v;
+    if ((key === 'title' || key === 'postTitle' || key === 'postText') && !result.title) result.title = v;
+  }
+  function scan(raw) {
+    raw = String(raw || '');
+    if (!raw) return;
+    result.raw += (result.raw ? ' ' : '') + raw;
+    const variants = [raw, safeDecode(raw)];
+    variants.forEach((variant) => {
+      const parts = [variant];
+      if (variant.includes('?')) parts.push(variant.split('?').slice(1).join('?'));
+      if (variant.includes('#')) parts.push(variant.split('#').slice(1).join('#'));
+      parts.forEach((part) => {
+        try {
+          const params = new URLSearchParams(String(part || '').replace(/^#|^\?/g, ''));
+          for (const pair of params.entries()) add(pair[0], pair[1]);
+        } catch (_) {}
+      });
+      const ck = variant.match(/-?\d{6,}:-?\d{3,}/);
+      if (ck) add('commentKey', ck[0]);
+      const handoff = variant.match(/h_[A-Za-z0-9_-]{6,}/);
+      if (handoff) add('handoff', handoff[0]);
+      const postId = variant.match(/(?:postId|post_id|messageId)[:=](-?\d{1,})/i);
+      if (postId) add('postId', postId[1]);
+      const title = variant.match(/\b(Post\s*new!!\s*\d+!|Post\s*new\s*\d+|Post\s*zero\s*\d+|Post\s*\d+|Пост\s*\d+)\b/i);
+      if (title) add('title', title[1]);
+    });
+  }
+  try { scan(location.href); scan(location.search); scan(location.hash); scan(document.referrer || ''); } catch (_) {}
+  getPossibleWebApps().forEach((app) => {
+    try {
+      const unsafe = (app && app.initDataUnsafe) || {};
+      ['start_param', 'startapp', 'postId', 'post_id', 'commentKey', 'channelId', 'title', 'postTitle'].forEach((key) => add(key, unsafe[key]));
+      scan(app && app.initData);
+      scan(app && app.startParam);
+      scan(app && app.launchParams);
+      scan(app && app.params);
+    } catch (_) {}
+  });
+  if (result.commentKey && result.commentKey.includes(':')) {
+    const parts = result.commentKey.split(':');
+    if (!result.channelId) result.channelId = parts[0] || '';
+    if (!result.postId) result.postId = parts[1] || '';
+  }
+  return result;
+}
+
+const refs = {
+  postCard: byId('postCard'),
+  postTitle: byId('postTitle'),
+  postMedia: byId('postMedia'),
+  postNativeReactions: byId('postNativeReactions'),
+  commentsList: byId('commentsList'),
+  emptyState: byId('emptyState'),
+  nameInput: byId('nameInput'),
+  commentInput: byId('commentInput'),
+  sendBtn: byId('sendBtn'),
+  searchBtn: byId('searchBtn'),
+  attachBtn: byId('attachBtn'),
+  attachmentInput: byId('attachmentInput'),
+  commentsCountPill: byId('commentsCountPill'),
+  adminkitDiscussionLink: byId('adminkitDiscussionLink'),
+  backBtn: byId('backBtn'),
+  composerAvatar: byId('composerAvatar'),
+  composerAvatarFallback: byId('composerAvatarFallback'),
+  discussionLabel: byId('discussionLabel'),
+  composerCard: byId('composerCard'),
+  postError: byId('postError'),
+  commentInlineStatus: byId('commentInlineStatus'),
+  commentsWrap: byId('commentsWrap'),
+  miniAppStartCard: byId('miniAppStartCard'),
+  miniAppStartText: byId('miniAppStartText'),
+  miniAppStartWorkBtn: byId('miniAppStartWorkBtn'),
+  miniAppCommunityBtn: byId('miniAppCommunityBtn'),
+  miniAppTopbar: byId('miniAppTopbar')
+};
+
+const params = scanParams();
+const state = {
+  commentKey: params.commentKey,
+  handoff: params.handoff,
+  channelId: params.channelId,
+  postId: params.postId,
+  title: params.title,
+  currentUserId: getBridgeUserId(),
+  currentUserName: getBridgeUserName(),
+  currentUserAvatarUrl: getBridgeAvatarUrl(),
+  comments: [],
+  meta: {},
+  commentsCount: 0,
+  pollTimer: null,
+  requestInFlight: false
+};
+window.__ADMINKIT_CC7_2_STATE__ = state;
+
+function setInlineStatus(message, isError) {
+  if (!refs.commentInlineStatus) return;
+  refs.commentInlineStatus.textContent = message || '';
+  refs.commentInlineStatus.classList.toggle('hidden', !message);
+  refs.commentInlineStatus.classList.toggle('error', Boolean(isError && message));
+}
+function buildOpenStateUrl() {
+  const q = new URLSearchParams();
+  if (state.commentKey) q.set('commentKey', state.commentKey);
+  if (state.handoff) q.set('handoff', state.handoff);
+  if (state.channelId) q.set('channelId', state.channelId);
+  if (state.postId) q.set('postId', state.postId);
+  if (state.title) q.set('title', state.title);
+  q.set('t', Date.now());
+  return '/api/adminkit/comment-open-state?' + q.toString();
+}
+function loadOpenStateSync() {
+  try {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', buildOpenStateUrl(), false);
+    xhr.setRequestHeader('Cache-Control', 'no-store');
+    xhr.send(null);
+    if (xhr.status >= 200 && xhr.status < 400) return JSON.parse(xhr.responseText || '{}');
+    return { ok: false, error: 'http_' + xhr.status };
+  } catch (error) {
+    return { ok: false, error: String((error && error.message) || error) };
+  }
+}
+async function loadOpenStateAsync() {
+  const response = await fetch(buildOpenStateUrl(), { cache: 'no-store' });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) throw new Error(data.error || ('http_' + response.status));
+  return data;
+}
+
+function showMiniStart() {
+  document.body && document.body.classList && document.body.classList.add('miniapp-start-mode');
+  if (refs.miniAppTopbar) refs.miniAppTopbar.style.display = 'none';
+  if (refs.postCard) refs.postCard.style.display = 'none';
+  if (refs.commentsWrap) refs.commentsWrap.style.display = 'none';
+  const wrap = document.querySelector('.discussion-label-wrap');
+  if (wrap) wrap.style.display = 'none';
+  if (refs.composerCard) refs.composerCard.style.display = 'none';
+  if (refs.miniAppStartCard) refs.miniAppStartCard.classList.remove('hidden');
+  if (refs.miniAppStartText) {
+    refs.miniAppStartText.innerHTML = '<div class="miniapp-start-copy strong">АдминКИТ — система управления MAX</div>' +
+      '<div class="miniapp-start-copy">Комментарии, подарки, кнопки и статистика канала — в одном месте.</div>' +
+      '<div class="miniapp-start-copy subtle">После нажатия откроется чат с ботом.</div>';
+  }
+}
+function hideMiniStart() {
+  document.body && document.body.classList && document.body.classList.remove('miniapp-start-mode');
+  if (refs.miniAppStartCard) refs.miniAppStartCard.classList.add('hidden');
+  if (refs.miniAppTopbar) refs.miniAppTopbar.style.display = 'grid';
+  if (refs.postCard) refs.postCard.style.display = 'block';
+  if (refs.commentsWrap) refs.commentsWrap.style.display = 'block';
+  const wrap = document.querySelector('.discussion-label-wrap');
+  if (wrap) wrap.style.display = 'flex';
+  if (refs.composerCard) refs.composerCard.style.display = 'block';
+}
+function applyMeta(meta) {
+  meta = meta || {};
+  state.meta = meta;
+  if (meta.commentKey) state.commentKey = clean(meta.commentKey);
+  if (meta.channelId) state.channelId = clean(meta.channelId);
+  if (meta.postId) state.postId = clean(meta.postId);
+  if (meta.postTitle) state.title = clean(meta.postTitle);
+
+  const title = clean(meta.postTitle || state.title || (state.postId ? ('Post ' + state.postId) : ''));
+  if (refs.postTitle) refs.postTitle.textContent = title;
+  if (refs.discussionLabel) refs.discussionLabel.textContent = 'Начало обсуждения';
+
+  const banner = (meta && meta.banner) || {};
+  const ctaText = clean(banner.button || banner.text) || '🐋 АдминКИТ';
+  const ctaLink = clean(banner.link) || 'https://max.ru/id781310320690_bot?start=menu';
+  if (refs.adminkitDiscussionLink) {
+    refs.adminkitDiscussionLink.textContent = ctaText;
+    refs.adminkitDiscussionLink.href = ctaLink;
+    refs.adminkitDiscussionLink.target = '_blank';
+    refs.adminkitDiscussionLink.rel = 'noopener noreferrer';
+  }
+  if (refs.postError) {
+    refs.postError.textContent = '';
+    refs.postError.style.display = 'none';
+  }
+}
+function renderCommentAttachment(attachment) {
+  if (!attachment) return '';
+  const type = clean(attachment.type || attachment.kind || '');
+  const url = clean(attachment.url || attachment.previewUrl || attachment.posterUrl || '');
+  const name = clean(attachment.name || attachment.fileName || 'файл');
+  if (!url) return '';
+  if (type === 'image' || /\.(jpg|jpeg|png|webp|gif)$/i.test(url)) {
+    return '<div class="comment-attachment comment-attachment-image"><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(name) + '" loading="lazy"></div>';
+  }
+  if (type === 'video' || /\.(mp4|mov|webm)$/i.test(url)) {
+    return '<div class="comment-attachment comment-attachment-video"><video controls playsinline src="' + escapeHtml(url) + '"></video></div>';
+  }
+  return '<a class="comment-attachment comment-attachment-file" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(name) + '</a>';
+}
+function renderComments(list) {
+  state.comments = Array.isArray(list) ? list : [];
+  state.commentsCount = state.comments.length;
+  if (refs.commentsCountPill) refs.commentsCountPill.textContent = pluralComments(state.commentsCount);
+  if (refs.emptyState) {
+    refs.emptyState.textContent = state.comments.length ? '' : 'Комментариев пока нет';
+    refs.emptyState.style.display = state.comments.length ? 'none' : 'block';
+  }
+  if (!refs.commentsList) return;
+  refs.commentsList.innerHTML = state.comments.map((comment) => {
+    const userId = clean(comment.userId || comment.user_id || '');
+    const userName = clean(comment.userName || comment.user_name || comment.name || 'Гость');
+    const own = Boolean(state.currentUserId && userId && String(state.currentUserId) === String(userId));
+    const text = clean(comment.text || comment.body || '');
+    const time = formatTime(comment.createdAt || comment.created_at || comment.updatedAt || comment.updated_at);
+    const attachments = (Array.isArray(comment.attachments) ? comment.attachments : []).map(renderCommentAttachment).join('');
+    return '<div class="comment-row ' + (own ? 'own' : 'other') + '" data-comment-id="' + escapeHtml(comment.id || '') + '">' +
+      '<div class="comment-avatar">' + escapeHtml(userName.charAt(0).toUpperCase() || 'Г') + '</div>' +
+      '<div class="comment-bubble">' +
+        (own ? '' : '<div class="comment-author">' + escapeHtml(userName) + '</div>') +
+        (text ? '<div class="comment-text">' + escapeHtml(text) + '</div>' : '') +
+        attachments +
+        '<div class="comment-time">' + escapeHtml(time) + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+function renderOpenState(data) {
+  data = data || {};
+  hideMiniStart();
+  applyMeta(data.meta || {});
+  const list = Array.isArray(data.comments) ? data.comments : [];
+  const count = Number(data.commentsCount || list.length || 0) || 0;
+  renderComments(list);
+  state.commentsCount = count;
+  if (refs.commentsCountPill) refs.commentsCountPill.textContent = pluralComments(count);
+}
+async function refreshOpenState() {
+  if (state.requestInFlight) return;
+  state.requestInFlight = true;
+  try {
+    const data = await loadOpenStateAsync();
+    renderOpenState(data);
+  } catch (_) {
+    // Не перерисовываем в Загрузка/пустоту при сетевой ошибке: оставляем последний нормальный экран.
+  } finally {
+    state.requestInFlight = false;
+  }
+}
+function outgoingUserName() { return clean(state.currentUserName || (refs.nameInput && refs.nameInput.value) || 'Гость'); }
+function outgoingUserId() { return clean(state.currentUserId || (refs.nameInput && refs.nameInput.value) || 'guest'); }
+async function sendComment() {
+  const text = clean(refs.commentInput && refs.commentInput.value);
+  if (!text || !state.commentKey) return;
+  setInlineStatus('', false);
+  if (refs.sendBtn) refs.sendBtn.disabled = true;
+  try {
+    const response = await fetch('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        commentKey: state.commentKey,
+        userId: outgoingUserId(),
+        userName: outgoingUserName(),
+        avatarUrl: state.currentUserAvatarUrl || '',
+        text: text,
+        attachments: []
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) {
+      const friendly = clean(data.message || data.userMessage || data.friendlyMessage) || 'Комментарий не опубликован: сработала модерация или правила обсуждения.';
+      setInlineStatus(friendly, true);
+      return;
+    }
+    if (refs.commentInput) refs.commentInput.value = '';
+    await refreshOpenState();
+  } catch (_) {
+    setInlineStatus('Не удалось отправить комментарий. Попробуйте ещё раз.', true);
+  } finally {
+    if (refs.sendBtn) refs.sendBtn.disabled = false;
+  }
+}
+function bindEvents() {
+  if (refs.sendBtn) refs.sendBtn.addEventListener('click', sendComment);
+  if (refs.commentInput) {
+    refs.commentInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendComment();
+      }
+    });
+  }
+  if (refs.backBtn) refs.backBtn.addEventListener('click', () => { try { history.back(); } catch (_) {} });
+  if (refs.attachBtn && refs.attachmentInput) refs.attachBtn.addEventListener('click', () => refs.attachmentInput.click());
+  if (refs.miniAppStartWorkBtn) refs.miniAppStartWorkBtn.addEventListener('click', () => {
+    const target = 'https://max.ru/id781310320690_bot?start=menu';
+    const app = getPossibleWebApps()[0];
+    try { if (app && app.openMaxLink) app.openMaxLink(target); else location.href = target; } catch (_) { location.href = target; }
+  });
+  if (refs.miniAppCommunityBtn) refs.miniAppCommunityBtn.addEventListener('click', () => {
+    const target = 'https://max.ru/id781310320690_biz';
+    const app = getPossibleWebApps()[0];
+    try { if (app && app.openMaxLink) app.openMaxLink(target); else location.href = target; } catch (_) { location.href = target; }
+  });
+}
+
+function boot() {
+  initBridgeUi();
+  bindEvents();
+  if (state.currentUserName && refs.nameInput) {
+    refs.nameInput.value = state.currentUserName;
+    refs.nameInput.readOnly = true;
+    refs.nameInput.style.display = 'none';
+  }
+  if (state.currentUserAvatarUrl && refs.composerAvatar) {
+    refs.composerAvatar.src = state.currentUserAvatarUrl;
+    refs.composerAvatar.style.display = 'block';
+    if (refs.composerAvatarFallback) refs.composerAvatarFallback.style.display = 'none';
+  }
+
+  const hasCommentContext = Boolean(state.commentKey || state.handoff || state.postId || state.title);
+  if (!hasCommentContext) {
+    showMiniStart();
+    return;
+  }
+
+  const initial = loadOpenStateSync();
+  window.__ADMINKIT_CC7_2_INITIAL__ = initial;
+  if (initial && initial.ok) {
+    renderOpenState(initial);
+  } else {
+    hideMiniStart();
+    applyMeta({ postTitle: state.title || (state.postId ? ('Post ' + state.postId) : '') });
+    renderComments([]);
+    if (refs.postError) {
+      refs.postError.textContent = 'Не удалось открыть обсуждение. Попробуйте обновить экран.';
+      refs.postError.style.display = 'block';
+    }
+  }
+  state.pollTimer = setInterval(refreshOpenState, 5000);
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+else boot();
+})();
