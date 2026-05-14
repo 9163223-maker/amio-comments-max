@@ -1,8 +1,8 @@
 'use strict';
 
-// CC7.2.8 clean runtime bridge.
+// CC7.3.0 clean runtime bridge.
 // No UI overlay, no floating hints, no client recovery layer.
-// Keeps the existing one-pass app.js and focuses the next work on canonical post snapshot rendering.
+// Comments buttons now use explicit /app URL params by default in services/maxApi.js.
 
 const fs = require('fs');
 const path = require('path');
@@ -10,9 +10,9 @@ const Module = require('module');
 
 const { registerCommentOpenStateRoutes } = require('./routes/commentOpenState');
 
-const RUNTIME = 'CC7.2.8-CLEAN-NO-RECOVERY-LAYERS';
-const SOURCE = 'adminkit-cc7-2-8-clean-no-recovery-layers';
-const MARKER = '__ADMINKIT_CC7_2_8_CLEAN_NO_RECOVERY_LAYERS__';
+const RUNTIME = 'CC7.3.0-EXPLICIT-APP-URL-COMMENT-BUTTONS';
+const SOURCE = 'adminkit-cc7-3-0-explicit-app-url-comment-buttons';
+const MARKER = '__ADMINKIT_CC7_3_0_EXPLICIT_APP_URL_COMMENT_BUTTONS__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -50,7 +50,7 @@ function loadLayer(pathName) {
   } catch (error) {
     item.ok = false;
     item.error = error?.message || String(error);
-    console.warn('[cc7.2.8-clean] layer failed:', pathName, item.error);
+    console.warn('[cc7.3.0-clean] layer failed:', pathName, item.error);
   }
   loadedLayers.push(item);
   return item;
@@ -63,8 +63,8 @@ function readOnepassAppJs() {
 }
 
 function installRoutes(app) {
-  if (!app || app.__adminkitCc728OnepassRoutes) return app;
-  app.__adminkitCc728OnepassRoutes = true;
+  if (!app || app.__adminkitCc730OnepassRoutes) return app;
+  app.__adminkitCc730OnepassRoutes = true;
 
   registerCommentOpenStateRoutes(app);
 
@@ -91,7 +91,7 @@ function installRoutes(app) {
       sourceMarker: SOURCE,
       marker: MARKER,
       installedAt,
-      policy: 'clean_no_recovery_layers_serve_onepass_app_js_only',
+      policy: 'clean_no_recovery_layers_explicit_app_url_comment_buttons',
       appOnepass,
       loadedLayers,
       commentOpenStateRoute: require('./routes/commentOpenState').selfTest()
@@ -105,7 +105,7 @@ function installRoutes(app) {
       service: 'amio-comments-max',
       runtimeVersion: RUNTIME,
       buildVersion: RUNTIME,
-      displayVersion: 'CC7.2.8',
+      displayVersion: 'CC7.3.0',
       sourceMarker: SOURCE,
       generatedAt: Date.now(),
       installedAt
@@ -116,28 +116,28 @@ function installRoutes(app) {
 }
 
 function patchExpressStatic(expressModule) {
-  if (!expressModule || expressModule.__adminkitCc728StaticWrapped) return expressModule;
+  if (!expressModule || expressModule.__adminkitCc730StaticWrapped) return expressModule;
   const originalStatic = expressModule.static;
   if (typeof originalStatic !== 'function') return expressModule;
-  expressModule.static = function adminkitCc728Static(...args) {
+  expressModule.static = function adminkitCc730Static(...args) {
     const middleware = originalStatic.apply(this, args);
-    return function adminkitCc728StaticMiddleware(req, res, next) {
+    return function adminkitCc730StaticMiddleware(req, res, next) {
       if (isAppJsRequest(req)) return next();
       return middleware(req, res, next);
     };
   };
-  expressModule.__adminkitCc728StaticWrapped = true;
+  expressModule.__adminkitCc730StaticWrapped = true;
   return expressModule;
 }
 
 function installExpressWrap() {
-  if (Module.__adminkitCc728OnepassExpressWrap) return;
-  Module.__adminkitCc728OnepassExpressWrap = true;
+  if (Module.__adminkitCc730OnepassExpressWrap) return;
+  Module.__adminkitCc730OnepassExpressWrap = true;
   const prev = Module._load;
-  Module._load = function adminkitCc728OnepassLoad(request, parent, isMain) {
+  Module._load = function adminkitCc730OnepassLoad(request, parent, isMain) {
     const loaded = prev.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitCc728OnepassWrapped) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitCc730OnepassWrapped) {
         patchExpressStatic(loaded);
         function wrappedExpress(...args) {
           const app = loaded(...args);
@@ -146,11 +146,11 @@ function installExpressWrap() {
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
         patchExpressStatic(wrappedExpress);
-        wrappedExpress.__adminkitCc728OnepassWrapped = true;
+        wrappedExpress.__adminkitCc730OnepassWrapped = true;
         return wrappedExpress;
       }
     } catch (error) {
-      console.warn('[cc7.2.8-clean] express wrap skipped:', error?.message || error);
+      console.warn('[cc7.3.0-clean] express wrap skipped:', error?.message || error);
     }
     return loaded;
   };
@@ -168,7 +168,7 @@ function layerSummary() {
     uiRedesign: false,
     servedAppJs: 'public/app-onepass.js',
     commentsOpenStateRoute: 'routes/commentOpenState.js',
-    policy: 'clean_no_recovery_layers_no_overlay_no_float_hints'
+    policy: 'clean_no_recovery_layers_no_overlay_no_float_hints_explicit_app_url_buttons'
   };
 }
 
