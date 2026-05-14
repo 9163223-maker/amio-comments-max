@@ -1,16 +1,19 @@
 'use strict';
 
-// CC7.0 clean core.
-// Goal: keep the current user interface visually unchanged, but stop the old multi-layer repaint approach.
-// The comments screen receives DB meta before the existing client code paints post title/chips.
+// CC7.1 clean runtime bridge.
+// Current entrypoint still wraps Express because legacy index.js owns the app instance.
+// Important change in this step: comment-open-state is now registered from routes/commentOpenState.js,
+// not duplicated inside the loader. UI is not redesigned.
 
 const fs = require('fs');
 const path = require('path');
 const Module = require('module');
 
-const RUNTIME = 'CC7.0-CLEAN-COMMENTS-CORE';
-const SOURCE = 'adminkit-cc7-clean-core-no-ui-redesign';
-const MARKER = '__ADMINKIT_CC7_CLEAN_COMMENTS_CORE__';
+const { registerCommentOpenStateRoutes } = require('./routes/commentOpenState');
+
+const RUNTIME = 'CC7.1-CLEAN-RUNTIME-BRIDGE';
+const SOURCE = 'adminkit-cc7-1-clean-route-connected';
+const MARKER = '__ADMINKIT_CC7_1_CLEAN_RUNTIME_BRIDGE__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -18,10 +21,6 @@ process.env.BUILD_SOURCE_MARKER = SOURCE;
 
 const loadedLayers = [];
 let installedAt = '';
-
-function clean(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
 
 function noCache(res) {
   try {
@@ -46,7 +45,7 @@ function loadLayer(pathName) {
   } catch (error) {
     item.ok = false;
     item.error = error?.message || String(error);
-    console.warn('[cc7-clean-core] layer failed:', pathName, item.error);
+    console.warn('[cc7.1-clean-runtime] layer failed:', pathName, item.error);
   }
   loadedLayers.push(item);
   return item;
@@ -73,26 +72,11 @@ function patchClientSource(source) {
   return out;
 }
 
-async function buildOpenState(req) {
-  const resolver = require('./adminkit-v4-post-meta-title-resolver');
-  const params = resolver.parseParams(req);
-  const meta = await resolver.resolveMeta(params);
-  let comments = [];
-  if (meta && meta.commentKey) {
-    try {
-      const svc = require('./services/commentService');
-      if (typeof svc.listComments === 'function') {
-        comments = await svc.listComments(meta.commentKey);
-      }
-    } catch {}
-  }
-  if (!Array.isArray(comments)) comments = [];
-  return { params, meta, comments };
-}
-
 function installRoutes(app) {
-  if (!app || app.__adminkitCc7CleanCoreRoutes) return app;
-  app.__adminkitCc7CleanCoreRoutes = true;
+  if (!app || app.__adminkitCc71CleanRuntimeRoutes) return app;
+  app.__adminkitCc71CleanRuntimeRoutes = true;
+
+  registerCommentOpenStateRoutes(app);
 
   app.get(['/public/app.js', '/app.js'], (req, res, next) => {
     try {
@@ -102,69 +86,47 @@ function installRoutes(app) {
     } catch (error) { next(error); }
   });
 
-  app.get('/api/adminkit/comment-open-state', async (req, res) => {
+  app.get('/debug/cc7', (req, res) => {
     noCache(res);
-    try {
-      const result = await buildOpenState(req);
-      const meta = result.meta || null;
-      res.json({
-        ok: Boolean(meta && !meta.error),
-        runtimeVersion: RUNTIME,
-        sourceMarker: SOURCE,
-        params: result.params,
-        meta,
-        comments: result.comments || [],
-        commentsCount: Array.isArray(result.comments) ? result.comments.length : 0,
-        error: meta?.error || ''
-      });
-    } catch (error) {
-      res.json({ ok: false, runtimeVersion: RUNTIME, sourceMarker: SOURCE, meta: null, comments: [], commentsCount: 0, error: error?.message || String(error) });
-    }
-  });
-
-  app.get('/debug/cc7', async (req, res) => {
-    noCache(res);
-    let openState = null;
-    try { openState = await buildOpenState(req); } catch (e) { openState = { error: e?.message || String(e) }; }
     res.json({
       ok: true,
       runtimeVersion: RUNTIME,
       sourceMarker: SOURCE,
       marker: MARKER,
       installedAt,
-      policy: 'no_ui_redesign_single_initial_db_state_no_observer_repaint',
+      policy: 'comment_open_state_route_is_external_module_next_step_remove_client_patch',
       loadedLayers,
-      openState
+      commentOpenStateRoute: require('./routes/commentOpenState').selfTest()
     });
   });
 
   app.get(['/debug/ping', '/debug/version'], (req, res) => {
     noCache(res);
-    res.json({ ok: true, service: 'amio-comments-max', runtimeVersion: RUNTIME, buildVersion: RUNTIME, displayVersion: 'CC7.0', sourceMarker: SOURCE, generatedAt: Date.now(), installedAt });
+    res.json({ ok: true, service: 'amio-comments-max', runtimeVersion: RUNTIME, buildVersion: RUNTIME, displayVersion: 'CC7.1', sourceMarker: SOURCE, generatedAt: Date.now(), installedAt });
   });
 
   return app;
 }
 
 function installExpressWrap() {
-  if (Module.__adminkitCc7CleanCoreExpressWrap) return;
-  Module.__adminkitCc7CleanCoreExpressWrap = true;
+  if (Module.__adminkitCc71CleanRuntimeExpressWrap) return;
+  Module.__adminkitCc71CleanRuntimeExpressWrap = true;
   const prev = Module._load;
-  Module._load = function adminkitCc7CleanCoreLoad(request, parent, isMain) {
+  Module._load = function adminkitCc71CleanRuntimeLoad(request, parent, isMain) {
     const loaded = prev.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitCc7CleanCoreWrapped) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitCc71CleanRuntimeWrapped) {
         function wrappedExpress(...args) {
           const app = loaded(...args);
           return installRoutes(app);
         }
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
-        wrappedExpress.__adminkitCc7CleanCoreWrapped = true;
+        wrappedExpress.__adminkitCc71CleanRuntimeWrapped = true;
         return wrappedExpress;
       }
     } catch (error) {
-      console.warn('[cc7-clean-core] express wrap skipped:', error?.message || error);
+      console.warn('[cc7.1-clean-runtime] express wrap skipped:', error?.message || error);
     }
     return loaded;
   };
@@ -180,10 +142,10 @@ function layerSummary() {
     failedLayers: failed.map(x => ({ path: x.path, error: x.error })),
     loadedLayers,
     uiRedesign: false,
-    removedLegacyRepaintRoot: true,
-    removed686OnepassRoot: true,
-    commentsMetaSource: 'Postgres ak_posts + ak_post_settings',
-    policy: 'clean_core_db_first_no_history_no_store_decisions'
+    commentsOpenStateRoute: 'routes/commentOpenState.js',
+    commentsMetaService: 'services/postMetaService.js',
+    nextStep: 'connect routes directly inside index.js and remove Module._load bridge',
+    policy: 'clean_route_connected_current_entrypoint_bridge'
   };
 }
 
@@ -193,12 +155,11 @@ function boot() {
   installedAt = new Date().toISOString();
   installExpressWrap();
 
-  // Backend-only layers. No old comments repaint/observer layers are loaded here.
+  // Backend-only layers kept temporarily. No old comments repaint/observer layers are loaded here.
   loadLayer('./db-v3-store-comment-guard');
   loadLayer('./db-v3-comment-guard');
   loadLayer('./hard-v3-menu-webhook-router');
   loadLayer('./clean-v3-menu-debug');
-  loadLayer('./adminkit-v4-post-meta-title-resolver');
 
   require('./index');
 }
