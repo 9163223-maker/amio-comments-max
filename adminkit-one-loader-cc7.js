@@ -1,6 +1,6 @@
 'use strict';
 
-// CC7.2 clean runtime bridge.
+// CC7.2.2 clean runtime bridge.
 // This keeps the existing UI files, but /public/app.js is served from public/app-onepass.js.
 // The goal is one first render from /api/adminkit/comment-open-state: no old placeholder repaint, no duplicate chips.
 
@@ -10,9 +10,9 @@ const Module = require('module');
 
 const { registerCommentOpenStateRoutes } = require('./routes/commentOpenState');
 
-const RUNTIME = 'CC7.2-APPJS-ONEPASS-BRIDGE';
-const SOURCE = 'adminkit-cc7-2-appjs-onepass-route';
-const MARKER = '__ADMINKIT_CC7_2_APPJS_ONEPASS_BRIDGE__';
+const RUNTIME = 'CC7.2.2-APPJS-ONEPASS-BRIDGE';
+const SOURCE = 'adminkit-cc7-2-2-appjs-onepass-route';
+const MARKER = '__ADMINKIT_CC7_2_2_APPJS_ONEPASS_BRIDGE__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -44,7 +44,7 @@ function loadLayer(pathName) {
   } catch (error) {
     item.ok = false;
     item.error = error?.message || String(error);
-    console.warn('[cc7.2-onepass-bridge] layer failed:', pathName, item.error);
+    console.warn('[cc7.2.2-onepass-bridge] layer failed:', pathName, item.error);
   }
   loadedLayers.push(item);
   return item;
@@ -57,8 +57,8 @@ function readOnepassAppJs() {
 }
 
 function installRoutes(app) {
-  if (!app || app.__adminkitCc72OnepassRoutes) return app;
-  app.__adminkitCc72OnepassRoutes = true;
+  if (!app || app.__adminkitCc722OnepassRoutes) return app;
+  app.__adminkitCc722OnepassRoutes = true;
 
   registerCommentOpenStateRoutes(app);
 
@@ -99,7 +99,7 @@ function installRoutes(app) {
       service: 'amio-comments-max',
       runtimeVersion: RUNTIME,
       buildVersion: RUNTIME,
-      displayVersion: 'CC7.2',
+      displayVersion: 'CC7.2.2',
       sourceMarker: SOURCE,
       generatedAt: Date.now(),
       installedAt
@@ -110,24 +110,24 @@ function installRoutes(app) {
 }
 
 function installExpressWrap() {
-  if (Module.__adminkitCc72OnepassExpressWrap) return;
-  Module.__adminkitCc72OnepassExpressWrap = true;
+  if (Module.__adminkitCc722OnepassExpressWrap) return;
+  Module.__adminkitCc722OnepassExpressWrap = true;
   const prev = Module._load;
-  Module._load = function adminkitCc72OnepassLoad(request, parent, isMain) {
+  Module._load = function adminkitCc722OnepassLoad(request, parent, isMain) {
     const loaded = prev.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitCc72OnepassWrapped) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitCc722OnepassWrapped) {
         function wrappedExpress(...args) {
           const app = loaded(...args);
           return installRoutes(app);
         }
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
-        wrappedExpress.__adminkitCc72OnepassWrapped = true;
+        wrappedExpress.__adminkitCc722OnepassWrapped = true;
         return wrappedExpress;
       }
     } catch (error) {
-      console.warn('[cc7.2-onepass-bridge] express wrap skipped:', error?.message || error);
+      console.warn('[cc7.2.2-onepass-bridge] express wrap skipped:', error?.message || error);
     }
     return loaded;
   };
