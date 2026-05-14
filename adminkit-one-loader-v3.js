@@ -5,7 +5,7 @@
 
 const Module = require('module');
 
-const RUNTIME = 'CC6.7.4-HARD-V3-DB-GUARD-ROOT';
+const RUNTIME = 'CC6.7.5-HARD-V3-DB-GUARD-ROOT';
 const SOURCE = 'adminkit-hard-v3-db-only-comments-moderation-root';
 const MARKER = '__ADMINKIT_HARD_V3_DB_GUARD_ROOT__';
 
@@ -75,6 +75,9 @@ function loadPreIndexLayers() {
   loadLayer('./adminkit-comments-preboot-physical-patch');
   loadLayer('./adminkit-comments-title-resolve-patch');
   loadLayer('./v3-comments-title-db-fallback');
+
+  // 4. Клиентское сообщение модерации: вместо грубого «не удалось отправить» показываем понятную причину.
+  loadLayer('./adminkit-friendly-moderation-message');
 }
 
 function layerSummary() {
@@ -85,6 +88,7 @@ function layerSummary() {
     failedLayers: failed.map((x) => ({ path: x.path, error: x.error })),
     hasDbStoreCommentGuard: layerStatus.some((x) => x.path === './db-v3-store-comment-guard' && x.ok),
     hasHardV3MenuWebhookRouter: layerStatus.some((x) => x.path === './hard-v3-menu-webhook-router' && x.ok),
+    hasFriendlyModerationMessage: layerStatus.some((x) => x.path === './adminkit-friendly-moderation-message' && x.ok),
     hasCommentsUiPreserveLayers: layerStatus.some((x) => x.path === './adminkit-safe-comments-boot-core' && x.ok),
     forbiddenOldMenuLayersLoaded: layerStatus.filter((x) => /v3-one-active-menu-edit|adminkit-v3-main-menu-hard-override|v3-menu-actions-adapter|v3-menu-callback-hard-router|production-menu-v3-renderer|production-menu-map|clean-v3-main-route-guard|clean-v3-menu-normalizer|clean-v3-menu-ok|cc6542-hotfix-router|v3-menu-stress/.test(x.path)).map((x) => x.path)
   };
@@ -109,10 +113,12 @@ function installRoutes(app) {
     let hardMenu = null;
     let storeGuard = null;
     let httpGuard = null;
+    let friendlyModeration = null;
     try { hardMenu = require('./menu-v3-hard-root').selfTest(); } catch (error) { hardMenu = { ok: false, error: error?.message || String(error) }; }
     try { storeGuard = require('./db-v3-store-comment-guard').selfTest(); } catch (error) { storeGuard = { ok: false, error: error?.message || String(error) }; }
     try { httpGuard = require('./db-v3-comment-guard').selfTest(); } catch (error) { httpGuard = { ok: false, error: error?.message || String(error) }; }
-    res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, marker: MARKER, installedAt, hardMenu, storeGuard, httpGuard, layerSummary: layerSummary() });
+    try { friendlyModeration = require('./adminkit-friendly-moderation-message').selfTest(); } catch (error) { friendlyModeration = { ok: false, error: error?.message || String(error) }; }
+    res.json({ ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, marker: MARKER, installedAt, hardMenu, storeGuard, httpGuard, friendlyModeration, layerSummary: layerSummary() });
   });
 
   app.get(['/debug/store-live', '/debug/store-live.json', '/debug/store'], (req, res) => {
