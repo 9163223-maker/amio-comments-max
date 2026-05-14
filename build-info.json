@@ -1,15 +1,1 @@
-{
-  "runtimeVersion": "CC6.8.5-HARD-V3-COMMENTS-OPEN-ROOT",
-  "buildVersion": "CC6.8.5-HARD-V3-COMMENTS-OPEN-ROOT",
-  "displayVersion": "CC6.8.5",
-  "packageVersion": "CC6.8.5-v4",
-  "sourceMarker": "adminkit-v4-685-comments-open-core-build-info-sync",
-  "buildGeneratedAt": "2026-05-14T10:52:00Z",
-  "notes": [
-    "Post meta for comments is resolved from Postgres only.",
-    "Numeric MAX startapp values such as 22 or 23 are resolved through ak_posts title fallback.",
-    "The comment screen must not show default duplicate chips before DB meta is loaded.",
-    "The first chip is static: Начало обсуждения. Only the second chip is dynamic: default АдминКИТ or custom CTA.",
-    "Root loader restores BUILD_VERSION/RUNTIME_VERSION after legacy nested loaders so debug ping cannot fall back to CC6.8.3."
-  ]
-}
+{"runtimeVersion":"CC6.8.6-HARD-V3-COMMENTS-ONEPASS-ROOT","buildVersion":"CC6.8.6-HARD-V3-COMMENTS-ONEPASS-ROOT","displayVersion":"CC6.8.6","packageVersion":"CC6.8.6-v4","sourceMarker":"adminkit-v4-686-comments-onepass-root","buildGeneratedAt":"2026-05-14T11:05:00Z"}
