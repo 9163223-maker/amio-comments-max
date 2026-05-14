@@ -1,8 +1,8 @@
 'use strict';
 
-// CC7.2.7 clean runtime bridge.
-// Keeps the existing UI layout, guarantees /public/app.js is served from public/app-onepass.js,
-// and appends a tiny bridge-payload recovery script for MAX open_app payloads.
+// CC7.2.8 clean runtime bridge.
+// No UI overlay, no floating hints, no client recovery layer.
+// Keeps the existing one-pass app.js and focuses the next work on canonical post snapshot rendering.
 
 const fs = require('fs');
 const path = require('path');
@@ -10,9 +10,9 @@ const Module = require('module');
 
 const { registerCommentOpenStateRoutes } = require('./routes/commentOpenState');
 
-const RUNTIME = 'CC7.2.7-APPJS-BRIDGE-PAYLOAD-RECOVERY';
-const SOURCE = 'adminkit-cc7-2-7-bridge-payload-recovery';
-const MARKER = '__ADMINKIT_CC7_2_7_APPJS_BRIDGE_PAYLOAD_RECOVERY__';
+const RUNTIME = 'CC7.2.8-CLEAN-NO-RECOVERY-LAYERS';
+const SOURCE = 'adminkit-cc7-2-8-clean-no-recovery-layers';
+const MARKER = '__ADMINKIT_CC7_2_8_CLEAN_NO_RECOVERY_LAYERS__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -50,25 +50,21 @@ function loadLayer(pathName) {
   } catch (error) {
     item.ok = false;
     item.error = error?.message || String(error);
-    console.warn('[cc7.2.7-onepass-bridge] layer failed:', pathName, item.error);
+    console.warn('[cc7.2.8-clean] layer failed:', pathName, item.error);
   }
   loadedLayers.push(item);
   return item;
 }
 
-function buildBridgePayloadRecoveryScript() {
-  return `\n\n;(() => {\n'use strict';\nconst RUNTIME = ${JSON.stringify(RUNTIME)};\nconst MARKER = '__ADMINKIT_CC7_2_7_BRIDGE_PAYLOAD_RECOVERY__';\nif (window[MARKER]) return;\nwindow[MARKER] = true;\nfunction clean(v){return String(v||'').replace(/\\s+/g,' ').trim();}\nfunction dec(v){let s=String(v||''); for(let i=0;i<4;i++){try{const d=decodeURIComponent(s.replace(/\\+/g,'%20')); if(d===s) break; s=d;}catch(_){break;}} return s;}\nfunction add(list,v){if(v===undefined||v===null) return; if(typeof v==='string'||typeof v==='number'||typeof v==='boolean'){const s=clean(dec(v)); if(s && !list.includes(s)) list.push(s); return;} try{const s=JSON.stringify(v); if(s && s !== '{}' && !list.includes(s)) list.push(s.slice(0,6000));}catch(_){}}\nfunction walk(obj,list,depth,seen){if(!obj||depth>5) return; if(typeof obj!=='object'){add(list,obj);return;} if(seen.has(obj)) return; seen.add(obj); let entries=[]; try{entries=Object.entries(obj);}catch(_){return;} for(const [k,v] of entries){const key=String(k||''); if(/start|payload|param|launch|query|hash|comment|post|channel|handoff|initData|data/i.test(key)) add(list,v); if(v && typeof v==='object') walk(v,list,depth+1,seen);}}\nfunction apps(){return [window.WebApp, window.Telegram&&window.Telegram.WebApp, window.Max&&window.Max.WebApp, window.MAX&&window.MAX.WebApp, window.maxWebApp, window.MAXWebApp, window.MiniApp, window.max&&window.max.WebApp].filter(Boolean);}\nfunction parsePieces(pieces){const out={commentKey:'',handoff:'',startapp:'',channelId:'',postId:'',title:'',raw:''}; const all=pieces.map(dec); for(const s0 of all){const s=clean(s0); if(!s) continue; let m; if(!out.commentKey){m=s.match(/-?\\d{3,}:-?\\d{1,}/); if(m) out.commentKey=m[0];}\nif(!out.handoff){m=s.match(/h_[A-Za-z0-9_-]{6,}/); if(m) out.handoff=m[0];}\nif(!out.startapp){m=s.match(/(?:^|[^A-Za-z0-9_-])((?:cp|ck)_-?\\d{3,}_-?\\d{1,})(?:$|[^A-Za-z0-9_-])/i) || s.match(/^((?:cp|ck)_-?\\d{3,}_-?\\d{1,})$/i); if(m) out.startapp=m[1];}\nif(out.startapp && !out.commentKey){m=out.startapp.match(/^(?:cp|ck)_(-?\\d{3,})_(-?\\d{1,})$/i); if(m){out.channelId=m[1]; out.postId=m[2]; out.commentKey=m[1]+':'+m[2];}}\nif(!out.postId){m=s.match(/(?:postId|post_id|messageId|post)[\\s:=\\\"]+(-?\\d{1,})/i); if(m) out.postId=m[1];}\nif(!out.title){m=s.match(/\\b(Post\\s*\\d+|Пост\\s*\\d+)\\b/i); if(m) out.title=m[1];}}\nif(out.commentKey && out.commentKey.includes(':')){const p=out.commentKey.split(':'); if(!out.channelId) out.channelId=p[0]; if(!out.postId) out.postId=p[1];}\nout.raw=all.join(' ').slice(0,5000); return out;}\nfunction recover(){try{const initial=window.__ADMINKIT_CC7_2_INITIAL__; if(initial && initial.ok) return; const current=window.__ADMINKIT_CC7_2_STATE__||{}; if(current.commentKey || current.handoff || current.postId) return; const pieces=[]; add(pieces, location.href); add(pieces, location.search); add(pieces, location.hash); add(pieces, document.referrer||''); apps().forEach(a=>walk(a,pieces,0,new Set())); const found=parsePieces(pieces); window.__ADMINKIT_CC7_2_RECOVERY__={runtimeVersion:RUNTIME, found, pieces:pieces.slice(0,30)}; if(!(found.commentKey || found.handoff || found.startapp)) return; const fingerprint=clean(found.commentKey||found.handoff||found.startapp); if(!fingerprint) return; const guardKey='adminkit_cc727_recovered_'+fingerprint; if(sessionStorage.getItem(guardKey)==='1') return; sessionStorage.setItem(guardKey,'1'); const q=new URLSearchParams(); if(found.commentKey) q.set('commentKey',found.commentKey); if(found.handoff) q.set('handoff',found.handoff); if(found.startapp) q.set('startapp',found.startapp); if(found.channelId) q.set('channelId',found.channelId); if(found.postId) q.set('postId',found.postId); if(found.title) q.set('title',found.title); if(found.raw) q.set('raw',found.raw); q.set('recover','cc727'); q.set('t',Date.now()); location.replace('/app?'+q.toString());}catch(error){window.__ADMINKIT_CC7_2_RECOVERY_ERROR__=String(error&&error.message||error);}}\nsetTimeout(recover,350);\nsetTimeout(recover,1300);\n})();\n`;
-}
-
 function readOnepassAppJs() {
   const file = path.resolve(__dirname, 'public', 'app-onepass.js');
   const source = fs.readFileSync(file, 'utf8');
-  return source + buildBridgePayloadRecoveryScript() + '\n\n;window.__ADMINKIT_SERVED_APPJS__=' + JSON.stringify({ runtimeVersion: RUNTIME, sourceMarker: SOURCE }) + ';\n';
+  return source + '\n\n;window.__ADMINKIT_SERVED_APPJS__=' + JSON.stringify({ runtimeVersion: RUNTIME, sourceMarker: SOURCE }) + ';\n';
 }
 
 function installRoutes(app) {
-  if (!app || app.__adminkitCc727OnepassRoutes) return app;
-  app.__adminkitCc727OnepassRoutes = true;
+  if (!app || app.__adminkitCc728OnepassRoutes) return app;
+  app.__adminkitCc728OnepassRoutes = true;
 
   registerCommentOpenStateRoutes(app);
 
@@ -95,7 +91,7 @@ function installRoutes(app) {
       sourceMarker: SOURCE,
       marker: MARKER,
       installedAt,
-      policy: 'static_bypass_then_serve_public_app_js_from_clean_onepass_runtime_with_bridge_payload_recovery',
+      policy: 'clean_no_recovery_layers_serve_onepass_app_js_only',
       appOnepass,
       loadedLayers,
       commentOpenStateRoute: require('./routes/commentOpenState').selfTest()
@@ -109,7 +105,7 @@ function installRoutes(app) {
       service: 'amio-comments-max',
       runtimeVersion: RUNTIME,
       buildVersion: RUNTIME,
-      displayVersion: 'CC7.2.7',
+      displayVersion: 'CC7.2.8',
       sourceMarker: SOURCE,
       generatedAt: Date.now(),
       installedAt
@@ -120,28 +116,28 @@ function installRoutes(app) {
 }
 
 function patchExpressStatic(expressModule) {
-  if (!expressModule || expressModule.__adminkitCc727StaticWrapped) return expressModule;
+  if (!expressModule || expressModule.__adminkitCc728StaticWrapped) return expressModule;
   const originalStatic = expressModule.static;
   if (typeof originalStatic !== 'function') return expressModule;
-  expressModule.static = function adminkitCc727Static(...args) {
+  expressModule.static = function adminkitCc728Static(...args) {
     const middleware = originalStatic.apply(this, args);
-    return function adminkitCc727StaticMiddleware(req, res, next) {
+    return function adminkitCc728StaticMiddleware(req, res, next) {
       if (isAppJsRequest(req)) return next();
       return middleware(req, res, next);
     };
   };
-  expressModule.__adminkitCc727StaticWrapped = true;
+  expressModule.__adminkitCc728StaticWrapped = true;
   return expressModule;
 }
 
 function installExpressWrap() {
-  if (Module.__adminkitCc727OnepassExpressWrap) return;
-  Module.__adminkitCc727OnepassExpressWrap = true;
+  if (Module.__adminkitCc728OnepassExpressWrap) return;
+  Module.__adminkitCc728OnepassExpressWrap = true;
   const prev = Module._load;
-  Module._load = function adminkitCc727OnepassLoad(request, parent, isMain) {
+  Module._load = function adminkitCc728OnepassLoad(request, parent, isMain) {
     const loaded = prev.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitCc727OnepassWrapped) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitCc728OnepassWrapped) {
         patchExpressStatic(loaded);
         function wrappedExpress(...args) {
           const app = loaded(...args);
@@ -150,11 +146,11 @@ function installExpressWrap() {
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
         patchExpressStatic(wrappedExpress);
-        wrappedExpress.__adminkitCc727OnepassWrapped = true;
+        wrappedExpress.__adminkitCc728OnepassWrapped = true;
         return wrappedExpress;
       }
     } catch (error) {
-      console.warn('[cc7.2.7-onepass-bridge] express wrap skipped:', error?.message || error);
+      console.warn('[cc7.2.8-clean] express wrap skipped:', error?.message || error);
     }
     return loaded;
   };
@@ -170,9 +166,9 @@ function layerSummary() {
     failedLayers: failed.map((x) => ({ path: x.path, error: x.error })),
     loadedLayers,
     uiRedesign: false,
-    servedAppJs: 'public/app-onepass.js + bridge payload recovery',
+    servedAppJs: 'public/app-onepass.js',
     commentsOpenStateRoute: 'routes/commentOpenState.js',
-    policy: 'static_bypass_onepass_client_no_loading_title_no_duplicate_chips_bridge_payload_recovery'
+    policy: 'clean_no_recovery_layers_no_overlay_no_float_hints'
   };
 }
 
