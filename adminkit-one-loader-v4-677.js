@@ -1,8 +1,8 @@
 'use strict';
 
-const RUNTIME = 'CC6.8.2-HARD-V3-DBFIRST-COMMENTS-ROOT';
-const SOURCE = 'adminkit-v4-682-dbfirst-comments-render';
-const MARKER = '__ADMINKIT_V4_682_DBFIRST_COMMENTS_ROOT__';
+const RUNTIME = 'CC6.8.3-HARD-V3-DBFIRST-COMMENTS-ROOT';
+const SOURCE = 'adminkit-v4-683-dbfirst-comments-render';
+const MARKER = '__ADMINKIT_V4_683_DBFIRST_COMMENTS_ROOT__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -20,7 +20,7 @@ function load(pathName) {
     item.result = result;
   } catch (error) {
     item.error = error?.message || String(error);
-    console.warn('[adminkit-v4-682-loader] layer failed:', pathName, item.error);
+    console.warn('[adminkit-v4-683-loader] layer failed:', pathName, item.error);
   }
   preLayers.push(item);
   return item;
@@ -37,9 +37,9 @@ function layerSummary() {
     marker: MARKER,
     preLayers,
     oldLayerSummary: old && typeof old.layerSummary === 'function' ? old.layerSummary() : null,
-    hasPostMetaTitleFallback: preLayers.some(x => x.path === './adminkit-v4-post-meta-title-resolver' && x.ok),
+    hasPostMetaNumericStartappFallback: preLayers.some(x => x.path === './adminkit-v4-post-meta-title-resolver' && x.ok),
     hasV4DbHelperMetaResolve: preLayers.some(x => x.path === './adminkit-v4-ui-db-fix' && x.ok),
-    hasDbFirstCommentsRender: preLayers.some(x => x.path === './adminkit-comments-dbfirst-render' && x.ok),
+    hasDbFirstNoFlickerCommentsRender: preLayers.some(x => x.path === './adminkit-comments-dbfirst-render' && x.ok),
     hasCommentsSourceUiCore: false
   };
 }
