@@ -5,7 +5,7 @@ const config = require('./config');
 const maxApi = require('./services/maxApi');
 const { getComments } = require('./store');
 
-const RUNTIME = 'DB-V3-POST-PATCHER-1.2-MULTI-ADDONS-PRESERVE';
+const RUNTIME = 'DB-V3-POST-PATCHER-1.3-MULTI-GIFTS-PRESERVE';
 const clean = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 const bool = (v, def = true) => v === undefined || v === null ? def : !!v;
 
@@ -36,6 +36,18 @@ function oneButton(text, target, commentKey) {
     ? { type: 'link', text: label, url }
     : { type: 'callback', text: label, payload: JSON.stringify({ r: 'buttons:action', commentKey, action: url }) };
 }
+function giftsOf(post = {}) {
+  const out = [];
+  if (post.giftsEnabled && clean(post.giftTitle) && clean(post.giftLink)) {
+    out.push({ index: 0, title: clean(post.giftTitle), link: clean(post.giftLink), requireSubscription: post.giftsRequireSubscription !== false });
+  }
+  asArray(post.giftsJson).forEach((g, i) => {
+    const title = clean(g?.title || g?.text || g?.label);
+    const link = clean(g?.link || g?.content || g?.url || g?.payload);
+    if (title && link) out.push({ index: i + 1, title, link, requireSubscription: g?.requireSubscription !== false });
+  });
+  return out;
+}
 function buildAddonRows(post = {}) {
   const rows = [];
   if (post.buttonsEnabled && clean(post.ctaButtonText) && clean(post.ctaButtonLink)) {
@@ -46,9 +58,8 @@ function buildAddonRows(post = {}) {
     const b = oneButton(item.text || item.title || item.label, item.url || item.link || item.action, post.commentKey);
     if (b) rows.push([b]);
   }
-  if (post.giftsEnabled && clean(post.giftTitle) && clean(post.giftLink)) {
-    // Gift must be delivered by bot to user chat, so always use callback even if gift content is a link.
-    rows.push([{ type: 'callback', text: ('🎁 ' + clean(post.giftTitle)).slice(0, 64), payload: JSON.stringify({ r: 'gifts:claim', commentKey: post.commentKey, giftIndex: 0 }) }]);
+  for (const gift of giftsOf(post).slice(0, 6)) {
+    rows.push([{ type: 'callback', text: ('🎁 ' + clean(gift.title)).slice(0, 64), payload: JSON.stringify({ r: 'gifts:claim', commentKey: post.commentKey, giftIndex: gift.index }) }]);
   }
   return rows;
 }
@@ -61,7 +72,7 @@ async function getPostByCommentKey(commentKey = '') {
     select p.admin_id as "adminId", p.channel_id as "channelId", p.post_id as "postId", p.message_id as "messageId", p.comment_key as "commentKey",
       coalesce(s.comments_enabled, true) as "commentsEnabled",
       coalesce(s.buttons_enabled, false) as "buttonsEnabled", coalesce(s.cta_button_text, '') as "ctaButtonText", coalesce(s.cta_button_link, '') as "ctaButtonLink", coalesce(s.cta_buttons_json, '[]'::jsonb) as "ctaButtonsJson",
-      coalesce(s.gifts_enabled, false) as "giftsEnabled", coalesce(s.gift_title, '') as "giftTitle", coalesce(s.gift_link, '') as "giftLink", coalesce(s.gifts_json, '[]'::jsonb) as "giftsJson"
+      coalesce(s.gifts_enabled, false) as "giftsEnabled", coalesce(s.gift_title, '') as "giftTitle", coalesce(s.gift_link, '') as "giftLink", coalesce(s.gifts_require_subscription, true) as "giftsRequireSubscription", coalesce(s.gifts_json, '[]'::jsonb) as "giftsJson"
     from ak_posts p left join ak_post_settings s on s.comment_key = p.comment_key
     where p.comment_key = $1 order by p.updated_at desc limit 1
   `, [key]);
@@ -96,8 +107,8 @@ async function patchCommentsButtonByCommentKey(commentKey = '') {
   if (body.link) payload.link = body.link;
   if (body.format !== undefined) payload.format = body.format;
   const result = await maxApi.editMessage(payload);
-  return { ok: true, runtimeVersion: RUNTIME, commentKey: post.commentKey, postId: post.postId, count, commentsEnabled: bool(post.commentsEnabled, true), extraRows: extraRows.length, result };
+  return { ok: true, runtimeVersion: RUNTIME, commentKey: post.commentKey, postId: post.postId, count, commentsEnabled: bool(post.commentsEnabled, true), extraRows: extraRows.length, gifts: giftsOf(post).length, result };
 }
 
-function selfTest() { return { ok: true, runtimeVersion: RUNTIME, source: 'Postgres', countSource: 'comments list', preservesAddons: true, addonRows: ['buttons', 'buttonExtras', 'gifts'], multiButtons: true }; }
-module.exports = { RUNTIME, selfTest, patchCommentsButtonByCommentKey, buildAddonRows };
+function selfTest() { return { ok: true, runtimeVersion: RUNTIME, source: 'Postgres', countSource: 'comments list', preservesAddons: true, addonRows: ['buttons', 'buttonExtras', 'gifts', 'giftExtras'], multiButtons: true, multiGifts: true }; }
+module.exports = { RUNTIME, selfTest, patchCommentsButtonByCommentKey, buildAddonRows, giftsOf };
