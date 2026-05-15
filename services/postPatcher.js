@@ -20,7 +20,7 @@ const {
 const { findGiftCampaignForPost } = require("./giftService");
 const { buildCustomKeyboardRows } = require("./keyboardBuilderService");
 
-const DB_SYNC_RUNTIME = "CC7.4.5-POST-PATCHER-PRESERVE-TEXT-LINK-FORMAT";
+const DB_SYNC_RUNTIME = "CC7.4.7-POST-PATCHER-PERSIST-ADMIN-ADDONS";
 
 function normalizeAttachments(value) {
   return Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : [];
@@ -43,6 +43,14 @@ function cloneObject(value, fallback = null) {
   try { return JSON.parse(JSON.stringify(value)); } catch { return fallback; }
 }
 
+function cloneKeyboardBuilder(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const cloned = cloneObject(source, {});
+  if (!cloned || typeof cloned !== "object") return {};
+  if (!Array.isArray(cloned.rows)) cloned.rows = [];
+  return cloned;
+}
+
 function buildPostSnapshotRaw({
   source,
   commentKey,
@@ -58,7 +66,10 @@ function buildPostSnapshotRaw({
   handoffToken,
   stablePayload,
   linkedByUserId,
-  linkedByName
+  linkedByName,
+  customKeyboard,
+  commentsDisabled,
+  giftCampaignId
 } = {}) {
   return {
     source: clean(source || "post_patcher"),
@@ -77,6 +88,9 @@ function buildPostSnapshotRaw({
     stablePayload: clean(stablePayload),
     linkedByUserId: clean(linkedByUserId),
     linkedByName: clean(linkedByName),
+    customKeyboard: cloneKeyboardBuilder(customKeyboard),
+    commentsDisabled: Boolean(commentsDisabled),
+    giftCampaignId: clean(giftCampaignId),
     patchedAt: new Date().toISOString()
   };
 }
@@ -110,6 +124,9 @@ async function syncPatchedPostToDb({
   originalFormat,
   handoffToken,
   stablePayload,
+  customKeyboard,
+  commentsDisabled,
+  giftCampaignId,
   source = "post_patcher"
 }) {
   const ch = clean(channelId);
@@ -133,7 +150,10 @@ async function syncPatchedPostToDb({
     handoffToken,
     stablePayload: payload,
     linkedByUserId,
-    linkedByName
+    linkedByName,
+    customKeyboard,
+    commentsDisabled,
+    giftCampaignId
   });
 
   const admins = await adminIdsForChannel(ch, linkedByUserId);
@@ -153,7 +173,7 @@ async function patchStoredPost({
   maxDeepLinkBase,
   commentKey
 }) {
-  const post = getPost(commentKey);
+  let post = getPost(commentKey);
   if (!post) {
     return { ok: false, reason: "post_not_found" };
   }
@@ -180,6 +200,7 @@ async function patchStoredPost({
       if (originalFormat === undefined && liveBody.format !== undefined) originalFormat = liveBody.format;
       if ((liveAttachments.length && stableStringify(post.sourceAttachments || []) !== stableStringify(liveAttachments)) || (originalText && originalText !== String(post.originalText || "")) || (liveLink && stableStringify(post.originalLink || null) !== stableStringify(liveLink)) || (originalFormat !== post.originalFormat && originalFormat !== undefined)) {
         savePost(commentKey, { sourceAttachments: normalizeAttachments(liveAttachments.length ? liveAttachments : originalAttachments), originalText, originalLink, ...(originalFormat !== undefined ? { originalFormat } : {}) });
+        post = getPost(commentKey) || post;
       }
     } catch {}
   }
@@ -201,25 +222,8 @@ async function patchStoredPost({
 
   if ((handoffToken && handoffToken !== post.handoffToken) || (stablePayload && stablePayload !== post.stablePayload)) {
     savePost(commentKey, { handoffToken, stablePayload });
+    post = getPost(commentKey) || post;
   }
-
-  await syncPatchedPostToDb({
-    channelId: post.channelId,
-    postId: post.postId,
-    messageId: post.messageId,
-    title: originalText || post.originalText || post.postId,
-    channelTitle: post.channelTitle,
-    linkedByUserId: post.linkedByUserId,
-    linkedByName: post.linkedByName,
-    commentKey,
-    originalText,
-    sourceAttachments: originalAttachments,
-    originalLink,
-    originalFormat,
-    handoffToken,
-    stablePayload,
-    source: "post_patcher_patch_stored_post_snapshot"
-  });
 
   const giftCampaign = findGiftCampaignForPost({
     channelId: post.channelId,
@@ -243,6 +247,27 @@ async function patchStoredPost({
     commentKey
   });
 
+  await syncPatchedPostToDb({
+    channelId: post.channelId,
+    postId: post.postId,
+    messageId: post.messageId,
+    title: originalText || post.originalText || post.postId,
+    channelTitle: post.channelTitle,
+    linkedByUserId: post.linkedByUserId,
+    linkedByName: post.linkedByName,
+    commentKey,
+    originalText,
+    sourceAttachments: originalAttachments,
+    originalLink,
+    originalFormat,
+    handoffToken,
+    stablePayload,
+    customKeyboard: post.customKeyboard || {},
+    commentsDisabled: Boolean(post?.commentsDisabled),
+    giftCampaignId: giftCampaign?.id || post.giftCampaignId || "",
+    source: "post_patcher_patch_stored_post_snapshot"
+  });
+
   const keyboardAttachments = buildCommentsKeyboard({
     appBaseUrl,
     botUsername,
@@ -262,7 +287,7 @@ async function patchStoredPost({
   const nextFingerprint = stableStringify(mergedAttachments);
 
   if (stableStringify(post.patchedAttachments) === nextFingerprint) {
-    return { ok: true, commentCount, skipped: true, reason: "already_patched", giftCampaignId: giftCampaign?.id || "", stablePayload };
+    return { ok: true, commentCount, skipped: true, reason: "already_patched", giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length };
   }
 
   try {
@@ -273,7 +298,7 @@ async function patchStoredPost({
       notify: false
     };
 
-    // CC7.4.5: MAX PUT /messages may rebuild the message when only attachments are sent.
+    // CC7.4.5+: MAX PUT /messages may rebuild the message when only attachments are sent.
     // Always send the original text/link/format back when we have them, so native links/entities survive patching.
     if (originalText) {
       payload.text = String(originalText || "");
@@ -293,10 +318,12 @@ async function patchStoredPost({
       lastPatchedAt: Date.now(),
       lastPatchError: null,
       stablePayload,
-      giftCampaignId: giftCampaign?.id || ""
+      giftCampaignId: giftCampaign?.id || "",
+      lastCustomRowsCount: customRows.length,
+      lastGiftRowsCount: giftRows.length
     });
 
-    return { ok: true, commentCount, patchResult, giftCampaignId: giftCampaign?.id || "", stablePayload };
+    return { ok: true, commentCount, patchResult, giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length, giftRowsCount: giftRows.length };
   } catch (error) {
     const patchError = {
       status: error?.status || 0,
@@ -308,7 +335,9 @@ async function patchStoredPost({
       lastPatchError: patchError,
       lastPatchAttemptAt: Date.now(),
       stablePayload,
-      giftCampaignId: giftCampaign?.id || ""
+      giftCampaignId: giftCampaign?.id || "",
+      lastCustomRowsCount: customRows.length,
+      lastGiftRowsCount: giftRows.length
     });
 
     return {
@@ -316,7 +345,9 @@ async function patchStoredPost({
       commentCount,
       error: patchError,
       giftCampaignId: giftCampaign?.id || "",
-      stablePayload
+      stablePayload,
+      customRowsCount: customRows.length,
+      giftRowsCount: giftRows.length
     };
   }
 }
@@ -359,6 +390,9 @@ async function tryPatchChannelPost({
       originalFormat: existingPost.originalFormat !== undefined ? existingPost.originalFormat : originalFormat,
       handoffToken: existingPost.handoffToken,
       stablePayload: existingPost.stablePayload || stablePayload,
+      customKeyboard: existingPost.customKeyboard || {},
+      commentsDisabled: Boolean(existingPost.commentsDisabled),
+      giftCampaignId: existingPost.giftCampaignId || "",
       source: "post_patcher_existing_already_patched"
     });
     return {
@@ -399,6 +433,7 @@ async function tryPatchChannelPost({
     autoMode: Boolean(autoMode),
     handoffToken,
     stablePayload,
+    customKeyboard: existingPost?.customKeyboard || {},
     createdAt: Date.now()
   });
 
@@ -426,6 +461,7 @@ async function tryPatchChannelPost({
     originalFormat,
     handoffToken,
     stablePayload,
+    customKeyboard: postRecord?.customKeyboard || {},
     source: "post_patcher_try_patch_channel_post"
   });
 
@@ -447,7 +483,9 @@ async function tryPatchChannelPost({
     patchError: patchAttempt.ok ? null : patchAttempt.error || { message: patchAttempt.reason || "patch_failed" },
     commentCount: patchAttempt.commentCount || 0,
     giftCampaignId: patchAttempt.giftCampaignId || "",
-    stablePayload: patchAttempt.stablePayload || stablePayload
+    stablePayload: patchAttempt.stablePayload || stablePayload,
+    customRowsCount: patchAttempt.customRowsCount || 0,
+    giftRowsCount: patchAttempt.giftRowsCount || 0
   };
 }
 
