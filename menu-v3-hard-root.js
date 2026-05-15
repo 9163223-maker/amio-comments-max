@@ -1,2 +1,2 @@
 'use strict';
-module.exports = require('./adminkit-admin-flows-7519');
+module.exports = require('./adminkit-admin-flows-7520');
