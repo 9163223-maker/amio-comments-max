@@ -1,12 +1,11 @@
 'use strict';
 
-// CC7.4.8 Archive Lite menu layer.
-// Adds a visible Archive section to the admin menu and handles archive/recovery callbacks.
-// Lite level stores/uses post snapshots already available in ak_posts/store.
-// PRO media backup is intentionally a placeholder: no external storage is introduced here.
+// CC7.4.9 Archive Lite direct menu layer.
+// Fixes CC7.4.8 marker collision: loader marker and layer marker are now separated.
+// Adds Archive / Restore to the visible /start main menu and handles archive callbacks directly.
 
-const RUNTIME = 'CC7.4.8-ARCHIVE-LITE-MENU';
-const MARKER = '__ADMINKIT_CC7_4_8_ARCHIVE_LITE_MENU__';
+const RUNTIME = 'CC7.4.9-ARCHIVE-DIRECT-MENU';
+const MARKER = '__ADMINKIT_CC7_4_9_ARCHIVE_DIRECT_MENU_LAYER__';
 
 function safeJson(value) {
   try { return JSON.parse(JSON.stringify(value)); } catch { return null; }
@@ -21,6 +20,49 @@ function truncateText(value = '', maxLength = 64) {
 
 function buildPayload(action, extra = {}) {
   return JSON.stringify({ action, ...extra });
+}
+
+function getMessage(update) {
+  return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || null;
+}
+
+function getCallback(update) {
+  return update?.callback || update?.data?.callback || update?.message?.callback || null;
+}
+
+function getMessageId(message) {
+  const body = message?.body || {};
+  return String(body?.mid || body?.message_id || message?.message_id || message?.id || '').trim();
+}
+
+function getMessageText(message) {
+  return String(message?.body?.text || message?.text || message?.message?.text || '').trim();
+}
+
+function getSenderUserId(message) {
+  return String(
+    message?.sender?.user_id ||
+    message?.sender?.id ||
+    message?.user_id ||
+    message?.from?.id ||
+    ''
+  ).trim();
+}
+
+function getRecipientChatId(message) {
+  return String(
+    message?.recipient?.chat_id ||
+    message?.recipient?.id ||
+    message?.chat_id ||
+    message?.chat?.id ||
+    ''
+  ).trim();
+}
+
+function parseCallbackPayload(callback = {}) {
+  const raw = String(callback?.payload || callback?.data || callback?.value || callback?.callback_data || '').trim();
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { return { raw }; }
 }
 
 function isInlineKeyboard(att = null) {
@@ -38,10 +80,9 @@ function injectArchiveButton(attachments) {
   const next = attachments.map((att) => {
     if (!isInlineKeyboard(att)) return att;
     const buttons = safeJson(att.payload.buttons) || [];
-    const looksLikeMainMenu = keyboardHasButton(buttons, 'Комментарии') && keyboardHasButton(buttons, 'Статистика') && keyboardHasButton(buttons, 'Каналы');
+    const looksLikeMainMenu = keyboardHasButton(buttons, 'Комментарии') && (keyboardHasButton(buttons, 'Каналы') || keyboardHasButton(buttons, 'Подарки'));
     if (!looksLikeMainMenu || keyboardHasButton(buttons, 'Архив')) return att;
-    const insertAt = Math.max(0, buttons.findIndex((row) => (row || []).some((btn) => String(btn?.text || '').includes('Статистика'))) + 1);
-    buttons.splice(insertAt || buttons.length, 0, [{ type: 'callback', text: '🗄️ Архив / восстановление', payload: buildPayload('admin_section_archive') }]);
+    buttons.push([{ type: 'callback', text: '🗄️ Архив / восстановление', payload: buildPayload('admin_section_archive') }]);
     changed = true;
     return { ...att, payload: { ...(att.payload || {}), buttons } };
   });
@@ -50,41 +91,64 @@ function injectArchiveButton(attachments) {
 
 function patchMaxApiMenus() {
   const maxApi = require('./services/maxApi');
-  if (maxApi.__adminkitArchiveLitePatched) return;
+  if (maxApi.__adminkitArchiveDirectMenuPatched) return;
   const originalSendMessage = maxApi.sendMessage;
   const originalEditMessage = maxApi.editMessage;
   if (typeof originalSendMessage === 'function') {
-    maxApi.sendMessage = async function adminkitArchiveLiteSendMessage(args = {}) {
+    maxApi.sendMessage = async function adminkitArchiveDirectSendMessage(args = {}) {
       if (Array.isArray(args?.attachments)) args = { ...args, attachments: injectArchiveButton(args.attachments) };
       return originalSendMessage.call(this, args);
     };
   }
   if (typeof originalEditMessage === 'function') {
-    maxApi.editMessage = async function adminkitArchiveLiteEditMessage(args = {}) {
+    maxApi.editMessage = async function adminkitArchiveDirectEditMessage(args = {}) {
       if (Array.isArray(args?.attachments)) args = { ...args, attachments: injectArchiveButton(args.attachments) };
       return originalEditMessage.call(this, args);
     };
   }
-  maxApi.__adminkitArchiveLitePatched = true;
+  maxApi.__adminkitArchiveDirectMenuPatched = true;
 }
 
-function getMessage(update) {
-  return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || null;
+function buildMainMenuText() {
+  return [
+    '🐋 АдминКИТ',
+    '',
+    'Главное меню.',
+    'Настройки и выбранные посты берутся только из Postgres.'
+  ].join('\n');
 }
 
-function getCallback(update) {
-  return update?.callback || update?.data?.callback || update?.message?.callback || null;
+function buildMainMenuKeyboard() {
+  return [{ type: 'inline_keyboard', payload: { buttons: [
+    [
+      { type: 'callback', text: '📺 Каналы', payload: buildPayload('admin_section_channels') },
+      { type: 'callback', text: '💬 Комментарии', payload: buildPayload('admin_section_comments') }
+    ],
+    [
+      { type: 'callback', text: '🎁 Подарки', payload: buildPayload('admin_section_gifts') },
+      { type: 'callback', text: '⚪ Кнопки', payload: buildPayload('admin_section_buttons') }
+    ],
+    [
+      { type: 'callback', text: '🛡️ Модерация', payload: buildPayload('admin_section_moderation') },
+      { type: 'callback', text: '📊 Статистика', payload: buildPayload('admin_section_stats') }
+    ],
+    [{ type: 'callback', text: '🗄️ Архив / восстановление', payload: buildPayload('admin_section_archive') }]
+  ] } }];
 }
 
-function getMessageId(message) {
-  const body = message?.body || {};
-  return String(body?.mid || body?.message_id || message?.message_id || message?.id || '').trim();
-}
-
-function parseCallbackPayload(callback = {}) {
-  const raw = String(callback?.payload || callback?.data || callback?.value || callback?.callback_data || '').trim();
-  if (!raw) return {};
-  try { return JSON.parse(raw); } catch { return { raw }; }
+async function sendMainMenu({ config, message, edit = false }) {
+  const { editMessage, sendMessage } = require('./services/maxApi');
+  const text = buildMainMenuText();
+  const attachments = buildMainMenuKeyboard();
+  const messageId = getMessageId(message);
+  if (edit && messageId) {
+    try {
+      return await editMessage({ botToken: config.botToken, messageId, text, attachments, notify: false });
+    } catch {}
+  }
+  const chatId = getRecipientChatId(message);
+  const userId = getSenderUserId(message);
+  return sendMessage({ botToken: config.botToken, ...(chatId ? { chatId } : { userId }), text, attachments, notify: false });
 }
 
 function postPreview(post = {}, fallback = 'Пост без текста') {
@@ -127,7 +191,8 @@ function buildArchiveMainText() {
     '• открыть карточку snapshot;',
     '• попробовать перепубликовать текст и доступные MAX-вложения;',
     '',
-    'PRO-уровень будет хранить медиа в нашем отдельном хранилище и даст гарантированное восстановление изображений/файлов.'
+    'PRO-уровень будет хранить медиа в нашем отдельном хранилище.',
+    'Будет доступно в Pro версии.'
   ].join('\n');
 }
 
@@ -145,9 +210,7 @@ function buildArchiveListText(page = 0) {
   const perPage = 8;
   const start = Math.max(0, Number(page || 0)) * perPage;
   const slice = posts.slice(start, start + perPage);
-  if (!slice.length) {
-    return ['📚 Посты в базе Lite', '', 'Пока нет сохранённых постов.', 'Пост появляется здесь после того, как АдминКИТ увидел его и сохранил snapshot.'].join('\n');
-  }
+  if (!slice.length) return ['📚 Посты в базе Lite', '', 'Пока нет сохранённых постов.', 'Пост появляется здесь после того, как АдминКИТ увидел его и сохранил snapshot.'].join('\n');
   return ['📚 Посты в базе Lite', '', ...slice.map((post, index) => `${start + index + 1}. ${postPreview(post)}`)].join('\n');
 }
 
@@ -217,12 +280,10 @@ async function editCallbackMessage({ config, message, text, attachments }) {
   const { editMessage, sendMessage } = require('./services/maxApi');
   const messageId = getMessageId(message);
   if (messageId) {
-    try {
-      return await editMessage({ botToken: config.botToken, messageId, text, attachments, notify: false });
-    } catch {}
+    try { return await editMessage({ botToken: config.botToken, messageId, text, attachments, notify: false }); } catch {}
   }
-  const chatId = String(message?.recipient?.chat_id || message?.recipient?.id || message?.chat_id || '').trim();
-  const userId = String(message?.sender?.user_id || message?.sender?.id || message?.user_id || '').trim();
+  const chatId = getRecipientChatId(message);
+  const userId = getSenderUserId(message);
   return sendMessage({ botToken: config.botToken, ...(chatId ? { chatId } : { userId }), text, attachments, notify: false });
 }
 
@@ -239,15 +300,19 @@ async function republishLitePost({ config, commentKey }) {
   return sendMessage(payload);
 }
 
-async function handleArchiveCallback(update, config) {
+async function handleArchiveOrMainCallback(update, config) {
   const callback = getCallback(update);
   const message = getMessage(update);
   const payload = parseCallbackPayload(callback);
   const action = String(payload.action || '').trim();
-  if (!action || !/^admin_section_archive|^archive_/i.test(action)) return null;
+  if (!action || !/^(admin_section_main|admin_section_archive|archive_)/i.test(action)) return null;
   const { answerCallback } = require('./services/maxApi');
   try { if (callback?.callback_id || callback?.id) await answerCallback({ botToken: config.botToken, callbackId: callback.callback_id || callback.id }); } catch {}
 
+  if (action === 'admin_section_main') {
+    await sendMainMenu({ config, message, edit: true });
+    return { ok: true, action };
+  }
   if (action === 'admin_section_archive') {
     await editCallbackMessage({ config, message, text: buildArchiveMainText(), attachments: buildArchiveMainKeyboard() });
     return { ok: true, action };
@@ -273,9 +338,8 @@ async function handleArchiveCallback(update, config) {
   }
   if (action === 'archive_republish_lite') {
     const commentKey = String(payload.commentKey || '').trim();
-    let result = null;
     try {
-      result = await republishLitePost({ config, commentKey });
+      await republishLitePost({ config, commentKey });
       await editCallbackMessage({
         config,
         message,
@@ -290,29 +354,35 @@ async function handleArchiveCallback(update, config) {
         attachments: buildPostCardKeyboard(commentKey)
       });
     }
-    return { ok: true, action, result: Boolean(result) };
+    return { ok: true, action };
   }
   return null;
 }
 
 function patchBotWebhook() {
   const bot = require('./bot');
-  if (!bot || bot.__adminkitArchiveLitePatched || typeof bot.handleWebhook !== 'function') return;
+  if (!bot || bot.__adminkitArchiveDirectMenuPatched || typeof bot.handleWebhook !== 'function') return;
   const original = bot.handleWebhook;
-  bot.handleWebhook = async function adminkitArchiveLiteHandleWebhook(req, res, config) {
+  bot.handleWebhook = async function adminkitArchiveDirectMenuHandleWebhook(req, res, config) {
     try {
       const update = req.body || {};
       const type = String(update?.update_type || update?.type || '').trim();
+      const message = getMessage(update);
+      const text = getMessageText(message);
       if (type === 'message_callback') {
-        const handled = await handleArchiveCallback(update, config || {});
-        if (handled) return res.status(200).json({ ok: true, archiveLite: handled });
+        const handled = await handleArchiveOrMainCallback(update, config || {});
+        if (handled) return res.status(200).json({ ok: true, archiveDirectMenu: handled });
+      }
+      if (message && /^\/start(?:\s|$)/i.test(text)) {
+        await sendMainMenu({ config: config || {}, message, edit: false });
+        return res.status(200).json({ ok: true, archiveDirectMenu: { action: 'start_main_menu' } });
       }
     } catch (error) {
-      console.error('[archive-lite] callback failed:', error?.message || error, error?.data || '');
+      console.error('[archive-direct-menu] failed:', error?.message || error, error?.data || '');
     }
     return original.call(this, req, res, config);
   };
-  bot.__adminkitArchiveLitePatched = true;
+  bot.__adminkitArchiveDirectMenuPatched = true;
 }
 
 function install() {
@@ -324,8 +394,8 @@ function install() {
     ok: true,
     runtimeVersion: RUNTIME,
     marker: MARKER,
-    policy: 'lite_post_snapshot_archive_menu_with_pro_placeholder',
-    features: ['main_menu_archive_button', 'lite_snapshot_list', 'lite_republish_attempt', 'pro_placeholder']
+    policy: 'direct_start_main_menu_with_archive_lite_and_pro_placeholder',
+    features: ['direct_start_main_menu', 'main_menu_archive_button', 'lite_snapshot_list', 'lite_republish_attempt', 'pro_placeholder']
   };
 }
 
