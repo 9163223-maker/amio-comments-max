@@ -1,17 +1,16 @@
 'use strict';
 
-// CC7.4.7 compact loader.
-// Goal: make /debug/cc7, /debug/ping and runtime markers show CC7.4.7,
-// while keeping the existing one-pass boot chain and admin addons repatch patch.
+// CC7.4.8 compact loader.
+// Keeps CC7.4.7 stable post identity/admin addons and adds Archive Lite menu + PRO placeholder.
 
 const fs = require('fs');
 const path = require('path');
 const Module = require('module');
 const { registerCommentOpenStateRoutes } = require('./routes/commentOpenState');
 
-const RUNTIME = 'CC7.4.7-ADMIN-ADDONS-PERSIST-REPATCH';
-const SOURCE = 'adminkit-cc7-4-7-admin-addons-persist-repatch';
-const MARKER = '__ADMINKIT_CC7_4_7_ADMIN_ADDONS_PERSIST_REPATCH__';
+const RUNTIME = 'CC7.4.8-ARCHIVE-LITE-MENU';
+const SOURCE = 'adminkit-cc7-4-8-archive-lite-menu';
+const MARKER = '__ADMINKIT_CC7_4_8_ARCHIVE_LITE_MENU__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -50,7 +49,7 @@ function loadLayer(pathName) {
   } catch (error) {
     item.ok = false;
     item.error = error?.message || String(error);
-    console.warn('[cc7.4.7] layer failed:', pathName, item.error);
+    console.warn('[cc7.4.8] layer failed:', pathName, item.error);
   }
   loadedLayers.push(item);
   return item;
@@ -64,7 +63,7 @@ function installAdminFlowPatch() {
       adminFlowPatch = { ok: false, reason: 'postPatcher_missing' };
       return adminFlowPatch;
     }
-    if (postPatcher.__adminkitCc747Patched) {
+    if (postPatcher.__adminkitCc748Patched || postPatcher.__adminkitCc747Patched) {
       adminFlowPatch = { ok: true, already: true, runtimeVersion: RUNTIME };
       return adminFlowPatch;
     }
@@ -83,11 +82,11 @@ function installAdminFlowPatch() {
       });
       return { ok: true, commentKey: key, reason };
     }
-    postPatcher.patchStoredPost = async function adminkitCc747PatchStoredPost(args = {}) {
-      if (args && args.commentKey) markDirty(args.commentKey, 'cc747_before_patchStoredPost');
+    postPatcher.patchStoredPost = async function adminkitCc748PatchStoredPost(args = {}) {
+      if (args && args.commentKey) markDirty(args.commentKey, 'cc748_before_patchStoredPost');
       return originalPatchStoredPost.call(this, args);
     };
-    postPatcher.__adminkitCc747Patched = true;
+    postPatcher.__adminkitCc748Patched = true;
     adminFlowPatch = {
       ok: true,
       runtimeVersion: RUNTIME,
@@ -97,7 +96,7 @@ function installAdminFlowPatch() {
     return adminFlowPatch;
   } catch (error) {
     adminFlowPatch = { ok: false, error: error?.message || String(error) };
-    console.warn('[cc7.4.7] admin flow patch failed:', adminFlowPatch.error);
+    console.warn('[cc7.4.8] admin flow patch failed:', adminFlowPatch.error);
     return adminFlowPatch;
   }
 }
@@ -113,8 +112,8 @@ function appOnepassInfo() {
 }
 
 function installRoutes(app) {
-  if (!app || app.__adminkitCc747Routes) return app;
-  app.__adminkitCc747Routes = true;
+  if (!app || app.__adminkitCc748Routes) return app;
+  app.__adminkitCc748Routes = true;
 
   registerCommentOpenStateRoutes(app);
 
@@ -128,7 +127,7 @@ function installRoutes(app) {
       sourceMarker: SOURCE,
       marker: MARKER,
       installedAt,
-      policy: 'admin_saved_buttons_and_gifts_force_repatch_plus_persist_admin_addons_in_post_snapshot',
+      policy: 'archive_lite_menu_plus_admin_saved_buttons_and_gifts_force_repatch',
       appOnepass: appOnepassInfo(),
       adminFlowPatch,
       postPatcherRuntime,
@@ -147,7 +146,7 @@ function installRoutes(app) {
       service: 'amio-comments-max',
       runtimeVersion: RUNTIME,
       buildVersion: RUNTIME,
-      displayVersion: 'CC7.4.7',
+      displayVersion: 'CC7.4.8',
       sourceMarker: SOURCE,
       useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
       adminFlowPatch,
@@ -162,24 +161,24 @@ function installRoutes(app) {
 }
 
 function installExpressWrap() {
-  if (Module.__adminkitCc747ExpressWrap) return;
-  Module.__adminkitCc747ExpressWrap = true;
+  if (Module.__adminkitCc748ExpressWrap) return;
+  Module.__adminkitCc748ExpressWrap = true;
   const prev = Module._load;
-  Module._load = function adminkitCc747Load(request, parent, isMain) {
+  Module._load = function adminkitCc748Load(request, parent, isMain) {
     const loaded = prev.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitCc747Wrapped) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitCc748Wrapped) {
         function wrappedExpress(...args) {
           const app = loaded(...args);
           return installRoutes(app);
         }
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
-        wrappedExpress.__adminkitCc747Wrapped = true;
+        wrappedExpress.__adminkitCc748Wrapped = true;
         return wrappedExpress;
       }
     } catch (error) {
-      console.warn('[cc7.4.7] express wrap failed:', error?.message || error);
+      console.warn('[cc7.4.8] express wrap failed:', error?.message || error);
     }
     return loaded;
   };
@@ -198,7 +197,7 @@ function layerSummary() {
     uiRedesign: false,
     commentsOpenStateRoute: 'routes/commentOpenState.js',
     useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
-    policy: 'admin_addons_persist_repatch_no_ui_redesign'
+    policy: 'archive_lite_menu_no_ui_redesign_no_external_comments_button'
   };
 }
 
@@ -213,6 +212,7 @@ function boot() {
   loadLayer('./db-v3-comment-guard');
   loadLayer('./hard-v3-menu-webhook-router');
   loadLayer('./clean-v3-menu-debug');
+  loadLayer('./adminkit-archive-lite-layer');
 
   require('./index');
 }
