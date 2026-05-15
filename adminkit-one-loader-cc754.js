@@ -1,17 +1,17 @@
 'use strict';
 
-// CC7.5.6 comment UI send guard.
+// CC7.5.7 clean admin flows over accepted CC7.5.6 comments core.
 // public/app.js remains the real entrypoint. No /public/app.js server override here.
-// Comments open-state core is intentionally untouched from the accepted CC7.5.5 base.
+// Comments open-state core is intentionally untouched from the accepted CC7.5.6 base.
 
 const fs = require('fs');
 const path = require('path');
 const Module = require('module');
 const { registerCommentOpenStateRoutes } = require('./routes/commentOpenState');
 
-const RUNTIME = 'CC7.5.6-COMMENT-UI-SEND-GUARD';
-const SOURCE = 'adminkit-cc7-5-6-comment-ui-send-guard';
-const MARKER = '__ADMINKIT_CC7_5_6_COMMENT_UI_SEND_GUARD_LOADER__';
+const RUNTIME = 'CC7.5.7-CLEAN-ADMIN-FLOWS';
+const SOURCE = 'adminkit-cc7-5-7-clean-admin-flows';
+const MARKER = '__ADMINKIT_CC7_5_7_CLEAN_ADMIN_FLOWS_LOADER__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -61,7 +61,7 @@ function loadLayer(pathName) {
   } catch (error) {
     item.ok = false;
     item.error = error?.message || String(error);
-    console.warn('[cc7.5.6] layer failed:', pathName, item.error);
+    console.warn('[cc7.5.7] layer failed:', pathName, item.error);
   }
   loadedLayers.push(item);
   return item;
@@ -75,7 +75,7 @@ function installAdminFlowPatch() {
       adminFlowPatch = { ok: false, reason: 'postPatcher_missing' };
       return adminFlowPatch;
     }
-    if (postPatcher.__adminkitCc756Patched || postPatcher.__adminkitCc755Patched || postPatcher.__adminkitCc754Patched || postPatcher.__adminkitCc747Patched) {
+    if (postPatcher.__adminkitCc757Patched || postPatcher.__adminkitCc756Patched || postPatcher.__adminkitCc755Patched || postPatcher.__adminkitCc754Patched || postPatcher.__adminkitCc747Patched) {
       adminFlowPatch = { ok: true, already: true, runtimeVersion: RUNTIME };
       return adminFlowPatch;
     }
@@ -83,19 +83,19 @@ function installAdminFlowPatch() {
     function normalizeCommentKey(value) {
       return store.normalizeKey ? store.normalizeKey(value || '') : String(value || '').trim();
     }
-    postPatcher.patchStoredPost = async function adminkitCc756PatchStoredPost(args = {}) {
+    postPatcher.patchStoredPost = async function adminkitCc757PatchStoredPost(args = {}) {
       const key = normalizeCommentKey(args && args.commentKey);
       if (key && store.getPost(key)) {
         store.savePost(key, {
           patchedAttachments: [],
           lastPatchedFingerprint: '',
-          lastPatchForceReason: 'cc756_before_patchStoredPost',
+          lastPatchForceReason: 'cc757_before_patchStoredPost',
           lastPatchForceAt: Date.now()
         });
       }
       return originalPatchStoredPost.call(this, args || {});
     };
-    postPatcher.__adminkitCc756Patched = true;
+    postPatcher.__adminkitCc757Patched = true;
     adminFlowPatch = { ok: true, runtimeVersion: RUNTIME, patched: ['postPatcher.patchStoredPost'] };
     return adminFlowPatch;
   } catch (error) {
@@ -105,8 +105,8 @@ function installAdminFlowPatch() {
 }
 
 function installRoutes(app) {
-  if (!app || app.__adminkitCc756Routes) return app;
-  app.__adminkitCc756Routes = true;
+  if (!app || app.__adminkitCc757Routes) return app;
+  app.__adminkitCc757Routes = true;
   registerCommentOpenStateRoutes(app);
   app.get('/debug/cc7', (req, res) => {
     noCache(res);
@@ -118,7 +118,7 @@ function installRoutes(app) {
       sourceMarker: SOURCE,
       marker: MARKER,
       installedAt,
-      policy: 'comment_ui_polish_and_send_guard_no_core_openstate_changes',
+      policy: 'clean_admin_flows_over_756_comments_core_no_openstate_changes',
       publicApp: fileInfo('public/app.js', 'CC7.5.6-PUBLIC-APP-COMMENT-UI-SEND-GUARD'),
       appOnepass: fileInfo('public/app-onepass.js', 'CC7.5.6-COMMENT-UI-SEND-GUARD'),
       appJsOverride: { ok: false, removed: true },
@@ -132,6 +132,7 @@ function installRoutes(app) {
         serverOverridePublicAppJs: false,
         commentsCore: 'kept: routes/commentOpenState.js + services/postMetaService.js + services/maxApi.js native open_app path',
         changedIn756: ['own comment avatar/initial hidden in app-onepass.js', 'client send in-flight lock', 'server duplicate comment guard in services/commentService.js'],
+        changedIn757: ['clean ordered button flow', 'clean ordered gift flow', 'final save required', 'force repatch selected post after save'],
         noChanges: ['no overlay', 'no floating hints', 'no external code.run /app comments button', 'no landing-first fallback for comments']
       },
       commentOpenStateRoute: require('./routes/commentOpenState').selfTest(),
@@ -143,7 +144,7 @@ function installRoutes(app) {
     res.json({
       ok: true,
       runtimeVersion: RUNTIME,
-      displayVersion: 'CC7.5.6',
+      displayVersion: 'CC7.5.7',
       sourceMarker: SOURCE,
       publicApp: fileInfo('public/app.js', 'CC7.5.6-PUBLIC-APP-COMMENT-UI-SEND-GUARD'),
       appOnepass: fileInfo('public/app-onepass.js', 'CC7.5.6-COMMENT-UI-SEND-GUARD'),
@@ -158,23 +159,23 @@ function installRoutes(app) {
 }
 
 function installExpressWrap() {
-  if (Module.__adminkitCc756ExpressWrap) return;
-  Module.__adminkitCc756ExpressWrap = true;
+  if (Module.__adminkitCc757ExpressWrap) return;
+  Module.__adminkitCc757ExpressWrap = true;
   const prev = Module._load;
-  Module._load = function adminkitCc756Load(request, parent, isMain) {
+  Module._load = function adminkitCc757Load(request, parent, isMain) {
     const loaded = prev.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitCc756Wrapped) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitCc757Wrapped) {
         function wrappedExpress(...args) {
           return installRoutes(loaded(...args));
         }
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
-        wrappedExpress.__adminkitCc756Wrapped = true;
+        wrappedExpress.__adminkitCc757Wrapped = true;
         return wrappedExpress;
       }
     } catch (error) {
-      console.warn('[cc7.5.6] express wrap failed:', error?.message || error);
+      console.warn('[cc7.5.7] express wrap failed:', error?.message || error);
     }
     return loaded;
   };
