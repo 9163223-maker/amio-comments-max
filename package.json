@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.4.4-v1",
+  "version": "CC7.4.7-v1",
   "main": "adminkit-one-loader-cc7.js",
   "scripts": { "start": "node adminkit-one-loader-cc7.js" },
   "dependencies": {
