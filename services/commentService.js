@@ -29,6 +29,34 @@ const pool = new Pool({ connectionString: url, ssl: /sslmode=disable/i.test(url)
 `;
 
 function sanitizeText(value) { return String(value || "").trim(); }
+function normalizeDuplicateText(value = "") { return String(value || "").replace(/\s+/g, " ").trim(); }
+function attachmentDuplicateFingerprint(attachments = []) {
+  const list = Array.isArray(attachments) ? attachments : [];
+  return JSON.stringify(list.map((item) => ({
+    id: String(item?.id || item?.uploadId || item?.clientUploadId || ""),
+    type: String(item?.type || ""),
+    url: String(item?.url || item?.previewUrl || item?.posterUrl || ""),
+    name: String(item?.name || "")
+  })));
+}
+function findRecentDuplicateComment({ commentKey = "", userId = "", text = "", attachments = [], windowMs = 8000 } = {}) {
+  const key = String(commentKey || "").trim();
+  if (!key) return null;
+  const normalizedUserId = String(userId || "guest").trim() || "guest";
+  const normalizedText = normalizeDuplicateText(text);
+  const attachmentFp = attachmentDuplicateFingerprint(attachments);
+  const now = Date.now();
+  const comments = getComments(key);
+  for (let i = comments.length - 1; i >= 0; i -= 1) {
+    const item = comments[i] || {};
+    if (now - Number(item.createdAt || 0) > windowMs) break;
+    if (String(item.userId || "guest") !== normalizedUserId) continue;
+    if (normalizeDuplicateText(item.text || "") !== normalizedText) continue;
+    if (attachmentDuplicateFingerprint(item.attachments || []) !== attachmentFp) continue;
+    return { ...item, deduped: true };
+  }
+  return null;
+}
 function stripLargeInlinePayload(value = "") { const raw = String(value || "").trim(); if (/^(data|blob):/i.test(raw)) return ""; return raw.slice(0, 4096); }
 function sanitizeAttachmentPayload(source = {}) {
   const payload = source.payload && typeof source.payload === "object" ? source.payload : null;
@@ -140,6 +168,8 @@ function createComment({ commentKey, userId, userName, text, avatarUrl, replyToI
   const cleanText = sanitizeText(text);
   const cleanAttachments = sanitizeAttachments(attachments);
   if (!cleanText && !cleanAttachments.length) throw new Error("text_or_attachment_required");
+  const duplicate = findRecentDuplicateComment({ commentKey, userId, text: cleanText, attachments: cleanAttachments, windowMs: 8000 });
+  if (duplicate) return duplicate;
   const dbPolicy = readDbV3PolicySync(commentKey);
   checkCommentsEnabled(commentKey, dbPolicy);
   checkModeration({ commentKey, userId, userName, text: cleanText, dbPolicy });
