@@ -1,8 +1,8 @@
 'use strict';
 
-// CC7.4.2 survival probe runtime bridge.
-// No functional changes to comment button, resolver, post patcher or UI.
-// Purpose: force a clean redeploy to verify that Post 34 survives an update.
+// CC7.4.4 Start vs Comments mode bridge.
+// Purpose: keep comments payload fix, but restore Start landing when mini-app is opened from bot Start without post identity.
+// No UI redesign, no overlay, no floating hints, no client recovery redirect.
 
 const fs = require('fs');
 const path = require('path');
@@ -10,9 +10,9 @@ const Module = require('module');
 
 const { registerCommentOpenStateRoutes } = require('./routes/commentOpenState');
 
-const RUNTIME = 'CC7.4.2-POST34-SURVIVAL-PROBE';
-const SOURCE = 'adminkit-cc7-4-2-post34-survival-probe';
-const MARKER = '__ADMINKIT_CC7_4_2_POST34_SURVIVAL_PROBE__';
+const RUNTIME = 'CC7.4.4-START-VS-COMMENTS-MODE';
+const SOURCE = 'adminkit-cc7-4-4-start-vs-comments-mode';
+const MARKER = '__ADMINKIT_CC7_4_4_START_VS_COMMENTS_MODE__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -53,7 +53,7 @@ function loadLayer(pathName) {
   } catch (error) {
     item.ok = false;
     item.error = error?.message || String(error);
-    console.warn('[cc7.4.2-probe] layer failed:', pathName, item.error);
+    console.warn('[cc7.4.4-start-vs-comments] layer failed:', pathName, item.error);
   }
   loadedLayers.push(item);
   return item;
@@ -66,8 +66,8 @@ function readOnepassAppJs() {
 }
 
 function installRoutes(app) {
-  if (!app || app.__adminkitCc742OnepassRoutes) return app;
-  app.__adminkitCc742OnepassRoutes = true;
+  if (!app || app.__adminkitCc744OnepassRoutes) return app;
+  app.__adminkitCc744OnepassRoutes = true;
 
   registerCommentOpenStateRoutes(app);
 
@@ -98,7 +98,7 @@ function installRoutes(app) {
       sourceMarker: SOURCE,
       marker: MARKER,
       installedAt,
-      policy: 'survival_probe_no_functional_comment_changes_native_open_app_compact_payload',
+      policy: 'comments_mode_requires_explicit_post_identity_start_without_post_identity_shows_landing',
       appOnepass,
       useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
       buildInfo,
@@ -118,7 +118,7 @@ function installRoutes(app) {
       service: 'amio-comments-max',
       runtimeVersion: RUNTIME,
       buildVersion: RUNTIME,
-      displayVersion: 'CC7.4.2',
+      displayVersion: 'CC7.4.4',
       sourceMarker: SOURCE,
       useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
       buildInfo,
@@ -132,28 +132,28 @@ function installRoutes(app) {
 }
 
 function patchExpressStatic(expressModule) {
-  if (!expressModule || expressModule.__adminkitCc742StaticWrapped) return expressModule;
+  if (!expressModule || expressModule.__adminkitCc744StaticWrapped) return expressModule;
   const originalStatic = expressModule.static;
   if (typeof originalStatic !== 'function') return expressModule;
-  expressModule.static = function adminkitCc742Static(...args) {
+  expressModule.static = function adminkitCc744Static(...args) {
     const middleware = originalStatic.apply(this, args);
-    return function adminkitCc742StaticMiddleware(req, res, next) {
+    return function adminkitCc744StaticMiddleware(req, res, next) {
       if (isAppJsRequest(req)) return next();
       return middleware(req, res, next);
     };
   };
-  expressModule.__adminkitCc742StaticWrapped = true;
+  expressModule.__adminkitCc744StaticWrapped = true;
   return expressModule;
 }
 
 function installExpressWrap() {
-  if (Module.__adminkitCc742OnepassExpressWrap) return;
-  Module.__adminkitCc742OnepassExpressWrap = true;
+  if (Module.__adminkitCc744OnepassExpressWrap) return;
+  Module.__adminkitCc744OnepassExpressWrap = true;
   const prev = Module._load;
-  Module._load = function adminkitCc742OnepassLoad(request, parent, isMain) {
+  Module._load = function adminkitCc744OnepassLoad(request, parent, isMain) {
     const loaded = prev.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitCc742OnepassWrapped) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitCc744OnepassWrapped) {
         patchExpressStatic(loaded);
         function wrappedExpress(...args) {
           const app = loaded(...args);
@@ -162,11 +162,11 @@ function installExpressWrap() {
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
         patchExpressStatic(wrappedExpress);
-        wrappedExpress.__adminkitCc742OnepassWrapped = true;
+        wrappedExpress.__adminkitCc744OnepassWrapped = true;
         return wrappedExpress;
       }
     } catch (error) {
-      console.warn('[cc7.4.2-probe] express wrap skipped:', error?.message || error);
+      console.warn('[cc7.4.4-start-vs-comments] express wrap skipped:', error?.message || error);
     }
     return loaded;
   };
@@ -185,7 +185,7 @@ function layerSummary() {
     servedAppJs: 'public/app-onepass.js',
     commentsOpenStateRoute: 'routes/commentOpenState.js',
     useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
-    policy: 'post34_survival_probe_no_logic_change'
+    policy: 'start_vs_comments_mode_no_ui_change'
   };
 }
 
