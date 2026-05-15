@@ -1,8 +1,8 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.5.3-APPJS-OPENSTATE-FIRST';
-const MARKER = '__ADMINKIT_CC7_5_3_APPJS_OPENSTATE_FIRST__';
+const RUNTIME = 'CC7.5.6-COMMENT-UI-SEND-GUARD';
+const MARKER = '__ADMINKIT_CC7_5_6_COMMENT_UI_SEND_GUARD__';
 if (window[MARKER]) return;
 window[MARKER] = true;
 
@@ -265,8 +265,10 @@ const state = {
   commentKey: params.commentKey, handoff: params.handoff, channelId: params.channelId, postId: params.postId,
   title: params.title, raw: params.raw, launchMode: params.launchMode, hasCommentIdentity: params.hasCommentIdentity,
   currentUserId: getBridgeUserId(), currentUserName: getBridgeUserName(), currentUserAvatarUrl: getBridgeAvatarUrl(),
-  comments: [], meta: {}, commentsCount: 0, pollTimer: null, requestInFlight: false
+  comments: [], meta: {}, commentsCount: 0, pollTimer: null, requestInFlight: false,
+  sendInFlight: false, lastSendFingerprint: '', lastSendStartedAt: 0
 };
+window.__ADMINKIT_CC7_5_6_STATE__ = state;
 window.__ADMINKIT_CC7_5_3_STATE__ = state;
 window.__ADMINKIT_CC7_2_STATE__ = state;
 
@@ -275,6 +277,14 @@ function setInlineStatus(message, isError) {
   refs.commentInlineStatus.textContent = message || '';
   refs.commentInlineStatus.classList.toggle('hidden', !message);
   refs.commentInlineStatus.classList.toggle('error', Boolean(isError && message));
+}
+function setSendingUi(isSending) {
+  if (refs.sendBtn) {
+    refs.sendBtn.disabled = Boolean(isSending);
+    refs.sendBtn.setAttribute('aria-busy', isSending ? 'true' : 'false');
+    refs.sendBtn.classList.toggle('is-sending', Boolean(isSending));
+  }
+  if (refs.commentInput) refs.commentInput.readOnly = Boolean(isSending);
 }
 function buildOpenStateUrl() {
   const q = new URLSearchParams();
@@ -371,7 +381,10 @@ function renderComments(list) {
     const text = clean(comment.text || comment.body || '');
     const time = formatTime(comment.createdAt || comment.created_at || comment.updatedAt || comment.updated_at);
     const attachments = (Array.isArray(comment.attachments) ? comment.attachments : []).map(renderAttachment).join('');
-    return '<div class="comment-row ' + (own ? 'own' : 'other') + '" data-comment-id="' + escapeHtml(comment.id || '') + '"><div class="comment-avatar">' + escapeHtml(userName.charAt(0).toUpperCase() || 'Г') + '</div><div class="comment-bubble">' + (own ? '' : '<div class="comment-author">' + escapeHtml(userName) + '</div>') + (text ? '<div class="comment-text">' + escapeHtml(text) + '</div>' : '') + attachments + '<div class="comment-time">' + escapeHtml(time) + '</div></div></div>';
+    const avatar = own ? '' : '<div class="comment-avatar">' + escapeHtml(userName.charAt(0).toUpperCase() || 'Г') + '</div>';
+    const author = own ? '' : '<div class="comment-author">' + escapeHtml(userName) + '</div>';
+    const ownClass = own ? ' own' : '';
+    return '<div class="comment-row ' + (own ? 'own' : 'other') + '" data-comment-id="' + escapeHtml(comment.id || '') + '">' + avatar + '<div class="comment-bubble' + ownClass + '">' + author + (text ? '<div class="comment-text">' + escapeHtml(text) + '</div>' : '') + attachments + '<div class="comment-time">' + escapeHtml(time) + '</div></div></div>';
   }).join('');
 }
 function renderOpenState(data) {
@@ -393,11 +406,20 @@ async function refreshOpenState() {
 }
 function outgoingUserName() { return clean(state.currentUserName || (refs.nameInput && refs.nameInput.value) || 'Гость'); }
 function outgoingUserId() { return clean(state.currentUserId || (refs.nameInput && refs.nameInput.value) || 'guest'); }
+function makeSendFingerprint(text) {
+  return [state.commentKey || '', outgoingUserId() || 'guest', text || ''].join('|');
+}
 async function sendComment() {
   const text = clean(refs.commentInput && refs.commentInput.value);
   if (!text || !state.commentKey) return;
-  setInlineStatus('', false);
-  if (refs.sendBtn) refs.sendBtn.disabled = true;
+  const fingerprint = makeSendFingerprint(text);
+  if (state.sendInFlight) return;
+  if (fingerprint === state.lastSendFingerprint && Date.now() - Number(state.lastSendStartedAt || 0) < 8000) return;
+  state.sendInFlight = true;
+  state.lastSendFingerprint = fingerprint;
+  state.lastSendStartedAt = Date.now();
+  setInlineStatus('Отправляем…', false);
+  setSendingUi(true);
   try {
     const response = await fetch('/api/comments', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -409,9 +431,14 @@ async function sendComment() {
       return;
     }
     if (refs.commentInput) refs.commentInput.value = '';
+    state.lastSendFingerprint = '';
+    setInlineStatus('', false);
     await refreshOpenState();
   } catch (_) { setInlineStatus('Не удалось отправить комментарий. Попробуйте ещё раз.', true); }
-  finally { if (refs.sendBtn) refs.sendBtn.disabled = false; }
+  finally {
+    state.sendInFlight = false;
+    setSendingUi(false);
+  }
 }
 function openMaxLink(target) {
   const app = getPossibleWebApps()[0];
@@ -442,6 +469,7 @@ function boot() {
   if (state.currentUserAvatarUrl && refs.composerAvatar) { refs.composerAvatar.src = state.currentUserAvatarUrl; refs.composerAvatar.style.display = 'block'; if (refs.composerAvatarFallback) refs.composerAvatarFallback.style.display = 'none'; }
 
   const initial = loadOpenStateSync();
+  window.__ADMINKIT_CC7_5_6_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_3_INITIAL__ = initial;
   window.__ADMINKIT_CC7_2_INITIAL__ = initial;
   if (initial && initial.ok && initial.meta) {
