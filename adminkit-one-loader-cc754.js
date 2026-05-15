@@ -1,16 +1,17 @@
 'use strict';
 
-// CC7.5.5 clean comments base.
-// public/app.js is now the real entrypoint. No /public/app.js server override here.
+// CC7.5.6 comment UI send guard.
+// public/app.js remains the real entrypoint. No /public/app.js server override here.
+// Comments open-state core is intentionally untouched from the accepted CC7.5.5 base.
 
 const fs = require('fs');
 const path = require('path');
 const Module = require('module');
 const { registerCommentOpenStateRoutes } = require('./routes/commentOpenState');
 
-const RUNTIME = 'CC7.5.5-CLEAN-COMMENTS-BASE';
-const SOURCE = 'adminkit-cc7-5-5-clean-comments-base';
-const MARKER = '__ADMINKIT_CC7_5_5_CLEAN_COMMENTS_BASE__';
+const RUNTIME = 'CC7.5.6-COMMENT-UI-SEND-GUARD';
+const SOURCE = 'adminkit-cc7-5-6-comment-ui-send-guard';
+const MARKER = '__ADMINKIT_CC7_5_6_COMMENT_UI_SEND_GUARD_LOADER__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -41,7 +42,7 @@ function fileInfo(relPath, marker) {
   try {
     const file = path.resolve(__dirname, relPath);
     const stat = fs.statSync(file);
-    const text = fs.readFileSync(file, 'utf8').slice(0, 1200);
+    const text = fs.readFileSync(file, 'utf8').slice(0, 1600);
     return { exists: true, bytes: stat.size, markerFound: marker ? text.includes(marker) : true };
   } catch (error) {
     return { exists: false, bytes: 0, markerFound: false, error: error?.message || String(error) };
@@ -60,7 +61,7 @@ function loadLayer(pathName) {
   } catch (error) {
     item.ok = false;
     item.error = error?.message || String(error);
-    console.warn('[cc7.5.5] layer failed:', pathName, item.error);
+    console.warn('[cc7.5.6] layer failed:', pathName, item.error);
   }
   loadedLayers.push(item);
   return item;
@@ -74,7 +75,7 @@ function installAdminFlowPatch() {
       adminFlowPatch = { ok: false, reason: 'postPatcher_missing' };
       return adminFlowPatch;
     }
-    if (postPatcher.__adminkitCc755Patched || postPatcher.__adminkitCc754Patched || postPatcher.__adminkitCc747Patched) {
+    if (postPatcher.__adminkitCc756Patched || postPatcher.__adminkitCc755Patched || postPatcher.__adminkitCc754Patched || postPatcher.__adminkitCc747Patched) {
       adminFlowPatch = { ok: true, already: true, runtimeVersion: RUNTIME };
       return adminFlowPatch;
     }
@@ -82,19 +83,19 @@ function installAdminFlowPatch() {
     function normalizeCommentKey(value) {
       return store.normalizeKey ? store.normalizeKey(value || '') : String(value || '').trim();
     }
-    postPatcher.patchStoredPost = async function adminkitCc755PatchStoredPost(args = {}) {
+    postPatcher.patchStoredPost = async function adminkitCc756PatchStoredPost(args = {}) {
       const key = normalizeCommentKey(args && args.commentKey);
       if (key && store.getPost(key)) {
         store.savePost(key, {
           patchedAttachments: [],
           lastPatchedFingerprint: '',
-          lastPatchForceReason: 'cc755_before_patchStoredPost',
+          lastPatchForceReason: 'cc756_before_patchStoredPost',
           lastPatchForceAt: Date.now()
         });
       }
       return originalPatchStoredPost.call(this, args || {});
     };
-    postPatcher.__adminkitCc755Patched = true;
+    postPatcher.__adminkitCc756Patched = true;
     adminFlowPatch = { ok: true, runtimeVersion: RUNTIME, patched: ['postPatcher.patchStoredPost'] };
     return adminFlowPatch;
   } catch (error) {
@@ -104,8 +105,8 @@ function installAdminFlowPatch() {
 }
 
 function installRoutes(app) {
-  if (!app || app.__adminkitCc755Routes) return app;
-  app.__adminkitCc755Routes = true;
+  if (!app || app.__adminkitCc756Routes) return app;
+  app.__adminkitCc756Routes = true;
   registerCommentOpenStateRoutes(app);
   app.get('/debug/cc7', (req, res) => {
     noCache(res);
@@ -117,9 +118,9 @@ function installRoutes(app) {
       sourceMarker: SOURCE,
       marker: MARKER,
       installedAt,
-      policy: 'clean_comments_base_no_public_app_override',
-      publicApp: fileInfo('public/app.js', 'CC7.5.5-PUBLIC-APP-CLEAN-ENTRY'),
-      appOnepass: fileInfo('public/app-onepass.js', 'CC7.5.3-APPJS-OPENSTATE-FIRST'),
+      policy: 'comment_ui_polish_and_send_guard_no_core_openstate_changes',
+      publicApp: fileInfo('public/app.js', 'CC7.5.6-PUBLIC-APP-COMMENT-UI-SEND-GUARD'),
+      appOnepass: fileInfo('public/app-onepass.js', 'CC7.5.6-COMMENT-UI-SEND-GUARD'),
       appJsOverride: { ok: false, removed: true },
       adminFlowPatch,
       postPatcherRuntime,
@@ -127,10 +128,11 @@ function installRoutes(app) {
       buildInfo: readBuildInfo(),
       loadedLayers,
       audit: {
-        clientPath: 'mini-app.html -> /public/app.js -> /public/app-onepass.js?v=755',
+        clientPath: 'mini-app.html -> /public/app.js -> /public/app-onepass.js?v=756',
         serverOverridePublicAppJs: false,
-        commentsCore: 'routes/commentOpenState.js + services/postMetaService.js + services/maxApi.js',
-        removedLayers: ['adminkit-archive-lite-layer', 'adminkit-clean-menu-core']
+        commentsCore: 'kept: routes/commentOpenState.js + services/postMetaService.js + services/maxApi.js native open_app path',
+        changedIn756: ['own comment avatar/initial hidden in app-onepass.js', 'client send in-flight lock', 'server duplicate comment guard in services/commentService.js'],
+        noChanges: ['no overlay', 'no floating hints', 'no external code.run /app comments button', 'no landing-first fallback for comments']
       },
       commentOpenStateRoute: require('./routes/commentOpenState').selfTest(),
       generatedAt: Date.now()
@@ -141,10 +143,10 @@ function installRoutes(app) {
     res.json({
       ok: true,
       runtimeVersion: RUNTIME,
-      displayVersion: 'CC7.5.5',
+      displayVersion: 'CC7.5.6',
       sourceMarker: SOURCE,
-      publicApp: fileInfo('public/app.js', 'CC7.5.5-PUBLIC-APP-CLEAN-ENTRY'),
-      appOnepass: fileInfo('public/app-onepass.js', 'CC7.5.3-APPJS-OPENSTATE-FIRST'),
+      publicApp: fileInfo('public/app.js', 'CC7.5.6-PUBLIC-APP-COMMENT-UI-SEND-GUARD'),
+      appOnepass: fileInfo('public/app-onepass.js', 'CC7.5.6-COMMENT-UI-SEND-GUARD'),
       adminFlowPatch,
       buildInfo: readBuildInfo(),
       generatedAt: Date.now(),
@@ -156,23 +158,23 @@ function installRoutes(app) {
 }
 
 function installExpressWrap() {
-  if (Module.__adminkitCc755ExpressWrap) return;
-  Module.__adminkitCc755ExpressWrap = true;
+  if (Module.__adminkitCc756ExpressWrap) return;
+  Module.__adminkitCc756ExpressWrap = true;
   const prev = Module._load;
-  Module._load = function adminkitCc755Load(request, parent, isMain) {
+  Module._load = function adminkitCc756Load(request, parent, isMain) {
     const loaded = prev.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitCc755Wrapped) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitCc756Wrapped) {
         function wrappedExpress(...args) {
           return installRoutes(loaded(...args));
         }
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
-        wrappedExpress.__adminkitCc755Wrapped = true;
+        wrappedExpress.__adminkitCc756Wrapped = true;
         return wrappedExpress;
       }
     } catch (error) {
-      console.warn('[cc7.5.5] express wrap failed:', error?.message || error);
+      console.warn('[cc7.5.6] express wrap failed:', error?.message || error);
     }
     return loaded;
   };
