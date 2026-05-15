@@ -1,8 +1,8 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.4.3-APPJS-COMPACT-PAYLOAD-SCAN';
-const MARKER = '__ADMINKIT_CC7_4_3_APPJS_COMPACT_PAYLOAD_SCAN__';
+const RUNTIME = 'CC7.4.4-APPJS-START-VS-COMMENTS-MODE';
+const MARKER = '__ADMINKIT_CC7_4_4_START_VS_COMMENTS_MODE__';
 if (window[MARKER]) return;
 window[MARKER] = true;
 
@@ -81,15 +81,17 @@ function addUnique(list, value) {
   const text = clean(value);
   if (text && !list.includes(text)) list.push(text);
 }
+function isStartOnlyValue(v) {
+  const s = clean(safeDecode(v)).toLowerCase();
+  return !s || ['start', 'menu', 'main', 'home', 'bot', 'admin', 'adminkit'].includes(s);
+}
 function derivePostNumber(text) {
   const s = clean(safeDecode(text));
   if (!s) return '';
   let m = s.match(/(?:^|[^\w])(post|пост)[:=\s-]*(\d{1,4})(?:$|[^\w])/i);
   if (m) return m[2];
-  m = s.match(/(?:^|[?&#\s])(startapp|start_param|WebAppStartParam|payload|startPayload|start_payload|post|postId|post_id|title)=(?:Post\s*)?(\d{1,4})(?:$|[&#\s])/i);
+  m = s.match(/(?:^|[?&#\s])(post|postId|post_id|title)=(?:Post\s*)?(\d{1,4})(?:$|[&#\s])/i);
   if (m) return m[2];
-  m = s.match(/^\d{1,4}$/);
-  if (m) return m[0];
   return '';
 }
 function parseCompactPayload(text) {
@@ -112,7 +114,7 @@ function parseCompactPayload(text) {
     out.commentKey = out.channelId + ':' + out.postId;
     return out;
   }
-  m = s.match(/(-?\d{3,}):(-?\d{1,})/);
+  m = s.match(/(-?\d{6,}):(-?\d{3,})/);
   if (m) {
     out.channelId = m[1];
     out.postId = m[2];
@@ -121,13 +123,19 @@ function parseCompactPayload(text) {
   return out;
 }
 function scanParams() {
-  const result = { commentKey: '', handoff: '', channelId: '', postId: '', title: '', raw: '', rawPieces: [] };
+  const result = { commentKey: '', handoff: '', channelId: '', postId: '', title: '', raw: '', rawPieces: [], hasCommentIdentity: false, launchMode: 'start' };
+  function markCommentIdentity(reason) {
+    result.hasCommentIdentity = true;
+    result.launchMode = 'comments';
+    result.identityReason = result.identityReason || reason || 'explicit_comment_identity';
+  }
   function applyCompact(value) {
     const parsed = parseCompactPayload(value);
     if (parsed.handoff && !result.handoff) result.handoff = parsed.handoff;
     if (parsed.commentKey && !result.commentKey) result.commentKey = parsed.commentKey;
     if (parsed.channelId && !result.channelId) result.channelId = parsed.channelId;
     if (parsed.postId && !result.postId) result.postId = parsed.postId;
+    if (parsed.commentKey || parsed.handoff) markCommentIdentity('compact_payload');
     return Boolean(parsed.commentKey || parsed.channelId || parsed.postId || parsed.handoff);
   }
   function addRaw(value) {
@@ -137,30 +145,50 @@ function scanParams() {
     addUnique(result.rawPieces, safeDecode(v));
     applyCompact(v);
   }
-  function setValue(key, value) {
+  function setValue(key, value, source) {
     const v = clean(safeDecode(value));
     if (!v) return;
     addRaw(v);
     applyCompact(v);
-    if ((key === 'commentKey' || key === 'key') && !result.commentKey) result.commentKey = v.replace(/^ck:/i, '');
-    if ((key === 'handoff' || key === 'startapp' || key === 'start_param' || key === 'WebAppStartParam' || key === 'payload' || key === 'startPayload' || key === 'start_payload' || key === 'button_payload' || key === 'launch_payload' || key === 'web_app_payload') && !result.handoff) result.handoff = v;
-    if ((key === 'channelId' || key === 'channel' || key === 'channel_id') && !result.channelId) result.channelId = v;
-    if ((key === 'postId' || key === 'post_id' || key === 'messageId' || key === 'message_id') && !result.postId) result.postId = v.replace(/^post:/i, '');
-    if ((key === 'title' || key === 'postTitle' || key === 'postText') && !result.title) result.title = v;
+
+    const k = String(key || '');
+    const lower = k.toLowerCase();
+    const isPayloadKey = ['handoff', 'startapp', 'start_param', 'webappstartparam', 'payload', 'startpayload', 'start_payload', 'button_payload', 'launch_payload', 'web_app_payload'].includes(lower);
+
+    if ((lower === 'commentkey' || lower === 'key') && !result.commentKey && !isStartOnlyValue(v)) {
+      result.commentKey = v.replace(/^ck:/i, '');
+      markCommentIdentity('commentKey_field');
+    }
+    if (isPayloadKey) {
+      if (!result.handoff && !isStartOnlyValue(v)) result.handoff = v;
+      if (/^(cp_|ck_|h_)/i.test(v) || /-?\d{6,}:-?\d{3,}/.test(v)) markCommentIdentity('payload_field');
+      const number = derivePostNumber(v);
+      if (number) {
+        if (!result.postId) result.postId = number;
+        if (!result.title) result.title = 'Post ' + number;
+        markCommentIdentity('payload_post_number');
+      }
+    }
+    if ((lower === 'channelid' || lower === 'channel' || lower === 'channel_id') && !result.channelId && /^-?\d{3,}$/.test(v)) result.channelId = v;
+    if ((lower === 'postid' || lower === 'post_id' || lower === 'messageid' || lower === 'message_id') && !result.postId && /^-?\d{3,}$/.test(v)) {
+      result.postId = v.replace(/^post:/i, '');
+      markCommentIdentity('postId_field');
+    }
+    if ((lower === 'title' || lower === 'posttitle' || lower === 'posttext') && !result.title && /\b(Post|Пост)\s*\d{1,4}\b/i.test(v)) {
+      result.title = v;
+      markCommentIdentity('post_title_field');
+    }
   }
   function scanObject(obj, depth) {
     if (!obj || typeof obj !== 'object' || depth > 4) return;
     try { addRaw(JSON.stringify(obj).slice(0, 2000)); } catch (_) {}
     Object.entries(obj).forEach(([key, value]) => {
       if (value === undefined || value === null) return;
-      if (typeof value === 'object') {
-        scanObject(value, depth + 1);
-      } else {
-        setValue(key, value);
-      }
+      if (typeof value === 'object') scanObject(value, depth + 1);
+      else setValue(key, value, 'object');
     });
   }
-  function scan(raw) {
+  function scan(raw, source) {
     if (raw && typeof raw === 'object') { scanObject(raw, 0); return; }
     raw = String(raw || '');
     if (!raw) return;
@@ -173,40 +201,35 @@ function scanParams() {
       for (const part of parts) {
         try {
           const params = new URLSearchParams(String(part || '').replace(/^#|^\?/g, ''));
-          for (const pair of params.entries()) setValue(pair[0], pair[1]);
+          for (const pair of params.entries()) setValue(pair[0], pair[1], source || 'url');
         } catch (_) {}
       }
       const compact = variant.match(/(cp_-?\d{3,}_-?\d{1,}|ck_-?\d{3,}_-?\d{1,})/i);
-      if (compact) setValue('handoff', compact[1]);
+      if (compact) setValue('handoff', compact[1], source || 'scan_compact');
       const ck = variant.match(/-?\d{6,}:-?\d{3,}/);
-      if (ck) setValue('commentKey', ck[0]);
+      if (ck) setValue('commentKey', ck[0], source || 'scan_ck');
       const handoff = variant.match(/h_[A-Za-z0-9_-]{6,}/);
-      if (handoff) setValue('handoff', handoff[0]);
-      const postId = variant.match(/(?:postId|post_id|messageId|message_id|post)[:=](-?\d{1,})/i);
-      if (postId) setValue('postId', postId[1]);
+      if (handoff) setValue('handoff', handoff[0], source || 'scan_handoff');
+      const postId = variant.match(/(?:postId|post_id|messageId|message_id|post)[:=](-?\d{3,})/i);
+      if (postId) setValue('postId', postId[1], source || 'scan_postid');
       const title = variant.match(/\b(Post\s*new!!\s*\d+!|Post\s*new\s*\d+|Post\s*zero\s*\d+|Post\s*\d+|Пост\s*\d+)\b/i);
-      if (title) setValue('title', title[1]);
-      const number = derivePostNumber(variant);
-      if (number) {
-        if (!result.postId) result.postId = number;
-        if (!result.title) result.title = 'Post ' + number;
-      }
+      if (title) setValue('title', title[1], source || 'scan_title');
     }
   }
 
-  try { scan(location.href); scan(location.search); scan(location.hash); scan(document.referrer || ''); } catch (_) {}
+  try { scan(location.href, 'location'); scan(location.search, 'location'); scan(location.hash, 'location'); } catch (_) {}
   getPossibleWebApps().forEach((app) => {
     try {
       const unsafe = (app && app.initDataUnsafe) || {};
-      ['start_param', 'startapp', 'WebAppStartParam', 'payload', 'startPayload', 'start_payload', 'button_payload', 'launch_payload', 'web_app_payload', 'postId', 'post_id', 'messageId', 'message_id', 'commentKey', 'channelId', 'channel_id', 'title', 'postTitle'].forEach((key) => setValue(key, unsafe[key]));
+      ['start_param', 'startapp', 'WebAppStartParam', 'payload', 'startPayload', 'start_payload', 'button_payload', 'launch_payload', 'web_app_payload', 'postId', 'post_id', 'messageId', 'message_id', 'commentKey', 'channelId', 'channel_id', 'title', 'postTitle'].forEach((key) => setValue(key, unsafe[key], 'bridge_unsafe'));
       scanObject(unsafe, 0);
-      scan(app && app.initData);
-      scan(app && app.startParam);
-      scan(app && app.launchParams);
-      scan(app && app.params);
-      scan(app && app.payload);
-      scan(app && app.startPayload);
-      scan(app && app.start_payload);
+      scan(app && app.initData, 'bridge_initData');
+      scan(app && app.startParam, 'bridge_startParam');
+      scan(app && app.launchParams, 'bridge_launchParams');
+      scan(app && app.params, 'bridge_params');
+      scan(app && app.payload, 'bridge_payload');
+      scan(app && app.startPayload, 'bridge_startPayload');
+      scan(app && app.start_payload, 'bridge_start_payload');
     } catch (_) {}
   });
 
@@ -215,40 +238,39 @@ function scanParams() {
     if (!result.channelId && parts[0]) result.channelId = clean(parts[0]);
     if (!result.postId && parts[1]) result.postId = clean(parts[1]);
   }
-  if (!result.postId) {
-    for (const piece of result.rawPieces) {
-      applyCompact(piece);
-      const number = derivePostNumber(piece);
-      if (number) { result.postId = number; break; }
-    }
-  }
   if (!result.title && result.postId && /^\d{1,4}$/.test(result.postId)) result.title = 'Post ' + result.postId;
-  result.raw = result.rawPieces.join(' ').slice(0, 4000);
+  if (!(result.commentKey || /^(cp_|ck_|h_)/i.test(result.handoff) || (result.channelId && result.postId))) {
+    result.hasCommentIdentity = false;
+    result.launchMode = 'start';
+    result.commentKey = '';
+    result.handoff = '';
+    result.channelId = '';
+    result.postId = '';
+    result.title = '';
+  }
+  result.raw = result.hasCommentIdentity ? result.rawPieces.join(' ').slice(0, 4000) : '';
   return result;
 }
 
 const refs = {
-  postCard: byId('postCard'), postTitle: byId('postTitle'), postMedia: byId('postMedia'),
-  commentsList: byId('commentsList'), emptyState: byId('emptyState'), nameInput: byId('nameInput'),
-  commentInput: byId('commentInput'), sendBtn: byId('sendBtn'), attachBtn: byId('attachBtn'),
-  attachmentInput: byId('attachmentInput'), commentsCountPill: byId('commentsCountPill'),
-  adminkitDiscussionLink: byId('adminkitDiscussionLink'), backBtn: byId('backBtn'),
-  composerAvatar: byId('composerAvatar'), composerAvatarFallback: byId('composerAvatarFallback'),
-  discussionLabel: byId('discussionLabel'), composerCard: byId('composerCard'), postError: byId('postError'),
-  commentInlineStatus: byId('commentInlineStatus'), commentsWrap: byId('commentsWrap'),
-  miniAppStartCard: byId('miniAppStartCard'), miniAppStartText: byId('miniAppStartText'),
-  miniAppStartWorkBtn: byId('miniAppStartWorkBtn'), miniAppCommunityBtn: byId('miniAppCommunityBtn'),
-  miniAppTopbar: byId('miniAppTopbar')
+  postCard: byId('postCard'), postTitle: byId('postTitle'), postMedia: byId('postMedia'), commentsList: byId('commentsList'),
+  emptyState: byId('emptyState'), nameInput: byId('nameInput'), commentInput: byId('commentInput'), sendBtn: byId('sendBtn'),
+  attachBtn: byId('attachBtn'), attachmentInput: byId('attachmentInput'), commentsCountPill: byId('commentsCountPill'),
+  adminkitDiscussionLink: byId('adminkitDiscussionLink'), backBtn: byId('backBtn'), composerAvatar: byId('composerAvatar'),
+  composerAvatarFallback: byId('composerAvatarFallback'), discussionLabel: byId('discussionLabel'), composerCard: byId('composerCard'),
+  postError: byId('postError'), commentInlineStatus: byId('commentInlineStatus'), commentsWrap: byId('commentsWrap'),
+  miniAppStartCard: byId('miniAppStartCard'), miniAppStartText: byId('miniAppStartText'), miniAppStartWorkBtn: byId('miniAppStartWorkBtn'),
+  miniAppCommunityBtn: byId('miniAppCommunityBtn'), miniAppTopbar: byId('miniAppTopbar')
 };
 
 const params = scanParams();
 const state = {
-  commentKey: params.commentKey, handoff: params.handoff, channelId: params.channelId,
-  postId: params.postId, title: params.title, raw: params.raw,
+  commentKey: params.commentKey, handoff: params.handoff, channelId: params.channelId, postId: params.postId,
+  title: params.title, raw: params.raw, launchMode: params.launchMode, hasCommentIdentity: params.hasCommentIdentity,
   currentUserId: getBridgeUserId(), currentUserName: getBridgeUserName(), currentUserAvatarUrl: getBridgeAvatarUrl(),
   comments: [], meta: {}, commentsCount: 0, pollTimer: null, requestInFlight: false
 };
-window.__ADMINKIT_CC7_4_3_STATE__ = state;
+window.__ADMINKIT_CC7_4_4_STATE__ = state;
 window.__ADMINKIT_CC7_2_STATE__ = state;
 
 function setInlineStatus(message, isError) {
@@ -293,8 +315,9 @@ function showMiniStart() {
   const wrap = document.querySelector('.discussion-label-wrap');
   if (wrap) wrap.style.display = 'none';
   if (refs.composerCard) refs.composerCard.style.display = 'none';
+  if (refs.postError) { refs.postError.textContent = ''; refs.postError.style.display = 'none'; }
   if (refs.miniAppStartCard) refs.miniAppStartCard.classList.remove('hidden');
-  if (refs.miniAppStartText) refs.miniAppStartText.innerHTML = '<div class="miniapp-start-copy strong">АдминКИТ — система управления MAX</div><div class="miniapp-start-copy">Комментарии, подарки, кнопки и статистика канала — в одном месте.</div><div class="miniapp-start-copy subtle">После нажатия откроется чат с ботом.</div>';
+  if (refs.miniAppStartText) refs.miniAppStartText.innerHTML = '<div class="miniapp-start-copy strong">АдминКИТ — система управления MAX</div><div class="miniapp-start-copy">Рост канала, комментарии, подарки, кнопки, модерация и статистика — в одном месте.</div><div class="miniapp-start-copy subtle">Нажмите «Приступить к работе», чтобы открыть чат с ботом.</div>';
 }
 function hideMiniStart() {
   document.body && document.body.classList && document.body.classList.remove('miniapp-start-mode');
@@ -313,11 +336,9 @@ function applyMeta(meta) {
   if (meta.channelId) state.channelId = clean(meta.channelId);
   if (meta.postId) state.postId = clean(meta.postId);
   if (meta.postTitle) state.title = clean(meta.postTitle);
-
   const title = clean(meta.postTitle || state.title || (state.postId ? ('Post ' + state.postId) : ''));
   if (refs.postTitle) refs.postTitle.textContent = title;
   if (refs.discussionLabel) refs.discussionLabel.textContent = 'Начало обсуждения';
-
   const banner = (meta && meta.banner) || {};
   const ctaText = clean(banner.button || banner.text) || '🐋 АдминКИТ';
   const ctaLink = clean(banner.link) || 'https://max.ru/id781310320690_bot?start=menu';
@@ -365,7 +386,7 @@ function renderOpenState(data) {
   if (refs.commentsCountPill) refs.commentsCountPill.textContent = pluralComments(count);
 }
 async function refreshOpenState() {
-  if (state.requestInFlight) return;
+  if (state.launchMode !== 'comments' || state.requestInFlight) return;
   state.requestInFlight = true;
   try { renderOpenState(await loadOpenStateAsync()); } catch (_) {}
   finally { state.requestInFlight = false; }
@@ -392,21 +413,17 @@ async function sendComment() {
   } catch (_) { setInlineStatus('Не удалось отправить комментарий. Попробуйте ещё раз.', true); }
   finally { if (refs.sendBtn) refs.sendBtn.disabled = false; }
 }
+function openMaxLink(target) {
+  const app = getPossibleWebApps()[0];
+  try { if (app && app.openMaxLink) app.openMaxLink(target); else location.href = target; } catch (_) { location.href = target; }
+}
 function bindEvents() {
   if (refs.sendBtn) refs.sendBtn.addEventListener('click', sendComment);
   if (refs.commentInput) refs.commentInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); } });
   if (refs.backBtn) refs.backBtn.addEventListener('click', () => { try { history.back(); } catch (_) {} });
   if (refs.attachBtn && refs.attachmentInput) refs.attachBtn.addEventListener('click', () => refs.attachmentInput.click());
-  if (refs.miniAppStartWorkBtn) refs.miniAppStartWorkBtn.addEventListener('click', () => {
-    const target = 'https://max.ru/id781310320690_bot?start=menu';
-    const app = getPossibleWebApps()[0];
-    try { if (app && app.openMaxLink) app.openMaxLink(target); else location.href = target; } catch (_) { location.href = target; }
-  });
-  if (refs.miniAppCommunityBtn) refs.miniAppCommunityBtn.addEventListener('click', () => {
-    const target = 'https://max.ru/id781310320690_biz';
-    const app = getPossibleWebApps()[0];
-    try { if (app && app.openMaxLink) app.openMaxLink(target); else location.href = target; } catch (_) { location.href = target; }
-  });
+  if (refs.miniAppStartWorkBtn) refs.miniAppStartWorkBtn.addEventListener('click', () => openMaxLink('https://max.ru/id781310320690_bot?start=menu'));
+  if (refs.miniAppCommunityBtn) refs.miniAppCommunityBtn.addEventListener('click', () => openMaxLink('https://max.ru/id781310320690_biz'));
 }
 function boot() {
   initBridgeUi();
@@ -414,10 +431,13 @@ function boot() {
   if (state.currentUserName && refs.nameInput) { refs.nameInput.value = state.currentUserName; refs.nameInput.readOnly = true; refs.nameInput.style.display = 'none'; }
   if (state.currentUserAvatarUrl && refs.composerAvatar) { refs.composerAvatar.src = state.currentUserAvatarUrl; refs.composerAvatar.style.display = 'block'; if (refs.composerAvatarFallback) refs.composerAvatarFallback.style.display = 'none'; }
 
-  if (!(state.commentKey || state.handoff || state.postId || state.title || state.raw)) { showMiniStart(); return; }
+  if (state.launchMode !== 'comments' || !state.hasCommentIdentity) {
+    showMiniStart();
+    return;
+  }
 
   const initial = loadOpenStateSync();
-  window.__ADMINKIT_CC7_4_3_INITIAL__ = initial;
+  window.__ADMINKIT_CC7_4_4_INITIAL__ = initial;
   window.__ADMINKIT_CC7_2_INITIAL__ = initial;
   if (initial && initial.ok) {
     renderOpenState(initial);
