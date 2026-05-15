@@ -1,8 +1,8 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.2-v1",
-  "main": "adminkit-one-loader-cc752.js",
-  "scripts": { "start": "node adminkit-one-loader-cc752.js" },
+  "version": "CC7.5.3-v1",
+  "main": "adminkit-one-loader-cc753.js",
+  "scripts": { "start": "node adminkit-one-loader-cc753.js" },
   "dependencies": {
     "axios": "^1.7.9",
     "cors": "^2.8.5",
