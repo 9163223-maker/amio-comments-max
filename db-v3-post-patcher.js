@@ -5,30 +5,50 @@ const config = require('./config');
 const maxApi = require('./services/maxApi');
 const { getComments } = require('./store');
 
-const RUNTIME = 'DB-V3-POST-PATCHER-1.1-ADDONS-PRESERVE';
+const RUNTIME = 'DB-V3-POST-PATCHER-1.2-MULTI-ADDONS-PRESERVE';
 const clean = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 const bool = (v, def = true) => v === undefined || v === null ? def : !!v;
 
 function isHttpUrl(v) { return /^https?:\/\//i.test(clean(v)) || /^https:\/\/max\.ru\//i.test(clean(v)); }
+function asArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim()) { try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : []; } catch { return []; } }
+  return [];
+}
+async function ensureAddonColumns() {
+  await db.init();
+  await db.query(`
+    alter table ak_post_settings add column if not exists cta_buttons_json jsonb not null default '[]'::jsonb;
+    alter table ak_post_settings add column if not exists gifts_json jsonb not null default '[]'::jsonb;
+  `);
+}
 
 function stripManagedKeyboards(attachments = []) {
   // On comment count refresh rebuild the whole AdminKIT keyboard from DB state.
   // This prevents the comment refresh from deleting CTA/gift rows and also prevents duplicate rows.
   return (Array.isArray(attachments) ? attachments : []).filter((item) => item?.type !== 'inline_keyboard');
 }
-
+function oneButton(text, target, commentKey) {
+  const label = clean(text).slice(0, 64);
+  const url = clean(target);
+  if (!label || !url) return null;
+  return isHttpUrl(url)
+    ? { type: 'link', text: label, url }
+    : { type: 'callback', text: label, payload: JSON.stringify({ r: 'buttons:action', commentKey, action: url }) };
+}
 function buildAddonRows(post = {}) {
   const rows = [];
   if (post.buttonsEnabled && clean(post.ctaButtonText) && clean(post.ctaButtonLink)) {
-    const target = clean(post.ctaButtonLink);
-    rows.push([isHttpUrl(target)
-      ? { type: 'link', text: clean(post.ctaButtonText).slice(0, 64), url: target }
-      : { type: 'callback', text: clean(post.ctaButtonText).slice(0, 64), payload: JSON.stringify({ r: 'buttons:action', commentKey: post.commentKey, action: target }) }
-    ]);
+    const b = oneButton(post.ctaButtonText, post.ctaButtonLink, post.commentKey);
+    if (b) rows.push([b]);
+  }
+  for (const item of asArray(post.ctaButtonsJson).slice(0, 6)) {
+    const b = oneButton(item.text || item.title || item.label, item.url || item.link || item.action, post.commentKey);
+    if (b) rows.push([b]);
   }
   if (post.giftsEnabled && clean(post.giftTitle) && clean(post.giftLink)) {
     // Gift must be delivered by bot to user chat, so always use callback even if gift content is a link.
-    rows.push([{ type: 'callback', text: ('🎁 ' + clean(post.giftTitle)).slice(0, 64), payload: JSON.stringify({ r: 'gifts:claim', commentKey: post.commentKey }) }]);
+    rows.push([{ type: 'callback', text: ('🎁 ' + clean(post.giftTitle)).slice(0, 64), payload: JSON.stringify({ r: 'gifts:claim', commentKey: post.commentKey, giftIndex: 0 }) }]);
   }
   return rows;
 }
@@ -36,12 +56,12 @@ function buildAddonRows(post = {}) {
 async function getPostByCommentKey(commentKey = '') {
   const key = clean(commentKey);
   if (!key) return null;
-  await db.init();
+  await ensureAddonColumns();
   const { rows } = await db.query(`
     select p.admin_id as "adminId", p.channel_id as "channelId", p.post_id as "postId", p.message_id as "messageId", p.comment_key as "commentKey",
       coalesce(s.comments_enabled, true) as "commentsEnabled",
-      coalesce(s.buttons_enabled, false) as "buttonsEnabled", coalesce(s.cta_button_text, '') as "ctaButtonText", coalesce(s.cta_button_link, '') as "ctaButtonLink",
-      coalesce(s.gifts_enabled, false) as "giftsEnabled", coalesce(s.gift_title, '') as "giftTitle", coalesce(s.gift_link, '') as "giftLink"
+      coalesce(s.buttons_enabled, false) as "buttonsEnabled", coalesce(s.cta_button_text, '') as "ctaButtonText", coalesce(s.cta_button_link, '') as "ctaButtonLink", coalesce(s.cta_buttons_json, '[]'::jsonb) as "ctaButtonsJson",
+      coalesce(s.gifts_enabled, false) as "giftsEnabled", coalesce(s.gift_title, '') as "giftTitle", coalesce(s.gift_link, '') as "giftLink", coalesce(s.gifts_json, '[]'::jsonb) as "giftsJson"
     from ak_posts p left join ak_post_settings s on s.comment_key = p.comment_key
     where p.comment_key = $1 order by p.updated_at desc limit 1
   `, [key]);
@@ -79,5 +99,5 @@ async function patchCommentsButtonByCommentKey(commentKey = '') {
   return { ok: true, runtimeVersion: RUNTIME, commentKey: post.commentKey, postId: post.postId, count, commentsEnabled: bool(post.commentsEnabled, true), extraRows: extraRows.length, result };
 }
 
-function selfTest() { return { ok: true, runtimeVersion: RUNTIME, source: 'Postgres', countSource: 'comments list', preservesAddons: true, addonRows: ['buttons', 'gifts'] }; }
-module.exports = { RUNTIME, selfTest, patchCommentsButtonByCommentKey };
+function selfTest() { return { ok: true, runtimeVersion: RUNTIME, source: 'Postgres', countSource: 'comments list', preservesAddons: true, addonRows: ['buttons', 'buttonExtras', 'gifts'], multiButtons: true }; }
+module.exports = { RUNTIME, selfTest, patchCommentsButtonByCommentKey, buildAddonRows };
