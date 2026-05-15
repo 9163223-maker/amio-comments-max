@@ -20,7 +20,7 @@ const {
 const { findGiftCampaignForPost } = require("./giftService");
 const { buildCustomKeyboardRows } = require("./keyboardBuilderService");
 
-const DB_SYNC_RUNTIME = "CC7.4.0-POST-PATCHER-STABLE-PAYLOAD-SNAPSHOT";
+const DB_SYNC_RUNTIME = "CC7.4.5-POST-PATCHER-PRESERVE-TEXT-LINK-FORMAT";
 
 function normalizeAttachments(value) {
   return Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : [];
@@ -167,7 +167,6 @@ async function patchStoredPost({
   let originalText = String(post.originalText || "");
   let originalLink = post.originalLink && typeof post.originalLink === "object" ? JSON.parse(JSON.stringify(post.originalLink)) : null;
   let originalFormat = post.originalFormat !== undefined ? post.originalFormat : undefined;
-  const textOverrideActive = Boolean(post.textOverrideActive);
 
   if ((!originalAttachments.length || !originalText || !originalLink || originalFormat === undefined) && botToken && post.messageId) {
     try {
@@ -274,16 +273,16 @@ async function patchStoredPost({
       notify: false
     };
 
-    if (textOverrideActive) {
-      if (originalText) {
-        payload.text = String(originalText || "");
-      }
-      if (originalLink) {
-        payload.link = JSON.parse(JSON.stringify(originalLink));
-      }
-      if (originalFormat !== undefined) {
-        payload.format = originalFormat;
-      }
+    // CC7.4.5: MAX PUT /messages may rebuild the message when only attachments are sent.
+    // Always send the original text/link/format back when we have them, so native links/entities survive patching.
+    if (originalText) {
+      payload.text = String(originalText || "");
+    }
+    if (originalLink && typeof originalLink === "object") {
+      payload.link = JSON.parse(JSON.stringify(originalLink));
+    }
+    if (originalFormat !== undefined && originalFormat !== null) {
+      payload.format = originalFormat;
     }
 
     const patchResult = await editMessage(payload);
