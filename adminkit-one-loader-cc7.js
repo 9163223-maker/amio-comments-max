@@ -1,7 +1,7 @@
 'use strict';
 
-// CC7.4.4 Start vs Comments mode bridge.
-// Purpose: keep comments payload fix, but restore Start landing when mini-app is opened from bot Start without post identity.
+// CC7.4.5 preserve links + comment avatar CSS bridge.
+// Purpose: keep stable comments/Start split, preserve post text/link/format on patch, and hide stray own-message avatar initial.
 // No UI redesign, no overlay, no floating hints, no client recovery redirect.
 
 const fs = require('fs');
@@ -10,9 +10,9 @@ const Module = require('module');
 
 const { registerCommentOpenStateRoutes } = require('./routes/commentOpenState');
 
-const RUNTIME = 'CC7.4.4-START-VS-COMMENTS-MODE';
-const SOURCE = 'adminkit-cc7-4-4-start-vs-comments-mode';
-const MARKER = '__ADMINKIT_CC7_4_4_START_VS_COMMENTS_MODE__';
+const RUNTIME = 'CC7.4.5-PRESERVE-LINKS-COMMENT-CSS';
+const SOURCE = 'adminkit-cc7-4-5-preserve-links-comment-css';
+const MARKER = '__ADMINKIT_CC7_4_5_PRESERVE_LINKS_COMMENT_CSS__';
 
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
@@ -53,7 +53,7 @@ function loadLayer(pathName) {
   } catch (error) {
     item.ok = false;
     item.error = error?.message || String(error);
-    console.warn('[cc7.4.4-start-vs-comments] layer failed:', pathName, item.error);
+    console.warn('[cc7.4.5-preserve-links] layer failed:', pathName, item.error);
   }
   loadedLayers.push(item);
   return item;
@@ -62,12 +62,23 @@ function loadLayer(pathName) {
 function readOnepassAppJs() {
   const file = path.resolve(__dirname, 'public', 'app-onepass.js');
   const source = fs.readFileSync(file, 'utf8');
-  return source + '\n\n;window.__ADMINKIT_SERVED_APPJS__=' + JSON.stringify({ runtimeVersion: RUNTIME, sourceMarker: SOURCE }) + ';\n';
+  const cssPatch = `
+;(() => {
+  try {
+    if (!document.getElementById('adminkit-cc745-comment-css')) {
+      const style = document.createElement('style');
+      style.id = 'adminkit-cc745-comment-css';
+      style.textContent = '.comment-avatar{width:34px;height:34px;flex:0 0 34px;border-radius:999px;background:rgba(239,246,255,.96);color:var(--accent-dark,#2f78d7);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;line-height:1;overflow:hidden}.comment-row.own .comment-avatar{display:none!important}.comment-row.own .comment-bubble{margin-left:auto}.comment-row.own{justify-content:flex-end}.comment-row.other .comment-avatar:empty{display:none}.comment-author:empty{display:none}';
+      document.head.appendChild(style);
+    }
+  } catch (_) {}
+})();`;
+  return source + '\n\n' + cssPatch + '\n\n;window.__ADMINKIT_SERVED_APPJS__=' + JSON.stringify({ runtimeVersion: RUNTIME, sourceMarker: SOURCE }) + ';\n';
 }
 
 function installRoutes(app) {
-  if (!app || app.__adminkitCc744OnepassRoutes) return app;
-  app.__adminkitCc744OnepassRoutes = true;
+  if (!app || app.__adminkitCc745OnepassRoutes) return app;
+  app.__adminkitCc745OnepassRoutes = true;
 
   registerCommentOpenStateRoutes(app);
 
@@ -98,7 +109,7 @@ function installRoutes(app) {
       sourceMarker: SOURCE,
       marker: MARKER,
       installedAt,
-      policy: 'comments_mode_requires_explicit_post_identity_start_without_post_identity_shows_landing',
+      policy: 'preserve_original_text_link_format_on_patch_plus_hide_own_comment_avatar_initial',
       appOnepass,
       useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
       buildInfo,
@@ -118,7 +129,7 @@ function installRoutes(app) {
       service: 'amio-comments-max',
       runtimeVersion: RUNTIME,
       buildVersion: RUNTIME,
-      displayVersion: 'CC7.4.4',
+      displayVersion: 'CC7.4.5',
       sourceMarker: SOURCE,
       useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
       buildInfo,
@@ -132,28 +143,28 @@ function installRoutes(app) {
 }
 
 function patchExpressStatic(expressModule) {
-  if (!expressModule || expressModule.__adminkitCc744StaticWrapped) return expressModule;
+  if (!expressModule || expressModule.__adminkitCc745StaticWrapped) return expressModule;
   const originalStatic = expressModule.static;
   if (typeof originalStatic !== 'function') return expressModule;
-  expressModule.static = function adminkitCc744Static(...args) {
+  expressModule.static = function adminkitCc745Static(...args) {
     const middleware = originalStatic.apply(this, args);
-    return function adminkitCc744StaticMiddleware(req, res, next) {
+    return function adminkitCc745StaticMiddleware(req, res, next) {
       if (isAppJsRequest(req)) return next();
       return middleware(req, res, next);
     };
   };
-  expressModule.__adminkitCc744StaticWrapped = true;
+  expressModule.__adminkitCc745StaticWrapped = true;
   return expressModule;
 }
 
 function installExpressWrap() {
-  if (Module.__adminkitCc744OnepassExpressWrap) return;
-  Module.__adminkitCc744OnepassExpressWrap = true;
+  if (Module.__adminkitCc745OnepassExpressWrap) return;
+  Module.__adminkitCc745OnepassExpressWrap = true;
   const prev = Module._load;
-  Module._load = function adminkitCc744OnepassLoad(request, parent, isMain) {
+  Module._load = function adminkitCc745OnepassLoad(request, parent, isMain) {
     const loaded = prev.apply(this, arguments);
     try {
-      if (String(request) === 'express' && loaded && !loaded.__adminkitCc744OnepassWrapped) {
+      if (String(request) === 'express' && loaded && !loaded.__adminkitCc745OnepassWrapped) {
         patchExpressStatic(loaded);
         function wrappedExpress(...args) {
           const app = loaded(...args);
@@ -162,11 +173,11 @@ function installExpressWrap() {
         Object.setPrototypeOf(wrappedExpress, loaded);
         Object.assign(wrappedExpress, loaded);
         patchExpressStatic(wrappedExpress);
-        wrappedExpress.__adminkitCc744OnepassWrapped = true;
+        wrappedExpress.__adminkitCc745OnepassWrapped = true;
         return wrappedExpress;
       }
     } catch (error) {
-      console.warn('[cc7.4.4-start-vs-comments] express wrap skipped:', error?.message || error);
+      console.warn('[cc7.4.5-preserve-links] express wrap skipped:', error?.message || error);
     }
     return loaded;
   };
@@ -185,7 +196,7 @@ function layerSummary() {
     servedAppJs: 'public/app-onepass.js',
     commentsOpenStateRoute: 'routes/commentOpenState.js',
     useOpenAppButton: process.env.ADMINKIT_USE_OPEN_APP_BUTTON,
-    policy: 'start_vs_comments_mode_no_ui_change'
+    policy: 'preserve_links_comment_css_no_ui_redesign'
   };
 }
 
