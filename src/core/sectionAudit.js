@@ -1,6 +1,6 @@
 'use strict';
 
-const RUNTIME = 'ADMINKIT-CORE-SECTION-AUDIT-1.0-READONLY-MATRIX';
+const RUNTIME = 'ADMINKIT-CORE-SECTION-AUDIT-1.1-CLEAN-FLOW-MATRIX';
 
 function clean(value) { return String(value ?? '').trim(); }
 
@@ -8,7 +8,7 @@ const EXPECTED = {
   channels: { mode: 'read-only', writesAllowed: false, cleanTables: ['ak_admin_channels', 'ak_channels'], risk: 'connect flow still legacy-held until migrated' },
   comments: { mode: 'read-only', writesAllowed: false, cleanTables: ['ak_posts', 'ak_admin_channels', 'ak_admin_sessions'], risk: 'do not add compatibility layer for old patched links' },
   buttons: { mode: 'clean-flow', writesAllowed: true, cleanTables: ['ak_post_buttons'], risk: 'MAX post patch pipeline not enabled yet' },
-  lead_magnets: { mode: 'clean-flow-planned', writesAllowed: false, cleanTables: ['ak_post_lead_magnets'], risk: 'reuse flowEngine/text-input bridge after buttons are verified' },
+  lead_magnets: { mode: 'clean-flow-planned', writesAllowed: true, cleanTables: ['ak_post_lead_magnets'], risk: 'reuse flowEngine/text-input bridge after buttons are verified; save route still must be explicit' },
   moderation: { mode: 'read-only', writesAllowed: false, cleanTables: ['ak_moderation_rules', 'ak_posts', 'ak_admin_channels'], risk: 'ban/delete/hide require dry-run + confirm flow' },
   archive: { mode: 'read-only', writesAllowed: false, cleanTables: ['ak_posts', 'ak_post_buttons', 'ak_post_lead_magnets'], risk: 'restore requires preview + confirm; no hard delete' },
   stats: { mode: 'read-only', writesAllowed: false, cleanTables: ['ak_posts', 'ak_post_buttons', 'ak_post_lead_magnets', 'ak_admin_channels'], risk: 'aggregations need limits/cache; no raw id clutter' },
@@ -25,7 +25,9 @@ function auditSection(section = {}) {
   const dangerousActionsDisabled = self?.dangerousActionsDisabled !== false;
   const writesEnabled = self?.writesEnabled === true || self?.cleanCreateFlow === true;
   const cleanCoreOnly = legacyAdaptersUsed !== true;
-  const ok = cleanCoreOnly && dangerousActionsDisabled && (expected.writesAllowed || writesEnabled !== true || id === 'buttons') && (hasSelfTest || ['channels', 'buttons', 'lead_magnets'].includes(id) === false);
+  const writesOk = expected.writesAllowed || writesEnabled !== true;
+  const selfTestOk = !hasSelfTest || self.ok !== false;
+  const ok = cleanCoreOnly && dangerousActionsDisabled && writesOk && selfTestOk && hasSelfTest;
   return {
     id,
     title: section.title || id,
@@ -34,6 +36,7 @@ function auditSection(section = {}) {
     actualMode: self?.mode || (writesEnabled ? 'clean-flow' : 'read-only'),
     status: self?.status || '',
     hasSelfTest,
+    selfTestOk,
     ok,
     routeCount: Object.keys(section.routes || {}).length,
     routes: section.routes || {},
@@ -44,7 +47,8 @@ function auditSection(section = {}) {
     cleanCoreOnly,
     dangerousActionsDisabled,
     risk: expected.risk,
-    nextStep: self?.nextStep || ''
+    nextStep: self?.nextStep || '',
+    rawSelfTest: self
   };
 }
 
@@ -53,8 +57,11 @@ function audit(sections = []) {
   const problems = [];
   for (const item of items) {
     if (!item.ok) problems.push(`${item.id}: audit not ok`);
+    if (!item.hasSelfTest) problems.push(`${item.id}: selfTest missing`);
+    if (!item.selfTestOk) problems.push(`${item.id}: selfTest failed`);
     if (item.legacyAdaptersUsed) problems.push(`${item.id}: legacy adapter is used`);
     if (!item.dangerousActionsDisabled && item.id !== 'buttons') problems.push(`${item.id}: dangerous actions are not disabled`);
+    if (item.writesEnabled && !item.writesAllowedByPlan) problems.push(`${item.id}: write flow enabled without audit approval`);
   }
   return {
     ok: problems.length === 0,
