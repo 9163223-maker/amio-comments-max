@@ -2,6 +2,8 @@
 
 const menuRenderer = require('../core/menuRenderer');
 const postAddonManager = require('../core/postAddonManager');
+const flowEngine = require('../core/flowEngine');
+const flowScreen = require('../core/flowScreen');
 
 module.exports = {
   id: 'buttons',
@@ -42,7 +44,24 @@ module.exports = {
     });
   },
 
+  async startCreateFlow(ctx = {}) {
+    const result = await flowEngine.start(ctx, 'buttons.create', {
+      postId: ctx.postId || ctx.payload?.postId || '',
+      channelId: ctx.channelId || ctx.payload?.channelId || ''
+    });
+    if (!result.ok) {
+      return menuRenderer.renderScreen({
+        title: '⚠️ Не удалось начать сценарий',
+        body: [`Ошибка: ${result.error || 'unknown'}`],
+        buttons: [{ text: '↩️ Назад к кнопкам', route: 'buttons.home' }],
+        homeRoute: 'main.home'
+      });
+    }
+    return flowScreen.renderFlowState(result, { icon: '🔘', backRoute: 'buttons.home' });
+  },
+
   async handleAction(ctx) {
+    if (ctx.route === 'buttons.add') return this.startCreateFlow(ctx);
     return this.renderHome(ctx);
   }
 };
