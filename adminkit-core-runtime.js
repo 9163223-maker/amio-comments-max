@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.13-MANUAL-SEND-QUERY-FIX';
-const SOURCE = 'adminkit-core-1-13-manual-send-query-fix';
+const RUNTIME = 'ADMINKIT-CORE-1.14-MANUAL-SEND-TOKEN-GUARD';
+const SOURCE = 'adminkit-core-1-14-manual-send-token-guard';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -44,7 +44,7 @@ function selfTest() {
   const delivery = maxSendAdapter.selfTest();
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true,
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
@@ -84,6 +84,8 @@ function selfTest() {
       manualCanarySendReady: true,
       manualCanarySendRequiresAdminId: true,
       manualCanarySendQueryParserReady: true,
+      manualCanarySendTokenGuardReady: true,
+      manualCanaryRealSendRequiresToken: true,
       coreCanaryDoesNotAutoRegister: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
