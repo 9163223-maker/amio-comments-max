@@ -8,7 +8,7 @@
 const { sendMessage, editMessage, answerCallback } = require('../../services/maxApi');
 const stateManager = require('./stateManager');
 
-const RUNTIME = 'ADMINKIT-CORE-MAX-SEND-ADAPTER-1.0-CANARY-GATED';
+const RUNTIME = 'ADMINKIT-CORE-MAX-SEND-ADAPTER-1.1-STRICT-MAX-PAYLOAD';
 
 function envFlag(name, fallback = false) {
   const value = process.env[name];
@@ -91,14 +91,10 @@ function normalizeKeyboardAttachment(attachment = {}) {
     .filter((row) => row.length);
 
   if (!buttons.length) return null;
-  return {
-    type: 'inline_keyboard',
-    payload: {
-      buttons,
-      source: String(payload.source || 'adminkit-core'),
-      version: Number(payload.version || 1) || 1
-    }
-  };
+
+  // MAX message API expects inline_keyboard.payload.buttons. Core metadata stays in debug/selfTest,
+  // not inside the outbound payload, to avoid strict API rejection during canary.
+  return { type: 'inline_keyboard', payload: { buttons } };
 }
 
 function toMaxPayload(screen = {}, options = {}) {
@@ -184,7 +180,7 @@ function selfTest() {
   });
 
   return {
-    ok: payload.text === 'Тест AdminKit Core' && Array.isArray(payload.attachments) && payload.attachments[0]?.payload?.buttons?.[0]?.[0]?.type === 'callback',
+    ok: payload.text === 'Тест AdminKit Core' && Array.isArray(payload.attachments) && payload.attachments[0]?.payload?.buttons?.[0]?.[0]?.type === 'callback' && payload.attachments[0]?.payload?.source === undefined,
     runtimeVersion: RUNTIME,
     mode: 'canary-gated-max-delivery-adapter',
     sendEnabled: sendEnabled(),
@@ -193,6 +189,7 @@ function selfTest() {
     safety: {
       notWiredToLegacyWebhook: true,
       noLegacyFallback: true,
+      strictMaxPayloadOnly: true,
       dryRunDefault: true,
       requiresAdminkitCoreSendEnabled: true,
       requiresCanaryAdminOrCanaryAll: true,
