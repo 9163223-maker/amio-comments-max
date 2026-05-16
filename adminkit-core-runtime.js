@@ -4,11 +4,10 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.19-BATCHED-ACCESS-RENDER';
-const SOURCE = 'adminkit-core-1-19-batched-access-render';
+const RUNTIME = 'ADMINKIT-CORE-1.20-FAST-RENDER-ACK-CLEANUP';
+const SOURCE = 'adminkit-core-1-20-fast-render-ack-cleanup';
 
 function lazy(name) {
-  // Lazy loading avoids circular imports with stateManager and keeps Core testable.
   return require(name);
 }
 
@@ -51,9 +50,10 @@ function selfTest() {
   const delivery = maxSendAdapter.selfTest();
   const mainHomeCallbackFastPath = routeDispatcher.shouldResetSessionOnStart({ payload: { r: 'main.home' } }, 'main.home') === false;
   const batchedAccessRender = accessSelfTest?.batchedFilterSections === true && accountSelfTest?.ok === true;
+  const ack400Silent = callbackBridge?.safety?.ack400Silent === true;
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && mainHomeCallbackFastPath === true && timingStore.ok === true && batchedAccessRender === true,
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && mainHomeCallbackFastPath === true && timingStore.ok === true && batchedAccessRender === true && ack400Silent === true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
@@ -105,6 +105,7 @@ function selfTest() {
       coreCallbackFastAckReady: callbackBridge.safety?.fastAckBeforeRender === true,
       coreCallbackTimingDiagnosticsReady: callbackBridge.safety?.timingDiagnostics === true,
       coreCallbackTimingStoreReady: callbackBridge.safety?.timingStoreReady === true,
+      coreCallbackAck400SilentReady: ack400Silent,
       mainHomeCallbackFastPathReady: mainHomeCallbackFastPath,
       mainHomeCallbackSkipsSessionReset: mainHomeCallbackFastPath,
       coreTimingStoreReady: timingStore.ok === true,
