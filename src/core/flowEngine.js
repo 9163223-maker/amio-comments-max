@@ -3,7 +3,7 @@
 const stateManager = require('./stateManager');
 const definitions = require('./flowDefinitions');
 
-const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.4-TEXT-INPUT-CLEAN';
+const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.5-CTA-URL-INPUT';
 
 function adminIdOf(ctx = {}) {
   return String(ctx.adminId || ctx.admin_id || 'debug-admin');
@@ -13,6 +13,24 @@ function cleanValue(value) {
   const raw = String(value ?? '').trim();
   if (!raw) return '';
   try { return decodeURIComponent(raw.replace(/\+/g, ' ')).trim(); } catch { return raw.replace(/\+/g, ' ').trim(); }
+}
+
+function normalizeUrl(value) {
+  const raw = cleanValue(value);
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i.test(raw)) return `https://${raw}`;
+  return raw;
+}
+
+function isValidHttpUrl(value) {
+  const raw = normalizeUrl(value);
+  try {
+    const url = new URL(raw);
+    return ['http:', 'https:'].includes(url.protocol) && !!url.hostname && url.hostname.includes('.');
+  } catch {
+    return false;
+  }
 }
 
 function mergeDraft(oldDraft = {}, patch = {}) {
@@ -154,19 +172,34 @@ function titlePatchForFlow(flowId, text) {
   return { title: text, titleInputAt: new Date().toISOString() };
 }
 
+function urlPatchForFlow(flowId, url) {
+  if (flowId === 'buttons.create') return { buttonUrl: url, url: url, urlInputAt: new Date().toISOString() };
+  return { url: url, urlInputAt: new Date().toISOString() };
+}
+
 async function acceptInput(ctx = {}, explicitText = '') {
   const current = await getCurrent(ctx);
   if (!current.ok) return current;
 
-  if (current.step?.id !== 'input_title') {
-    return { ok: false, error: 'unexpected_input_step', expected: 'input_title', actual: current.step?.id || '', flow: current.flow, step: current.step, draft: current.draft };
-  }
-
   const text = cleanValue(explicitText || textInputFromCtx(ctx));
   if (!text) return { ok: false, error: 'text_required', flow: current.flow, step: current.step, draft: current.draft };
-  if (text.length > 64) return { ok: false, error: 'text_too_long', limit: 64, flow: current.flow, step: current.step, draft: current.draft };
 
-  return next(ctx, titlePatchForFlow(current.flow.id, text));
+  if (current.step?.id === 'input_title') {
+    if (text.length > 64) return { ok: false, error: 'text_too_long', limit: 64, flow: current.flow, step: current.step, draft: current.draft };
+    return next(ctx, titlePatchForFlow(current.flow.id, text));
+  }
+
+  if (current.step?.id === 'input_url') {
+    if (current.flow.id !== 'buttons.create') {
+      return { ok: false, error: 'url_step_not_supported_for_flow', flow: current.flow, step: current.step, draft: current.draft };
+    }
+    const url = normalizeUrl(text);
+    if (!isValidHttpUrl(url)) return { ok: false, error: 'url_invalid', flow: current.flow, step: current.step, draft: current.draft };
+    if (url.length > 500) return { ok: false, error: 'url_too_long', limit: 500, flow: current.flow, step: current.step, draft: current.draft };
+    return next(ctx, urlPatchForFlow(current.flow.id, url));
+  }
+
+  return { ok: false, error: 'unexpected_input_step', expected: 'input_title_or_input_url', actual: current.step?.id || '', flow: current.flow, step: current.step, draft: current.draft };
 }
 
 async function cancel(ctx = {}, reason = 'cancel') {
@@ -178,12 +211,12 @@ async function cancel(ctx = {}, reason = 'cancel') {
 function selfTest() {
   const flows = definitions.listFlows();
   return {
-    ok: flows.length >= 2 && flows.every((flow) => flow.id && flow.steps?.length),
+    ok: flows.length >= 2 && flows.every((flow) => flow.id && flow.steps?.length) && isValidHttpUrl('example.com'),
     runtimeVersion: RUNTIME,
-    supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'acceptInput', 'titleInput', 'staleFlowCallbackGuard', 'cancel'],
-    guards: ['flowId_payload_must_match_active_flow', 'title_required', 'title_max_64', 'explicit_text_preferred_over_route'],
+    supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'acceptInput', 'titleInput', 'urlInput', 'staleFlowCallbackGuard', 'cancel'],
+    guards: ['flowId_payload_must_match_active_flow', 'title_required', 'title_max_64', 'url_required', 'url_must_be_http_or_https', 'url_max_500', 'explicit_text_preferred_over_route'],
     flows: flows.map((flow) => ({ id: flow.id, section: flow.section, steps: flow.steps.map((s) => s.id) }))
   };
 }
 
-module.exports = { RUNTIME, start, getCurrent, patchDraft, goTo, next, selectPost, acceptInput, cancel, selfTest, cleanValue, textInputFromCtx };
+module.exports = { RUNTIME, start, getCurrent, patchDraft, goTo, next, selectPost, acceptInput, cancel, selfTest, cleanValue, textInputFromCtx, normalizeUrl, isValidHttpUrl };
