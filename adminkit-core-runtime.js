@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.11-ISOLATED-CANARY-WEBHOOK';
-const SOURCE = 'adminkit-core-1-11-isolated-canary-webhook';
+const RUNTIME = 'ADMINKIT-CORE-1.12-MANUAL-CANARY-SEND';
+const SOURCE = 'adminkit-core-1-12-manual-canary-send';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -32,6 +32,7 @@ function selfTest() {
   const dataSafety = lazy('./src/core/dataSafety');
   const flowEngine = lazy('./src/core/flowEngine');
   const maxSendAdapter = lazy('./src/core/maxSendAdapter');
+  const canaryWebhook = lazy('./src/core/coreCanaryWebhook').selfTest();
 
   const sections = sectionRegistry.listAll();
   const ids = sections.map((section) => section.id);
@@ -43,7 +44,7 @@ function selfTest() {
   const delivery = maxSendAdapter.selfTest();
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true,
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
@@ -63,13 +64,7 @@ function selfTest() {
     },
     flowEngine: flow,
     delivery,
-    canaryWebhook: {
-      runtimeVersion: 'ADMINKIT-CORE-CANARY-WEBHOOK-1.0-ISOLATED-NO-LEGACY-FALLBACK',
-      path: process.env.ADMINKIT_CORE_WEBHOOK_PATH || '/webhook/adminkit-core-canary',
-      isolatedFromLegacyBotJs: true,
-      doesNotAutoRegisterWebhook: true,
-      realSendCanaryGated: true
-    },
+    canaryWebhook,
     dataSafety: safety,
     constraints: {
       oneActiveScreen: true,
@@ -86,6 +81,8 @@ function selfTest() {
       maxSendCanaryGated: true,
       coreSendDisabledByDefault: true,
       isolatedCanaryWebhookReady: true,
+      manualCanarySendReady: true,
+      manualCanarySendRequiresAdminId: true,
       coreCanaryDoesNotAutoRegister: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
