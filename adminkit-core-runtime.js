@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.28-CLEAN-BUTTON-SELFTEST-GREEN';
-const SOURCE = 'adminkit-core-1-28-clean-button-selftest-green';
+const RUNTIME = 'ADMINKIT-CORE-1.30-SECTION-AUDIT-FLOW-TEXT';
+const SOURCE = 'adminkit-core-1-30-section-audit-flow-text';
 
 function lazy(name) {
   return require(name);
@@ -25,6 +25,7 @@ async function deliverScreen(args = {}) {
 
 function selfTest() {
   const sectionRegistry = lazy('./src/core/sectionRegistry');
+  const sectionAuditModule = lazy('./src/core/sectionAudit');
   const accessManager = lazy('./src/core/accessManager');
   const accountManager = lazy('./src/core/accountManager');
   const menuRenderer = lazy('./src/core/menuRenderer');
@@ -46,11 +47,14 @@ function selfTest() {
   try { callbackBridge = lazy('./src/core/coreCallbackBridge').selfTest(); } catch (error) { callbackBridge = { ok: false, error: error?.message || String(error) }; }
 
   const sections = sectionRegistry.listAll();
+  const sectionAudit = sectionAuditModule.audit(sections);
   const ids = sections.map((section) => section.id);
   const channelsSection = sectionRegistry.find('channels');
   const channelsSelfTest = channelsSection?.selfTest ? channelsSection.selfTest() : null;
   const buttonsSection = sectionRegistry.find('buttons');
   const buttonsSelfTest = buttonsSection?.selfTest ? buttonsSection.selfTest() : null;
+  const leadMagnetsSection = sectionRegistry.find('lead_magnets');
+  const leadMagnetsSelfTest = leadMagnetsSection?.selfTest ? leadMagnetsSection.selfTest() : null;
   const routeMap = sectionRegistry.routeMap();
   const required = ['channels', 'comments', 'buttons', 'lead_magnets', 'moderation', 'archive', 'stats', 'settings'];
   const missing = required.filter((id) => !ids.includes(id));
@@ -60,6 +64,7 @@ function selfTest() {
   const mainHomeCallbackFastPath = routeDispatcher.shouldResetSessionOnStart({ payload: { r: 'main.home' } }, 'main.home') === false;
   const batchedAccessRender = accessSelfTest?.batchedFilterSections === true && accountSelfTest?.ok === true;
   const ack400Silent = callbackBridge?.safety?.ack400Silent === true;
+  const coreFlowTextInputBridgeReady = callbackBridge?.safety?.handlesCoreFlowTextInput === true && callbackBridge?.safety?.textInputRequiresActiveFlow === true && callbackBridge?.safety?.textInputRequiresActiveInputStep === true;
   const channelsReadOnlyDataReady = channelData.ok === true && channelData.readOnly === true && channelsSelfTest?.readOnlyRenderer === true;
   const buttonsReadOnlyDataReady = buttonsData.ok === true && buttonsData.readOnly === true && buttonsSelfTest?.readOnlyRenderer === true;
   const buttonsCleanStorageOnlyReady = buttonsData.cleanStorageOnly === true && buttonsData.sourceTable === 'ak_post_buttons';
@@ -67,9 +72,10 @@ function selfTest() {
   const cleanButtonCreateFlowReady = buttonsSelfTest?.cleanCreateFlow === true && buttonsSelfTest?.writesTo === 'ak_post_buttons';
   const cleanButtonSaveRouteReady = routeDispatcherSelfTest?.cleanButtonSaveRoute === true && routeDispatcherSelfTest?.buttonSaveTable === 'ak_post_buttons';
   const flowSaveActionReady = flowScreenSelfTest?.saveActionReady === true;
+  const leadMagnetsAuditReady = leadMagnetsSelfTest?.legacyAdaptersUsed === false && leadMagnetsSelfTest?.dangerousActionsDisabled === true;
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && mainHomeCallbackFastPath === true && timingStore.ok === true && batchedAccessRender === true && ack400Silent === true && channelsReadOnlyDataReady === true && buttonsReadOnlyDataReady === true && buttonsCleanStorageOnlyReady === true && buttonsLegacyAdaptersDisabled === true && cleanButtonCreateFlowReady === true && cleanButtonSaveRouteReady === true && flowSaveActionReady === true,
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady === true && mainHomeCallbackFastPath === true && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender === true && ack400Silent === true && channelsReadOnlyDataReady === true && buttonsReadOnlyDataReady === true && buttonsCleanStorageOnlyReady === true && buttonsLegacyAdaptersDisabled === true && cleanButtonCreateFlowReady === true && cleanButtonSaveRouteReady === true && flowSaveActionReady === true && leadMagnetsAuditReady === true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
@@ -87,6 +93,7 @@ function selfTest() {
       accounts: 'ak_accounts',
       migrations: 'ak_core_schema_migrations'
     },
+    sectionAudit,
     flowEngine: flow,
     flowScreen: flowScreenSelfTest,
     delivery,
@@ -99,11 +106,14 @@ function selfTest() {
     channelsSection: channelsSelfTest,
     buttonsDataAdapter: buttonsData,
     buttonsSection: buttonsSelfTest,
+    leadMagnetsSection: leadMagnetsSelfTest,
     routeDispatcher: routeDispatcherSelfTest,
     dataSafety: safety,
     constraints: {
       oneActiveScreen: true,
       sectionRegistryDriven: true,
+      sectionAuditReady: sectionAudit.ok === true,
+      allSectionsHaveSelfTest: sectionAudit.items?.every?.((item) => item.hasSelfTest === true) === true,
       planAccessReady: true,
       postAddonsDbReady: true,
       flowEngineReady: true,
@@ -116,6 +126,7 @@ function selfTest() {
       cleanButtonCreateFlowReady,
       cleanButtonSaveRouteReady,
       cleanButtonSaveWritesAkPostButtons: true,
+      leadMagnetsAuditReady,
       maxSendAdapterReady: true,
       maxSendCanaryGated: true,
       coreSendDisabledByDefault: true,
@@ -132,6 +143,9 @@ function selfTest() {
       coreCallbackTimingDiagnosticsReady: callbackBridge.safety?.timingDiagnostics === true,
       coreCallbackTimingStoreReady: callbackBridge.safety?.timingStoreReady === true,
       coreCallbackAck400SilentReady: ack400Silent,
+      coreFlowTextInputBridgeReady,
+      coreFlowTextInputRequiresActiveFlow: callbackBridge.safety?.textInputRequiresActiveFlow === true,
+      coreFlowTextInputRequiresActiveInputStep: callbackBridge.safety?.textInputRequiresActiveInputStep === true,
       mainHomeCallbackFastPathReady: mainHomeCallbackFastPath,
       mainHomeCallbackSkipsSessionReset: mainHomeCallbackFastPath,
       coreTimingStoreReady: timingStore.ok === true,
