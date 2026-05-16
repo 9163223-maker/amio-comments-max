@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.20-FAST-RENDER-ACK-CLEANUP';
-const SOURCE = 'adminkit-core-1-20-fast-render-ack-cleanup';
+const RUNTIME = 'ADMINKIT-CORE-1.21-CHANNELS-READ-ONLY-DATA';
+const SOURCE = 'adminkit-core-1-21-channels-read-only-data';
 
 function lazy(name) {
   return require(name);
@@ -34,6 +34,7 @@ function selfTest() {
   const maxSendAdapter = lazy('./src/core/maxSendAdapter');
   const routeDispatcher = lazy('./src/core/routeDispatcher');
   const timingStore = lazy('./src/core/coreTimingStore').selfTest();
+  const channelData = lazy('./src/core/channelDataAdapter').selfTest();
   const canaryWebhook = lazy('./src/core/coreCanaryWebhook').selfTest();
   const accessSelfTest = accessManager.selfTest ? accessManager.selfTest() : null;
   const accountSelfTest = accountManager.selfTest ? accountManager.selfTest() : null;
@@ -42,6 +43,8 @@ function selfTest() {
 
   const sections = sectionRegistry.listAll();
   const ids = sections.map((section) => section.id);
+  const channelsSection = sectionRegistry.find('channels');
+  const channelsSelfTest = channelsSection?.selfTest ? channelsSection.selfTest() : null;
   const routeMap = sectionRegistry.routeMap();
   const required = ['channels', 'comments', 'buttons', 'lead_magnets', 'moderation', 'archive', 'stats', 'settings'];
   const missing = required.filter((id) => !ids.includes(id));
@@ -51,9 +54,10 @@ function selfTest() {
   const mainHomeCallbackFastPath = routeDispatcher.shouldResetSessionOnStart({ payload: { r: 'main.home' } }, 'main.home') === false;
   const batchedAccessRender = accessSelfTest?.batchedFilterSections === true && accountSelfTest?.ok === true;
   const ack400Silent = callbackBridge?.safety?.ack400Silent === true;
+  const channelsReadOnlyDataReady = channelData.ok === true && channelData.readOnly === true && channelsSelfTest?.readOnlyRenderer === true;
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && mainHomeCallbackFastPath === true && timingStore.ok === true && batchedAccessRender === true && ack400Silent === true,
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && mainHomeCallbackFastPath === true && timingStore.ok === true && batchedAccessRender === true && ack400Silent === true && channelsReadOnlyDataReady === true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
@@ -78,6 +82,8 @@ function selfTest() {
     timingStore,
     accessManager: accessSelfTest,
     accountManager: accountSelfTest,
+    channelDataAdapter: channelData,
+    channelsSection: channelsSelfTest,
     dataSafety: safety,
     constraints: {
       oneActiveScreen: true,
@@ -112,6 +118,9 @@ function selfTest() {
       coreTimingsEndpointReady: true,
       batchedAccessRenderReady: batchedAccessRender,
       accountLookupCacheReady: accountSelfTest?.ok === true,
+      channelsReadOnlyDataReady,
+      channelDataAdapterReadOnly: channelData.readOnly === true,
+      channelsSectionReadOnlyRendererReady: channelsSelfTest?.readOnlyRenderer === true,
       coreCanaryDoesNotAutoRegister: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
