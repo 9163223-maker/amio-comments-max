@@ -35,6 +35,14 @@ function extractPayload(update = {}) {
   return safeJson(raw);
 }
 
+function pickValue(update = {}, payload = {}, extra = {}, key, aliases = []) {
+  for (const name of [key, ...aliases]) {
+    const value = extra[name] || update[name] || update.query?.[name] || update.body?.[name] || payload[name];
+    if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+  }
+  return '';
+}
+
 function routeFromUpdate(update = {}) {
   const payload = extractPayload(update);
   if (payload.r) return String(payload.r);
@@ -52,6 +60,10 @@ function toContext(update = {}, extra = {}) {
     payload,
     adminId: extra.adminId || extractAdminId(update),
     planCode: extra.planCode || update.planCode || 'free',
+    postId: pickValue(update, payload, extra, 'postId', ['selectedPostId', 'id']),
+    postTitle: pickValue(update, payload, extra, 'postTitle', ['title']),
+    channelId: pickValue(update, payload, extra, 'channelId', ['selectedChannelId']),
+    commentKey: pickValue(update, payload, extra, 'commentKey', ['selectedCommentKey']),
     dryRun: true,
     source: 'core-update-preview'
   };
@@ -69,7 +81,11 @@ async function preview(update = {}, extra = {}) {
       route: ctx.route,
       adminId: ctx.adminId,
       planCode: ctx.planCode,
-      payload: ctx.payload
+      payload: ctx.payload,
+      postId: ctx.postId,
+      postTitle: ctx.postTitle,
+      channelId: ctx.channelId,
+      commentKey: ctx.commentKey
     },
     screen,
     buttonTexts: (((screen.attachments || [])[0] || {}).payload || {}).buttons?.flat?.().map((b) => b.text) || []
