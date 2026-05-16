@@ -3,7 +3,7 @@
 const stateManager = require('./stateManager');
 const definitions = require('./flowDefinitions');
 
-const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.1';
+const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.2-STALE-CALLBACK-GUARD';
 
 function adminIdOf(ctx = {}) {
   return String(ctx.adminId || ctx.admin_id || 'debug-admin');
@@ -92,6 +92,20 @@ async function next(ctx = {}, patch = {}) {
 async function selectPost(ctx = {}, explicitPostId = '', patch = {}) {
   const current = await getCurrent(ctx);
   if (!current.ok) return current;
+
+  const requestedFlowId = valueFromCtx(ctx, 'flowId', ['activeFlow', 'active_flow']);
+  if (requestedFlowId && requestedFlowId !== current.flow?.id) {
+    return {
+      ok: false,
+      error: 'stale_flow_callback',
+      expectedFlow: current.flow?.id || '',
+      actualFlow: requestedFlowId,
+      flow: current.flow,
+      step: current.step,
+      draft: current.draft
+    };
+  }
+
   if (current.step?.id !== 'select_post') {
     return { ok: false, error: 'unexpected_step', expected: 'select_post', actual: current.step?.id || '', flow: current.flow, step: current.step, draft: current.draft };
   }
@@ -124,7 +138,8 @@ function selfTest() {
   return {
     ok: flows.length >= 2 && flows.every((flow) => flow.id && flow.steps?.length),
     runtimeVersion: RUNTIME,
-    supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'cancel'],
+    supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'staleFlowCallbackGuard', 'cancel'],
+    guards: ['flowId_payload_must_match_active_flow'],
     flows: flows.map((flow) => ({ id: flow.id, section: flow.section, steps: flow.steps.map((s) => s.id) }))
   };
 }
