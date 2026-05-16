@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.5-FLOW-ROUTES';
-const SOURCE = 'adminkit-core-1-5-flow-routes';
+const RUNTIME = 'ADMINKIT-CORE-1.6-FLOW-POST-SELECT';
+const SOURCE = 'adminkit-core-1-6-flow-post-select';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -37,7 +37,7 @@ function selfTest() {
   const flow = flowEngine.selfTest();
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true,
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost'),
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
@@ -64,6 +64,7 @@ function selfTest() {
       postAddonsDbReady: true,
       flowEngineReady: true,
       flowCancelRouteReady: true,
+      flowPostSelectReady: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
       noPublicAppOverride: true
