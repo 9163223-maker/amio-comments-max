@@ -7,7 +7,7 @@ const maxSendAdapter = require('./maxSendAdapter');
 const timingStore = require('./coreTimingStore');
 const { answerCallback } = require('../../services/maxApi');
 
-const RUNTIME = 'ADMINKIT-CORE-CALLBACK-BRIDGE-1.2-TIMING-STORE';
+const RUNTIME = 'ADMINKIT-CORE-CALLBACK-BRIDGE-1.3-ACK-400-SILENT';
 
 function now() { return Date.now(); }
 function clean(value) { return String(value ?? '').trim(); }
@@ -34,13 +34,19 @@ function shouldTry(update = {}) {
   return { ok: true, payload, route, adminId, gate };
 }
 
+function isKnownAck400(error) {
+  const message = String(error?.message || error || '');
+  return message.includes('MAX API 400') && message.includes('/answers');
+}
+
 async function fastAck(callbackId = '') {
   const started = now();
-  if (!callbackId) return { ok: false, skipped: true, reason: 'callback_id_missing', ms: 0 };
+  if (!callbackId) return { ok: true, skipped: true, ignored: true, reason: 'callback_id_missing', ms: 0 };
   try {
     await answerCallback({ botToken: config.botToken, callbackId, notification: '' });
     return { ok: true, ms: now() - started };
   } catch (error) {
+    if (isKnownAck400(error)) return { ok: true, ignored: true, reason: 'max_answers_400_ignored', ms: now() - started };
     return { ok: false, error: error?.message || String(error), ms: now() - started };
   }
 }
@@ -56,83 +62,22 @@ async function tryHandleUpdate(update = {}) {
   const ack = await fastAck(callbackId);
   const afterAck = now();
 
-  const ctx = updateAdapter.toContext({
-    ...update,
-    payload: JSON.stringify(decision.payload || {}),
-    text: decision.route,
-    route: decision.route,
-    adminId: decision.adminId,
-    userId: decision.adminId,
-    message: messageOf(update) || {}
-  }, {
-    route: decision.route,
-    adminId: decision.adminId,
-    planCode: clean(update.planCode || update.plan || 'free'),
-    text: ''
-  });
+  const ctx = updateAdapter.toContext({ ...update, payload: JSON.stringify(decision.payload || {}), text: decision.route, route: decision.route, adminId: decision.adminId, userId: decision.adminId, message: messageOf(update) || {} }, { route: decision.route, adminId: decision.adminId, planCode: clean(update.planCode || update.plan || 'free'), text: '' });
 
   const screen = await core.dispatch(ctx);
   const afterRender = now();
-  const delivery = await maxSendAdapter.deliver({
-    botToken: config.botToken,
-    adminId: decision.adminId,
-    userId: decision.adminId,
-    chatId,
-    activeMessageId,
-    callbackId: '',
-    screen,
-    preferEdit: Boolean(activeMessageId),
-    dryRun: false
-  });
+  const delivery = await maxSendAdapter.deliver({ botToken: config.botToken, adminId: decision.adminId, userId: decision.adminId, chatId, activeMessageId, callbackId: '', screen, preferEdit: Boolean(activeMessageId), dryRun: false });
   const finished = now();
-  const timing = {
-    totalMs: finished - started,
-    ackMs: ack.ms || 0,
-    beforeAckMs: afterAck - started,
-    renderMs: afterRender - afterAck,
-    deliveryMs: finished - afterRender,
-    ackOk: ack.ok === true,
-    ackError: ack.error || ''
-  };
-  timingStore.push({
-    kind: 'callback',
-    route: ctx.route,
-    adminId: decision.adminId,
-    deliveryMode: delivery.mode,
-    sent: delivery.mode !== 'dry-run-no-send',
-    timing,
-    gate: delivery.gate || decision.gate,
-    note: activeMessageId ? 'edit existing message' : 'send new message fallback'
-  });
+  const timing = { totalMs: finished - started, ackMs: ack.ms || 0, beforeAckMs: afterAck - started, renderMs: afterRender - afterAck, deliveryMs: finished - afterRender, ackOk: ack.ok === true, ackIgnored: ack.ignored === true, ackReason: ack.reason || '', ackError: ack.ok === true ? '' : (ack.error || '') };
+  timingStore.push({ kind: 'callback', route: ctx.route, adminId: decision.adminId, deliveryMode: delivery.mode, sent: delivery.mode !== 'dry-run-no-send', timing, gate: delivery.gate || decision.gate, note: activeMessageId ? 'edit existing message' : 'send new message fallback' });
 
-  return {
-    handled: true,
-    ok: true,
-    runtimeVersion: RUNTIME,
-    coreRuntimeVersion: core.RUNTIME,
-    route: ctx.route,
-    adminId: decision.adminId,
-    activeMessageId,
-    chatId,
-    deliveryMode: delivery.mode,
-    sent: delivery.mode !== 'dry-run-no-send',
-    gate: delivery.gate || decision.gate,
-    timing
-  };
+  return { handled: true, ok: true, runtimeVersion: RUNTIME, coreRuntimeVersion: core.RUNTIME, route: ctx.route, adminId: decision.adminId, activeMessageId, chatId, deliveryMode: delivery.mode, sent: delivery.mode !== 'dry-run-no-send', gate: delivery.gate || decision.gate, timing };
 }
 
 async function tryHandleExpress(req = {}) { return tryHandleUpdate(req.body || {}); }
 
 function selfTest() {
-  return {
-    ok: true,
-    runtimeVersion: RUNTIME,
-    coreRuntimeVersion: core.RUNTIME,
-    policy: 'fast_answer_callback_first_then_core_dispatch_for_canary_payload_r_with_timing_store',
-    gate: { sendEnabled: maxSendAdapter.sendEnabled(), canaryAll: maxSendAdapter.canaryAllEnabled(), allowedAdminsConfigured: maxSendAdapter.allowedAdmins().length },
-    timingStore: timingStore.selfTest(),
-    safety: { requiresPayloadR: true, requiresCanaryAdmin: true, requiresCoreSendEnabled: true, ignoresNonCoreCallbacks: true, leavesLegacyFallbackToOuterRouter: true, fastAckBeforeRender: true, timingDiagnostics: true, timingStoreReady: true }
-  };
+  return { ok: true, runtimeVersion: RUNTIME, coreRuntimeVersion: core.RUNTIME, policy: 'fast_ack_first_known_max_answers_400_is_silent_then_core_dispatch_for_canary_payload_r_with_timing_store', gate: { sendEnabled: maxSendAdapter.sendEnabled(), canaryAll: maxSendAdapter.canaryAllEnabled(), allowedAdminsConfigured: maxSendAdapter.allowedAdmins().length }, timingStore: timingStore.selfTest(), safety: { requiresPayloadR: true, requiresCanaryAdmin: true, requiresCoreSendEnabled: true, ignoresNonCoreCallbacks: true, leavesLegacyFallbackToOuterRouter: true, fastAckBeforeRender: true, timingDiagnostics: true, timingStoreReady: true, ack400Silent: true } };
 }
 
 module.exports = { RUNTIME, tryHandleUpdate, tryHandleExpress, shouldTry, selfTest };
