@@ -2,13 +2,10 @@
 
 const db = require('../../cc5-db-core');
 const accessManager = require('./accessManager');
+const dataSafety = require('./dataSafety');
 
 async function ensure() {
-  await db.init();
-  await db.query("create table if not exists ak_post_buttons (id bigserial primary key, admin_id text not null default '', channel_id text not null default '', post_id text not null, title text not null default '', url text not null default '', sort_order integer not null default 0, is_enabled boolean not null default true, meta jsonb not null default '{}'::jsonb, created_at timestamptz default now(), updated_at timestamptz default now())");
-  await db.query("create table if not exists ak_post_lead_magnets (id bigserial primary key, admin_id text not null default '', channel_id text not null default '', post_id text not null, title text not null default '', material_type text not null default 'text', material_text text not null default '', material_url text not null default '', file_id text not null default '', file_name text not null default '', access_mode text not null default 'subscribers_current_channel', conditions jsonb not null default '{}'::jsonb, sort_order integer not null default 0, is_enabled boolean not null default true, meta jsonb not null default '{}'::jsonb, created_at timestamptz default now(), updated_at timestamptz default now())");
-  await db.query("create index if not exists ak_post_buttons_post_idx on ak_post_buttons(post_id, sort_order, id)");
-  await db.query("create index if not exists ak_post_lead_magnets_post_idx on ak_post_lead_magnets(post_id, sort_order, id)");
+  return dataSafety.ensureCoreStorage();
 }
 
 function postKey(ctx = {}) {
@@ -83,8 +80,35 @@ async function addButton(ctx = {}, input = {}) {
   const title = String(input.title || input.text || '').trim();
   const url = String(input.url || '').trim();
   if (!title || !url) return { ok: false, error: 'title_and_url_required' };
-  const { rows } = await db.query('insert into ak_post_buttons(admin_id, channel_id, post_id, title, url, sort_order, meta) values($1,$2,$3,$4,$5,$6,$7::jsonb) returning id, title, url', [adminKey(ctx), channelKey(ctx), postKey(ctx), title, url, summary.buttons.length + 1, JSON.stringify(input.meta || {})]);
+  const { rows } = await dataSafety.safeQuery('insert into ak_post_buttons(admin_id, channel_id, post_id, title, url, sort_order, meta) values($1,$2,$3,$4,$5,$6,$7::jsonb) returning id, title, url', [adminKey(ctx), channelKey(ctx), postKey(ctx), title, url, summary.buttons.length + 1, JSON.stringify(input.meta || {})]);
   return { ok: true, button: rows[0] };
 }
 
-module.exports = { ensure, postKey, channelKey, adminKey, listButtons, listLeadMagnets, limits, summarizePostAddons, addButton };
+async function disableButton(ctx = {}, id) {
+  await ensure();
+  const { rows } = await dataSafety.safeQuery('update ak_post_buttons set is_enabled=false, updated_at=now() where id=$1 and post_id=$2 returning id, title', [id, postKey(ctx)]);
+  return rows[0] ? { ok: true, button: rows[0] } : { ok: false, error: 'button_not_found' };
+}
+
+async function addLeadMagnet(ctx = {}, input = {}) {
+  await ensure();
+  const summary = await summarizePostAddons(ctx);
+  if (summary.leadMagnets.length >= summary.limits.leadMagnetsMaxPerPost) return { ok: false, error: 'lead_magnet_limit_reached', limit: summary.limits.leadMagnetsMaxPerPost };
+  const title = String(input.title || input.name || '').trim();
+  const materialType = String(input.materialType || input.type || 'text').trim() || 'text';
+  const materialText = String(input.text || input.materialText || '').trim();
+  const materialUrl = String(input.url || input.materialUrl || '').trim();
+  const accessMode = String(input.accessMode || 'subscribers_current_channel').trim();
+  if (!title) return { ok: false, error: 'title_required' };
+  if (!materialText && !materialUrl && !input.fileId) return { ok: false, error: 'material_required' };
+  const { rows } = await dataSafety.safeQuery('insert into ak_post_lead_magnets(admin_id, channel_id, post_id, title, material_type, material_text, material_url, file_id, file_name, access_mode, conditions, sort_order, meta) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13::jsonb) returning id, title, material_type, material_url', [adminKey(ctx), channelKey(ctx), postKey(ctx), title, materialType, materialText, materialUrl, String(input.fileId || ''), String(input.fileName || ''), accessMode, JSON.stringify(input.conditions || {}), summary.leadMagnets.length + 1, JSON.stringify(input.meta || {})]);
+  return { ok: true, leadMagnet: rows[0] };
+}
+
+async function disableLeadMagnet(ctx = {}, id) {
+  await ensure();
+  const { rows } = await dataSafety.safeQuery('update ak_post_lead_magnets set is_enabled=false, updated_at=now() where id=$1 and post_id=$2 returning id, title', [id, postKey(ctx)]);
+  return rows[0] ? { ok: true, leadMagnet: rows[0] } : { ok: false, error: 'lead_magnet_not_found' };
+}
+
+module.exports = { ensure, postKey, channelKey, adminKey, listButtons, listLeadMagnets, limits, summarizePostAddons, addButton, disableButton, addLeadMagnet, disableLeadMagnet };
