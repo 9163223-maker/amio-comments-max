@@ -3,7 +3,7 @@
 const stateManager = require('./stateManager');
 const definitions = require('./flowDefinitions');
 
-const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.0';
+const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.1';
 
 function adminIdOf(ctx = {}) {
   return String(ctx.adminId || ctx.admin_id || 'debug-admin');
@@ -11,6 +11,22 @@ function adminIdOf(ctx = {}) {
 
 function mergeDraft(oldDraft = {}, patch = {}) {
   return { ...(oldDraft || {}), ...(patch || {}) };
+}
+
+function sessionPatchFromDraft(draft = {}) {
+  const patch = {};
+  if (draft.channelId || draft.selected_channel_id) patch.selected_channel_id = String(draft.channelId || draft.selected_channel_id || '');
+  if (draft.postId || draft.selected_post_id) patch.selected_post_id = String(draft.postId || draft.selected_post_id || '');
+  if (draft.commentKey || draft.selected_comment_key) patch.selected_comment_key = String(draft.commentKey || draft.selected_comment_key || '');
+  return patch;
+}
+
+function valueFromCtx(ctx = {}, key, aliases = []) {
+  for (const name of [key, ...aliases]) {
+    const value = ctx[name] || ctx.payload?.[name] || ctx.update?.[name] || ctx.update?.query?.[name];
+    if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+  }
+  return '';
 }
 
 async function getCurrent(ctx = {}) {
@@ -35,7 +51,7 @@ async function start(ctx = {}, flowId, draft = {}) {
     active_section: flow.section,
     active_flow: flow.id,
     active_step: step.id,
-    selected_channel_id: ctx.channelId || ctx.payload?.channelId || '',
+    selected_channel_id: ctx.channelId || ctx.payload?.channelId || draft.channelId || '',
     selected_post_id: ctx.postId || ctx.payload?.postId || draft.postId || '',
     selected_comment_key: ctx.commentKey || ctx.payload?.commentKey || draft.commentKey || '',
     draft: nextDraft
@@ -47,7 +63,7 @@ async function patchDraft(ctx = {}, patch = {}) {
   const adminId = adminIdOf(ctx);
   const session = await stateManager.getSession(adminId);
   const nextDraft = mergeDraft(session?.draft || {}, patch);
-  const next = await stateManager.upsertSession(adminId, { draft: nextDraft });
+  const next = await stateManager.upsertSession(adminId, { ...sessionPatchFromDraft(nextDraft), draft: nextDraft });
   return { ok: true, session: next, draft: nextDraft };
 }
 
@@ -58,7 +74,7 @@ async function goTo(ctx = {}, stepId, patch = {}) {
   if (!step) return { ok: false, error: 'unknown_step', flowId: current.flow.id, stepId };
   const adminId = adminIdOf(ctx);
   const nextDraft = mergeDraft(current.draft, patch);
-  const session = await stateManager.upsertSession(adminId, { active_step: step.id, draft: nextDraft });
+  const session = await stateManager.upsertSession(adminId, { active_step: step.id, ...sessionPatchFromDraft(nextDraft), draft: nextDraft });
   return { ok: true, flow: current.flow, step, session, draft: nextDraft };
 }
 
@@ -69,8 +85,32 @@ async function next(ctx = {}, patch = {}) {
   if (!step) return { ok: false, error: 'flow_finished', flow: current.flow, session: current.session, draft: current.draft };
   const adminId = adminIdOf(ctx);
   const nextDraft = mergeDraft(current.draft, patch);
-  const session = await stateManager.upsertSession(adminId, { active_step: step.id, draft: nextDraft });
+  const session = await stateManager.upsertSession(adminId, { active_step: step.id, ...sessionPatchFromDraft(nextDraft), draft: nextDraft });
   return { ok: true, flow: current.flow, step, session, draft: nextDraft };
+}
+
+async function selectPost(ctx = {}, explicitPostId = '', patch = {}) {
+  const current = await getCurrent(ctx);
+  if (!current.ok) return current;
+  if (current.step?.id !== 'select_post') {
+    return { ok: false, error: 'unexpected_step', expected: 'select_post', actual: current.step?.id || '', flow: current.flow, step: current.step, draft: current.draft };
+  }
+
+  const postId = String(explicitPostId || valueFromCtx(ctx, 'postId', ['selectedPostId', 'id']) || '').trim();
+  if (!postId) return { ok: false, error: 'post_required', flow: current.flow, step: current.step, draft: current.draft };
+
+  const channelId = valueFromCtx(ctx, 'channelId', ['selectedChannelId']);
+  const commentKey = valueFromCtx(ctx, 'commentKey', ['selectedCommentKey']);
+  const postTitle = valueFromCtx(ctx, 'postTitle', ['title']);
+
+  return next(ctx, {
+    ...patch,
+    postId,
+    ...(channelId ? { channelId } : {}),
+    ...(commentKey ? { commentKey } : {}),
+    ...(postTitle ? { postTitle } : {}),
+    postSelectedAt: new Date().toISOString()
+  });
 }
 
 async function cancel(ctx = {}, reason = 'cancel') {
@@ -84,8 +124,9 @@ function selfTest() {
   return {
     ok: flows.length >= 2 && flows.every((flow) => flow.id && flow.steps?.length),
     runtimeVersion: RUNTIME,
+    supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'cancel'],
     flows: flows.map((flow) => ({ id: flow.id, section: flow.section, steps: flow.steps.map((s) => s.id) }))
   };
 }
 
-module.exports = { RUNTIME, start, getCurrent, patchDraft, goTo, next, cancel, selfTest };
+module.exports = { RUNTIME, start, getCurrent, patchDraft, goTo, next, selectPost, cancel, selfTest };
