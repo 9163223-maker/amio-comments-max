@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.18-CORE-TIMING-DIAGNOSTICS';
-const SOURCE = 'adminkit-core-1-18-core-timing-diagnostics';
+const RUNTIME = 'ADMINKIT-CORE-1.19-BATCHED-ACCESS-RENDER';
+const SOURCE = 'adminkit-core-1-19-batched-access-render';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -27,6 +27,7 @@ async function deliverScreen(args = {}) {
 function selfTest() {
   const sectionRegistry = lazy('./src/core/sectionRegistry');
   const accessManager = lazy('./src/core/accessManager');
+  const accountManager = lazy('./src/core/accountManager');
   const menuRenderer = lazy('./src/core/menuRenderer');
   const postAddonManager = lazy('./src/core/postAddonManager');
   const dataSafety = lazy('./src/core/dataSafety');
@@ -35,6 +36,8 @@ function selfTest() {
   const routeDispatcher = lazy('./src/core/routeDispatcher');
   const timingStore = lazy('./src/core/coreTimingStore').selfTest();
   const canaryWebhook = lazy('./src/core/coreCanaryWebhook').selfTest();
+  const accessSelfTest = accessManager.selfTest ? accessManager.selfTest() : null;
+  const accountSelfTest = accountManager.selfTest ? accountManager.selfTest() : null;
   let callbackBridge = null;
   try { callbackBridge = lazy('./src/core/coreCallbackBridge').selfTest(); } catch (error) { callbackBridge = { ok: false, error: error?.message || String(error) }; }
 
@@ -47,9 +50,10 @@ function selfTest() {
   const flow = flowEngine.selfTest();
   const delivery = maxSendAdapter.selfTest();
   const mainHomeCallbackFastPath = routeDispatcher.shouldResetSessionOnStart({ payload: { r: 'main.home' } }, 'main.home') === false;
+  const batchedAccessRender = accessSelfTest?.batchedFilterSections === true && accountSelfTest?.ok === true;
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && mainHomeCallbackFastPath === true && timingStore.ok === true,
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && mainHomeCallbackFastPath === true && timingStore.ok === true && batchedAccessRender === true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
@@ -72,6 +76,8 @@ function selfTest() {
     canaryWebhook,
     callbackBridge,
     timingStore,
+    accessManager: accessSelfTest,
+    accountManager: accountSelfTest,
     dataSafety: safety,
     constraints: {
       oneActiveScreen: true,
@@ -103,6 +109,8 @@ function selfTest() {
       mainHomeCallbackSkipsSessionReset: mainHomeCallbackFastPath,
       coreTimingStoreReady: timingStore.ok === true,
       coreTimingsEndpointReady: true,
+      batchedAccessRenderReady: batchedAccessRender,
+      accountLookupCacheReady: accountSelfTest?.ok === true,
       coreCanaryDoesNotAutoRegister: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
