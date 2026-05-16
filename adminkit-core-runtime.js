@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.2-POST-ADDONS-DB';
-const SOURCE = 'adminkit-core-1-2-post-addons-db';
+const RUNTIME = 'ADMINKIT-CORE-1.3-DATA-SAFE-STORAGE';
+const SOURCE = 'adminkit-core-1-3-data-safe-storage';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -25,15 +25,17 @@ function selfTest() {
   const accessManager = lazy('./src/core/accessManager');
   const menuRenderer = lazy('./src/core/menuRenderer');
   const postAddonManager = lazy('./src/core/postAddonManager');
+  const dataSafety = lazy('./src/core/dataSafety');
 
   const sections = sectionRegistry.listAll();
   const ids = sections.map((section) => section.id);
   const routeMap = sectionRegistry.routeMap();
   const required = ['channels', 'comments', 'buttons', 'lead_magnets', 'moderation', 'archive', 'stats', 'settings'];
   const missing = required.filter((id) => !ids.includes(id));
+  const safety = dataSafety.policySummary();
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function',
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only',
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
@@ -47,13 +49,16 @@ function selfTest() {
     storage: {
       sessions: 'ak_admin_sessions',
       buttons: 'ak_post_buttons',
-      leadMagnets: 'ak_post_lead_magnets'
+      leadMagnets: 'ak_post_lead_magnets',
+      migrations: 'ak_core_schema_migrations'
     },
+    dataSafety: safety,
     constraints: {
       oneActiveScreen: true,
       sectionRegistryDriven: true,
       planAccessReady: true,
       postAddonsDbReady: true,
+      nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
       noPublicAppOverride: true
     }
