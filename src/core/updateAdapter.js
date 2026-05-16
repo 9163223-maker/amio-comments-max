@@ -6,6 +6,12 @@ function safeJson(value) {
   try { return JSON.parse(String(value)); } catch { return {}; }
 }
 
+function cleanValue(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  try { return decodeURIComponent(raw.replace(/\+/g, ' ')); } catch { return raw.replace(/\+/g, ' '); }
+}
+
 function extractText(update = {}) {
   return String(
     update.text ||
@@ -38,7 +44,8 @@ function extractPayload(update = {}) {
 function pickValue(update = {}, payload = {}, extra = {}, key, aliases = []) {
   for (const name of [key, ...aliases]) {
     const value = extra[name] || update[name] || update.query?.[name] || update.body?.[name] || payload[name];
-    if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+    const cleaned = cleanValue(value);
+    if (cleaned) return cleaned;
   }
   return '';
 }
@@ -92,4 +99,4 @@ async function preview(update = {}, extra = {}) {
   };
 }
 
-module.exports = { toContext, preview, routeFromUpdate, extractPayload, extractText };
+module.exports = { toContext, preview, routeFromUpdate, extractPayload, extractText, cleanValue };
