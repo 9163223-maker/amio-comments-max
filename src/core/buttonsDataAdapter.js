@@ -2,7 +2,7 @@
 
 const db = require('../../cc5-db-core');
 
-const RUNTIME = 'ADMINKIT-CORE-BUTTONS-DATA-ADAPTER-1.1-READ-ONLY-LEGACY-RAW';
+const RUNTIME = 'ADMINKIT-CORE-BUTTONS-DATA-ADAPTER-1.2-READ-ONLY-DISCOVER';
 const CACHE_TTL_MS = 10 * 1000;
 const cache = new Map();
 
@@ -14,6 +14,7 @@ function setCached(adminId = '', channelId = '', value) { cache.set(cacheKey(adm
 function safeJson(value) { if (!value) return {}; if (typeof value === 'object') return value; try { const parsed = JSON.parse(String(value)); return parsed && typeof parsed === 'object' ? parsed : {}; } catch { return {}; } }
 function isUrl(value = '') { return /^https?:\/\//i.test(clean(value)); }
 function uniqByTitleUrl(items = []) { const seen = new Set(); const out = []; for (const item of items) { const key = `${clean(item.title).toLowerCase()}|${clean(item.url).toLowerCase()}|${clean(item.payload).toLowerCase()}`; if (!clean(item.title) || seen.has(key)) continue; seen.add(key); out.push(item); } return out; }
+function qident(name = '') { return '"' + String(name || '').replace(/"/g, '""') + '"'; }
 
 async function queryReadOnly(sql, params = []) {
   if (!db.pool) return { rows: [], error: 'database_url_missing' };
@@ -25,19 +26,13 @@ async function queryReadOnly(sql, params = []) {
 function collectButtonsFromObject(value, out = [], seen = new Set()) {
   if (!value || typeof value !== 'object' || seen.has(value)) return out;
   seen.add(value);
-
-  if (Array.isArray(value)) {
-    value.forEach((item) => collectButtonsFromObject(item, out, seen));
-    return out;
-  }
-
+  if (Array.isArray(value)) { value.forEach((item) => collectButtonsFromObject(item, out, seen)); return out; }
   const type = clean(value.type || value.kind || value.intent).toLowerCase();
   const title = clean(value.text || value.title || value.label || value.caption || value.name);
   const url = clean(value.url || value.href || value.link || value.web_app?.url || value.webApp?.url || value.payload?.url);
   const payload = clean(value.payload || value.data || value.callback_data || value.callbackData || value.value);
   const looksLikeButton = !!title && (type.includes('button') || type === 'callback' || type === 'link' || isUrl(url) || payload || value.intent === 'default');
   if (looksLikeButton) out.push({ id: '', title, displayTitle: cut(title, 34), url, payload, source: 'legacy_raw', sortOrder: out.length + 1 });
-
   for (const child of Object.values(value)) collectButtonsFromObject(child, out, seen);
   return out;
 }
@@ -59,6 +54,48 @@ async function selectedChannelForAdmin(adminId = '') {
   if (!id) return '';
   const result = await queryReadOnly('select selected_channel_id from ak_admin_sessions where admin_id=$1 limit 1', [id]);
   return clean(result.rows?.[0]?.selected_channel_id || '');
+}
+
+function candidateScore(tableName = '', columns = []) {
+  const blob = `${tableName} ${columns.join(' ')}`.toLowerCase();
+  let score = 0;
+  ['button', 'buttons', 'cta', 'keyboard', 'payload', 'url', 'link', 'post'].forEach((word) => { if (blob.includes(word)) score += 1; });
+  if (blob.includes('button')) score += 3;
+  if (blob.includes('keyboard')) score += 2;
+  if (blob.includes('post')) score += 1;
+  return score;
+}
+
+async function discoverButtonStorageCandidates() {
+  const columnsResult = await queryReadOnly(`
+    select table_name as "tableName", column_name as "columnName", data_type as "dataType"
+    from information_schema.columns
+    where table_schema = 'public'
+      and (
+        table_name ilike '%button%' or table_name ilike '%cta%' or table_name ilike '%keyboard%' or table_name ilike '%post%' or
+        column_name ilike '%button%' or column_name ilike '%cta%' or column_name ilike '%keyboard%' or column_name ilike '%payload%' or column_name ilike '%url%' or column_name ilike '%link%' or column_name ilike '%post%'
+      )
+    order by table_name, ordinal_position
+    limit 240
+  `);
+  if (columnsResult.error) return { ok: false, error: columnsResult.error, candidates: [] };
+  const byTable = new Map();
+  for (const row of columnsResult.rows || []) {
+    const tableName = clean(row.tableName);
+    if (!tableName || !/^[a-zA-Z0-9_]+$/.test(tableName)) continue;
+    if (!byTable.has(tableName)) byTable.set(tableName, { tableName, columns: [], rowCount: null, error: '' });
+    byTable.get(tableName).columns.push({ name: clean(row.columnName), type: clean(row.dataType) });
+  }
+  const candidates = Array.from(byTable.values())
+    .map((item) => ({ ...item, score: candidateScore(item.tableName, item.columns.map((column) => column.name)) }))
+    .sort((a, b) => b.score - a.score || a.tableName.localeCompare(b.tableName))
+    .slice(0, 14);
+  for (const item of candidates) {
+    const countResult = await queryReadOnly(`select count(*)::int as n from ${qident(item.tableName)}`);
+    if (countResult.error) item.error = countResult.error;
+    else item.rowCount = Number(countResult.rows?.[0]?.n || 0);
+  }
+  return { ok: true, runtimeVersion: 'ADMINKIT-CORE-BUTTON-STORAGE-DISCOVERY-1.0-READ-ONLY', candidates };
 }
 
 async function overview(adminId = '', options = {}) {
@@ -95,37 +132,19 @@ async function overview(adminId = '', options = {}) {
   const postsCount = Number(countResult.rows?.[0]?.n || 0);
 
   const posts = (result.rows || []).map((post) => {
-    const coreButtons = Array.isArray(post.coreButtons) ? post.coreButtons.map((button) => ({
-      id: button.id,
-      title: clean(button.title || 'Кнопка'),
-      displayTitle: cut(button.title || 'Кнопка', 34),
-      url: clean(button.url || ''),
-      payload: '',
-      source: 'core_table',
-      sortOrder: Number(button.sortOrder || 0)
-    })) : [];
+    const coreButtons = Array.isArray(post.coreButtons) ? post.coreButtons.map((button) => ({ id: button.id, title: clean(button.title || 'Кнопка'), displayTitle: cut(button.title || 'Кнопка', 34), url: clean(button.url || ''), payload: '', source: 'core_table', sortOrder: Number(button.sortOrder || 0) })) : [];
     const legacyButtons = legacyButtonsFromRaw(post.raw);
     const buttons = uniqByTitleUrl([...coreButtons, ...legacyButtons]);
-    return {
-      channelId: clean(post.channelId),
-      channelTitle: clean(post.channelTitle || post.channelId),
-      postId: clean(post.postId),
-      title: clean(post.title || post.postId || 'Пост'),
-      displayTitle: cut(post.title || post.postId || 'Пост', 46),
-      buttonsCount: buttons.length,
-      coreButtonsCount: Number(post.coreButtonsCount || 0),
-      legacyButtonsCount: legacyButtons.length,
-      buttons,
-      postUpdatedAt: post.postUpdatedAt || null
-    };
+    return { channelId: clean(post.channelId), channelTitle: clean(post.channelTitle || post.channelId), postId: clean(post.postId), title: clean(post.title || post.postId || 'Пост'), displayTitle: cut(post.title || post.postId || 'Пост', 46), buttonsCount: buttons.length, coreButtonsCount: Number(post.coreButtonsCount || 0), legacyButtonsCount: legacyButtons.length, buttons, postUpdatedAt: post.postUpdatedAt || null };
   });
 
   const buttonsCount = posts.reduce((sum, post) => sum + post.buttonsCount, 0);
   const coreButtonsCount = posts.reduce((sum, post) => sum + post.coreButtonsCount, 0);
   const legacyButtonsCount = posts.reduce((sum, post) => sum + post.legacyButtonsCount, 0);
   const postsWithButtons = posts.filter((post) => post.buttonsCount > 0).length;
+  const discovery = buttonsCount === 0 ? await discoverButtonStorageCandidates() : { ok: true, candidates: [] };
 
-  return setCached(id, selectedChannelId, { ok: true, runtimeVersion: RUNTIME, adminId: id, selectedChannelId, postsCount, buttonsCount, coreButtonsCount, legacyButtonsCount, postsWithButtons, posts, limit, sources: { coreTable: coreButtonsCount, legacyRaw: legacyButtonsCount } });
+  return setCached(id, selectedChannelId, { ok: true, runtimeVersion: RUNTIME, adminId: id, selectedChannelId, postsCount, buttonsCount, coreButtonsCount, legacyButtonsCount, postsWithButtons, posts, limit, sources: { coreTable: coreButtonsCount, legacyRaw: legacyButtonsCount }, discovery });
 }
 
 function formatOverviewForScreen(data = {}) {
@@ -142,10 +161,21 @@ function formatOverviewForScreen(data = {}) {
       if (post.buttons.length > 3) lines.push(`   • …ещё ${post.buttons.length - 3}`);
     });
   }
+  if ((data.buttonsCount || 0) === 0 && data.discovery?.ok && Array.isArray(data.discovery.candidates) && data.discovery.candidates.length) {
+    lines.push('', 'Диагностика хранения кнопок:');
+    data.discovery.candidates.slice(0, 8).forEach((item) => {
+      const columns = item.columns.map((column) => column.name).slice(0, 4).join(', ');
+      lines.push(`• ${item.tableName}: ${item.rowCount ?? '?'} строк`);
+      if (columns) lines.push(`  поля: ${columns}${item.columns.length > 4 ? '…' : ''}`);
+    });
+  }
+  if ((data.buttonsCount || 0) === 0 && data.discovery?.ok && (!data.discovery.candidates || !data.discovery.candidates.length)) {
+    lines.push('', 'Диагностика хранения кнопок: подходящие таблицы/колонки не найдены. Вероятно, кнопки сейчас живут только в in-memory/file store или собираются в момент патча.');
+  }
   lines.push('', 'Режим: read-only. Core пока не создаёт и не меняет кнопки.');
   return lines;
 }
 
-function selfTest() { return { ok: true, runtimeVersion: RUNTIME, readOnly: true, selectsOnly: true, legacyRawScan: true, cacheTtlMs: CACHE_TTL_MS, cacheSize: cache.size }; }
+function selfTest() { return { ok: true, runtimeVersion: RUNTIME, readOnly: true, selectsOnly: true, legacyRawScan: true, storageDiscovery: true, cacheTtlMs: CACHE_TTL_MS, cacheSize: cache.size }; }
 
-module.exports = { RUNTIME, overview, formatOverviewForScreen, legacyButtonsFromRaw, selfTest };
+module.exports = { RUNTIME, overview, formatOverviewForScreen, legacyButtonsFromRaw, discoverButtonStorageCandidates, selfTest };
