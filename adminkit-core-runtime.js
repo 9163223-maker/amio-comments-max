@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.7-FLOW-STALE-CALLBACK-GUARD';
-const SOURCE = 'adminkit-core-1-7-flow-stale-callback-guard';
+const RUNTIME = 'ADMINKIT-CORE-1.8-FLOW-TITLE-INPUT';
+const SOURCE = 'adminkit-core-1-8-flow-title-input';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -37,7 +37,7 @@ function selfTest() {
   const flow = flowEngine.selfTest();
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('staleFlowCallbackGuard'),
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard'),
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
@@ -65,6 +65,7 @@ function selfTest() {
       flowEngineReady: true,
       flowCancelRouteReady: true,
       flowPostSelectReady: true,
+      flowTitleInputReady: true,
       staleCallbackGuardReady: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
