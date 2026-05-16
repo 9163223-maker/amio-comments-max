@@ -5,7 +5,7 @@ const stateManager = require('./stateManager');
 const maxSendAdapter = require('./maxSendAdapter');
 const core = require('../../adminkit-core-runtime');
 
-const RUNTIME = 'ADMINKIT-CORE-CANARY-WEBHOOK-1.0-ISOLATED-NO-LEGACY-FALLBACK';
+const RUNTIME = 'ADMINKIT-CORE-CANARY-WEBHOOK-1.1-MANUAL-SEND';
 const DEFAULT_PATH = '/webhook/adminkit-core-canary';
 
 function cleanValue(value) {
@@ -26,6 +26,10 @@ function firstValue(...values) {
     if (cleaned) return cleaned;
   }
   return '';
+}
+
+function flag(value) {
+  return ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
 }
 
 function getMessage(update = {}) {
@@ -85,6 +89,34 @@ function extractTarget(update = {}) {
 
 function parseCallbackPayload(update = {}) {
   return safeJson(getCallbackPayload(getCallback(update)));
+}
+
+function buildSyntheticUpdate({ route = 'main.home', adminId = 'debug-admin', chatId = '', messageId = '', updateType = 'message_callback', text = '' } = {}) {
+  const normalizedRoute = cleanValue(route) || 'main.home';
+  const normalizedAdminId = cleanValue(adminId) || 'debug-admin';
+  const normalizedText = cleanValue(text);
+  if (updateType === 'text') {
+    return {
+      update_type: 'message_created',
+      message: {
+        sender: { user_id: normalizedAdminId },
+        body: { text: normalizedText || normalizedRoute, mid: cleanValue(messageId) },
+        recipient: { chat_id: cleanValue(chatId) }
+      }
+    };
+  }
+  return {
+    update_type: 'message_callback',
+    callback: {
+      payload: JSON.stringify({ r: normalizedRoute }),
+      user: { user_id: normalizedAdminId },
+      callback_id: 'manual-canary-debug-callback'
+    },
+    message: {
+      body: { mid: cleanValue(messageId) },
+      recipient: { chat_id: cleanValue(chatId) }
+    }
+  };
 }
 
 async function routeForIncomingUpdate(update = {}, target = {}) {
@@ -162,6 +194,65 @@ async function preview(update = {}, config = {}) {
   return { ok: true, runtimeVersion: RUNTIME, mode: 'core-canary-preview-dry-run', coreRuntimeVersion: core.RUNTIME, target: built.target, ctx: { route: built.ctx.route, adminId: built.ctx.adminId, text: built.ctx.text, payload: built.ctx.payload }, screen: built.screen, delivery };
 }
 
+async function manualSend({ route = 'main.home', adminId = '', chatId = '', messageId = '', dryRun = false, updateType = 'message_callback', text = '' } = {}, config = {}) {
+  const normalizedAdminId = cleanValue(adminId);
+  const shouldDryRun = flag(dryRun);
+  if (!normalizedAdminId && !shouldDryRun) {
+    return {
+      ok: false,
+      runtimeVersion: RUNTIME,
+      mode: 'core-canary-manual-send-blocked',
+      error: 'adminId_required_for_manual_send',
+      help: 'Передайте ?adminId=<MAX user id>. Для безопасной проверки без отправки используйте dryRun=1.'
+    };
+  }
+
+  const update = buildSyntheticUpdate({
+    route,
+    adminId: normalizedAdminId || 'debug-admin',
+    chatId,
+    messageId,
+    updateType,
+    text
+  });
+  const built = await buildScreenFromUpdate(update, config);
+  if (built.skipped) return built;
+
+  const delivery = await maxSendAdapter.deliver({
+    botToken: config.botToken,
+    adminId: built.target.adminId,
+    userId: built.target.userId,
+    chatId: cleanValue(chatId),
+    activeMessageId: cleanValue(messageId),
+    callbackId: '',
+    screen: built.screen,
+    preferEdit: Boolean(cleanValue(messageId)),
+    dryRun: shouldDryRun
+  });
+
+  return {
+    ok: true,
+    runtimeVersion: RUNTIME,
+    coreRuntimeVersion: core.RUNTIME,
+    mode: shouldDryRun ? 'core-canary-manual-send-dry-run' : 'core-canary-manual-send',
+    route: built.ctx.route,
+    target: {
+      adminId: built.target.adminId,
+      userId: built.target.userId,
+      chatId: cleanValue(chatId),
+      activeMessageId: cleanValue(messageId)
+    },
+    sent: delivery.mode !== 'dry-run-no-send',
+    delivery,
+    safety: {
+      requiresAdminIdForRealSend: true,
+      stillCanaryGatedByMaxSendAdapter: true,
+      productionWebhookUntouched: true,
+      noLegacyFallback: true
+    }
+  };
+}
+
 async function handleWebhook(req, res, config = {}) {
   try {
     if (!canaryAccessOk(req)) return res.status(403).json({ ok: false, runtimeVersion: RUNTIME, error: 'core_canary_token_required' });
@@ -187,9 +278,10 @@ async function handleWebhook(req, res, config = {}) {
 
 function selfTest() {
   return {
-    ok: typeof handleWebhook === 'function' && typeof preview === 'function' && maxSendAdapter.selfTest().ok === true,
+    ok: typeof handleWebhook === 'function' && typeof preview === 'function' && typeof manualSend === 'function' && maxSendAdapter.selfTest().ok === true,
     runtimeVersion: RUNTIME,
     path: process.env.ADMINKIT_CORE_WEBHOOK_PATH || DEFAULT_PATH,
+    manualSendPath: '/debug/core-canary-send',
     coreRuntimeVersion: core.RUNTIME,
     delivery: maxSendAdapter.selfTest(),
     safety: {
@@ -199,9 +291,11 @@ function selfTest() {
       realSendCanaryGated: true,
       optionalCanaryToken: true,
       supportsDryRunPreview: true,
+      supportsManualCanarySend: true,
+      manualSendRequiresAdminId: true,
       ignoresNonCoreCallbacks: true
     }
   };
 }
 
-module.exports = { RUNTIME, DEFAULT_PATH, handleWebhook, preview, selfTest, extractTarget, routeForIncomingUpdate };
+module.exports = { RUNTIME, DEFAULT_PATH, handleWebhook, preview, manualSend, selfTest, extractTarget, routeForIncomingUpdate, buildSyntheticUpdate };
