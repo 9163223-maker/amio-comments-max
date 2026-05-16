@@ -24,6 +24,7 @@ function adminFlowInfo() { return safe('adminFlow', () => require('./adminkit-ad
 function postPatcherInfo() { return safe('postPatcher', () => require('./db-v3-post-patcher').selfTest()); }
 function commentRouteInfo() { return safe('commentOpenStateRoute', () => require('./routes/commentOpenState').selfTest()); }
 function coreRuntimeInfo() { return safe('adminkitCore', () => require('./adminkit-core-runtime').selfTest()); }
+async function coreRenderPreview(planCode = 'free') { try { const core = require('./adminkit-core-runtime'); const screen = await core.renderMain({ planCode }); return { ok: true, runtimeVersion: core.RUNTIME, planCode, screen, buttonTexts: (((screen.attachments || [])[0] || {}).payload || {}).buttons?.flat?.().map((b) => b.text) || [] }; } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
 function layerSummary() { return loadedLayers.map((x) => ({ path: x.path, ok: !!x.ok, runtimeVersion: x.runtimeVersion || '', error: x.error || '' })); }
 function compactDebug() {
   const buildInfo = readBuildInfo() || {};
@@ -73,7 +74,7 @@ function compactDebug() {
       sections: core.sections || [],
       constraints: core.constraints || {}
     },
-    note: 'Короткий debug. Полный legacy: /debug/cc7-full или /debug/cc7?full=1. Core: /debug/core'
+    note: 'Короткий debug. Полный legacy: /debug/cc7-full или /debug/cc7?full=1. Core: /debug/core, preview: /debug/core-render'
   };
 }
 function coreDebug() {
@@ -89,7 +90,7 @@ function coreDebug() {
     productionStillLegacyLayered: true,
     core,
     problems,
-    nextMigrationStep: 'подключить /debug/core-full и затем перенести первый реальный section-handler без цепочки adminkit-admin-flows-75xx'
+    nextMigrationStep: 'проверить /debug/core-render, затем подключить core webhook preview без fallback в legacy'
   };
 }
 function fullDebug() {
@@ -122,6 +123,7 @@ function installRoutes(app) {
   app.get('/debug/cc7-full', (req, res) => { noCache(res); res.json(fullDebug()); });
   app.get('/debug/core', (req, res) => { noCache(res); res.json(coreDebug()); });
   app.get('/debug/core-full', (req, res) => { noCache(res); res.json({ ...coreDebug(), full: true, legacyLayers: layerSummary(), buildInfo: readBuildInfo() }); });
+  app.get('/debug/core-render', async (req, res) => { noCache(res); res.json(await coreRenderPreview(String(req.query?.plan || 'free'))); });
   app.get(['/debug/ping', '/debug/version', '/debug/build-info'], (req, res) => { noCache(res); res.json({ ok: true, runtimeVersion: RUNTIME, displayVersion: 'CC7.5.25', sourceMarker: SOURCE, buildInfo: readBuildInfo(), layers: layerSummary(), core: coreRuntimeInfo(), generatedAt: new Date().toISOString() }); });
   return app;
 }
