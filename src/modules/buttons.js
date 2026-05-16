@@ -5,7 +5,7 @@ const buttonsData = require('../core/buttonsDataAdapter');
 const flowEngine = require('../core/flowEngine');
 const flowScreen = require('../core/flowScreen');
 
-const RUNTIME = 'ADMINKIT-CORE-BUTTONS-SECTION-1.1-CLEAN-CREATE-FLOW';
+const RUNTIME = 'ADMINKIT-CORE-BUTTONS-SECTION-1.2-CLEAN-CREATE-FLOW-SELFTEST';
 
 module.exports = {
   id: 'buttons',
@@ -69,6 +69,14 @@ module.exports = {
   },
 
   selfTest() {
-    return { ok: true, runtimeVersion: RUNTIME, dataAdapter: buttonsData.selfTest(), cleanCreateFlow: true, writesTo: 'ak_post_buttons' };
+    return {
+      ok: true,
+      runtimeVersion: RUNTIME,
+      dataAdapter: buttonsData.selfTest(),
+      readOnlyRenderer: true,
+      cleanCreateFlow: true,
+      writesTo: 'ak_post_buttons',
+      legacyAdaptersUsed: false
+    };
   }
 };
