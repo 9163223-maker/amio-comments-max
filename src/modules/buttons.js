@@ -2,8 +2,10 @@
 
 const menuRenderer = require('../core/menuRenderer');
 const buttonsData = require('../core/buttonsDataAdapter');
+const flowEngine = require('../core/flowEngine');
+const flowScreen = require('../core/flowScreen');
 
-const RUNTIME = 'ADMINKIT-CORE-BUTTONS-SECTION-1.0-READ-ONLY-DATA';
+const RUNTIME = 'ADMINKIT-CORE-BUTTONS-SECTION-1.1-CLEAN-CREATE-FLOW';
 
 module.exports = {
   id: 'buttons',
@@ -16,7 +18,8 @@ module.exports = {
   async renderHome(ctx = {}) {
     const data = await buttonsData.overview(ctx.adminId || ctx.admin_id || '', {
       channelId: ctx.channelId || ctx.payload?.channelId || ctx.session?.selected_channel_id || '',
-      limit: 10
+      limit: 10,
+      noCache: ctx.payload?.refresh === 1 || ctx.payload?.refresh === '1'
     });
 
     return menuRenderer.renderScreen({
@@ -31,13 +34,32 @@ module.exports = {
   },
 
   async handleAction(ctx = {}) {
-    if (ctx.route === 'buttons.add' || ctx.route === 'buttons.manage') {
+    if (ctx.route === 'buttons.add') {
+      const adminId = ctx.adminId || ctx.admin_id || '';
+      const data = await buttonsData.overview(adminId, {
+        channelId: ctx.channelId || ctx.payload?.channelId || ctx.session?.selected_channel_id || '',
+        limit: 10,
+        noCache: true
+      });
+      const started = await flowEngine.start(ctx, 'buttons.create', {
+        source: 'adminkit-core',
+        storage: 'ak_post_buttons',
+        legacyAdaptersDisabled: true
+      });
+      return flowScreen.renderFlowState(started, {
+        icon: '🔘',
+        backRoute: 'buttons.home',
+        posts: data.ok ? data.posts : []
+      });
+    }
+
+    if (ctx.route === 'buttons.manage') {
       return menuRenderer.renderScreen({
-        title: ctx.route === 'buttons.add' ? '➕ Добавить кнопку' : '⚙️ Управление кнопками',
+        title: '⚙️ Управление кнопками',
         body: [
-          'На этом шаге Core работает в read-only режиме.',
-          'Реальное создание, изменение и удаление кнопок пока остаётся в текущем legacy-flow, чтобы не менять production-поведение.',
-          'Следующий шаг миграции — перенести выбор поста и создание CTA-кнопки в Core без monkeypatch-слоёв.'
+          'Core уже читает только чистое хранилище ak_post_buttons.',
+          'Отключение и редактирование кнопок перенесём отдельным шагом после проверки создания.',
+          'Legacy-таблицы не подключаются как рабочие adapters.'
         ],
         buttons: [{ text: '🔘 К списку кнопок', route: 'buttons.home', data: { sectionId: 'buttons' } }],
         homeRoute: 'main.home'
@@ -47,6 +69,6 @@ module.exports = {
   },
 
   selfTest() {
-    return { ok: true, runtimeVersion: RUNTIME, dataAdapter: buttonsData.selfTest(), readOnlyRenderer: true };
+    return { ok: true, runtimeVersion: RUNTIME, dataAdapter: buttonsData.selfTest(), cleanCreateFlow: true, writesTo: 'ak_post_buttons' };
   }
 };
