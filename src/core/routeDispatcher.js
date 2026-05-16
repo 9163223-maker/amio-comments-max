@@ -6,9 +6,11 @@ const menuRenderer = require('./menuRenderer');
 const stateManager = require('./stateManager');
 const flowEngine = require('./flowEngine');
 const flowScreen = require('./flowScreen');
+const postAddonManager = require('./postAddonManager');
 
 const START_ROUTES = new Set(['/start', 'start', 'старт', 'меню', 'main.home', 'main:home', 'home']);
 const HARD_START_ROUTES = new Set(['/start', 'start', 'старт', 'меню']);
+const RUNTIME = 'ADMINKIT-CORE-ROUTE-DISPATCHER-1.1-BUTTON-SAVE';
 
 async function mainMenu(ctx) {
   const sections = await accessManager.filterSections(ctx, sectionRegistry.listAll());
@@ -61,6 +63,24 @@ function flowErrorScreen(selected, ctx = {}) {
     });
   }
 
+  if (error === 'url_invalid') {
+    return menuRenderer.renderScreen({
+      title: '⚠️ Неверная ссылка',
+      body: ['Введите корректную ссылку: https://site.ru или site.ru.', 'Сохраняем только http/https URL.'],
+      buttons: [{ text: '↩️ Назад к разделу', route: backRouteForFlow(ctx.payload?.flowId || selected?.flow?.id || '') }],
+      homeRoute: 'main.home'
+    });
+  }
+
+  if (error === 'button_limit_reached') {
+    return menuRenderer.renderScreen({
+      title: '⚠️ Лимит кнопок',
+      body: [`На текущем тарифе доступно кнопок на пост: ${selected.limit || 1}.`, 'Лимит проверяется через accessManager, без legacy-слоёв.'],
+      buttons: [{ text: '🔘 К кнопкам', route: 'buttons.home', data: { sectionId: 'buttons', refresh: 1 } }],
+      homeRoute: 'main.home'
+    });
+  }
+
   return menuRenderer.renderScreen({
     title: '⚠️ Не удалось выполнить шаг',
     body: [
@@ -73,10 +93,11 @@ function flowErrorScreen(selected, ctx = {}) {
   });
 }
 
-function renderFlow(result) {
+function renderFlow(result, options = {}) {
   return flowScreen.renderFlowState(result, {
     icon: iconForFlow(result.flow?.id || ''),
-    backRoute: backRouteForFlow(result.flow?.id || '')
+    backRoute: backRouteForFlow(result.flow?.id || ''),
+    ...(options || {})
   });
 }
 
@@ -87,6 +108,53 @@ function shouldResetSessionOnStart(ctx = {}, route = '') {
   if (updateType === 'bot_started') return true;
   if (ctx.payload && Object.keys(ctx.payload || {}).length && ctx.payload.r === 'main.home') return false;
   return false;
+}
+
+function saveButtonSuccessScreen(saved = {}, cancelResult = {}) {
+  const button = saved.button || {};
+  return menuRenderer.renderScreen({
+    title: '✅ CTA-кнопка сохранена в Core',
+    body: [
+      `Пост: ${saved.postId || saved.ctx?.postId || ''}`,
+      `Название: ${button.title || ''}`,
+      `Ссылка: ${button.url || ''}`,
+      '',
+      'Сохранено в чистую таблицу: ak_post_buttons.',
+      'Legacy-хранилища и старые патчи не использовались.',
+      'На этом шаге Core только сохраняет данные. Патч поста в MAX подключим отдельным чистым этапом.'
+    ],
+    buttons: [{ text: '🔘 К списку кнопок', route: 'buttons.home', data: { sectionId: 'buttons', refresh: 1 } }],
+    homeRoute: 'main.home'
+  });
+}
+
+async function saveButtonFromFlow(ctx = {}) {
+  const current = await flowEngine.getCurrent(ctx);
+  if (!current.ok) return flowErrorScreen(current, ctx);
+  if (current.flow?.id !== 'buttons.create' || current.step?.id !== 'review_save') {
+    return flowErrorScreen({ ok: false, error: 'unexpected_step', expected: 'buttons.create/review_save', actual: `${current.flow?.id || ''}/${current.step?.id || ''}`, flow: current.flow, step: current.step, draft: current.draft }, ctx);
+  }
+  const draft = current.draft || {};
+  const saveCtx = {
+    ...ctx,
+    adminId: ctx.adminId || ctx.admin_id || current.session?.admin_id || '',
+    channelId: draft.channelId || current.session?.selected_channel_id || ctx.channelId || ctx.payload?.channelId || '',
+    postId: draft.postId || current.session?.selected_post_id || ctx.postId || ctx.payload?.postId || '',
+    session: current.session
+  };
+  const saved = await postAddonManager.addButton(saveCtx, {
+    title: draft.buttonTitle || draft.title || '',
+    url: draft.buttonUrl || draft.url || '',
+    meta: {
+      source: 'adminkit-core',
+      flowId: 'buttons.create',
+      savedAt: new Date().toISOString(),
+      legacyAdaptersUsed: false
+    }
+  });
+  if (!saved.ok) return flowErrorScreen({ ...saved, flow: current.flow, step: current.step, draft }, ctx);
+  await flowEngine.cancel(ctx, 'button_saved_core_clean');
+  return saveButtonSuccessScreen({ ...saved, postId: saveCtx.postId, ctx: saveCtx });
 }
 
 async function dispatch(ctx = {}) {
@@ -119,6 +187,10 @@ async function dispatch(ctx = {}) {
     return renderFlow(accepted);
   }
 
+  if (route === 'flow.save') {
+    return saveButtonFromFlow(ctx);
+  }
+
   if (route === 'billing.locked') {
     return menuRenderer.renderScreen({
       title: '🔒 Доступ ограничен',
@@ -141,4 +213,14 @@ async function dispatch(ctx = {}) {
   });
 }
 
-module.exports = { dispatch, mainMenu, START_ROUTES, HARD_START_ROUTES, shouldResetSessionOnStart, backRouteForFlow, iconForFlow, flowErrorScreen, renderFlow };
+function selfTest() {
+  return {
+    ok: true,
+    runtimeVersion: RUNTIME,
+    cleanButtonSaveRoute: true,
+    buttonSaveTable: 'ak_post_buttons',
+    legacyAdaptersUsed: false
+  };
+}
+
+module.exports = { RUNTIME, dispatch, mainMenu, START_ROUTES, HARD_START_ROUTES, shouldResetSessionOnStart, backRouteForFlow, iconForFlow, flowErrorScreen, renderFlow, saveButtonFromFlow, selfTest };
