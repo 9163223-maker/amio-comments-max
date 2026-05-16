@@ -2,7 +2,7 @@
 
 const db = require('../../cc5-db-core');
 
-const RUNTIME = 'ADMINKIT-CORE-BUTTONS-DATA-ADAPTER-1.2-READ-ONLY-DISCOVER';
+const RUNTIME = 'ADMINKIT-CORE-BUTTONS-DATA-ADAPTER-1.3-READ-ONLY-BANNERS-V3';
 const CACHE_TTL_MS = 10 * 1000;
 const cache = new Map();
 
@@ -13,7 +13,7 @@ function getCached(adminId = '', channelId = '') { const item = cache.get(cacheK
 function setCached(adminId = '', channelId = '', value) { cache.set(cacheKey(adminId, channelId), { at: Date.now(), value }); if (cache.size > 100) cache.delete(cache.keys().next().value); return value; }
 function safeJson(value) { if (!value) return {}; if (typeof value === 'object') return value; try { const parsed = JSON.parse(String(value)); return parsed && typeof parsed === 'object' ? parsed : {}; } catch { return {}; } }
 function isUrl(value = '') { return /^https?:\/\//i.test(clean(value)); }
-function uniqByTitleUrl(items = []) { const seen = new Set(); const out = []; for (const item of items) { const key = `${clean(item.title).toLowerCase()}|${clean(item.url).toLowerCase()}|${clean(item.payload).toLowerCase()}`; if (!clean(item.title) || seen.has(key)) continue; seen.add(key); out.push(item); } return out; }
+function uniqByTitleUrl(items = []) { const seen = new Set(); const out = []; for (const item of items) { const key = `${clean(item.title).toLowerCase()}|${clean(item.url).toLowerCase()}|${clean(item.payload).toLowerCase()}|${clean(item.source).toLowerCase()}`; if (!clean(item.title) || seen.has(key)) continue; seen.add(key); out.push(item); } return out; }
 function qident(name = '') { return '"' + String(name || '').replace(/"/g, '""') + '"'; }
 
 async function queryReadOnly(sql, params = []) {
@@ -21,6 +21,11 @@ async function queryReadOnly(sql, params = []) {
   const text = String(sql || '').trim();
   if (!/^select\b/i.test(text)) throw new Error('buttons_data_adapter_read_only_selects_only');
   try { return await db.pool.query(text, params); } catch (error) { return { rows: [], error: error?.message || String(error) }; }
+}
+
+async function tableExists(tableName = '') {
+  const result = await queryReadOnly('select to_regclass($1) is not null as ok', [`public.${clean(tableName)}`]);
+  return result.rows?.[0]?.ok === true;
 }
 
 function collectButtonsFromObject(value, out = [], seen = new Set()) {
@@ -86,16 +91,39 @@ async function discoverButtonStorageCandidates() {
     if (!byTable.has(tableName)) byTable.set(tableName, { tableName, columns: [], rowCount: null, error: '' });
     byTable.get(tableName).columns.push({ name: clean(row.columnName), type: clean(row.dataType) });
   }
-  const candidates = Array.from(byTable.values())
-    .map((item) => ({ ...item, score: candidateScore(item.tableName, item.columns.map((column) => column.name)) }))
-    .sort((a, b) => b.score - a.score || a.tableName.localeCompare(b.tableName))
-    .slice(0, 14);
+  const candidates = Array.from(byTable.values()).map((item) => ({ ...item, score: candidateScore(item.tableName, item.columns.map((column) => column.name)) })).sort((a, b) => b.score - a.score || a.tableName.localeCompare(b.tableName)).slice(0, 14);
   for (const item of candidates) {
     const countResult = await queryReadOnly(`select count(*)::int as n from ${qident(item.tableName)}`);
     if (countResult.error) item.error = countResult.error;
     else item.rowCount = Number(countResult.rows?.[0]?.n || 0);
   }
   return { ok: true, runtimeVersion: 'ADMINKIT-CORE-BUTTON-STORAGE-DISCOVERY-1.0-READ-ONLY', candidates };
+}
+
+async function legacyBannerButtonsForPosts(posts = []) {
+  const postIds = Array.from(new Set(posts.map((post) => clean(post.postId)).filter(Boolean)));
+  if (!postIds.length) return { ok: true, runtimeVersion: 'ADMINKIT-CORE-LEGACY-BANNERS-V3-READER-1.0', byPostId: {}, count: 0, available: false };
+  if (!(await tableExists('ak_comment_banners_v3'))) return { ok: true, runtimeVersion: 'ADMINKIT-CORE-LEGACY-BANNERS-V3-READER-1.0', byPostId: {}, count: 0, available: false };
+  const result = await queryReadOnly(`
+    select
+      post_id::text as "postId",
+      coalesce(nullif(button_text::text, ''), 'Кнопка') as title,
+      coalesce(link_url::text, '') as url
+    from ak_comment_banners_v3
+    where post_id::text = any($1::text[])
+    limit 500
+  `, [postIds]);
+  if (result.error) return { ok: false, runtimeVersion: 'ADMINKIT-CORE-LEGACY-BANNERS-V3-READER-1.0', byPostId: {}, count: 0, available: true, error: result.error };
+  const byPostId = {};
+  for (const row of result.rows || []) {
+    const postId = clean(row.postId);
+    const title = clean(row.title || 'Кнопка');
+    if (!postId || !title) continue;
+    if (!byPostId[postId]) byPostId[postId] = [];
+    byPostId[postId].push({ id: '', title, displayTitle: cut(title, 34), url: clean(row.url || ''), payload: '', source: 'legacy_banners_v3', sortOrder: byPostId[postId].length + 1 });
+  }
+  const count = Object.values(byPostId).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0);
+  return { ok: true, runtimeVersion: 'ADMINKIT-CORE-LEGACY-BANNERS-V3-READER-1.0', byPostId, count, available: true };
 }
 
 async function overview(adminId = '', options = {}) {
@@ -130,26 +158,42 @@ async function overview(adminId = '', options = {}) {
 
   const countResult = await queryReadOnly(`select count(*)::int as n from ak_posts where admin_id=$1 and ($2::text = '' or channel_id=$2)`, [id, selectedChannelId]);
   const postsCount = Number(countResult.rows?.[0]?.n || 0);
+  const baseRows = result.rows || [];
+  const legacyBannerScan = await legacyBannerButtonsForPosts(baseRows);
 
-  const posts = (result.rows || []).map((post) => {
+  const posts = baseRows.map((post) => {
     const coreButtons = Array.isArray(post.coreButtons) ? post.coreButtons.map((button) => ({ id: button.id, title: clean(button.title || 'Кнопка'), displayTitle: cut(button.title || 'Кнопка', 34), url: clean(button.url || ''), payload: '', source: 'core_table', sortOrder: Number(button.sortOrder || 0) })) : [];
     const legacyButtons = legacyButtonsFromRaw(post.raw);
-    const buttons = uniqByTitleUrl([...coreButtons, ...legacyButtons]);
-    return { channelId: clean(post.channelId), channelTitle: clean(post.channelTitle || post.channelId), postId: clean(post.postId), title: clean(post.title || post.postId || 'Пост'), displayTitle: cut(post.title || post.postId || 'Пост', 46), buttonsCount: buttons.length, coreButtonsCount: Number(post.coreButtonsCount || 0), legacyButtonsCount: legacyButtons.length, buttons, postUpdatedAt: post.postUpdatedAt || null };
+    const legacyBannerButtons = legacyBannerScan.byPostId?.[clean(post.postId)] || [];
+    const buttons = uniqByTitleUrl([...coreButtons, ...legacyButtons, ...legacyBannerButtons]);
+    return {
+      channelId: clean(post.channelId),
+      channelTitle: clean(post.channelTitle || post.channelId),
+      postId: clean(post.postId),
+      title: clean(post.title || post.postId || 'Пост'),
+      displayTitle: cut(post.title || post.postId || 'Пост', 46),
+      buttonsCount: buttons.length,
+      coreButtonsCount: Number(post.coreButtonsCount || 0),
+      legacyButtonsCount: legacyButtons.length,
+      legacyBannerButtonsCount: legacyBannerButtons.length,
+      buttons,
+      postUpdatedAt: post.postUpdatedAt || null
+    };
   });
 
   const buttonsCount = posts.reduce((sum, post) => sum + post.buttonsCount, 0);
   const coreButtonsCount = posts.reduce((sum, post) => sum + post.coreButtonsCount, 0);
   const legacyButtonsCount = posts.reduce((sum, post) => sum + post.legacyButtonsCount, 0);
+  const legacyBannerButtonsCount = posts.reduce((sum, post) => sum + post.legacyBannerButtonsCount, 0);
   const postsWithButtons = posts.filter((post) => post.buttonsCount > 0).length;
   const discovery = buttonsCount === 0 ? await discoverButtonStorageCandidates() : { ok: true, candidates: [] };
 
-  return setCached(id, selectedChannelId, { ok: true, runtimeVersion: RUNTIME, adminId: id, selectedChannelId, postsCount, buttonsCount, coreButtonsCount, legacyButtonsCount, postsWithButtons, posts, limit, sources: { coreTable: coreButtonsCount, legacyRaw: legacyButtonsCount }, discovery });
+  return setCached(id, selectedChannelId, { ok: true, runtimeVersion: RUNTIME, adminId: id, selectedChannelId, postsCount, buttonsCount, coreButtonsCount, legacyButtonsCount, legacyBannerButtonsCount, postsWithButtons, posts, limit, sources: { coreTable: coreButtonsCount, legacyRaw: legacyButtonsCount, legacyBannersV3: legacyBannerButtonsCount }, discovery, legacyBannerScan: { ok: legacyBannerScan.ok, available: legacyBannerScan.available, count: legacyBannerScan.count, error: legacyBannerScan.error || '' } });
 }
 
 function formatOverviewForScreen(data = {}) {
   if (!data.ok) return [`Не удалось прочитать кнопки: ${data.error || 'unknown_error'}.`, 'Production-данные не изменялись.'];
-  const lines = [data.selectedChannelId ? `Канал: ${data.selectedChannelId}` : 'Канал: все доступные каналы', `Постов в базе: ${data.postsCount}`, `Постов с кнопками: ${data.postsWithButtons}`, `Активных кнопок: ${data.buttonsCount}`, `Источник: core=${data.coreButtonsCount || 0}, legacy=${data.legacyButtonsCount || 0}`, ''];
+  const lines = [data.selectedChannelId ? `Канал: ${data.selectedChannelId}` : 'Канал: все доступные каналы', `Постов в базе: ${data.postsCount}`, `Постов с кнопками: ${data.postsWithButtons}`, `Активных кнопок: ${data.buttonsCount}`, `Источник: core=${data.coreButtonsCount || 0}, raw=${data.legacyButtonsCount || 0}, banners=${data.legacyBannerButtonsCount || 0}`, ''];
   if (!data.posts.length) {
     lines.push('Посты пока не найдены.', 'Сначала подключите канал и пропатчите посты через текущий production-flow.');
   } else {
@@ -157,7 +201,7 @@ function formatOverviewForScreen(data = {}) {
     data.posts.slice(0, 10).forEach((post, index) => {
       lines.push(`${index + 1}. ${post.displayTitle}`);
       lines.push(`   Кнопок: ${post.buttonsCount}`);
-      post.buttons.slice(0, 3).forEach((button) => lines.push(`   • ${button.displayTitle}${button.source === 'legacy_raw' ? ' · legacy' : ''}`));
+      post.buttons.slice(0, 3).forEach((button) => lines.push(`   • ${button.displayTitle}${button.source === 'legacy_banners_v3' ? ' · banners_v3' : (button.source === 'legacy_raw' ? ' · raw' : '')}`));
       if (post.buttons.length > 3) lines.push(`   • …ещё ${post.buttons.length - 3}`);
     });
   }
@@ -176,6 +220,6 @@ function formatOverviewForScreen(data = {}) {
   return lines;
 }
 
-function selfTest() { return { ok: true, runtimeVersion: RUNTIME, readOnly: true, selectsOnly: true, legacyRawScan: true, storageDiscovery: true, cacheTtlMs: CACHE_TTL_MS, cacheSize: cache.size }; }
+function selfTest() { return { ok: true, runtimeVersion: RUNTIME, readOnly: true, selectsOnly: true, legacyRawScan: true, legacyBannersV3Read: true, storageDiscovery: true, cacheTtlMs: CACHE_TTL_MS, cacheSize: cache.size }; }
 
-module.exports = { RUNTIME, overview, formatOverviewForScreen, legacyButtonsFromRaw, discoverButtonStorageCandidates, selfTest };
+module.exports = { RUNTIME, overview, formatOverviewForScreen, legacyButtonsFromRaw, legacyBannerButtonsForPosts, discoverButtonStorageCandidates, selfTest };
