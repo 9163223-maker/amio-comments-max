@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.14-MANUAL-SEND-TOKEN-GUARD';
-const SOURCE = 'adminkit-core-1-14-manual-send-token-guard';
+const RUNTIME = 'ADMINKIT-CORE-1.15-CANARY-CALLBACK-BRIDGE';
+const SOURCE = 'adminkit-core-1-15-canary-callback-bridge';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -86,6 +86,8 @@ function selfTest() {
       manualCanarySendQueryParserReady: true,
       manualCanarySendTokenGuardReady: true,
       manualCanaryRealSendRequiresToken: true,
+      coreCallbackBridgeReady: true,
+      coreCallbackBridgeCanaryOnly: true,
       coreCanaryDoesNotAutoRegister: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
