@@ -7,7 +7,7 @@ const maxSendAdapter = require('./maxSendAdapter');
 const timingStore = require('./coreTimingStore');
 const { answerCallback } = require('../../services/maxApi');
 
-const RUNTIME = 'ADMINKIT-CORE-CALLBACK-BRIDGE-1.3-ACK-400-SILENT';
+const RUNTIME = 'ADMINKIT-CORE-CALLBACK-BRIDGE-1.4-FLOW-TEXT-INPUT';
 
 function now() { return Date.now(); }
 function clean(value) { return String(value ?? '').trim(); }
@@ -20,7 +20,10 @@ function adminIdOf(update = {}) { const c = callbackOf(update) || {}; const m = 
 function callbackIdOf(update = {}) { const c = callbackOf(update) || {}; return first(c.callback_id, c.callbackId, c.id, update.callback_id, update.callbackId); }
 function messageIdOf(update = {}) { const c = callbackOf(update) || {}; const m = messageOf(update) || {}; const body = m.body || {}; return first(c.message?.body?.mid, c.message?.mid, c.message?.message_id, c.message?.id, body.mid, body.message_id, body.messageId, m.mid, m.message_id, m.messageId, m.id); }
 function chatIdOf(update = {}) { const c = callbackOf(update) || {}; const m = messageOf(update) || {}; return first(m.recipient?.chat_id, m.recipient?.id, c.message?.recipient?.chat_id, c.message?.recipient?.id, m.chat_id, m.chat?.id, update.chat_id); }
+function textOf(update = {}) { const m = messageOf(update) || {}; const body = m.body || {}; return first(update.text, update.messageText, body.text, m.text, m.message?.text, update.body?.text); }
 function isCallbackUpdate(update = {}) { const type = clean(update.update_type || update.type).toLowerCase(); return type === 'message_callback' || !!callbackOf(update); }
+function isTextUpdate(update = {}) { if (isCallbackUpdate(update)) return false; const type = clean(update.update_type || update.type).toLowerCase(); return type === 'message_created' || !!messageOf(update) || !!textOf(update); }
+function isStartOrMenuText(text = '') { return /^\/?start(?:\s|$)/i.test(clean(text)) || /^меню$/i.test(clean(text)) || /^старт$/i.test(clean(text)); }
 
 function shouldTry(update = {}) {
   if (!isCallbackUpdate(update)) return { ok: false, reason: 'not_callback' };
@@ -31,7 +34,34 @@ function shouldTry(update = {}) {
   if (!adminId) return { ok: false, reason: 'admin_id_missing', payload };
   const gate = maxSendAdapter.deliveryGate(adminId);
   if (!gate.ok) return { ok: false, reason: gate.reason || 'core_canary_gate_closed', payload, adminId, gate };
-  return { ok: true, payload, route, adminId, gate };
+  return { ok: true, kind: 'callback', payload, route, adminId, gate, text: '' };
+}
+
+async function shouldTryFlowTextInput(update = {}) {
+  if (!isTextUpdate(update)) return { ok: false, reason: 'not_text_update' };
+  const text = textOf(update);
+  if (!text) return { ok: false, reason: 'text_missing' };
+  if (isStartOrMenuText(text)) return { ok: false, reason: 'start_or_menu_text_ignored' };
+  const adminId = adminIdOf(update);
+  if (!adminId) return { ok: false, reason: 'admin_id_missing_for_text' };
+  const gate = maxSendAdapter.deliveryGate(adminId);
+  if (!gate.ok) return { ok: false, reason: gate.reason || 'core_canary_gate_closed_for_text', adminId, gate };
+  let session = null;
+  try { session = await require('./stateManager').getSession(adminId); } catch (error) { return { ok: false, reason: 'session_read_failed', adminId, error: error?.message || String(error) }; }
+  const activeFlow = clean(session?.active_flow || session?.activeFlow);
+  const activeStep = clean(session?.active_step || session?.activeStep);
+  if (!activeFlow || !['input_title', 'input_url'].includes(activeStep)) return { ok: false, reason: 'no_active_core_text_step', adminId, activeFlow, activeStep };
+  return {
+    ok: true,
+    kind: 'flow-text-input',
+    payload: { flowId: activeFlow },
+    route: 'flow.input',
+    adminId,
+    gate,
+    text,
+    session,
+    activeMessageId: clean(session?.active_message_id || session?.activeMessageId)
+  };
 }
 
 function isKnownAck400(error) {
@@ -53,31 +83,32 @@ async function fastAck(callbackId = '') {
 
 async function tryHandleUpdate(update = {}) {
   const started = now();
-  const decision = shouldTry(update);
+  let decision = shouldTry(update);
+  if (!decision.ok && decision.reason === 'not_callback') decision = await shouldTryFlowTextInput(update);
   if (!decision.ok) return { handled: false, runtimeVersion: RUNTIME, ...decision, timing: { totalMs: now() - started } };
 
-  const activeMessageId = messageIdOf(update);
+  const activeMessageId = decision.activeMessageId || messageIdOf(update);
   const chatId = chatIdOf(update);
-  const callbackId = callbackIdOf(update);
-  const ack = await fastAck(callbackId);
+  const callbackId = decision.kind === 'callback' ? callbackIdOf(update) : '';
+  const ack = decision.kind === 'callback' ? await fastAck(callbackId) : { ok: true, skipped: true, ignored: true, reason: 'text_input_no_callback_ack', ms: 0 };
   const afterAck = now();
 
-  const ctx = updateAdapter.toContext({ ...update, payload: JSON.stringify(decision.payload || {}), text: decision.route, route: decision.route, adminId: decision.adminId, userId: decision.adminId, message: messageOf(update) || {} }, { route: decision.route, adminId: decision.adminId, planCode: clean(update.planCode || update.plan || 'free'), text: '' });
+  const ctx = updateAdapter.toContext({ ...update, payload: JSON.stringify(decision.payload || {}), text: decision.text || decision.route, route: decision.route, adminId: decision.adminId, userId: decision.adminId, message: messageOf(update) || {} }, { route: decision.route, adminId: decision.adminId, planCode: clean(update.planCode || update.plan || 'free'), text: decision.text || '' });
 
   const screen = await core.dispatch(ctx);
   const afterRender = now();
   const delivery = await maxSendAdapter.deliver({ botToken: config.botToken, adminId: decision.adminId, userId: decision.adminId, chatId, activeMessageId, callbackId: '', screen, preferEdit: Boolean(activeMessageId), dryRun: false });
   const finished = now();
   const timing = { totalMs: finished - started, ackMs: ack.ms || 0, beforeAckMs: afterAck - started, renderMs: afterRender - afterAck, deliveryMs: finished - afterRender, ackOk: ack.ok === true, ackIgnored: ack.ignored === true, ackReason: ack.reason || '', ackError: ack.ok === true ? '' : (ack.error || '') };
-  timingStore.push({ kind: 'callback', route: ctx.route, adminId: decision.adminId, deliveryMode: delivery.mode, sent: delivery.mode !== 'dry-run-no-send', timing, gate: delivery.gate || decision.gate, note: activeMessageId ? 'edit existing message' : 'send new message fallback' });
+  timingStore.push({ kind: decision.kind === 'flow-text-input' ? 'text-input' : 'callback', route: ctx.route, adminId: decision.adminId, deliveryMode: delivery.mode, sent: delivery.mode !== 'dry-run-no-send', timing, gate: delivery.gate || decision.gate, note: decision.kind === 'flow-text-input' ? 'route active core flow text input' : (activeMessageId ? 'edit existing message' : 'send new message fallback') });
 
-  return { handled: true, ok: true, runtimeVersion: RUNTIME, coreRuntimeVersion: core.RUNTIME, route: ctx.route, adminId: decision.adminId, activeMessageId, chatId, deliveryMode: delivery.mode, sent: delivery.mode !== 'dry-run-no-send', gate: delivery.gate || decision.gate, timing };
+  return { handled: true, ok: true, runtimeVersion: RUNTIME, coreRuntimeVersion: core.RUNTIME, kind: decision.kind, route: ctx.route, adminId: decision.adminId, activeMessageId, chatId, deliveryMode: delivery.mode, sent: delivery.mode !== 'dry-run-no-send', gate: delivery.gate || decision.gate, timing };
 }
 
 async function tryHandleExpress(req = {}) { return tryHandleUpdate(req.body || {}); }
 
 function selfTest() {
-  return { ok: true, runtimeVersion: RUNTIME, coreRuntimeVersion: core.RUNTIME, policy: 'fast_ack_first_known_max_answers_400_is_silent_then_core_dispatch_for_canary_payload_r_with_timing_store', gate: { sendEnabled: maxSendAdapter.sendEnabled(), canaryAll: maxSendAdapter.canaryAllEnabled(), allowedAdminsConfigured: maxSendAdapter.allowedAdmins().length }, timingStore: timingStore.selfTest(), safety: { requiresPayloadR: true, requiresCanaryAdmin: true, requiresCoreSendEnabled: true, ignoresNonCoreCallbacks: true, leavesLegacyFallbackToOuterRouter: true, fastAckBeforeRender: true, timingDiagnostics: true, timingStoreReady: true, ack400Silent: true } };
+  return { ok: true, runtimeVersion: RUNTIME, coreRuntimeVersion: core.RUNTIME, policy: 'fast_ack_first_for_callbacks_and_route_active_core_flow_text_input_for_canary_admins', gate: { sendEnabled: maxSendAdapter.sendEnabled(), canaryAll: maxSendAdapter.canaryAllEnabled(), allowedAdminsConfigured: maxSendAdapter.allowedAdmins().length }, timingStore: timingStore.selfTest(), safety: { requiresPayloadR: true, requiresCanaryAdmin: true, requiresCoreSendEnabled: true, ignoresNonCoreCallbacks: true, handlesCoreFlowTextInput: true, textInputRequiresActiveFlow: true, textInputRequiresActiveInputStep: true, textInputUsesActiveCoreMessage: true, leavesLegacyFallbackToOuterRouter: true, fastAckBeforeRender: true, timingDiagnostics: true, timingStoreReady: true, ack400Silent: true } };
 }
 
-module.exports = { RUNTIME, tryHandleUpdate, tryHandleExpress, shouldTry, selfTest };
+module.exports = { RUNTIME, tryHandleUpdate, tryHandleExpress, shouldTry, shouldTryFlowTextInput, selfTest };
