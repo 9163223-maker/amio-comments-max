@@ -3,7 +3,7 @@
 const stateManager = require('./stateManager');
 const definitions = require('./flowDefinitions');
 
-const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.3-TITLE-INPUT';
+const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.4-TEXT-INPUT-CLEAN';
 
 function adminIdOf(ctx = {}) {
   return String(ctx.adminId || ctx.admin_id || 'debug-admin');
@@ -37,7 +37,17 @@ function valueFromCtx(ctx = {}, key, aliases = []) {
 }
 
 function textInputFromCtx(ctx = {}) {
-  return cleanValue(ctx.text || ctx.messageText || ctx.inputText || ctx.update?.text || ctx.update?.message?.text || ctx.update?.body?.text || ctx.route || '');
+  return cleanValue(
+    ctx.text ||
+    ctx.messageText ||
+    ctx.inputText ||
+    ctx.payload?.text ||
+    ctx.update?.text ||
+    ctx.update?.query?.text ||
+    ctx.update?.body?.text ||
+    ctx.update?.message?.text ||
+    ''
+  );
 }
 
 async function getCurrent(ctx = {}) {
@@ -171,9 +181,9 @@ function selfTest() {
     ok: flows.length >= 2 && flows.every((flow) => flow.id && flow.steps?.length),
     runtimeVersion: RUNTIME,
     supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'acceptInput', 'titleInput', 'staleFlowCallbackGuard', 'cancel'],
-    guards: ['flowId_payload_must_match_active_flow', 'title_required', 'title_max_64'],
+    guards: ['flowId_payload_must_match_active_flow', 'title_required', 'title_max_64', 'explicit_text_preferred_over_route'],
     flows: flows.map((flow) => ({ id: flow.id, section: flow.section, steps: flow.steps.map((s) => s.id) }))
   };
 }
 
-module.exports = { RUNTIME, start, getCurrent, patchDraft, goTo, next, selectPost, acceptInput, cancel, selfTest, cleanValue };
+module.exports = { RUNTIME, start, getCurrent, patchDraft, goTo, next, selectPost, acceptInput, cancel, selfTest, cleanValue, textInputFromCtx };
