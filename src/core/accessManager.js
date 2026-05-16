@@ -2,6 +2,7 @@
 
 const accountManager = require('./accountManager');
 
+const RUNTIME = 'ADMINKIT-CORE-ACCESS-MANAGER-1.1-BATCHED-FILTER-SECTIONS';
 const DEFAULT_PLAN = 'free';
 
 const PLAN_FEATURES = {
@@ -59,27 +60,19 @@ function readOverride(account, featureCode) {
   return undefined;
 }
 
-async function getAccountPlan(ctx = {}) {
-  return accountManager.getPlanForContext(ctx);
-}
+async function getAccountPlan(ctx = {}) { return accountManager.getPlanForContext(ctx); }
+async function getAccount(ctx = {}) { if (ctx.account) return ctx.account; return accountManager.getAccountForAdmin(ctx.adminId || ctx.admin_id || ''); }
 
-async function getAccount(ctx = {}) {
-  if (ctx.account) return ctx.account;
-  return accountManager.getAccountForAdmin(ctx.adminId || ctx.admin_id || '');
+function evaluate(account, ctx = {}, featureCode) {
+  const plan = String(ctx.planCode || ctx.account?.planCode || ctx.account?.plan_code || account?.plan_code || DEFAULT_PLAN).toLowerCase();
+  const override = readOverride(account, featureCode);
+  const value = override === undefined ? valueFromPlan(plan, featureCode) : override;
+  return { ok: value === true || typeof value === 'number', plan, accountId: account?.account_id || account?.accountId || '', featureCode, value: value === undefined ? false : value };
 }
 
 async function can(ctx = {}, featureCode) {
   const account = await getAccount(ctx);
-  const plan = String(ctx.planCode || ctx.account?.planCode || ctx.account?.plan_code || account?.plan_code || DEFAULT_PLAN).toLowerCase();
-  const override = readOverride(account, featureCode);
-  const value = override === undefined ? valueFromPlan(plan, featureCode) : override;
-  return {
-    ok: value === true || typeof value === 'number',
-    plan,
-    accountId: account?.account_id || account?.accountId || '',
-    featureCode,
-    value: value === undefined ? false : value
-  };
+  return evaluate(account, { ...ctx, account }, featureCode);
 }
 
 async function limit(ctx = {}, featureCode, fallback = 0) {
@@ -101,13 +94,17 @@ async function assertCan(ctx = {}, featureCode) {
 }
 
 async function filterSections(ctx = {}, sections = []) {
-  const out = [];
-  for (const section of sections) {
+  const account = await getAccount(ctx);
+  const enrichedCtx = { ...ctx, account };
+  return sections.map((section) => {
     const feature = section.feature || `${section.id}.enabled`;
-    const allowed = await can(ctx, feature);
-    out.push({ ...section, locked: !allowed.ok, lockReason: allowed.ok ? '' : 'Доступно на расширенном тарифе' });
-  }
-  return out;
+    const allowed = evaluate(account, enrichedCtx, feature);
+    return { ...section, locked: !allowed.ok, lockReason: allowed.ok ? '' : 'Доступно на расширенном тарифе' };
+  });
 }
 
-module.exports = { DEFAULT_PLAN, PLAN_FEATURES, getAccountPlan, getAccount, can, limit, assertCan, filterSections };
+function selfTest() {
+  return { ok: true, runtimeVersion: RUNTIME, batchedFilterSections: true, planCount: Object.keys(PLAN_FEATURES).length, accountManager: accountManager.selfTest ? accountManager.selfTest() : null };
+}
+
+module.exports = { RUNTIME, DEFAULT_PLAN, PLAN_FEATURES, getAccountPlan, getAccount, can, limit, assertCan, filterSections, evaluate, selfTest };
