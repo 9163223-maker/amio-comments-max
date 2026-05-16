@@ -8,6 +8,7 @@ const flowEngine = require('./flowEngine');
 const flowScreen = require('./flowScreen');
 
 const START_ROUTES = new Set(['/start', 'start', 'старт', 'меню', 'main.home', 'main:home', 'home']);
+const HARD_START_ROUTES = new Set(['/start', 'start', 'старт', 'меню']);
 
 async function mainMenu(ctx) {
   const sections = await accessManager.filterSections(ctx, sectionRegistry.listAll());
@@ -79,10 +80,20 @@ function renderFlow(result) {
   });
 }
 
+function shouldResetSessionOnStart(ctx = {}, route = '') {
+  const normalized = String(route || '').trim().toLowerCase();
+  if (HARD_START_ROUTES.has(normalized)) return true;
+  const updateType = String(ctx.updateType || ctx.raw?.update_type || ctx.raw?.type || '').trim().toLowerCase();
+  if (updateType === 'bot_started') return true;
+  if (ctx.payload && Object.keys(ctx.payload || {}).length && ctx.payload.r === 'main.home') return false;
+  return false;
+}
+
 async function dispatch(ctx = {}) {
   const route = String(ctx.route || '').trim();
-  if (START_ROUTES.has(route.toLowerCase()) || !route) {
-    if (ctx.adminId) await stateManager.resetSession(ctx.adminId, 'core_start');
+  const normalizedRoute = route.toLowerCase();
+  if (START_ROUTES.has(normalizedRoute) || !route) {
+    if (ctx.adminId && shouldResetSessionOnStart(ctx, route)) await stateManager.resetSession(ctx.adminId, 'core_start');
     return mainMenu(ctx);
   }
 
@@ -130,4 +141,4 @@ async function dispatch(ctx = {}) {
   });
 }
 
-module.exports = { dispatch, mainMenu, START_ROUTES, backRouteForFlow, iconForFlow, flowErrorScreen, renderFlow };
+module.exports = { dispatch, mainMenu, START_ROUTES, HARD_START_ROUTES, shouldResetSessionOnStart, backRouteForFlow, iconForFlow, flowErrorScreen, renderFlow };
