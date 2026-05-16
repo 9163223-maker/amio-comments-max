@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.12-MANUAL-CANARY-SEND';
-const SOURCE = 'adminkit-core-1-12-manual-canary-send';
+const RUNTIME = 'ADMINKIT-CORE-1.13-MANUAL-SEND-QUERY-FIX';
+const SOURCE = 'adminkit-core-1-13-manual-send-query-fix';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -83,6 +83,7 @@ function selfTest() {
       isolatedCanaryWebhookReady: true,
       manualCanarySendReady: true,
       manualCanarySendRequiresAdminId: true,
+      manualCanarySendQueryParserReady: true,
       coreCanaryDoesNotAutoRegister: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
