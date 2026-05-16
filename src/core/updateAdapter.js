@@ -15,8 +15,11 @@ function cleanValue(value) {
 function extractText(update = {}) {
   return String(
     update.text ||
-    update.message?.text ||
+    update.messageText ||
+    update.inputText ||
+    update.query?.text ||
     update.body?.text ||
+    update.message?.text ||
     update.callback?.payload ||
     update.callback_query?.data ||
     update.payload ||
@@ -53,7 +56,9 @@ function pickValue(update = {}, payload = {}, extra = {}, key, aliases = []) {
 function routeFromUpdate(update = {}) {
   const payload = extractPayload(update);
   if (payload.r) return String(payload.r);
-  const text = extractText(update);
+  const route = cleanValue(update.route || update.query?.route || update.body?.route || '');
+  if (route) return route;
+  const text = cleanValue(extractText(update));
   if (!text) return 'main.home';
   if (text === '/start' || /^старт$/i.test(text) || /^меню$/i.test(text)) return 'main.home';
   return text;
@@ -61,10 +66,14 @@ function routeFromUpdate(update = {}) {
 
 function toContext(update = {}, extra = {}) {
   const payload = extractPayload(update);
+  const text = cleanValue(extra.text || update.text || update.messageText || update.inputText || update.query?.text || update.body?.text || update.message?.text || '');
   return {
     update,
     route: extra.route || routeFromUpdate(update),
     payload,
+    text,
+    messageText: text,
+    inputText: text,
     adminId: extra.adminId || extractAdminId(update),
     planCode: extra.planCode || update.planCode || 'free',
     postId: pickValue(update, payload, extra, 'postId', ['selectedPostId', 'id']),
@@ -89,6 +98,7 @@ async function preview(update = {}, extra = {}) {
       adminId: ctx.adminId,
       planCode: ctx.planCode,
       payload: ctx.payload,
+      text: ctx.text,
       postId: ctx.postId,
       postTitle: ctx.postTitle,
       channelId: ctx.channelId,
