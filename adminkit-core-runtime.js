@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.26-CLEAN-BUTTON-STORAGE-ONLY';
-const SOURCE = 'adminkit-core-1-26-clean-button-storage-only';
+const RUNTIME = 'ADMINKIT-CORE-1.27-CLEAN-BUTTON-CREATE-SAVE';
+const SOURCE = 'adminkit-core-1-27-clean-button-create-save';
 
 function lazy(name) {
   return require(name);
@@ -31,6 +31,7 @@ function selfTest() {
   const postAddonManager = lazy('./src/core/postAddonManager');
   const dataSafety = lazy('./src/core/dataSafety');
   const flowEngine = lazy('./src/core/flowEngine');
+  const flowScreen = lazy('./src/core/flowScreen');
   const maxSendAdapter = lazy('./src/core/maxSendAdapter');
   const routeDispatcher = lazy('./src/core/routeDispatcher');
   const timingStore = lazy('./src/core/coreTimingStore').selfTest();
@@ -39,6 +40,8 @@ function selfTest() {
   const canaryWebhook = lazy('./src/core/coreCanaryWebhook').selfTest();
   const accessSelfTest = accessManager.selfTest ? accessManager.selfTest() : null;
   const accountSelfTest = accountManager.selfTest ? accountManager.selfTest() : null;
+  const routeDispatcherSelfTest = routeDispatcher.selfTest ? routeDispatcher.selfTest() : null;
+  const flowScreenSelfTest = flowScreen.selfTest ? flowScreen.selfTest() : null;
   let callbackBridge = null;
   try { callbackBridge = lazy('./src/core/coreCallbackBridge').selfTest(); } catch (error) { callbackBridge = { ok: false, error: error?.message || String(error) }; }
 
@@ -61,9 +64,12 @@ function selfTest() {
   const buttonsReadOnlyDataReady = buttonsData.ok === true && buttonsData.readOnly === true && buttonsSelfTest?.readOnlyRenderer === true;
   const buttonsCleanStorageOnlyReady = buttonsData.cleanStorageOnly === true && buttonsData.sourceTable === 'ak_post_buttons';
   const buttonsLegacyAdaptersDisabled = buttonsData.legacyAdaptersDisabled === true;
+  const cleanButtonCreateFlowReady = buttonsSelfTest?.cleanCreateFlow === true && buttonsSelfTest?.writesTo === 'ak_post_buttons';
+  const cleanButtonSaveRouteReady = routeDispatcherSelfTest?.cleanButtonSaveRoute === true && routeDispatcherSelfTest?.buttonSaveTable === 'ak_post_buttons';
+  const flowSaveActionReady = flowScreenSelfTest?.saveActionReady === true;
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && mainHomeCallbackFastPath === true && timingStore.ok === true && batchedAccessRender === true && ack400Silent === true && channelsReadOnlyDataReady === true && buttonsReadOnlyDataReady === true && buttonsCleanStorageOnlyReady === true && buttonsLegacyAdaptersDisabled === true,
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && mainHomeCallbackFastPath === true && timingStore.ok === true && batchedAccessRender === true && ack400Silent === true && channelsReadOnlyDataReady === true && buttonsReadOnlyDataReady === true && buttonsCleanStorageOnlyReady === true && buttonsLegacyAdaptersDisabled === true && cleanButtonCreateFlowReady === true && cleanButtonSaveRouteReady === true && flowSaveActionReady === true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
@@ -82,6 +88,7 @@ function selfTest() {
       migrations: 'ak_core_schema_migrations'
     },
     flowEngine: flow,
+    flowScreen: flowScreenSelfTest,
     delivery,
     canaryWebhook,
     callbackBridge,
@@ -92,6 +99,7 @@ function selfTest() {
     channelsSection: channelsSelfTest,
     buttonsDataAdapter: buttonsData,
     buttonsSection: buttonsSelfTest,
+    routeDispatcher: routeDispatcherSelfTest,
     dataSafety: safety,
     constraints: {
       oneActiveScreen: true,
@@ -104,6 +112,10 @@ function selfTest() {
       flowTitleInputReady: true,
       explicitTextInputReady: true,
       staleCallbackGuardReady: true,
+      flowSaveActionReady,
+      cleanButtonCreateFlowReady,
+      cleanButtonSaveRouteReady,
+      cleanButtonSaveWritesAkPostButtons: true,
       maxSendAdapterReady: true,
       maxSendCanaryGated: true,
       coreSendDisabledByDefault: true,
