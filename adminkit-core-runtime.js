@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.10-MAX-SEND-ADAPTER-CANARY';
-const SOURCE = 'adminkit-core-1-10-max-send-adapter-canary';
+const RUNTIME = 'ADMINKIT-CORE-1.11-ISOLATED-CANARY-WEBHOOK';
+const SOURCE = 'adminkit-core-1-11-isolated-canary-webhook';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -63,6 +63,13 @@ function selfTest() {
     },
     flowEngine: flow,
     delivery,
+    canaryWebhook: {
+      runtimeVersion: 'ADMINKIT-CORE-CANARY-WEBHOOK-1.0-ISOLATED-NO-LEGACY-FALLBACK',
+      path: process.env.ADMINKIT_CORE_WEBHOOK_PATH || '/webhook/adminkit-core-canary',
+      isolatedFromLegacyBotJs: true,
+      doesNotAutoRegisterWebhook: true,
+      realSendCanaryGated: true
+    },
     dataSafety: safety,
     constraints: {
       oneActiveScreen: true,
@@ -78,6 +85,8 @@ function selfTest() {
       maxSendAdapterReady: true,
       maxSendCanaryGated: true,
       coreSendDisabledByDefault: true,
+      isolatedCanaryWebhookReady: true,
+      coreCanaryDoesNotAutoRegister: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
       noPublicAppOverride: true
