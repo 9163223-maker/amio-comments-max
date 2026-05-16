@@ -30,6 +30,7 @@ async function coreRenderPreview(planCode = 'free') { try { const core = require
 async function coreUpdatePreview(req) { try { await readRequestJson(req); const adapter = require('./src/core/updateAdapter'); const query = req.query || {}; const body = req.body && Object.keys(req.body).length ? req.body : {}; const route = String(query.route || body.route || 'main.home'); const planCode = String(query.plan || query.planCode || body.planCode || 'free'); const update = Object.keys(body).length ? { ...query, ...body, text: route, planCode } : { ...query, text: route, planCode }; return await adapter.preview(update, { ...query, route, planCode }); } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
 async function coreDeliverPreview(req) { try { await readRequestJson(req); const query = req.query || {}; const body = req.body && Object.keys(req.body).length ? req.body : {}; const updatePreview = await coreUpdatePreview(req); if (!updatePreview.ok) return updatePreview; const sendAdapter = require('./src/core/maxSendAdapter'); const adminId = String(query.adminId || body.adminId || updatePreview.ctx?.adminId || 'debug-admin'); const userId = String(query.userId || body.userId || ''); const chatId = String(query.chatId || body.chatId || ''); const activeMessageId = String(query.activeMessageId || query.messageId || body.activeMessageId || body.messageId || ''); const delivery = await sendAdapter.deliver({ adminId, userId, chatId, activeMessageId, screen: updatePreview.screen, dryRun: true }); return { ok: true, runtimeVersion: updatePreview.runtimeVersion, mode: 'core-deliver-preview-dry-run-only', update: updatePreview, delivery, note: 'Этот endpoint не отправляет сообщения в MAX. Реальная отправка будет подключаться отдельно через canary-gated adapter.' }; } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
 async function coreCanaryPreview(req) { try { await readRequestJson(req); const query = req.query || {}; const body = req.body && Object.keys(req.body).length ? req.body : {}; const route = String(query.route || body.route || 'main.home'); const adminId = String(query.adminId || body.adminId || 'debug-admin'); const updateType = String(query.updateType || body.update_type || body.type || 'message_callback'); const update = Object.keys(body).length ? body : { update_type: updateType, callback: { payload: JSON.stringify({ r: route }), user: { user_id: adminId }, callback_id: 'debug-callback' }, message: { body: { mid: String(query.messageId || '') }, recipient: { chat_id: String(query.chatId || '') } } }; const canary = require('./src/core/coreCanaryWebhook'); const config = require('./config'); return await canary.preview(update, config); } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
+async function coreCanarySend(req) { try { await readRequestJson(req); const query = req.query || {}; const body = req.body && Object.keys(req.body).length ? req.body : {}; const canary = require('./src/core/coreCanaryWebhook'); const config = require('./config'); const dryRun = query.dryRun !== undefined ? query.dryRun : (body.dryRun !== undefined ? body.dryRun : '0'); return await canary.manualSend({ route: String(query.route || body.route || 'main.home'), adminId: String(query.adminId || body.adminId || ''), chatId: String(query.chatId || body.chatId || ''), messageId: String(query.messageId || query.activeMessageId || body.messageId || body.activeMessageId || ''), dryRun, updateType: String(query.updateType || body.updateType || body.update_type || 'message_callback'), text: String(query.text || body.text || '') }, config); } catch (e) { return { ok: false, error: e?.message || String(e), runtimeVersion: 'core-canary-send-route-wrapper' }; } }
 async function coreCanaryWebhook(req, res) { try { await readRequestJson(req); const canary = require('./src/core/coreCanaryWebhook'); const config = require('./config'); return canary.handleWebhook(req, res, config); } catch (e) { noCache(res); return res.status(500).json({ ok: false, error: e?.message || String(e), runtimeVersion: 'core-canary-route-wrapper' }); } }
 function layerSummary() { return loadedLayers.map((x) => ({ path: x.path, ok: !!x.ok, runtimeVersion: x.runtimeVersion || '', error: x.error || '' })); }
 function compactDebug() {
@@ -55,7 +56,8 @@ function compactDebug() {
     commentOpenStateOk: commentRoute.ok !== false,
     coreReady: core.ok === true && core.isCoreRuntime === true,
     coreMaxSendAdapterReady: coreAdapter.ok === true,
-    coreCanaryWebhookReady: coreCanary.ok === true
+    coreCanaryWebhookReady: coreCanary.ok === true,
+    coreManualSendReady: coreCanary.safety?.supportsManualCanarySend === true
   };
   const problems = [];
   if (!checks.hardRoot7525) problems.push('menu-v3-hard-root не указывает на 7525');
@@ -67,6 +69,7 @@ function compactDebug() {
   if (!checks.coreReady) problems.push('adminkit core scaffold не готов');
   if (!checks.coreMaxSendAdapterReady) problems.push('core max send adapter не готов');
   if (!checks.coreCanaryWebhookReady) problems.push('core canary webhook не готов');
+  if (!checks.coreManualSendReady) problems.push('core manual send не готов');
   return {
     ok: problems.length === 0,
     runtimeVersion: RUNTIME,
@@ -88,7 +91,7 @@ function compactDebug() {
       delivery: core.delivery || coreAdapter,
       canaryWebhook: coreCanary
     },
-    note: 'Короткий debug. Полный legacy: /debug/cc7-full или /debug/cc7?full=1. Core: /debug/core, /debug/core-render, /debug/core-update, /debug/core-deliver, /debug/core-canary, /debug/core-canary-preview'
+    note: 'Короткий debug. Полный legacy: /debug/cc7-full или /debug/cc7?full=1. Core: /debug/core, /debug/core-render, /debug/core-update, /debug/core-deliver, /debug/core-canary, /debug/core-canary-preview, /debug/core-canary-send'
   };
 }
 function coreDebug() {
@@ -98,6 +101,7 @@ function coreDebug() {
   if (core.ok !== true) problems.push(core.error || 'core selfTest failed');
   if (core.activeInProduction === true) problems.push('core неожиданно включён в production');
   if (coreCanary.ok !== true) problems.push(coreCanary.error || 'core canary webhook selfTest failed');
+  if (coreCanary.safety?.supportsManualCanarySend !== true) problems.push('core manual send selfTest failed');
   return {
     ok: problems.length === 0,
     debugType: 'adminkit-core-short',
@@ -107,7 +111,7 @@ function coreDebug() {
     core,
     coreCanaryWebhook: coreCanary,
     problems,
-    nextMigrationStep: 'проверить /debug/core-canary-preview, затем включать ADMINKIT_CORE_SEND_ENABLED только для canary admin'
+    nextMigrationStep: 'проверить /debug/core-canary-send?dryRun=1, затем включать ADMINKIT_CORE_SEND_ENABLED только для canary admin'
   };
 }
 function fullDebug() {
@@ -127,8 +131,8 @@ function fullDebug() {
       commentsCore: 'unchanged from accepted CC7.5.6',
       buttonsCore: 'unchanged from accepted CC7.5.16+',
       leadMagnetsCore: 'CC7.5.25 patches visible wording before legacy/base modules are imported',
-      adminkitCore: 'ADMINKIT-CORE-1.10 exists with MAX send adapter and isolated canary webhook; production runtime is still legacy CC7.5.25',
-      expected: ['main menu shows Подарки / Лид-магниты', 'Core delivery preview available at /debug/core-deliver and does not send messages', 'Core canary preview available at /debug/core-canary-preview', 'Core canary webhook path exists but does not auto-register in MAX'],
+      adminkitCore: 'ADMINKIT-CORE-1.12 exists with MAX send adapter, isolated canary webhook and manual canary send; production runtime is still legacy CC7.5.25',
+      expected: ['main menu shows Подарки / Лид-магниты', 'Core delivery preview available at /debug/core-deliver and does not send messages', 'Core canary preview available at /debug/core-canary-preview', 'Core manual canary send available at /debug/core-canary-send', 'Core canary webhook path exists but does not auto-register in MAX'],
       stillLayered: true,
       optimizationNote: 'after canary acceptance merge admin-flow wrappers 7510-7525 into one clean core module'
     },
@@ -150,6 +154,8 @@ function installRoutes(app) {
   app.get('/debug/core-canary', (req, res) => { noCache(res); res.json(coreCanaryInfo()); });
   app.get('/debug/core-canary-preview', async (req, res) => { noCache(res); res.json(await coreCanaryPreview(req)); });
   app.post('/debug/core-canary-preview', async (req, res) => { noCache(res); res.json(await coreCanaryPreview(req)); });
+  app.get('/debug/core-canary-send', async (req, res) => { noCache(res); res.json(await coreCanarySend(req)); });
+  app.post('/debug/core-canary-send', async (req, res) => { noCache(res); res.json(await coreCanarySend(req)); });
   app.all(process.env.ADMINKIT_CORE_WEBHOOK_PATH || '/webhook/adminkit-core-canary', coreCanaryWebhook);
   app.get(['/debug/ping', '/debug/version', '/debug/build-info'], (req, res) => { noCache(res); res.json({ ok: true, runtimeVersion: RUNTIME, displayVersion: 'CC7.5.25', sourceMarker: SOURCE, buildInfo: readBuildInfo(), layers: layerSummary(), core: coreRuntimeInfo(), coreCanaryWebhook: coreCanaryInfo(), generatedAt: new Date().toISOString() }); });
   return app;
