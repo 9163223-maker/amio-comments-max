@@ -2,12 +2,14 @@
 
 const menuRenderer = require('./menuRenderer');
 
+const RUNTIME = 'ADMINKIT-CORE-FLOW-SCREEN-1.1-SAVE-ACTION';
+
 function stepHint(flowId, stepId) {
   if (flowId === 'buttons.create') {
     if (stepId === 'select_post') return 'Сначала выберите пост, к которому нужно добавить CTA-кнопку. После выбора поста Core перейдёт к названию кнопки.';
-    if (stepId === 'input_title') return 'Пост выбран. Теперь введите понятное название кнопки. Например: Купить, Записаться, Получить консультацию.';
-    if (stepId === 'input_url') return 'Введите ссылку, которая откроется по нажатию на кнопку.';
-    if (stepId === 'review_save') return 'Проверьте название и ссылку. После сохранения Core пересоберёт кнопки поста через postAddonManager.';
+    if (stepId === 'input_title') return 'Пост выбран. Теперь введите понятное название кнопки сообщением. Например: Купить, Записаться, Получить консультацию.';
+    if (stepId === 'input_url') return 'Введите ссылку сообщением. Core принимает только http/https URL и сохранит её в ak_post_buttons.';
+    if (stepId === 'review_save') return 'Проверьте название и ссылку. После нажатия “Сохранить” Core запишет кнопку только в ak_post_buttons.';
   }
   if (flowId === 'lead_magnets.create') {
     if (stepId === 'select_post') return 'Сначала выберите пост, к которому нужно добавить лид-магнит.';
@@ -21,11 +23,7 @@ function stepHint(flowId, stepId) {
 }
 
 function postPickerButtons(flowId, posts = []) {
-  if (!posts.length) {
-    return [
-      { text: 'Выбрать тестовый пост', route: 'flow.select_post', data: { flowId, postId: 'debug-post' } }
-    ];
-  }
+  if (!posts.length) return [{ text: 'Выбрать тестовый пост', route: 'flow.select_post', data: { flowId, postId: 'debug-post' } }];
   return posts.slice(0, 10).map((post, index) => ({
     text: `${index + 1}. ${post.title || post.text || post.postId || post.id}`.slice(0, 64),
     route: 'flow.select_post',
@@ -56,25 +54,15 @@ function renderFlowState(result = {}, options = {}) {
   const step = result.step || {};
   const draft = result.draft || {};
   const title = `${options.icon || ''} ${flow.title || 'Сценарий'} — ${step.title || 'шаг'}`.trim();
-  const body = [
-    stepHint(flow.id, step.id),
-    '',
-    `Flow: ${flow.id || 'unknown'}`,
-    `Step: ${step.id || 'unknown'}`,
-    ...draftSummary(flow.id, draft)
-  ];
-
+  const body = [stepHint(flow.id, step.id), '', `Flow: ${flow.id || 'unknown'}`, `Step: ${step.id || 'unknown'}`, ...draftSummary(flow.id, draft)];
   const buttons = [];
   if (step.id === 'select_post') buttons.push(...postPickerButtons(flow.id, options.posts || []));
+  if (step.id === 'review_save') buttons.push({ text: '✅ Сохранить в Core', route: 'flow.save', data: { flowId: flow.id || '' } });
   if (options.backRoute) buttons.push({ text: '↩️ Назад к разделу', route: options.backRoute });
   buttons.push({ text: '✖️ Отменить сценарий', route: 'flow.cancel', data: { flowId: flow.id || '' } });
-
-  return menuRenderer.renderScreen({
-    title,
-    body,
-    buttons,
-    homeRoute: 'main.home'
-  });
+  return menuRenderer.renderScreen({ title, body, buttons, homeRoute: 'main.home' });
 }
 
-module.exports = { renderFlowState, stepHint, postPickerButtons, draftSummary };
+function selfTest() { return { ok: true, runtimeVersion: RUNTIME, saveActionReady: true }; }
+
+module.exports = { RUNTIME, renderFlowState, stepHint, postPickerButtons, draftSummary, selfTest };
