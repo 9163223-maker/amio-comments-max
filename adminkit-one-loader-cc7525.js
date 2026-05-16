@@ -26,12 +26,14 @@ function commentRouteInfo() { return safe('commentOpenStateRoute', () => require
 function coreRuntimeInfo() { return safe('adminkitCore', () => require('./adminkit-core-runtime').selfTest()); }
 async function coreRenderPreview(planCode = 'free') { try { const core = require('./adminkit-core-runtime'); const screen = await core.renderMain({ planCode }); return { ok: true, runtimeVersion: core.RUNTIME, planCode, screen, buttonTexts: (((screen.attachments || [])[0] || {}).payload || {}).buttons?.flat?.().map((b) => b.text) || [] }; } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
 async function coreUpdatePreview(req) { try { const adapter = require('./src/core/updateAdapter'); const query = req.query || {}; const body = req.body && Object.keys(req.body).length ? req.body : {}; const route = String(query.route || body.route || 'main.home'); const planCode = String(query.plan || query.planCode || body.planCode || 'free'); const update = Object.keys(body).length ? { ...query, ...body, text: route, planCode } : { ...query, text: route, planCode }; return await adapter.preview(update, { ...query, route, planCode }); } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
+async function coreDeliverPreview(req) { try { const query = req.query || {}; const body = req.body && Object.keys(req.body).length ? req.body : {}; const updatePreview = await coreUpdatePreview(req); if (!updatePreview.ok) return updatePreview; const sendAdapter = require('./src/core/maxSendAdapter'); const adminId = String(query.adminId || body.adminId || updatePreview.ctx?.adminId || 'debug-admin'); const userId = String(query.userId || body.userId || ''); const chatId = String(query.chatId || body.chatId || ''); const activeMessageId = String(query.activeMessageId || query.messageId || body.activeMessageId || body.messageId || ''); const delivery = await sendAdapter.deliver({ adminId, userId, chatId, activeMessageId, screen: updatePreview.screen, dryRun: true }); return { ok: true, runtimeVersion: updatePreview.runtimeVersion, mode: 'core-deliver-preview-dry-run-only', update: updatePreview, delivery, note: 'Этот endpoint не отправляет сообщения в MAX. Реальная отправка будет подключаться отдельно через canary-gated adapter.' }; } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
 function layerSummary() { return loadedLayers.map((x) => ({ path: x.path, ok: !!x.ok, runtimeVersion: x.runtimeVersion || '', error: x.error || '' })); }
 function compactDebug() {
   const buildInfo = readBuildInfo() || {};
   const hardRootFile = fileInfo('menu-v3-hard-root.js', 'adminkit-admin-flows-7525');
   const publicApp = fileInfo('public/app.js', 'CC7.5.6-PUBLIC-APP-COMMENT-UI-SEND-GUARD');
   const appOnepass = fileInfo('public/app-onepass.js', 'CC7.5.6-COMMENT-UI-SEND-GUARD');
+  const coreAdapter = safe('maxSendAdapter', () => require('./src/core/maxSendAdapter').selfTest());
   const adminFlow = adminFlowInfo();
   const postPatcher = postPatcherInfo();
   const commentRoute = commentRouteInfo();
@@ -46,7 +48,8 @@ function compactDebug() {
     appJsOverrideRemoved: true,
     postPatcherOk: postPatcher.ok !== false,
     commentOpenStateOk: commentRoute.ok !== false,
-    coreReady: core.ok === true && core.isCoreRuntime === true
+    coreReady: core.ok === true && core.isCoreRuntime === true,
+    coreMaxSendAdapterReady: coreAdapter.ok === true
   };
   const problems = [];
   if (!checks.hardRoot7525) problems.push('menu-v3-hard-root не указывает на 7525');
@@ -56,6 +59,7 @@ function compactDebug() {
   if (!checks.postPatcherOk) problems.push('post patcher selfTest не ok');
   if (!checks.commentOpenStateOk) problems.push('comment open state route не ok');
   if (!checks.coreReady) problems.push('adminkit core scaffold не готов');
+  if (!checks.coreMaxSendAdapterReady) problems.push('core max send adapter не готов');
   return {
     ok: problems.length === 0,
     runtimeVersion: RUNTIME,
@@ -73,9 +77,10 @@ function compactDebug() {
       runtimeVersion: core.runtimeVersion || '',
       activeInProduction: core.activeInProduction === true,
       sections: core.sections || [],
-      constraints: core.constraints || {}
+      constraints: core.constraints || {},
+      delivery: core.delivery || coreAdapter
     },
-    note: 'Короткий debug. Полный legacy: /debug/cc7-full или /debug/cc7?full=1. Core: /debug/core, render: /debug/core-render, update dry-run: /debug/core-update'
+    note: 'Короткий debug. Полный legacy: /debug/cc7-full или /debug/cc7?full=1. Core: /debug/core, render: /debug/core-render, update dry-run: /debug/core-update, delivery dry-run: /debug/core-deliver'
   };
 }
 function coreDebug() {
@@ -91,7 +96,7 @@ function coreDebug() {
     productionStillLegacyLayered: true,
     core,
     problems,
-    nextMigrationStep: 'проверить /debug/core-update, затем сделать Core adapter для реальной отправки через MAX без fallback в legacy'
+    nextMigrationStep: 'проверить /debug/core-deliver, затем подключать Core delivery только через canary-gated webhook path без fallback в legacy'
   };
 }
 function fullDebug() {
@@ -103,14 +108,15 @@ function fullDebug() {
     hardRootFile: fileInfo('menu-v3-hard-root.js', 'adminkit-admin-flows-7525'),
     adminFlow: adminFlowInfo(),
     core: coreRuntimeInfo(),
+    coreMaxSendAdapter: safe('maxSendAdapter', () => require('./src/core/maxSendAdapter').selfTest()),
     postPatcher: postPatcherInfo(),
     buildInfo: readBuildInfo(), loadedLayers,
     audit: {
       commentsCore: 'unchanged from accepted CC7.5.6',
       buttonsCore: 'unchanged from accepted CC7.5.16+',
       leadMagnetsCore: 'CC7.5.25 patches visible wording before legacy/base modules are imported',
-      adminkitCore: 'ADMINKIT-CORE-1.1 exists but is not production runtime yet',
-      expected: ['main menu shows Подарки / Лид-магниты', 'step titles show Лид-магниты', 'manager buttons show лид-магнит, not подарок', 'Start reset remains from 7.5.24', 'step 4 -> 5 cleanup remains from 7.5.23'],
+      adminkitCore: 'ADMINKIT-CORE-1.10 exists with MAX send adapter, but production runtime is still legacy CC7.5.25',
+      expected: ['main menu shows Подарки / Лид-магниты', 'step titles show Лид-магниты', 'manager buttons show лид-магнит, not подарок', 'Start reset remains from 7.5.24', 'step 4 -> 5 cleanup remains from 7.5.23', 'Core delivery preview available at /debug/core-deliver and does not send messages'],
       stillLayered: true,
       optimizationNote: 'after acceptance merge admin-flow wrappers 7510-7525 into one clean core module'
     },
@@ -127,6 +133,8 @@ function installRoutes(app) {
   app.get('/debug/core-render', async (req, res) => { noCache(res); res.json(await coreRenderPreview(String(req.query?.plan || 'free'))); });
   app.get('/debug/core-update', async (req, res) => { noCache(res); res.json(await coreUpdatePreview(req)); });
   app.post('/debug/core-update', async (req, res) => { noCache(res); res.json(await coreUpdatePreview(req)); });
+  app.get('/debug/core-deliver', async (req, res) => { noCache(res); res.json(await coreDeliverPreview(req)); });
+  app.post('/debug/core-deliver', async (req, res) => { noCache(res); res.json(await coreDeliverPreview(req)); });
   app.get(['/debug/ping', '/debug/version', '/debug/build-info'], (req, res) => { noCache(res); res.json({ ok: true, runtimeVersion: RUNTIME, displayVersion: 'CC7.5.25', sourceMarker: SOURCE, buildInfo: readBuildInfo(), layers: layerSummary(), core: coreRuntimeInfo(), generatedAt: new Date().toISOString() }); });
   return app;
 }
