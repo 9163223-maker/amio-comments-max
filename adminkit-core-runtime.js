@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.4-FLOW-ENGINE';
-const SOURCE = 'adminkit-core-1-4-flow-engine';
+const RUNTIME = 'ADMINKIT-CORE-1.5-FLOW-ROUTES';
+const SOURCE = 'adminkit-core-1-5-flow-routes';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -63,6 +63,7 @@ function selfTest() {
       planAccessReady: true,
       postAddonsDbReady: true,
       flowEngineReady: true,
+      flowCancelRouteReady: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
       noPublicAppOverride: true
