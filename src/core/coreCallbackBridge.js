@@ -4,82 +4,22 @@ const config = require('../../config');
 const core = require('../../adminkit-core-runtime');
 const updateAdapter = require('./updateAdapter');
 const maxSendAdapter = require('./maxSendAdapter');
+const { answerCallback } = require('../../services/maxApi');
 
-const RUNTIME = 'ADMINKIT-CORE-CALLBACK-BRIDGE-1.0-CANARY-ONLY';
+const RUNTIME = 'ADMINKIT-CORE-CALLBACK-BRIDGE-1.1-FAST-ACK-TIMING';
 
-function clean(value) {
-  return String(value ?? '').trim();
-}
-
-function safeJson(value) {
-  if (!value) return {};
-  if (typeof value === 'object') return value;
-  try { const parsed = JSON.parse(String(value)); return parsed && typeof parsed === 'object' ? parsed : {}; } catch { return {}; }
-}
-
-function first(...values) {
-  for (const value of values) {
-    const s = clean(value);
-    if (s) return s;
-  }
-  return '';
-}
-
-function callbackOf(update = {}) {
-  return update.callback || update.data?.callback || update.message?.callback || update.update?.callback || null;
-}
-
-function messageOf(update = {}) {
-  const c = callbackOf(update) || {};
-  return update.message || update.data?.message || c.message || update.data?.callback?.message || null;
-}
-
-function payloadOf(update = {}) {
-  const c = callbackOf(update) || {};
-  return safeJson(c.payload || c.data || c.callback_data || c.value || update.payload || update.callback_payload || '');
-}
-
-function adminIdOf(update = {}) {
-  const c = callbackOf(update) || {};
-  const m = messageOf(update) || {};
-  return first(
-    c.user?.user_id,
-    c.user?.id,
-    c.sender?.user_id,
-    c.sender?.id,
-    update.user?.user_id,
-    update.user?.id,
-    update.sender?.user_id,
-    update.sender?.id,
-    m.sender?.user_id,
-    m.sender?.id,
-    update.user_id,
-    update.userId
-  );
-}
-
-function callbackIdOf(update = {}) {
-  const c = callbackOf(update) || {};
-  return first(c.callback_id, c.callbackId, c.id, update.callback_id, update.callbackId);
-}
-
-function messageIdOf(update = {}) {
-  const c = callbackOf(update) || {};
-  const m = messageOf(update) || {};
-  const body = m.body || {};
-  return first(c.message?.body?.mid, c.message?.mid, c.message?.message_id, c.message?.id, body.mid, body.message_id, body.messageId, m.mid, m.message_id, m.messageId, m.id);
-}
-
-function chatIdOf(update = {}) {
-  const c = callbackOf(update) || {};
-  const m = messageOf(update) || {};
-  return first(m.recipient?.chat_id, m.recipient?.id, c.message?.recipient?.chat_id, c.message?.recipient?.id, m.chat_id, m.chat?.id, update.chat_id);
-}
-
-function isCallbackUpdate(update = {}) {
-  const type = clean(update.update_type || update.type).toLowerCase();
-  return type === 'message_callback' || !!callbackOf(update);
-}
+function now() { return Date.now(); }
+function clean(value) { return String(value ?? '').trim(); }
+function safeJson(value) { if (!value) return {}; if (typeof value === 'object') return value; try { const parsed = JSON.parse(String(value)); return parsed && typeof parsed === 'object' ? parsed : {}; } catch { return {}; } }
+function first(...values) { for (const value of values) { const s = clean(value); if (s) return s; } return ''; }
+function callbackOf(update = {}) { return update.callback || update.data?.callback || update.message?.callback || update.update?.callback || null; }
+function messageOf(update = {}) { const c = callbackOf(update) || {}; return update.message || update.data?.message || c.message || update.data?.callback?.message || null; }
+function payloadOf(update = {}) { const c = callbackOf(update) || {}; return safeJson(c.payload || c.data || c.callback_data || c.value || update.payload || update.callback_payload || ''); }
+function adminIdOf(update = {}) { const c = callbackOf(update) || {}; const m = messageOf(update) || {}; return first(c.user?.user_id, c.user?.id, c.sender?.user_id, c.sender?.id, update.user?.user_id, update.user?.id, update.sender?.user_id, update.sender?.id, m.sender?.user_id, m.sender?.id, update.user_id, update.userId); }
+function callbackIdOf(update = {}) { const c = callbackOf(update) || {}; return first(c.callback_id, c.callbackId, c.id, update.callback_id, update.callbackId); }
+function messageIdOf(update = {}) { const c = callbackOf(update) || {}; const m = messageOf(update) || {}; const body = m.body || {}; return first(c.message?.body?.mid, c.message?.mid, c.message?.message_id, c.message?.id, body.mid, body.message_id, body.messageId, m.mid, m.message_id, m.messageId, m.id); }
+function chatIdOf(update = {}) { const c = callbackOf(update) || {}; const m = messageOf(update) || {}; return first(m.recipient?.chat_id, m.recipient?.id, c.message?.recipient?.chat_id, c.message?.recipient?.id, m.chat_id, m.chat?.id, update.chat_id); }
+function isCallbackUpdate(update = {}) { const type = clean(update.update_type || update.type).toLowerCase(); return type === 'message_callback' || !!callbackOf(update); }
 
 function shouldTry(update = {}) {
   if (!isCallbackUpdate(update)) return { ok: false, reason: 'not_callback' };
@@ -93,13 +33,28 @@ function shouldTry(update = {}) {
   return { ok: true, payload, route, adminId, gate };
 }
 
+async function fastAck(callbackId = '') {
+  const started = now();
+  if (!callbackId) return { ok: false, skipped: true, reason: 'callback_id_missing', ms: 0 };
+  try {
+    await answerCallback({ botToken: config.botToken, callbackId, notification: '' });
+    return { ok: true, ms: now() - started };
+  } catch (error) {
+    return { ok: false, error: error?.message || String(error), ms: now() - started };
+  }
+}
+
 async function tryHandleUpdate(update = {}) {
+  const started = now();
   const decision = shouldTry(update);
-  if (!decision.ok) return { handled: false, runtimeVersion: RUNTIME, ...decision };
+  if (!decision.ok) return { handled: false, runtimeVersion: RUNTIME, ...decision, timing: { totalMs: now() - started } };
 
   const activeMessageId = messageIdOf(update);
   const chatId = chatIdOf(update);
   const callbackId = callbackIdOf(update);
+  const ack = await fastAck(callbackId);
+  const afterAck = now();
+
   const ctx = updateAdapter.toContext({
     ...update,
     payload: JSON.stringify(decision.payload || {}),
@@ -116,17 +71,19 @@ async function tryHandleUpdate(update = {}) {
   });
 
   const screen = await core.dispatch(ctx);
+  const afterRender = now();
   const delivery = await maxSendAdapter.deliver({
     botToken: config.botToken,
     adminId: decision.adminId,
     userId: decision.adminId,
     chatId,
     activeMessageId,
-    callbackId,
+    callbackId: '',
     screen,
     preferEdit: Boolean(activeMessageId),
     dryRun: false
   });
+  const finished = now();
 
   return {
     handled: true,
@@ -139,32 +96,29 @@ async function tryHandleUpdate(update = {}) {
     chatId,
     deliveryMode: delivery.mode,
     sent: delivery.mode !== 'dry-run-no-send',
-    gate: delivery.gate || decision.gate
+    gate: delivery.gate || decision.gate,
+    timing: {
+      totalMs: finished - started,
+      ackMs: ack.ms || 0,
+      beforeAckMs: afterAck - started,
+      renderMs: afterRender - afterAck,
+      deliveryMs: finished - afterRender,
+      ackOk: ack.ok === true,
+      ackError: ack.error || ''
+    }
   };
 }
 
-async function tryHandleExpress(req = {}) {
-  return tryHandleUpdate(req.body || {});
-}
+async function tryHandleExpress(req = {}) { return tryHandleUpdate(req.body || {}); }
 
 function selfTest() {
   return {
     ok: true,
     runtimeVersion: RUNTIME,
     coreRuntimeVersion: core.RUNTIME,
-    policy: 'handle_only_callback_payload_r_for_canary_admins_no_legacy_fallback_inside_bridge',
-    gate: {
-      sendEnabled: maxSendAdapter.sendEnabled(),
-      canaryAll: maxSendAdapter.canaryAllEnabled(),
-      allowedAdminsConfigured: maxSendAdapter.allowedAdmins().length
-    },
-    safety: {
-      requiresPayloadR: true,
-      requiresCanaryAdmin: true,
-      requiresCoreSendEnabled: true,
-      ignoresNonCoreCallbacks: true,
-      leavesLegacyFallbackToOuterRouter: true
-    }
+    policy: 'fast_answer_callback_first_then_core_dispatch_for_canary_payload_r',
+    gate: { sendEnabled: maxSendAdapter.sendEnabled(), canaryAll: maxSendAdapter.canaryAllEnabled(), allowedAdminsConfigured: maxSendAdapter.allowedAdmins().length },
+    safety: { requiresPayloadR: true, requiresCanaryAdmin: true, requiresCoreSendEnabled: true, ignoresNonCoreCallbacks: true, leavesLegacyFallbackToOuterRouter: true, fastAckBeforeRender: true, timingDiagnostics: true }
   };
 }
 
