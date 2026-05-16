@@ -5,6 +5,8 @@ const postAddonManager = require('../core/postAddonManager');
 const flowEngine = require('../core/flowEngine');
 const flowScreen = require('../core/flowScreen');
 
+const RUNTIME = 'ADMINKIT-CORE-LEAD-MAGNETS-SECTION-1.1-CLEAN-FLOW-AUDIT';
+
 function describeMaterial(item) {
   if (!item) return 'не задан';
   if (item.url) return `ссылка: ${item.url}`;
@@ -39,7 +41,8 @@ module.exports = {
     const body = [
       `Пост: ${summary.postKey}`,
       `Лид-магниты сейчас: ${count}`,
-      `Лимит тарифа: ${max}`
+      `Лимит тарифа: ${max}`,
+      'Core-режим: clean-flow + read-only overview. Legacy adapters не используются.'
     ];
 
     if (!count) {
@@ -67,7 +70,10 @@ module.exports = {
   async startCreateFlow(ctx = {}) {
     const result = await flowEngine.start(ctx, 'lead_magnets.create', {
       postId: ctx.postId || ctx.payload?.postId || '',
-      channelId: ctx.channelId || ctx.payload?.channelId || ''
+      channelId: ctx.channelId || ctx.payload?.channelId || '',
+      source: 'adminkit-core',
+      storage: 'ak_post_lead_magnets',
+      legacyAdaptersDisabled: true
     });
     if (!result.ok) {
       return menuRenderer.renderScreen({
@@ -83,5 +89,19 @@ module.exports = {
   async handleAction(ctx) {
     if (ctx.route === 'lead_magnets.add') return this.startCreateFlow(ctx);
     return this.renderHome(ctx);
+  },
+
+  selfTest() {
+    return {
+      ok: true,
+      runtimeVersion: RUNTIME,
+      readOnlyRenderer: true,
+      cleanCreateFlow: true,
+      writesTo: 'ak_post_lead_magnets',
+      legacyAdaptersUsed: false,
+      dangerousActionsDisabled: true,
+      manageActionsEnabled: false,
+      nextStep: 'после проверки buttons.create переиспользовать тот же text-input bridge для lead_magnets.create'
+    };
   }
 };
