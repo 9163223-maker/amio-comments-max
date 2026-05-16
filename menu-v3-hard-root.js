@@ -1,1 +1,1 @@
-module.exports = require('./adminkit-admin-flows-7524');
+module.exports = require('./adminkit-admin-flows-7525');
