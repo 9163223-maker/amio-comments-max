@@ -4,6 +4,7 @@ const sectionRegistry = require('./sectionRegistry');
 const accessManager = require('./accessManager');
 const menuRenderer = require('./menuRenderer');
 const stateManager = require('./stateManager');
+const flowEngine = require('./flowEngine');
 
 const START_ROUTES = new Set(['/start', 'start', 'старт', 'меню', 'main.home', 'main:home', 'home']);
 
@@ -17,6 +18,16 @@ async function dispatch(ctx = {}) {
   if (START_ROUTES.has(route.toLowerCase()) || !route) {
     if (ctx.adminId) await stateManager.resetSession(ctx.adminId, 'core_start');
     return mainMenu(ctx);
+  }
+
+  if (route === 'flow.cancel') {
+    await flowEngine.cancel(ctx, 'core_flow_cancel');
+    return menuRenderer.renderScreen({
+      title: '✖️ Сценарий отменён',
+      body: ['Текущий пошаговый сценарий очищен. Можно выбрать раздел заново.'],
+      buttons: [],
+      homeRoute: 'main.home'
+    });
   }
 
   if (route === 'billing.locked') {
