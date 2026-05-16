@@ -2,6 +2,8 @@
 
 const menuRenderer = require('../core/menuRenderer');
 const postAddonManager = require('../core/postAddonManager');
+const flowEngine = require('../core/flowEngine');
+const flowScreen = require('../core/flowScreen');
 
 function describeMaterial(item) {
   if (!item) return 'не задан';
@@ -62,7 +64,24 @@ module.exports = {
     });
   },
 
+  async startCreateFlow(ctx = {}) {
+    const result = await flowEngine.start(ctx, 'lead_magnets.create', {
+      postId: ctx.postId || ctx.payload?.postId || '',
+      channelId: ctx.channelId || ctx.payload?.channelId || ''
+    });
+    if (!result.ok) {
+      return menuRenderer.renderScreen({
+        title: '⚠️ Не удалось начать сценарий',
+        body: [`Ошибка: ${result.error || 'unknown'}`],
+        buttons: [{ text: '↩️ Назад к лид-магнитам', route: 'lead_magnets.home' }],
+        homeRoute: 'main.home'
+      });
+    }
+    return flowScreen.renderFlowState(result, { icon: '🎁', backRoute: 'lead_magnets.home' });
+  },
+
   async handleAction(ctx) {
+    if (ctx.route === 'lead_magnets.add') return this.startCreateFlow(ctx);
     return this.renderHome(ctx);
   }
 };
