@@ -4,9 +4,10 @@ const config = require('../../config');
 const core = require('../../adminkit-core-runtime');
 const updateAdapter = require('./updateAdapter');
 const maxSendAdapter = require('./maxSendAdapter');
+const timingStore = require('./coreTimingStore');
 const { answerCallback } = require('../../services/maxApi');
 
-const RUNTIME = 'ADMINKIT-CORE-CALLBACK-BRIDGE-1.1-FAST-ACK-TIMING';
+const RUNTIME = 'ADMINKIT-CORE-CALLBACK-BRIDGE-1.2-TIMING-STORE';
 
 function now() { return Date.now(); }
 function clean(value) { return String(value ?? '').trim(); }
@@ -84,6 +85,25 @@ async function tryHandleUpdate(update = {}) {
     dryRun: false
   });
   const finished = now();
+  const timing = {
+    totalMs: finished - started,
+    ackMs: ack.ms || 0,
+    beforeAckMs: afterAck - started,
+    renderMs: afterRender - afterAck,
+    deliveryMs: finished - afterRender,
+    ackOk: ack.ok === true,
+    ackError: ack.error || ''
+  };
+  timingStore.push({
+    kind: 'callback',
+    route: ctx.route,
+    adminId: decision.adminId,
+    deliveryMode: delivery.mode,
+    sent: delivery.mode !== 'dry-run-no-send',
+    timing,
+    gate: delivery.gate || decision.gate,
+    note: activeMessageId ? 'edit existing message' : 'send new message fallback'
+  });
 
   return {
     handled: true,
@@ -97,15 +117,7 @@ async function tryHandleUpdate(update = {}) {
     deliveryMode: delivery.mode,
     sent: delivery.mode !== 'dry-run-no-send',
     gate: delivery.gate || decision.gate,
-    timing: {
-      totalMs: finished - started,
-      ackMs: ack.ms || 0,
-      beforeAckMs: afterAck - started,
-      renderMs: afterRender - afterAck,
-      deliveryMs: finished - afterRender,
-      ackOk: ack.ok === true,
-      ackError: ack.error || ''
-    }
+    timing
   };
 }
 
@@ -116,9 +128,10 @@ function selfTest() {
     ok: true,
     runtimeVersion: RUNTIME,
     coreRuntimeVersion: core.RUNTIME,
-    policy: 'fast_answer_callback_first_then_core_dispatch_for_canary_payload_r',
+    policy: 'fast_answer_callback_first_then_core_dispatch_for_canary_payload_r_with_timing_store',
     gate: { sendEnabled: maxSendAdapter.sendEnabled(), canaryAll: maxSendAdapter.canaryAllEnabled(), allowedAdminsConfigured: maxSendAdapter.allowedAdmins().length },
-    safety: { requiresPayloadR: true, requiresCanaryAdmin: true, requiresCoreSendEnabled: true, ignoresNonCoreCallbacks: true, leavesLegacyFallbackToOuterRouter: true, fastAckBeforeRender: true, timingDiagnostics: true }
+    timingStore: timingStore.selfTest(),
+    safety: { requiresPayloadR: true, requiresCanaryAdmin: true, requiresCoreSendEnabled: true, ignoresNonCoreCallbacks: true, leavesLegacyFallbackToOuterRouter: true, fastAckBeforeRender: true, timingDiagnostics: true, timingStoreReady: true }
   };
 }
 
