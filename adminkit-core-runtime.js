@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.27-CLEAN-BUTTON-CREATE-SAVE';
-const SOURCE = 'adminkit-core-1-27-clean-button-create-save';
+const RUNTIME = 'ADMINKIT-CORE-1.28-CLEAN-BUTTON-SELFTEST-GREEN';
+const SOURCE = 'adminkit-core-1-28-clean-button-selftest-green';
 
 function lazy(name) {
   return require(name);
