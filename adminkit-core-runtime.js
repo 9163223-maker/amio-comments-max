@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.8-FLOW-TITLE-INPUT';
-const SOURCE = 'adminkit-core-1-8-flow-title-input';
+const RUNTIME = 'ADMINKIT-CORE-1.9-FLOW-TEXT-INPUT-CLEAN';
+const SOURCE = 'adminkit-core-1-9-flow-text-input-clean';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -66,6 +66,7 @@ function selfTest() {
       flowCancelRouteReady: true,
       flowPostSelectReady: true,
       flowTitleInputReady: true,
+      explicitTextInputReady: true,
       staleCallbackGuardReady: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
