@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.9-FLOW-TEXT-INPUT-CLEAN';
-const SOURCE = 'adminkit-core-1-9-flow-text-input-clean';
+const RUNTIME = 'ADMINKIT-CORE-1.10-MAX-SEND-ADAPTER-CANARY';
+const SOURCE = 'adminkit-core-1-10-max-send-adapter-canary';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -20,6 +20,10 @@ async function renderMain(ctx = {}) {
   return lazy('./src/core/routeDispatcher').mainMenu(ctx);
 }
 
+async function deliverScreen(args = {}) {
+  return lazy('./src/core/maxSendAdapter').deliver(args);
+}
+
 function selfTest() {
   const sectionRegistry = lazy('./src/core/sectionRegistry');
   const accessManager = lazy('./src/core/accessManager');
@@ -27,6 +31,7 @@ function selfTest() {
   const postAddonManager = lazy('./src/core/postAddonManager');
   const dataSafety = lazy('./src/core/dataSafety');
   const flowEngine = lazy('./src/core/flowEngine');
+  const maxSendAdapter = lazy('./src/core/maxSendAdapter');
 
   const sections = sectionRegistry.listAll();
   const ids = sections.map((section) => section.id);
@@ -35,9 +40,10 @@ function selfTest() {
   const missing = required.filter((id) => !ids.includes(id));
   const safety = dataSafety.policySummary();
   const flow = flowEngine.selfTest();
+  const delivery = maxSendAdapter.selfTest();
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard'),
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
@@ -56,6 +62,7 @@ function selfTest() {
       migrations: 'ak_core_schema_migrations'
     },
     flowEngine: flow,
+    delivery,
     dataSafety: safety,
     constraints: {
       oneActiveScreen: true,
@@ -68,6 +75,9 @@ function selfTest() {
       flowTitleInputReady: true,
       explicitTextInputReady: true,
       staleCallbackGuardReady: true,
+      maxSendAdapterReady: true,
+      maxSendCanaryGated: true,
+      coreSendDisabledByDefault: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
       noPublicAppOverride: true
@@ -81,5 +91,6 @@ module.exports = {
   isCoreRuntime: true,
   dispatch,
   renderMain,
+  deliverScreen,
   selfTest
 };
