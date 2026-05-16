@@ -42,8 +42,26 @@ function flowErrorScreen(selected, ctx = {}) {
     });
   }
 
+  if (error === 'text_required') {
+    return menuRenderer.renderScreen({
+      title: '⚠️ Нужно ввести текст',
+      body: ['Введите название и повторите шаг.', selected?.flow?.id ? `Сценарий: ${selected.flow.id}` : ''],
+      buttons: [{ text: '↩️ Назад к разделу', route: backRouteForFlow(ctx.payload?.flowId || selected?.flow?.id || '') }],
+      homeRoute: 'main.home'
+    });
+  }
+
+  if (error === 'text_too_long') {
+    return menuRenderer.renderScreen({
+      title: '⚠️ Название слишком длинное',
+      body: [`Максимум: ${selected.limit || 64} символа.`, 'Сократите название и повторите шаг.'],
+      buttons: [{ text: '↩️ Назад к разделу', route: backRouteForFlow(ctx.payload?.flowId || selected?.flow?.id || '') }],
+      homeRoute: 'main.home'
+    });
+  }
+
   return menuRenderer.renderScreen({
-    title: '⚠️ Не удалось выбрать пост',
+    title: '⚠️ Не удалось выполнить шаг',
     body: [
       `Ошибка: ${error}`,
       selected?.expected ? `Ожидался шаг: ${selected.expected}` : '',
@@ -51,6 +69,13 @@ function flowErrorScreen(selected, ctx = {}) {
     ].filter(Boolean),
     buttons: [{ text: '↩️ Назад к разделу', route: backRouteForFlow(ctx.payload?.flowId || selected?.flow?.id || '') }],
     homeRoute: 'main.home'
+  });
+}
+
+function renderFlow(result) {
+  return flowScreen.renderFlowState(result, {
+    icon: iconForFlow(result.flow?.id || ''),
+    backRoute: backRouteForFlow(result.flow?.id || '')
   });
 }
 
@@ -74,10 +99,13 @@ async function dispatch(ctx = {}) {
   if (route === 'flow.select_post') {
     const selected = await flowEngine.selectPost(ctx);
     if (!selected.ok) return flowErrorScreen(selected, ctx);
-    return flowScreen.renderFlowState(selected, {
-      icon: iconForFlow(selected.flow?.id || ''),
-      backRoute: backRouteForFlow(selected.flow?.id || '')
-    });
+    return renderFlow(selected);
+  }
+
+  if (route === 'flow.input' || route === 'flow.input_text') {
+    const accepted = await flowEngine.acceptInput(ctx);
+    if (!accepted.ok) return flowErrorScreen(accepted, ctx);
+    return renderFlow(accepted);
   }
 
   if (route === 'billing.locked') {
@@ -102,4 +130,4 @@ async function dispatch(ctx = {}) {
   });
 }
 
-module.exports = { dispatch, mainMenu, START_ROUTES, backRouteForFlow, iconForFlow, flowErrorScreen };
+module.exports = { dispatch, mainMenu, START_ROUTES, backRouteForFlow, iconForFlow, flowErrorScreen, renderFlow };
