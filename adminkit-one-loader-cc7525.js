@@ -24,9 +24,13 @@ function adminFlowInfo() { return safe('adminFlow', () => require('./adminkit-ad
 function postPatcherInfo() { return safe('postPatcher', () => require('./db-v3-post-patcher').selfTest()); }
 function commentRouteInfo() { return safe('commentOpenStateRoute', () => require('./routes/commentOpenState').selfTest()); }
 function coreRuntimeInfo() { return safe('adminkitCore', () => require('./adminkit-core-runtime').selfTest()); }
+function coreCanaryInfo() { return safe('coreCanaryWebhook', () => require('./src/core/coreCanaryWebhook').selfTest()); }
+async function readRequestJson(req) { if (req.body && typeof req.body === 'object' && Object.keys(req.body).length) return req.body; if (String(req.method || '').toUpperCase() === 'GET') return {}; return new Promise((resolve) => { let raw = ''; let done = false; const finish = (value) => { if (done) return; done = true; req.body = value || {}; resolve(req.body); }; try { req.on('data', (chunk) => { raw += chunk; if (raw.length > 1024 * 1024) finish({}); }); req.on('end', () => { if (!raw) return finish({}); try { finish(JSON.parse(raw)); } catch { finish({ rawBody: raw.slice(0, 4096) }); } }); req.on('error', () => finish({})); setTimeout(() => finish({}), 2500); } catch { finish({}); } }); }
 async function coreRenderPreview(planCode = 'free') { try { const core = require('./adminkit-core-runtime'); const screen = await core.renderMain({ planCode }); return { ok: true, runtimeVersion: core.RUNTIME, planCode, screen, buttonTexts: (((screen.attachments || [])[0] || {}).payload || {}).buttons?.flat?.().map((b) => b.text) || [] }; } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
-async function coreUpdatePreview(req) { try { const adapter = require('./src/core/updateAdapter'); const query = req.query || {}; const body = req.body && Object.keys(req.body).length ? req.body : {}; const route = String(query.route || body.route || 'main.home'); const planCode = String(query.plan || query.planCode || body.planCode || 'free'); const update = Object.keys(body).length ? { ...query, ...body, text: route, planCode } : { ...query, text: route, planCode }; return await adapter.preview(update, { ...query, route, planCode }); } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
-async function coreDeliverPreview(req) { try { const query = req.query || {}; const body = req.body && Object.keys(req.body).length ? req.body : {}; const updatePreview = await coreUpdatePreview(req); if (!updatePreview.ok) return updatePreview; const sendAdapter = require('./src/core/maxSendAdapter'); const adminId = String(query.adminId || body.adminId || updatePreview.ctx?.adminId || 'debug-admin'); const userId = String(query.userId || body.userId || ''); const chatId = String(query.chatId || body.chatId || ''); const activeMessageId = String(query.activeMessageId || query.messageId || body.activeMessageId || body.messageId || ''); const delivery = await sendAdapter.deliver({ adminId, userId, chatId, activeMessageId, screen: updatePreview.screen, dryRun: true }); return { ok: true, runtimeVersion: updatePreview.runtimeVersion, mode: 'core-deliver-preview-dry-run-only', update: updatePreview, delivery, note: 'Этот endpoint не отправляет сообщения в MAX. Реальная отправка будет подключаться отдельно через canary-gated adapter.' }; } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
+async function coreUpdatePreview(req) { try { await readRequestJson(req); const adapter = require('./src/core/updateAdapter'); const query = req.query || {}; const body = req.body && Object.keys(req.body).length ? req.body : {}; const route = String(query.route || body.route || 'main.home'); const planCode = String(query.plan || query.planCode || body.planCode || 'free'); const update = Object.keys(body).length ? { ...query, ...body, text: route, planCode } : { ...query, text: route, planCode }; return await adapter.preview(update, { ...query, route, planCode }); } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
+async function coreDeliverPreview(req) { try { await readRequestJson(req); const query = req.query || {}; const body = req.body && Object.keys(req.body).length ? req.body : {}; const updatePreview = await coreUpdatePreview(req); if (!updatePreview.ok) return updatePreview; const sendAdapter = require('./src/core/maxSendAdapter'); const adminId = String(query.adminId || body.adminId || updatePreview.ctx?.adminId || 'debug-admin'); const userId = String(query.userId || body.userId || ''); const chatId = String(query.chatId || body.chatId || ''); const activeMessageId = String(query.activeMessageId || query.messageId || body.activeMessageId || body.messageId || ''); const delivery = await sendAdapter.deliver({ adminId, userId, chatId, activeMessageId, screen: updatePreview.screen, dryRun: true }); return { ok: true, runtimeVersion: updatePreview.runtimeVersion, mode: 'core-deliver-preview-dry-run-only', update: updatePreview, delivery, note: 'Этот endpoint не отправляет сообщения в MAX. Реальная отправка будет подключаться отдельно через canary-gated adapter.' }; } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
+async function coreCanaryPreview(req) { try { await readRequestJson(req); const query = req.query || {}; const body = req.body && Object.keys(req.body).length ? req.body : {}; const route = String(query.route || body.route || 'main.home'); const adminId = String(query.adminId || body.adminId || 'debug-admin'); const updateType = String(query.updateType || body.update_type || body.type || 'message_callback'); const update = Object.keys(body).length ? body : { update_type: updateType, callback: { payload: JSON.stringify({ r: route }), user: { user_id: adminId }, callback_id: 'debug-callback' }, message: { body: { mid: String(query.messageId || '') }, recipient: { chat_id: String(query.chatId || '') } } }; const canary = require('./src/core/coreCanaryWebhook'); const config = require('./config'); return await canary.preview(update, config); } catch (e) { return { ok: false, error: e?.message || String(e) }; } }
+async function coreCanaryWebhook(req, res) { try { await readRequestJson(req); const canary = require('./src/core/coreCanaryWebhook'); const config = require('./config'); return canary.handleWebhook(req, res, config); } catch (e) { noCache(res); return res.status(500).json({ ok: false, error: e?.message || String(e), runtimeVersion: 'core-canary-route-wrapper' }); } }
 function layerSummary() { return loadedLayers.map((x) => ({ path: x.path, ok: !!x.ok, runtimeVersion: x.runtimeVersion || '', error: x.error || '' })); }
 function compactDebug() {
   const buildInfo = readBuildInfo() || {};
@@ -34,6 +38,7 @@ function compactDebug() {
   const publicApp = fileInfo('public/app.js', 'CC7.5.6-PUBLIC-APP-COMMENT-UI-SEND-GUARD');
   const appOnepass = fileInfo('public/app-onepass.js', 'CC7.5.6-COMMENT-UI-SEND-GUARD');
   const coreAdapter = safe('maxSendAdapter', () => require('./src/core/maxSendAdapter').selfTest());
+  const coreCanary = coreCanaryInfo();
   const adminFlow = adminFlowInfo();
   const postPatcher = postPatcherInfo();
   const commentRoute = commentRouteInfo();
@@ -49,7 +54,8 @@ function compactDebug() {
     postPatcherOk: postPatcher.ok !== false,
     commentOpenStateOk: commentRoute.ok !== false,
     coreReady: core.ok === true && core.isCoreRuntime === true,
-    coreMaxSendAdapterReady: coreAdapter.ok === true
+    coreMaxSendAdapterReady: coreAdapter.ok === true,
+    coreCanaryWebhookReady: coreCanary.ok === true
   };
   const problems = [];
   if (!checks.hardRoot7525) problems.push('menu-v3-hard-root не указывает на 7525');
@@ -60,6 +66,7 @@ function compactDebug() {
   if (!checks.commentOpenStateOk) problems.push('comment open state route не ok');
   if (!checks.coreReady) problems.push('adminkit core scaffold не готов');
   if (!checks.coreMaxSendAdapterReady) problems.push('core max send adapter не готов');
+  if (!checks.coreCanaryWebhookReady) problems.push('core canary webhook не готов');
   return {
     ok: problems.length === 0,
     runtimeVersion: RUNTIME,
@@ -78,16 +85,19 @@ function compactDebug() {
       activeInProduction: core.activeInProduction === true,
       sections: core.sections || [],
       constraints: core.constraints || {},
-      delivery: core.delivery || coreAdapter
+      delivery: core.delivery || coreAdapter,
+      canaryWebhook: coreCanary
     },
-    note: 'Короткий debug. Полный legacy: /debug/cc7-full или /debug/cc7?full=1. Core: /debug/core, render: /debug/core-render, update dry-run: /debug/core-update, delivery dry-run: /debug/core-deliver'
+    note: 'Короткий debug. Полный legacy: /debug/cc7-full или /debug/cc7?full=1. Core: /debug/core, /debug/core-render, /debug/core-update, /debug/core-deliver, /debug/core-canary, /debug/core-canary-preview'
   };
 }
 function coreDebug() {
   const core = coreRuntimeInfo();
+  const coreCanary = coreCanaryInfo();
   const problems = [];
   if (core.ok !== true) problems.push(core.error || 'core selfTest failed');
   if (core.activeInProduction === true) problems.push('core неожиданно включён в production');
+  if (coreCanary.ok !== true) problems.push(coreCanary.error || 'core canary webhook selfTest failed');
   return {
     ok: problems.length === 0,
     debugType: 'adminkit-core-short',
@@ -95,8 +105,9 @@ function coreDebug() {
     productionRuntime: RUNTIME,
     productionStillLegacyLayered: true,
     core,
+    coreCanaryWebhook: coreCanary,
     problems,
-    nextMigrationStep: 'проверить /debug/core-deliver, затем подключать Core delivery только через canary-gated webhook path без fallback в legacy'
+    nextMigrationStep: 'проверить /debug/core-canary-preview, затем включать ADMINKIT_CORE_SEND_ENABLED только для canary admin'
   };
 }
 function fullDebug() {
@@ -109,16 +120,17 @@ function fullDebug() {
     adminFlow: adminFlowInfo(),
     core: coreRuntimeInfo(),
     coreMaxSendAdapter: safe('maxSendAdapter', () => require('./src/core/maxSendAdapter').selfTest()),
+    coreCanaryWebhook: coreCanaryInfo(),
     postPatcher: postPatcherInfo(),
     buildInfo: readBuildInfo(), loadedLayers,
     audit: {
       commentsCore: 'unchanged from accepted CC7.5.6',
       buttonsCore: 'unchanged from accepted CC7.5.16+',
       leadMagnetsCore: 'CC7.5.25 patches visible wording before legacy/base modules are imported',
-      adminkitCore: 'ADMINKIT-CORE-1.10 exists with MAX send adapter, but production runtime is still legacy CC7.5.25',
-      expected: ['main menu shows Подарки / Лид-магниты', 'step titles show Лид-магниты', 'manager buttons show лид-магнит, not подарок', 'Start reset remains from 7.5.24', 'step 4 -> 5 cleanup remains from 7.5.23', 'Core delivery preview available at /debug/core-deliver and does not send messages'],
+      adminkitCore: 'ADMINKIT-CORE-1.10 exists with MAX send adapter and isolated canary webhook; production runtime is still legacy CC7.5.25',
+      expected: ['main menu shows Подарки / Лид-магниты', 'Core delivery preview available at /debug/core-deliver and does not send messages', 'Core canary preview available at /debug/core-canary-preview', 'Core canary webhook path exists but does not auto-register in MAX'],
       stillLayered: true,
-      optimizationNote: 'after acceptance merge admin-flow wrappers 7510-7525 into one clean core module'
+      optimizationNote: 'after canary acceptance merge admin-flow wrappers 7510-7525 into one clean core module'
     },
     commentOpenStateRoute: commentRouteInfo(), generatedAt: Date.now() };
 }
@@ -135,7 +147,11 @@ function installRoutes(app) {
   app.post('/debug/core-update', async (req, res) => { noCache(res); res.json(await coreUpdatePreview(req)); });
   app.get('/debug/core-deliver', async (req, res) => { noCache(res); res.json(await coreDeliverPreview(req)); });
   app.post('/debug/core-deliver', async (req, res) => { noCache(res); res.json(await coreDeliverPreview(req)); });
-  app.get(['/debug/ping', '/debug/version', '/debug/build-info'], (req, res) => { noCache(res); res.json({ ok: true, runtimeVersion: RUNTIME, displayVersion: 'CC7.5.25', sourceMarker: SOURCE, buildInfo: readBuildInfo(), layers: layerSummary(), core: coreRuntimeInfo(), generatedAt: new Date().toISOString() }); });
+  app.get('/debug/core-canary', (req, res) => { noCache(res); res.json(coreCanaryInfo()); });
+  app.get('/debug/core-canary-preview', async (req, res) => { noCache(res); res.json(await coreCanaryPreview(req)); });
+  app.post('/debug/core-canary-preview', async (req, res) => { noCache(res); res.json(await coreCanaryPreview(req)); });
+  app.all(process.env.ADMINKIT_CORE_WEBHOOK_PATH || '/webhook/adminkit-core-canary', coreCanaryWebhook);
+  app.get(['/debug/ping', '/debug/version', '/debug/build-info'], (req, res) => { noCache(res); res.json({ ok: true, runtimeVersion: RUNTIME, displayVersion: 'CC7.5.25', sourceMarker: SOURCE, buildInfo: readBuildInfo(), layers: layerSummary(), core: coreRuntimeInfo(), coreCanaryWebhook: coreCanaryInfo(), generatedAt: new Date().toISOString() }); });
   return app;
 }
 function installExpressWrap() { if (Module.__adminkitCc7525ExpressWrap) return; Module.__adminkitCc7525ExpressWrap = true; const prev = Module._load; Module._load = function adminkitCc7525Load(request, parent, isMain) { const loaded = prev.apply(this, arguments); if (String(request) === 'express' && loaded && !loaded.__adminkitCc7525Wrapped) { function wrappedExpress(...args) { return installRoutes(loaded(...args)); } Object.setPrototypeOf(wrappedExpress, loaded); Object.assign(wrappedExpress, loaded); wrappedExpress.__adminkitCc7525Wrapped = true; return wrappedExpress; } return loaded; }; }
