@@ -39,6 +39,18 @@ function postPickerButtons(flowId, posts = []) {
   }));
 }
 
+function draftSummary(flowId = '', draft = {}) {
+  const lines = [];
+  if (draft.postId) lines.push(`Пост: ${draft.postTitle || draft.postId}`);
+  if (flowId === 'buttons.create' && draft.buttonTitle) lines.push(`Название кнопки: ${draft.buttonTitle}`);
+  if (flowId === 'buttons.create' && draft.buttonUrl) lines.push(`Ссылка кнопки: ${draft.buttonUrl}`);
+  if (flowId === 'lead_magnets.create' && draft.leadMagnetTitle) lines.push(`Название лид-магнита: ${draft.leadMagnetTitle}`);
+  if (flowId === 'lead_magnets.create' && draft.materialPreview) lines.push(`Материал: ${draft.materialPreview}`);
+  if (flowId === 'lead_magnets.create' && draft.accessLabel) lines.push(`Условия получения: ${draft.accessLabel}`);
+  if (draft.channelId) lines.push(`Канал: ${draft.channelId}`);
+  return lines;
+}
+
 function renderFlowState(result = {}, options = {}) {
   const flow = result.flow || {};
   const step = result.step || {};
@@ -48,10 +60,9 @@ function renderFlowState(result = {}, options = {}) {
     stepHint(flow.id, step.id),
     '',
     `Flow: ${flow.id || 'unknown'}`,
-    `Step: ${step.id || 'unknown'}`
+    `Step: ${step.id || 'unknown'}`,
+    ...draftSummary(flow.id, draft)
   ];
-  if (draft.postId) body.push(`Пост: ${draft.postTitle || draft.postId}`);
-  if (draft.channelId) body.push(`Канал: ${draft.channelId}`);
 
   const buttons = [];
   if (step.id === 'select_post') buttons.push(...postPickerButtons(flow.id, options.posts || []));
@@ -66,4 +77,4 @@ function renderFlowState(result = {}, options = {}) {
   });
 }
 
-module.exports = { renderFlowState, stepHint, postPickerButtons };
+module.exports = { renderFlowState, stepHint, postPickerButtons, draftSummary };
