@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.17-MAIN-HOME-CALLBACK-FAST-PATH';
-const SOURCE = 'adminkit-core-1-17-main-home-callback-fast-path';
+const RUNTIME = 'ADMINKIT-CORE-1.18-CORE-TIMING-DIAGNOSTICS';
+const SOURCE = 'adminkit-core-1-18-core-timing-diagnostics';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -33,6 +33,7 @@ function selfTest() {
   const flowEngine = lazy('./src/core/flowEngine');
   const maxSendAdapter = lazy('./src/core/maxSendAdapter');
   const routeDispatcher = lazy('./src/core/routeDispatcher');
+  const timingStore = lazy('./src/core/coreTimingStore').selfTest();
   const canaryWebhook = lazy('./src/core/coreCanaryWebhook').selfTest();
   let callbackBridge = null;
   try { callbackBridge = lazy('./src/core/coreCallbackBridge').selfTest(); } catch (error) { callbackBridge = { ok: false, error: error?.message || String(error) }; }
@@ -48,7 +49,7 @@ function selfTest() {
   const mainHomeCallbackFastPath = routeDispatcher.shouldResetSessionOnStart({ payload: { r: 'main.home' } }, 'main.home') === false;
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && mainHomeCallbackFastPath === true,
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && mainHomeCallbackFastPath === true && timingStore.ok === true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
@@ -70,6 +71,7 @@ function selfTest() {
     delivery,
     canaryWebhook,
     callbackBridge,
+    timingStore,
     dataSafety: safety,
     constraints: {
       oneActiveScreen: true,
@@ -91,12 +93,16 @@ function selfTest() {
       manualCanarySendQueryParserReady: true,
       manualCanarySendTokenGuardReady: true,
       manualCanaryRealSendRequiresToken: true,
+      manualCanarySendTimingStoreReady: canaryWebhook.safety?.manualSendTimingStoreReady === true,
       coreCallbackBridgeReady: true,
       coreCallbackBridgeCanaryOnly: true,
       coreCallbackFastAckReady: callbackBridge.safety?.fastAckBeforeRender === true,
       coreCallbackTimingDiagnosticsReady: callbackBridge.safety?.timingDiagnostics === true,
+      coreCallbackTimingStoreReady: callbackBridge.safety?.timingStoreReady === true,
       mainHomeCallbackFastPathReady: mainHomeCallbackFastPath,
       mainHomeCallbackSkipsSessionReset: mainHomeCallbackFastPath,
+      coreTimingStoreReady: timingStore.ok === true,
+      coreTimingsEndpointReady: true,
       coreCanaryDoesNotAutoRegister: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
