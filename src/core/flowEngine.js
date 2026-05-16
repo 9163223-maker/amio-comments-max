@@ -3,10 +3,16 @@
 const stateManager = require('./stateManager');
 const definitions = require('./flowDefinitions');
 
-const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.2-STALE-CALLBACK-GUARD';
+const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.3-TITLE-INPUT';
 
 function adminIdOf(ctx = {}) {
   return String(ctx.adminId || ctx.admin_id || 'debug-admin');
+}
+
+function cleanValue(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  try { return decodeURIComponent(raw.replace(/\+/g, ' ')).trim(); } catch { return raw.replace(/\+/g, ' ').trim(); }
 }
 
 function mergeDraft(oldDraft = {}, patch = {}) {
@@ -23,10 +29,15 @@ function sessionPatchFromDraft(draft = {}) {
 
 function valueFromCtx(ctx = {}, key, aliases = []) {
   for (const name of [key, ...aliases]) {
-    const value = ctx[name] || ctx.payload?.[name] || ctx.update?.[name] || ctx.update?.query?.[name];
-    if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+    const value = ctx[name] || ctx.payload?.[name] || ctx.update?.[name] || ctx.update?.query?.[name] || ctx.update?.body?.[name];
+    const cleaned = cleanValue(value);
+    if (cleaned) return cleaned;
   }
   return '';
+}
+
+function textInputFromCtx(ctx = {}) {
+  return cleanValue(ctx.text || ctx.messageText || ctx.inputText || ctx.update?.text || ctx.update?.message?.text || ctx.update?.body?.text || ctx.route || '');
 }
 
 async function getCurrent(ctx = {}) {
@@ -127,6 +138,27 @@ async function selectPost(ctx = {}, explicitPostId = '', patch = {}) {
   });
 }
 
+function titlePatchForFlow(flowId, text) {
+  if (flowId === 'buttons.create') return { title: text, buttonTitle: text, titleInputAt: new Date().toISOString() };
+  if (flowId === 'lead_magnets.create') return { title: text, leadMagnetTitle: text, titleInputAt: new Date().toISOString() };
+  return { title: text, titleInputAt: new Date().toISOString() };
+}
+
+async function acceptInput(ctx = {}, explicitText = '') {
+  const current = await getCurrent(ctx);
+  if (!current.ok) return current;
+
+  if (current.step?.id !== 'input_title') {
+    return { ok: false, error: 'unexpected_input_step', expected: 'input_title', actual: current.step?.id || '', flow: current.flow, step: current.step, draft: current.draft };
+  }
+
+  const text = cleanValue(explicitText || textInputFromCtx(ctx));
+  if (!text) return { ok: false, error: 'text_required', flow: current.flow, step: current.step, draft: current.draft };
+  if (text.length > 64) return { ok: false, error: 'text_too_long', limit: 64, flow: current.flow, step: current.step, draft: current.draft };
+
+  return next(ctx, titlePatchForFlow(current.flow.id, text));
+}
+
 async function cancel(ctx = {}, reason = 'cancel') {
   const adminId = adminIdOf(ctx);
   const session = await stateManager.resetSession(adminId, reason);
@@ -138,10 +170,10 @@ function selfTest() {
   return {
     ok: flows.length >= 2 && flows.every((flow) => flow.id && flow.steps?.length),
     runtimeVersion: RUNTIME,
-    supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'staleFlowCallbackGuard', 'cancel'],
-    guards: ['flowId_payload_must_match_active_flow'],
+    supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'acceptInput', 'titleInput', 'staleFlowCallbackGuard', 'cancel'],
+    guards: ['flowId_payload_must_match_active_flow', 'title_required', 'title_max_64'],
     flows: flows.map((flow) => ({ id: flow.id, section: flow.section, steps: flow.steps.map((s) => s.id) }))
   };
 }
 
-module.exports = { RUNTIME, start, getCurrent, patchDraft, goTo, next, selectPost, cancel, selfTest };
+module.exports = { RUNTIME, start, getCurrent, patchDraft, goTo, next, selectPost, acceptInput, cancel, selfTest, cleanValue };
