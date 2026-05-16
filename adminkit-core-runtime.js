@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.15-CANARY-CALLBACK-BRIDGE';
-const SOURCE = 'adminkit-core-1-15-canary-callback-bridge';
+const RUNTIME = 'ADMINKIT-CORE-1.16-CALLBACK-FAST-ACK-TIMING';
+const SOURCE = 'adminkit-core-1-16-callback-fast-ack-timing';
 
 function lazy(name) {
   // Lazy loading avoids circular imports with stateManager and keeps Core testable.
@@ -33,6 +33,8 @@ function selfTest() {
   const flowEngine = lazy('./src/core/flowEngine');
   const maxSendAdapter = lazy('./src/core/maxSendAdapter');
   const canaryWebhook = lazy('./src/core/coreCanaryWebhook').selfTest();
+  let callbackBridge = null;
+  try { callbackBridge = lazy('./src/core/coreCallbackBridge').selfTest(); } catch (error) { callbackBridge = { ok: false, error: error?.message || String(error) }; }
 
   const sections = sectionRegistry.listAll();
   const ids = sections.map((section) => section.id);
@@ -44,7 +46,7 @@ function selfTest() {
   const delivery = maxSendAdapter.selfTest();
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true,
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
@@ -65,6 +67,7 @@ function selfTest() {
     flowEngine: flow,
     delivery,
     canaryWebhook,
+    callbackBridge,
     dataSafety: safety,
     constraints: {
       oneActiveScreen: true,
@@ -88,6 +91,8 @@ function selfTest() {
       manualCanaryRealSendRequiresToken: true,
       coreCallbackBridgeReady: true,
       coreCallbackBridgeCanaryOnly: true,
+      coreCallbackFastAckReady: callbackBridge.safety?.fastAckBeforeRender === true,
+      coreCallbackTimingDiagnosticsReady: callbackBridge.safety?.timingDiagnostics === true,
       coreCanaryDoesNotAutoRegister: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
