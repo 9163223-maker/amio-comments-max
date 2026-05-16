@@ -5,7 +5,7 @@ const stateManager = require('./stateManager');
 const maxSendAdapter = require('./maxSendAdapter');
 const core = require('../../adminkit-core-runtime');
 
-const RUNTIME = 'ADMINKIT-CORE-CANARY-WEBHOOK-1.1-MANUAL-SEND';
+const RUNTIME = 'ADMINKIT-CORE-CANARY-WEBHOOK-1.2-MANUAL-SEND-TOKEN-GUARD';
 const DEFAULT_PATH = '/webhook/adminkit-core-canary';
 
 function cleanValue(value) {
@@ -247,6 +247,7 @@ async function manualSend({ route = 'main.home', adminId = '', chatId = '', mess
     safety: {
       requiresAdminIdForRealSend: true,
       stillCanaryGatedByMaxSendAdapter: true,
+      manualRealSendRequiresRouteToken: true,
       productionWebhookUntouched: true,
       noLegacyFallback: true
     }
@@ -293,6 +294,8 @@ function selfTest() {
       supportsDryRunPreview: true,
       supportsManualCanarySend: true,
       manualSendRequiresAdminId: true,
+      manualSendRealRequiresRouteToken: true,
+      manualSendTokenGuardExpectedAtRoute: true,
       ignoresNonCoreCallbacks: true
     }
   };
