@@ -26,6 +26,34 @@ function iconForFlow(flowId = '') {
   return '';
 }
 
+function flowErrorScreen(selected, ctx = {}) {
+  const error = selected?.error || 'unknown';
+  if (error === 'stale_flow_callback') {
+    return menuRenderer.renderScreen({
+      title: '⚠️ Старое меню больше не активно',
+      body: [
+        'Эта кнопка относится к другому сценарию и не будет выполнена.',
+        selected.expectedFlow ? `Активный сценарий: ${selected.expectedFlow}` : '',
+        selected.actualFlow ? `Кнопка из сценария: ${selected.actualFlow}` : '',
+        'Начните действие заново из нужного раздела.'
+      ].filter(Boolean),
+      buttons: [{ text: '↩️ Назад к разделу', route: backRouteForFlow(selected.expectedFlow || ctx.payload?.flowId || selected.flow?.id || '') }],
+      homeRoute: 'main.home'
+    });
+  }
+
+  return menuRenderer.renderScreen({
+    title: '⚠️ Не удалось выбрать пост',
+    body: [
+      `Ошибка: ${error}`,
+      selected?.expected ? `Ожидался шаг: ${selected.expected}` : '',
+      selected?.actual ? `Текущий шаг: ${selected.actual}` : ''
+    ].filter(Boolean),
+    buttons: [{ text: '↩️ Назад к разделу', route: backRouteForFlow(ctx.payload?.flowId || selected?.flow?.id || '') }],
+    homeRoute: 'main.home'
+  });
+}
+
 async function dispatch(ctx = {}) {
   const route = String(ctx.route || '').trim();
   if (START_ROUTES.has(route.toLowerCase()) || !route) {
@@ -45,14 +73,7 @@ async function dispatch(ctx = {}) {
 
   if (route === 'flow.select_post') {
     const selected = await flowEngine.selectPost(ctx);
-    if (!selected.ok) {
-      return menuRenderer.renderScreen({
-        title: '⚠️ Не удалось выбрать пост',
-        body: [`Ошибка: ${selected.error || 'unknown'}`, selected.expected ? `Ожидался шаг: ${selected.expected}` : '', selected.actual ? `Текущий шаг: ${selected.actual}` : ''].filter(Boolean),
-        buttons: [{ text: '↩️ Назад к разделу', route: backRouteForFlow(ctx.payload?.flowId || selected.flow?.id || '') }],
-        homeRoute: 'main.home'
-      });
-    }
+    if (!selected.ok) return flowErrorScreen(selected, ctx);
     return flowScreen.renderFlowState(selected, {
       icon: iconForFlow(selected.flow?.id || ''),
       backRoute: backRouteForFlow(selected.flow?.id || '')
@@ -81,4 +102,4 @@ async function dispatch(ctx = {}) {
   });
 }
 
-module.exports = { dispatch, mainMenu, START_ROUTES, backRouteForFlow, iconForFlow };
+module.exports = { dispatch, mainMenu, START_ROUTES, backRouteForFlow, iconForFlow, flowErrorScreen };
