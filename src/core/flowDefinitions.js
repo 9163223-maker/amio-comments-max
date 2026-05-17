@@ -7,10 +7,12 @@ const FLOWS = Object.freeze({
     title: 'Добавление CTA-кнопки',
     feature: 'buttons.enabled',
     steps: Object.freeze([
-      { id: 'select_post', title: 'Шаг 1/4 — выберите пост', input: 'post' },
-      { id: 'input_title', title: 'Шаг 2/4 — название кнопки', input: 'text' },
-      { id: 'input_url', title: 'Шаг 3/4 — ссылка кнопки', input: 'url' },
-      { id: 'review_save', title: 'Шаг 4/4 — проверка и сохранение', input: 'confirm' }
+      { id: 'select_channel', title: 'Шаг 1/6 — выберите канал', input: 'channel' },
+      { id: 'select_post_source', title: 'Шаг 2/6 — источник поста', input: 'post_source' },
+      { id: 'select_post', title: 'Шаг 3/6 — выберите пост', input: 'post' },
+      { id: 'input_title', title: 'Шаг 4/6 — название кнопки', input: 'text' },
+      { id: 'input_url', title: 'Шаг 5/6 — ссылка кнопки', input: 'url' },
+      { id: 'review_save', title: 'Шаг 6/6 — проверка и сохранение', input: 'confirm' }
     ])
   }),
   'lead_magnets.create': Object.freeze({
@@ -38,6 +40,6 @@ function firstStep(flowId) { return getFlow(flowId)?.steps?.[0] || null; }
 function getStep(flowId, stepId) { const flow = getFlow(flowId); return flow?.steps?.find((step) => step.id === stepId) || null; }
 function nextStep(flowId, stepId) { const flow = getFlow(flowId); if (!flow) return null; const index = flow.steps.findIndex((step) => step.id === stepId); return index >= 0 ? flow.steps[index + 1] || null : firstStep(flowId); }
 function listFlows() { return Object.values(FLOWS); }
-function selfTest() { const lead = getFlow('lead_magnets.create'); return { ok: !!lead && lead.steps.some((s) => s.id === 'condition_setup') && lead.steps.some((s) => s.id === 'select_channel'), leadMagnetFullFlowReady: true, leadMagnetStepCount: lead?.steps?.length || 0 }; }
+function selfTest() { const lead = getFlow('lead_magnets.create'); const buttons = getFlow('buttons.create'); return { ok: !!lead && !!buttons && lead.steps.some((s) => s.id === 'condition_setup') && lead.steps.some((s) => s.id === 'select_channel') && buttons.steps[0]?.id === 'select_channel', buttonChannelFirstReady: true, leadMagnetFullFlowReady: true, leadMagnetStepCount: lead?.steps?.length || 0, buttonStepCount: buttons?.steps?.length || 0 }; }
 
 module.exports = { FLOWS, getFlow, firstStep, getStep, nextStep, listFlows, selfTest };
