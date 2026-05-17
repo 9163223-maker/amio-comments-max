@@ -2,7 +2,7 @@
 
 const accountManager = require('./accountManager');
 
-const RUNTIME = 'ADMINKIT-CORE-ACCESS-MANAGER-1.32-FULL-MENU-FEATURES';
+const RUNTIME = 'ADMINKIT-CORE-ACCESS-MANAGER-1.33-BILLING-FEATURE-GATE';
 const DEFAULT_PLAN = 'free';
 
 const PLAN_FEATURES = {
@@ -26,6 +26,7 @@ const PLAN_FEATURES = {
     'stats.advanced': false,
     'navigation.enabled': true,
     'start_landing.enabled': true,
+    'billing.enabled': true,
     'debug_diagnostics.enabled': false,
     'production_checklist.enabled': false,
     'settings.enabled': false
@@ -52,6 +53,7 @@ const PLAN_FEATURES = {
     'stats.advanced': false,
     'navigation.enabled': true,
     'start_landing.enabled': true,
+    'billing.enabled': true,
     'debug_diagnostics.enabled': false,
     'production_checklist.enabled': false,
     'settings.enabled': true
@@ -128,6 +130,7 @@ function selfTest() {
     batchedFilterSections: true,
     planCount: Object.keys(PLAN_FEATURES).length,
     fullMenuFeatureGatesReady: true,
+    billingFeatureGateReady: PLAN_FEATURES.free['billing.enabled'] === true,
     fullMenuFeatureCodes: [
       'photo_comments.enabled',
       'reactions_replies.enabled',
@@ -136,6 +139,7 @@ function selfTest() {
       'post_editor.enabled',
       'navigation.enabled',
       'start_landing.enabled',
+      'billing.enabled',
       'debug_diagnostics.enabled',
       'production_checklist.enabled'
     ],
