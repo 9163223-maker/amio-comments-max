@@ -1,13 +1,12 @@
 'use strict';
 
-const RUNTIME = 'ADMINKIT-CORE-1.34-POST-CAPTURE-LEAD-CONDITIONS';
-const SOURCE = 'adminkit-core-1-34-post-capture-lead-conditions';
+const RUNTIME = 'ADMINKIT-CORE-1.35-LEAD-MAGNET-CONDITION-SETUP-FLOW';
+const SOURCE = 'adminkit-core-1-35-lead-magnet-condition-setup-flow';
 
 function lazy(name) { return require(name); }
 async function dispatch(ctx = {}) { return lazy('./src/core/routeDispatcher').dispatch(ctx); }
 async function renderMain(ctx = {}) { return lazy('./src/core/routeDispatcher').mainMenu(ctx); }
 async function deliverScreen(args = {}) { return lazy('./src/core/maxSendAdapter').deliver(args); }
-
 function safe(name, fn) { try { return fn(); } catch (error) { return { ok: false, name, error: error?.message || String(error) }; } }
 
 function selfTest() {
@@ -24,6 +23,7 @@ function selfTest() {
   const routeDispatcher = lazy('./src/core/routeDispatcher');
   const stateManager = lazy('./src/core/stateManager');
   const conditionCatalog = lazy('./src/core/leadMagnetConditionCatalog');
+  const postRegistry = lazy('./src/core/postRegistryDataAdapter');
 
   const sections = sectionRegistry.listAll();
   const ids = sections.map((section) => section.id);
@@ -37,6 +37,7 @@ function selfTest() {
   const accountSelfTest = safe('accountManager', () => accountManager.selfTest ? accountManager.selfTest() : null);
   const menuSelfTest = safe('menuRenderer', () => menuRenderer.selfTest ? menuRenderer.selfTest() : null);
   const flow = safe('flowEngine', () => flowEngine.selfTest());
+  const flowDefinitions = safe('flowDefinitions', () => lazy('./src/core/flowDefinitions').selfTest());
   const flowScreenSelfTest = safe('flowScreen', () => flowScreen.selfTest ? flowScreen.selfTest() : null);
   const delivery = safe('maxSendAdapter', () => maxSendAdapter.selfTest());
   const routeDispatcherSelfTest = safe('routeDispatcher', () => routeDispatcher.selfTest ? routeDispatcher.selfTest() : null);
@@ -46,13 +47,12 @@ function selfTest() {
   const buttonsData = safe('buttonsDataAdapter', () => lazy('./src/core/buttonsDataAdapter').selfTest());
   const canaryWebhook = safe('coreCanaryWebhook', () => lazy('./src/core/coreCanaryWebhook').selfTest());
   const conditionCatalogSelfTest = safe('leadMagnetConditionCatalog', () => conditionCatalog.selfTest());
+  const postRegistrySelfTest = safe('postRegistryDataAdapter', () => postRegistry.selfTest());
   const callbackBridge = safe('coreCallbackBridge', () => lazy('./src/core/coreCallbackBridge').selfTest());
   const safety = safe('dataSafety', () => dataSafety.policySummary());
 
-  const channelsSection = sectionRegistry.find('channels');
   const buttonsSection = sectionRegistry.find('buttons');
   const leadMagnetsSection = sectionRegistry.find('lead_magnets');
-  const channelsSelfTest = safe('channelsSection', () => channelsSection?.selfTest ? channelsSection.selfTest() : null);
   const buttonsSelfTest = safe('buttonsSection', () => buttonsSection?.selfTest ? buttonsSection.selfTest() : null);
   const leadMagnetsSelfTest = safe('leadMagnetsSection', () => leadMagnetsSection?.selfTest ? leadMagnetsSection.selfTest() : null);
 
@@ -63,8 +63,12 @@ function selfTest() {
   const leadMaterialTextInputReady = callbackBridge?.safety?.handlesLeadMagnetMaterialTextInput === true && flow?.leadMagnetMaterialInputReady === true;
   const leadAccessSelectReady = flow?.leadMagnetAccessSelectReady === true && routeDispatcherSelfTest?.leadMagnetAccessRouteReady === true;
   const postCaptureFlowReady = flow?.postCaptureFlowReady === true && routeDispatcherSelfTest?.postCaptureRouteReady === true && flowScreenSelfTest?.postCaptureButtonsReady === true;
+  const postRegistryDataAdapterReady = postRegistrySelfTest?.ok === true && postRegistrySelfTest?.listPostsReady === true && routeDispatcherSelfTest?.postRegistryListsReady === true;
   const leadConditionCatalogReady = conditionCatalogSelfTest?.ok === true && flow?.leadConditionCatalogReady === true && flowScreenSelfTest?.leadConditionCatalogReady === true;
+  const leadConditionSetupFlowReady = flow?.leadConditionSetupFlowReady === true && flowScreenSelfTest?.conditionSetupScreenReady === true && routeDispatcherSelfTest?.leadMagnetConditionSetupRouteReady === true;
+  const leadFullFlowReady = flowDefinitions?.leadMagnetFullFlowReady === true && flowDefinitions?.leadMagnetStepCount === 10 && flow?.leadMagnetFullFlowReady === true;
   const leadSaveReady = routeDispatcherSelfTest?.cleanLeadMagnetSaveRoute === true && routeDispatcherSelfTest?.leadMagnetSaveTable === 'ak_post_lead_magnets';
+  const conditionSetupRequiredBeforeSave = routeDispatcherSelfTest?.flowNextRequiresConditionSetup === true;
   const coreFlowTextInputBridgeReady = callbackBridge?.safety?.handlesCoreFlowTextInput === true && callbackBridge?.safety?.textInputRequiresActiveFlow === true && callbackBridge?.safety?.textInputRequiresActiveInputStep === true;
   const oneActiveScreenCleanupReady = stateSelfTest?.oneActiveScreenStateReady === true && stateSelfTest?.resetMovesActiveToGarbage === true && stateSelfTest?.setActiveScreenDeduplicatesGarbage === true;
   const linkUxReady = menuSelfTest?.linkUxReady === true && menuSelfTest?.payloadVersion === 2;
@@ -76,7 +80,7 @@ function selfTest() {
   const cleanButtonSaveRouteReady = routeDispatcherSelfTest?.cleanButtonSaveRoute === true && routeDispatcherSelfTest?.buttonSaveTable === 'ak_post_buttons';
   const leadMagnetsAuditReady = leadMagnetsSelfTest?.legacyAdaptersUsed === false && leadMagnetsSelfTest?.dangerousActionsDisabled === true;
 
-  const ok = fullMenuScaffoldReady && billingCabinetReady && fullMenuFeatureGatesReady && postCaptureFlowReady && leadConditionCatalogReady && leadMaterialTextInputReady && leadAccessSelectReady && leadSaveReady && missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && typeof postAddonManager.addLeadMagnet === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && delivery.ok === true && canaryWebhook.ok === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady && callbackIdempotencyReady && oneActiveScreenCleanupReady && linkUxReady && mainHomeCallbackFastPath && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender && channelData.ok === true && buttonsData.ok === true && buttonsCleanStorageOnlyReady && buttonsLegacyAdaptersDisabled && cleanButtonCreateFlowReady && cleanButtonSaveRouteReady && leadMagnetsAuditReady;
+  const ok = fullMenuScaffoldReady && billingCabinetReady && fullMenuFeatureGatesReady && postCaptureFlowReady && postRegistryDataAdapterReady && leadConditionCatalogReady && leadConditionSetupFlowReady && leadFullFlowReady && conditionSetupRequiredBeforeSave && leadMaterialTextInputReady && leadAccessSelectReady && leadSaveReady && missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && typeof postAddonManager.addLeadMagnet === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && delivery.ok === true && canaryWebhook.ok === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady && callbackIdempotencyReady && oneActiveScreenCleanupReady && linkUxReady && mainHomeCallbackFastPath && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender && channelData.ok === true && buttonsData.ok === true && buttonsCleanStorageOnlyReady && buttonsLegacyAdaptersDisabled && cleanButtonCreateFlowReady && cleanButtonSaveRouteReady && leadMagnetsAuditReady;
 
   return {
     ok,
@@ -84,26 +88,18 @@ function selfTest() {
     sourceMarker: SOURCE,
     isCoreRuntime: true,
     activeInProduction: false,
-    purpose: 'Core 1.34: post capture choices for old/new forwarded posts and full lead-magnet condition catalog for subscriptions, comments, reactions, keywords and quizzes.',
+    purpose: 'Core 1.35: full lead-magnet flow with channel selection, post registry, post source, condition setup and save guard for required condition params.',
     sections: ids,
     requiredSections: required,
     missingSections: missing,
     routeCount: routeMap.size,
-    accessPlans: Object.keys(accessManager.PLAN_FEATURES || {}),
-    rendererVersion: menuRenderer.inlineKeyboard([[menuRenderer.btn('test', 'main.home')]])[0]?.payload?.version || 0,
-    storage: {
-      sessions: 'ak_admin_sessions',
-      buttons: 'ak_post_buttons',
-      leadMagnets: 'ak_post_lead_magnets',
-      accounts: 'ak_accounts',
-      billingSubscriptions: 'ak_billing_subscriptions',
-      referrals: 'ak_referrals',
-      migrations: 'ak_core_schema_migrations'
-    },
+    storage: { sessions: 'ak_admin_sessions', posts: 'ak_posts', buttons: 'ak_post_buttons', leadMagnets: 'ak_post_lead_magnets', accounts: 'ak_accounts', billingSubscriptions: 'ak_billing_subscriptions', referrals: 'ak_referrals', migrations: 'ak_core_schema_migrations' },
     sectionRegistry: registrySelfTest,
     sectionAudit,
+    flowDefinitions,
     flowEngine: flow,
     flowScreen: flowScreenSelfTest,
+    postRegistryDataAdapter: postRegistrySelfTest,
     leadConditionCatalog: conditionCatalogSelfTest,
     delivery,
     canaryWebhook,
@@ -113,7 +109,6 @@ function selfTest() {
     accountManager: accountSelfTest,
     channelDataAdapter: channelData,
     buttonsDataAdapter: buttonsData,
-    channelsSection: channelsSelfTest,
     buttonsSection: buttonsSelfTest,
     leadMagnetsSection: leadMagnetsSelfTest,
     routeDispatcher: routeDispatcherSelfTest,
@@ -122,13 +117,16 @@ function selfTest() {
     dataSafety: safety,
     constraints: {
       fullMenuScaffoldReady,
-      fullMenuSectionCount: sections.length,
-      fullMenuFeatureGatesReady,
       all16SectionsRegistered: sections.length === 16 && missing.length === 0,
       billingCabinetReady,
       postCaptureFlowReady,
+      postRegistryDataAdapterReady,
       leadConditionCatalogReady,
       leadConditionCount: conditionCatalogSelfTest?.count || 0,
+      leadConditionSetupFlowReady,
+      leadFullFlowReady,
+      leadMagnetStepCount: flowDefinitions?.leadMagnetStepCount || 0,
+      conditionSetupRequiredBeforeSave,
       leadMaterialTextInputReady,
       leadAccessSelectReady,
       leadSaveReady,
@@ -141,7 +139,6 @@ function selfTest() {
       menuPayloadVersion: menuSelfTest?.payloadVersion || 0,
       sectionRegistryDriven: true,
       sectionAuditReady: sectionAudit.ok === true,
-      allSectionsHaveSelfTest: sectionAudit.items?.every?.((item) => item.hasSelfTest === true) === true,
       planAccessReady: true,
       postAddonsDbReady: true,
       flowEngineReady: true,
@@ -158,20 +155,6 @@ function selfTest() {
       maxSendAdapterReady: true,
       maxSendCanaryGated: true,
       coreSendDisabledByDefault: true,
-      isolatedCanaryWebhookReady: true,
-      manualCanarySendReady: true,
-      manualCanarySendRequiresAdminId: true,
-      coreCallbackBridgeReady: true,
-      coreCallbackBridgeCanaryOnly: true,
-      coreFlowTextInputBridgeReady,
-      mainHomeCallbackFastPathReady: mainHomeCallbackFastPath,
-      coreTimingStoreReady: timingStore.ok === true,
-      coreTimingsEndpointReady: true,
-      batchedAccessRenderReady: batchedAccessRender,
-      accountLookupCacheReady: accountSelfTest?.ok === true,
-      buttonsCleanStorageOnlyReady,
-      buttonsLegacyAdaptersDisabled,
-      coreCanaryDoesNotAutoRegister: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
       noPublicAppOverride: true,
