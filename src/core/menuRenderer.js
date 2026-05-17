@@ -1,6 +1,6 @@
 'use strict';
 
-const RUNTIME = 'ADMINKIT-CORE-MENU-RENDERER-1.33-BILLING-LEAD-FLOW';
+const RUNTIME = 'ADMINKIT-CORE-MENU-RENDERER-CURRENT';
 
 function safePayload(data = {}) {
   return JSON.stringify({ ...data });
@@ -46,20 +46,22 @@ function renderMain(sections = []) {
     }));
   }
   return {
-    text: ['🐋 АдминКИТ Core', '', 'Главное меню собрано из sectionRegistry.', 'Режим 1.33: лид-магниты идут по шаблону кнопок, добавлены тарифы, кабинет и рефералы.'].join('\n'),
+    text: ['🐋 АдминКИТ Core', '', 'Главное меню собрано из sectionRegistry.', 'Core-режим: единый активный экран, чистые разделы, тарифы, кабинет и рефералы.'].join('\n'),
     attachments: inlineKeyboard(rows)
   };
 }
 
 function selfTest() {
   const kb = inlineKeyboard([[btn('Главное меню', 'main.home')], [linkBtn('Открыть', 'example.com')]]);
+  const main = renderMain([]);
   return {
-    ok: kb[0]?.payload?.version === 2 && kb[0]?.payload?.buttons?.[1]?.[0]?.type === 'link' && kb[0]?.payload?.buttons?.[1]?.[0]?.url === 'https://example.com',
+    ok: kb[0]?.payload?.version === 2 && kb[0]?.payload?.buttons?.[1]?.[0]?.type === 'link' && kb[0]?.payload?.buttons?.[1]?.[0]?.url === 'https://example.com' && !/1\.33/.test(main.text),
     runtimeVersion: RUNTIME,
     payloadVersion: 2,
     linkUxReady: true,
     billingMenuWordingReady: true,
     leadFlowWordingReady: true,
+    mainMenuNoHardcodedVersion: true,
     callbackPayloadHasRoute: true
   };
 }
