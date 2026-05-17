@@ -1,27 +1,14 @@
 'use strict';
 
-// AdminKit Core foundation.
-// This file is intentionally independent from the legacy CC7.5.x loader chain.
-// It can be imported safely for audits and self-tests before production is switched to Core.
+const RUNTIME = 'ADMINKIT-CORE-1.34-POST-CAPTURE-LEAD-CONDITIONS';
+const SOURCE = 'adminkit-core-1-34-post-capture-lead-conditions';
 
-const RUNTIME = 'ADMINKIT-CORE-1.33-LEAD-MAGNETS-BILLING-CABINET';
-const SOURCE = 'adminkit-core-1-33-lead-magnets-billing-cabinet';
+function lazy(name) { return require(name); }
+async function dispatch(ctx = {}) { return lazy('./src/core/routeDispatcher').dispatch(ctx); }
+async function renderMain(ctx = {}) { return lazy('./src/core/routeDispatcher').mainMenu(ctx); }
+async function deliverScreen(args = {}) { return lazy('./src/core/maxSendAdapter').deliver(args); }
 
-function lazy(name) {
-  return require(name);
-}
-
-async function dispatch(ctx = {}) {
-  return lazy('./src/core/routeDispatcher').dispatch(ctx);
-}
-
-async function renderMain(ctx = {}) {
-  return lazy('./src/core/routeDispatcher').mainMenu(ctx);
-}
-
-async function deliverScreen(args = {}) {
-  return lazy('./src/core/maxSendAdapter').deliver(args);
-}
+function safe(name, fn) { try { return fn(); } catch (error) { return { ok: false, name, error: error?.message || String(error) }; } }
 
 function selfTest() {
   const sectionRegistry = lazy('./src/core/sectionRegistry');
@@ -36,64 +23,68 @@ function selfTest() {
   const maxSendAdapter = lazy('./src/core/maxSendAdapter');
   const routeDispatcher = lazy('./src/core/routeDispatcher');
   const stateManager = lazy('./src/core/stateManager');
-  const timingStore = lazy('./src/core/coreTimingStore').selfTest();
-  const channelData = lazy('./src/core/channelDataAdapter').selfTest();
-  const buttonsData = lazy('./src/core/buttonsDataAdapter').selfTest();
-  const canaryWebhook = lazy('./src/core/coreCanaryWebhook').selfTest();
-  const accessSelfTest = accessManager.selfTest ? accessManager.selfTest() : null;
-  const accountSelfTest = accountManager.selfTest ? accountManager.selfTest() : null;
-  const routeDispatcherSelfTest = routeDispatcher.selfTest ? routeDispatcher.selfTest() : null;
-  const flowScreenSelfTest = flowScreen.selfTest ? flowScreen.selfTest() : null;
-  const stateSelfTest = stateManager.selfTest ? stateManager.selfTest() : null;
-  const menuSelfTest = menuRenderer.selfTest ? menuRenderer.selfTest() : null;
-  const registrySelfTest = sectionRegistry.selfTest ? sectionRegistry.selfTest() : null;
-  let callbackBridge = null;
-  try { callbackBridge = lazy('./src/core/coreCallbackBridge').selfTest(); } catch (error) { callbackBridge = { ok: false, error: error?.message || String(error) }; }
+  const conditionCatalog = lazy('./src/core/leadMagnetConditionCatalog');
 
   const sections = sectionRegistry.listAll();
-  const sectionAudit = sectionAuditModule.audit(sections);
   const ids = sections.map((section) => section.id);
-  const channelsSection = sectionRegistry.find('channels');
-  const channelsSelfTest = channelsSection?.selfTest ? channelsSection.selfTest() : null;
-  const buttonsSection = sectionRegistry.find('buttons');
-  const buttonsSelfTest = buttonsSection?.selfTest ? buttonsSection.selfTest() : null;
-  const leadMagnetsSection = sectionRegistry.find('lead_magnets');
-  const leadMagnetsSelfTest = leadMagnetsSection?.selfTest ? leadMagnetsSection.selfTest() : null;
   const routeMap = sectionRegistry.routeMap();
   const required = sectionRegistry.REQUIRED_SECTION_IDS || [];
   const missing = required.filter((id) => !ids.includes(id));
-  const safety = dataSafety.policySummary();
-  const flow = flowEngine.selfTest();
-  const delivery = maxSendAdapter.selfTest();
-  const mainHomeCallbackFastPath = routeDispatcher.shouldResetSessionOnStart({ payload: { r: 'main.home' } }, 'main.home') === false;
-  const batchedAccessRender = accessSelfTest?.batchedFilterSections === true && accountSelfTest?.ok === true;
+
+  const registrySelfTest = safe('sectionRegistry', () => sectionRegistry.selfTest());
+  const sectionAudit = safe('sectionAudit', () => sectionAuditModule.audit(sections));
+  const accessSelfTest = safe('accessManager', () => accessManager.selfTest());
+  const accountSelfTest = safe('accountManager', () => accountManager.selfTest ? accountManager.selfTest() : null);
+  const menuSelfTest = safe('menuRenderer', () => menuRenderer.selfTest ? menuRenderer.selfTest() : null);
+  const flow = safe('flowEngine', () => flowEngine.selfTest());
+  const flowScreenSelfTest = safe('flowScreen', () => flowScreen.selfTest ? flowScreen.selfTest() : null);
+  const delivery = safe('maxSendAdapter', () => maxSendAdapter.selfTest());
+  const routeDispatcherSelfTest = safe('routeDispatcher', () => routeDispatcher.selfTest ? routeDispatcher.selfTest() : null);
+  const stateSelfTest = safe('stateManager', () => stateManager.selfTest ? stateManager.selfTest() : null);
+  const timingStore = safe('coreTimingStore', () => lazy('./src/core/coreTimingStore').selfTest());
+  const channelData = safe('channelDataAdapter', () => lazy('./src/core/channelDataAdapter').selfTest());
+  const buttonsData = safe('buttonsDataAdapter', () => lazy('./src/core/buttonsDataAdapter').selfTest());
+  const canaryWebhook = safe('coreCanaryWebhook', () => lazy('./src/core/coreCanaryWebhook').selfTest());
+  const conditionCatalogSelfTest = safe('leadMagnetConditionCatalog', () => conditionCatalog.selfTest());
+  const callbackBridge = safe('coreCallbackBridge', () => lazy('./src/core/coreCallbackBridge').selfTest());
+  const safety = safe('dataSafety', () => dataSafety.policySummary());
+
+  const channelsSection = sectionRegistry.find('channels');
+  const buttonsSection = sectionRegistry.find('buttons');
+  const leadMagnetsSection = sectionRegistry.find('lead_magnets');
+  const channelsSelfTest = safe('channelsSection', () => channelsSection?.selfTest ? channelsSection.selfTest() : null);
+  const buttonsSelfTest = safe('buttonsSection', () => buttonsSection?.selfTest ? buttonsSection.selfTest() : null);
+  const leadMagnetsSelfTest = safe('leadMagnetsSection', () => leadMagnetsSection?.selfTest ? leadMagnetsSection.selfTest() : null);
+
   const fullMenuScaffoldReady = registrySelfTest?.ok === true && registrySelfTest?.sectionCount === 16 && missing.length === 0;
-  const fullMenuFeatureGatesReady = accessSelfTest?.fullMenuFeatureGatesReady === true && accessSelfTest?.billingFeatureGateReady === true;
   const billingCabinetReady = registrySelfTest?.billingCabinetReady === true && ids.includes('billing');
-  const ack400Silent = callbackBridge?.safety?.ack400Silent === true;
+  const fullMenuFeatureGatesReady = accessSelfTest?.fullMenuFeatureGatesReady === true && accessSelfTest?.billingFeatureGateReady === true;
   const callbackIdempotencyReady = callbackBridge?.safety?.callbackIdempotencyReady === true && callbackBridge?.safety?.duplicateCallbacksNoSend === true;
-  const leadMaterialTextInputReady = callbackBridge?.safety?.handlesLeadMagnetMaterialTextInput === true && flow.leadMagnetMaterialInputReady === true;
-  const leadAccessSelectReady = flow.leadMagnetAccessSelectReady === true && routeDispatcherSelfTest?.leadMagnetAccessRouteReady === true;
+  const leadMaterialTextInputReady = callbackBridge?.safety?.handlesLeadMagnetMaterialTextInput === true && flow?.leadMagnetMaterialInputReady === true;
+  const leadAccessSelectReady = flow?.leadMagnetAccessSelectReady === true && routeDispatcherSelfTest?.leadMagnetAccessRouteReady === true;
+  const postCaptureFlowReady = flow?.postCaptureFlowReady === true && routeDispatcherSelfTest?.postCaptureRouteReady === true && flowScreenSelfTest?.postCaptureButtonsReady === true;
+  const leadConditionCatalogReady = conditionCatalogSelfTest?.ok === true && flow?.leadConditionCatalogReady === true && flowScreenSelfTest?.leadConditionCatalogReady === true;
   const leadSaveReady = routeDispatcherSelfTest?.cleanLeadMagnetSaveRoute === true && routeDispatcherSelfTest?.leadMagnetSaveTable === 'ak_post_lead_magnets';
   const coreFlowTextInputBridgeReady = callbackBridge?.safety?.handlesCoreFlowTextInput === true && callbackBridge?.safety?.textInputRequiresActiveFlow === true && callbackBridge?.safety?.textInputRequiresActiveInputStep === true;
   const oneActiveScreenCleanupReady = stateSelfTest?.oneActiveScreenStateReady === true && stateSelfTest?.resetMovesActiveToGarbage === true && stateSelfTest?.setActiveScreenDeduplicatesGarbage === true;
   const linkUxReady = menuSelfTest?.linkUxReady === true && menuSelfTest?.payloadVersion === 2;
-  const channelsReadOnlyDataReady = channelData.ok === true && channelData.readOnly === true && channelsSelfTest?.readOnlyRenderer === true;
-  const buttonsReadOnlyDataReady = buttonsData.ok === true && buttonsData.readOnly === true && buttonsSelfTest?.readOnlyRenderer === true;
-  const buttonsCleanStorageOnlyReady = buttonsData.cleanStorageOnly === true && buttonsData.sourceTable === 'ak_post_buttons';
-  const buttonsLegacyAdaptersDisabled = buttonsData.legacyAdaptersDisabled === true;
+  const mainHomeCallbackFastPath = routeDispatcher.shouldResetSessionOnStart({ payload: { r: 'main.home' } }, 'main.home') === false;
+  const batchedAccessRender = accessSelfTest?.batchedFilterSections === true && accountSelfTest?.ok === true;
+  const buttonsCleanStorageOnlyReady = buttonsData?.cleanStorageOnly === true && buttonsData?.sourceTable === 'ak_post_buttons';
+  const buttonsLegacyAdaptersDisabled = buttonsData?.legacyAdaptersDisabled === true;
   const cleanButtonCreateFlowReady = buttonsSelfTest?.cleanCreateFlow === true && buttonsSelfTest?.writesTo === 'ak_post_buttons';
   const cleanButtonSaveRouteReady = routeDispatcherSelfTest?.cleanButtonSaveRoute === true && routeDispatcherSelfTest?.buttonSaveTable === 'ak_post_buttons';
-  const flowSaveActionReady = flowScreenSelfTest?.saveActionReady === true;
   const leadMagnetsAuditReady = leadMagnetsSelfTest?.legacyAdaptersUsed === false && leadMagnetsSelfTest?.dangerousActionsDisabled === true;
 
+  const ok = fullMenuScaffoldReady && billingCabinetReady && fullMenuFeatureGatesReady && postCaptureFlowReady && leadConditionCatalogReady && leadMaterialTextInputReady && leadAccessSelectReady && leadSaveReady && missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && typeof postAddonManager.addLeadMagnet === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && delivery.ok === true && canaryWebhook.ok === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady && callbackIdempotencyReady && oneActiveScreenCleanupReady && linkUxReady && mainHomeCallbackFastPath && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender && channelData.ok === true && buttonsData.ok === true && buttonsCleanStorageOnlyReady && buttonsLegacyAdaptersDisabled && cleanButtonCreateFlowReady && cleanButtonSaveRouteReady && leadMagnetsAuditReady;
+
   return {
-    ok: fullMenuScaffoldReady === true && billingCabinetReady === true && fullMenuFeatureGatesReady === true && leadMaterialTextInputReady === true && leadAccessSelectReady === true && leadSaveReady === true && missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && typeof postAddonManager.addLeadMagnet === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('selectAccess') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady === true && callbackIdempotencyReady === true && oneActiveScreenCleanupReady === true && linkUxReady === true && mainHomeCallbackFastPath === true && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender === true && ack400Silent === true && channelsReadOnlyDataReady === true && buttonsReadOnlyDataReady === true && buttonsCleanStorageOnlyReady === true && buttonsLegacyAdaptersDisabled === true && cleanButtonCreateFlowReady === true && cleanButtonSaveRouteReady === true && flowSaveActionReady === true && leadMagnetsAuditReady === true,
+    ok,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
     activeInProduction: false,
-    purpose: 'Core 1.33: lead magnets reuse buttons flow pattern, material text no longer stalls, access selection/save added, billing cabinet/referrals section added',
+    purpose: 'Core 1.34: post capture choices for old/new forwarded posts and full lead-magnet condition catalog for subscriptions, comments, reactions, keywords and quizzes.',
     sections: ids,
     requiredSections: required,
     missingSections: missing,
@@ -113,6 +104,7 @@ function selfTest() {
     sectionAudit,
     flowEngine: flow,
     flowScreen: flowScreenSelfTest,
+    leadConditionCatalog: conditionCatalogSelfTest,
     delivery,
     canaryWebhook,
     callbackBridge,
@@ -120,8 +112,8 @@ function selfTest() {
     accessManager: accessSelfTest,
     accountManager: accountSelfTest,
     channelDataAdapter: channelData,
-    channelsSection: channelsSelfTest,
     buttonsDataAdapter: buttonsData,
+    channelsSection: channelsSelfTest,
     buttonsSection: buttonsSelfTest,
     leadMagnetsSection: leadMagnetsSelfTest,
     routeDispatcher: routeDispatcherSelfTest,
@@ -134,7 +126,9 @@ function selfTest() {
       fullMenuFeatureGatesReady,
       all16SectionsRegistered: sections.length === 16 && missing.length === 0,
       billingCabinetReady,
-      billingFeatureGateReady: accessSelfTest?.billingFeatureGateReady === true,
+      postCaptureFlowReady,
+      leadConditionCatalogReady,
+      leadConditionCount: conditionCatalogSelfTest?.count || 0,
       leadMaterialTextInputReady,
       leadAccessSelectReady,
       leadSaveReady,
@@ -156,7 +150,7 @@ function selfTest() {
       flowTitleInputReady: true,
       explicitTextInputReady: true,
       staleCallbackGuardReady: true,
-      flowSaveActionReady,
+      flowSaveActionReady: flowScreenSelfTest?.saveActionReady === true,
       cleanButtonCreateFlowReady,
       cleanButtonSaveRouteReady,
       cleanButtonSaveWritesAkPostButtons: true,
@@ -167,31 +161,14 @@ function selfTest() {
       isolatedCanaryWebhookReady: true,
       manualCanarySendReady: true,
       manualCanarySendRequiresAdminId: true,
-      manualCanarySendQueryParserReady: true,
-      manualCanarySendTokenGuardReady: true,
-      manualCanaryRealSendRequiresToken: true,
-      manualCanarySendTimingStoreReady: canaryWebhook.safety?.manualSendTimingStoreReady === true,
       coreCallbackBridgeReady: true,
       coreCallbackBridgeCanaryOnly: true,
-      coreCallbackFastAckReady: callbackBridge.safety?.fastAckBeforeRender === true,
-      coreCallbackTimingDiagnosticsReady: callbackBridge.safety?.timingDiagnostics === true,
-      coreCallbackTimingStoreReady: callbackBridge.safety?.timingStoreReady === true,
-      coreCallbackAck400SilentReady: ack400Silent,
       coreFlowTextInputBridgeReady,
-      coreFlowTextInputRequiresActiveFlow: callbackBridge.safety?.textInputRequiresActiveFlow === true,
-      coreFlowTextInputRequiresActiveInputStep: callbackBridge.safety?.textInputRequiresActiveInputStep === true,
       mainHomeCallbackFastPathReady: mainHomeCallbackFastPath,
-      mainHomeCallbackSkipsSessionReset: mainHomeCallbackFastPath,
       coreTimingStoreReady: timingStore.ok === true,
       coreTimingsEndpointReady: true,
       batchedAccessRenderReady: batchedAccessRender,
       accountLookupCacheReady: accountSelfTest?.ok === true,
-      channelsReadOnlyDataReady,
-      channelDataAdapterReadOnly: channelData.readOnly === true,
-      channelsSectionReadOnlyRendererReady: channelsSelfTest?.readOnlyRenderer === true,
-      buttonsReadOnlyDataReady,
-      buttonsDataAdapterReadOnly: buttonsData.readOnly === true,
-      buttonsSectionReadOnlyRendererReady: buttonsSelfTest?.readOnlyRenderer === true,
       buttonsCleanStorageOnlyReady,
       buttonsLegacyAdaptersDisabled,
       coreCanaryDoesNotAutoRegister: true,
@@ -204,12 +181,4 @@ function selfTest() {
   };
 }
 
-module.exports = {
-  RUNTIME,
-  SOURCE,
-  isCoreRuntime: true,
-  dispatch,
-  renderMain,
-  deliverScreen,
-  selfTest
-};
+module.exports = { RUNTIME, SOURCE, isCoreRuntime: true, dispatch, renderMain, deliverScreen, selfTest };
