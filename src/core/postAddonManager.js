@@ -95,7 +95,22 @@ async function addButton(ctx = {}, input = {}) {
     ...(humanChannelTitle(ctx) ? { channelTitle: humanChannelTitle(ctx) } : {})
   };
   const { rows } = await dataSafety.safeQuery('insert into ak_post_buttons(admin_id, channel_id, post_id, title, url, sort_order, meta) values($1,$2,$3,$4,$5,$6,$7::jsonb) returning id, title, url, post_id, channel_id, meta', [adminKey(ctx), channelKey(ctx), postKey(ctx), title, url, summary.buttons.length + 1, JSON.stringify(meta)]);
-  return { ok: true, button: rows[0], postId: postKey(ctx), channelId: channelKey(ctx), postTitle: humanPostTitle(ctx), channelTitle: humanChannelTitle(ctx) };
+  return { ok: true, button: rows[0], postId: postKey(ctx), channelId: channelKey(ctx), postTitle: humanPostTitle(ctx), channelTitle: humanChannelTitle(ctx), action: 'created' };
+}
+
+async function updateButton(ctx = {}, id, input = {}) {
+  await ensure();
+  const title = String(input.title || input.text || '').trim();
+  const url = String(input.url || '').trim();
+  if (!id) return { ok: false, error: 'button_id_required' };
+  if (!title || !url) return { ok: false, error: 'title_and_url_required' };
+  const meta = {
+    ...(input.meta || {}),
+    ...(humanPostTitle(ctx) ? { postTitle: humanPostTitle(ctx) } : {}),
+    ...(humanChannelTitle(ctx) ? { channelTitle: humanChannelTitle(ctx) } : {})
+  };
+  const { rows } = await dataSafety.safeQuery("update ak_post_buttons set title=$3, url=$4, meta=coalesce(meta,'{}'::jsonb) || $5::jsonb, updated_at=now() where id=$1 and post_id=$2 and is_enabled=true returning id, title, url, post_id, channel_id, meta", [id, postKey(ctx), title, url, JSON.stringify(meta)]);
+  return rows[0] ? { ok: true, button: rows[0], postId: postKey(ctx), channelId: channelKey(ctx), postTitle: humanPostTitle(ctx), channelTitle: humanChannelTitle(ctx), action: 'updated' } : { ok: false, error: 'button_not_found' };
 }
 
 async function disableButton(ctx = {}, id) {
@@ -121,7 +136,26 @@ async function addLeadMagnet(ctx = {}, input = {}) {
     ...(humanChannelTitle(ctx) ? { channelTitle: humanChannelTitle(ctx) } : {})
   };
   const { rows } = await dataSafety.safeQuery('insert into ak_post_lead_magnets(admin_id, channel_id, post_id, title, material_type, material_text, material_url, file_id, file_name, access_mode, conditions, sort_order, meta) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13::jsonb) returning id, title, material_type, material_url', [adminKey(ctx), channelKey(ctx), postKey(ctx), title, materialType, materialText, materialUrl, String(input.fileId || ''), String(input.fileName || ''), accessMode, JSON.stringify(input.conditions || {}), summary.leadMagnets.length + 1, JSON.stringify(meta)]);
-  return { ok: true, leadMagnet: rows[0] };
+  return { ok: true, leadMagnet: rows[0], action: 'created' };
+}
+
+async function updateLeadMagnet(ctx = {}, id, input = {}) {
+  await ensure();
+  const title = String(input.title || input.name || '').trim();
+  const materialType = String(input.materialType || input.type || 'text').trim() || 'text';
+  const materialText = String(input.text || input.materialText || '').trim();
+  const materialUrl = String(input.url || input.materialUrl || '').trim();
+  const accessMode = String(input.accessMode || 'subscribers_current_channel').trim();
+  if (!id) return { ok: false, error: 'lead_magnet_id_required' };
+  if (!title) return { ok: false, error: 'title_required' };
+  if (!materialText && !materialUrl && !input.fileId) return { ok: false, error: 'material_required' };
+  const meta = {
+    ...(input.meta || {}),
+    ...(humanPostTitle(ctx) ? { postTitle: humanPostTitle(ctx) } : {}),
+    ...(humanChannelTitle(ctx) ? { channelTitle: humanChannelTitle(ctx) } : {})
+  };
+  const { rows } = await dataSafety.safeQuery("update ak_post_lead_magnets set title=$3, material_type=$4, material_text=$5, material_url=$6, file_id=$7, file_name=$8, access_mode=$9, conditions=$10::jsonb, meta=coalesce(meta,'{}'::jsonb) || $11::jsonb, updated_at=now() where id=$1 and post_id=$2 and is_enabled=true returning id, title, material_type, material_url", [id, postKey(ctx), title, materialType, materialText, materialUrl, String(input.fileId || ''), String(input.fileName || ''), accessMode, JSON.stringify(input.conditions || {}), JSON.stringify(meta)]);
+  return rows[0] ? { ok: true, leadMagnet: rows[0], action: 'updated' } : { ok: false, error: 'lead_magnet_not_found' };
 }
 
 async function disableLeadMagnet(ctx = {}, id) {
@@ -130,4 +164,4 @@ async function disableLeadMagnet(ctx = {}, id) {
   return rows[0] ? { ok: true, leadMagnet: rows[0] } : { ok: false, error: 'lead_magnet_not_found' };
 }
 
-module.exports = { ensure, postKey, channelKey, adminKey, humanPostTitle, humanChannelTitle, listButtons, listLeadMagnets, limits, summarizePostAddons, addButton, disableButton, addLeadMagnet, disableLeadMagnet };
+module.exports = { ensure, postKey, channelKey, adminKey, humanPostTitle, humanChannelTitle, listButtons, listLeadMagnets, limits, summarizePostAddons, addButton, updateButton, disableButton, addLeadMagnet, updateLeadMagnet, disableLeadMagnet };
