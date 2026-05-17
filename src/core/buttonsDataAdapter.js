@@ -2,7 +2,7 @@
 
 const db = require('../../cc5-db-core');
 
-const RUNTIME = 'ADMINKIT-CORE-BUTTONS-DATA-ADAPTER-1.6-HUMAN-LABELS-SAFE-SCHEMA';
+const RUNTIME = 'ADMINKIT-CORE-BUTTONS-DATA-ADAPTER-1.7-NO-POST-TEXT-COLUMN';
 const CACHE_TTL_MS = 10 * 1000;
 const cache = new Map();
 
@@ -13,7 +13,7 @@ function cacheKey(adminId = '', channelId = '') { return `${clean(adminId) || 'd
 function getCached(adminId = '', channelId = '') { const item = cache.get(cacheKey(adminId, channelId)); if (!item || Date.now() - item.at > CACHE_TTL_MS) return null; return item.value; }
 function setCached(adminId = '', channelId = '', value) { cache.set(cacheKey(adminId, channelId), { at: Date.now(), value }); if (cache.size > 100) cache.delete(cache.keys().next().value); return value; }
 function uniqByTitleUrl(items = []) { const seen = new Set(); const out = []; for (const item of items) { const key = `${clean(item.title).toLowerCase()}|${clean(item.url).toLowerCase()}`; if (!clean(item.title) || seen.has(key)) continue; seen.add(key); out.push(item); } return out; }
-function postDisplayTitle(post = {}) { return cut(post.title || post.text || post.postTitle || post.postId || post.id || 'Пост', 46); }
+function postDisplayTitle(post = {}) { return cut(post.title || post.postTitle || post.postId || post.id || 'Пост', 46); }
 function channelDisplayTitle(post = {}) { const title = clean(post.channelTitle || post.channelName || post.channelDisplayName || ''); return isHuman(title) ? cut(title, 46) : ''; }
 
 async function queryReadOnly(sql, params = []) {
@@ -44,7 +44,7 @@ async function overview(adminId = '', options = {}) {
       p.channel_id as "channelId",
       coalesce(nullif(c.title, ''), '') as "channelTitle",
       p.post_id as "postId",
-      coalesce(nullif(p.title, ''), nullif(p.text, ''), p.post_id) as title,
+      coalesce(nullif(p.title, ''), p.post_id) as title,
       p.updated_at as "postUpdatedAt",
       count(b.id)::int as "buttonsCount",
       coalesce(jsonb_agg(jsonb_build_object('id', b.id, 'title', b.title, 'url', b.url, 'sortOrder', b.sort_order) order by b.sort_order asc, b.id asc) filter (where b.id is not null), '[]'::jsonb) as buttons
@@ -52,7 +52,7 @@ async function overview(adminId = '', options = {}) {
     left join ak_channels c on c.channel_id = p.channel_id
     left join ak_post_buttons b on b.admin_id = p.admin_id and b.channel_id = p.channel_id and b.post_id = p.post_id and b.is_enabled = true
     where p.admin_id=$1 and ($2::text = '' or p.channel_id=$2)
-    group by p.channel_id, c.title, p.post_id, p.title, p.text, p.updated_at
+    group by p.channel_id, c.title, p.post_id, p.title, p.updated_at
     order by p.updated_at desc nulls last
     limit $3
   `, [id, selectedChannelId, limit]);
@@ -147,6 +147,7 @@ function selfTest() {
     humanPostLabelsReady: true,
     humanChannelLabelsReady: true,
     safeSchemaColumnsOnly: true,
+    noAkPostsTextColumnReference: true,
     rawChannelIdHiddenInUx: true,
     ignoredLegacyTables: ['ak_comment_banners_v3'],
     cacheTtlMs: CACHE_TTL_MS,
