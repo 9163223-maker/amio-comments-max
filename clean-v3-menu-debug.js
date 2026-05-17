@@ -3,7 +3,7 @@
 const Module = require('module');
 const hardRoot = require('./menu-v3-hard-root');
 
-const RUNTIME = 'HARD-V3-MENU-DEBUG-1.38.3-CORE-STRESS-ROUTE';
+const RUNTIME = 'HARD-V3-MENU-DEBUG-1.39.1-CORE-STRESS-UX-GUARD';
 
 function noCache(res) {
   try { res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0', Pragma: 'no-cache', Expires: '0' }); } catch {}
@@ -210,5 +210,9 @@ function install() {
   return selfTest();
 }
 
-function selfTest() { return { ok: true, runtimeVersion: RUNTIME, adminCandidatesEndpoint: '/debug/admin-candidates', coreSendMenuPage: '/debug/core-send-menu', coreStressEndpoint: '/debug/core-stress', hardRoot: hardRoot.selfTest() }; }
+function selfTest() {
+  let stressRuntime = '';
+  try { stressRuntime = require('./src/core/coreStressTest').RUNTIME || ''; } catch {}
+  return { ok: true, runtimeVersion: RUNTIME, adminCandidatesEndpoint: '/debug/admin-candidates', coreSendMenuPage: '/debug/core-send-menu', coreStressEndpoint: '/debug/core-stress', coreStressRuntime: stressRuntime, hardRoot: hardRoot.selfTest() };
+}
 module.exports = { RUNTIME, install, selfTest, adminCandidates, coreStress };
