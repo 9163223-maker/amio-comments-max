@@ -7,7 +7,9 @@ const maxSendAdapter = require('./maxSendAdapter');
 const timingStore = require('./coreTimingStore');
 const { answerCallback } = require('../../services/maxApi');
 
-const RUNTIME = 'ADMINKIT-CORE-CALLBACK-BRIDGE-1.5-FLOW-TEXT-SEND-ACTIVE';
+const RUNTIME = 'ADMINKIT-CORE-CALLBACK-BRIDGE-1.6-IDEMPOTENCY-ACTIVE-SCREEN';
+const CALLBACK_TTL_MS = 2 * 60 * 1000;
+const recentCallbacks = new Map();
 
 function now() { return Date.now(); }
 function clean(value) { return String(value ?? '').trim(); }
@@ -24,6 +26,33 @@ function textOf(update = {}) { const m = messageOf(update) || {}; const body = m
 function isCallbackUpdate(update = {}) { const type = clean(update.update_type || update.type).toLowerCase(); return type === 'message_callback' || !!callbackOf(update); }
 function isTextUpdate(update = {}) { if (isCallbackUpdate(update)) return false; const type = clean(update.update_type || update.type).toLowerCase(); return type === 'message_created' || !!messageOf(update) || !!textOf(update); }
 function isStartOrMenuText(text = '') { return /^\/?start(?:\s|$)/i.test(clean(text)) || /^меню$/i.test(clean(text)) || /^старт$/i.test(clean(text)); }
+
+function pruneRecentCallbacks(ts = now()) {
+  for (const [key, item] of recentCallbacks.entries()) {
+    if (!item?.at || ts - item.at > CALLBACK_TTL_MS) recentCallbacks.delete(key);
+  }
+}
+
+function idempotencyKey(update = {}, callbackId = '') {
+  const payload = payloadOf(update);
+  const adminId = adminIdOf(update);
+  const messageId = messageIdOf(update);
+  const route = clean(payload.r);
+  if (callbackId) return `cb:${callbackId}`;
+  if (adminId && messageId && route) return `fallback:${adminId}:${messageId}:${route}:${JSON.stringify(payload).slice(0, 300)}`;
+  return '';
+}
+
+function markCallbackStarted(update = {}, callbackId = '') {
+  const key = idempotencyKey(update, callbackId);
+  if (!key) return { duplicate: false, key: '', skipped: true };
+  const ts = now();
+  pruneRecentCallbacks(ts);
+  const existing = recentCallbacks.get(key);
+  if (existing && ts - existing.at <= CALLBACK_TTL_MS) return { duplicate: true, key, firstSeenAt: existing.at, ageMs: ts - existing.at };
+  recentCallbacks.set(key, { at: ts });
+  return { duplicate: false, key, firstSeenAt: ts, ageMs: 0 };
+}
 
 function shouldTry(update = {}) {
   if (!isCallbackUpdate(update)) return { ok: false, reason: 'not_callback' };
@@ -90,6 +119,14 @@ async function tryHandleUpdate(update = {}) {
   const activeMessageId = decision.activeMessageId || messageIdOf(update);
   const chatId = chatIdOf(update);
   const callbackId = decision.kind === 'callback' ? callbackIdOf(update) : '';
+  const idem = decision.kind === 'callback' ? markCallbackStarted(update, callbackId) : { duplicate: false, skipped: true };
+  if (idem.duplicate) {
+    const ack = await fastAck(callbackId);
+    const timing = { totalMs: now() - started, ackMs: ack.ms || 0, ackOk: ack.ok === true, duplicateIgnored: true };
+    timingStore.push({ kind: 'callback-duplicate', route: decision.route, adminId: decision.adminId, deliveryMode: 'idempotent-duplicate-no-send', sent: false, timing, gate: decision.gate, note: 'duplicate callback ignored by 1.31 idempotency guard' });
+    return { handled: true, ok: true, duplicate: true, runtimeVersion: RUNTIME, route: decision.route, adminId: decision.adminId, deliveryMode: 'idempotent-duplicate-no-send', sent: false, timing };
+  }
+
   const ack = decision.kind === 'callback' ? await fastAck(callbackId) : { ok: true, skipped: true, ignored: true, reason: 'text_input_no_callback_ack', ms: 0 };
   const afterAck = now();
 
@@ -100,7 +137,7 @@ async function tryHandleUpdate(update = {}) {
   const preferEdit = decision.kind !== 'flow-text-input';
   const delivery = await maxSendAdapter.deliver({ botToken: config.botToken, adminId: decision.adminId, userId: decision.adminId, chatId, activeMessageId: preferEdit ? activeMessageId : '', callbackId: '', screen, preferEdit, dryRun: false });
   const finished = now();
-  const timing = { totalMs: finished - started, ackMs: ack.ms || 0, beforeAckMs: afterAck - started, renderMs: afterRender - afterAck, deliveryMs: finished - afterRender, ackOk: ack.ok === true, ackIgnored: ack.ignored === true, ackReason: ack.reason || '', ackError: ack.ok === true ? '' : (ack.error || '') };
+  const timing = { totalMs: finished - started, ackMs: ack.ms || 0, beforeAckMs: afterAck - started, renderMs: afterRender - afterAck, deliveryMs: finished - afterRender, ackOk: ack.ok === true, ackIgnored: ack.ignored === true, ackReason: ack.reason || '', ackError: ack.ok === true ? '' : (ack.error || ''), idempotencyKey: idem.key || '' };
   timingStore.push({ kind: decision.kind === 'flow-text-input' ? 'text-input' : 'callback', route: ctx.route, adminId: decision.adminId, deliveryMode: delivery.mode, sent: delivery.mode !== 'dry-run-no-send', timing, gate: delivery.gate || decision.gate, note: decision.kind === 'flow-text-input' ? 'send new active core message below user text input' : (activeMessageId ? 'edit existing message' : 'send new message fallback') });
 
   return { handled: true, ok: true, runtimeVersion: RUNTIME, coreRuntimeVersion: core.RUNTIME, kind: decision.kind, route: ctx.route, adminId: decision.adminId, activeMessageId: delivery.messageId || activeMessageId, chatId, deliveryMode: delivery.mode, sent: delivery.mode !== 'dry-run-no-send', gate: delivery.gate || decision.gate, timing };
@@ -109,7 +146,7 @@ async function tryHandleUpdate(update = {}) {
 async function tryHandleExpress(req = {}) { return tryHandleUpdate(req.body || {}); }
 
 function selfTest() {
-  return { ok: true, runtimeVersion: RUNTIME, coreRuntimeVersion: core.RUNTIME, policy: 'callbacks_edit_active_screen_and_text_inputs_send_new_active_screen_for_bottom_menu', gate: { sendEnabled: maxSendAdapter.sendEnabled(), canaryAll: maxSendAdapter.canaryAllEnabled(), allowedAdminsConfigured: maxSendAdapter.allowedAdmins().length }, timingStore: timingStore.selfTest(), safety: { requiresPayloadR: true, requiresCanaryAdmin: true, requiresCoreSendEnabled: true, ignoresNonCoreCallbacks: true, handlesCoreFlowTextInput: true, textInputRequiresActiveFlow: true, textInputRequiresActiveInputStep: true, textInputUsesActiveCoreMessage: true, textInputSendsNewActiveScreenBelowUserMessage: true, callbacksEditExistingActiveScreen: true, leavesLegacyFallbackToOuterRouter: true, fastAckBeforeRender: true, timingDiagnostics: true, timingStoreReady: true, ack400Silent: true } };
+  return { ok: true, runtimeVersion: RUNTIME, coreRuntimeVersion: core.RUNTIME, policy: 'callbacks_edit_active_screen_text_inputs_send_new_screen_and_duplicate_callbacks_are_ignored', gate: { sendEnabled: maxSendAdapter.sendEnabled(), canaryAll: maxSendAdapter.canaryAllEnabled(), allowedAdminsConfigured: maxSendAdapter.allowedAdmins().length }, timingStore: timingStore.selfTest(), safety: { requiresPayloadR: true, requiresCanaryAdmin: true, requiresCoreSendEnabled: true, ignoresNonCoreCallbacks: true, handlesCoreFlowTextInput: true, textInputRequiresActiveFlow: true, textInputRequiresActiveInputStep: true, textInputUsesActiveCoreMessage: true, textInputSendsNewActiveScreenBelowUserMessage: true, callbacksEditExistingActiveScreen: true, leavesLegacyFallbackToOuterRouter: true, fastAckBeforeRender: true, timingDiagnostics: true, timingStoreReady: true, ack400Silent: true, callbackIdempotencyReady: true, duplicateCallbacksNoSend: true, idempotencyTtlMs: CALLBACK_TTL_MS } };
 }
 
-module.exports = { RUNTIME, tryHandleUpdate, tryHandleExpress, shouldTry, shouldTryFlowTextInput, selfTest };
+module.exports = { RUNTIME, tryHandleUpdate, tryHandleExpress, shouldTry, shouldTryFlowTextInput, markCallbackStarted, selfTest };
