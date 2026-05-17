@@ -8,6 +8,7 @@ async function ensure() {
   return dataSafety.ensureCoreStorage();
 }
 
+function clean(value = '') { return String(value ?? '').replace(/\s+/g, ' ').trim(); }
 function postKey(ctx = {}) {
   return String(ctx.postId || ctx.payload?.postId || ctx.selected_post_id || ctx.session?.selected_post_id || ctx.post?.id || 'debug-post');
 }
@@ -18,6 +19,14 @@ function channelKey(ctx = {}) {
 
 function adminKey(ctx = {}) {
   return String(ctx.adminId || ctx.admin_id || '');
+}
+
+function humanPostTitle(ctx = {}) {
+  return clean(ctx.postTitle || ctx.payload?.postTitle || ctx.session?.draft?.postTitle || ctx.draft?.postTitle || ctx.post?.title || '');
+}
+
+function humanChannelTitle(ctx = {}) {
+  return clean(ctx.channelTitle || ctx.payload?.channelTitle || ctx.session?.draft?.channelTitle || ctx.draft?.channelTitle || ctx.channel?.title || '');
 }
 
 async function listButtons(ctx = {}) {
@@ -80,8 +89,13 @@ async function addButton(ctx = {}, input = {}) {
   const title = String(input.title || input.text || '').trim();
   const url = String(input.url || '').trim();
   if (!title || !url) return { ok: false, error: 'title_and_url_required' };
-  const { rows } = await dataSafety.safeQuery('insert into ak_post_buttons(admin_id, channel_id, post_id, title, url, sort_order, meta) values($1,$2,$3,$4,$5,$6,$7::jsonb) returning id, title, url', [adminKey(ctx), channelKey(ctx), postKey(ctx), title, url, summary.buttons.length + 1, JSON.stringify(input.meta || {})]);
-  return { ok: true, button: rows[0] };
+  const meta = {
+    ...(input.meta || {}),
+    ...(humanPostTitle(ctx) ? { postTitle: humanPostTitle(ctx) } : {}),
+    ...(humanChannelTitle(ctx) ? { channelTitle: humanChannelTitle(ctx) } : {})
+  };
+  const { rows } = await dataSafety.safeQuery('insert into ak_post_buttons(admin_id, channel_id, post_id, title, url, sort_order, meta) values($1,$2,$3,$4,$5,$6,$7::jsonb) returning id, title, url, post_id, channel_id, meta', [adminKey(ctx), channelKey(ctx), postKey(ctx), title, url, summary.buttons.length + 1, JSON.stringify(meta)]);
+  return { ok: true, button: rows[0], postId: postKey(ctx), channelId: channelKey(ctx), postTitle: humanPostTitle(ctx), channelTitle: humanChannelTitle(ctx) };
 }
 
 async function disableButton(ctx = {}, id) {
@@ -101,7 +115,12 @@ async function addLeadMagnet(ctx = {}, input = {}) {
   const accessMode = String(input.accessMode || 'subscribers_current_channel').trim();
   if (!title) return { ok: false, error: 'title_required' };
   if (!materialText && !materialUrl && !input.fileId) return { ok: false, error: 'material_required' };
-  const { rows } = await dataSafety.safeQuery('insert into ak_post_lead_magnets(admin_id, channel_id, post_id, title, material_type, material_text, material_url, file_id, file_name, access_mode, conditions, sort_order, meta) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13::jsonb) returning id, title, material_type, material_url', [adminKey(ctx), channelKey(ctx), postKey(ctx), title, materialType, materialText, materialUrl, String(input.fileId || ''), String(input.fileName || ''), accessMode, JSON.stringify(input.conditions || {}), summary.leadMagnets.length + 1, JSON.stringify(input.meta || {})]);
+  const meta = {
+    ...(input.meta || {}),
+    ...(humanPostTitle(ctx) ? { postTitle: humanPostTitle(ctx) } : {}),
+    ...(humanChannelTitle(ctx) ? { channelTitle: humanChannelTitle(ctx) } : {})
+  };
+  const { rows } = await dataSafety.safeQuery('insert into ak_post_lead_magnets(admin_id, channel_id, post_id, title, material_type, material_text, material_url, file_id, file_name, access_mode, conditions, sort_order, meta) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13::jsonb) returning id, title, material_type, material_url', [adminKey(ctx), channelKey(ctx), postKey(ctx), title, materialType, materialText, materialUrl, String(input.fileId || ''), String(input.fileName || ''), accessMode, JSON.stringify(input.conditions || {}), summary.leadMagnets.length + 1, JSON.stringify(meta)]);
   return { ok: true, leadMagnet: rows[0] };
 }
 
@@ -111,4 +130,4 @@ async function disableLeadMagnet(ctx = {}, id) {
   return rows[0] ? { ok: true, leadMagnet: rows[0] } : { ok: false, error: 'lead_magnet_not_found' };
 }
 
-module.exports = { ensure, postKey, channelKey, adminKey, listButtons, listLeadMagnets, limits, summarizePostAddons, addButton, disableButton, addLeadMagnet, disableLeadMagnet };
+module.exports = { ensure, postKey, channelKey, adminKey, humanPostTitle, humanChannelTitle, listButtons, listLeadMagnets, limits, summarizePostAddons, addButton, disableButton, addLeadMagnet, disableLeadMagnet };
