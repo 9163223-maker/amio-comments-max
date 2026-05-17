@@ -14,11 +14,12 @@ const modules = [
   require('../modules/stats'),
   require('../modules/navigation'),
   require('../modules/startLanding'),
+  require('../modules/billing'),
   require('../modules/debugDiagnostics'),
   require('../modules/productionChecklist')
 ];
 
-const RUNTIME = 'ADMINKIT-CORE-SECTION-REGISTRY-1.32-FULL-15-SECTIONS';
+const RUNTIME = 'ADMINKIT-CORE-SECTION-REGISTRY-1.33-FULL-16-SECTIONS-BILLING';
 const REQUIRED_SECTION_IDS = [
   'channels',
   'comments',
@@ -33,6 +34,7 @@ const REQUIRED_SECTION_IDS = [
   'stats',
   'navigation',
   'start_landing',
+  'billing',
   'debug_diagnostics',
   'production_checklist'
 ];
@@ -60,14 +62,15 @@ function selfTest() {
   const missing = REQUIRED_SECTION_IDS.filter((id) => !ids.includes(id));
   const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
   return {
-    ok: missing.length === 0 && duplicates.length === 0 && sections.length === 15,
+    ok: missing.length === 0 && duplicates.length === 0 && sections.length === 16,
     runtimeVersion: RUNTIME,
     sectionCount: sections.length,
     requiredSectionCount: REQUIRED_SECTION_IDS.length,
     ids,
     missing,
     duplicates,
-    fullMenuScaffoldReady: true
+    fullMenuScaffoldReady: true,
+    billingCabinetReady: ids.includes('billing')
   };
 }
 
