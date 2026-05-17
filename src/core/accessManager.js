@@ -2,40 +2,58 @@
 
 const accountManager = require('./accountManager');
 
-const RUNTIME = 'ADMINKIT-CORE-ACCESS-MANAGER-1.1-BATCHED-FILTER-SECTIONS';
+const RUNTIME = 'ADMINKIT-CORE-ACCESS-MANAGER-1.32-FULL-MENU-FEATURES';
 const DEFAULT_PLAN = 'free';
 
 const PLAN_FEATURES = {
   free: {
     'channels.enabled': true,
     'comments.enabled': true,
+    'photo_comments.enabled': false,
+    'reactions_replies.enabled': true,
     'buttons.enabled': true,
     'buttons.max_per_post': 1,
     'lead_magnets.enabled': true,
     'lead_magnets.max_per_post': 1,
     'lead_magnets.condition.keyword': false,
     'lead_magnets.condition.channels_many': false,
+    'post_highlights.enabled': false,
+    'polls.enabled': false,
+    'post_editor.enabled': false,
     'moderation.enabled': false,
     'archive.enabled': false,
     'stats.enabled': true,
     'stats.advanced': false,
+    'navigation.enabled': true,
+    'start_landing.enabled': true,
+    'debug_diagnostics.enabled': false,
+    'production_checklist.enabled': false,
     'settings.enabled': false
   },
   start: {
     'channels.enabled': true,
     'comments.enabled': true,
     'comments.photo': true,
+    'photo_comments.enabled': true,
+    'reactions_replies.enabled': true,
     'buttons.enabled': true,
     'buttons.max_per_post': 3,
     'lead_magnets.enabled': true,
     'lead_magnets.max_per_post': 3,
     'lead_magnets.condition.keyword': true,
     'lead_magnets.condition.channels_many': false,
+    'post_highlights.enabled': true,
+    'polls.enabled': true,
+    'post_editor.enabled': true,
     'moderation.enabled': true,
     'archive.enabled': true,
     'archive.restore_text': true,
     'stats.enabled': true,
     'stats.advanced': false,
+    'navigation.enabled': true,
+    'start_landing.enabled': true,
+    'debug_diagnostics.enabled': false,
+    'production_checklist.enabled': false,
     'settings.enabled': true
   },
   pro: {
@@ -104,7 +122,25 @@ async function filterSections(ctx = {}, sections = []) {
 }
 
 function selfTest() {
-  return { ok: true, runtimeVersion: RUNTIME, batchedFilterSections: true, planCount: Object.keys(PLAN_FEATURES).length, accountManager: accountManager.selfTest ? accountManager.selfTest() : null };
+  return {
+    ok: true,
+    runtimeVersion: RUNTIME,
+    batchedFilterSections: true,
+    planCount: Object.keys(PLAN_FEATURES).length,
+    fullMenuFeatureGatesReady: true,
+    fullMenuFeatureCodes: [
+      'photo_comments.enabled',
+      'reactions_replies.enabled',
+      'post_highlights.enabled',
+      'polls.enabled',
+      'post_editor.enabled',
+      'navigation.enabled',
+      'start_landing.enabled',
+      'debug_diagnostics.enabled',
+      'production_checklist.enabled'
+    ],
+    accountManager: accountManager.selfTest ? accountManager.selfTest() : null
+  };
 }
 
 module.exports = { RUNTIME, DEFAULT_PLAN, PLAN_FEATURES, getAccountPlan, getAccount, can, limit, assertCan, filterSections, evaluate, selfTest };
