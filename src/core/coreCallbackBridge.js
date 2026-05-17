@@ -7,8 +7,9 @@ const maxSendAdapter = require('./maxSendAdapter');
 const timingStore = require('./coreTimingStore');
 const { answerCallback } = require('../../services/maxApi');
 
-const RUNTIME = 'ADMINKIT-CORE-CALLBACK-BRIDGE-1.6-IDEMPOTENCY-ACTIVE-SCREEN';
+const RUNTIME = 'ADMINKIT-CORE-CALLBACK-BRIDGE-1.7-LEAD-MATERIAL-TEXT';
 const CALLBACK_TTL_MS = 2 * 60 * 1000;
+const TEXT_INPUT_STEPS = ['input_title', 'input_url', 'input_material'];
 const recentCallbacks = new Map();
 
 function now() { return Date.now(); }
@@ -79,7 +80,7 @@ async function shouldTryFlowTextInput(update = {}) {
   try { session = await require('./stateManager').getSession(adminId); } catch (error) { return { ok: false, reason: 'session_read_failed', adminId, error: error?.message || String(error) }; }
   const activeFlow = clean(session?.active_flow || session?.activeFlow);
   const activeStep = clean(session?.active_step || session?.activeStep);
-  if (!activeFlow || !['input_title', 'input_url'].includes(activeStep)) return { ok: false, reason: 'no_active_core_text_step', adminId, activeFlow, activeStep };
+  if (!activeFlow || !TEXT_INPUT_STEPS.includes(activeStep)) return { ok: false, reason: 'no_active_core_text_step', adminId, activeFlow, activeStep, supportedTextInputSteps: TEXT_INPUT_STEPS };
   return {
     ok: true,
     kind: 'flow-text-input',
@@ -123,7 +124,7 @@ async function tryHandleUpdate(update = {}) {
   if (idem.duplicate) {
     const ack = await fastAck(callbackId);
     const timing = { totalMs: now() - started, ackMs: ack.ms || 0, ackOk: ack.ok === true, duplicateIgnored: true };
-    timingStore.push({ kind: 'callback-duplicate', route: decision.route, adminId: decision.adminId, deliveryMode: 'idempotent-duplicate-no-send', sent: false, timing, gate: decision.gate, note: 'duplicate callback ignored by 1.31 idempotency guard' });
+    timingStore.push({ kind: 'callback-duplicate', route: decision.route, adminId: decision.adminId, deliveryMode: 'idempotent-duplicate-no-send', sent: false, timing, gate: decision.gate, note: 'duplicate callback ignored by 1.33 idempotency guard' });
     return { handled: true, ok: true, duplicate: true, runtimeVersion: RUNTIME, route: decision.route, adminId: decision.adminId, deliveryMode: 'idempotent-duplicate-no-send', sent: false, timing };
   }
 
@@ -146,7 +147,7 @@ async function tryHandleUpdate(update = {}) {
 async function tryHandleExpress(req = {}) { return tryHandleUpdate(req.body || {}); }
 
 function selfTest() {
-  return { ok: true, runtimeVersion: RUNTIME, coreRuntimeVersion: core.RUNTIME, policy: 'callbacks_edit_active_screen_text_inputs_send_new_screen_and_duplicate_callbacks_are_ignored', gate: { sendEnabled: maxSendAdapter.sendEnabled(), canaryAll: maxSendAdapter.canaryAllEnabled(), allowedAdminsConfigured: maxSendAdapter.allowedAdmins().length }, timingStore: timingStore.selfTest(), safety: { requiresPayloadR: true, requiresCanaryAdmin: true, requiresCoreSendEnabled: true, ignoresNonCoreCallbacks: true, handlesCoreFlowTextInput: true, textInputRequiresActiveFlow: true, textInputRequiresActiveInputStep: true, textInputUsesActiveCoreMessage: true, textInputSendsNewActiveScreenBelowUserMessage: true, callbacksEditExistingActiveScreen: true, leavesLegacyFallbackToOuterRouter: true, fastAckBeforeRender: true, timingDiagnostics: true, timingStoreReady: true, ack400Silent: true, callbackIdempotencyReady: true, duplicateCallbacksNoSend: true, idempotencyTtlMs: CALLBACK_TTL_MS } };
+  return { ok: true, runtimeVersion: RUNTIME, coreRuntimeVersion: core.RUNTIME, policy: 'callbacks_edit_active_screen_text_inputs_include_lead_material_and_duplicate_callbacks_are_ignored', gate: { sendEnabled: maxSendAdapter.sendEnabled(), canaryAll: maxSendAdapter.canaryAllEnabled(), allowedAdminsConfigured: maxSendAdapter.allowedAdmins().length }, timingStore: timingStore.selfTest(), safety: { requiresPayloadR: true, requiresCanaryAdmin: true, requiresCoreSendEnabled: true, ignoresNonCoreCallbacks: true, handlesCoreFlowTextInput: true, handlesLeadMagnetMaterialTextInput: true, supportedTextInputSteps: TEXT_INPUT_STEPS, textInputRequiresActiveFlow: true, textInputRequiresActiveInputStep: true, textInputUsesActiveCoreMessage: true, textInputSendsNewActiveScreenBelowUserMessage: true, callbacksEditExistingActiveScreen: true, leavesLegacyFallbackToOuterRouter: true, fastAckBeforeRender: true, timingDiagnostics: true, timingStoreReady: true, ack400Silent: true, callbackIdempotencyReady: true, duplicateCallbacksNoSend: true, idempotencyTtlMs: CALLBACK_TTL_MS } };
 }
 
 module.exports = { RUNTIME, tryHandleUpdate, tryHandleExpress, shouldTry, shouldTryFlowTextInput, markCallbackStarted, selfTest };
