@@ -3,7 +3,7 @@
 const Module = require('module');
 const hardRoot = require('./menu-v3-hard-root');
 
-const RUNTIME = 'HARD-V3-MENU-DEBUG-1.36.8-CORE-SEND-PAGE';
+const RUNTIME = 'HARD-V3-MENU-DEBUG-1.38.3-CORE-STRESS-ROUTE';
 
 function noCache(res) {
   try { res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0', Pragma: 'no-cache', Expires: '0' }); } catch {}
@@ -141,6 +141,15 @@ async function adminCandidates() {
   };
 }
 
+async function coreStress(req = {}) {
+  const stress = require('./src/core/coreStressTest');
+  return stress.run({
+    seed: req.query?.seed ?? '1',
+    cleanup: req.query?.cleanup ?? '1',
+    slowMs: req.query?.slowMs ?? 700
+  });
+}
+
 function install() {
   if (Module._load.__hardV3DebugOnly) return selfTest();
   const oldLoad = Module._load;
@@ -182,6 +191,11 @@ function install() {
             res.set('Content-Type', 'text/html; charset=utf-8');
             res.send(coreSendMenuHtml(req));
           });
+          app.get('/debug/core-stress', async (req, res) => {
+            noCache(res);
+            try { res.json(await coreStress(req)); }
+            catch (error) { res.status(500).json({ ok: false, runtimeVersion: RUNTIME, error: error?.message || String(error), stack: String(error?.stack || '').split('\n').slice(0, 4) }); }
+          });
         }
         return app;
       }
@@ -196,5 +210,5 @@ function install() {
   return selfTest();
 }
 
-function selfTest() { return { ok: true, runtimeVersion: RUNTIME, adminCandidatesEndpoint: '/debug/admin-candidates', coreSendMenuPage: '/debug/core-send-menu', hardRoot: hardRoot.selfTest() }; }
-module.exports = { RUNTIME, install, selfTest, adminCandidates };
+function selfTest() { return { ok: true, runtimeVersion: RUNTIME, adminCandidatesEndpoint: '/debug/admin-candidates', coreSendMenuPage: '/debug/core-send-menu', coreStressEndpoint: '/debug/core-stress', hardRoot: hardRoot.selfTest() }; }
+module.exports = { RUNTIME, install, selfTest, adminCandidates, coreStress };
