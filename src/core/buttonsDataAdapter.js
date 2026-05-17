@@ -2,7 +2,7 @@
 
 const db = require('../../cc5-db-core');
 
-const RUNTIME = 'ADMINKIT-CORE-BUTTONS-DATA-ADAPTER-1.5-HUMAN-LABELS';
+const RUNTIME = 'ADMINKIT-CORE-BUTTONS-DATA-ADAPTER-1.6-HUMAN-LABELS-SAFE-SCHEMA';
 const CACHE_TTL_MS = 10 * 1000;
 const cache = new Map();
 
@@ -42,7 +42,7 @@ async function overview(adminId = '', options = {}) {
   const result = await queryReadOnly(`
     select
       p.channel_id as "channelId",
-      coalesce(nullif(c.title, ''), nullif(c.name, ''), nullif(c.username, ''), '') as "channelTitle",
+      coalesce(nullif(c.title, ''), '') as "channelTitle",
       p.post_id as "postId",
       coalesce(nullif(p.title, ''), nullif(p.text, ''), p.post_id) as title,
       p.updated_at as "postUpdatedAt",
@@ -52,7 +52,7 @@ async function overview(adminId = '', options = {}) {
     left join ak_channels c on c.channel_id = p.channel_id
     left join ak_post_buttons b on b.admin_id = p.admin_id and b.channel_id = p.channel_id and b.post_id = p.post_id and b.is_enabled = true
     where p.admin_id=$1 and ($2::text = '' or p.channel_id=$2)
-    group by p.channel_id, c.title, c.name, c.username, p.post_id, p.title, p.text, p.updated_at
+    group by p.channel_id, c.title, p.post_id, p.title, p.text, p.updated_at
     order by p.updated_at desc nulls last
     limit $3
   `, [id, selectedChannelId, limit]);
@@ -146,6 +146,7 @@ function selfTest() {
     legacyAdaptersDisabled: true,
     humanPostLabelsReady: true,
     humanChannelLabelsReady: true,
+    safeSchemaColumnsOnly: true,
     rawChannelIdHiddenInUx: true,
     ignoredLegacyTables: ['ak_comment_banners_v3'],
     cacheTtlMs: CACHE_TTL_MS,
