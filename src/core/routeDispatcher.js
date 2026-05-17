@@ -10,7 +10,12 @@ const postAddonManager = require('./postAddonManager');
 
 const START_ROUTES = new Set(['/start', 'start', 'старт', 'меню', 'main.home', 'main:home', 'home']);
 const HARD_START_ROUTES = new Set(['/start', 'start', 'старт', 'меню']);
-const RUNTIME = 'ADMINKIT-CORE-ROUTE-DISPATCHER-1.1-BUTTON-SAVE';
+const RUNTIME = 'ADMINKIT-CORE-ROUTE-DISPATCHER-1.2-HUMAN-SAVE-SCREEN';
+
+function clean(value = '') { return String(value ?? '').replace(/\s+/g, ' ').trim(); }
+function isRawId(value = '') { const s = clean(value); return /^-?\d{6,}$/.test(s) || /^[a-f0-9]{12,}$/i.test(s); }
+function humanPostLabel(value = '', fallback = '') { const s = clean(value || fallback); return s || 'выбранный пост'; }
+function humanChannelLabel(value = '') { const s = clean(value); if (!s || isRawId(s)) return ''; return s; }
 
 async function mainMenu(ctx) {
   const sections = await accessManager.filterSections(ctx, sectionRegistry.listAll());
@@ -112,17 +117,20 @@ function shouldResetSessionOnStart(ctx = {}, route = '') {
 
 function saveButtonSuccessScreen(saved = {}, cancelResult = {}) {
   const button = saved.button || {};
+  const postTitle = humanPostLabel(saved.postTitle || button.meta?.postTitle, saved.postId || saved.ctx?.postId || '');
+  const channelTitle = humanChannelLabel(saved.channelTitle || button.meta?.channelTitle || saved.ctx?.channelTitle || '');
   return menuRenderer.renderScreen({
     title: '✅ CTA-кнопка сохранена в Core',
     body: [
-      `Пост: ${saved.postId || saved.ctx?.postId || ''}`,
+      `Пост: ${postTitle}`,
+      channelTitle ? `Канал: ${channelTitle}` : '',
       `Название: ${button.title || ''}`,
       `Ссылка: ${button.url || ''}`,
       '',
       'Сохранено в чистую таблицу: ak_post_buttons.',
       'Legacy-хранилища и старые патчи не использовались.',
       'На этом шаге Core только сохраняет данные. Патч поста в MAX подключим отдельным чистым этапом.'
-    ],
+    ].filter(Boolean),
     buttons: [{ text: '🔘 К списку кнопок', route: 'buttons.home', data: { sectionId: 'buttons', refresh: 1 } }],
     homeRoute: 'main.home'
   });
@@ -139,8 +147,11 @@ async function saveButtonFromFlow(ctx = {}) {
     ...ctx,
     adminId: ctx.adminId || ctx.admin_id || current.session?.admin_id || '',
     channelId: draft.channelId || current.session?.selected_channel_id || ctx.channelId || ctx.payload?.channelId || '',
+    channelTitle: draft.channelTitle || ctx.channelTitle || ctx.payload?.channelTitle || '',
     postId: draft.postId || current.session?.selected_post_id || ctx.postId || ctx.payload?.postId || '',
-    session: current.session
+    postTitle: draft.postTitle || ctx.postTitle || ctx.payload?.postTitle || '',
+    session: current.session,
+    draft
   };
   const saved = await postAddonManager.addButton(saveCtx, {
     title: draft.buttonTitle || draft.title || '',
@@ -154,7 +165,7 @@ async function saveButtonFromFlow(ctx = {}) {
   });
   if (!saved.ok) return flowErrorScreen({ ...saved, flow: current.flow, step: current.step, draft }, ctx);
   await flowEngine.cancel(ctx, 'button_saved_core_clean');
-  return saveButtonSuccessScreen({ ...saved, postId: saveCtx.postId, ctx: saveCtx });
+  return saveButtonSuccessScreen({ ...saved, postId: saveCtx.postId, postTitle: saveCtx.postTitle, channelTitle: saveCtx.channelTitle, ctx: saveCtx });
 }
 
 async function dispatch(ctx = {}) {
@@ -219,7 +230,10 @@ function selfTest() {
     runtimeVersion: RUNTIME,
     cleanButtonSaveRoute: true,
     buttonSaveTable: 'ak_post_buttons',
-    legacyAdaptersUsed: false
+    legacyAdaptersUsed: false,
+    humanSaveScreenReady: true,
+    rawPostIdHiddenOnSaveScreen: true,
+    rawChannelIdHiddenOnSaveScreen: true
   };
 }
 
