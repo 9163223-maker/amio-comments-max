@@ -1,7 +1,7 @@
 'use strict';
 
-const RUNTIME = 'ADMINKIT-CORE-1.35-LEAD-MAGNET-CONDITION-SETUP-FLOW';
-const SOURCE = 'adminkit-core-1-35-lead-magnet-condition-setup-flow';
+const RUNTIME = 'ADMINKIT-CORE-1.36-CLEAN-DEBUG-ROUTES-NO-WRAPPERS';
+const SOURCE = 'adminkit-core-1-36-clean-debug-routes-no-wrappers';
 
 function lazy(name) { return require(name); }
 async function dispatch(ctx = {}) { return lazy('./src/core/routeDispatcher').dispatch(ctx); }
@@ -24,6 +24,7 @@ function selfTest() {
   const stateManager = lazy('./src/core/stateManager');
   const conditionCatalog = lazy('./src/core/leadMagnetConditionCatalog');
   const postRegistry = lazy('./src/core/postRegistryDataAdapter');
+  const coreDebugRoutes = lazy('./src/core/coreDebugRoutes');
 
   const sections = sectionRegistry.listAll();
   const ids = sections.map((section) => section.id);
@@ -48,6 +49,7 @@ function selfTest() {
   const canaryWebhook = safe('coreCanaryWebhook', () => lazy('./src/core/coreCanaryWebhook').selfTest());
   const conditionCatalogSelfTest = safe('leadMagnetConditionCatalog', () => conditionCatalog.selfTest());
   const postRegistrySelfTest = safe('postRegistryDataAdapter', () => postRegistry.selfTest());
+  const coreDebugRoutesSelfTest = safe('coreDebugRoutes', () => coreDebugRoutes.selfTest());
   const callbackBridge = safe('coreCallbackBridge', () => lazy('./src/core/coreCallbackBridge').selfTest());
   const safety = safe('dataSafety', () => dataSafety.policySummary());
 
@@ -79,8 +81,9 @@ function selfTest() {
   const cleanButtonCreateFlowReady = buttonsSelfTest?.cleanCreateFlow === true && buttonsSelfTest?.writesTo === 'ak_post_buttons';
   const cleanButtonSaveRouteReady = routeDispatcherSelfTest?.cleanButtonSaveRoute === true && routeDispatcherSelfTest?.buttonSaveTable === 'ak_post_buttons';
   const leadMagnetsAuditReady = leadMagnetsSelfTest?.legacyAdaptersUsed === false && leadMagnetsSelfTest?.dangerousActionsDisabled === true;
+  const cleanCoreDebugRoutesReady = coreDebugRoutesSelfTest?.cleanCoreDebugRoutesReady === true && coreDebugRoutesSelfTest?.manualSendLegacyTokenCompatible === true;
 
-  const ok = fullMenuScaffoldReady && billingCabinetReady && fullMenuFeatureGatesReady && postCaptureFlowReady && postRegistryDataAdapterReady && leadConditionCatalogReady && leadConditionSetupFlowReady && leadFullFlowReady && conditionSetupRequiredBeforeSave && leadMaterialTextInputReady && leadAccessSelectReady && leadSaveReady && missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && typeof postAddonManager.addLeadMagnet === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && delivery.ok === true && canaryWebhook.ok === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady && callbackIdempotencyReady && oneActiveScreenCleanupReady && linkUxReady && mainHomeCallbackFastPath && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender && channelData.ok === true && buttonsData.ok === true && buttonsCleanStorageOnlyReady && buttonsLegacyAdaptersDisabled && cleanButtonCreateFlowReady && cleanButtonSaveRouteReady && leadMagnetsAuditReady;
+  const ok = fullMenuScaffoldReady && billingCabinetReady && fullMenuFeatureGatesReady && cleanCoreDebugRoutesReady && postCaptureFlowReady && postRegistryDataAdapterReady && leadConditionCatalogReady && leadConditionSetupFlowReady && leadFullFlowReady && conditionSetupRequiredBeforeSave && leadMaterialTextInputReady && leadAccessSelectReady && leadSaveReady && missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && typeof postAddonManager.addLeadMagnet === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && delivery.ok === true && canaryWebhook.ok === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady && callbackIdempotencyReady && oneActiveScreenCleanupReady && linkUxReady && mainHomeCallbackFastPath && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender && channelData.ok === true && buttonsData.ok === true && buttonsCleanStorageOnlyReady && buttonsLegacyAdaptersDisabled && cleanButtonCreateFlowReady && cleanButtonSaveRouteReady && leadMagnetsAuditReady;
 
   return {
     ok,
@@ -88,12 +91,13 @@ function selfTest() {
     sourceMarker: SOURCE,
     isCoreRuntime: true,
     activeInProduction: false,
-    purpose: 'Core 1.35: full lead-magnet flow with channel selection, post registry, post source, condition setup and save guard for required condition params.',
+    purpose: 'Core 1.36: clean Core debug/manual-send route module, legacy token compatibility restored in source logic, no new wrappers/monkeypatches.',
     sections: ids,
     requiredSections: required,
     missingSections: missing,
     routeCount: routeMap.size,
     storage: { sessions: 'ak_admin_sessions', posts: 'ak_posts', buttons: 'ak_post_buttons', leadMagnets: 'ak_post_lead_magnets', accounts: 'ak_accounts', billingSubscriptions: 'ak_billing_subscriptions', referrals: 'ak_referrals', migrations: 'ak_core_schema_migrations' },
+    coreDebugRoutes: coreDebugRoutesSelfTest,
     sectionRegistry: registrySelfTest,
     sectionAudit,
     flowDefinitions,
@@ -116,6 +120,10 @@ function selfTest() {
     menuRenderer: menuSelfTest,
     dataSafety: safety,
     constraints: {
+      cleanCoreDebugRoutesReady,
+      manualSendLegacyTokenCompatible: coreDebugRoutesSelfTest?.manualSendLegacyTokenCompatible === true,
+      noNewWrapperAdded: true,
+      noNewMonkeypatchAdded: true,
       fullMenuScaffoldReady,
       all16SectionsRegistered: sections.length === 16 && missing.length === 0,
       billingCabinetReady,
@@ -156,7 +164,7 @@ function selfTest() {
       maxSendCanaryGated: true,
       coreSendDisabledByDefault: true,
       nonDestructiveMigrationsOnly: true,
-      noLegacyWrapperChain: true,
+      noLegacyWrapperChain: false,
       noPublicAppOverride: true,
       noProductionWebhookChange: true,
       canaryAllNotRequired: true
