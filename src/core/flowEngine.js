@@ -2,8 +2,9 @@
 
 const stateManager = require('./stateManager');
 const definitions = require('./flowDefinitions');
+const conditionCatalog = require('./leadMagnetConditionCatalog');
 
-const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.8-LEAD-ACCESS-SELECT';
+const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.9-POST-CAPTURE-CONDITIONS';
 
 function adminIdOf(ctx = {}) { return String(ctx.adminId || ctx.admin_id || 'debug-admin'); }
 function cleanValue(value) { const raw = String(value ?? '').trim(); if (!raw) return ''; try { return decodeURIComponent(raw.replace(/\+/g, ' ')).trim(); } catch { return raw.replace(/\+/g, ' ').trim(); } }
@@ -28,7 +29,17 @@ async function selectPost(ctx = {}, explicitPostId = '', patch = {}) {
   if (current.step?.id !== 'select_post') return { ok: false, error: 'unexpected_step', expected: 'select_post', actual: current.step?.id || '', flow: current.flow, step: current.step, draft: current.draft };
   const postId = String(explicitPostId || valueFromCtx(ctx, 'postId', ['selectedPostId', 'id']) || '').trim(); if (!postId) return { ok: false, error: 'post_required', flow: current.flow, step: current.step, draft: current.draft };
   const channelId = valueFromCtx(ctx, 'channelId', ['selectedChannelId']); const commentKey = valueFromCtx(ctx, 'commentKey', ['selectedCommentKey']); const postTitle = valueFromCtx(ctx, 'postTitle', ['title', 'postPreview', 'displayTitle']); const channelTitle = valueFromCtx(ctx, 'channelTitle', ['channelName', 'channelDisplayName']);
-  return next(ctx, { ...patch, postId, ...(channelId ? { channelId } : {}), ...(channelTitle ? { channelTitle } : {}), ...(commentKey ? { commentKey } : {}), ...(postTitle ? { postTitle } : {}), postSelectedAt: new Date().toISOString() });
+  return next(ctx, { ...patch, postId, ...(channelId ? { channelId } : {}), ...(channelTitle ? { channelTitle } : {}), ...(commentKey ? { commentKey } : {}), ...(postTitle ? { postTitle } : {}), postSelectedAt: new Date().toISOString(), postSource: patch.postSource || 'registry_or_debug' });
+}
+
+async function capturePost(ctx = {}) {
+  const current = await getCurrent(ctx); if (!current.ok) return current;
+  const requestedFlowId = valueFromCtx(ctx, 'flowId', ['activeFlow', 'active_flow']);
+  if (requestedFlowId && requestedFlowId !== current.flow?.id) return { ok: false, error: 'stale_flow_callback', expectedFlow: current.flow?.id || '', actualFlow: requestedFlowId, flow: current.flow, step: current.step, draft: current.draft };
+  if (current.step?.id !== 'select_post') return { ok: false, error: 'unexpected_step', expected: 'select_post', actual: current.step?.id || '', flow: current.flow, step: current.step, draft: current.draft };
+  const mode = valueFromCtx(ctx, 'captureMode', ['mode']) || 'forwarded_post';
+  const label = mode === 'legacy_or_old_post' ? 'найти старый пост / переслать старый пост' : 'переслать пост из канала';
+  return patchDraft(ctx, { captureMode: mode, captureModeLabel: label, postCaptureRequestedAt: new Date().toISOString(), postCaptureInstruction: 'Администратор должен переслать пост из канала; следующий clean adapter распознает payload и запишет post registry.' });
 }
 
 async function selectAccess(ctx = {}) {
@@ -36,9 +47,12 @@ async function selectAccess(ctx = {}) {
   const requestedFlowId = valueFromCtx(ctx, 'flowId', ['activeFlow', 'active_flow']);
   if (requestedFlowId && requestedFlowId !== current.flow?.id) return { ok: false, error: 'stale_flow_callback', expectedFlow: current.flow?.id || '', actualFlow: requestedFlowId, flow: current.flow, step: current.step, draft: current.draft };
   if (current.flow?.id !== 'lead_magnets.create' || current.step?.id !== 'select_access') return { ok: false, error: 'unexpected_step', expected: 'lead_magnets.create/select_access', actual: `${current.flow?.id || ''}/${current.step?.id || ''}`, flow: current.flow, step: current.step, draft: current.draft };
+  const conditionId = valueFromCtx(ctx, 'conditionId', ['condition']);
   const accessMode = valueFromCtx(ctx, 'accessMode', ['mode']) || 'subscribers_current_channel';
-  const accessLabel = valueFromCtx(ctx, 'accessLabel', ['label']) || (accessMode === 'all' ? 'доступ всем' : accessMode === 'keyword' ? 'по кодовому слову' : 'только подписчикам текущего канала');
-  return next(ctx, { accessMode, accessLabel, conditions: { mode: accessMode }, accessSelectedAt: new Date().toISOString() });
+  const verifier = valueFromCtx(ctx, 'verifier', ['conditionVerifier']);
+  const catalogCondition = conditionCatalog.toCondition({ conditionId, accessMode, mode: accessMode, params: {} });
+  const accessLabel = valueFromCtx(ctx, 'accessLabel', ['label']) || catalogCondition.title || accessMode;
+  return next(ctx, { accessMode: catalogCondition.mode, accessLabel, conditionId: catalogCondition.id, conditionVerifier: verifier || catalogCondition.verifier, conditions: catalogCondition, accessSelectedAt: new Date().toISOString() });
 }
 
 function titlePatchForFlow(flowId, text) { if (flowId === 'buttons.create') return { title: text, buttonTitle: text, titleInputAt: new Date().toISOString() }; if (flowId === 'lead_magnets.create') return { title: text, leadMagnetTitle: text, titleInputAt: new Date().toISOString() }; return { title: text, titleInputAt: new Date().toISOString() }; }
@@ -56,6 +70,6 @@ async function acceptInput(ctx = {}, explicitText = '') {
 
 async function cancel(ctx = {}, reason = 'cancel') { const adminId = adminIdOf(ctx); const session = await stateManager.resetSession(adminId, reason); return { ok: true, session }; }
 
-function selfTest() { const flows = definitions.listFlows(); return { ok: flows.length >= 2 && flows.every((flow) => flow.id && flow.steps?.length) && isValidHttpUrl('example.com'), runtimeVersion: RUNTIME, supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'selectAccess', 'acceptInput', 'titleInput', 'urlInput', 'materialInput', 'staleFlowCallbackGuard', 'humanPostTitle', 'humanChannelTitle', 'cancel'], guards: ['flowId_payload_must_match_active_flow', 'title_required', 'title_max_64', 'url_required', 'url_must_be_http_or_https', 'url_max_500', 'material_required', 'material_max_2000', 'explicit_text_preferred_over_route'], leadMagnetMaterialInputReady: true, leadMagnetAccessSelectReady: true, flows: flows.map((flow) => ({ id: flow.id, section: flow.section, steps: flow.steps.map((s) => s.id) })) }; }
+function selfTest() { const flows = definitions.listFlows(); const catalog = conditionCatalog.selfTest(); return { ok: flows.length >= 2 && flows.every((flow) => flow.id && flow.steps?.length) && isValidHttpUrl('example.com') && catalog.ok === true, runtimeVersion: RUNTIME, supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'capturePost', 'selectAccess', 'acceptInput', 'titleInput', 'urlInput', 'materialInput', 'staleFlowCallbackGuard', 'humanPostTitle', 'humanChannelTitle', 'cancel'], guards: ['flowId_payload_must_match_active_flow', 'title_required', 'title_max_64', 'url_required', 'url_must_be_http_or_https', 'url_max_500', 'material_required', 'material_max_2000', 'explicit_text_preferred_over_route'], postCaptureFlowReady: true, leadConditionCatalogReady: true, leadConditionCount: catalog.count, leadMagnetMaterialInputReady: true, leadMagnetAccessSelectReady: true, flows: flows.map((flow) => ({ id: flow.id, section: flow.section, steps: flow.steps.map((s) => s.id) })) }; }
 
-module.exports = { RUNTIME, start, getCurrent, patchDraft, goTo, next, selectPost, selectAccess, acceptInput, cancel, selfTest, cleanValue, textInputFromCtx, normalizeUrl, isValidHttpUrl };
+module.exports = { RUNTIME, start, getCurrent, patchDraft, goTo, next, selectPost, capturePost, selectAccess, acceptInput, cancel, selfTest, cleanValue, textInputFromCtx, normalizeUrl, isValidHttpUrl };
