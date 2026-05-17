@@ -2,7 +2,7 @@
 
 const menuRenderer = require('./menuRenderer');
 
-const RUNTIME = 'ADMINKIT-CORE-FLOW-SCREEN-1.2-HUMAN-LABELS';
+const RUNTIME = 'ADMINKIT-CORE-FLOW-SCREEN-1.3-LEAD-ACCESS-BUTTONS';
 
 function clean(value = '') { return String(value ?? '').replace(/\s+/g, ' ').trim(); }
 function cut(value = '', max = 58) { const s = clean(value); return s.length > max ? `${s.slice(0, Math.max(1, max - 1))}…` : s; }
@@ -31,12 +31,12 @@ function stepHint(flowId, stepId) {
     if (stepId === 'review_save') return 'Проверьте название и ссылку. После нажатия “Сохранить” Core запишет кнопку только в ak_post_buttons.';
   }
   if (flowId === 'lead_magnets.create') {
-    if (stepId === 'select_post') return 'Сначала выберите пост, к которому нужно добавить лид-магнит.';
+    if (stepId === 'select_post') return 'Сначала выберите канал и пост, к которому нужно добавить лид-магнит. Сейчас доступен список из базы; пересланный старый/новый пост добавим отдельным capture-flow.';
     if (stepId === 'input_title') return 'Пост выбран. Теперь введите название лид-магнита. Например: чек-лист, гайд, промокод, подборка.';
-    if (stepId === 'input_material') return 'Добавьте материал: текст, ссылку, файл или фото. Core сохранит материал отдельно от сценария.';
-    if (stepId === 'select_access') return 'Выберите условие получения: всем, подписчикам, по кодовому слову или по другим доступным условиям тарифа.';
-    if (stepId === 'review_conditions') return 'Проверьте условия получения. Для Pro позже будут доступны расширенные условия.';
-    if (stepId === 'review_save') return 'Проверьте лид-магнит и сохраните. Данные клиента не перезаписываются, новые записи добавляются безопасно.';
+    if (stepId === 'input_material') return 'Добавьте материал сообщением: текст, промокод или ссылку. Файл/фото подключим следующим шагом через material adapter.';
+    if (stepId === 'select_access') return 'Выберите условие получения: всем, подписчикам текущего канала или по кодовому слову.';
+    if (stepId === 'review_conditions') return 'Проверьте условия получения. Если всё верно, переходите к сохранению.';
+    if (stepId === 'review_save') return 'Проверьте лид-магнит и сохраните. Core запишет его в ak_post_lead_magnets без legacy adapters.';
   }
   return 'Продолжайте сценарий по шагам. Состояние хранится в единой Core-сессии.';
 }
@@ -61,6 +61,14 @@ function postPickerButtons(flowId, posts = []) {
   });
 }
 
+function accessButtons(flowId = '') {
+  return [
+    { text: '✅ Только подписчикам канала', route: 'flow.select_access', data: { flowId, accessMode: 'subscribers_current_channel', accessLabel: 'только подписчикам текущего канала' } },
+    { text: '🌍 Доступ всем', route: 'flow.select_access', data: { flowId, accessMode: 'all', accessLabel: 'доступ всем' } },
+    { text: '🔑 По кодовому слову', route: 'flow.select_access', data: { flowId, accessMode: 'keyword', accessLabel: 'по кодовому слову' } }
+  ];
+}
+
 function draftSummary(flowId = '', draft = {}) {
   const lines = [];
   const p = postLabel(draft);
@@ -83,12 +91,14 @@ function renderFlowState(result = {}, options = {}) {
   const body = [stepHint(flow.id, step.id), '', `Flow: ${flow.id || 'unknown'}`, `Step: ${step.id || 'unknown'}`, ...draftSummary(flow.id, draft)];
   const buttons = [];
   if (step.id === 'select_post') buttons.push(...postPickerButtons(flow.id, options.posts || []));
+  if (step.id === 'select_access') buttons.push(...accessButtons(flow.id));
+  if (step.id === 'review_conditions') buttons.push({ text: '➡️ Перейти к сохранению', route: 'flow.next', data: { flowId: flow.id || '' } });
   if (step.id === 'review_save') buttons.push({ text: '✅ Сохранить в Core', route: 'flow.save', data: { flowId: flow.id || '' } });
   if (options.backRoute) buttons.push({ text: '↩️ Назад к разделу', route: options.backRoute });
   buttons.push({ text: '✖️ Отменить сценарий', route: 'flow.cancel', data: { flowId: flow.id || '' } });
   return menuRenderer.renderScreen({ title, body, buttons, homeRoute: 'main.home' });
 }
 
-function selfTest() { return { ok: true, runtimeVersion: RUNTIME, saveActionReady: true, humanPostLabelReady: true, humanChannelLabelReady: true, rawChannelIdHiddenWhenTitleMissing: true }; }
+function selfTest() { return { ok: true, runtimeVersion: RUNTIME, saveActionReady: true, humanPostLabelReady: true, humanChannelLabelReady: true, rawChannelIdHiddenWhenTitleMissing: true, leadMagnetAccessButtonsReady: true, reviewConditionsNextReady: true }; }
 
-module.exports = { RUNTIME, renderFlowState, stepHint, postPickerButtons, draftSummary, selfTest, postLabel, channelLabel };
+module.exports = { RUNTIME, renderFlowState, stepHint, postPickerButtons, accessButtons, draftSummary, selfTest, postLabel, channelLabel };
