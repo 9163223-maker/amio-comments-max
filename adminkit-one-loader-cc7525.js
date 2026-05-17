@@ -284,12 +284,12 @@ async function coreCanarySend(req) {
       getCanarySendPreviewOnly: true,
       realSendRequiresPost: true
     };
-    if (!isDryRun && !token.tokenConfigured) return { ok: false, runtimeVersion: 'core-canary-send-route-token-guard-1.36.4', mode: 'core-canary-manual-send-token-blocked', error: 'manual_send_token_not_configured', help: 'Для dry-run используйте dryRun=1. Реальная отправка доступна только POST /debug/core-canary-send.', diagnostics };
-    if (!isDryRun && !token.tokenAccepted) return { ok: false, runtimeVersion: 'core-canary-send-route-token-guard-1.36.4', mode: 'core-canary-manual-send-token-blocked', error: 'manual_send_token_required', help: 'Передайте существующий token/adminToken. Старый формат ?token=<debug token> поддерживается. Реальная отправка доступна только POST.', diagnostics };
+    if (!isDryRun && !token.tokenConfigured) return { ok: false, runtimeVersion: 'core-canary-send-route-token-guard-1.36.5', mode: 'core-canary-manual-send-token-blocked', error: 'manual_send_token_not_configured', help: 'Для dry-run используйте dryRun=1. Реальная отправка доступна только POST /debug/core-canary-send.', diagnostics };
+    if (!isDryRun && !token.tokenAccepted) return { ok: false, runtimeVersion: 'core-canary-send-route-token-guard-1.36.5', mode: 'core-canary-manual-send-token-blocked', error: 'manual_send_token_required', help: 'Передайте существующий token/adminToken. Старый формат ?token=<debug token> поддерживается. Реальная отправка доступна только POST.', diagnostics };
     const result = await canary.manualSend(args, config);
     return { ...result, diagnostics };
   } catch (e) {
-    return { ok: false, error: e?.message || String(e), runtimeVersion: 'core-canary-send-route-wrapper-1.36.4' };
+    return { ok: false, error: e?.message || String(e), runtimeVersion: 'core-canary-send-route-wrapper-1.36.5' };
   }
 }
 async function coreCanarySendGetPreview(req) {
@@ -297,13 +297,24 @@ async function coreCanarySendGetPreview(req) {
   return {
     ...preview,
     ok: preview.ok !== false,
-    runtimeVersion: 'ADMINKIT-CORE-GET-CANARY-SEND-PREVIEW-1.36.4',
+    runtimeVersion: 'ADMINKIT-CORE-GET-CANARY-SEND-PREVIEW-1.36.5',
     mode: 'get-preview-only-no-send',
     sent: false,
     getIsPreviewOnly: true,
     realSendRequiresPost: true,
     reason: 'GET /debug/core-canary-send больше не отправляет сообщения, чтобы исключить дубли от повторной загрузки WebView/браузером.'
   };
+}
+async function coreCanaryWebhook(req, res) {
+  try {
+    await readRequestJson(req);
+    const canary = require('./src/core/coreCanaryWebhook');
+    const config = require('./config');
+    return canary.handleWebhook(req, res, config);
+  } catch (e) {
+    noCache(res);
+    return res.status(500).json({ ok: false, error: e?.message || String(e), runtimeVersion: 'core-canary-route-wrapper-1.36.5' });
+  }
 }
 function layerSummary() {
   return loadedLayers.map((x) => ({ path: x.path, ok: !!x.ok, runtimeVersion: x.runtimeVersion || '', error: x.error || '' }));
@@ -365,7 +376,7 @@ function coreLiteDebug() {
   const fallback = canaryAdminFallback();
   return {
     ok: core.ok === true && canary.ok === true && adapter.ok === true,
-    runtimeVersion: 'ADMINKIT-CORE-LITE-DEBUG-1.36.4',
+    runtimeVersion: 'ADMINKIT-CORE-LITE-DEBUG-1.36.5',
     generatedAt: new Date().toISOString(),
     productionRuntime: RUNTIME,
     coreRuntimeVersion: core.runtimeVersion || '',
