@@ -3,7 +3,7 @@
 const stateManager = require('./stateManager');
 const definitions = require('./flowDefinitions');
 
-const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.6-HUMAN-POST-CHANNEL-LABELS';
+const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.7-LEAD-MATERIAL-INPUT';
 
 function adminIdOf(ctx = {}) {
   return String(ctx.adminId || ctx.admin_id || 'debug-admin');
@@ -13,6 +13,11 @@ function cleanValue(value) {
   const raw = String(value ?? '').trim();
   if (!raw) return '';
   try { return decodeURIComponent(raw.replace(/\+/g, ' ')).trim(); } catch { return raw.replace(/\+/g, ' ').trim(); }
+}
+
+function cut(value = '', max = 120) {
+  const s = cleanValue(value);
+  return s.length > max ? `${s.slice(0, Math.max(1, max - 1))}…` : s;
 }
 
 function normalizeUrl(value) {
@@ -179,6 +184,17 @@ function urlPatchForFlow(flowId, url) {
   return { url: url, urlInputAt: new Date().toISOString() };
 }
 
+function materialPatchForFlow(flowId, text) {
+  const normalized = normalizeUrl(text);
+  const isUrl = isValidHttpUrl(normalized);
+  return {
+    materialType: isUrl ? 'url' : 'text',
+    material: isUrl ? normalized : text,
+    materialPreview: isUrl ? `ссылка: ${cut(normalized, 90)}` : `текст: ${cut(text, 90)}`,
+    materialInputAt: new Date().toISOString()
+  };
+}
+
 async function acceptInput(ctx = {}, explicitText = '') {
   const current = await getCurrent(ctx);
   if (!current.ok) return current;
@@ -201,7 +217,15 @@ async function acceptInput(ctx = {}, explicitText = '') {
     return next(ctx, urlPatchForFlow(current.flow.id, url));
   }
 
-  return { ok: false, error: 'unexpected_input_step', expected: 'input_title_or_input_url', actual: current.step?.id || '', flow: current.flow, step: current.step, draft: current.draft };
+  if (current.step?.id === 'input_material') {
+    if (current.flow.id !== 'lead_magnets.create') {
+      return { ok: false, error: 'material_step_not_supported_for_flow', flow: current.flow, step: current.step, draft: current.draft };
+    }
+    if (text.length > 2000) return { ok: false, error: 'material_too_long', limit: 2000, flow: current.flow, step: current.step, draft: current.draft };
+    return next(ctx, materialPatchForFlow(current.flow.id, text));
+  }
+
+  return { ok: false, error: 'unexpected_input_step', expected: 'input_title_input_url_or_input_material', actual: current.step?.id || '', flow: current.flow, step: current.step, draft: current.draft };
 }
 
 async function cancel(ctx = {}, reason = 'cancel') {
@@ -215,8 +239,9 @@ function selfTest() {
   return {
     ok: flows.length >= 2 && flows.every((flow) => flow.id && flow.steps?.length) && isValidHttpUrl('example.com'),
     runtimeVersion: RUNTIME,
-    supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'acceptInput', 'titleInput', 'urlInput', 'staleFlowCallbackGuard', 'humanPostTitle', 'humanChannelTitle', 'cancel'],
-    guards: ['flowId_payload_must_match_active_flow', 'title_required', 'title_max_64', 'url_required', 'url_must_be_http_or_https', 'url_max_500', 'explicit_text_preferred_over_route'],
+    supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'acceptInput', 'titleInput', 'urlInput', 'materialInput', 'staleFlowCallbackGuard', 'humanPostTitle', 'humanChannelTitle', 'cancel'],
+    guards: ['flowId_payload_must_match_active_flow', 'title_required', 'title_max_64', 'url_required', 'url_must_be_http_or_https', 'url_max_500', 'material_required', 'material_max_2000', 'explicit_text_preferred_over_route'],
+    leadMagnetMaterialInputReady: true,
     flows: flows.map((flow) => ({ id: flow.id, section: flow.section, steps: flow.steps.map((s) => s.id) }))
   };
 }
