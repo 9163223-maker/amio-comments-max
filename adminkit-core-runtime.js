@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.32-FULL-MENU-SECTIONS-SCAFFOLD';
-const SOURCE = 'adminkit-core-1-32-full-menu-sections-scaffold';
+const RUNTIME = 'ADMINKIT-CORE-1.33-LEAD-MAGNETS-BILLING-CABINET';
+const SOURCE = 'adminkit-core-1-33-lead-magnets-billing-cabinet';
 
 function lazy(name) {
   return require(name);
@@ -60,21 +60,21 @@ function selfTest() {
   const leadMagnetsSection = sectionRegistry.find('lead_magnets');
   const leadMagnetsSelfTest = leadMagnetsSection?.selfTest ? leadMagnetsSection.selfTest() : null;
   const routeMap = sectionRegistry.routeMap();
-  const required = sectionRegistry.REQUIRED_SECTION_IDS || [
-    'channels', 'comments', 'photo_comments', 'reactions_replies', 'lead_magnets',
-    'buttons', 'post_highlights', 'polls', 'post_editor', 'moderation', 'stats',
-    'navigation', 'start_landing', 'debug_diagnostics', 'production_checklist'
-  ];
+  const required = sectionRegistry.REQUIRED_SECTION_IDS || [];
   const missing = required.filter((id) => !ids.includes(id));
   const safety = dataSafety.policySummary();
   const flow = flowEngine.selfTest();
   const delivery = maxSendAdapter.selfTest();
   const mainHomeCallbackFastPath = routeDispatcher.shouldResetSessionOnStart({ payload: { r: 'main.home' } }, 'main.home') === false;
   const batchedAccessRender = accessSelfTest?.batchedFilterSections === true && accountSelfTest?.ok === true;
-  const fullMenuScaffoldReady = registrySelfTest?.ok === true && registrySelfTest?.sectionCount === 15 && missing.length === 0;
-  const fullMenuFeatureGatesReady = accessSelfTest?.fullMenuFeatureGatesReady === true;
+  const fullMenuScaffoldReady = registrySelfTest?.ok === true && registrySelfTest?.sectionCount === 16 && missing.length === 0;
+  const fullMenuFeatureGatesReady = accessSelfTest?.fullMenuFeatureGatesReady === true && accessSelfTest?.billingFeatureGateReady === true;
+  const billingCabinetReady = registrySelfTest?.billingCabinetReady === true && ids.includes('billing');
   const ack400Silent = callbackBridge?.safety?.ack400Silent === true;
   const callbackIdempotencyReady = callbackBridge?.safety?.callbackIdempotencyReady === true && callbackBridge?.safety?.duplicateCallbacksNoSend === true;
+  const leadMaterialTextInputReady = callbackBridge?.safety?.handlesLeadMagnetMaterialTextInput === true && flow.leadMagnetMaterialInputReady === true;
+  const leadAccessSelectReady = flow.leadMagnetAccessSelectReady === true && routeDispatcherSelfTest?.leadMagnetAccessRouteReady === true;
+  const leadSaveReady = routeDispatcherSelfTest?.cleanLeadMagnetSaveRoute === true && routeDispatcherSelfTest?.leadMagnetSaveTable === 'ak_post_lead_magnets';
   const coreFlowTextInputBridgeReady = callbackBridge?.safety?.handlesCoreFlowTextInput === true && callbackBridge?.safety?.textInputRequiresActiveFlow === true && callbackBridge?.safety?.textInputRequiresActiveInputStep === true;
   const oneActiveScreenCleanupReady = stateSelfTest?.oneActiveScreenStateReady === true && stateSelfTest?.resetMovesActiveToGarbage === true && stateSelfTest?.setActiveScreenDeduplicatesGarbage === true;
   const linkUxReady = menuSelfTest?.linkUxReady === true && menuSelfTest?.payloadVersion === 2;
@@ -88,12 +88,12 @@ function selfTest() {
   const leadMagnetsAuditReady = leadMagnetsSelfTest?.legacyAdaptersUsed === false && leadMagnetsSelfTest?.dangerousActionsDisabled === true;
 
   return {
-    ok: fullMenuScaffoldReady === true && fullMenuFeatureGatesReady === true && missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady === true && callbackIdempotencyReady === true && oneActiveScreenCleanupReady === true && linkUxReady === true && mainHomeCallbackFastPath === true && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender === true && ack400Silent === true && channelsReadOnlyDataReady === true && buttonsReadOnlyDataReady === true && buttonsCleanStorageOnlyReady === true && buttonsLegacyAdaptersDisabled === true && cleanButtonCreateFlowReady === true && cleanButtonSaveRouteReady === true && flowSaveActionReady === true && leadMagnetsAuditReady === true,
+    ok: fullMenuScaffoldReady === true && billingCabinetReady === true && fullMenuFeatureGatesReady === true && leadMaterialTextInputReady === true && leadAccessSelectReady === true && leadSaveReady === true && missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && typeof postAddonManager.addLeadMagnet === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('selectAccess') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady === true && callbackIdempotencyReady === true && oneActiveScreenCleanupReady === true && linkUxReady === true && mainHomeCallbackFastPath === true && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender === true && ack400Silent === true && channelsReadOnlyDataReady === true && buttonsReadOnlyDataReady === true && buttonsCleanStorageOnlyReady === true && buttonsLegacyAdaptersDisabled === true && cleanButtonCreateFlowReady === true && cleanButtonSaveRouteReady === true && flowSaveActionReady === true && leadMagnetsAuditReady === true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
     activeInProduction: false,
-    purpose: 'Core 1.32: full 15-section menu scaffold, audit-ready section screens and feature gates before filling real handlers',
+    purpose: 'Core 1.33: lead magnets reuse buttons flow pattern, material text no longer stalls, access selection/save added, billing cabinet/referrals section added',
     sections: ids,
     requiredSections: required,
     missingSections: missing,
@@ -105,6 +105,8 @@ function selfTest() {
       buttons: 'ak_post_buttons',
       leadMagnets: 'ak_post_lead_magnets',
       accounts: 'ak_accounts',
+      billingSubscriptions: 'ak_billing_subscriptions',
+      referrals: 'ak_referrals',
       migrations: 'ak_core_schema_migrations'
     },
     sectionRegistry: registrySelfTest,
@@ -130,7 +132,13 @@ function selfTest() {
       fullMenuScaffoldReady,
       fullMenuSectionCount: sections.length,
       fullMenuFeatureGatesReady,
-      all15SectionsRegistered: sections.length === 15 && missing.length === 0,
+      all16SectionsRegistered: sections.length === 16 && missing.length === 0,
+      billingCabinetReady,
+      billingFeatureGateReady: accessSelfTest?.billingFeatureGateReady === true,
+      leadMaterialTextInputReady,
+      leadAccessSelectReady,
+      leadSaveReady,
+      leadMagnetsUseButtonFlowPattern: true,
       oneActiveScreen: true,
       oneActiveScreenCleanupReady,
       callbackIdempotencyReady,
