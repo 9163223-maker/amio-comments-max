@@ -4,7 +4,7 @@ const stateManager = require('./stateManager');
 const definitions = require('./flowDefinitions');
 const conditionCatalog = require('./leadMagnetConditionCatalog');
 
-const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.40.2-COMBINED-CONDITIONS';
+const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.40.3-EDIT-MATERIAL-SKIP-CONDITIONS';
 
 function adminIdOf(ctx = {}) { return String(ctx.adminId || ctx.admin_id || 'debug-admin'); }
 function cleanValue(value) { const raw = String(value ?? '').trim(); if (!raw) return ''; try { return decodeURIComponent(raw.replace(/\+/g, ' ')).trim(); } catch { return raw.replace(/\+/g, ' ').trim(); } }
@@ -40,65 +40,26 @@ function simpleCondition(id, params = {}, summary = '') { return { id, mode: con
 function combinedConditionPatch(draft = {}, item = null, finish = false) { const base = draft.conditions || {}; const items = Array.isArray(base.items) ? base.items.slice() : []; if (item) items.push(item); const operator = base.operator || (base.id === 'any_condition' ? 'any' : 'all'); const condition = { ...base, operator, items, setupComplete: finish, params: { ...(base.params || {}), items } }; const label = operator === 'any' ? 'достаточно выполнить любое условие' : 'нужно выполнить все условия'; return { conditions: condition, conditionSetupStatus: finish ? 'complete' : 'in_progress', conditionSummary: `${label}; условий: ${items.length}` }; }
 
 async function setupCombinedCondition(ctx = {}, current = {}) {
-  const d = current.draft || {};
-  const action = valueFromCtx(ctx, 'combineAction', ['action']);
-  const base = d.conditions || {};
-  const items = Array.isArray(base.items) ? base.items : [];
-  const selectedPostId = valueFromCtx(ctx, 'conditionPostId', ['postId']) || d.postId;
-  const selectedPostTitle = valueFromCtx(ctx, 'conditionPostTitle', ['postTitle']) || d.postTitle;
-  const selectedChannelId = valueFromCtx(ctx, 'conditionChannelId', ['channelId']) || d.channelId;
-  const selectedChannelTitle = valueFromCtx(ctx, 'conditionChannelTitle', ['channelTitle']) || d.channelTitle;
-  const minComments = numberFromCtx(ctx, 'minComments') || 1;
-  const minReactions = numberFromCtx(ctx, 'minReactions') || 1;
-  const keyword = valueFromCtx(ctx, 'keyword', ['phrase']) || 'хочу подарок';
-  const pollId = valueFromCtx(ctx, 'pollId') || 'выбранный квиз';
+  const d = current.draft || {}; const action = valueFromCtx(ctx, 'combineAction', ['action']); const base = d.conditions || {}; const items = Array.isArray(base.items) ? base.items : [];
+  const selectedPostId = valueFromCtx(ctx, 'conditionPostId', ['postId']) || d.postId; const selectedPostTitle = valueFromCtx(ctx, 'conditionPostTitle', ['postTitle']) || d.postTitle; const selectedChannelId = valueFromCtx(ctx, 'conditionChannelId', ['channelId']) || d.channelId; const selectedChannelTitle = valueFromCtx(ctx, 'conditionChannelTitle', ['channelTitle']) || d.channelTitle; const minComments = numberFromCtx(ctx, 'minComments') || 1; const minReactions = numberFromCtx(ctx, 'minReactions') || 1; const keyword = valueFromCtx(ctx, 'keyword', ['phrase']) || 'хочу подарок'; const pollId = valueFromCtx(ctx, 'pollId') || 'выбранный квиз';
   let item = null;
-  if (action === 'finish') {
-    if (items.length < 2) return { ok: false, error: 'condition_combined_min_required', flow: current.flow, step: current.step, draft: d, min: 2 };
-    return next(ctx, combinedConditionPatch(d, null, true));
-  }
-  if (action === 'add_subscription') {
-    if (!selectedChannelId) return { ok: false, error: 'condition_channel_required', flow: current.flow, step: current.step, draft: d };
-    item = simpleCondition('subscribe_one_channel', { channelId: selectedChannelId, channelTitle: selectedChannelTitle }, `подписан на канал: ${channelTitleOf(selectedChannelTitle, selectedChannelId)}`);
-  } else if (action === 'add_comment') {
-    if (!selectedPostId) return { ok: false, error: 'condition_post_required', flow: current.flow, step: current.step, draft: d };
-    item = simpleCondition('comment_on_post', { postId: selectedPostId, postTitle: selectedPostTitle, minComments: 1 }, `оставил комментарий под постом: ${postTitleOf(selectedPostTitle, selectedPostId)}`);
-  } else if (action === 'add_comment_count') {
-    if (!selectedPostId) return { ok: false, error: 'condition_post_required', flow: current.flow, step: current.step, draft: d };
-    item = simpleCondition('comment_count_on_post', { postId: selectedPostId, postTitle: selectedPostTitle, minComments }, `оставил минимум ${minComments} комментариев под постом: ${postTitleOf(selectedPostTitle, selectedPostId)}`);
-  } else if (action === 'add_keyword') {
-    if (!selectedPostId) return { ok: false, error: 'condition_post_required', flow: current.flow, step: current.step, draft: d };
-    item = simpleCondition('comment_keyword', { postId: selectedPostId, postTitle: selectedPostTitle, keyword, matchMode: 'contains', caseSensitive: false }, `написал “${keyword}” под постом: ${postTitleOf(selectedPostTitle, selectedPostId)}`);
-  } else if (action === 'add_reaction') {
-    if (!selectedPostId) return { ok: false, error: 'condition_post_required', flow: current.flow, step: current.step, draft: d };
-    item = simpleCondition('reaction_on_post', { postId: selectedPostId, postTitle: selectedPostTitle, reaction: valueFromCtx(ctx, 'reaction') || 'any' }, `поставил реакцию на пост: ${postTitleOf(selectedPostTitle, selectedPostId)}`);
-  } else if (action === 'add_reaction_count') {
-    if (!selectedPostId) return { ok: false, error: 'condition_post_required', flow: current.flow, step: current.step, draft: d };
-    item = simpleCondition('reaction_count_on_post', { postId: selectedPostId, postTitle: selectedPostTitle, minReactions }, `поставил минимум ${minReactions} реакций на пост: ${postTitleOf(selectedPostTitle, selectedPostId)}`);
-  } else if (action === 'add_quiz') {
-    item = simpleCondition('quiz_answer', { pollId }, 'ответил на квиз / опрос');
-  } else {
-    return { ok: false, error: 'condition_combined_action_required', flow: current.flow, step: current.step, draft: d };
-  }
+  if (action === 'finish') { if (items.length < 2) return { ok: false, error: 'condition_combined_min_required', flow: current.flow, step: current.step, draft: d, min: 2 }; return next(ctx, combinedConditionPatch(d, null, true)); }
+  if (action === 'add_subscription') { if (!selectedChannelId) return { ok: false, error: 'condition_channel_required', flow: current.flow, step: current.step, draft: d }; item = simpleCondition('subscribe_one_channel', { channelId: selectedChannelId, channelTitle: selectedChannelTitle }, `подписан на канал: ${channelTitleOf(selectedChannelTitle, selectedChannelId)}`); }
+  else if (action === 'add_comment') { if (!selectedPostId) return { ok: false, error: 'condition_post_required', flow: current.flow, step: current.step, draft: d }; item = simpleCondition('comment_on_post', { postId: selectedPostId, postTitle: selectedPostTitle, minComments: 1 }, `оставил комментарий под постом: ${postTitleOf(selectedPostTitle, selectedPostId)}`); }
+  else if (action === 'add_comment_count') { if (!selectedPostId) return { ok: false, error: 'condition_post_required', flow: current.flow, step: current.step, draft: d }; item = simpleCondition('comment_count_on_post', { postId: selectedPostId, postTitle: selectedPostTitle, minComments }, `оставил минимум ${minComments} комментариев под постом: ${postTitleOf(selectedPostTitle, selectedPostId)}`); }
+  else if (action === 'add_keyword') { if (!selectedPostId) return { ok: false, error: 'condition_post_required', flow: current.flow, step: current.step, draft: d }; item = simpleCondition('comment_keyword', { postId: selectedPostId, postTitle: selectedPostTitle, keyword, matchMode: 'contains', caseSensitive: false }, `написал “${keyword}” под постом: ${postTitleOf(selectedPostTitle, selectedPostId)}`); }
+  else if (action === 'add_reaction') { if (!selectedPostId) return { ok: false, error: 'condition_post_required', flow: current.flow, step: current.step, draft: d }; item = simpleCondition('reaction_on_post', { postId: selectedPostId, postTitle: selectedPostTitle, reaction: valueFromCtx(ctx, 'reaction') || 'any' }, `поставил реакцию на пост: ${postTitleOf(selectedPostTitle, selectedPostId)}`); }
+  else if (action === 'add_reaction_count') { if (!selectedPostId) return { ok: false, error: 'condition_post_required', flow: current.flow, step: current.step, draft: d }; item = simpleCondition('reaction_count_on_post', { postId: selectedPostId, postTitle: selectedPostTitle, minReactions }, `поставил минимум ${minReactions} реакций на пост: ${postTitleOf(selectedPostTitle, selectedPostId)}`); }
+  else if (action === 'add_quiz') { item = simpleCondition('quiz_answer', { pollId }, 'ответил на квиз / опрос'); }
+  else { return { ok: false, error: 'condition_combined_action_required', flow: current.flow, step: current.step, draft: d }; }
   return goTo(ctx, 'condition_setup', combinedConditionPatch(d, item, false));
 }
 
 async function setupCondition(ctx = {}) {
-  const current = await getCurrent(ctx);
-  if (!current.ok) return current;
-  if (current.step?.id !== 'condition_setup') return { ok: false, error: 'unexpected_step', expected: 'condition_setup', actual: current.step?.id || '', flow: current.flow, step: current.step, draft: current.draft };
-  const d = current.draft || {};
-  const id = d.conditions?.id || d.conditionId || d.accessMode;
+  const current = await getCurrent(ctx); if (!current.ok) return current; if (current.step?.id !== 'condition_setup') return { ok: false, error: 'unexpected_step', expected: 'condition_setup', actual: current.step?.id || '', flow: current.flow, step: current.step, draft: current.draft };
+  const d = current.draft || {}; const id = d.conditions?.id || d.conditionId || d.accessMode;
   if (id === 'all_conditions' || id === 'any_condition') return setupCombinedCondition(ctx, current);
-  const samePost = valueFromCtx(ctx, 'conditionPostMode') === 'same_post' || valueFromCtx(ctx, 'useCurrentPost') === '1';
-  const selectedPostId = valueFromCtx(ctx, 'conditionPostId', ['postId']) || (samePost ? d.postId : '');
-  const selectedPostTitle = valueFromCtx(ctx, 'conditionPostTitle', ['postTitle']) || (samePost ? d.postTitle : '');
-  const selectedChannelId = valueFromCtx(ctx, 'conditionChannelId', ['channelId']) || (id === 'subscribe_current_channel' ? d.channelId : '');
-  const selectedChannelTitle = valueFromCtx(ctx, 'conditionChannelTitle', ['channelTitle']) || (id === 'subscribe_current_channel' ? d.channelTitle : '');
-  const minComments = numberFromCtx(ctx, 'minComments');
-  const minReactions = numberFromCtx(ctx, 'minReactions');
-  const keyword = valueFromCtx(ctx, 'keyword', ['phrase']);
-  const pollId = valueFromCtx(ctx, 'pollId');
+  const samePost = valueFromCtx(ctx, 'conditionPostMode') === 'same_post' || valueFromCtx(ctx, 'useCurrentPost') === '1'; const selectedPostId = valueFromCtx(ctx, 'conditionPostId', ['postId']) || (samePost ? d.postId : ''); const selectedPostTitle = valueFromCtx(ctx, 'conditionPostTitle', ['postTitle']) || (samePost ? d.postTitle : ''); const selectedChannelId = valueFromCtx(ctx, 'conditionChannelId', ['channelId']) || (id === 'subscribe_current_channel' ? d.channelId : ''); const selectedChannelTitle = valueFromCtx(ctx, 'conditionChannelTitle', ['channelTitle']) || (id === 'subscribe_current_channel' ? d.channelTitle : ''); const minComments = numberFromCtx(ctx, 'minComments'); const minReactions = numberFromCtx(ctx, 'minReactions'); const keyword = valueFromCtx(ctx, 'keyword', ['phrase']); const pollId = valueFromCtx(ctx, 'pollId');
   if (id === 'subscribe_current_channel') return next(ctx, completeCondition(d, { params: { channelId: d.channelId, channelTitle: d.channelTitle }, extra: { conditionSummary: `подписан на текущий канал: ${d.channelTitle || 'канал'}` } }));
   if (id === 'subscribe_one_channel') { if (!selectedChannelId) return { ok: false, error: 'condition_channel_required', flow: current.flow, step: current.step, draft: d }; return next(ctx, completeCondition(d, { params: { channelId: selectedChannelId, channelTitle: selectedChannelTitle }, extra: { conditionSummary: `подписан на канал: ${selectedChannelTitle || selectedChannelId}` } })); }
   if (id === 'subscribe_many_channels') { const channelIds = cleanValue(valueFromCtx(ctx, 'channelIds')).split(',').map(cleanValue).filter(Boolean); if (!channelIds.length) return { ok: false, error: 'condition_channels_required', flow: current.flow, step: current.step, draft: d }; return next(ctx, completeCondition(d, { params: { channelIds }, extra: { conditionSummary: `подписан на несколько каналов: ${channelIds.length}` } })); }
@@ -111,12 +72,16 @@ async function setupCondition(ctx = {}) {
   return next(ctx, completeCondition(d, { params: {}, extra: { conditionSummary: d.accessLabel || 'условие выбрано' } }));
 }
 function canReviewConditions(draft = {}) { const c = draft.conditions || {}; if (!c.id) return { ok: false, error: 'condition_required' }; if (['all_conditions', 'any_condition'].includes(c.id) && (!Array.isArray(c.items) || c.items.length < 2)) return { ok: false, error: 'condition_combined_min_required', min: 2 }; if (conditionNeedsSetup(c) && draft.conditionSetupStatus !== 'complete') return { ok: false, error: 'condition_setup_required' }; return { ok: true }; }
-
 function titlePatchForFlow(flowId, text) { if (flowId === 'buttons.create') return { title: text, buttonTitle: text, titleInputAt: new Date().toISOString() }; if (flowId === 'lead_magnets.create') return { title: text, leadMagnetTitle: text, titleInputAt: new Date().toISOString() }; return { title: text, titleInputAt: new Date().toISOString() }; }
 function urlPatchForFlow(flowId, url) { if (flowId === 'buttons.create') return { buttonUrl: url, url: url, urlInputAt: new Date().toISOString() }; return { url: url, urlInputAt: new Date().toISOString() }; }
 function materialPatchForFlow(flowId, text) { const normalized = normalizeUrl(text); const isUrl = isValidHttpUrl(normalized); return { materialType: isUrl ? 'url' : 'text', material: isUrl ? normalized : text, materialPreview: isUrl ? `ссылка: ${cut(normalized, 90)}` : `текст: ${cut(text, 90)}`, materialInputAt: new Date().toISOString() }; }
-async function acceptInput(ctx = {}, explicitText = '') { const current = await getCurrent(ctx); if (!current.ok) return current; const text = cleanValue(explicitText || textInputFromCtx(ctx)); if (!text) return { ok: false, error: 'text_required', flow: current.flow, step: current.step, draft: current.draft }; if (current.step?.id === 'input_title') { if (text.length > 64) return { ok: false, error: 'text_too_long', limit: 64, flow: current.flow, step: current.step, draft: current.draft }; return next(ctx, titlePatchForFlow(current.flow.id, text)); } if (current.step?.id === 'input_url') { if (current.flow.id !== 'buttons.create') return { ok: false, error: 'url_step_not_supported_for_flow', flow: current.flow, step: current.step, draft: current.draft }; const url = normalizeUrl(text); if (!isValidHttpUrl(url)) return { ok: false, error: 'url_invalid', flow: current.flow, step: current.step, draft: current.draft }; if (url.length > 500) return { ok: false, error: 'url_too_long', limit: 500, flow: current.flow, step: current.step, draft: current.draft }; return next(ctx, urlPatchForFlow(current.flow.id, url)); } if (current.step?.id === 'input_material') { if (current.flow.id !== 'lead_magnets.create') return { ok: false, error: 'material_step_not_supported_for_flow', flow: current.flow, step: current.step, draft: current.draft }; if (text.length > 2000) return { ok: false, error: 'material_too_long', limit: 2000, flow: current.flow, step: current.step, draft: current.draft }; return next(ctx, materialPatchForFlow(current.flow.id, text)); } return { ok: false, error: 'unexpected_input_step', expected: 'input_title_input_url_or_input_material', actual: current.step?.id || '', flow: current.flow, step: current.step, draft: current.draft }; }
+async function acceptInput(ctx = {}, explicitText = '') {
+  const current = await getCurrent(ctx); if (!current.ok) return current; const text = cleanValue(explicitText || textInputFromCtx(ctx)); if (!text) return { ok: false, error: 'text_required', flow: current.flow, step: current.step, draft: current.draft };
+  if (current.step?.id === 'input_title') { if (text.length > 64) return { ok: false, error: 'text_too_long', limit: 64, flow: current.flow, step: current.step, draft: current.draft }; return next(ctx, titlePatchForFlow(current.flow.id, text)); }
+  if (current.step?.id === 'input_url') { if (current.flow.id !== 'buttons.create') return { ok: false, error: 'url_step_not_supported_for_flow', flow: current.flow, step: current.step, draft: current.draft }; const url = normalizeUrl(text); if (!isValidHttpUrl(url)) return { ok: false, error: 'url_invalid', flow: current.flow, step: current.step, draft: current.draft }; if (url.length > 500) return { ok: false, error: 'url_too_long', limit: 500, flow: current.flow, step: current.step, draft: current.draft }; return next(ctx, urlPatchForFlow(current.flow.id, url)); }
+  if (current.step?.id === 'input_material') { if (current.flow.id !== 'lead_magnets.create') return { ok: false, error: 'material_step_not_supported_for_flow', flow: current.flow, step: current.step, draft: current.draft }; if (text.length > 2000) return { ok: false, error: 'material_too_long', limit: 2000, flow: current.flow, step: current.step, draft: current.draft }; const patch = materialPatchForFlow(current.flow.id, text); if (current.draft?.editMode === 'lead_material') return goTo(ctx, 'review_save', patch); return next(ctx, patch); }
+  return { ok: false, error: 'unexpected_input_step', expected: 'input_title_input_url_or_input_material', actual: current.step?.id || '', flow: current.flow, step: current.step, draft: current.draft };
+}
 async function cancel(ctx = {}, reason = 'cancel') { const adminId = adminIdOf(ctx); const session = await stateManager.resetSession(adminId, reason); return { ok: true, session }; }
-function selfTest() { const flows = definitions.listFlows(); const defs = definitions.selfTest ? definitions.selfTest() : {}; const catalog = conditionCatalog.selfTest(); const combined = conditionCatalog.find('all_conditions') && conditionCatalog.find('any_condition'); return { ok: flows.length >= 2 && defs.leadMagnetFullFlowReady === true && catalog.ok === true && !!combined, runtimeVersion: RUNTIME, supports: ['selectChannel', 'selectPostSource', 'selectPost', 'capturePost', 'selectConditionGroup', 'selectAccess', 'setupCondition', 'setupCombinedCondition', 'canReviewConditions', 'acceptInput'], guards: ['condition_setup_required', 'condition_post_required', 'condition_min_comments_required', 'condition_keyword_required', 'condition_poll_required', 'condition_combined_min_required'], postCaptureFlowReady: true, leadConditionSetupFlowReady: true, leadConditionCatalogReady: true, leadConditionCount: catalog.count, combinedConditionsReady: true, leadMagnetMaterialInputReady: true, leadMagnetAccessSelectReady: true, leadMagnetFullFlowReady: true, flows: flows.map((flow) => ({ id: flow.id, section: flow.section, steps: flow.steps.map((s) => s.id) })) }; }
-
+function selfTest() { const flows = definitions.listFlows(); const defs = definitions.selfTest ? definitions.selfTest() : {}; const catalog = conditionCatalog.selfTest(); const combined = conditionCatalog.find('all_conditions') && conditionCatalog.find('any_condition'); return { ok: flows.length >= 2 && defs.leadMagnetFullFlowReady === true && catalog.ok === true && !!combined, runtimeVersion: RUNTIME, supports: ['selectChannel','selectPostSource','selectPost','capturePost','selectConditionGroup','selectAccess','setupCondition','setupCombinedCondition','canReviewConditions','acceptInput'], guards: ['condition_setup_required','condition_post_required','condition_min_comments_required','condition_keyword_required','condition_poll_required','condition_combined_min_required'], editMaterialSkipsConditionSetup: true, combinedConditionsReady: true, leadMagnetFullFlowReady: true, flows: flows.map((flow) => ({ id: flow.id, section: flow.section, steps: flow.steps.map((s) => s.id) })) }; }
 module.exports = { RUNTIME, start, getCurrent, patchDraft, goTo, next, selectChannel, selectPostSource, selectPost, capturePost, selectConditionGroup, selectAccess, setupCondition, canReviewConditions, acceptInput, cancel, selfTest, cleanValue, textInputFromCtx, normalizeUrl, isValidHttpUrl };
