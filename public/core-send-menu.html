@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>АдминКИТ Core — отправить меню</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f7fb; color: #111827; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 28px 18px; }
+    .card { background: white; border-radius: 22px; padding: 22px; box-shadow: 0 12px 36px rgba(15,23,42,.12); }
+    h1 { margin: 0 0 10px; font-size: 24px; line-height: 1.2; }
+    p { color: #4b5563; line-height: 1.5; }
+    button { width: 100%; border: 0; border-radius: 16px; padding: 16px 18px; font-size: 18px; font-weight: 700; background: #0ea5e9; color: white; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: default; }
+    .meta { margin: 16px 0; padding: 14px; border-radius: 14px; background: #f1f5f9; font-size: 14px; color: #334155; overflow-wrap: anywhere; }
+    pre { margin: 16px 0 0; padding: 14px; border-radius: 14px; background: #0f172a; color: #e5e7eb; overflow: auto; white-space: pre-wrap; font-size: 13px; }
+    .ok { color: #047857; font-weight: 700; }
+    .bad { color: #b91c1c; font-weight: 700; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #020617; color: #e5e7eb; }
+      .card { background: #111827; box-shadow: none; }
+      p { color: #cbd5e1; }
+      .meta { background: #1f2937; color: #d1d5db; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>🐋 АдминКИТ Core</h1>
+      <p>Эта страница отправляет Core menu через <b>POST</b>. Обычная GET-ссылка больше не отправляет сообщения, чтобы WebView/браузер не дублировал меню.</p>
+      <div class="meta" id="meta">Загрузка параметров…</div>
+      <button id="sendBtn" type="button">Отправить Core menu в личку</button>
+      <pre id="out">Нажмите кнопку один раз.</pre>
+    </section>
+  </main>
+  <script>
+    const qs = new URLSearchParams(location.search);
+    const payload = {
+      token: qs.get('token') || 'admin',
+      route: qs.get('route') || 'main.home',
+      adminId: qs.get('adminId') || qs.get('userId') || '',
+      chatId: qs.get('chatId') || '',
+      messageId: qs.get('messageId') || '',
+      t: qs.get('t') || String(Date.now())
+    };
+    const meta = document.getElementById('meta');
+    const out = document.getElementById('out');
+    const btn = document.getElementById('sendBtn');
+    meta.textContent = 'route=' + payload.route + (payload.adminId ? ' · adminId=' + payload.adminId : ' · adminId будет взят из canary fallback');
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      out.textContent = 'Отправляю POST /debug/core-canary-send…';
+      try {
+        const res = await fetch('/debug/core-canary-send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        out.textContent = JSON.stringify(data, null, 2);
+        if (data && data.ok && data.sent !== false) {
+          meta.innerHTML = '<span class="ok">Готово: Core menu отправлено.</span>';
+        } else if (data && data.ok) {
+          meta.innerHTML = '<span class="ok">Запрос выполнен, но sent=false. Смотрите ответ ниже.</span>';
+        } else {
+          meta.innerHTML = '<span class="bad">Ошибка отправки. Смотрите ответ ниже.</span>';
+          btn.disabled = false;
+        }
+      } catch (e) {
+        meta.innerHTML = '<span class="bad">Ошибка запроса.</span>';
+        out.textContent = String(e && e.message ? e.message : e);
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
