@@ -3,7 +3,7 @@
 const stateManager = require('./stateManager');
 const definitions = require('./flowDefinitions');
 
-const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.5-CTA-URL-INPUT';
+const RUNTIME = 'ADMINKIT-CORE-FLOW-ENGINE-1.6-HUMAN-POST-CHANNEL-LABELS';
 
 function adminIdOf(ctx = {}) {
   return String(ctx.adminId || ctx.admin_id || 'debug-admin');
@@ -154,12 +154,14 @@ async function selectPost(ctx = {}, explicitPostId = '', patch = {}) {
 
   const channelId = valueFromCtx(ctx, 'channelId', ['selectedChannelId']);
   const commentKey = valueFromCtx(ctx, 'commentKey', ['selectedCommentKey']);
-  const postTitle = valueFromCtx(ctx, 'postTitle', ['title']);
+  const postTitle = valueFromCtx(ctx, 'postTitle', ['title', 'postPreview', 'displayTitle']);
+  const channelTitle = valueFromCtx(ctx, 'channelTitle', ['channelName', 'channelDisplayName']);
 
   return next(ctx, {
     ...patch,
     postId,
     ...(channelId ? { channelId } : {}),
+    ...(channelTitle ? { channelTitle } : {}),
     ...(commentKey ? { commentKey } : {}),
     ...(postTitle ? { postTitle } : {}),
     postSelectedAt: new Date().toISOString()
@@ -213,7 +215,7 @@ function selfTest() {
   return {
     ok: flows.length >= 2 && flows.every((flow) => flow.id && flow.steps?.length) && isValidHttpUrl('example.com'),
     runtimeVersion: RUNTIME,
-    supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'acceptInput', 'titleInput', 'urlInput', 'staleFlowCallbackGuard', 'cancel'],
+    supports: ['start', 'next', 'goTo', 'patchDraft', 'selectPost', 'acceptInput', 'titleInput', 'urlInput', 'staleFlowCallbackGuard', 'humanPostTitle', 'humanChannelTitle', 'cancel'],
     guards: ['flowId_payload_must_match_active_flow', 'title_required', 'title_max_64', 'url_required', 'url_must_be_http_or_https', 'url_max_500', 'explicit_text_preferred_over_route'],
     flows: flows.map((flow) => ({ id: flow.id, section: flow.section, steps: flow.steps.map((s) => s.id) }))
   };
