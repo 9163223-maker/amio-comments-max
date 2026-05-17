@@ -2,7 +2,26 @@
 
 const menuRenderer = require('./menuRenderer');
 
-const RUNTIME = 'ADMINKIT-CORE-FLOW-SCREEN-1.1-SAVE-ACTION';
+const RUNTIME = 'ADMINKIT-CORE-FLOW-SCREEN-1.2-HUMAN-LABELS';
+
+function clean(value = '') { return String(value ?? '').replace(/\s+/g, ' ').trim(); }
+function cut(value = '', max = 58) { const s = clean(value); return s.length > max ? `${s.slice(0, Math.max(1, max - 1))}…` : s; }
+function isHuman(value = '') {
+  const s = clean(value);
+  if (!s) return false;
+  if (/^-?\d{6,}$/.test(s)) return false;
+  if (/^[a-f0-9]{12,}$/i.test(s)) return false;
+  return true;
+}
+function postLabel(draft = {}) {
+  return cut(draft.postTitle || draft.postPreview || draft.title || draft.postText || draft.postId || 'выбранный пост', 60);
+}
+function channelLabel(draft = {}) {
+  const title = draft.channelTitle || draft.channelName || draft.channelDisplayName || '';
+  if (isHuman(title)) return cut(title, 60);
+  if (draft.channelId) return 'выбранный канал';
+  return '';
+}
 
 function stepHint(flowId, stepId) {
   if (flowId === 'buttons.create') {
@@ -23,29 +42,36 @@ function stepHint(flowId, stepId) {
 }
 
 function postPickerButtons(flowId, posts = []) {
-  if (!posts.length) return [{ text: 'Выбрать тестовый пост', route: 'flow.select_post', data: { flowId, postId: 'debug-post' } }];
-  return posts.slice(0, 10).map((post, index) => ({
-    text: `${index + 1}. ${post.title || post.text || post.postId || post.id}`.slice(0, 64),
-    route: 'flow.select_post',
-    data: {
-      flowId,
-      postId: String(post.postId || post.id || post.key || ''),
-      ...(post.channelId ? { channelId: String(post.channelId) } : {}),
-      ...(post.commentKey ? { commentKey: String(post.commentKey) } : {}),
-      ...(post.title ? { postTitle: String(post.title).slice(0, 100) } : {})
-    }
-  }));
+  if (!posts.length) return [{ text: 'Выбрать тестовый пост', route: 'flow.select_post', data: { flowId, postId: 'debug-post', postTitle: 'Тестовый пост' } }];
+  return posts.slice(0, 10).map((post, index) => {
+    const title = clean(post.displayTitle || post.title || post.text || post.postTitle || post.postId || post.id || 'Пост');
+    const channelTitle = clean(post.channelTitle || post.channelName || post.channelDisplayName || '');
+    return {
+      text: `${index + 1}. ${title}`.slice(0, 64),
+      route: 'flow.select_post',
+      data: {
+        flowId,
+        postId: String(post.postId || post.id || post.key || ''),
+        postTitle: cut(title, 100),
+        ...(post.channelId ? { channelId: String(post.channelId) } : {}),
+        ...(channelTitle ? { channelTitle: cut(channelTitle, 100) } : {}),
+        ...(post.commentKey ? { commentKey: String(post.commentKey) } : {})
+      }
+    };
+  });
 }
 
 function draftSummary(flowId = '', draft = {}) {
   const lines = [];
-  if (draft.postId) lines.push(`Пост: ${draft.postTitle || draft.postId}`);
+  const p = postLabel(draft);
+  if (draft.postId || p) lines.push(`Пост: ${p}`);
   if (flowId === 'buttons.create' && draft.buttonTitle) lines.push(`Название кнопки: ${draft.buttonTitle}`);
   if (flowId === 'buttons.create' && draft.buttonUrl) lines.push(`Ссылка кнопки: ${draft.buttonUrl}`);
   if (flowId === 'lead_magnets.create' && draft.leadMagnetTitle) lines.push(`Название лид-магнита: ${draft.leadMagnetTitle}`);
   if (flowId === 'lead_magnets.create' && draft.materialPreview) lines.push(`Материал: ${draft.materialPreview}`);
   if (flowId === 'lead_magnets.create' && draft.accessLabel) lines.push(`Условия получения: ${draft.accessLabel}`);
-  if (draft.channelId) lines.push(`Канал: ${draft.channelId}`);
+  const c = channelLabel(draft);
+  if (c) lines.push(`Канал: ${c}`);
   return lines;
 }
 
@@ -63,6 +89,6 @@ function renderFlowState(result = {}, options = {}) {
   return menuRenderer.renderScreen({ title, body, buttons, homeRoute: 'main.home' });
 }
 
-function selfTest() { return { ok: true, runtimeVersion: RUNTIME, saveActionReady: true }; }
+function selfTest() { return { ok: true, runtimeVersion: RUNTIME, saveActionReady: true, humanPostLabelReady: true, humanChannelLabelReady: true, rawChannelIdHiddenWhenTitleMissing: true }; }
 
-module.exports = { RUNTIME, renderFlowState, stepHint, postPickerButtons, draftSummary, selfTest };
+module.exports = { RUNTIME, renderFlowState, stepHint, postPickerButtons, draftSummary, selfTest, postLabel, channelLabel };
