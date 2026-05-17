@@ -1,6 +1,6 @@
 'use strict';
 
-const RUNTIME = 'ADMINKIT-CORE-MENU-RENDERER-1.31-LINK-UX';
+const RUNTIME = 'ADMINKIT-CORE-MENU-RENDERER-1.33-BILLING-LEAD-FLOW';
 
 function safePayload(data = {}) {
   return JSON.stringify({ ...data });
@@ -46,7 +46,7 @@ function renderMain(sections = []) {
     }));
   }
   return {
-    text: ['🐋 АдминКИТ Core', '', 'Главное меню собрано из sectionRegistry.', 'Режим 1.31: один активный экран, защита от дублей и аккуратные ссылки.'].join('\n'),
+    text: ['🐋 АдминКИТ Core', '', 'Главное меню собрано из sectionRegistry.', 'Режим 1.33: лид-магниты идут по шаблону кнопок, добавлены тарифы, кабинет и рефералы.'].join('\n'),
     attachments: inlineKeyboard(rows)
   };
 }
@@ -58,6 +58,8 @@ function selfTest() {
     runtimeVersion: RUNTIME,
     payloadVersion: 2,
     linkUxReady: true,
+    billingMenuWordingReady: true,
+    leadFlowWordingReady: true,
     callbackPayloadHasRoute: true
   };
 }
