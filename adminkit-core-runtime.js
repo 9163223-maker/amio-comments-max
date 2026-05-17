@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.31-MENU-IDEMPOTENCY-LINK-UX';
-const SOURCE = 'adminkit-core-1-31-menu-idempotency-link-ux';
+const RUNTIME = 'ADMINKIT-CORE-1.32-FULL-MENU-SECTIONS-SCAFFOLD';
+const SOURCE = 'adminkit-core-1-32-full-menu-sections-scaffold';
 
 function lazy(name) {
   return require(name);
@@ -46,6 +46,7 @@ function selfTest() {
   const flowScreenSelfTest = flowScreen.selfTest ? flowScreen.selfTest() : null;
   const stateSelfTest = stateManager.selfTest ? stateManager.selfTest() : null;
   const menuSelfTest = menuRenderer.selfTest ? menuRenderer.selfTest() : null;
+  const registrySelfTest = sectionRegistry.selfTest ? sectionRegistry.selfTest() : null;
   let callbackBridge = null;
   try { callbackBridge = lazy('./src/core/coreCallbackBridge').selfTest(); } catch (error) { callbackBridge = { ok: false, error: error?.message || String(error) }; }
 
@@ -59,13 +60,19 @@ function selfTest() {
   const leadMagnetsSection = sectionRegistry.find('lead_magnets');
   const leadMagnetsSelfTest = leadMagnetsSection?.selfTest ? leadMagnetsSection.selfTest() : null;
   const routeMap = sectionRegistry.routeMap();
-  const required = ['channels', 'comments', 'buttons', 'lead_magnets', 'moderation', 'archive', 'stats', 'settings'];
+  const required = sectionRegistry.REQUIRED_SECTION_IDS || [
+    'channels', 'comments', 'photo_comments', 'reactions_replies', 'lead_magnets',
+    'buttons', 'post_highlights', 'polls', 'post_editor', 'moderation', 'stats',
+    'navigation', 'start_landing', 'debug_diagnostics', 'production_checklist'
+  ];
   const missing = required.filter((id) => !ids.includes(id));
   const safety = dataSafety.policySummary();
   const flow = flowEngine.selfTest();
   const delivery = maxSendAdapter.selfTest();
   const mainHomeCallbackFastPath = routeDispatcher.shouldResetSessionOnStart({ payload: { r: 'main.home' } }, 'main.home') === false;
   const batchedAccessRender = accessSelfTest?.batchedFilterSections === true && accountSelfTest?.ok === true;
+  const fullMenuScaffoldReady = registrySelfTest?.ok === true && registrySelfTest?.sectionCount === 15 && missing.length === 0;
+  const fullMenuFeatureGatesReady = accessSelfTest?.fullMenuFeatureGatesReady === true;
   const ack400Silent = callbackBridge?.safety?.ack400Silent === true;
   const callbackIdempotencyReady = callbackBridge?.safety?.callbackIdempotencyReady === true && callbackBridge?.safety?.duplicateCallbacksNoSend === true;
   const coreFlowTextInputBridgeReady = callbackBridge?.safety?.handlesCoreFlowTextInput === true && callbackBridge?.safety?.textInputRequiresActiveFlow === true && callbackBridge?.safety?.textInputRequiresActiveInputStep === true;
@@ -81,13 +88,14 @@ function selfTest() {
   const leadMagnetsAuditReady = leadMagnetsSelfTest?.legacyAdaptersUsed === false && leadMagnetsSelfTest?.dangerousActionsDisabled === true;
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady === true && callbackIdempotencyReady === true && oneActiveScreenCleanupReady === true && linkUxReady === true && mainHomeCallbackFastPath === true && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender === true && ack400Silent === true && channelsReadOnlyDataReady === true && buttonsReadOnlyDataReady === true && buttonsCleanStorageOnlyReady === true && buttonsLegacyAdaptersDisabled === true && cleanButtonCreateFlowReady === true && cleanButtonSaveRouteReady === true && flowSaveActionReady === true && leadMagnetsAuditReady === true,
+    ok: fullMenuScaffoldReady === true && fullMenuFeatureGatesReady === true && missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady === true && callbackIdempotencyReady === true && oneActiveScreenCleanupReady === true && linkUxReady === true && mainHomeCallbackFastPath === true && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender === true && ack400Silent === true && channelsReadOnlyDataReady === true && buttonsReadOnlyDataReady === true && buttonsCleanStorageOnlyReady === true && buttonsLegacyAdaptersDisabled === true && cleanButtonCreateFlowReady === true && cleanButtonSaveRouteReady === true && flowSaveActionReady === true && leadMagnetsAuditReady === true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
     activeInProduction: false,
-    purpose: 'Core 1.31: stable menu, duplicate callback guard, one active screen cleanup and clean link UX before production switch',
+    purpose: 'Core 1.32: full 15-section menu scaffold, audit-ready section screens and feature gates before filling real handlers',
     sections: ids,
+    requiredSections: required,
     missingSections: missing,
     routeCount: routeMap.size,
     accessPlans: Object.keys(accessManager.PLAN_FEATURES || {}),
@@ -99,6 +107,7 @@ function selfTest() {
       accounts: 'ak_accounts',
       migrations: 'ak_core_schema_migrations'
     },
+    sectionRegistry: registrySelfTest,
     sectionAudit,
     flowEngine: flow,
     flowScreen: flowScreenSelfTest,
@@ -118,6 +127,10 @@ function selfTest() {
     menuRenderer: menuSelfTest,
     dataSafety: safety,
     constraints: {
+      fullMenuScaffoldReady,
+      fullMenuSectionCount: sections.length,
+      fullMenuFeatureGatesReady,
+      all15SectionsRegistered: sections.length === 15 && missing.length === 0,
       oneActiveScreen: true,
       oneActiveScreenCleanupReady,
       callbackIdempotencyReady,
