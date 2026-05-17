@@ -2,16 +2,19 @@
 
 const db = require('../../cc5-db-core');
 
-const RUNTIME = 'ADMINKIT-CORE-BUTTONS-DATA-ADAPTER-1.4-CLEAN-STORAGE-ONLY';
+const RUNTIME = 'ADMINKIT-CORE-BUTTONS-DATA-ADAPTER-1.5-HUMAN-LABELS';
 const CACHE_TTL_MS = 10 * 1000;
 const cache = new Map();
 
 function clean(value = '') { return String(value ?? '').replace(/\s+/g, ' ').trim(); }
 function cut(value = '', max = 46) { const s = clean(value); return s.length > max ? `${s.slice(0, Math.max(1, max - 1))}…` : s; }
+function isHuman(value = '') { const s = clean(value); return !!s && !/^-?\d{6,}$/.test(s) && !/^[a-f0-9]{12,}$/i.test(s); }
 function cacheKey(adminId = '', channelId = '') { return `${clean(adminId) || 'debug-admin'}:${clean(channelId) || '*'}`; }
 function getCached(adminId = '', channelId = '') { const item = cache.get(cacheKey(adminId, channelId)); if (!item || Date.now() - item.at > CACHE_TTL_MS) return null; return item.value; }
 function setCached(adminId = '', channelId = '', value) { cache.set(cacheKey(adminId, channelId), { at: Date.now(), value }); if (cache.size > 100) cache.delete(cache.keys().next().value); return value; }
 function uniqByTitleUrl(items = []) { const seen = new Set(); const out = []; for (const item of items) { const key = `${clean(item.title).toLowerCase()}|${clean(item.url).toLowerCase()}`; if (!clean(item.title) || seen.has(key)) continue; seen.add(key); out.push(item); } return out; }
+function postDisplayTitle(post = {}) { return cut(post.title || post.text || post.postTitle || post.postId || post.id || 'Пост', 46); }
+function channelDisplayTitle(post = {}) { const title = clean(post.channelTitle || post.channelName || post.channelDisplayName || ''); return isHuman(title) ? cut(title, 46) : ''; }
 
 async function queryReadOnly(sql, params = []) {
   if (!db.pool) return { rows: [], error: 'database_url_missing' };
@@ -39,9 +42,9 @@ async function overview(adminId = '', options = {}) {
   const result = await queryReadOnly(`
     select
       p.channel_id as "channelId",
-      coalesce(nullif(c.title, ''), p.channel_id) as "channelTitle",
+      coalesce(nullif(c.title, ''), nullif(c.name, ''), nullif(c.username, ''), '') as "channelTitle",
       p.post_id as "postId",
-      coalesce(nullif(p.title, ''), p.post_id) as title,
+      coalesce(nullif(p.title, ''), nullif(p.text, ''), p.post_id) as title,
       p.updated_at as "postUpdatedAt",
       count(b.id)::int as "buttonsCount",
       coalesce(jsonb_agg(jsonb_build_object('id', b.id, 'title', b.title, 'url', b.url, 'sortOrder', b.sort_order) order by b.sort_order asc, b.id asc) filter (where b.id is not null), '[]'::jsonb) as buttons
@@ -49,7 +52,7 @@ async function overview(adminId = '', options = {}) {
     left join ak_channels c on c.channel_id = p.channel_id
     left join ak_post_buttons b on b.admin_id = p.admin_id and b.channel_id = p.channel_id and b.post_id = p.post_id and b.is_enabled = true
     where p.admin_id=$1 and ($2::text = '' or p.channel_id=$2)
-    group by p.channel_id, c.title, p.post_id, p.title, p.updated_at
+    group by p.channel_id, c.title, c.name, c.username, p.post_id, p.title, p.text, p.updated_at
     order by p.updated_at desc nulls last
     limit $3
   `, [id, selectedChannelId, limit]);
@@ -68,12 +71,15 @@ async function overview(adminId = '', options = {}) {
       source: 'ak_post_buttons',
       sortOrder: Number(button.sortOrder || 0)
     })) : []);
+    const displayTitle = postDisplayTitle(post);
+    const channelTitle = channelDisplayTitle(post);
     return {
       channelId: clean(post.channelId),
-      channelTitle: clean(post.channelTitle || post.channelId),
+      channelTitle,
+      channelDisplayTitle: channelTitle || 'выбранный канал',
       postId: clean(post.postId),
       title: clean(post.title || post.postId || 'Пост'),
-      displayTitle: cut(post.title || post.postId || 'Пост', 46),
+      displayTitle,
       buttonsCount: buttons.length,
       buttons,
       postUpdatedAt: post.postUpdatedAt || null
@@ -82,12 +88,14 @@ async function overview(adminId = '', options = {}) {
 
   const buttonsCount = posts.reduce((sum, post) => sum + post.buttonsCount, 0);
   const postsWithButtons = posts.filter((post) => post.buttonsCount > 0).length;
+  const selectedChannelTitle = channelDisplayTitle(posts.find((p) => p.channelId === selectedChannelId) || posts[0] || {});
 
   return setCached(id, selectedChannelId, {
     ok: true,
     runtimeVersion: RUNTIME,
     adminId: id,
     selectedChannelId,
+    selectedChannelTitle,
     postsCount,
     buttonsCount,
     postsWithButtons,
@@ -103,7 +111,7 @@ async function overview(adminId = '', options = {}) {
 function formatOverviewForScreen(data = {}) {
   if (!data.ok) return [`Не удалось прочитать кнопки: ${data.error || 'unknown_error'}.`, 'Production-данные не изменялись.'];
   const lines = [
-    data.selectedChannelId ? `Канал: ${data.selectedChannelId}` : 'Канал: все доступные каналы',
+    data.selectedChannelTitle ? `Канал: ${data.selectedChannelTitle}` : 'Канал: все доступные каналы',
     `Постов в базе: ${data.postsCount}`,
     `Постов с кнопками: ${data.postsWithButtons}`,
     `Активных кнопок: ${data.buttonsCount}`,
@@ -122,8 +130,8 @@ function formatOverviewForScreen(data = {}) {
       if (post.buttons.length > 3) lines.push(`   • …ещё ${post.buttons.length - 3}`);
     });
   }
-  lines.push('', 'Режим: read-only. Core пока не создаёт и не меняет кнопки.');
-  lines.push('Следующий шаг: перенос создания новых CTA-кнопок сразу в ak_post_buttons, без legacy-слоёв.');
+  lines.push('', 'Режим: clean Core. Создание новых кнопок идёт в ak_post_buttons.');
+  lines.push('Патч поста в MAX подключим отдельным чистым этапом.');
   return lines;
 }
 
@@ -136,10 +144,13 @@ function selfTest() {
     cleanStorageOnly: true,
     sourceTable: 'ak_post_buttons',
     legacyAdaptersDisabled: true,
+    humanPostLabelsReady: true,
+    humanChannelLabelsReady: true,
+    rawChannelIdHiddenInUx: true,
     ignoredLegacyTables: ['ak_comment_banners_v3'],
     cacheTtlMs: CACHE_TTL_MS,
     cacheSize: cache.size
   };
 }
 
-module.exports = { RUNTIME, overview, formatOverviewForScreen, selfTest };
+module.exports = { RUNTIME, overview, formatOverviewForScreen, selfTest, postDisplayTitle, channelDisplayTitle };
