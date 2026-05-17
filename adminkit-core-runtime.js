@@ -4,8 +4,8 @@
 // This file is intentionally independent from the legacy CC7.5.x loader chain.
 // It can be imported safely for audits and self-tests before production is switched to Core.
 
-const RUNTIME = 'ADMINKIT-CORE-1.30-SECTION-AUDIT-FLOW-TEXT';
-const SOURCE = 'adminkit-core-1-30-section-audit-flow-text';
+const RUNTIME = 'ADMINKIT-CORE-1.31-MENU-IDEMPOTENCY-LINK-UX';
+const SOURCE = 'adminkit-core-1-31-menu-idempotency-link-ux';
 
 function lazy(name) {
   return require(name);
@@ -35,6 +35,7 @@ function selfTest() {
   const flowScreen = lazy('./src/core/flowScreen');
   const maxSendAdapter = lazy('./src/core/maxSendAdapter');
   const routeDispatcher = lazy('./src/core/routeDispatcher');
+  const stateManager = lazy('./src/core/stateManager');
   const timingStore = lazy('./src/core/coreTimingStore').selfTest();
   const channelData = lazy('./src/core/channelDataAdapter').selfTest();
   const buttonsData = lazy('./src/core/buttonsDataAdapter').selfTest();
@@ -43,6 +44,8 @@ function selfTest() {
   const accountSelfTest = accountManager.selfTest ? accountManager.selfTest() : null;
   const routeDispatcherSelfTest = routeDispatcher.selfTest ? routeDispatcher.selfTest() : null;
   const flowScreenSelfTest = flowScreen.selfTest ? flowScreen.selfTest() : null;
+  const stateSelfTest = stateManager.selfTest ? stateManager.selfTest() : null;
+  const menuSelfTest = menuRenderer.selfTest ? menuRenderer.selfTest() : null;
   let callbackBridge = null;
   try { callbackBridge = lazy('./src/core/coreCallbackBridge').selfTest(); } catch (error) { callbackBridge = { ok: false, error: error?.message || String(error) }; }
 
@@ -64,7 +67,10 @@ function selfTest() {
   const mainHomeCallbackFastPath = routeDispatcher.shouldResetSessionOnStart({ payload: { r: 'main.home' } }, 'main.home') === false;
   const batchedAccessRender = accessSelfTest?.batchedFilterSections === true && accountSelfTest?.ok === true;
   const ack400Silent = callbackBridge?.safety?.ack400Silent === true;
+  const callbackIdempotencyReady = callbackBridge?.safety?.callbackIdempotencyReady === true && callbackBridge?.safety?.duplicateCallbacksNoSend === true;
   const coreFlowTextInputBridgeReady = callbackBridge?.safety?.handlesCoreFlowTextInput === true && callbackBridge?.safety?.textInputRequiresActiveFlow === true && callbackBridge?.safety?.textInputRequiresActiveInputStep === true;
+  const oneActiveScreenCleanupReady = stateSelfTest?.oneActiveScreenStateReady === true && stateSelfTest?.resetMovesActiveToGarbage === true && stateSelfTest?.setActiveScreenDeduplicatesGarbage === true;
+  const linkUxReady = menuSelfTest?.linkUxReady === true && menuSelfTest?.payloadVersion === 2;
   const channelsReadOnlyDataReady = channelData.ok === true && channelData.readOnly === true && channelsSelfTest?.readOnlyRenderer === true;
   const buttonsReadOnlyDataReady = buttonsData.ok === true && buttonsData.readOnly === true && buttonsSelfTest?.readOnlyRenderer === true;
   const buttonsCleanStorageOnlyReady = buttonsData.cleanStorageOnly === true && buttonsData.sourceTable === 'ak_post_buttons';
@@ -75,12 +81,12 @@ function selfTest() {
   const leadMagnetsAuditReady = leadMagnetsSelfTest?.legacyAdaptersUsed === false && leadMagnetsSelfTest?.dangerousActionsDisabled === true;
 
   return {
-    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady === true && mainHomeCallbackFastPath === true && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender === true && ack400Silent === true && channelsReadOnlyDataReady === true && buttonsReadOnlyDataReady === true && buttonsCleanStorageOnlyReady === true && buttonsLegacyAdaptersDisabled === true && cleanButtonCreateFlowReady === true && cleanButtonSaveRouteReady === true && flowSaveActionReady === true && leadMagnetsAuditReady === true,
+    ok: missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && flow.supports?.includes('selectPost') && flow.supports?.includes('acceptInput') && flow.supports?.includes('staleFlowCallbackGuard') && delivery.ok === true && canaryWebhook.ok === true && canaryWebhook.safety?.supportsManualCanarySend === true && canaryWebhook.safety?.manualSendRealRequiresRouteToken === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady === true && callbackIdempotencyReady === true && oneActiveScreenCleanupReady === true && linkUxReady === true && mainHomeCallbackFastPath === true && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender === true && ack400Silent === true && channelsReadOnlyDataReady === true && buttonsReadOnlyDataReady === true && buttonsCleanStorageOnlyReady === true && buttonsLegacyAdaptersDisabled === true && cleanButtonCreateFlowReady === true && cleanButtonSaveRouteReady === true && flowSaveActionReady === true && leadMagnetsAuditReady === true,
     runtimeVersion: RUNTIME,
     sourceMarker: SOURCE,
     isCoreRuntime: true,
     activeInProduction: false,
-    purpose: 'clean foundation for future switch from layered CC7.5.x wrappers to AdminKit Core',
+    purpose: 'Core 1.31: stable menu, duplicate callback guard, one active screen cleanup and clean link UX before production switch',
     sections: ids,
     missingSections: missing,
     routeCount: routeMap.size,
@@ -108,9 +114,16 @@ function selfTest() {
     buttonsSection: buttonsSelfTest,
     leadMagnetsSection: leadMagnetsSelfTest,
     routeDispatcher: routeDispatcherSelfTest,
+    stateManager: stateSelfTest,
+    menuRenderer: menuSelfTest,
     dataSafety: safety,
     constraints: {
       oneActiveScreen: true,
+      oneActiveScreenCleanupReady,
+      callbackIdempotencyReady,
+      duplicateCallbacksNoSend: callbackBridge.safety?.duplicateCallbacksNoSend === true,
+      linkUxReady,
+      menuPayloadVersion: menuSelfTest?.payloadVersion || 0,
       sectionRegistryDriven: true,
       sectionAuditReady: sectionAudit.ok === true,
       allSectionsHaveSelfTest: sectionAudit.items?.every?.((item) => item.hasSelfTest === true) === true,
@@ -163,7 +176,9 @@ function selfTest() {
       coreCanaryDoesNotAutoRegister: true,
       nonDestructiveMigrationsOnly: true,
       noLegacyWrapperChain: true,
-      noPublicAppOverride: true
+      noPublicAppOverride: true,
+      noProductionWebhookChange: true,
+      canaryAllNotRequired: true
     }
   };
 }
