@@ -49,7 +49,8 @@ function selfTest() {
   const screen = renderScreen({ title: 'Тест', body: ['Flow: lead_magnets.create', 'Step: input', 'Проверка: max_channel_membership', 'Нормальная строка', 'Сохранено в чистую таблицу: ak_post_lead_magnets.'] });
   const main = renderMain([{ id: 'comments', title: 'Комментарии', routes: { home: 'comments.home' } }, { id: 'photo_comments', title: 'Фото в комментариях', hiddenInMain: true, routes: { home: 'photo_comments.home' } }]);
   const mainButtons = (((main.attachments || [])[0] || {}).payload || {}).buttons?.flat?.().map((b) => b.text) || [];
-  return { ok: kb[0]?.payload?.version === 2 && kb[0]?.payload?.buttons?.[1]?.[0]?.type === 'link' && kb[0]?.payload?.buttons?.[1]?.[0]?.url === 'https://example.com' && !/Flow:|Step:|ak_post|1\.33|sectionRegistry/.test(screen.text + main.text) && mainButtons.length === 1 && /Комментарии/.test(mainButtons[0]), runtimeVersion: RUNTIME, payloadVersion: 2, userTextFilterReady: true, mainMenuUserFriendly: true, callbackPayloadHasRoute: true, hiddenSectionsReady: true };
+  const linkOk = kb[0]?.payload?.buttons?.[1]?.[0]?.type === 'link' && kb[0]?.payload?.buttons?.[1]?.[0]?.url === 'https://example.com';
+  return { ok: kb[0]?.payload?.version === 2 && linkOk && !/Flow:|Step:|ak_post|1\.33|sectionRegistry/.test(screen.text + main.text) && mainButtons.length === 1 && /Комментарии/.test(mainButtons[0]), runtimeVersion: RUNTIME, payloadVersion: 2, userTextFilterReady: true, mainMenuUserFriendly: true, callbackPayloadHasRoute: true, linkUxReady: linkOk, hiddenSectionsReady: true };
 }
 
 module.exports = { RUNTIME, btn, linkBtn, inlineKeyboard, renderScreen, renderMain, visibleSections, selfTest, userLine, userLines };
