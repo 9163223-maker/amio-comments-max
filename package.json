@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.34-v1-core-1.49.2-safe-diagnostics",
+  "version": "CC7.5.34-v1-core-1.50.0-debug-lite",
   "main": "adminkit-one-loader-cc75342.js",
   "scripts": {
     "start": "node adminkit-one-loader-cc75342.js"
