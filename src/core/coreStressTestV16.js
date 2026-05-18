@@ -7,11 +7,12 @@ const menuRenderer = require('./menuRenderer');
 const navigationV3 = require('./navigationV3Adapter');
 const stateManager = require('./stateManager');
 
-const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.48.0-NAVIGATION-V3';
+const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.48.1-NAVIGATION-V3-HINTS-SAFE';
 const STRESS_ADMIN_ID = 'core-stress-admin';
 const UI_ERROR_RE = /(⚠️|Не удалось|Диагностика:|does not exist|violates .*constraint|unexpected_step|Ошибка:|error:)/i;
 const TECH_RE = /\b(Flow:|Step:|runtimeVersion|sectionRegistry|ak_[a-z0-9_]+|legacy adapters|legacy-хранилища|debug-post|clean delivery-flow|clean-flow|read-only)\b/i;
 const RAW_ID_RE = /(^|\s)-?\d{8,}(\s|$)|[a-f0-9]{16,}/i;
+const FORBIDDEN_FLOAT_HINT_RE = /(overlay|floating|float[-_\s]*hint)/i;
 
 function clean(value = '') { return String(value ?? '').replace(/\s+/g, ' ').trim(); }
 function cut(value = '', max = 900) { const s = clean(value); return s.length > max ? `${s.slice(0, Math.max(1, max - 1))}…` : s; }
@@ -23,7 +24,7 @@ function ctx(route, payload = {}) {
     userId: STRESS_ADMIN_ID,
     route,
     planCode: 'start',
-    updateType: 'stress_test_navigation_v3_1480',
+    updateType: 'stress_test_navigation_v3_1481',
     payload: { ...(payload || {}) }
   };
 }
@@ -53,7 +54,7 @@ function assertNativeInline(screen = {}, name = '') {
   const keyboard = attachments[0];
   if (keyboard.type !== 'inline_keyboard') throw new Error(name + ': non_native_inline_keyboard: ' + String(keyboard.type || ''));
   if (!keyboard.payload || !Array.isArray(keyboard.payload.buttons)) throw new Error(name + ': invalid_inline_payload');
-  if (/overlay|float|floating/i.test(String(screen.text || ''))) throw new Error(name + ': overlay_float_hint_text_detected');
+  if (FORBIDDEN_FLOAT_HINT_RE.test(String(screen.text || ''))) throw new Error(name + ': forbidden_float_hint_text_detected');
 }
 function assertBackHome(screen = {}, name = '') {
   const labels = buttonTexts(screen).join(' | ');
@@ -81,7 +82,7 @@ async function runNavigationV3Scenario() {
 
   const navHome = await dispatchShape('navigation.home', {}, true);
   assertText(navHome.screen, /Меню и навигация V3|one active screen|cleanup pipeline/i, 'navigation.home.tree');
-  assertText(navHome.screen, /только нативные inline|Overlay\/float-подсказки.*запрещены/i, 'navigation.home.native_policy');
+  assertText(navHome.screen, /только нативные inline|Всплывающие и плавающие подсказки.*запрещены/i, 'navigation.home.native_policy');
   ['navigation.audit', 'navigation.active_screen', 'navigation.cleanup', 'navigation.flow_guard', 'navigation.back_home', 'navigation.folded_sections'].forEach((route) => assertRoute(navHome.screen, route, 'navigation.home.route.' + route));
   assertNativeInline(navHome.screen, 'navigation.home.native_inline');
   assertBackHome(navHome.screen, 'navigation.home.back_home');
@@ -159,7 +160,7 @@ async function runFast(options = {}) {
     ok: baseResult.ok === true && failed.length === 0,
     runtimeVersion: RUNTIME,
     generatedAt: new Date().toISOString(),
-    mode: 'fast_compact_scenario_1480_navigation_v3',
+    mode: 'fast_compact_scenario_1481_navigation_v3_hints_safe',
     summary: {
       ...(baseResult.summary || {}),
       totalChecks: Number(baseResult.summary?.totalChecks || 0) + tests.length,
@@ -173,15 +174,15 @@ async function runFast(options = {}) {
       validatesCleanupPipeline: true,
       validatesBackHomeNavigation: true
     },
-    status: failed.length ? 'FAILED — см. failed' : 'OK — Core 1.48.0: меню и навигация V3 прошли сценарный обход',
+    status: failed.length ? 'FAILED — см. failed' : 'OK — Core 1.48.1: меню и навигация V3 прошли сценарный обход',
     failed,
     slow,
     tests: [...(Array.isArray(baseResult.tests) ? baseResult.tests : []), ...tests.map((x) => ({ name: x.name, ok: x.ok, ms: x.ms, error: x.error || '', checks: x.checks || undefined, functionCount: x.functionCount || undefined, routeCount: x.routeCount || undefined, visibleRouteCount: x.visibleRouteCount || undefined }))],
     notes: [
       ...((baseResult.notes || []).filter(Boolean)),
-      'Core 1.48.0 наполняет раздел Меню и навигация V3 финальным деревом функций.',
+      'Core 1.48.1 наполняет раздел Меню и навигация V3 финальным деревом функций.',
       'Проверяется главное меню: нужные разделы видны, вложенные комментарии не дублируются наверху.',
-      'Подсказки только native inline; overlay/float запрещены.',
+      'Подсказки только native inline; всплывающие и плавающие подсказки запрещены.',
       'Проверяются one active screen, one active flow и cleanup pipeline.',
       'Проверяются кнопки Назад / Главное меню и рендер всех видимых разделов.'
     ]
