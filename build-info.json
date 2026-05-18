@@ -1,1 +1,27 @@
-{"runtimeVersion":"CC7.5.25-LEAD-WORDING-PRELOAD-PATCH","buildVersion":"CC7.5.25-LEAD-WORDING-PRELOAD-PATCH","displayVersion":"CC7.5.25","packageVersion":"CC7.5.25-v1-core-1.40.9-lead-magnets-e2e-stress","sourceMarker":"adminkit-cc7-5-25-lead-wording-preload-patch","buildGeneratedAt":"2026-05-18T11:06:00Z","coreRuntimeVersion":"ADMINKIT-CORE-1.40.9-LEAD-MAGNETS-END-TO-END-STRESS","corePostRegistryDataAdapter":"ADMINKIT-CORE-POST-REGISTRY-DATA-ADAPTER-1.40.7-CHANNEL-LABEL-GUARD","coreStressTest":"ADMINKIT-CORE-STRESS-TEST-1.40.9-LEAD-MAGNETS-END-TO-END","coreButtonsSection":"ADMINKIT-CORE-BUTTONS-SECTION-1.40.2-CHANNEL-POST-MANAGED","coreLeadMagnetsSection":"ADMINKIT-CORE-LEAD-MAGNETS-SECTION-1.40.9-USER-FRIENDLY-TEST-DELIVERY","coreRouteDispatcher":"ADMINKIT-CORE-ROUTE-DISPATCHER-1.40.2-COMBINED-EDIT-SAVE","coreFlowEngine":"ADMINKIT-CORE-FLOW-ENGINE-1.40.3-COMPLETE-CONDITIONS","coreFlowScreen":"ADMINKIT-CORE-FLOW-SCREEN-1.40.2-COMPLETE-CONDITIONS-UX","notes":["Core 1.40.9 extends compact stress-test with full Lead Magnets end-to-end scenario.","Lead Magnets scenario checks adding gift, combined conditions, minimum two-condition guard, saving, delivery check screen, editing conditions and deleting.","Lead Magnets test delivery wording no longer exposes technical clean delivery-flow text.","Core 1.40.8 Buttons end-to-end scenario remains included."]}
+{
+  "runtimeVersion": "CC7.5.25-LEAD-WORDING-PRELOAD-PATCH",
+  "buildVersion": "CC7.5.25-LEAD-WORDING-PRELOAD-PATCH",
+  "displayVersion": "CC7.5.25",
+  "packageVersion": "CC7.5.25-v1-core-1.41.0-unified-comments",
+  "sourceMarker": "adminkit-cc7-5-25-lead-wording-preload-patch",
+  "buildGeneratedAt": "2026-05-18T11:30:00Z",
+  "coreRuntimeVersion": "ADMINKIT-CORE-1.41.0-UNIFIED-COMMENTS",
+  "coreCommentsSection": "ADMINKIT-CORE-COMMENTS-SECTION-1.41.0-UNIFIED-COMMENTS",
+  "corePhotoCommentsSection": "ADMINKIT-CORE-PHOTO-COMMENTS-1.41.0-FOLDED-INTO-COMMENTS",
+  "coreReactionsRepliesSection": "ADMINKIT-CORE-REACTIONS-REPLIES-1.41.0-FOLDED-INTO-COMMENTS",
+  "coreMenuRenderer": "ADMINKIT-CORE-MENU-RENDERER-1.41.0-HIDDEN-SECTIONS",
+  "coreAccessManager": "ADMINKIT-CORE-ACCESS-MANAGER-1.41.0-UNIFIED-COMMENTS-GATES",
+  "coreStressTest": "ADMINKIT-CORE-STRESS-TEST-1.41.0-UNIFIED-COMMENTS",
+  "corePostRegistryDataAdapter": "ADMINKIT-CORE-POST-REGISTRY-DATA-ADAPTER-1.40.7-CHANNEL-LABEL-GUARD",
+  "coreButtonsSection": "ADMINKIT-CORE-BUTTONS-SECTION-1.40.2-CHANNEL-POST-MANAGED",
+  "coreLeadMagnetsSection": "ADMINKIT-CORE-LEAD-MAGNETS-SECTION-1.40.9-USER-FRIENDLY-TEST-DELIVERY",
+  "coreRouteDispatcher": "ADMINKIT-CORE-ROUTE-DISPATCHER-1.40.2-COMBINED-EDIT-SAVE",
+  "coreFlowEngine": "ADMINKIT-CORE-FLOW-ENGINE-1.40.3-COMPLETE-CONDITIONS",
+  "coreFlowScreen": "ADMINKIT-CORE-FLOW-SCREEN-1.40.2-COMPLETE-CONDITIONS-UX",
+  "notes": [
+    "Core 1.41.0 creates one unified Comments section.",
+    "Photo comments, replies and reactions are folded into the Comments section and hidden from the top-level main menu.",
+    "Video and files remain excluded from comments.",
+    "Stress-test V6 keeps buttons and lead-magnets scenarios and adds unified comments scenario: main menu, channel list, post list, post card, comments toggle, photo settings, replies, reactions, moderation and diagnostics."
+  ]
+}
