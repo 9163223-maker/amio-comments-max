@@ -6,7 +6,7 @@ const routeDispatcher = require('./routeDispatcher');
 const postRegistry = require('./postRegistryDataAdapter');
 const sectionRegistry = require('./sectionRegistry');
 
-const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.41.0-UNIFIED-COMMENTS';
+const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.41.1-UNIFIED-COMMENTS-MENU-BUTTON-FIX';
 const STRESS_ADMIN_ID = 'core-stress-admin';
 const COMMENTS_POST_ID = 'core-stress-comments-post';
 const COMMENTS_COMMENT_KEY = 'core-stress-comments-comment-key';
@@ -18,14 +18,22 @@ function clean(value = '') { return String(value ?? '').replace(/\s+/g, ' ').tri
 function cut(value = '', max = 360) { const s = clean(value); return s.length > max ? `${s.slice(0, Math.max(1, max - 1))}…` : s; }
 function now() { return Date.now(); }
 function actorMask(value = '') { const s = String(value || ''); return s.length > 8 ? `${s.slice(0, 3)}…${s.slice(-3)}` : s; }
-function ctx(route, actor = {}, payload = {}) { const adminId = actor.adminId || STRESS_ADMIN_ID; return { adminId, admin_id: adminId, userId: adminId, route, updateType: 'stress_test_comments_1410', payload }; }
-function buttonsOf(screen = {}) { try { return (((screen.attachments || [])[0] || {}).payload || {}).buttons || []; } catch { return []; } }
+function ctx(route, actor = {}, payload = {}) {
+  const adminId = actor.adminId || STRESS_ADMIN_ID;
+  return { adminId, admin_id: adminId, userId: adminId, route, updateType: 'stress_test_comments_1411', payload };
+}
+function buttonsOf(screen = {}) {
+  try { return (((screen.attachments || [])[0] || {}).payload || {}).buttons || []; } catch { return []; }
+}
 function flatButtons(screen = {}) { return buttonsOf(screen).flat().filter(Boolean); }
 function payloadOf(button = {}) { try { return JSON.parse(button.payload || '{}'); } catch { return {}; } }
 function routeOf(button = {}) { return String(payloadOf(button).r || '').trim(); }
 function findRouteButton(screen = {}, route = '') { return flatButtons(screen).find((b) => routeOf(b) === route); }
 function buttonTexts(screen = {}) { return flatButtons(screen).map((b) => clean(b.text)); }
-function isGenericChannelLabel(text = '') { const s = clean(text).replace(/^\d+\.\s*/, '').replace(/·.*$/, '').toLowerCase(); return s === 'канал' || s === 'текущий канал' || s === 'канал без названия' || s.includes('existing channel'); }
+function isGenericChannelLabel(text = '') {
+  const s = clean(text).replace(/^\d+\.\s*/, '').replace(/·.*$/, '').toLowerCase();
+  return s === 'канал' || s === 'текущий канал' || s === 'канал без названия' || s.includes('existing channel');
+}
 function isGenericPostLabel(text = '') { return clean(text).toLowerCase().includes('пост без текста'); }
 function assertScreen(screen, name, strict = true) {
   if (!screen || typeof screen.text !== 'string' || !Array.isArray(screen.attachments)) throw new Error(name + ': invalid_screen_shape');
@@ -38,11 +46,36 @@ function assertScreen(screen, name, strict = true) {
   }
   return { textChars: screen.text.length, rows: buttonsOf(screen).length, buttons: flatButtons(screen).length };
 }
-function assertText(screen = {}, pattern, name = '') { const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i'); if (!re.test(String(screen.text || ''))) throw new Error(name + ': expected text not found: ' + re); }
-function assertNoText(screen = {}, pattern, name = '') { const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i'); if (re.test(String(screen.text || ''))) throw new Error(name + ': forbidden text found: ' + re + ': ' + cut(screen.text)); }
-function assertRoute(screen = {}, route = '', name = '') { const btn = findRouteButton(screen, route); if (!btn) throw new Error(name + ': button route not found: ' + route); return btn; }
-async function step(name, fn) { const t = now(); try { return { name, ok: true, ms: now() - t, ...(await fn() || {}) }; } catch (e) { return { name, ok: false, ms: now() - t, error: cut(e?.message || String(e), 520), stackHead: cut(String(e?.stack || '').split('\n').slice(0, 2).join('\n'), 520) }; } }
-async function firstRow(sqls = []) { await db.init(); for (const sql of sqls) { try { const r = await db.query(sql); if (r.rows?.[0]) return r.rows[0]; } catch {} } return null; }
+function assertText(screen = {}, pattern, name = '') {
+  const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i');
+  if (!re.test(String(screen.text || ''))) throw new Error(name + ': expected text not found: ' + re);
+}
+function assertNoText(screen = {}, pattern, name = '') {
+  const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i');
+  if (re.test(String(screen.text || ''))) throw new Error(name + ': forbidden text found: ' + re + ': ' + cut(screen.text));
+}
+function assertRoute(screen = {}, route = '', name = '') {
+  const btn = findRouteButton(screen, route);
+  if (!btn) throw new Error(name + ': button route not found: ' + route);
+  return btn;
+}
+function assertButtonText(screen = {}, pattern, name = '') {
+  const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i');
+  const texts = buttonTexts(screen);
+  if (!texts.some((x) => re.test(x))) throw new Error(name + ': expected button text not found: ' + re + ': ' + texts.join(' | '));
+}
+async function step(name, fn) {
+  const t = now();
+  try { return { name, ok: true, ms: now() - t, ...(await fn() || {}) }; }
+  catch (e) { return { name, ok: false, ms: now() - t, error: cut(e?.message || String(e), 520), stackHead: cut(String(e?.stack || '').split('\n').slice(0, 2).join('\n'), 520) }; }
+}
+async function firstRow(sqls = []) {
+  await db.init();
+  for (const sql of sqls) {
+    try { const r = await db.query(sql); if (r.rows?.[0]) return r.rows[0]; } catch {}
+  }
+  return null;
+}
 async function pickActor() {
   const row = await firstRow([
     "select admin_id, channel_id, coalesce(nullif(max(channel_title),''),'') as channel_title, count(*)::int as post_count from ak_posts where admin_id<>'' and channel_id<>'' group by admin_id, channel_id order by max(updated_at) desc nulls last limit 1",
@@ -51,11 +84,18 @@ async function pickActor() {
   const adminId = clean(row?.admin_id || '');
   return adminId ? { adminId, channelId: clean(row?.channel_id || ''), channelTitle: clean(row?.channel_title || ''), postCount: Number(row?.post_count || 0) } : { adminId: STRESS_ADMIN_ID, channelId: '', channelTitle: '', postCount: 0 };
 }
-async function getSessionSnapshot(adminId = '') { await db.init(); const { rows } = await db.query('select * from ak_admin_sessions where admin_id=$1 limit 1', [String(adminId || '')]); return rows[0] || null; }
+async function getSessionSnapshot(adminId = '') {
+  await db.init();
+  const { rows } = await db.query('select * from ak_admin_sessions where admin_id=$1 limit 1', [String(adminId || '')]);
+  return rows[0] || null;
+}
 async function restoreSession(adminId = '', snapshot = null) {
   await db.init();
   if (!adminId) return { skipped: true, reason: 'no_admin_id' };
-  if (!snapshot) { const r = await db.query('delete from ak_admin_sessions where admin_id=$1', [String(adminId)]); return { restored: false, deletedSession: r.rowCount || 0 }; }
+  if (!snapshot) {
+    const r = await db.query('delete from ak_admin_sessions where admin_id=$1', [String(adminId)]);
+    return { restored: false, deletedSession: r.rowCount || 0 };
+  }
   await db.query("insert into ak_admin_sessions(admin_id, account_id, active_section, active_flow, active_step, selected_channel_id, selected_post_id, selected_comment_key, draft, active_message_id, garbage_message_ids, updated_at, expires_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb,$12,$13) on conflict(admin_id) do update set account_id=excluded.account_id, active_section=excluded.active_section, active_flow=excluded.active_flow, active_step=excluded.active_step, selected_channel_id=excluded.selected_channel_id, selected_post_id=excluded.selected_post_id, selected_comment_key=excluded.selected_comment_key, draft=excluded.draft, active_message_id=excluded.active_message_id, garbage_message_ids=excluded.garbage_message_ids, updated_at=excluded.updated_at, expires_at=excluded.expires_at", [String(snapshot.admin_id || adminId), String(snapshot.account_id || ''), String(snapshot.active_section || ''), String(snapshot.active_flow || ''), String(snapshot.active_step || ''), String(snapshot.selected_channel_id || ''), String(snapshot.selected_post_id || ''), String(snapshot.selected_comment_key || ''), JSON.stringify(snapshot.draft || {}), String(snapshot.active_message_id || ''), JSON.stringify(snapshot.garbage_message_ids || []), snapshot.updated_at || new Date(), snapshot.expires_at || null]);
   return { restored: true };
 }
@@ -89,7 +129,10 @@ async function seedCommentsPost(actor = {}) {
   const post = result.post || {};
   return { payload: { channelId: post.channelId || actor.channelId, channelTitle: post.channelTitle || channelTitle, postId: post.postId || COMMENTS_POST_ID, postTitle: post.postTitle || 'Тест комментариев: текст фото ответы реакции' }, post };
 }
-async function dispatchShape(route, actor, payload = {}, strict = true) { const screen = await routeDispatcher.dispatch(ctx(route, actor, payload)); return { screen, shape: assertScreen(screen, route, strict) }; }
+async function dispatchShape(route, actor, payload = {}, strict = true) {
+  const screen = await routeDispatcher.dispatch(ctx(route, actor, payload));
+  return { screen, shape: assertScreen(screen, route, strict) };
+}
 function assertHumanList(screen = {}, route = '', kind = 'post') {
   const labels = flatButtons(screen).filter((b) => routeOf(b) === route).map((b) => clean(b.text));
   if (!labels.length) return { labels: [], checked: false, reason: 'no_buttons_for_route' };
@@ -108,7 +151,8 @@ async function runCommentsUnifiedScenario(actor, baseline) {
   const main = await dispatchShape('main.home', actor, {}, true);
   const mainTexts = buttonTexts(main.screen).join(' | ');
   if (/Фото в комментариях|Реакции и ответы/i.test(mainTexts)) throw new Error('main.home: folded comment subsections are still visible: ' + mainTexts);
-  assertText(main.screen, /Комментарии/i, 'comments.main_has_comments');
+  assertRoute(main.screen, 'comments.home', 'comments.main_route');
+  assertButtonText(main.screen, /Комментарии/i, 'comments.main_button_has_comments');
 
   const home = await dispatchShape('comments.home', actor, {}, true);
   const channelLabels = assertHumanList(home.screen, 'comments.select_channel', 'channel');
@@ -141,7 +185,7 @@ async function runCommentsUnifiedScenario(actor, baseline) {
   assertNoText(diagnostics.screen, /ak_|runtimeVersion|debug-post|legacy adapters/i, 'comments.diagnostics_no_tech');
 
   await restoreSession(actor.adminId, baseline);
-  return { seeded: seeded.post, payload, main: main.shape, home: home.shape, posts: posts.shape, center: center.shape, toggle: toggle.shape, photo: photo.shape, replies: replies.shape, reactions: reactions.shape, moderation: moderation.shape, diagnostics: diagnostics.shape, channelLabels, postLabels, checks: ['main_folded_sections_hidden','channel_list','post_preview','post_center','toggle','photo','replies','reactions','moderation','diagnostics'] };
+  return { seeded: seeded.post, payload, main: main.shape, home: home.shape, posts: posts.shape, center: center.shape, toggle: toggle.shape, photo: photo.shape, replies: replies.shape, reactions: reactions.shape, moderation: moderation.shape, diagnostics: diagnostics.shape, channelLabels, postLabels, checks: ['main_folded_sections_hidden','main_comments_button_route','channel_list','post_preview','post_center','toggle','photo','replies','reactions','moderation','diagnostics'] };
 }
 
 async function runFast(options = {}) {
@@ -173,7 +217,7 @@ async function runFast(options = {}) {
     generatedAt: new Date().toISOString(),
     startedAt,
     durationMs: Date.now() - Date.parse(startedAt),
-    mode: 'fast_compact_scenario_1410',
+    mode: 'fast_compact_scenario_1411',
     actor: { adminIdMasked: actor.adminId === STRESS_ADMIN_ID ? STRESS_ADMIN_ID : actorMask(actor.adminId), channelIdMasked: actor.channelId ? actorMask(actor.channelId) : '', postCount: actor.postCount },
     summary: {
       ...(baseResult.summary || {}),
@@ -181,6 +225,7 @@ async function runFast(options = {}) {
       failed: failed.length,
       slow: slow.length,
       validatesUnifiedCommentsSection: true,
+      validatesCommentsMainButtonRoute: true,
       validatesPhotoInsideComments: true,
       validatesRepliesInsideComments: true,
       validatesReactionsInsideComments: true,
@@ -188,18 +233,24 @@ async function runFast(options = {}) {
       validatesFoldedCommentSubsectionsHiddenFromMain: true,
       validatesNoVideoFilesInComments: true
     },
-    status: failed.length ? 'FAILED — см. failed' : 'OK — Core 1.41.0: кнопки, лид-магниты и единый раздел комментариев прошли сценарный обход',
+    status: failed.length ? 'FAILED — см. failed' : 'OK — Core 1.41.1: кнопки, лид-магниты и единый раздел комментариев прошли сценарный обход',
     failed,
     slow,
     tests: [...(Array.isArray(baseResult.tests) ? baseResult.tests : []), ...tests.map((x) => ({ name: x.name, ok: x.ok, ms: x.ms, error: x.error || '', screen: x.screen || null, skipped: x.skipped || false, reason: x.reason || '', channelLabels: x.channelLabels || undefined, postLabels: x.postLabels || undefined, checks: x.checks || undefined }))],
     notes: [
       ...((baseResult.notes || []).filter(Boolean)),
-      'Core 1.41.0 проверяет новый единый раздел Комментарии: канал → пост → комментарии, фото, ответы, реакции, модерация, диагностика.',
+      'Core 1.41.1 проверяет новый единый раздел Комментарии: главное меню → кнопка Комментарии → канал → пост → комментарии, фото, ответы, реакции, модерация, диагностика.',
+      'Проверка главного меню теперь смотрит не текст сообщения, а кнопку и route comments.home — это соответствует реальному MAX UI.',
       'Фото и реакции/ответы больше не должны появляться отдельными верхними пунктами главного меню; они проверяются внутри раздела Комментарии.'
     ]
   };
 }
-async function run(options = {}) { if (options && (options.verbose || options.raw || options.deep)) return base.run(options); return runFast(options); }
-function selfTest() { return { ok: true, runtimeVersion: RUNTIME, baseRuntimeVersion: base.RUNTIME, fastCompactDefault: true, unifiedCommentsScenarioReady: true, commentsEndToEndReady: true, photoInsideCommentsReady: true, repliesInsideCommentsReady: true, reactionsInsideCommentsReady: true, moderationInsideCommentsReady: true, foldedCommentSubsectionsHiddenReady: true, noVideoFilesInCommentsReady: true, buttonsAndLeadMagnetsBaseStillIncluded: true }; }
+async function run(options = {}) {
+  if (options && (options.verbose || options.raw || options.deep)) return base.run(options);
+  return runFast(options);
+}
+function selfTest() {
+  return { ok: true, runtimeVersion: RUNTIME, baseRuntimeVersion: base.RUNTIME, fastCompactDefault: true, unifiedCommentsScenarioReady: true, commentsMainButtonRouteReady: true, commentsEndToEndReady: true, photoInsideCommentsReady: true, repliesInsideCommentsReady: true, reactionsInsideCommentsReady: true, moderationInsideCommentsReady: true, foldedCommentSubsectionsHiddenReady: true, noVideoFilesInCommentsReady: true, buttonsAndLeadMagnetsBaseStillIncluded: true };
+}
 
 module.exports = { RUNTIME, run, selfTest, runFast };
