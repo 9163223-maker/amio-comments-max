@@ -3,7 +3,7 @@
 const db = require('../../cc5-db-core');
 const postRegistry = require('./postRegistryDataAdapter');
 
-const RUNTIME = 'ADMINKIT-CORE-CHANNEL-DATA-ADAPTER-1.47.0-CONNECT-FORWARDED-POST';
+const RUNTIME = 'ADMINKIT-CORE-CHANNEL-DATA-ADAPTER-1.47.1-SCHEMA-SAFE-CONNECTION';
 const CACHE_TTL_MS = 5 * 1000;
 const cache = new Map();
 
@@ -34,6 +34,10 @@ async function ensure() {
       created_at timestamptz default now(),
       updated_at timestamptz default now()
     );
+    alter table ak_admins add column if not exists raw jsonb not null default '{}'::jsonb;
+    alter table ak_admins add column if not exists created_at timestamptz default now();
+    alter table ak_admins add column if not exists updated_at timestamptz default now();
+
     create table if not exists ak_channels (
       channel_id text primary key,
       title text not null default '',
@@ -41,6 +45,11 @@ async function ensure() {
       created_at timestamptz default now(),
       updated_at timestamptz default now()
     );
+    alter table ak_channels add column if not exists title text not null default '';
+    alter table ak_channels add column if not exists raw jsonb not null default '{}'::jsonb;
+    alter table ak_channels add column if not exists created_at timestamptz default now();
+    alter table ak_channels add column if not exists updated_at timestamptz default now();
+
     create table if not exists ak_admin_channels (
       admin_id text not null,
       channel_id text not null,
@@ -49,6 +58,10 @@ async function ensure() {
       updated_at timestamptz default now(),
       primary key(admin_id, channel_id)
     );
+    alter table ak_admin_channels add column if not exists role text not null default 'admin';
+    alter table ak_admin_channels add column if not exists created_at timestamptz default now();
+    alter table ak_admin_channels add column if not exists updated_at timestamptz default now();
+
     create table if not exists ak_admin_sessions (
       admin_id text primary key,
       selected_channel_id text not null default '',
@@ -57,6 +70,12 @@ async function ensure() {
       created_at timestamptz default now(),
       updated_at timestamptz default now()
     );
+    alter table ak_admin_sessions add column if not exists selected_channel_id text not null default '';
+    alter table ak_admin_sessions add column if not exists selected_post_id text not null default '';
+    alter table ak_admin_sessions add column if not exists raw jsonb not null default '{}'::jsonb;
+    alter table ak_admin_sessions add column if not exists created_at timestamptz default now();
+    alter table ak_admin_sessions add column if not exists updated_at timestamptz default now();
+
     create table if not exists ak_channel_connection_events (
       id bigserial primary key,
       admin_id text not null,
@@ -71,10 +90,19 @@ async function ensure() {
       created_at timestamptz default now(),
       updated_at timestamptz default now()
     );
+    alter table ak_channel_connection_events add column if not exists channel_title text not null default '';
+    alter table ak_channel_connection_events add column if not exists post_id text not null default '';
+    alter table ak_channel_connection_events add column if not exists message_id text not null default '';
+    alter table ak_channel_connection_events add column if not exists service_message_id text not null default '';
+    alter table ak_channel_connection_events add column if not exists post_title text not null default '';
+    alter table ak_channel_connection_events add column if not exists status text not null default 'connected';
+    alter table ak_channel_connection_events add column if not exists meta jsonb not null default '{}'::jsonb;
+    alter table ak_channel_connection_events add column if not exists created_at timestamptz default now();
+    alter table ak_channel_connection_events add column if not exists updated_at timestamptz default now();
     create index if not exists ak_channel_connection_events_admin_updated_idx on ak_channel_connection_events(admin_id, updated_at desc);
     create index if not exists ak_channel_connection_events_channel_idx on ak_channel_connection_events(admin_id, channel_id, status);
   `);
-  return { ok: true, runtimeVersion: RUNTIME };
+  return { ok: true, runtimeVersion: RUNTIME, schemaMigrationReady: true };
 }
 
 async function ensurePrincipalRows(ctx = {}, input = {}) {
@@ -85,11 +113,11 @@ async function ensurePrincipalRows(ctx = {}, input = {}) {
   if (!adminId || !channelId) return { ok: false, error: 'admin_or_channel_missing' };
   await db.query(`insert into ak_admins(admin_id, raw, updated_at)
     values($1,$2::jsonb,now())
-    on conflict(admin_id) do update set raw=ak_admins.raw || excluded.raw, updated_at=now()`,
+    on conflict(admin_id) do update set raw=coalesce(ak_admins.raw, '{}'::jsonb) || excluded.raw, updated_at=now()`,
     [adminId, safeJson({ source: 'channel_connection_core', runtimeVersion: RUNTIME })]);
   await db.query(`insert into ak_channels(channel_id, title, raw, updated_at)
     values($1,$2,$3::jsonb,now())
-    on conflict(channel_id) do update set title=coalesce(nullif(excluded.title,''), ak_channels.title), raw=ak_channels.raw || excluded.raw, updated_at=now()`,
+    on conflict(channel_id) do update set title=coalesce(nullif(excluded.title,''), ak_channels.title), raw=coalesce(ak_channels.raw, '{}'::jsonb) || excluded.raw, updated_at=now()`,
     [channelId, channelTitle, safeJson({ source: 'channel_connection_core', runtimeVersion: RUNTIME, channelTitle })]);
   await db.query(`insert into ak_admin_channels(admin_id, channel_id, role, updated_at)
     values($1,$2,'admin',now())
@@ -174,11 +202,11 @@ async function connectForwardedPost(ctx = {}, input = {}) {
   await ensurePrincipalRows({ adminId: preview.adminId, channelId: preview.channelId, channelTitle: preview.channelTitle }, { channelId: preview.channelId, channelTitle: preview.channelTitle });
   await db.query(`insert into ak_admin_sessions(admin_id, selected_channel_id, selected_post_id, raw, updated_at)
     values($1,$2,$3,$4::jsonb,now())
-    on conflict(admin_id) do update set selected_channel_id=excluded.selected_channel_id, selected_post_id=excluded.selected_post_id, raw=ak_admin_sessions.raw || excluded.raw, updated_at=now()`,
+    on conflict(admin_id) do update set selected_channel_id=excluded.selected_channel_id, selected_post_id=excluded.selected_post_id, raw=coalesce(ak_admin_sessions.raw, '{}'::jsonb) || excluded.raw, updated_at=now()`,
     [preview.adminId, preview.channelId, preview.postId, safeJson({ source: 'channel_connection_core', runtimeVersion: RUNTIME })]);
   await db.query(`insert into ak_posts(admin_id, channel_id, channel_title, post_id, message_id, comment_key, post_title, post_preview, source, meta, updated_at)
     values($1,$2,$3,$4,$5,$6,$7,$8,'channel_connection_forwarded_post',$9::jsonb,now())
-    on conflict(channel_id, post_id) do update set admin_id=excluded.admin_id, channel_title=excluded.channel_title, message_id=excluded.message_id, post_title=excluded.post_title, post_preview=excluded.post_preview, meta=ak_posts.meta || excluded.meta, updated_at=now()`,
+    on conflict(channel_id, post_id) do update set admin_id=excluded.admin_id, channel_title=excluded.channel_title, message_id=excluded.message_id, post_title=excluded.post_title, post_preview=excluded.post_preview, meta=coalesce(ak_posts.meta, '{}'::jsonb) || excluded.meta, updated_at=now()`,
     [preview.adminId, preview.channelId, preview.channelTitle, preview.postId, preview.messageId, `${preview.channelId}:${preview.postId}`, preview.postTitle, preview.postTitle, safeJson({ runtimeVersion: RUNTIME, serviceMessageId, channelConnected: true })]);
   const { rows } = await db.query(`insert into ak_channel_connection_events(admin_id, channel_id, channel_title, post_id, message_id, service_message_id, post_title, status, meta, updated_at)
     values($1,$2,$3,$4,$5,$6,$7,'connected',$8::jsonb,now()) returning id, created_at, updated_at`,
@@ -196,7 +224,7 @@ async function selectChannel(ctx = {}, input = {}) {
   await ensurePrincipalRows({ adminId, channelId, channelTitle }, { channelId, channelTitle });
   await db.query(`insert into ak_admin_sessions(admin_id, selected_channel_id, raw, updated_at)
     values($1,$2,$3::jsonb,now())
-    on conflict(admin_id) do update set selected_channel_id=excluded.selected_channel_id, raw=ak_admin_sessions.raw || excluded.raw, updated_at=now()`,
+    on conflict(admin_id) do update set selected_channel_id=excluded.selected_channel_id, raw=coalesce(ak_admin_sessions.raw, '{}'::jsonb) || excluded.raw, updated_at=now()`,
     [adminId, channelId, safeJson({ source: 'channel_select_core', runtimeVersion: RUNTIME })]);
   clearCache(adminId);
   return { ok: true, adminId, channelId, channelTitle, selected: true };
@@ -210,10 +238,10 @@ async function markAuthPostCleaned(ctx = {}, input = {}) {
   if (!adminId) return { ok: false, error: 'admin_id_required' };
   let rowCount = 0;
   if (connectionId) {
-    const result = await db.query(`update ak_channel_connection_events set status='service_cleaned', meta=meta || $3::jsonb, updated_at=now() where admin_id=$1 and id=$2 and status='connected'`, [adminId, connectionId, safeJson({ cleanedAt: new Date().toISOString(), runtimeVersion: RUNTIME })]);
+    const result = await db.query(`update ak_channel_connection_events set status='service_cleaned', meta=coalesce(meta, '{}'::jsonb) || $3::jsonb, updated_at=now() where admin_id=$1 and id=$2 and status='connected'`, [adminId, connectionId, safeJson({ cleanedAt: new Date().toISOString(), runtimeVersion: RUNTIME })]);
     rowCount = result.rowCount || 0;
   } else if (channelId) {
-    const result = await db.query(`update ak_channel_connection_events set status='service_cleaned', meta=meta || $3::jsonb, updated_at=now() where id in (select id from ak_channel_connection_events where admin_id=$1 and channel_id=$2 and status='connected' order by updated_at desc limit 1)`, [adminId, channelId, safeJson({ cleanedAt: new Date().toISOString(), runtimeVersion: RUNTIME })]);
+    const result = await db.query(`update ak_channel_connection_events set status='service_cleaned', meta=coalesce(meta, '{}'::jsonb) || $3::jsonb, updated_at=now() where id in (select id from ak_channel_connection_events where admin_id=$1 and channel_id=$2 and status='connected' order by updated_at desc limit 1)`, [adminId, channelId, safeJson({ cleanedAt: new Date().toISOString(), runtimeVersion: RUNTIME })]);
     rowCount = result.rowCount || 0;
   }
   return { ok: rowCount > 0, cleaned: rowCount > 0, connectionId, channelId, publishedChannelPostUntouched: true };
@@ -228,7 +256,7 @@ async function listRecentConnections(ctx = {}, options = {}) {
 }
 
 function selfTest() {
-  return { ok: true, runtimeVersion: RUNTIME, readOnly: false, connectForwardedPostReady: true, previewReady: true, selectChannelReady: true, servicePostCleanupReady: true, channelAvailableEverywhere: true, rawIdsHiddenInUx: true, cacheTtlMs: CACHE_TTL_MS, cacheSize: cache.size };
+  return { ok: true, runtimeVersion: RUNTIME, readOnly: false, schemaMigrationReady: true, connectForwardedPostReady: true, previewReady: true, selectChannelReady: true, servicePostCleanupReady: true, channelAvailableEverywhere: true, rawIdsHiddenInUx: true, cacheTtlMs: CACHE_TTL_MS, cacheSize: cache.size };
 }
 
 module.exports = { RUNTIME, CACHE_TTL_MS, ensure, ensurePrincipalRows, listChannels, formatChannelsForScreen, previewForwardedPost, connectForwardedPost, selectChannel, markAuthPostCleaned, listRecentConnections, selfTest, humanChannelTitle, humanPostTitle };
