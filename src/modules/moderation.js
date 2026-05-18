@@ -2,10 +2,11 @@
 
 const menuRenderer = require('../core/menuRenderer');
 
-const RUNTIME = 'ADMINKIT-CORE-MODERATION-SECTION-1.42.0-FUNCTION-TREE';
+const RUNTIME = 'ADMINKIT-CORE-MODERATION-SECTION-1.42.2-SCOPE-RULES';
 
 const routes = {
   home: 'moderation.home',
+  scope: 'moderation.scope',
   queue: 'moderation.queue',
   rules: 'moderation.rules',
   keywords: 'moderation.keywords',
@@ -20,6 +21,12 @@ const routes = {
 
 const FUNCTION_TREE = [
   {
+    id: 'scope',
+    title: 'Область действия правил',
+    route: routes.scope,
+    finalStep: 'администратор выбирает, где действует модерация: во всём канале или только в одном выбранном посте'
+  },
+  {
     id: 'queue',
     title: 'Очередь комментариев',
     route: routes.queue,
@@ -29,7 +36,7 @@ const FUNCTION_TREE = [
     id: 'rules',
     title: 'Правила автофильтра',
     route: routes.rules,
-    finalStep: 'правило сохраняется и применяется к новым комментариям выбранного канала или поста'
+    finalStep: 'правило сохраняется и применяется к новым комментариям выбранного канала или выбранного поста'
   },
   {
     id: 'keywords',
@@ -83,24 +90,58 @@ const FUNCTION_TREE = [
 
 function clean(value = '') { return String(value ?? '').replace(/\s+/g, ' ').trim(); }
 function cut(value = '', max = 64) { const s = clean(value); return s.length > max ? `${s.slice(0, Math.max(1, max - 1))}…` : s; }
+function isRawId(value = '') { const s = clean(value); return /^-?\d{6,}$/.test(s) || /^[a-f0-9]{12,}$/i.test(s); }
+function human(value = '', fallback = '') {
+  const s = clean(value);
+  if (s && !isRawId(s)) return cut(s);
+  const f = clean(fallback);
+  return f && !isRawId(f) ? cut(f) : '';
+}
 function scoped(ctx = {}) {
   const payload = ctx.payload || {};
+  const channelTitle = human(payload.channelTitle || ctx.channelTitle, 'текущий канал');
+  const postTitle = human(payload.postTitle || ctx.postTitle, 'выбранный пост');
+  const rawScope = clean(payload.scopeType || payload.scope || ctx.scopeType || ctx.scope || '').toLowerCase();
+  const scopeType = rawScope === 'post' || rawScope === 'channel' ? rawScope : (postTitle ? 'post' : (channelTitle ? 'channel' : ''));
   return {
+    scopeType,
     channelId: payload.channelId || ctx.channelId || '',
-    channelTitle: payload.channelTitle || ctx.channelTitle || '',
+    channelTitle,
     postId: payload.postId || ctx.postId || '',
-    postTitle: payload.postTitle || ctx.postTitle || ''
+    postTitle
   };
 }
 function scopeLines(ctx = {}) {
   const s = scoped(ctx);
+  if (s.scopeType === 'channel') {
+    return [
+      'Область: весь канал',
+      `Канал: ${s.channelTitle || 'текущий канал'}`,
+      'Пост: не нужен — правило будет работать для всех постов канала'
+    ];
+  }
+  if (s.scopeType === 'post') {
+    return [
+      'Область: один пост',
+      `Канал: ${s.channelTitle || 'текущий канал'}`,
+      `Пост: ${s.postTitle || 'выберите пост из списка'}`
+    ];
+  }
   return [
-    s.channelTitle ? `Канал: ${cut(s.channelTitle)}` : 'Область: все подключённые каналы',
-    s.postTitle ? `Пост: ${cut(s.postTitle)}` : 'Пост: можно выбрать позже в карточке комментариев'
+    'Область: сначала выберите, где действует правило',
+    'Можно применить модерацию ко всему каналу или только к одному посту'
   ];
 }
 function treeButtons() {
   return FUNCTION_TREE.map((item) => ({ text: item.title, route: item.route }));
+}
+function scopeButtons(ctx = {}) {
+  const s = scoped(ctx);
+  return [
+    { text: '🌐 Весь канал', route: routes.scope, data: { scopeType: 'channel', channelTitle: s.channelTitle || 'текущий канал' } },
+    { text: '📝 Один пост', route: routes.scope, data: { scopeType: 'post', channelTitle: s.channelTitle || 'текущий канал', postTitle: s.postTitle || 'выбранный пост' } },
+    { text: '📋 К правилам', route: routes.rules, data: { scopeType: s.scopeType || 'channel', channelTitle: s.channelTitle || 'текущий канал', postTitle: s.postTitle || '' } }
+  ];
 }
 function render(title, body = [], buttons = [], options = {}) {
   return menuRenderer.renderScreen({
@@ -123,12 +164,27 @@ const section = {
   async renderHome(ctx = {}) {
     return render('🛡️ Модерация', [
       'Раздел собирает безопасность обсуждений и канала в одно дерево действий.',
-      'Сначала выбираем, что модерировать: комментарии, правила, ссылки, фото, участников или журнал решений.',
+      'Сначала выбираем область: весь канал или конкретный пост. Потом настраиваем правила, очередь, ссылки, фото, участников или журнал решений.',
       'Опасные действия не должны выполняться случайно: удаление, блокировка и снятие прав проходят через отдельное подтверждение.',
       '',
       'Дерево функций:',
       ...FUNCTION_TREE.map((item, index) => `${index + 1}. ${item.title}`)
     ], treeButtons(), { homeRoute: 'main.home' });
+  },
+
+  async renderScope(ctx = {}) {
+    const s = scoped(ctx);
+    const selected = s.scopeType === 'post'
+      ? `Сейчас выбрано: один пост — ${s.postTitle || 'пост ещё не выбран'}`
+      : (s.scopeType === 'channel' ? `Сейчас выбрано: весь канал — ${s.channelTitle || 'текущий канал'}` : 'Сейчас область ещё не выбрана.');
+    return render('🎯 Область действия правил', [
+      selected,
+      '',
+      'Выберите, где будут работать правила модерации.',
+      'Весь канал — правило применяется ко всем новым комментариям во всех постах выбранного канала.',
+      'Один пост — правило применяется только к комментариям под выбранным постом.',
+      'Для правила конкретного поста администратор должен видеть начало текста поста, а не номер или служебный идентификатор.'
+    ], scopeButtons(ctx), { backRoute: routes.home });
   },
 
   async renderQueue(ctx = {}) {
@@ -139,6 +195,7 @@ const section = {
       'Финальный шаг очереди — понятное решение модератора: оставить, скрыть, удалить, восстановить или предупредить пользователя.',
       'Очередь должна показывать начало текста комментария, автора, пост и причину попадания на проверку.'
     ], [
+      { text: '🎯 Область правил', route: routes.scope },
       { text: '🆕 Новые на проверке', route: routes.queue, data: { filter: 'new' } },
       { text: '🚩 Жалобы', route: routes.queue, data: { filter: 'reports' } },
       { text: '🙈 Скрытые', route: routes.queue, data: { filter: 'hidden' } },
@@ -154,6 +211,7 @@ const section = {
       'Для каждого правила нужен понятный финал: где действует правило, что ищем и что делаем с совпадением.',
       'Базовые группы правил: стоп-слова, ссылки, фото, повторяющиеся комментарии и слишком частые сообщения.'
     ], [
+      { text: '🎯 Выбрать область', route: routes.scope },
       { text: '🚫 Стоп-слова и фразы', route: routes.keywords },
       { text: '🔗 Ссылки и домены', route: routes.links },
       { text: '🖼 Фото в комментариях', route: routes.media },
@@ -169,6 +227,7 @@ const section = {
       'Для каждого совпадения выбирается действие: скрыть сразу, отправить на проверку или только подсветить модератору.',
       'Нужны исключения, чтобы нормальные слова не блокировались случайно.'
     ], [
+      { text: '🎯 Изменить область', route: routes.scope },
       { text: '➕ Добавить стоп-слово', route: routes.keywords, data: { action: 'add' } },
       { text: '📋 Список стоп-слов', route: routes.keywords, data: { action: 'list' } },
       { text: '↩️ К правилам', route: routes.rules }
@@ -183,6 +242,7 @@ const section = {
       'Финальный шаг — список разрешённых доменов и действие для неизвестных ссылок.',
       'Для пользователя это должно выглядеть как понятное правило, без технических адресов и кодов ошибок.'
     ], [
+      { text: '🎯 Изменить область', route: routes.scope },
       { text: '✅ Разрешённые домены', route: routes.links, data: { action: 'allowlist' } },
       { text: '🚫 Запретить неизвестные ссылки', route: routes.links, data: { action: 'block_unknown' } },
       { text: '👀 Отправлять на проверку', route: routes.links, data: { action: 'review' } },
@@ -198,6 +258,7 @@ const section = {
       'Модерация фото должна уметь: разрешить фото всем, отправлять первое фото пользователя на проверку или проверять все фото.',
       'Если тариф не позволяет фото, администратор должен видеть спокойное объяснение и переход к тарифам.'
     ], [
+      { text: '🎯 Изменить область', route: routes.scope },
       { text: '✅ Разрешить фото', route: routes.media, data: { action: 'allow' } },
       { text: '👀 Первое фото на проверку', route: routes.media, data: { action: 'first_review' } },
       { text: '🛡 Все фото на проверку', route: routes.media, data: { action: 'all_review' } },
@@ -272,6 +333,7 @@ const section = {
       'Полуавтоматический режим: очевидный спам скрывается, спорные случаи идут в очередь.',
       'Автоматический режим: правила применяются сразу, но журнал и восстановление остаются доступными.'
     ], [
+      { text: '🎯 Изменить область', route: routes.scope },
       { text: '👤 Ручной режим', route: routes.settings, data: { mode: 'manual' } },
       { text: '🤝 Полуавтоматический', route: routes.settings, data: { mode: 'semi_auto' } },
       { text: '⚡ Автоматический', route: routes.settings, data: { mode: 'auto' } },
@@ -281,6 +343,7 @@ const section = {
 
   async handleAction(ctx = {}) {
     const route = String(ctx.route || routes.home);
+    if (route === routes.scope) return this.renderScope(ctx);
     if (route === routes.queue) return this.renderQueue(ctx);
     if (route === routes.rules) return this.renderRules(ctx);
     if (route === routes.keywords) return this.renderKeywords(ctx);
@@ -297,7 +360,7 @@ const section = {
   selfTest() {
     const routeValues = Object.values(routes);
     return {
-      ok: routeValues.length >= 10 && FUNCTION_TREE.length >= 10,
+      ok: routeValues.length >= 11 && FUNCTION_TREE.length >= 11,
       runtimeVersion: RUNTIME,
       sectionId: 'moderation',
       feature: 'moderation.enabled',
@@ -305,6 +368,11 @@ const section = {
       functionCount: FUNCTION_TREE.length,
       routes: routes,
       routeCount: routeValues.length,
+      scopeSelectionReady: true,
+      scopeChannelReady: true,
+      scopePostReady: true,
+      rulesCanApplyToWholeChannel: true,
+      rulesCanApplyToSinglePost: true,
       queueReady: true,
       rulesReady: true,
       keywordsReady: true,
