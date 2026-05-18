@@ -1,9 +1,9 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.31-v1-core-1.47.1-channel-connection-schema-safe",
-  "main": "adminkit-one-loader-cc7531.js",
+  "version": "CC7.5.32-v1-core-1.48.0-navigation-v3",
+  "main": "adminkit-one-loader-cc7532.js",
   "scripts": {
-    "start": "node adminkit-one-loader-cc7531.js"
+    "start": "node adminkit-one-loader-cc7532.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
