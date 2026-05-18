@@ -4,7 +4,7 @@ const base = require('./coreStressTestV6');
 const routeDispatcher = require('./routeDispatcher');
 const sectionRegistry = require('./sectionRegistry');
 
-const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.42.1-MODERATION-MAIN-BUTTON-CHECK';
+const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.42.2-MODERATION-SCOPE-RULES';
 const STRESS_ADMIN_ID = 'core-stress-admin';
 const UI_ERROR_RE = /(⚠️|Не удалось|Диагностика:|does not exist|violates .*constraint|unexpected_step|Ошибка:|error:)/i;
 const TECH_RE = /\b(Flow:|Step:|runtimeVersion|sectionRegistry|ak_[a-z0-9_]+|legacy adapters|legacy-хранилища|debug-post|clean delivery-flow|clean-flow|read-only)\b/i;
@@ -20,7 +20,7 @@ function ctx(route, payload = {}) {
     userId: STRESS_ADMIN_ID,
     route,
     planCode: 'start',
-    updateType: 'stress_test_moderation_1421',
+    updateType: 'stress_test_moderation_1422',
     payload
   };
 }
@@ -44,6 +44,10 @@ function assertScreen(screen, name, strict = true) {
 function assertText(screen = {}, pattern, name = '') {
   const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i');
   if (!re.test(String(screen.text || ''))) throw new Error(name + ': expected text not found: ' + re + ': ' + cut(screen.text));
+}
+function assertNoText(screen = {}, pattern, name = '') {
+  const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i');
+  if (re.test(String(screen.text || ''))) throw new Error(name + ': forbidden text found: ' + re + ': ' + cut(screen.text));
 }
 function assertButtonText(screen = {}, pattern, name = '') {
   const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i');
@@ -69,6 +73,10 @@ function assertOneTapDangerDisabled(screen = {}, name = '') {
   if (/заблокировать$/i.test(texts) || /удалить$/i.test(texts)) throw new Error(name + ': destructive one-tap action visible: ' + texts);
   if (/Удалить/i.test(texts) && !/подтверж/i.test(texts)) throw new Error(name + ': delete button must mention confirmation: ' + texts);
 }
+function assertHumanScope(screen = {}, name = '') {
+  assertNoText(screen, /core-stress|channelId|postId|-?\d{8,}|[a-f0-9]{16,}/i, name + '.no_raw_ids');
+  assertText(screen, /Область:/i, name + '.scope_visible');
+}
 
 async function runModerationScenario() {
   const section = sectionRegistry.find('moderation');
@@ -77,61 +85,100 @@ async function runModerationScenario() {
   if (self?.ok !== true) throw new Error('moderation selfTest failed');
   if (self.finalStepsDocumented !== true) throw new Error('moderation final steps are not documented');
   if (self.destructiveActionsOneTapDisabled !== true) throw new Error('moderation dangerous actions guard missing');
+  if (self.scopeSelectionReady !== true || self.rulesCanApplyToWholeChannel !== true || self.rulesCanApplyToSinglePost !== true) throw new Error('moderation scope channel/post support missing');
 
-  const scopedPayload = {
+  const basePayload = {
     channelId: 'core-stress-channel',
     channelTitle: 'Подключённый канал',
     postId: 'core-stress-moderation-post',
     postTitle: 'Тест комментариев: текст фото ответы реакции'
   };
+  const channelScope = { ...basePayload, postId: '', postTitle: '', scopeType: 'channel' };
+  const postScope = { ...basePayload, scopeType: 'post' };
 
   const main = await dispatchShape('main.home', {}, true);
   assertRoute(main.screen, 'moderation.home', 'moderation.main_route');
   assertButtonText(main.screen, /Модерация/i, 'moderation.main_button_text');
 
   const home = await dispatchShape('moderation.home', {}, true);
-  ['moderation.queue', 'moderation.rules', 'moderation.users', 'moderation.logs', 'moderation.settings'].forEach((route) => assertRoute(home.screen, route, 'moderation.home'));
-  assertText(home.screen, /Дерево функций|Очередь комментариев|Правила автофильтра/i, 'moderation.home_tree');
+  ['moderation.scope', 'moderation.queue', 'moderation.rules', 'moderation.users', 'moderation.logs', 'moderation.settings'].forEach((route) => assertRoute(home.screen, route, 'moderation.home'));
+  assertText(home.screen, /Область действия правил|Дерево функций|Очередь комментариев|Правила автофильтра/i, 'moderation.home_tree');
 
-  const queue = await dispatchShape('moderation.queue', scopedPayload, true);
+  const scopeStart = await dispatchShape('moderation.scope', {}, true);
+  assertText(scopeStart.screen, /Весь канал|Один пост|область ещё не выбрана/i, 'moderation.scope_start');
+  assertRoute(scopeStart.screen, 'moderation.rules', 'moderation.scope_to_rules');
+
+  const scopeChannel = await dispatchShape('moderation.scope', channelScope, true);
+  assertHumanScope(scopeChannel.screen, 'moderation.scope_channel');
+  assertText(scopeChannel.screen, /Сейчас выбрано: весь канал|всем новым комментариям/i, 'moderation.scope_channel_text');
+  assertText(scopeChannel.screen, /Подключённый канал/i, 'moderation.scope_channel_title');
+  assertNoText(scopeChannel.screen, /Тест комментариев: текст фото ответы реакции/i, 'moderation.scope_channel_no_post_title');
+
+  const scopePost = await dispatchShape('moderation.scope', postScope, true);
+  assertHumanScope(scopePost.screen, 'moderation.scope_post');
+  assertText(scopePost.screen, /Сейчас выбрано: один пост|только к комментариям под выбранным постом/i, 'moderation.scope_post_text');
+  assertText(scopePost.screen, /Тест комментариев: текст фото ответы реакции/i, 'moderation.scope_post_title');
+
+  const queue = await dispatchShape('moderation.queue', postScope, true);
+  assertHumanScope(queue.screen, 'moderation.queue_scope');
   assertText(queue.screen, /оставить, скрыть, удалить, восстановить|Очередь комментариев/i, 'moderation.queue_final');
+  assertRoute(queue.screen, 'moderation.scope', 'moderation.queue_scope_button');
   assertRoute(queue.screen, 'moderation.home', 'moderation.queue_back');
 
-  const rules = await dispatchShape('moderation.rules', scopedPayload, true);
-  ['moderation.keywords', 'moderation.links', 'moderation.media', 'moderation.settings'].forEach((route) => assertRoute(rules.screen, route, 'moderation.rules'));
-  assertText(rules.screen, /стоп-слова|ссылки|фото|повторяющиеся комментарии/i, 'moderation.rules_groups');
+  const rulesChannel = await dispatchShape('moderation.rules', channelScope, true);
+  assertHumanScope(rulesChannel.screen, 'moderation.rules_channel_scope');
+  assertText(rulesChannel.screen, /Область: весь канал|всех постов канала|Правила автофильтра/i, 'moderation.rules_channel_area');
+  assertText(rulesChannel.screen, /Пост: не нужен/i, 'moderation.rules_channel_no_post_required');
 
-  const keywords = await dispatchShape('moderation.keywords', scopedPayload, true);
+  const rulesPost = await dispatchShape('moderation.rules', postScope, true);
+  ['moderation.scope', 'moderation.keywords', 'moderation.links', 'moderation.media', 'moderation.settings'].forEach((route) => assertRoute(rulesPost.screen, route, 'moderation.rules_post'));
+  assertHumanScope(rulesPost.screen, 'moderation.rules_post_scope');
+  assertText(rulesPost.screen, /Область: один пост|Тест комментариев: текст фото ответы реакции/i, 'moderation.rules_post_area');
+  assertText(rulesPost.screen, /стоп-слова|ссылки|фото|повторяющиеся комментарии/i, 'moderation.rules_groups');
+
+  const keywords = await dispatchShape('moderation.keywords', postScope, true);
+  assertHumanScope(keywords.screen, 'moderation.keywords_scope');
   assertText(keywords.screen, /скрыть сразу|отправить на проверку|подсветить/i, 'moderation.keywords_actions');
+  assertRoute(keywords.screen, 'moderation.scope', 'moderation.keywords_scope_button');
   assertRoute(keywords.screen, 'moderation.rules', 'moderation.keywords_back');
 
-  const links = await dispatchShape('moderation.links', scopedPayload, true);
+  const links = await dispatchShape('moderation.links', channelScope, true);
+  assertHumanScope(links.screen, 'moderation.links_scope');
   assertText(links.screen, /разрешённые домены|неизвестных ссылок|проверку/i, 'moderation.links_actions');
+  assertRoute(links.screen, 'moderation.scope', 'moderation.links_scope_button');
   assertRoute(links.screen, 'moderation.rules', 'moderation.links_back');
 
-  const media = await dispatchShape('moderation.media', scopedPayload, true);
+  const media = await dispatchShape('moderation.media', postScope, true);
+  assertHumanScope(media.screen, 'moderation.media_scope');
   assertText(media.screen, /только фото|Видео и файлы не добавляем|первое фото/i, 'moderation.media_photo_only');
+  assertRoute(media.screen, 'moderation.scope', 'moderation.media_scope_button');
   assertRoute(media.screen, 'moderation.rules', 'moderation.media_back');
 
-  const users = await dispatchShape('moderation.users', scopedPayload, true);
+  const users = await dispatchShape('moderation.users', channelScope, true);
+  assertHumanScope(users.screen, 'moderation.users_scope');
   assertText(users.screen, /участников|администраторов|нарушителей/i, 'moderation.users_lists');
   assertRoute(users.screen, 'moderation.rights', 'moderation.users_rights');
 
-  const rights = await dispatchShape('moderation.rights', scopedPayload, true);
+  const rights = await dispatchShape('moderation.rights', channelScope, true);
+  assertHumanScope(rights.screen, 'moderation.rights_scope');
   assertText(rights.screen, /читать сообщения|видеть участников|управлять участниками|права/i, 'moderation.rights_checks');
   assertRoute(rights.screen, 'moderation.users', 'moderation.rights_back');
 
-  const actions = await dispatchShape('moderation.actions', scopedPayload, true);
+  const actions = await dispatchShape('moderation.actions', postScope, true);
+  assertHumanScope(actions.screen, 'moderation.actions_scope');
   assertText(actions.screen, /опасное действие|причину и подтверждение|удалить/i, 'moderation.actions_confirm');
   assertOneTapDangerDisabled(actions.screen, 'moderation.actions');
   assertRoute(actions.screen, 'moderation.queue', 'moderation.actions_queue');
 
-  const logs = await dispatchShape('moderation.logs', scopedPayload, true);
+  const logs = await dispatchShape('moderation.logs', postScope, true);
+  assertHumanScope(logs.screen, 'moderation.logs_scope');
   assertText(logs.screen, /Журнал|восстановить|историю решений/i, 'moderation.logs_history');
   assertRoute(logs.screen, 'moderation.home', 'moderation.logs_back');
 
-  const settings = await dispatchShape('moderation.settings', scopedPayload, true);
+  const settings = await dispatchShape('moderation.settings', channelScope, true);
+  assertHumanScope(settings.screen, 'moderation.settings_scope');
   assertText(settings.screen, /Ручной режим|Полуавтоматический|Автоматический/i, 'moderation.settings_modes');
+  assertRoute(settings.screen, 'moderation.scope', 'moderation.settings_scope_button');
   assertRoute(settings.screen, 'moderation.rules', 'moderation.settings_back');
 
   return {
@@ -140,8 +187,12 @@ async function runModerationScenario() {
     routes: Object.keys(self.routes || {}).length,
     main: main.shape,
     home: home.shape,
+    scopeStart: scopeStart.shape,
+    scopeChannel: scopeChannel.shape,
+    scopePost: scopePost.shape,
     queue: queue.shape,
-    rules: rules.shape,
+    rulesChannel: rulesChannel.shape,
+    rulesPost: rulesPost.shape,
     keywords: keywords.shape,
     links: links.shape,
     media: media.shape,
@@ -154,6 +205,11 @@ async function runModerationScenario() {
       'main_route_unlocked_on_start_plan',
       'main_menu_has_visible_moderation_button',
       'function_tree_home',
+      'scope_selection_screen',
+      'scope_whole_channel_rules',
+      'scope_single_post_rules',
+      'channel_scope_does_not_require_post',
+      'post_scope_shows_human_post_preview',
       'queue_final_decision',
       'rules_groups',
       'keywords_actions',
@@ -172,7 +228,7 @@ async function runFast(options = {}) {
   const baseResult = await base.runFast(options);
   const tests = [];
   tests.push(await step('self.moderationSection', async () => sectionRegistry.find('moderation').selfTest()));
-  tests.push(await step('scenario.moderation.function_tree_end_to_end', runModerationScenario));
+  tests.push(await step('scenario.moderation.scope_channel_post_end_to_end', runModerationScenario));
 
   const localFailed = tests.filter((x) => x.ok === false);
   const localSlow = tests.filter((x) => Number(x.ms || 0) > Number(options.slowMs || 700));
@@ -186,13 +242,17 @@ async function runFast(options = {}) {
     ok: baseResult.ok === true && localFailed.length === 0,
     runtimeVersion: RUNTIME,
     generatedAt: new Date().toISOString(),
-    mode: 'fast_compact_scenario_1421_moderation',
+    mode: 'fast_compact_scenario_1422_moderation_scope_rules',
     summary: {
       ...(baseResult.summary || {}),
       totalChecks: Number(baseResult.summary?.totalChecks || 0) + tests.length,
       failed: failed.length,
       slow: slow.length,
       validatesModerationFunctionTree: true,
+      validatesModerationScopeSelection: true,
+      validatesModerationWholeChannelScope: true,
+      validatesModerationSinglePostScope: true,
+      validatesModerationHumanScopeLabels: true,
       validatesModerationQueue: true,
       validatesModerationRules: true,
       validatesModerationStopWords: true,
@@ -203,14 +263,15 @@ async function runFast(options = {}) {
       validatesModerationLogs: true,
       validatesModerationModes: true
     },
-    status: failed.length ? 'FAILED — см. failed' : 'OK — Core 1.42.1: кнопки, лид-магниты, единые комментарии и дерево модерации прошли сценарный обход',
+    status: failed.length ? 'FAILED — см. failed' : 'OK — Core 1.42.2: модерация проверяет область правил: весь канал или один пост',
     failed,
     slow,
     tests: [...(Array.isArray(baseResult.tests) ? baseResult.tests : []), ...tests.map((x) => ({ name: x.name, ok: x.ok, ms: x.ms, error: x.error || '', checks: x.checks || undefined }))],
     notes: [
       ...((baseResult.notes || []).filter(Boolean)),
-      'Core 1.42.1 проверяет, что в главном меню есть видимая кнопка Модерация, а не требует слова Модерация в общем тексте главного меню.',
-      'Core 1.42.x добавляет сценарный обход раздела Модерация: очередь, правила, стоп-слова, ссылки, фото, участники, права бота, действия, журнал и режимы.',
+      'Core 1.42.2 проверяет обязательный выбор области модерации: весь канал или один конкретный пост.',
+      'Правила канала не требуют выбора поста и должны явно показывать, что работают для всех постов канала.',
+      'Правила поста должны показывать человеческое начало/название поста, а не id.',
       'Опасные действия в дереве модерации проверяются как двухшаговые: удаление и блокировка не должны быть доступны одним нажатием.',
       'Видео и файлы по-прежнему не входят в комментарии; внутри модерации фото проверяются отдельно как разрешённый тип вложений.'
     ]
@@ -229,6 +290,10 @@ function selfTest() {
     baseRuntimeVersion: base.RUNTIME,
     moderationScenarioReady: true,
     moderationFunctionTreeReady: true,
+    moderationScopeSelectionReady: true,
+    moderationWholeChannelScopeReady: true,
+    moderationSinglePostScopeReady: true,
+    moderationHumanScopeLabelsReady: true,
     moderationQueueReady: true,
     moderationRulesReady: true,
     moderationKeywordsReady: true,
