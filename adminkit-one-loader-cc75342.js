@@ -1,8 +1,8 @@
 'use strict';
 
-const RUNTIME = 'CC7.5.34-CORE-1.49.2-SAFE-DIAGNOSTICS';
-const SOURCE = 'adminkit-cc7-5-34-core-1-49-2-safe-diagnostics';
-const MARKER = '__ADMINKIT_CC7_5_34_CORE_1_49_2_SAFE_DIAGNOSTICS_LOADER__';
+const RUNTIME = 'CC7.5.34-CORE-1.50.0-DEBUG-LITE';
+const SOURCE = 'adminkit-cc7-5-34-core-1-50-0-debug-lite';
+const MARKER = '__ADMINKIT_CC7_5_34_CORE_1_50_0_DEBUG_LITE_LOADER__';
 const CANONICAL_PUBLIC_BASE_URL = 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run';
 
 process.env.BUILD_VERSION = RUNTIME;
@@ -12,11 +12,11 @@ if (!process.env.ADMINKIT_PUBLIC_BASE_URL || /amio-comments-max/i.test(String(pr
   process.env.ADMINKIT_PUBLIC_BASE_URL = CANONICAL_PUBLIC_BASE_URL;
 }
 
-function installSafeDiagnostics() {
+function installDebugLite() {
   try {
-    const layer = require('./safe-diagnostics-route-layer');
+    const layer = require('./debug-lite-route-layer');
     if (layer && typeof layer.install === 'function') return layer.install();
-    return { ok: false, error: 'safe_diagnostics_layer_install_missing' };
+    return { ok: false, error: 'debug_lite_layer_install_missing' };
   } catch (error) {
     return { ok: false, error: error && error.message ? error.message : String(error) };
   }
@@ -24,9 +24,9 @@ function installSafeDiagnostics() {
 
 if (!global[MARKER]) {
   global[MARKER] = true;
-  const diagnostics = installSafeDiagnostics();
-  process.env.ADMINKIT_SAFE_DIAGNOSTICS_LAYER_OK = diagnostics.ok !== false ? '1' : '0';
-  process.env.ADMINKIT_SAFE_DIAGNOSTICS_LAYER_RUNTIME = diagnostics.runtimeVersion || '';
+  const lite = installDebugLite();
+  process.env.ADMINKIT_DEBUG_LITE_LAYER_OK = lite.ok !== false ? '1' : '0';
+  process.env.ADMINKIT_DEBUG_LITE_LAYER_RUNTIME = lite.runtimeVersion || '';
   require('./adminkit-one-loader-cc7534');
   process.env.BUILD_VERSION = RUNTIME;
   process.env.RUNTIME_VERSION = RUNTIME;
