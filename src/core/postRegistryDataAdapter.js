@@ -1,2 +1,2 @@
 'use strict';
-module.exports = require('./postRegistryDataAdapterV7');
+module.exports = require('./postRegistryDataAdapterV8');
