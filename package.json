@@ -1,9 +1,9 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.25-v1-core-1.42.6-moderation-confirmation-wording-fix",
-  "main": "adminkit-one-loader-cc7525.js",
+  "version": "CC7.5.26-v1-core-1.43.0-stats-referral-attribution",
+  "main": "adminkit-one-loader-cc7526.js",
   "scripts": {
-    "start": "node adminkit-one-loader-cc7525.js"
+    "start": "node adminkit-one-loader-cc7526.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
