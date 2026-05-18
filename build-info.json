@@ -2,17 +2,17 @@
   "runtimeVersion": "CC7.5.25-LEAD-WORDING-PRELOAD-PATCH",
   "buildVersion": "CC7.5.25-LEAD-WORDING-PRELOAD-PATCH",
   "displayVersion": "CC7.5.25",
-  "packageVersion": "CC7.5.25-v1-core-1.42.2-moderation-scope-rules",
+  "packageVersion": "CC7.5.25-v1-core-1.42.3-moderation-scope-post-picker",
   "sourceMarker": "adminkit-cc7-5-25-lead-wording-preload-patch",
-  "buildGeneratedAt": "2026-05-18T13:30:00Z",
+  "buildGeneratedAt": "2026-05-18T13:45:00Z",
   "coreRuntimeVersion": "ADMINKIT-CORE-1.41.0-UNIFIED-COMMENTS",
   "coreCommentsSection": "ADMINKIT-CORE-COMMENTS-SECTION-1.41.0-UNIFIED-COMMENTS",
   "corePhotoCommentsSection": "ADMINKIT-CORE-PHOTO-COMMENTS-1.41.0-FOLDED-INTO-COMMENTS",
   "coreReactionsRepliesSection": "ADMINKIT-CORE-REACTIONS-REPLIES-1.41.0-FOLDED-INTO-COMMENTS",
   "coreMenuRenderer": "ADMINKIT-CORE-MENU-RENDERER-1.41.0-HIDDEN-SECTIONS",
   "coreAccessManager": "ADMINKIT-CORE-ACCESS-MANAGER-1.41.0-UNIFIED-COMMENTS-GATES",
-  "coreStressTest": "ADMINKIT-CORE-STRESS-TEST-1.42.2-MODERATION-SCOPE-RULES",
-  "coreModerationSection": "ADMINKIT-CORE-MODERATION-SECTION-1.42.2-SCOPE-RULES",
+  "coreStressTest": "ADMINKIT-CORE-STRESS-TEST-1.42.3-MODERATION-SCOPE-POST-PICKER",
+  "coreModerationSection": "ADMINKIT-CORE-MODERATION-SECTION-1.42.3-SCOPE-POST-PICKER",
   "corePostRegistryDataAdapter": "ADMINKIT-CORE-POST-REGISTRY-DATA-ADAPTER-1.40.7-CHANNEL-LABEL-GUARD",
   "coreButtonsSection": "ADMINKIT-CORE-BUTTONS-SECTION-1.40.2-CHANNEL-POST-MANAGED",
   "coreLeadMagnetsSection": "ADMINKIT-CORE-LEAD-MAGNETS-SECTION-1.40.9-USER-FRIENDLY-TEST-DELIVERY",
@@ -23,7 +23,7 @@
     "Core 1.41.0 creates one unified Comments section.",
     "Photo comments, replies and reactions are folded into the Comments section and hidden from the top-level main menu.",
     "Video and files remain excluded from comments.",
-    "Core 1.42.2 adds moderation rule scope: whole channel or one selected post.",
-    "Stress-test V7 now checks that moderation rules can apply to a full channel or to one post and that post/channel labels are human-readable."
+    "Core 1.42.3 adds a separate moderation post picker for rules that apply to one selected post.",
+    "Stress-test V7 now checks that moderation rules can apply to a full channel or to one post and that the post picker uses human-readable post previews."
   ]
 }
