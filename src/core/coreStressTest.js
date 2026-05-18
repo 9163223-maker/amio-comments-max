@@ -1,3 +1,3 @@
 'use strict';
 
-module.exports = require('./coreStressTestV19');
+module.exports = require('./coreStressTestV20');
