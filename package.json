@@ -1,9 +1,9 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.32-v1-core-1.48.0-navigation-v3",
-  "main": "adminkit-one-loader-cc7532.js",
+  "version": "CC7.5.33-v1-core-1.48.1-navigation-v3",
+  "main": "adminkit-one-loader-cc7533.js",
   "scripts": {
-    "start": "node adminkit-one-loader-cc7532.js"
+    "start": "node adminkit-one-loader-cc7533.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
