@@ -3,9 +3,13 @@
 const base = require('./coreStressTestV6');
 const routeDispatcher = require('./routeDispatcher');
 const sectionRegistry = require('./sectionRegistry');
+const postRegistry = require('./postRegistryDataAdapter');
 
-const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.42.2-MODERATION-SCOPE-RULES';
+const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.42.3-MODERATION-SCOPE-POST-PICKER';
 const STRESS_ADMIN_ID = 'core-stress-admin';
+const MOD_CHANNEL_ID = 'core-stress-moderation-channel';
+const MOD_POST_ID = 'core-stress-moderation-post';
+const MOD_COMMENT_KEY = 'core-stress-moderation-comment-key';
 const UI_ERROR_RE = /(⚠️|Не удалось|Диагностика:|does not exist|violates .*constraint|unexpected_step|Ошибка:|error:)/i;
 const TECH_RE = /\b(Flow:|Step:|runtimeVersion|sectionRegistry|ak_[a-z0-9_]+|legacy adapters|legacy-хранилища|debug-post|clean delivery-flow|clean-flow|read-only)\b/i;
 const RAW_ID_RE = /(^|\s)-?\d{8,}(\s|$)|[a-f0-9]{16,}/i;
@@ -20,7 +24,7 @@ function ctx(route, payload = {}) {
     userId: STRESS_ADMIN_ID,
     route,
     planCode: 'start',
-    updateType: 'stress_test_moderation_1422',
+    updateType: 'stress_test_moderation_1423',
     payload
   };
 }
@@ -29,6 +33,7 @@ function flatButtons(screen = {}) { return buttonsOf(screen).flat().filter(Boole
 function payloadOf(button = {}) { try { return JSON.parse(button.payload || '{}'); } catch { return {}; } }
 function routeOf(button = {}) { return String(payloadOf(button).r || '').trim(); }
 function buttonTexts(screen = {}) { return flatButtons(screen).map((b) => clean(b.text)); }
+function routeButtons(screen = {}, route = '') { return flatButtons(screen).filter((b) => routeOf(b) === route); }
 function findRouteButton(screen = {}, route = '') { return flatButtons(screen).find((b) => routeOf(b) === route); }
 function assertScreen(screen, name, strict = true) {
   if (!screen || typeof screen.text !== 'string' || !Array.isArray(screen.attachments)) throw new Error(name + ': invalid_screen_shape');
@@ -77,6 +82,47 @@ function assertHumanScope(screen = {}, name = '') {
   assertNoText(screen, /core-stress|channelId|postId|-?\d{8,}|[a-f0-9]{16,}/i, name + '.no_raw_ids');
   assertText(screen, /Область:/i, name + '.scope_visible');
 }
+function humanLabelFromButton(button = {}) { return clean(button.text || '').replace(/^\d+\.\s*/, '').trim(); }
+function assertHumanPostPicker(screen = {}, name = '') {
+  assertNoText(screen, /core-stress|channelId|postId|-?\d{8,}|[a-f0-9]{16,}/i, name + '.no_raw_ids');
+  assertText(screen, /Выберите пост|правила модерации/i, name + '.picker_text');
+  const buttons = routeButtons(screen, 'moderation.scope');
+  if (!buttons.length) throw new Error(name + ': no post buttons leading to moderation.scope');
+  const labels = buttons.map(humanLabelFromButton).filter(Boolean);
+  const raw = labels.filter((x) => RAW_ID_RE.test(x));
+  if (raw.length) throw new Error(name + ': raw ids in post labels: ' + raw.join(' | '));
+  if (!labels.some((x) => /Тест модерации|стоп-слова|ссылки|фото/i.test(x))) throw new Error(name + ': seeded human post label not visible: ' + labels.join(' | '));
+  const payload = payloadOf(buttons[0]);
+  if (payload.r !== 'moderation.scope' || payload.scopeType !== 'post') throw new Error(name + ': post button must select post scope');
+  if (!clean(payload.postTitle) || /Пост без текста|выбранный пост/i.test(clean(payload.postTitle))) throw new Error(name + ': post payload title is generic');
+  return { labels: labels.slice(0, 5), payloadTitle: payload.postTitle };
+}
+async function seedModerationPost() {
+  const channelTitle = 'Подключённый канал';
+  const postTitle = 'Тест модерации: стоп-слова, ссылки и фото';
+  const result = await postRegistry.upsertPost({
+    adminId: STRESS_ADMIN_ID,
+    admin_id: STRESS_ADMIN_ID,
+    channelId: MOD_CHANNEL_ID,
+    channelTitle
+  }, {
+    channelId: MOD_CHANNEL_ID,
+    channelTitle,
+    postId: MOD_POST_ID,
+    commentKey: MOD_COMMENT_KEY,
+    postTitle,
+    postPreview: postTitle,
+    source: 'stress_test',
+    meta: { stressTest: true, runtimeVersion: RUNTIME, purpose: 'moderation_scope_post_picker' }
+  });
+  const post = result.post || {};
+  return {
+    channelId: post.channelId || MOD_CHANNEL_ID,
+    channelTitle: post.channelTitle || channelTitle,
+    postId: post.postId || MOD_POST_ID,
+    postTitle: post.postTitle || postTitle
+  };
+}
 
 async function runModerationScenario() {
   const section = sectionRegistry.find('moderation');
@@ -86,13 +132,10 @@ async function runModerationScenario() {
   if (self.finalStepsDocumented !== true) throw new Error('moderation final steps are not documented');
   if (self.destructiveActionsOneTapDisabled !== true) throw new Error('moderation dangerous actions guard missing');
   if (self.scopeSelectionReady !== true || self.rulesCanApplyToWholeChannel !== true || self.rulesCanApplyToSinglePost !== true) throw new Error('moderation scope channel/post support missing');
+  if (self.scopePostSelectReady !== true) throw new Error('moderation post picker route missing');
 
-  const basePayload = {
-    channelId: 'core-stress-channel',
-    channelTitle: 'Подключённый канал',
-    postId: 'core-stress-moderation-post',
-    postTitle: 'Тест комментариев: текст фото ответы реакции'
-  };
+  const seeded = await seedModerationPost();
+  const basePayload = seeded;
   const channelScope = { ...basePayload, postId: '', postTitle: '', scopeType: 'channel' };
   const postScope = { ...basePayload, scopeType: 'post' };
 
@@ -105,19 +148,23 @@ async function runModerationScenario() {
   assertText(home.screen, /Область действия правил|Дерево функций|Очередь комментариев|Правила автофильтра/i, 'moderation.home_tree');
 
   const scopeStart = await dispatchShape('moderation.scope', {}, true);
-  assertText(scopeStart.screen, /Весь канал|Один пост|область ещё не выбрана/i, 'moderation.scope_start');
+  assertText(scopeStart.screen, /Весь канал|Выбрать один пост|область ещё не выбрана/i, 'moderation.scope_start');
+  assertRoute(scopeStart.screen, 'moderation.scope_post_select', 'moderation.scope_post_picker_button');
   assertRoute(scopeStart.screen, 'moderation.rules', 'moderation.scope_to_rules');
+
+  const postPicker = await dispatchShape('moderation.scope_post_select', channelScope, true);
+  const picker = assertHumanPostPicker(postPicker.screen, 'moderation.scope_post_select');
 
   const scopeChannel = await dispatchShape('moderation.scope', channelScope, true);
   assertHumanScope(scopeChannel.screen, 'moderation.scope_channel');
   assertText(scopeChannel.screen, /Сейчас выбрано: весь канал|всем новым комментариям/i, 'moderation.scope_channel_text');
   assertText(scopeChannel.screen, /Подключённый канал/i, 'moderation.scope_channel_title');
-  assertNoText(scopeChannel.screen, /Тест комментариев: текст фото ответы реакции/i, 'moderation.scope_channel_no_post_title');
+  assertNoText(scopeChannel.screen, /Тест модерации: стоп-слова, ссылки и фото/i, 'moderation.scope_channel_no_post_title');
 
   const scopePost = await dispatchShape('moderation.scope', postScope, true);
   assertHumanScope(scopePost.screen, 'moderation.scope_post');
   assertText(scopePost.screen, /Сейчас выбрано: один пост|только к комментариям под выбранным постом/i, 'moderation.scope_post_text');
-  assertText(scopePost.screen, /Тест комментариев: текст фото ответы реакции/i, 'moderation.scope_post_title');
+  assertText(scopePost.screen, /Тест модерации: стоп-слова, ссылки и фото/i, 'moderation.scope_post_title');
 
   const queue = await dispatchShape('moderation.queue', postScope, true);
   assertHumanScope(queue.screen, 'moderation.queue_scope');
@@ -133,7 +180,7 @@ async function runModerationScenario() {
   const rulesPost = await dispatchShape('moderation.rules', postScope, true);
   ['moderation.scope', 'moderation.keywords', 'moderation.links', 'moderation.media', 'moderation.settings'].forEach((route) => assertRoute(rulesPost.screen, route, 'moderation.rules_post'));
   assertHumanScope(rulesPost.screen, 'moderation.rules_post_scope');
-  assertText(rulesPost.screen, /Область: один пост|Тест комментариев: текст фото ответы реакции/i, 'moderation.rules_post_area');
+  assertText(rulesPost.screen, /Область: один пост|Тест модерации: стоп-слова, ссылки и фото/i, 'moderation.rules_post_area');
   assertText(rulesPost.screen, /стоп-слова|ссылки|фото|повторяющиеся комментарии/i, 'moderation.rules_groups');
 
   const keywords = await dispatchShape('moderation.keywords', postScope, true);
@@ -185,9 +232,12 @@ async function runModerationScenario() {
     runtimeVersion: self.runtimeVersion,
     functionCount: self.functionCount,
     routes: Object.keys(self.routes || {}).length,
+    seeded,
+    picker,
     main: main.shape,
     home: home.shape,
     scopeStart: scopeStart.shape,
+    postPicker: postPicker.shape,
     scopeChannel: scopeChannel.shape,
     scopePost: scopePost.shape,
     queue: queue.shape,
@@ -206,6 +256,8 @@ async function runModerationScenario() {
       'main_menu_has_visible_moderation_button',
       'function_tree_home',
       'scope_selection_screen',
+      'scope_post_picker_human_labels',
+      'scope_post_picker_payload_selects_post_scope',
       'scope_whole_channel_rules',
       'scope_single_post_rules',
       'channel_scope_does_not_require_post',
@@ -228,7 +280,7 @@ async function runFast(options = {}) {
   const baseResult = await base.runFast(options);
   const tests = [];
   tests.push(await step('self.moderationSection', async () => sectionRegistry.find('moderation').selfTest()));
-  tests.push(await step('scenario.moderation.scope_channel_post_end_to_end', runModerationScenario));
+  tests.push(await step('scenario.moderation.scope_channel_post_picker_end_to_end', runModerationScenario));
 
   const localFailed = tests.filter((x) => x.ok === false);
   const localSlow = tests.filter((x) => Number(x.ms || 0) > Number(options.slowMs || 700));
@@ -242,7 +294,7 @@ async function runFast(options = {}) {
     ok: baseResult.ok === true && localFailed.length === 0,
     runtimeVersion: RUNTIME,
     generatedAt: new Date().toISOString(),
-    mode: 'fast_compact_scenario_1422_moderation_scope_rules',
+    mode: 'fast_compact_scenario_1423_moderation_scope_post_picker',
     summary: {
       ...(baseResult.summary || {}),
       totalChecks: Number(baseResult.summary?.totalChecks || 0) + tests.length,
@@ -250,6 +302,9 @@ async function runFast(options = {}) {
       slow: slow.length,
       validatesModerationFunctionTree: true,
       validatesModerationScopeSelection: true,
+      validatesModerationPostPicker: true,
+      validatesModerationPostPickerHumanLabels: true,
+      validatesModerationPostPickerPayload: true,
       validatesModerationWholeChannelScope: true,
       validatesModerationSinglePostScope: true,
       validatesModerationHumanScopeLabels: true,
@@ -263,13 +318,14 @@ async function runFast(options = {}) {
       validatesModerationLogs: true,
       validatesModerationModes: true
     },
-    status: failed.length ? 'FAILED — см. failed' : 'OK — Core 1.42.2: модерация проверяет область правил: весь канал или один пост',
+    status: failed.length ? 'FAILED — см. failed' : 'OK — Core 1.42.3: модерация проверяет область правил и выбор конкретного поста',
     failed,
     slow,
-    tests: [...(Array.isArray(baseResult.tests) ? baseResult.tests : []), ...tests.map((x) => ({ name: x.name, ok: x.ok, ms: x.ms, error: x.error || '', checks: x.checks || undefined }))],
+    tests: [...(Array.isArray(baseResult.tests) ? baseResult.tests : []), ...tests.map((x) => ({ name: x.name, ok: x.ok, ms: x.ms, error: x.error || '', checks: x.checks || undefined, picker: x.picker || undefined, seeded: x.seeded || undefined }))],
     notes: [
       ...((baseResult.notes || []).filter(Boolean)),
-      'Core 1.42.2 проверяет обязательный выбор области модерации: весь канал или один конкретный пост.',
+      'Core 1.42.3 проверяет обязательный выбор области модерации: весь канал или один конкретный пост.',
+      'Для режима одного поста stress-test теперь проходит отдельный экран выбора поста и проверяет человекочитаемое начало поста в кнопке.',
       'Правила канала не требуют выбора поста и должны явно показывать, что работают для всех постов канала.',
       'Правила поста должны показывать человеческое начало/название поста, а не id.',
       'Опасные действия в дереве модерации проверяются как двухшаговые: удаление и блокировка не должны быть доступны одним нажатием.',
@@ -291,6 +347,9 @@ function selfTest() {
     moderationScenarioReady: true,
     moderationFunctionTreeReady: true,
     moderationScopeSelectionReady: true,
+    moderationPostPickerReady: true,
+    moderationPostPickerHumanLabelsReady: true,
+    moderationScopeSelectionPayloadReady: true,
     moderationWholeChannelScopeReady: true,
     moderationSinglePostScopeReady: true,
     moderationHumanScopeLabelsReady: true,
