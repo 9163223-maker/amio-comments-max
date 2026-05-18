@@ -1,9 +1,9 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.36-v1-core-1.50.1-rollback",
-  "main": "adminkit-one-loader-cc7536.js",
+  "version": "CC7.5.34-v1-core-1.49.1-emergency-cpu-rollback",
+  "main": "adminkit-one-loader-cc7534.js",
   "scripts": {
-    "start": "node adminkit-one-loader-cc7536.js"
+    "start": "node adminkit-one-loader-cc7534.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
