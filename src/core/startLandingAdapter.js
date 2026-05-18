@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const RUNTIME = 'ADMINKIT-CORE-START-LANDING-ADAPTER-1.49.0';
+const RUNTIME = 'ADMINKIT-CORE-START-LANDING-ADAPTER-1.49.1-RASTER-ONLY';
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 const LOGO_CANDIDATES = [
   'adminkit-logo-optimized.webp',
@@ -13,8 +13,8 @@ const LOGO_CANDIDATES = [
   'admin-kit-logo.png',
   'logo.webp',
   'logo.png',
-  'adminkit-logo.svg',
-  'admin-kit-logo.svg'
+  'logo.jpg',
+  'logo.jpeg'
 ];
 const RECOMMENDED_LOGO_PATH = 'public/adminkit-logo-optimized.webp';
 const RECOMMENDED_LOGO_PUBLIC_URL = '/public/adminkit-logo-optimized.webp';
@@ -24,11 +24,10 @@ function safeStat(filePath = '') { try { return fs.statSync(filePath); } catch {
 function kb(value = 0) { return Math.round((Number(value || 0) / 1024) * 10) / 10; }
 function extOf(name = '') { return String(path.extname(name || '') || '').replace(/^\./, '').toLowerCase(); }
 function logoKind(ext = '') {
-  if (ext === 'webp') return 'оптимальный webp';
-  if (ext === 'svg') return 'векторный svg';
-  if (ext === 'png') return 'png — лучше заменить на webp';
-  if (ext === 'jpg' || ext === 'jpeg') return 'jpg — лучше заменить на webp';
-  return 'неизвестный формат';
+  if (ext === 'webp') return 'оптимальный webp из исходного логотипа';
+  if (ext === 'png') return 'png — можно оптимизировать в webp без перерисовки';
+  if (ext === 'jpg' || ext === 'jpeg') return 'jpg — можно оптимизировать в webp без перерисовки';
+  return 'неподходящий формат для текущей задачи';
 }
 
 function findLogo() {
@@ -51,7 +50,7 @@ function findLogo() {
       });
     }
   }
-  const best = found.find((item) => item.optimized) || found.find((item) => item.ext === 'webp') || found.find((item) => item.ext === 'svg') || found[0] || null;
+  const best = found.find((item) => item.optimized) || found.find((item) => item.ext === 'webp') || found[0] || null;
   return {
     ok: true,
     runtimeVersion: RUNTIME,
@@ -60,17 +59,21 @@ function findLogo() {
     found,
     best,
     logoFound: !!best,
-    logoOptimized: !!best?.optimized || best?.ext === 'svg',
+    logoOptimized: !!best?.optimized,
     recommendedPath: RECOMMENDED_LOGO_PATH,
     recommendedPublicUrl: RECOMMENDED_LOGO_PUBLIC_URL,
     recommendation: best
-      ? (best.optimized || best.ext === 'svg'
-          ? 'Логотип найден в оптимальном формате.'
-          : `Логотип найден как ${best.file}. Лучше заменить на webp до 120 КБ по пути ${RECOMMENDED_LOGO_PATH}.`)
-      : `Исходный логотип в репозитории не найден. Подготовьте webp до 120 КБ и положите его в ${RECOMMENDED_LOGO_PATH}.`,
+      ? (best.optimized
+          ? 'Логотип найден в оптимальном webp-формате.'
+          : `Логотип найден как ${best.file}. Его нужно сжать из оригинала в webp до 120 КБ без векторного перерисования и без изменения внешнего вида.`)
+      : `Исходный файл логотипа в public не найден. Нужен оригинальный PNG/JPG/WebP логотип АдминКИТ; его нужно сжать в webp до 120 КБ и положить в ${RECOMMENDED_LOGO_PATH}.`,
     replacementSlotReady: true,
+    rasterOnly: true,
+    noSvg: true,
+    noVectorRedraw: true,
     targetMaxKb: 120,
-    targetFormats: ['webp', 'svg'],
+    targetFormats: ['webp'],
+    sourceFormats: ['png', 'jpg', 'jpeg', 'webp'],
     targetWidthPx: 512,
     targetHeightPx: 512
   };
@@ -100,7 +103,7 @@ function readinessChecklist() {
     { id: 'channel', title: 'Канал подключается через пересланный пост', ok: true },
     { id: 'comments', title: 'Комментарии доступны из главного меню', ok: true },
     { id: 'navigation', title: 'Навигация V3 работает через один активный экран', ok: true },
-    { id: 'logo', title: logo.logoOptimized ? 'Логотип найден и подходит для посадочной' : 'Слот для оптимизированного логотипа подготовлен', ok: true, details: logo.recommendation }
+    { id: 'logo', title: logo.logoOptimized ? 'Оригинальный логотип найден и сжат в webp' : 'Слот для сжатого webp-логотипа подготовлен', ok: true, details: logo.recommendation }
   ];
 }
 
@@ -120,7 +123,10 @@ function selfTest() {
     logoOptimized: logo.logoOptimized,
     logoReplacementSlotReady: logo.replacementSlotReady,
     recommendedLogoPath: logo.recommendedPath,
-    targetLogoMaxKb: logo.targetMaxKb
+    targetLogoMaxKb: logo.targetMaxKb,
+    rasterOnly: true,
+    noSvg: true,
+    noVectorRedraw: true
   };
 }
 
