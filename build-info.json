@@ -1,15 +1,15 @@
 {
-  "runtimeVersion": "CC7.5.34-CORE-1.49.2-SAFE-DIAGNOSTICS",
-  "buildVersion": "CC7.5.34-CORE-1.49.2-SAFE-DIAGNOSTICS",
+  "runtimeVersion": "CC7.5.34-CORE-1.50.0-DEBUG-LITE",
+  "buildVersion": "CC7.5.34-CORE-1.50.0-DEBUG-LITE",
   "displayVersion": "CC7.5.34",
-  "packageVersion": "CC7.5.34-v1-core-1.49.2-safe-diagnostics",
-  "sourceMarker": "adminkit-cc7-5-34-core-1-49-2-safe-diagnostics",
-  "buildGeneratedAt": "2026-05-18T21:28:00Z",
-  "coreRuntimeVersion": "ADMINKIT-CORE-1.49.2-SAFE-DIAGNOSTICS",
-  "coreStressTest": "disabled-for-safe-diagnostics-stabilization",
+  "packageVersion": "CC7.5.34-v1-core-1.50.0-debug-lite",
+  "sourceMarker": "adminkit-cc7-5-34-core-1-50-0-debug-lite",
+  "buildGeneratedAt": "2026-05-18T21:36:00Z",
+  "coreRuntimeVersion": "ADMINKIT-CORE-1.50.0-DEBUG-LITE",
+  "coreStressTest": "disabled-for-debug-lite-stabilization",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
-  "debugPolicy": "Only constant-time safe endpoints are allowed: /healthz, /version, /debug/safe, /debug/ping, /debug/build. Heavy endpoints remain frozen: /debug/store-live, /debug/core-stress, /debug/export, /debug/export-lite.",
-  "safeDiagnostics": {
+  "debugPolicy": "Debug Lite only. Use segmented constant-time checks. Heavy debug remains guarded.",
+  "debugLite": {
     "enabled": true,
     "constantTime": true,
     "noDatabaseRead": true,
@@ -17,12 +17,12 @@
     "noGithubExport": true,
     "noStressTest": true,
     "noMaxApiCall": true,
-    "endpoints": ["/healthz", "/version", "/debug/safe", "/debug/ping", "/debug/build"]
+    "noSecrets": true
   },
   "notes": [
     "Correct public domain is p01--amio-commnets-max--qkpwxnxqqrnw.code.run with commnets.",
-    "Base remains CC7.5.34 / Core 1.49.x because it is before the debug-export route layer that overloaded the 0.1 vCPU container.",
-    "Safe diagnostics are constant-time and must not touch store, DB, MAX API, GitHub export or stress-test.",
-    "Production checklist remains frozen until diagnostics are stable."
+    "Base remains CC7.5.34 because it is before the heavy debug-export layer.",
+    "Debug Lite is segmented and constant-time.",
+    "Production checklist remains frozen until Debug Lite is stable."
   ]
 }
