@@ -51,6 +51,7 @@ function assertScreen(screen, name, strict = true) {
   return { textChars: screen.text.length, rows: buttonsOf(screen).length, buttons: flatButtons(screen).length };
 }
 function assertText(screen = {}, pattern, name = '') { const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i'); if (!re.test(String(screen.text || ''))) throw new Error(name + ': expected text not found: ' + re + ': ' + cut(screen.text)); }
+function assertButtonText(screen = {}, pattern, name = '') { const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i'); const labels = buttonTexts(screen).join(' | '); if (!re.test(labels)) throw new Error(name + ': expected button text not found: ' + re + ': ' + cut(labels)); }
 function assertNoText(screen = {}, pattern, name = '') { const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i'); if (re.test(String(screen.text || ''))) throw new Error(name + ': forbidden text found: ' + re + ': ' + cut(screen.text)); }
 function assertRoute(screen = {}, route = '', name = '') { const btn = flatButtons(screen).find((b) => routeOf(b) === route); if (!btn) throw new Error(name + ': button route not found: ' + route + ': ' + buttonTexts(screen).join(' | ')); return btn; }
 async function dispatchShape(route, payload = {}, strict = true) { const screen = await routeDispatcher.dispatch(ctx(route, payload)); return { screen, shape: assertScreen(screen, route, strict) }; }
@@ -99,7 +100,7 @@ async function runPostEditorScenario() {
 
   const quickPost = await dispatchShape('post_editor.quick_post', {}, true);
   assertText(quickPost.screen, /Шаг 2 из 4|Выберите пост/i, 'post_editor.quick_post.step');
-  assertText(quickPost.screen, /Тест редактирования|старый пост/i, 'post_editor.quick_post.human_post');
+  assertButtonText(quickPost.screen, /Тест редактирования|старый пост/i, 'post_editor.quick_post.human_post_button');
   assertNoText(quickPost.screen, /core-stress-edit-post|core-stress-edit-message/i, 'post_editor.quick_post.no_raw_ids');
   assertRoute(quickPost.screen, 'post_editor.quick_text', 'post_editor.quick_post.next');
 
