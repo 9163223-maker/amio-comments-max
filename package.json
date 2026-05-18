@@ -1,9 +1,9 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.39-v1-core-1.51.2-production-gate-endpoints",
+  "version": "CC7.5.40-v1-core-1.51.3-production-gate-http-layer",
   "main": "adminkit-one-loader-cc7539.js",
   "scripts": {
-    "start": "node adminkit-one-loader-cc7539.js"
+    "start": "node -r ./production-gate-http-layer adminkit-one-loader-cc7539.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
