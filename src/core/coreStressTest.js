@@ -1,2 +1,2 @@
 'use strict';
-module.exports = require('./coreStressTestV5');
+module.exports = require('./coreStressTestV6');
