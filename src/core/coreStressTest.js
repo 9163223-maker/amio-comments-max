@@ -1,4 +1,4 @@
 'use strict';
 
-const stressTest = require('./coreStressTestV16');
-module.exports = stressTest;
+const nextStressTest = require('./coreStressTestV17');
+module.exports = nextStressTest;
