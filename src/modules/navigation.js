@@ -3,7 +3,7 @@
 const menuRenderer = require('../core/menuRenderer');
 const navigationV3 = require('../core/navigationV3Adapter');
 
-const RUNTIME = 'ADMINKIT-CORE-NAVIGATION-SECTION-1.48.0-V3';
+const RUNTIME = 'ADMINKIT-CORE-NAVIGATION-SECTION-1.48.1-V3-HINTS-SAFE';
 
 const routes = {
   home: 'navigation.home',
@@ -31,7 +31,7 @@ function render(title, body = [], buttons = [], options = {}) {
 async function renderHome(ctx = {}) {
   return render('🧭 Меню и навигация V3', [
     'Раздел проверяет каркас UX: главное меню, переходы, «Назад», «Главное меню», один активный экран, один активный сценарий и cleanup pipeline.',
-    'Подсказки — только нативные inline. Overlay/float-подсказки в V3 запрещены.',
+    'Подсказки — только нативные inline. Всплывающие и плавающие подсказки в V3 запрещены.',
     'Цель: админ всегда понимает, где он находится, и не видит дубли/зависшие экраны.',
     '',
     'Дерево проверки:',
