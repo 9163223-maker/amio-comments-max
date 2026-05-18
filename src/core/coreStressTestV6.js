@@ -6,7 +6,7 @@ const routeDispatcher = require('./routeDispatcher');
 const postRegistry = require('./postRegistryDataAdapter');
 const sectionRegistry = require('./sectionRegistry');
 
-const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.41.1-UNIFIED-COMMENTS-MENU-BUTTON-FIX';
+const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.41.2-UNIFIED-COMMENTS-VISIBLE-POST-PAYLOAD-FIX';
 const STRESS_ADMIN_ID = 'core-stress-admin';
 const COMMENTS_POST_ID = 'core-stress-comments-post';
 const COMMENTS_COMMENT_KEY = 'core-stress-comments-comment-key';
@@ -20,7 +20,7 @@ function now() { return Date.now(); }
 function actorMask(value = '') { const s = String(value || ''); return s.length > 8 ? `${s.slice(0, 3)}…${s.slice(-3)}` : s; }
 function ctx(route, actor = {}, payload = {}) {
   const adminId = actor.adminId || STRESS_ADMIN_ID;
-  return { adminId, admin_id: adminId, userId: adminId, route, updateType: 'stress_test_comments_1411', payload };
+  return { adminId, admin_id: adminId, userId: adminId, route, updateType: 'stress_test_comments_1412', payload };
 }
 function buttonsOf(screen = {}) {
   try { return (((screen.attachments || [])[0] || {}).payload || {}).buttons || []; } catch { return []; }
@@ -29,7 +29,9 @@ function flatButtons(screen = {}) { return buttonsOf(screen).flat().filter(Boole
 function payloadOf(button = {}) { try { return JSON.parse(button.payload || '{}'); } catch { return {}; } }
 function routeOf(button = {}) { return String(payloadOf(button).r || '').trim(); }
 function findRouteButton(screen = {}, route = '') { return flatButtons(screen).find((b) => routeOf(b) === route); }
+function routeButtons(screen = {}, route = '') { return flatButtons(screen).filter((b) => routeOf(b) === route); }
 function buttonTexts(screen = {}) { return flatButtons(screen).map((b) => clean(b.text)); }
+function humanLabelFromButton(button = {}) { return clean(button.text || '').replace(/^\d+\.\s*/, '').trim(); }
 function isGenericChannelLabel(text = '') {
   const s = clean(text).replace(/^\d+\.\s*/, '').replace(/·.*$/, '').toLowerCase();
   return s === 'канал' || s === 'текущий канал' || s === 'канал без названия' || s.includes('existing channel');
@@ -134,7 +136,7 @@ async function dispatchShape(route, actor, payload = {}, strict = true) {
   return { screen, shape: assertScreen(screen, route, strict) };
 }
 function assertHumanList(screen = {}, route = '', kind = 'post') {
-  const labels = flatButtons(screen).filter((b) => routeOf(b) === route).map((b) => clean(b.text));
+  const labels = routeButtons(screen, route).map((b) => clean(b.text));
   if (!labels.length) return { labels: [], checked: false, reason: 'no_buttons_for_route' };
   const generic = labels.filter((x) => kind === 'channel' ? isGenericChannelLabel(x) : isGenericPostLabel(x));
   const raw = labels.filter((x) => RAW_ID_RE.test(x));
@@ -142,11 +144,28 @@ function assertHumanList(screen = {}, route = '', kind = 'post') {
   if (generic.length === labels.length) throw new Error(`${route}: all labels are generic: ${generic.slice(0, 3).join('; ')}`);
   return { labels: labels.slice(0, 5), checked: true, genericCount: generic.length, total: labels.length };
 }
+function pickVisiblePayload(screen = {}, route = '', fallback = {}) {
+  const button = routeButtons(screen, route)[0];
+  if (!button) throw new Error(`${route}: no visible button to continue scenario`);
+  const data = payloadOf(button);
+  const label = humanLabelFromButton(button);
+  const picked = {
+    channelId: data.channelId || fallback.channelId || '',
+    channelTitle: data.channelTitle || fallback.channelTitle || '',
+    postId: data.postId || fallback.postId || '',
+    postTitle: data.postTitle || label || fallback.postTitle || ''
+  };
+  if (route === 'comments.post') {
+    if (!picked.postId) throw new Error(`${route}: visible post payload has no postId`);
+    if (!picked.postTitle || isGenericPostLabel(picked.postTitle)) throw new Error(`${route}: visible post payload has generic title: ${picked.postTitle || label}`);
+  }
+  return { buttonText: clean(button.text), payload: picked };
+}
 async function runCommentsUnifiedScenario(actor, baseline) {
   await restoreSession(actor.adminId, baseline);
   const seeded = await seedCommentsPost(actor);
   if (seeded.skipped) return { skipped: true, reason: seeded.reason };
-  const payload = seeded.payload;
+  const seedPayload = seeded.payload;
 
   const main = await dispatchShape('main.home', actor, {}, true);
   const mainTexts = buttonTexts(main.screen).join(' | ');
@@ -156,9 +175,16 @@ async function runCommentsUnifiedScenario(actor, baseline) {
 
   const home = await dispatchShape('comments.home', actor, {}, true);
   const channelLabels = assertHumanList(home.screen, 'comments.select_channel', 'channel');
-  const posts = await dispatchShape('comments.select_channel', actor, { channelId: payload.channelId, channelTitle: payload.channelTitle }, true);
+  const visibleChannel = pickVisiblePayload(home.screen, 'comments.select_channel', seedPayload);
+  const channelPayload = {
+    channelId: visibleChannel.payload.channelId || seedPayload.channelId,
+    channelTitle: visibleChannel.payload.channelTitle || seedPayload.channelTitle
+  };
+
+  const posts = await dispatchShape('comments.select_channel', actor, channelPayload, true);
   const postLabels = assertHumanList(posts.screen, 'comments.post', 'post');
-  assertText(posts.screen, /Тест комментариев/i, 'comments.posts_has_seed_preview');
+  const visiblePost = pickVisiblePayload(posts.screen, 'comments.post', { ...seedPayload, ...channelPayload });
+  const payload = { ...seedPayload, ...channelPayload, ...visiblePost.payload };
 
   const center = await dispatchShape('comments.post', actor, payload, true);
   ['comments.toggle', 'comments.photo_settings', 'comments.replies_settings', 'comments.reactions_settings', 'comments.moderation', 'comments.diagnostics'].forEach((route) => assertRoute(center.screen, route, 'comments.center'));
@@ -185,7 +211,7 @@ async function runCommentsUnifiedScenario(actor, baseline) {
   assertNoText(diagnostics.screen, /ak_|runtimeVersion|debug-post|legacy adapters/i, 'comments.diagnostics_no_tech');
 
   await restoreSession(actor.adminId, baseline);
-  return { seeded: seeded.post, payload, main: main.shape, home: home.shape, posts: posts.shape, center: center.shape, toggle: toggle.shape, photo: photo.shape, replies: replies.shape, reactions: reactions.shape, moderation: moderation.shape, diagnostics: diagnostics.shape, channelLabels, postLabels, checks: ['main_folded_sections_hidden','main_comments_button_route','channel_list','post_preview','post_center','toggle','photo','replies','reactions','moderation','diagnostics'] };
+  return { seeded: seeded.post, seedVisible: postLabels.labels.some((x) => /Тест комментариев/i.test(x)), payload, visibleChannel, visiblePost, main: main.shape, home: home.shape, posts: posts.shape, center: center.shape, toggle: toggle.shape, photo: photo.shape, replies: replies.shape, reactions: reactions.shape, moderation: moderation.shape, diagnostics: diagnostics.shape, channelLabels, postLabels, checks: ['main_folded_sections_hidden','main_comments_button_route','channel_list','visible_channel_payload','post_human_labels','visible_post_payload','post_center','toggle','photo','replies','reactions','moderation','diagnostics'] };
 }
 
 async function runFast(options = {}) {
@@ -217,7 +243,7 @@ async function runFast(options = {}) {
     generatedAt: new Date().toISOString(),
     startedAt,
     durationMs: Date.now() - Date.parse(startedAt),
-    mode: 'fast_compact_scenario_1411',
+    mode: 'fast_compact_scenario_1412',
     actor: { adminIdMasked: actor.adminId === STRESS_ADMIN_ID ? STRESS_ADMIN_ID : actorMask(actor.adminId), channelIdMasked: actor.channelId ? actorMask(actor.channelId) : '', postCount: actor.postCount },
     summary: {
       ...(baseResult.summary || {}),
@@ -226,6 +252,8 @@ async function runFast(options = {}) {
       slow: slow.length,
       validatesUnifiedCommentsSection: true,
       validatesCommentsMainButtonRoute: true,
+      validatesVisiblePostPayload: true,
+      validatesHumanPostLabels: true,
       validatesPhotoInsideComments: true,
       validatesRepliesInsideComments: true,
       validatesReactionsInsideComments: true,
@@ -233,14 +261,14 @@ async function runFast(options = {}) {
       validatesFoldedCommentSubsectionsHiddenFromMain: true,
       validatesNoVideoFilesInComments: true
     },
-    status: failed.length ? 'FAILED — см. failed' : 'OK — Core 1.41.1: кнопки, лид-магниты и единый раздел комментариев прошли сценарный обход',
+    status: failed.length ? 'FAILED — см. failed' : 'OK — Core 1.41.2: кнопки, лид-магниты и единый раздел комментариев прошли сценарный обход',
     failed,
     slow,
-    tests: [...(Array.isArray(baseResult.tests) ? baseResult.tests : []), ...tests.map((x) => ({ name: x.name, ok: x.ok, ms: x.ms, error: x.error || '', screen: x.screen || null, skipped: x.skipped || false, reason: x.reason || '', channelLabels: x.channelLabels || undefined, postLabels: x.postLabels || undefined, checks: x.checks || undefined }))],
+    tests: [...(Array.isArray(baseResult.tests) ? baseResult.tests : []), ...tests.map((x) => ({ name: x.name, ok: x.ok, ms: x.ms, error: x.error || '', screen: x.screen || null, skipped: x.skipped || false, reason: x.reason || '', channelLabels: x.channelLabels || undefined, postLabels: x.postLabels || undefined, visibleChannel: x.visibleChannel || undefined, visiblePost: x.visiblePost || undefined, checks: x.checks || undefined }))],
     notes: [
       ...((baseResult.notes || []).filter(Boolean)),
-      'Core 1.41.1 проверяет новый единый раздел Комментарии: главное меню → кнопка Комментарии → канал → пост → комментарии, фото, ответы, реакции, модерация, диагностика.',
-      'Проверка главного меню теперь смотрит не текст сообщения, а кнопку и route comments.home — это соответствует реальному MAX UI.',
+      'Core 1.41.2 проверяет новый единый раздел Комментарии через реальный видимый пост из списка: главное меню → кнопка Комментарии → канал → пост → комментарии, фото, ответы, реакции, модерация, диагностика.',
+      'Проверка больше не требует, чтобы временный stress-test пост обязательно попал в первые 10 постов. Она берёт первый видимый post payload из реального списка и проверяет, что название поста человекочитаемое.',
       'Фото и реакции/ответы больше не должны появляться отдельными верхними пунктами главного меню; они проверяются внутри раздела Комментарии.'
     ]
   };
@@ -250,7 +278,7 @@ async function run(options = {}) {
   return runFast(options);
 }
 function selfTest() {
-  return { ok: true, runtimeVersion: RUNTIME, baseRuntimeVersion: base.RUNTIME, fastCompactDefault: true, unifiedCommentsScenarioReady: true, commentsMainButtonRouteReady: true, commentsEndToEndReady: true, photoInsideCommentsReady: true, repliesInsideCommentsReady: true, reactionsInsideCommentsReady: true, moderationInsideCommentsReady: true, foldedCommentSubsectionsHiddenReady: true, noVideoFilesInCommentsReady: true, buttonsAndLeadMagnetsBaseStillIncluded: true };
+  return { ok: true, runtimeVersion: RUNTIME, baseRuntimeVersion: base.RUNTIME, fastCompactDefault: true, unifiedCommentsScenarioReady: true, commentsMainButtonRouteReady: true, visiblePostPayloadReady: true, humanPostLabelsReady: true, commentsEndToEndReady: true, photoInsideCommentsReady: true, repliesInsideCommentsReady: true, reactionsInsideCommentsReady: true, moderationInsideCommentsReady: true, foldedCommentSubsectionsHiddenReady: true, noVideoFilesInCommentsReady: true, buttonsAndLeadMagnetsBaseStillIncluded: true };
 }
 
 module.exports = { RUNTIME, run, selfTest, runFast };
