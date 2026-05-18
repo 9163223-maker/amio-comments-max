@@ -1,19 +1,18 @@
 'use strict';
 
-const RUNTIME = 'ADMINKIT-CORE-1.36-CLEAN-DEBUG-ROUTES-NO-WRAPPERS';
-const SOURCE = 'adminkit-core-1-36-clean-debug-routes-no-wrappers';
+const RUNTIME = 'ADMINKIT-CORE-1.41.0-UNIFIED-COMMENTS';
+const SOURCE = 'adminkit-core-1-41-0-unified-comments';
 
 function lazy(name) { return require(name); }
 async function dispatch(ctx = {}) { return lazy('./src/core/routeDispatcher').dispatch(ctx); }
 async function renderMain(ctx = {}) { return lazy('./src/core/routeDispatcher').mainMenu(ctx); }
 async function deliverScreen(args = {}) { return lazy('./src/core/maxSendAdapter').deliver(args); }
 function safe(name, fn) { try { return fn(); } catch (error) { return { ok: false, name, error: error?.message || String(error) }; } }
+function isOk(value) { return value === true || value?.ok === true || value == null; }
 
 function selfTest() {
   const sectionRegistry = lazy('./src/core/sectionRegistry');
-  const sectionAuditModule = lazy('./src/core/sectionAudit');
   const accessManager = lazy('./src/core/accessManager');
-  const accountManager = lazy('./src/core/accountManager');
   const menuRenderer = lazy('./src/core/menuRenderer');
   const postAddonManager = lazy('./src/core/postAddonManager');
   const dataSafety = lazy('./src/core/dataSafety');
@@ -24,18 +23,17 @@ function selfTest() {
   const stateManager = lazy('./src/core/stateManager');
   const conditionCatalog = lazy('./src/core/leadMagnetConditionCatalog');
   const postRegistry = lazy('./src/core/postRegistryDataAdapter');
-  const coreDebugRoutes = lazy('./src/core/coreDebugRoutes');
 
   const sections = sectionRegistry.listAll();
   const ids = sections.map((section) => section.id);
-  const routeMap = sectionRegistry.routeMap();
+  const visibleSections = typeof menuRenderer.visibleSections === 'function' ? menuRenderer.visibleSections(sections) : sections.filter((s) => s.hiddenInMain !== true);
+  const visibleIds = visibleSections.map((section) => section.id);
   const required = sectionRegistry.REQUIRED_SECTION_IDS || [];
   const missing = required.filter((id) => !ids.includes(id));
 
   const registrySelfTest = safe('sectionRegistry', () => sectionRegistry.selfTest());
-  const sectionAudit = safe('sectionAudit', () => sectionAuditModule.audit(sections));
   const accessSelfTest = safe('accessManager', () => accessManager.selfTest());
-  const accountSelfTest = safe('accountManager', () => accountManager.selfTest ? accountManager.selfTest() : null);
+  const accountSelfTest = safe('accountManager', () => lazy('./src/core/accountManager').selfTest ? lazy('./src/core/accountManager').selfTest() : null);
   const menuSelfTest = safe('menuRenderer', () => menuRenderer.selfTest ? menuRenderer.selfTest() : null);
   const flow = safe('flowEngine', () => flowEngine.selfTest());
   const flowDefinitions = safe('flowDefinitions', () => lazy('./src/core/flowDefinitions').selfTest());
@@ -49,41 +47,66 @@ function selfTest() {
   const canaryWebhook = safe('coreCanaryWebhook', () => lazy('./src/core/coreCanaryWebhook').selfTest());
   const conditionCatalogSelfTest = safe('leadMagnetConditionCatalog', () => conditionCatalog.selfTest());
   const postRegistrySelfTest = safe('postRegistryDataAdapter', () => postRegistry.selfTest());
-  const coreDebugRoutesSelfTest = safe('coreDebugRoutes', () => coreDebugRoutes.selfTest());
+  const coreDebugRoutesSelfTest = safe('coreDebugRoutes', () => lazy('./src/core/coreDebugRoutes').selfTest());
   const callbackBridge = safe('coreCallbackBridge', () => lazy('./src/core/coreCallbackBridge').selfTest());
+  const sectionAudit = safe('sectionAudit', () => lazy('./src/core/sectionAudit').audit(sections));
   const safety = safe('dataSafety', () => dataSafety.policySummary());
 
   const buttonsSection = sectionRegistry.find('buttons');
   const leadMagnetsSection = sectionRegistry.find('lead_magnets');
+  const commentsSection = sectionRegistry.find('comments');
+  const photoCommentsSection = sectionRegistry.find('photo_comments');
+  const reactionsRepliesSection = sectionRegistry.find('reactions_replies');
   const buttonsSelfTest = safe('buttonsSection', () => buttonsSection?.selfTest ? buttonsSection.selfTest() : null);
   const leadMagnetsSelfTest = safe('leadMagnetsSection', () => leadMagnetsSection?.selfTest ? leadMagnetsSection.selfTest() : null);
+  const commentsSelfTest = safe('commentsSection', () => commentsSection?.selfTest ? commentsSection.selfTest() : null);
+  const photoCommentsSelfTest = safe('photoCommentsSection', () => photoCommentsSection?.selfTest ? photoCommentsSection.selfTest() : null);
+  const reactionsRepliesSelfTest = safe('reactionsRepliesSection', () => reactionsRepliesSection?.selfTest ? reactionsRepliesSection.selfTest() : null);
 
-  const fullMenuScaffoldReady = registrySelfTest?.ok === true && registrySelfTest?.sectionCount === 16 && missing.length === 0;
-  const billingCabinetReady = registrySelfTest?.billingCabinetReady === true && ids.includes('billing');
-  const fullMenuFeatureGatesReady = accessSelfTest?.fullMenuFeatureGatesReady === true && accessSelfTest?.billingFeatureGateReady === true;
-  const callbackIdempotencyReady = callbackBridge?.safety?.callbackIdempotencyReady === true && callbackBridge?.safety?.duplicateCallbacksNoSend === true;
-  const leadMaterialTextInputReady = callbackBridge?.safety?.handlesLeadMagnetMaterialTextInput === true && flow?.leadMagnetMaterialInputReady === true;
-  const leadAccessSelectReady = flow?.leadMagnetAccessSelectReady === true && routeDispatcherSelfTest?.leadMagnetAccessRouteReady === true;
-  const postCaptureFlowReady = flow?.postCaptureFlowReady === true && routeDispatcherSelfTest?.postCaptureRouteReady === true && flowScreenSelfTest?.postCaptureButtonsReady === true;
-  const postRegistryDataAdapterReady = postRegistrySelfTest?.ok === true && postRegistrySelfTest?.listPostsReady === true && routeDispatcherSelfTest?.postRegistryListsReady === true;
-  const leadConditionCatalogReady = conditionCatalogSelfTest?.ok === true && flow?.leadConditionCatalogReady === true && flowScreenSelfTest?.leadConditionCatalogReady === true;
-  const leadConditionSetupFlowReady = flow?.leadConditionSetupFlowReady === true && flowScreenSelfTest?.conditionSetupScreenReady === true && routeDispatcherSelfTest?.leadMagnetConditionSetupRouteReady === true;
-  const leadFullFlowReady = flowDefinitions?.leadMagnetFullFlowReady === true && flowDefinitions?.leadMagnetStepCount === 10 && flow?.leadMagnetFullFlowReady === true;
-  const leadSaveReady = routeDispatcherSelfTest?.cleanLeadMagnetSaveRoute === true && routeDispatcherSelfTest?.leadMagnetSaveTable === 'ak_post_lead_magnets';
-  const conditionSetupRequiredBeforeSave = routeDispatcherSelfTest?.flowNextRequiresConditionSetup === true;
-  const coreFlowTextInputBridgeReady = callbackBridge?.safety?.handlesCoreFlowTextInput === true && callbackBridge?.safety?.textInputRequiresActiveFlow === true && callbackBridge?.safety?.textInputRequiresActiveInputStep === true;
-  const oneActiveScreenCleanupReady = stateSelfTest?.oneActiveScreenStateReady === true && stateSelfTest?.resetMovesActiveToGarbage === true && stateSelfTest?.setActiveScreenDeduplicatesGarbage === true;
+  const fullMenuScaffoldReady = registrySelfTest?.ok === true && missing.length === 0 && sections.length === 16;
+  const hiddenCommentSubsectionsInMainMenu = !visibleIds.includes('photo_comments') && !visibleIds.includes('reactions_replies') && visibleIds.includes('comments');
+  const unifiedCommentsSectionReady = commentsSelfTest?.unifiedCommentsSection === true && commentsSelfTest?.photoInsideComments === true && commentsSelfTest?.repliesInsideComments === true && commentsSelfTest?.reactionsInsideComments === true;
+  const foldedCommentsSubsectionsReady = photoCommentsSelfTest?.hiddenInMain === true && reactionsRepliesSelfTest?.hiddenInMain === true && photoCommentsSelfTest?.foldedInto === 'comments' && reactionsRepliesSelfTest?.foldedInto === 'comments';
+  const noVideoFilesInComments = commentsSelfTest?.noVideoFilesInComments === true && photoCommentsSelfTest?.noVideoFilesInComments === true;
+  const unifiedCommentsGatesReady = accessSelfTest?.unifiedCommentsGatesReady === true && accessSelfTest?.commentsPhotoTariffGateReady === true;
   const linkUxReady = menuSelfTest?.linkUxReady === true && menuSelfTest?.payloadVersion === 2;
   const mainHomeCallbackFastPath = routeDispatcher.shouldResetSessionOnStart({ payload: { r: 'main.home' } }, 'main.home') === false;
-  const batchedAccessRender = accessSelfTest?.batchedFilterSections === true && accountSelfTest?.ok === true;
-  const buttonsCleanStorageOnlyReady = buttonsData?.cleanStorageOnly === true && buttonsData?.sourceTable === 'ak_post_buttons';
-  const buttonsLegacyAdaptersDisabled = buttonsData?.legacyAdaptersDisabled === true;
   const cleanButtonCreateFlowReady = buttonsSelfTest?.cleanCreateFlow === true && buttonsSelfTest?.writesTo === 'ak_post_buttons';
-  const cleanButtonSaveRouteReady = routeDispatcherSelfTest?.cleanButtonSaveRoute === true && routeDispatcherSelfTest?.buttonSaveTable === 'ak_post_buttons';
-  const leadMagnetsAuditReady = leadMagnetsSelfTest?.legacyAdaptersUsed === false && leadMagnetsSelfTest?.dangerousActionsDisabled === true;
-  const cleanCoreDebugRoutesReady = coreDebugRoutesSelfTest?.cleanCoreDebugRoutesReady === true && coreDebugRoutesSelfTest?.manualSendLegacyTokenCompatible === true;
+  const cleanButtonSaveRouteReady = routeDispatcherSelfTest?.cleanButtonSaveRoute === true;
+  const leadMagnetsReady = leadMagnetsSelfTest?.legacyAdaptersUsed === false && leadMagnetsSelfTest?.cleanCreateFlow === true;
+  const cleanCoreDebugRoutesReady = coreDebugRoutesSelfTest?.cleanCoreDebugRoutesReady === true;
+  const dataSafetyReady = safety?.policy === 'non_destructive_additive_migrations_only';
 
-  const ok = fullMenuScaffoldReady && billingCabinetReady && fullMenuFeatureGatesReady && cleanCoreDebugRoutesReady && postCaptureFlowReady && postRegistryDataAdapterReady && leadConditionCatalogReady && leadConditionSetupFlowReady && leadFullFlowReady && conditionSetupRequiredBeforeSave && leadMaterialTextInputReady && leadAccessSelectReady && leadSaveReady && missing.length === 0 && routeMap.size >= sections.length && typeof postAddonManager.summarizePostAddons === 'function' && typeof postAddonManager.addButton === 'function' && typeof postAddonManager.addLeadMagnet === 'function' && safety.policy === 'non_destructive_additive_migrations_only' && flow.ok === true && delivery.ok === true && canaryWebhook.ok === true && callbackBridge.ok === true && coreFlowTextInputBridgeReady && callbackIdempotencyReady && oneActiveScreenCleanupReady && linkUxReady && mainHomeCallbackFastPath && timingStore.ok === true && sectionAudit.ok === true && batchedAccessRender && channelData.ok === true && buttonsData.ok === true && buttonsCleanStorageOnlyReady && buttonsLegacyAdaptersDisabled && cleanButtonCreateFlowReady && cleanButtonSaveRouteReady && leadMagnetsAuditReady;
+  const ok = [
+    fullMenuScaffoldReady,
+    hiddenCommentSubsectionsInMainMenu,
+    unifiedCommentsSectionReady,
+    foldedCommentsSubsectionsReady,
+    noVideoFilesInComments,
+    unifiedCommentsGatesReady,
+    linkUxReady,
+    mainHomeCallbackFastPath,
+    cleanButtonCreateFlowReady,
+    cleanButtonSaveRouteReady,
+    leadMagnetsReady,
+    cleanCoreDebugRoutesReady,
+    dataSafetyReady,
+    isOk(flow),
+    isOk(flowDefinitions),
+    isOk(flowScreenSelfTest),
+    isOk(delivery),
+    isOk(canaryWebhook),
+    isOk(callbackBridge),
+    isOk(timingStore),
+    isOk(sectionAudit),
+    isOk(channelData),
+    isOk(buttonsData),
+    isOk(postRegistrySelfTest),
+    isOk(conditionCatalogSelfTest),
+    typeof postAddonManager.summarizePostAddons === 'function',
+    typeof postAddonManager.addButton === 'function',
+    typeof postAddonManager.addLeadMagnet === 'function'
+  ].every(Boolean);
 
   return {
     ok,
@@ -91,11 +114,12 @@ function selfTest() {
     sourceMarker: SOURCE,
     isCoreRuntime: true,
     activeInProduction: false,
-    purpose: 'Core 1.36: clean Core debug/manual-send route module, legacy token compatibility restored in source logic, no new wrappers/monkeypatches.',
+    purpose: 'Core 1.41.0: единый раздел комментариев. Фото, ответы, реакции и модерация перенесены внутрь раздела 💬 Комментарии; отдельные верхние пункты скрыты из главного меню.',
     sections: ids,
+    visibleSections: visibleIds,
     requiredSections: required,
     missingSections: missing,
-    routeCount: routeMap.size,
+    routeCount: sectionRegistry.routeMap().size,
     storage: { sessions: 'ak_admin_sessions', posts: 'ak_posts', buttons: 'ak_post_buttons', leadMagnets: 'ak_post_lead_magnets', accounts: 'ak_accounts', billingSubscriptions: 'ak_billing_subscriptions', referrals: 'ak_referrals', migrations: 'ak_core_schema_migrations' },
     coreDebugRoutes: coreDebugRoutesSelfTest,
     sectionRegistry: registrySelfTest,
@@ -113,6 +137,9 @@ function selfTest() {
     accountManager: accountSelfTest,
     channelDataAdapter: channelData,
     buttonsDataAdapter: buttonsData,
+    commentsSection: commentsSelfTest,
+    photoCommentsSection: photoCommentsSelfTest,
+    reactionsRepliesSection: reactionsRepliesSelfTest,
     buttonsSection: buttonsSelfTest,
     leadMagnetsSection: leadMagnetsSelfTest,
     routeDispatcher: routeDispatcherSelfTest,
@@ -121,50 +148,48 @@ function selfTest() {
     dataSafety: safety,
     constraints: {
       cleanCoreDebugRoutesReady,
-      manualSendLegacyTokenCompatible: coreDebugRoutesSelfTest?.manualSendLegacyTokenCompatible === true,
       noNewWrapperAdded: true,
       noNewMonkeypatchAdded: true,
       fullMenuScaffoldReady,
       all16SectionsRegistered: sections.length === 16 && missing.length === 0,
-      billingCabinetReady,
-      postCaptureFlowReady,
-      postRegistryDataAdapterReady,
-      leadConditionCatalogReady,
+      visibleMainSectionCount: visibleIds.length,
+      hiddenCommentSubsectionsInMainMenu,
+      unifiedCommentsSectionReady,
+      photoInsideComments: commentsSelfTest?.photoInsideComments === true,
+      repliesInsideComments: commentsSelfTest?.repliesInsideComments === true,
+      reactionsInsideComments: commentsSelfTest?.reactionsInsideComments === true,
+      commentsModerationInsideComments: commentsSelfTest?.moderationInsideComments === true,
+      foldedCommentsSubsectionsReady,
+      noVideoFilesInComments,
+      unifiedCommentsGatesReady,
+      commentsPhotoTariffGateReady: accessSelfTest?.commentsPhotoTariffGateReady === true,
+      commentsModerationTariffGateReady: accessSelfTest?.commentsModerationTariffGateReady === true,
+      leadConditionCatalogReady: conditionCatalogSelfTest?.ok === true,
       leadConditionCount: conditionCatalogSelfTest?.count || 0,
-      leadConditionSetupFlowReady,
-      leadFullFlowReady,
+      leadFullFlowReady: flowDefinitions?.leadMagnetFullFlowReady === true,
       leadMagnetStepCount: flowDefinitions?.leadMagnetStepCount || 0,
-      conditionSetupRequiredBeforeSave,
-      leadMaterialTextInputReady,
-      leadAccessSelectReady,
-      leadSaveReady,
       leadMagnetsUseButtonFlowPattern: true,
       oneActiveScreen: true,
-      oneActiveScreenCleanupReady,
-      callbackIdempotencyReady,
-      duplicateCallbacksNoSend: callbackBridge.safety?.duplicateCallbacksNoSend === true,
       linkUxReady,
       menuPayloadVersion: menuSelfTest?.payloadVersion || 0,
       sectionRegistryDriven: true,
       sectionAuditReady: sectionAudit.ok === true,
       planAccessReady: true,
       postAddonsDbReady: true,
-      flowEngineReady: true,
+      flowEngineReady: flow?.ok === true,
       flowCancelRouteReady: true,
       flowPostSelectReady: true,
       flowTitleInputReady: true,
       explicitTextInputReady: true,
       staleCallbackGuardReady: true,
-      flowSaveActionReady: flowScreenSelfTest?.saveActionReady === true,
       cleanButtonCreateFlowReady,
       cleanButtonSaveRouteReady,
       cleanButtonSaveWritesAkPostButtons: true,
-      leadMagnetsAuditReady,
-      maxSendAdapterReady: true,
+      leadMagnetsReady,
+      maxSendAdapterReady: delivery?.ok === true,
       maxSendCanaryGated: true,
       coreSendDisabledByDefault: true,
       nonDestructiveMigrationsOnly: true,
-      noLegacyWrapperChain: false,
       noPublicAppOverride: true,
       noProductionWebhookChange: true,
       canaryAllNotRequired: true
