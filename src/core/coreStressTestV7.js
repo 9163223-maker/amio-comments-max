@@ -4,7 +4,7 @@ const base = require('./coreStressTestV6');
 const routeDispatcher = require('./routeDispatcher');
 const sectionRegistry = require('./sectionRegistry');
 
-const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.42.0-MODERATION-FUNCTION-TREE';
+const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.42.1-MODERATION-MAIN-BUTTON-CHECK';
 const STRESS_ADMIN_ID = 'core-stress-admin';
 const UI_ERROR_RE = /(⚠️|Не удалось|Диагностика:|does not exist|violates .*constraint|unexpected_step|Ошибка:|error:)/i;
 const TECH_RE = /\b(Flow:|Step:|runtimeVersion|sectionRegistry|ak_[a-z0-9_]+|legacy adapters|legacy-хранилища|debug-post|clean delivery-flow|clean-flow|read-only)\b/i;
@@ -20,7 +20,7 @@ function ctx(route, payload = {}) {
     userId: STRESS_ADMIN_ID,
     route,
     planCode: 'start',
-    updateType: 'stress_test_moderation_1420',
+    updateType: 'stress_test_moderation_1421',
     payload
   };
 }
@@ -44,6 +44,11 @@ function assertScreen(screen, name, strict = true) {
 function assertText(screen = {}, pattern, name = '') {
   const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i');
   if (!re.test(String(screen.text || ''))) throw new Error(name + ': expected text not found: ' + re + ': ' + cut(screen.text));
+}
+function assertButtonText(screen = {}, pattern, name = '') {
+  const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i');
+  const texts = buttonTexts(screen);
+  if (!texts.some((text) => re.test(text))) throw new Error(name + ': expected button text not found: ' + re + ': ' + texts.join(' | '));
 }
 function assertRoute(screen = {}, route = '', name = '') {
   const btn = findRouteButton(screen, route);
@@ -82,7 +87,7 @@ async function runModerationScenario() {
 
   const main = await dispatchShape('main.home', {}, true);
   assertRoute(main.screen, 'moderation.home', 'moderation.main_route');
-  assertText(main.screen, /Модерация/i, 'moderation.main_text');
+  assertButtonText(main.screen, /Модерация/i, 'moderation.main_button_text');
 
   const home = await dispatchShape('moderation.home', {}, true);
   ['moderation.queue', 'moderation.rules', 'moderation.users', 'moderation.logs', 'moderation.settings'].forEach((route) => assertRoute(home.screen, route, 'moderation.home'));
@@ -147,6 +152,7 @@ async function runModerationScenario() {
     settings: settings.shape,
     checks: [
       'main_route_unlocked_on_start_plan',
+      'main_menu_has_visible_moderation_button',
       'function_tree_home',
       'queue_final_decision',
       'rules_groups',
@@ -180,7 +186,7 @@ async function runFast(options = {}) {
     ok: baseResult.ok === true && localFailed.length === 0,
     runtimeVersion: RUNTIME,
     generatedAt: new Date().toISOString(),
-    mode: 'fast_compact_scenario_1420_moderation',
+    mode: 'fast_compact_scenario_1421_moderation',
     summary: {
       ...(baseResult.summary || {}),
       totalChecks: Number(baseResult.summary?.totalChecks || 0) + tests.length,
@@ -197,13 +203,14 @@ async function runFast(options = {}) {
       validatesModerationLogs: true,
       validatesModerationModes: true
     },
-    status: failed.length ? 'FAILED — см. failed' : 'OK — Core 1.42.0: кнопки, лид-магниты, единые комментарии и дерево модерации прошли сценарный обход',
+    status: failed.length ? 'FAILED — см. failed' : 'OK — Core 1.42.1: кнопки, лид-магниты, единые комментарии и дерево модерации прошли сценарный обход',
     failed,
     slow,
     tests: [...(Array.isArray(baseResult.tests) ? baseResult.tests : []), ...tests.map((x) => ({ name: x.name, ok: x.ok, ms: x.ms, error: x.error || '', checks: x.checks || undefined }))],
     notes: [
       ...((baseResult.notes || []).filter(Boolean)),
-      'Core 1.42.0 добавляет сценарный обход раздела Модерация: очередь, правила, стоп-слова, ссылки, фото, участники, права бота, действия, журнал и режимы.',
+      'Core 1.42.1 проверяет, что в главном меню есть видимая кнопка Модерация, а не требует слова Модерация в общем тексте главного меню.',
+      'Core 1.42.x добавляет сценарный обход раздела Модерация: очередь, правила, стоп-слова, ссылки, фото, участники, права бота, действия, журнал и режимы.',
       'Опасные действия в дереве модерации проверяются как двухшаговые: удаление и блокировка не должны быть доступны одним нажатием.',
       'Видео и файлы по-прежнему не входят в комментарии; внутри модерации фото проверяются отдельно как разрешённый тип вложений.'
     ]
@@ -231,6 +238,7 @@ function selfTest() {
     moderationActionConfirmationReady: true,
     moderationLogsReady: true,
     moderationModesReady: true,
+    mainMenuModerationButtonCheckReady: true,
     keepsButtonsLeadMagnetsUnifiedCommentsBase: true
   };
 }
