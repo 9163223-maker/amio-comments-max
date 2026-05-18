@@ -1,6 +1,6 @@
 'use strict';
 
-const RUNTIME = 'ADMINKIT-CORE-SECTION-AUDIT-1.1-CLEAN-FLOW-MATRIX';
+const RUNTIME = 'ADMINKIT-CORE-SECTION-AUDIT-1.43.0-STATS-REFERRAL-WRITES';
 
 function clean(value) { return String(value ?? '').trim(); }
 
@@ -11,7 +11,7 @@ const EXPECTED = {
   lead_magnets: { mode: 'clean-flow-planned', writesAllowed: true, cleanTables: ['ak_post_lead_magnets'], risk: 'reuse flowEngine/text-input bridge after buttons are verified; save route still must be explicit' },
   moderation: { mode: 'read-only', writesAllowed: false, cleanTables: ['ak_moderation_rules', 'ak_posts', 'ak_admin_channels'], risk: 'ban/delete/hide require dry-run + confirm flow' },
   archive: { mode: 'read-only', writesAllowed: false, cleanTables: ['ak_posts', 'ak_post_buttons', 'ak_post_lead_magnets'], risk: 'restore requires preview + confirm; no hard delete' },
-  stats: { mode: 'read-only', writesAllowed: false, cleanTables: ['ak_posts', 'ak_post_buttons', 'ak_post_lead_magnets', 'ak_admin_channels'], risk: 'aggregations need limits/cache; no raw id clutter' },
+  stats: { mode: 'clean-referral-flow', writesAllowed: true, cleanTables: ['ak_referral_campaigns', 'ak_referral_events', 'ak_stats_events', 'ak_posts', 'ak_post_buttons', 'ak_post_lead_magnets', 'ak_admin_channels'], risk: 'only additive referral/stat events writes are allowed; no raw id clutter and no false attribution promises' },
   settings: { mode: 'read-only', writesAllowed: false, cleanTables: ['ak_accounts', 'ak_account_admins', 'ak_admin_channels', 'ak_plan_events'], risk: 'settings writes require audit events and confirm flow' }
 };
 
@@ -23,7 +23,7 @@ function auditSection(section = {}) {
   const hasSelfTest = !!self;
   const legacyAdaptersUsed = self?.legacyAdaptersUsed === true;
   const dangerousActionsDisabled = self?.dangerousActionsDisabled !== false;
-  const writesEnabled = self?.writesEnabled === true || self?.cleanCreateFlow === true;
+  const writesEnabled = self?.writesEnabled === true || self?.cleanCreateFlow === true || self?.referralLinksReady === true;
   const cleanCoreOnly = legacyAdaptersUsed !== true;
   const writesOk = expected.writesAllowed || writesEnabled !== true;
   const selfTestOk = !hasSelfTest || self.ok !== false;
@@ -33,7 +33,7 @@ function auditSection(section = {}) {
     title: section.title || id,
     runtimeVersion: self?.runtimeVersion || '',
     expectedMode: expected.mode,
-    actualMode: self?.mode || (writesEnabled ? 'clean-flow' : 'read-only'),
+    actualMode: self?.mode || (writesEnabled ? expected.mode : 'read-only'),
     status: self?.status || '',
     hasSelfTest,
     selfTestOk,
@@ -69,12 +69,12 @@ function audit(sections = []) {
     sectionCount: items.length,
     items,
     problems,
-    policy: 'read-only sections stay read-only; writes only through explicit Core flows; no legacy adapters'
+    policy: 'read-only sections stay read-only; writes only through explicit Core flows; stats may write additive referral/stat events; no legacy adapters'
   };
 }
 
 function selfTest() {
-  return { ok: true, runtimeVersion: RUNTIME, expectedSectionIds: Object.keys(EXPECTED), policy: 'clean-core-section-audit-matrix' };
+  return { ok: true, runtimeVersion: RUNTIME, expectedSectionIds: Object.keys(EXPECTED), statsReferralWritesAudited: true, policy: 'clean-core-section-audit-matrix' };
 }
 
 module.exports = { RUNTIME, EXPECTED, audit, auditSection, selfTest };
