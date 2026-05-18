@@ -1,12 +1,14 @@
 'use strict';
 
 const menuRenderer = require('../core/menuRenderer');
+const postRegistry = require('../core/postRegistryDataAdapter');
 
-const RUNTIME = 'ADMINKIT-CORE-MODERATION-SECTION-1.42.2-SCOPE-RULES';
+const RUNTIME = 'ADMINKIT-CORE-MODERATION-SECTION-1.42.3-SCOPE-POST-PICKER';
 
 const routes = {
   home: 'moderation.home',
   scope: 'moderation.scope',
+  scopePostSelect: 'moderation.scope_post_select',
   queue: 'moderation.queue',
   rules: 'moderation.rules',
   keywords: 'moderation.keywords',
@@ -138,10 +140,14 @@ function treeButtons() {
 function scopeButtons(ctx = {}) {
   const s = scoped(ctx);
   return [
-    { text: '🌐 Весь канал', route: routes.scope, data: { scopeType: 'channel', channelTitle: s.channelTitle || 'текущий канал' } },
-    { text: '📝 Один пост', route: routes.scope, data: { scopeType: 'post', channelTitle: s.channelTitle || 'текущий канал', postTitle: s.postTitle || 'выбранный пост' } },
-    { text: '📋 К правилам', route: routes.rules, data: { scopeType: s.scopeType || 'channel', channelTitle: s.channelTitle || 'текущий канал', postTitle: s.postTitle || '' } }
+    { text: '🌐 Весь канал', route: routes.scope, data: { scopeType: 'channel', channelId: s.channelId, channelTitle: s.channelTitle || 'текущий канал' } },
+    { text: '📝 Выбрать один пост', route: routes.scopePostSelect, data: { channelId: s.channelId, channelTitle: s.channelTitle || 'текущий канал' } },
+    { text: '📋 К правилам', route: routes.rules, data: { scopeType: s.scopeType || 'channel', channelId: s.channelId, channelTitle: s.channelTitle || 'текущий канал', postId: s.postId, postTitle: s.postTitle || '' } }
   ];
+}
+async function safeListPosts(ctx = {}, options = {}) {
+  try { return { ok: true, posts: await postRegistry.listPosts(ctx, options), error: '' }; }
+  catch (error) { return { ok: false, posts: [], error: error?.message || String(error) }; }
 }
 function render(title, body = [], buttons = [], options = {}) {
   return menuRenderer.renderScreen({
@@ -179,12 +185,46 @@ const section = {
       : (s.scopeType === 'channel' ? `Сейчас выбрано: весь канал — ${s.channelTitle || 'текущий канал'}` : 'Сейчас область ещё не выбрана.');
     return render('🎯 Область действия правил', [
       selected,
+      ...scopeLines(ctx),
       '',
       'Выберите, где будут работать правила модерации.',
       'Весь канал — правило применяется ко всем новым комментариям во всех постах выбранного канала.',
       'Один пост — правило применяется только к комментариям под выбранным постом.',
       'Для правила конкретного поста администратор должен видеть начало текста поста, а не номер или служебный идентификатор.'
     ], scopeButtons(ctx), { backRoute: routes.home });
+  },
+
+  async renderScopePostSelect(ctx = {}) {
+    const s = scoped(ctx);
+    const result = await safeListPosts({ ...ctx, channelId: s.channelId, channelTitle: s.channelTitle }, { channelId: s.channelId, limit: 10 });
+    const body = [
+      `Канал: ${s.channelTitle || 'текущий канал'}`,
+      'Выберите пост, для которого будут работать правила модерации.',
+      'После выбора правила будут применяться только к комментариям под этим постом.'
+    ];
+    const buttons = [];
+    if (!result.ok) {
+      body.push('', 'Не удалось прочитать посты канала. Попробуйте повторить.');
+      buttons.push({ text: '🔄 Повторить', route: routes.scopePostSelect, data: { channelId: s.channelId, channelTitle: s.channelTitle } });
+    } else if (result.posts.length) {
+      result.posts.forEach((post, index) => buttons.push({
+        text: `${index + 1}. ${cut(post.displayTitle || post.postTitle || post.postPreview || 'Пост без текста', 52)}`,
+        route: routes.scope,
+        data: {
+          scopeType: 'post',
+          channelId: post.channelId || s.channelId,
+          channelTitle: post.channelTitle || s.channelTitle || 'текущий канал',
+          postId: post.postId,
+          postTitle: post.displayTitle || post.postTitle || post.postPreview || 'Пост без текста'
+        }
+      }));
+    } else {
+      body.push('', 'Постов этого канала пока нет в базе. Перешлите пост из канала, чтобы он появился в списке.');
+      buttons.push({ text: '🔄 Обновить список', route: routes.scopePostSelect, data: { channelId: s.channelId, channelTitle: s.channelTitle } });
+    }
+    buttons.push({ text: '🌐 Применить ко всему каналу', route: routes.scope, data: { scopeType: 'channel', channelId: s.channelId, channelTitle: s.channelTitle || 'текущий канал' } });
+    buttons.push({ text: '↩️ К области правил', route: routes.scope, data: { channelId: s.channelId, channelTitle: s.channelTitle } });
+    return render('📝 Выберите пост', body, buttons, { backRoute: routes.scope });
   },
 
   async renderQueue(ctx = {}) {
@@ -344,6 +384,7 @@ const section = {
   async handleAction(ctx = {}) {
     const route = String(ctx.route || routes.home);
     if (route === routes.scope) return this.renderScope(ctx);
+    if (route === routes.scopePostSelect) return this.renderScopePostSelect(ctx);
     if (route === routes.queue) return this.renderQueue(ctx);
     if (route === routes.rules) return this.renderRules(ctx);
     if (route === routes.keywords) return this.renderKeywords(ctx);
@@ -360,7 +401,7 @@ const section = {
   selfTest() {
     const routeValues = Object.values(routes);
     return {
-      ok: routeValues.length >= 11 && FUNCTION_TREE.length >= 11,
+      ok: routeValues.length >= 12 && FUNCTION_TREE.length >= 11,
       runtimeVersion: RUNTIME,
       sectionId: 'moderation',
       feature: 'moderation.enabled',
@@ -369,6 +410,7 @@ const section = {
       routes: routes,
       routeCount: routeValues.length,
       scopeSelectionReady: true,
+      scopePostSelectReady: true,
       scopeChannelReady: true,
       scopePostReady: true,
       rulesCanApplyToWholeChannel: true,
