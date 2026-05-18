@@ -1,8 +1,10 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.25-v1-core-1.42.4-moderation-fk-safe-post-picker",
+  "version": "CC7.5.25-v1-core-1.42.5-moderation-final-function-tree",
   "main": "adminkit-one-loader-cc7525.js",
-  "scripts": { "start": "node adminkit-one-loader-cc7525.js" },
+  "scripts": {
+    "start": "node adminkit-one-loader-cc7525.js"
+  },
   "dependencies": {
     "axios": "^1.7.9",
     "cors": "^2.8.5",
