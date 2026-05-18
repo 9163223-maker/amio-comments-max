@@ -11,10 +11,12 @@ const flowDefinitions = require('./flowDefinitions');
 const flowEngine = require('./flowEngine');
 const postAddonManager = require('./postAddonManager');
 
-const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.40.8-BUTTONS-END-TO-END';
+const RUNTIME = 'ADMINKIT-CORE-STRESS-TEST-1.40.9-LEAD-MAGNETS-END-TO-END';
 const STRESS_ADMIN_ID = 'core-stress-admin';
 const BUTTON_POST_ID = 'core-stress-buttons-post';
 const BUTTON_COMMENT_KEY = 'core-stress-buttons-comment-key';
+const LEAD_POST_ID = 'core-stress-lead-post';
+const LEAD_COMMENT_KEY = 'core-stress-lead-comment-key';
 const UI_ERROR_RE = /(⚠️|Не удалось|Диагностика:|does not exist|violates .*constraint|unexpected_step|Ошибка:|error:)/i;
 const TECH_RE = /\b(Flow:|Step:|runtimeVersion|sectionRegistry|ak_[a-z0-9_]+|legacy adapters|legacy-хранилища|debug-post|clean delivery-flow|clean-flow|read-only)\b/i;
 const RAW_ID_RE = /(^|\s)-?\d{8,}(\s|$)|[a-f0-9]{16,}/i;
@@ -28,6 +30,7 @@ function flatButtons(screen = {}) { return buttonsOf(screen).flat().filter(Boole
 function payloadOf(button = {}) { try { return JSON.parse(button.payload || '{}'); } catch { return {}; } }
 function routeOf(button = {}) { return String(payloadOf(button).r || '').trim(); }
 function findRouteButton(screen = {}, route = '') { return flatButtons(screen).find((b) => routeOf(b) === route); }
+function findRouteButtonWhere(screen = {}, route = '', predicate = () => true) { return flatButtons(screen).find((b) => routeOf(b) === route && predicate(payloadOf(b), b)); }
 function isGenericChannelLabel(text = '') { const s = clean(text).toLowerCase(); return s === 'канал' || s === 'текущий канал' || s === 'канал без названия' || s.includes('existing channel'); }
 function isGenericPostLabel(text = '') { return clean(text).toLowerCase().includes('пост без текста'); }
 function actorMask(value = '') { const s = String(value || ''); return s.length > 8 ? `${s.slice(0, 3)}…${s.slice(-3)}` : s; }
@@ -55,6 +58,10 @@ function assertHumanErrorScreen(screen = {}, name = '') {
 function assertText(screen = {}, pattern, name = '') {
   const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i');
   if (!re.test(String(screen.text || ''))) throw new Error(name + ': expected text not found: ' + re);
+}
+function assertNoText(screen = {}, pattern, name = '') {
+  const re = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), 'i');
+  if (re.test(String(screen.text || ''))) throw new Error(name + ': forbidden text found: ' + re + ': ' + cut(screen.text));
 }
 function assertRoute(screen = {}, route = '', name = '') {
   const btn = findRouteButton(screen, route);
@@ -99,23 +106,24 @@ async function cleanupStressData() {
   }
   return deleted;
 }
-async function seedButtonsPost(actor = {}) {
+async function seedStressPost(actor = {}, { postId, commentKey, postTitle, purpose } = {}) {
   if (!actor.adminId || !actor.channelId) return { skipped: true, reason: 'no_real_actor_channel' };
   const channelTitle = actor.channelTitle && !isGenericChannelLabel(actor.channelTitle) ? actor.channelTitle : 'Подключённый канал';
-  const postTitle = 'Тест кнопки: финальный сценарий';
   const result = await postRegistry.upsertPost({ ...actor, channelId: actor.channelId, channelTitle }, {
     channelId: actor.channelId,
     channelTitle,
-    postId: BUTTON_POST_ID,
-    commentKey: BUTTON_COMMENT_KEY,
+    postId,
+    commentKey,
     postTitle,
     postPreview: postTitle,
     source: 'stress_test',
-    meta: { stressTest: true, runtimeVersion: RUNTIME, purpose: 'buttons_end_to_end' }
+    meta: { stressTest: true, runtimeVersion: RUNTIME, purpose }
   });
   const post = result.post || {};
-  return { payload: { channelId: post.channelId || actor.channelId, channelTitle: post.channelTitle || channelTitle, postId: post.postId || BUTTON_POST_ID, postTitle: post.postTitle || postTitle }, post };
+  return { payload: { channelId: post.channelId || actor.channelId, channelTitle: post.channelTitle || channelTitle, postId: post.postId || postId, postTitle: post.postTitle || postTitle }, post };
 }
+function seedButtonsPost(actor = {}) { return seedStressPost(actor, { postId: BUTTON_POST_ID, commentKey: BUTTON_COMMENT_KEY, postTitle: 'Тест кнопки: финальный сценарий', purpose: 'buttons_end_to_end' }); }
+function seedLeadPost(actor = {}) { return seedStressPost(actor, { postId: LEAD_POST_ID, commentKey: LEAD_COMMENT_KEY, postTitle: 'Тест лид-магнита: комбинированные условия', purpose: 'lead_magnets_end_to_end' }); }
 
 async function dispatchShape(route, actor, payload = {}, strict = true) {
   const screen = await routeDispatcher.dispatch(ctx(route, actor, payload));
@@ -215,6 +223,89 @@ async function runButtonsEndToEnd(actor, baseline) {
   await restoreSession(actor.adminId, baseline);
   return { seeded: seeded.post, payload, invalidUrlShape: invalidShape, centerBefore: center0.shape, add: addScreen.shape, saved: saved1.shape, edited: saved2.shape, deleted: deleted.shape, afterDelete: afterDelete.shape, checks: ['select_post','add','title','invalid_url_error','url','save','edit','delete'] };
 }
+async function runLeadMagnetsEndToEnd(actor, baseline) {
+  await restoreSession(actor.adminId, baseline);
+  const seeded = await seedLeadPost(actor);
+  if (seeded.skipped) return { skipped: true, reason: seeded.reason };
+  const payload = seeded.payload;
+
+  const center0 = await dispatchShape('lead_magnets.post', actor, payload, true);
+  const addBtn = assertRoute(center0.screen, 'lead_magnets.add', 'lead.center.before_add');
+  const addScreen = await dispatchShape('lead_magnets.add', actor, payloadOf(addBtn), true);
+  assertText(addScreen.screen, /название подарка|название лид-магнита/i, 'lead.add.title_step');
+
+  const title1 = await dispatchShape('flow.input', actor, { text: 'Гайд по стилю' }, true);
+  assertText(title1.screen, /материал подарка|сам подарок/i, 'lead.input_title.material_step');
+  const material1 = await dispatchShape('flow.input', actor, { text: 'https://olga-style.ru/guide' }, true);
+  assertText(material1.screen, /тип условия|группа условий/i, 'lead.material.condition_group_step');
+
+  const groupCombined = findRouteButtonWhere(material1.screen, 'flow.select_condition_group', (p) => p.conditionGroup === 'combined') || assertRoute(material1.screen, 'flow.select_condition_group', 'lead.group_button');
+  const selectAccess = await dispatchShape('flow.select_condition_group', actor, payloadOf(groupCombined), true);
+  assertText(selectAccess.screen, /конкретное условие|условие получения/i, 'lead.select_access_step');
+  const allConditions = findRouteButtonWhere(selectAccess.screen, 'flow.select_access', (p) => p.conditionId === 'all_conditions');
+  if (!allConditions) throw new Error('lead.select_access: all_conditions button not found');
+  const setup0 = await dispatchShape('flow.select_access', actor, payloadOf(allConditions), true);
+  assertText(setup0.screen, /Настройте параметры|комбинац/i, 'lead.combined_setup_step');
+
+  const earlyFinish = await routeDispatcher.dispatch(ctx('flow.setup_condition', actor, { flowId: 'lead_magnets.create', combineAction: 'finish' }));
+  const earlyFinishShape = assertHumanErrorScreen(earlyFinish, 'lead.combined_early_finish_error');
+  assertText(earlyFinish, /минимум два условия/i, 'lead.combined_early_finish_min_text');
+
+  const addSubscription = await dispatchShape('flow.setup_condition', actor, { flowId: 'lead_magnets.create', combineAction: 'add_subscription', conditionChannelId: payload.channelId, conditionChannelTitle: payload.channelTitle }, true);
+  assertText(addSubscription.screen, /Добавлено условий:\s*1|условий:\s*1/i, 'lead.combined_after_subscription');
+  const addCommentCount = await dispatchShape('flow.setup_condition', actor, { flowId: 'lead_magnets.create', combineAction: 'add_comment_count', conditionPostId: payload.postId, conditionPostTitle: payload.postTitle, minComments: 2 }, true);
+  assertText(addCommentCount.screen, /Добавлено условий:\s*2|условий:\s*2/i, 'lead.combined_after_comment_count');
+
+  const finishCombined = await dispatchShape('flow.setup_condition', actor, { flowId: 'lead_magnets.create', combineAction: 'finish' }, true);
+  assertText(finishCombined.screen, /Проверьте условие/i, 'lead.review_conditions');
+  assertRoute(finishCombined.screen, 'flow.next', 'lead.review_conditions_next');
+  const reviewSave = await dispatchShape('flow.next', actor, { flowId: 'lead_magnets.create' }, true);
+  assertText(reviewSave.screen, /Проверьте подарок|Сохранить/i, 'lead.review_save');
+  assertRoute(reviewSave.screen, 'flow.save', 'lead.save_button');
+  const saved1 = await dispatchShape('flow.save', actor, { flowId: 'lead_magnets.create' }, true);
+  assertText(saved1.screen, /Лид-магнит сохранён/i, 'lead.save_success');
+
+  const afterSave = await dispatchShape('lead_magnets.post', actor, payload, true);
+  assertText(afterSave.screen, /Гайд по стилю/i, 'lead.center.after_save_title');
+  assertText(afterSave.screen, /все условия|подписан на канал|минимум 2 комментар/i, 'lead.center.after_save_conditions');
+  const editConditionsBtn = assertRoute(afterSave.screen, 'lead_magnets.edit_conditions', 'lead.center.edit_conditions_route');
+  const testDeliveryBtn = assertRoute(afterSave.screen, 'lead_magnets.test_delivery', 'lead.center.test_delivery_route');
+  const deleteBtn = assertRoute(afterSave.screen, 'lead_magnets.delete_confirm', 'lead.center.delete_route');
+
+  const testDelivery = await dispatchShape('lead_magnets.test_delivery', actor, payloadOf(testDeliveryBtn), true);
+  assertText(testDelivery.screen, /Проверка выдачи лид-магнита|личные сообщения/i, 'lead.test_delivery_text');
+  assertNoText(testDelivery.screen, /clean delivery-flow|legacy|debug/i, 'lead.test_delivery_no_tech');
+
+  const editConditions = await dispatchShape('lead_magnets.edit_conditions', actor, payloadOf(editConditionsBtn), true);
+  assertText(editConditions.screen, /тип условия|группа условий/i, 'lead.edit_conditions_group_step');
+  const commentsGroup = findRouteButtonWhere(editConditions.screen, 'flow.select_condition_group', (p) => p.conditionGroup === 'comments');
+  if (!commentsGroup) throw new Error('lead.edit_conditions: comments group button not found');
+  const accessComments = await dispatchShape('flow.select_condition_group', actor, payloadOf(commentsGroup), true);
+  const keywordCondition = findRouteButtonWhere(accessComments.screen, 'flow.select_access', (p) => p.conditionId === 'comment_keyword');
+  if (!keywordCondition) throw new Error('lead.edit_conditions: comment_keyword button not found');
+  const keywordSetup = await dispatchShape('flow.select_access', actor, payloadOf(keywordCondition), true);
+  assertText(keywordSetup.screen, /фразу|кодовое слово|хочу/i, 'lead.edit_conditions_keyword_setup');
+  const keywordReady = await dispatchShape('flow.setup_condition', actor, { flowId: 'lead_magnets.create', conditionPostId: payload.postId, conditionPostTitle: payload.postTitle, keyword: 'хочу гайд' }, true);
+  assertText(keywordReady.screen, /Проверьте условие/i, 'lead.edit_conditions_review');
+  const keywordReviewSave = await dispatchShape('flow.next', actor, { flowId: 'lead_magnets.create' }, true);
+  assertRoute(keywordReviewSave.screen, 'flow.save', 'lead.edit_conditions_save_button');
+  const saved2 = await dispatchShape('flow.save', actor, { flowId: 'lead_magnets.create' }, true);
+  assertText(saved2.screen, /Лид-магнит обновлён/i, 'lead.edit_conditions_success');
+
+  const afterEdit = await dispatchShape('lead_magnets.post', actor, payload, true);
+  assertText(afterEdit.screen, /хочу гайд/i, 'lead.center.after_edit_keyword');
+  const deleteBtn2 = findRouteButton(afterEdit.screen, 'lead_magnets.delete_confirm') || deleteBtn;
+  const confirmDelete = await dispatchShape('lead_magnets.delete_confirm', actor, payloadOf(deleteBtn2), true);
+  assertText(confirmDelete.screen, /Удалить лид-магнит/i, 'lead.delete_confirm_text');
+  const yesDelete = assertRoute(confirmDelete.screen, 'lead_magnets.delete', 'lead.delete_confirm_yes_route');
+  const deleted = await dispatchShape('lead_magnets.delete', actor, payloadOf(yesDelete), true);
+  assertText(deleted.screen, /Лид-магнит отключён/i, 'lead.delete_success');
+  const afterDelete = await dispatchShape('lead_magnets.post', actor, payload, true);
+  assertText(afterDelete.screen, /Лид-магниты:\s*0/i, 'lead.center.after_delete_empty');
+
+  await restoreSession(actor.adminId, baseline);
+  return { seeded: seeded.post, payload, earlyFinishShape, centerBefore: center0.shape, add: addScreen.shape, saved: saved1.shape, edited: saved2.shape, deleted: deleted.shape, afterDelete: afterDelete.shape, checks: ['select_post','add','title','material','combined_min_error','subscription_condition','comment_count_condition','save','test_delivery','edit_conditions','delete'] };
+}
 
 async function runFast(options = {}) {
   const startedAt = new Date().toISOString();
@@ -236,6 +327,7 @@ async function runFast(options = {}) {
   tests.push(await step('scenario.lead_magnets.channel_post_add', async () => runManagedScenario(actor, baseline, 'lead_magnets')));
   tests.push(await step('scenario.buttons.channel_post_add', async () => runManagedScenario(actor, baseline, 'buttons')));
   tests.push(await step('scenario.buttons.end_to_end_create_edit_delete', async () => runButtonsEndToEnd(actor, baseline)));
+  tests.push(await step('scenario.lead_magnets.end_to_end_combined_conditions', async () => runLeadMagnetsEndToEnd(actor, baseline)));
   if (cleanup) tests.push(await step('db.cleanupStressData', async () => ({ deleted: await cleanupStressData() })));
   tests.push(await step('db.restoreActorSession', async () => restoreSession(actor.adminId, baseline)));
 
@@ -249,15 +341,15 @@ async function runFast(options = {}) {
     durationMs: now() - Date.parse(startedAt),
     mode: 'fast_compact_scenario',
     actor: { adminIdMasked: actor.adminId === STRESS_ADMIN_ID ? STRESS_ADMIN_ID : actorMask(actor.adminId), channelIdMasked: actor.channelId ? actorMask(actor.channelId) : '', postCount: actor.postCount },
-    summary: { totalChecks: tests.length, failed: failed.length, slow: slow.length, sectionHomeChecks: sections.length, scenarioChecks: 3, cleanup, validatesButtonsSection: true, validatesButtonsEndToEnd: true, validatesButtonsInvalidUrlError: true, validatesButtonsEditDelete: true, validatesLeadMagnetsSection: true, validatesHumanChannelLabels: true, validatesHumanPostPreviews: true, boundedForMobileSafari: true },
-    status: failed.length ? 'FAILED — см. failed' : 'OK — быстрый сценарный обход Core прошёл, включая полный сценарий кнопок',
+    summary: { totalChecks: tests.length, failed: failed.length, slow: slow.length, sectionHomeChecks: sections.length, scenarioChecks: 4, cleanup, validatesButtonsSection: true, validatesButtonsEndToEnd: true, validatesButtonsInvalidUrlError: true, validatesButtonsEditDelete: true, validatesLeadMagnetsSection: true, validatesLeadMagnetsEndToEnd: true, validatesLeadMagnetsCombinedConditions: true, validatesLeadMagnetsEditDelete: true, validatesLeadMagnetsHumanTestDelivery: true, validatesHumanChannelLabels: true, validatesHumanPostPreviews: true, boundedForMobileSafari: true },
+    status: failed.length ? 'FAILED — см. failed' : 'OK — быстрый сценарный обход Core прошёл, включая полный сценарий кнопок и лид-магнитов',
     failed: failed.map((x) => ({ name: x.name, ms: x.ms, error: x.error, stackHead: x.stackHead || '' })),
     slow: slow.map((x) => ({ name: x.name, ms: x.ms })),
     tests: tests.map((x) => ({ name: x.name, ok: x.ok, ms: x.ms, error: x.error || '', screen: x.screen || null, skipped: x.skipped || false, reason: x.reason || '', channelLabels: x.channelLabels || undefined, postLabels: x.postLabels || undefined, checks: x.checks || undefined })),
     notes: [
       'Compact режим не строит огромный граф всех путей, поэтому не должен подвешивать Safari.',
-      'Он проверяет все 16 home-разделов, живой путь Лид-магнитов и полный сценарий Кнопок: выбор поста → добавление → ошибка неверной ссылки → сохранение → редактирование → удаление.',
-      'Stress-test создаёт временный тестовый пост/кнопку и удаляет их в cleanup; пользовательские посты и кнопки не должны затрагиваться.'
+      'Он проверяет все 16 home-разделов, полный сценарий Кнопок и полный сценарий Лид-магнитов: выбор поста → добавление → комбинированные условия → сохранение → проверка выдачи → редактирование условий → удаление.',
+      'Stress-test создаёт временные тестовые посты/кнопки/лид-магниты и удаляет их в cleanup; пользовательские посты и кнопки не должны затрагиваться.'
     ]
   };
 }
@@ -271,7 +363,7 @@ async function run(options = {}) {
 }
 
 function selfTest() {
-  return { ok: true, runtimeVersion: RUNTIME, baseRuntimeVersion: v4.RUNTIME, fastCompactDefault: true, boundedForMobileSafari: true, buttonsScenarioReady: true, buttonsEndToEndReady: true, buttonsInvalidUrlGuardReady: true, buttonsEditDeleteReady: true, leadMagnetsScenarioReady: true, humanChannelLabelsAsserted: true, humanPostPreviewsAsserted: true, deepModeAvailable: true };
+  return { ok: true, runtimeVersion: RUNTIME, baseRuntimeVersion: v4.RUNTIME, fastCompactDefault: true, boundedForMobileSafari: true, buttonsScenarioReady: true, buttonsEndToEndReady: true, buttonsInvalidUrlGuardReady: true, buttonsEditDeleteReady: true, leadMagnetsScenarioReady: true, leadMagnetsEndToEndReady: true, leadMagnetsCombinedConditionsReady: true, leadMagnetsEditDeleteReady: true, leadMagnetsHumanTestDeliveryReady: true, humanChannelLabelsAsserted: true, humanPostPreviewsAsserted: true, deepModeAvailable: true };
 }
 
 module.exports = { RUNTIME, run, selfTest, runFast };
