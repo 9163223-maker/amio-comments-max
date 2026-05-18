@@ -1,18 +1,19 @@
 {
-  "runtimeVersion": "CC7.5.36-CORE-1.50.1-DEBUG-EXPORT-LOCKED-MENU-SAFE-ROLLBACK",
-  "buildVersion": "CC7.5.36-CORE-1.50.1-DEBUG-EXPORT-LOCKED-MENU-SAFE-ROLLBACK",
-  "displayVersion": "CC7.5.36",
-  "packageVersion": "CC7.5.36-v1-core-1.50.1-rollback",
-  "sourceMarker": "adminkit-cc7-5-36-core-1-50-1-rollback",
-  "buildGeneratedAt": "2026-05-18T20:55:00Z",
-  "coreRuntimeVersion": "ADMINKIT-CORE-1.50.1-DEBUG-GITHUB-EXPORT-LOCKED-MENU-SAFE",
-  "coreStressTest": "ADMINKIT-CORE-STRESS-TEST-1.50.1-DEBUG-GITHUB-EXPORT-LOCKED-MENU-SAFE",
-  "rollbackReason": "Emergency rollback after failed 1.51.x production checklist debug endpoint experiments. Do not use preload/http-layer for production gate.",
+  "runtimeVersion": "CC7.5.34-CORE-1.49.1-START-LANDING-RASTER-ONLY-CPU-ROLLBACK",
+  "buildVersion": "CC7.5.34-CORE-1.49.1-START-LANDING-RASTER-ONLY-CPU-ROLLBACK",
+  "displayVersion": "CC7.5.34",
+  "packageVersion": "CC7.5.34-v1-core-1.49.1-emergency-cpu-rollback",
+  "sourceMarker": "adminkit-cc7-5-34-core-1-49-1-start-landing-raster-only-cpu-rollback",
+  "buildGeneratedAt": "2026-05-18T21:18:00Z",
+  "coreRuntimeVersion": "ADMINKIT-CORE-1.49.1-START-LANDING-RASTER-ONLY",
+  "coreStressTest": "disabled-for-emergency-cpu-rollback",
+  "rollbackReason": "Emergency CPU rollback before debug-export route layer. Debug/export/core-stress endpoints must not be opened until reimplemented as safe constant-time routes.",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
+  "debugPolicy": "Do not use /debug/store-live, /debug/core-stress, /debug/ping or /debug/build on this emergency rollback. Check only root / and MAX bot UI until CPU is stable.",
   "notes": [
     "Correct public domain is p01--amio-commnets-max--qkpwxnxqqrnw.code.run with commnets.",
-    "Rollback target is CC7.5.36 / Core 1.50.1 because it was the last confirmed working debug/export baseline.",
-    "debug/store-live can be heavy because it includes full store snapshot; use /debug/ping or /debug/build for quick liveness/version checks.",
-    "1.51.x production checklist must not change package startup loader or install HTTP preload layers until a safe in-index route is implemented."
+    "Rollback target is CC7.5.34 / Core 1.49.1 because it is before the debug-export route layer that can overload the small 0.1 vCPU Northflank container.",
+    "Production checklist and debug must be reintroduced only through safe constant-time in-index endpoints, never through preload/http-layer/Express monkey patch layers.",
+    "Manual MAX smoke check is the only allowed check at this stage."
   ]
 }
