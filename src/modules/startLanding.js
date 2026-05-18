@@ -3,7 +3,7 @@
 const menuRenderer = require('../core/menuRenderer');
 const startLanding = require('../core/startLandingAdapter');
 
-const RUNTIME = 'ADMINKIT-CORE-START-LANDING-SECTION-1.49.0';
+const RUNTIME = 'ADMINKIT-CORE-START-LANDING-SECTION-1.49.1-RASTER-ONLY';
 
 const routes = {
   home: 'start_landing.home',
@@ -19,7 +19,7 @@ const FUNCTION_TREE = [
   ['capabilities', 'Что умеет АдминКИТ', routes.capabilities, 'объяснение пользы без технического мусора'],
   ['connect_channel', 'Подключить канал', 'channels.connect', 'главный CTA ведёт в рабочий сценарий подключения'],
   ['readiness', 'Проверить готовность', routes.readiness, 'чек-лист первого запуска'],
-  ['logo', 'Логотип посадочной', routes.logo, 'найти текущий файл и подсказать оптимизацию'],
+  ['logo', 'Логотип посадочной', routes.logo, 'найти текущий растровый файл и подсказать сжатие без перерисовки'],
   ['support', 'Помощь', routes.support, 'что делать, если канал не подключается']
 ].map(([id, title, route, finalStep]) => ({ id, title, route, finalStep }));
 
@@ -32,7 +32,7 @@ async function renderHome(ctx = {}) {
   return render('🚀 АдминКИТ: старт', [
     'АдминКИТ помогает управлять каналом в MAX: комментарии, модерация, подарки, кнопки, опросы, выделение постов, редактирование и статистика.',
     'Начните с подключения канала. После этого остальные разделы смогут работать с выбранным каналом и постами.',
-    logo.logoOptimized ? 'Логотип посадочной найден и подходит по формату.' : 'Для логотипа подготовлен безопасный слот: лучше использовать webp до 120 КБ.',
+    logo.logoOptimized ? 'Логотип посадочной найден и сжат в webp.' : 'Для логотипа подготовлен слот: нужен исходный PNG/JPG/WebP, сжатый в webp до 120 КБ без изменения внешнего вида.',
     '',
     'Быстрый путь: подключить канал → включить комментарии → добавить инструменты роста → проверить статистику.'
   ], [
@@ -72,14 +72,14 @@ async function renderLogo(ctx = {}) {
   const logo = startLanding.findLogo();
   const foundLines = logo.foundCount
     ? logo.found.map((item, index) => `${index + 1}. ${item.file} — ${item.kind}, ${item.sizeKb} КБ${item.optimized ? ', подходит' : ''}`)
-    : ['Текущий файл логотипа в public не найден.'];
+    : ['Текущий растровый файл логотипа в public не найден.'];
   return render('🖼 Логотип посадочной', [
     ...foundLines,
     '',
     logo.recommendation,
     `Рекомендуемый путь замены: ${logo.recommendedPath}`,
-    'Рекомендуемый формат: webp или svg, квадрат 512×512, вес до 120 КБ.',
-    'Если файл логотипа лежит в другом месте, его можно заменить вручную на этот путь и оставить ссылку /public/adminkit-logo-optimized.webp.'
+    'Только WEBP из исходного логотипа. Никаких SVG, векторной перерисовки и замены внешнего вида.',
+    'Рекомендуемо: 512×512, прозрачность сохранить, вес до 120 КБ. Если исходник больше — просто сжать, не перерисовывать.'
   ], [
     { text: '➕ Подключить канал', route: 'channels.connect' },
     { text: '↩️ К старту', route: routes.home }
@@ -108,7 +108,7 @@ async function renderSupport(ctx = {}) {
     '3. На экране проверки подтвердите именно тот канал, который нужен.',
     '4. После подключения можно удалить служебный пересланный пост — данные останутся.',
     '',
-    'Если стартовый экран выглядит тяжёлым, проверьте логотип: лучше webp до 120 КБ.'
+    'Если стартовый экран выглядит тяжёлым, проверьте логотип: нужен сжатый webp из оригинального изображения.'
   ], [
     { text: '➕ Подключить канал', route: 'channels.connect' },
     { text: '🖼 Логотип посадочной', route: routes.logo },
@@ -130,7 +130,7 @@ function selfTest() {
   const dataSelf = startLanding.selfTest ? startLanding.selfTest() : {};
   const routeValues = Object.values(routes);
   return {
-    ok: routeValues.length >= 6 && FUNCTION_TREE.length >= 6 && dataSelf.ok !== false,
+    ok: routeValues.length >= 6 && FUNCTION_TREE.length >= 6 && dataSelf.ok !== false && dataSelf.noSvg === true,
     runtimeVersion: RUNTIME,
     sectionId: 'start_landing',
     feature: 'start_landing.enabled',
@@ -147,6 +147,9 @@ function selfTest() {
     logoFound: dataSelf.logoFound,
     logoOptimized: dataSelf.logoOptimized,
     recommendedLogoPath: dataSelf.recommendedLogoPath,
+    rasterOnly: true,
+    noSvg: true,
+    noVectorRedraw: true,
     noTechnicalText: true,
     noRawIds: true,
     legacyAdaptersUsed: false,
