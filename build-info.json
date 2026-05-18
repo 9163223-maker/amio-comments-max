@@ -1,19 +1,28 @@
 {
-  "runtimeVersion": "CC7.5.34-CORE-1.49.1-START-LANDING-RASTER-ONLY-CPU-ROLLBACK",
-  "buildVersion": "CC7.5.34-CORE-1.49.1-START-LANDING-RASTER-ONLY-CPU-ROLLBACK",
+  "runtimeVersion": "CC7.5.34-CORE-1.49.2-SAFE-DIAGNOSTICS",
+  "buildVersion": "CC7.5.34-CORE-1.49.2-SAFE-DIAGNOSTICS",
   "displayVersion": "CC7.5.34",
-  "packageVersion": "CC7.5.34-v1-core-1.49.1-emergency-cpu-rollback",
-  "sourceMarker": "adminkit-cc7-5-34-core-1-49-1-start-landing-raster-only-cpu-rollback",
-  "buildGeneratedAt": "2026-05-18T21:18:00Z",
-  "coreRuntimeVersion": "ADMINKIT-CORE-1.49.1-START-LANDING-RASTER-ONLY",
-  "coreStressTest": "disabled-for-emergency-cpu-rollback",
-  "rollbackReason": "Emergency CPU rollback before debug-export route layer. Debug/export/core-stress endpoints must not be opened until reimplemented as safe constant-time routes.",
+  "packageVersion": "CC7.5.34-v1-core-1.49.2-safe-diagnostics",
+  "sourceMarker": "adminkit-cc7-5-34-core-1-49-2-safe-diagnostics",
+  "buildGeneratedAt": "2026-05-18T21:28:00Z",
+  "coreRuntimeVersion": "ADMINKIT-CORE-1.49.2-SAFE-DIAGNOSTICS",
+  "coreStressTest": "disabled-for-safe-diagnostics-stabilization",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
-  "debugPolicy": "Do not use /debug/store-live, /debug/core-stress, /debug/ping or /debug/build on this emergency rollback. Check only root / and MAX bot UI until CPU is stable.",
+  "debugPolicy": "Only constant-time safe endpoints are allowed: /healthz, /version, /debug/safe, /debug/ping, /debug/build. Heavy endpoints remain frozen: /debug/store-live, /debug/core-stress, /debug/export, /debug/export-lite.",
+  "safeDiagnostics": {
+    "enabled": true,
+    "constantTime": true,
+    "noDatabaseRead": true,
+    "noStoreSnapshot": true,
+    "noGithubExport": true,
+    "noStressTest": true,
+    "noMaxApiCall": true,
+    "endpoints": ["/healthz", "/version", "/debug/safe", "/debug/ping", "/debug/build"]
+  },
   "notes": [
     "Correct public domain is p01--amio-commnets-max--qkpwxnxqqrnw.code.run with commnets.",
-    "Rollback target is CC7.5.34 / Core 1.49.1 because it is before the debug-export route layer that can overload the small 0.1 vCPU Northflank container.",
-    "Production checklist and debug must be reintroduced only through safe constant-time in-index endpoints, never through preload/http-layer/Express monkey patch layers.",
-    "Manual MAX smoke check is the only allowed check at this stage."
+    "Base remains CC7.5.34 / Core 1.49.x because it is before the debug-export route layer that overloaded the 0.1 vCPU container.",
+    "Safe diagnostics are constant-time and must not touch store, DB, MAX API, GitHub export or stress-test.",
+    "Production checklist remains frozen until diagnostics are stable."
   ]
 }
