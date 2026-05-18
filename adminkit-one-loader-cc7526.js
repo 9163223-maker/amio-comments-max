@@ -7,6 +7,9 @@ const MARKER = '__ADMINKIT_CC7_5_26_CORE_1_43_0_STATS_REFERRALS_LOADER__';
 process.env.BUILD_VERSION = RUNTIME;
 process.env.RUNTIME_VERSION = RUNTIME;
 process.env.BUILD_SOURCE_MARKER = SOURCE;
+if (!process.env.ADMINKIT_PUBLIC_BASE_URL && !process.env.PUBLIC_BASE_URL && !process.env.BASE_URL && !process.env.NORTHFLANK_PUBLIC_URL) {
+  process.env.ADMINKIT_PUBLIC_BASE_URL = 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run';
+}
 
 function safeInstallStatsReferralLayer() {
   try {
