@@ -1,6 +1,6 @@
 'use strict';
 
-const RUNTIME = 'ADMINKIT-CORE-MENU-RENDERER-1.39.0-USER-TEXT';
+const RUNTIME = 'ADMINKIT-CORE-MENU-RENDERER-1.41.0-HIDDEN-SECTIONS';
 
 function safePayload(data = {}) { return JSON.stringify({ ...data }); }
 function normalizeUrl(value = '') { const raw = String(value || '').trim(); if (!raw) return ''; if (/^https?:\/\//i.test(raw)) return raw; if (/^[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i.test(raw)) return `https://${raw}`; return raw; }
@@ -30,10 +30,13 @@ function renderScreen({ title, body = [], buttons = [], links = [], backRoute = 
   return { text: [title, '', ...lines].filter(Boolean).join('\n'), attachments: inlineKeyboard([...rows, ...linkRows, ...(nav.length ? [nav] : [])]) };
 }
 
+function visibleSections(sections = []) { return (sections || []).filter((section) => section && section.hiddenInMain !== true && section.foldedIntoMain !== true); }
+
 function renderMain(sections = []) {
   const rows = [];
-  for (let i = 0; i < sections.length; i += 2) {
-    rows.push(sections.slice(i, i + 2).map((section) => {
+  const visible = visibleSections(sections);
+  for (let i = 0; i < visible.length; i += 2) {
+    rows.push(visible.slice(i, i + 2).map((section) => {
       const title = `${section.icon || ''} ${section.title || section.id}${section.locked ? ' 🔒' : ''}`.trim();
       return btn(title, section.locked ? 'billing.locked' : (section.routes?.home || `${section.id}.home`), { sectionId: section.id, screen: 'main.home' });
     }));
@@ -44,8 +47,9 @@ function renderMain(sections = []) {
 function selfTest() {
   const kb = inlineKeyboard([[btn('Главное меню', 'main.home')], [linkBtn('Открыть', 'example.com')]]);
   const screen = renderScreen({ title: 'Тест', body: ['Flow: lead_magnets.create', 'Step: input', 'Проверка: max_channel_membership', 'Нормальная строка', 'Сохранено в чистую таблицу: ak_post_lead_magnets.'] });
-  const main = renderMain([]);
-  return { ok: kb[0]?.payload?.version === 2 && kb[0]?.payload?.buttons?.[1]?.[0]?.type === 'link' && kb[0]?.payload?.buttons?.[1]?.[0]?.url === 'https://example.com' && !/Flow:|Step:|ak_post|1\.33|sectionRegistry/.test(screen.text + main.text), runtimeVersion: RUNTIME, payloadVersion: 2, userTextFilterReady: true, mainMenuUserFriendly: true, callbackPayloadHasRoute: true };
+  const main = renderMain([{ id: 'comments', title: 'Комментарии', routes: { home: 'comments.home' } }, { id: 'photo_comments', title: 'Фото в комментариях', hiddenInMain: true, routes: { home: 'photo_comments.home' } }]);
+  const mainButtons = (((main.attachments || [])[0] || {}).payload || {}).buttons?.flat?.().map((b) => b.text) || [];
+  return { ok: kb[0]?.payload?.version === 2 && kb[0]?.payload?.buttons?.[1]?.[0]?.type === 'link' && kb[0]?.payload?.buttons?.[1]?.[0]?.url === 'https://example.com' && !/Flow:|Step:|ak_post|1\.33|sectionRegistry/.test(screen.text + main.text) && mainButtons.length === 1 && /Комментарии/.test(mainButtons[0]), runtimeVersion: RUNTIME, payloadVersion: 2, userTextFilterReady: true, mainMenuUserFriendly: true, callbackPayloadHasRoute: true, hiddenSectionsReady: true };
 }
 
-module.exports = { RUNTIME, btn, linkBtn, inlineKeyboard, renderScreen, renderMain, selfTest, userLine, userLines };
+module.exports = { RUNTIME, btn, linkBtn, inlineKeyboard, renderScreen, renderMain, visibleSections, selfTest, userLine, userLines };
