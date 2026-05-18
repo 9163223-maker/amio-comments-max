@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.25-v1-core-1.42.5-moderation-final-function-tree",
+  "version": "CC7.5.25-v1-core-1.42.6-moderation-confirmation-wording-fix",
   "main": "adminkit-one-loader-cc7525.js",
   "scripts": {
     "start": "node adminkit-one-loader-cc7525.js"
