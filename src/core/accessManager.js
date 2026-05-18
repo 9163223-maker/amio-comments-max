@@ -2,13 +2,17 @@
 
 const accountManager = require('./accountManager');
 
-const RUNTIME = 'ADMINKIT-CORE-ACCESS-MANAGER-1.33-BILLING-FEATURE-GATE';
+const RUNTIME = 'ADMINKIT-CORE-ACCESS-MANAGER-1.41.0-UNIFIED-COMMENTS-GATES';
 const DEFAULT_PLAN = 'free';
 
 const PLAN_FEATURES = {
   free: {
     'channels.enabled': true,
     'comments.enabled': true,
+    'comments.photo': false,
+    'comments.replies': true,
+    'comments.reactions': true,
+    'comments.moderation': false,
     'photo_comments.enabled': false,
     'reactions_replies.enabled': true,
     'buttons.enabled': true,
@@ -35,6 +39,9 @@ const PLAN_FEATURES = {
     'channels.enabled': true,
     'comments.enabled': true,
     'comments.photo': true,
+    'comments.replies': true,
+    'comments.reactions': true,
+    'comments.moderation': true,
     'photo_comments.enabled': true,
     'reactions_replies.enabled': true,
     'buttons.enabled': true,
@@ -130,8 +137,17 @@ function selfTest() {
     batchedFilterSections: true,
     planCount: Object.keys(PLAN_FEATURES).length,
     fullMenuFeatureGatesReady: true,
+    unifiedCommentsGatesReady: true,
+    commentsPhotoTariffGateReady: PLAN_FEATURES.free['comments.photo'] === false && PLAN_FEATURES.start['comments.photo'] === true,
+    commentsRepliesReady: PLAN_FEATURES.free['comments.replies'] === true,
+    commentsReactionsReady: PLAN_FEATURES.free['comments.reactions'] === true,
+    commentsModerationTariffGateReady: PLAN_FEATURES.free['comments.moderation'] === false && PLAN_FEATURES.start['comments.moderation'] === true,
     billingFeatureGateReady: PLAN_FEATURES.free['billing.enabled'] === true,
     fullMenuFeatureCodes: [
+      'comments.photo',
+      'comments.replies',
+      'comments.reactions',
+      'comments.moderation',
       'photo_comments.enabled',
       'reactions_replies.enabled',
       'post_highlights.enabled',
