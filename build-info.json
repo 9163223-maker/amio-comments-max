@@ -1,10 +1,10 @@
 {
-  "runtimeVersion": "CC7.5.35-CORE-1.53.11-DURABLE-STORE",
-  "buildVersion": "CC7.5.35-CORE-1.53.11-DURABLE-STORE",
-  "displayVersion": "CC7.5.35",
-  "packageVersion": "CC7.5.35-v1-core-1.53.11-durable-store",
-  "sourceMarker": "adminkit-cc7-5-35-core-1-53-11-durable-store",
-  "buildGeneratedAt": "2026-05-19T15:30:00Z",
+  "runtimeVersion": "CC7.5.36-CORE-1.53.11-POSTGRES-STORE",
+  "buildVersion": "CC7.5.36-CORE-1.53.11-POSTGRES-STORE",
+  "displayVersion": "CC7.5.36",
+  "packageVersion": "CC7.5.36-v1-core-1.53.11-postgres-store",
+  "sourceMarker": "adminkit-cc7-5-36-core-1-53-11-postgres-store",
+  "buildGeneratedAt": "2026-05-19T16:05:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
     "version": "1.53.11",
@@ -17,17 +17,19 @@
     "cleanBase": true,
     "noModuleLoadPatch": true,
     "noMaxApiPatch": true,
-    "noFsPatch": true,
+    "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true
   },
   "persistentStore": {
     "enabled": true,
+    "backend": "postgres-jsonb",
     "bootstrapPath": "persistent-store-bootstrap.js",
-    "preferredEnv": "ADMINKIT_STORE_DIR",
-    "preferredDir": "/data/adminkit",
-    "storeFile": "store.json",
-    "goal": "channel bindings, active channel, patched posts, comments, handoffs, reactions, gifts, moderation and growth state survive redeploys and code updates"
+    "postgresAdapterPath": "postgres-state-store.js",
+    "table": "adminkit_state",
+    "key": "store",
+    "localStoreJsonRole": "runtime compatibility cache only",
+    "goal": "channel bindings, active channel, patched posts, comments, handoffs, reactions, gifts, moderation and growth state survive redeploys and code updates in the already connected Northflank Postgres database"
   },
   "v3MenuSections": [
     "Подключение канала",
@@ -49,13 +51,15 @@
     "Production checklist"
   ],
   "policy": "No video/files in comments. Photos only inside comments. Native inline hints only; no overlay/float hints.",
-  "debugPolicy": "Clean V3 menu audit routes plus durable store status. No stress in normal checks.",
+  "debugPolicy": "Clean V3 menu audit routes plus Postgres store status. No stress in normal checks.",
   "manualCheck": [
-    "Deploy and confirm log: adminkit clean 1.53.11 durable store start",
-    "Open /version?t=15311 and confirm runtimeVersion CC7.5.35-CORE-1.53.11-DURABLE-STORE",
+    "Deploy and confirm log: adminkit clean 1.53.11 postgres store start",
+    "Open /version?t=15311 and confirm runtimeVersion CC7.5.36-CORE-1.53.11-POSTGRES-STORE",
+    "Confirm /version persistentStore.backend=postgres-jsonb",
     "Confirm /version persistentStore.bootstrapOk=true",
-    "Confirm /version persistentStore.persistent=true after Northflank persistent volume/env is configured",
+    "Confirm /version persistentStore.postgresConfigured=true",
+    "Confirm /version persistentStore.persistent=true",
     "Open /debug/menu/audit?t=15311 and confirm visibleMainMenuTotal=12",
-    "Check MAX /start and all V3 sections"
+    "Check MAX /start and then test redeploy without re-forwarding channel post"
   ]
 }
