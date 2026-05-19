@@ -1,10 +1,10 @@
 {
-  "runtimeVersion": "CC7.5.37-CORE-1.53.11-POSTGRES-ARCHIVE",
-  "buildVersion": "CC7.5.37-CORE-1.53.11-POSTGRES-ARCHIVE",
-  "displayVersion": "CC7.5.37",
-  "packageVersion": "CC7.5.37-v1-core-1.53.11-postgres-archive",
-  "sourceMarker": "adminkit-cc7-5-37-core-1-53-11-postgres-archive",
-  "buildGeneratedAt": "2026-05-19T16:30:00Z",
+  "runtimeVersion": "CC7.5.38-CORE-1.53.11-ARCHIVE-KEYFLOW",
+  "buildVersion": "CC7.5.38-CORE-1.53.11-ARCHIVE-KEYFLOW",
+  "displayVersion": "CC7.5.38",
+  "packageVersion": "CC7.5.38-v1-core-1.53.11-archive-keyflow",
+  "sourceMarker": "adminkit-cc7-5-38-core-1-53-11-archive-keyflow",
+  "buildGeneratedAt": "2026-05-19T16:50:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
     "version": "1.53.11",
@@ -13,6 +13,7 @@
     "menuCorePath": "v3-menu-core-1539.js",
     "botAdapterPath": "clean-bot-1539.js",
     "routesPath": "v3-menu-routes-1539.js",
+    "archiveFlowPath": "archive-flow-15311.js",
     "activeRuntime": "index.js",
     "cleanBase": true,
     "noModuleLoadPatch": true,
@@ -29,11 +30,12 @@
     "table": "adminkit_state",
     "key": "store",
     "localStoreJsonRole": "runtime compatibility cache only",
-    "goal": "channel bindings, active channel, patched posts, comments, handoffs, reactions, gifts, moderation and growth state survive redeploys and code updates in the already connected Northflank Postgres database"
+    "goal": "client-bot-channel binding and patched posts survive redeploys and code updates"
   },
   "postArchive": {
     "enabled": true,
     "adapterPath": "postgres-post-archive.js",
+    "flowPath": "archive-flow-15311.js",
     "tables": [
       "ak_channels",
       "ak_posts",
@@ -41,7 +43,16 @@
       "ak_post_archive"
     ],
     "debugEndpoint": "/debug/archive/status",
-    "goal": "every saved/patched post is mirrored into tabular Postgres archive so deleted content can later be restored as a new post"
+    "botFlow": [
+      "admin_section_archive",
+      "archive_list",
+      "archive_open",
+      "archive_restore_confirm",
+      "archive_restore_run",
+      "archive_limits"
+    ],
+    "currentStoragePolicy": "store all posts/snapshots physically; tariff limits 5/15/30 are marketing limits to apply later without deleting stored data",
+    "goal": "owner can list archived post snapshots and restore a selected snapshot as a new post"
   },
   "v3MenuSections": [
     "Подключение канала",
@@ -65,14 +76,14 @@
   "policy": "No video/files in comments. Photos only inside comments. Native inline hints only; no overlay/float hints.",
   "debugPolicy": "Clean V3 menu audit routes plus Postgres store/archive status. No stress in normal checks.",
   "manualCheck": [
-    "Deploy and confirm log: adminkit clean 1.53.11 postgres archive start",
-    "Open /version?t=15311 and confirm runtimeVersion CC7.5.37-CORE-1.53.11-POSTGRES-ARCHIVE",
+    "Deploy and confirm log: adminkit clean 1.53.11 archive keyflow start",
+    "Open /version?t=15311 and confirm runtimeVersion CC7.5.38-CORE-1.53.11-ARCHIVE-KEYFLOW",
     "Confirm /version persistentStore.backend=postgres-jsonb",
     "Confirm /version persistentStore.bootstrapOk=true",
     "Confirm /version persistentStore.postgresConfigured=true",
     "Confirm /version persistentStore.persistent=true",
     "Open /debug/archive/status?t=15311 and confirm ok=true and tables/counts are visible",
-    "Open /debug/menu/audit?t=15311 and confirm visibleMainMenuTotal=12",
-    "Check MAX /start and then test redeploy without re-forwarding channel post"
+    "Open MAX /start → Архив / восстановление → Список архива → открыть снимок → восстановить как новый пост",
+    "Verify channel binding and post list survive redeploy without re-forwarding channel post"
   ]
 }
