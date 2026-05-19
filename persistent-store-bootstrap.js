@@ -2,12 +2,13 @@
 
 const fs = require('fs');
 const path = require('path');
+const pgState = require('./postgres-state-store');
 
 const LOCAL_DATA_DIR = path.join(__dirname, 'data');
 const LOCAL_STORE_FILE = path.join(LOCAL_DATA_DIR, 'store.json');
-const STORE_FILE_NAME = 'store.json';
 
 let installedState = null;
+let mirrorInstalled = false;
 
 function clean(value) {
   return String(value || '').trim();
@@ -102,160 +103,136 @@ function isKnownFixtureStore(value) {
 function isMeaningfulRuntimeStore(value) {
   if (!value || typeof value !== 'object' || isKnownFixtureStore(value)) return false;
   const countKeys = (x) => (x && typeof x === 'object' ? Object.keys(x).filter(Boolean).length : 0);
-  const meaningfulPosts = countKeys(value.posts) > 0;
-  const meaningfulChannels = countKeys(value.channels) > 0;
-  const meaningfulHandoffs = countKeys(value.handoffs) > 0;
-  const meaningfulComments = countKeys(value.comments) > 0;
-  const meaningfulGifts = countKeys(value.gifts && value.gifts.campaigns) > 0;
-  return meaningfulChannels || meaningfulPosts || meaningfulHandoffs || meaningfulComments || meaningfulGifts;
-}
-
-function canUseDirectory(dirPath, createMissing) {
-  try {
-    if (createMissing) fs.mkdirSync(dirPath, { recursive: true });
-    fs.accessSync(dirPath, fs.constants.W_OK | fs.constants.R_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function resolveDurableDir() {
-  const explicit = clean(process.env.ADMINKIT_STORE_DIR) || clean(process.env.ADMINKIT_DATA_DIR) || clean(process.env.PERSISTENT_STORE_DIR) || clean(process.env.STORE_DATA_DIR);
-  if (explicit) {
-    return { dir: path.resolve(explicit), mode: 'env' };
-  }
-
-  const volumeCandidates = ['/data/adminkit', '/var/data/adminkit', '/mnt/data/adminkit'];
-  for (const candidate of volumeCandidates) {
-    const parent = path.dirname(candidate);
-    if (fs.existsSync(parent) && canUseDirectory(candidate, true)) {
-      return { dir: candidate, mode: 'volume-default' };
-    }
-  }
-
-  return { dir: LOCAL_DATA_DIR, mode: 'local-fallback' };
+  return countKeys(value.channels) > 0 || countKeys(value.posts) > 0 || countKeys(value.handoffs) > 0 || countKeys(value.comments) > 0 || countKeys(value.gifts && value.gifts.campaigns) > 0;
 }
 
 function samePath(a, b) {
-  const aa = path.resolve(a);
-  const bb = path.resolve(b);
-  if (aa === bb) return true;
-  try {
-    return fs.realpathSync.native(aa) === fs.realpathSync.native(bb);
-  } catch {
-    return false;
-  }
+  try { return path.resolve(a) === path.resolve(b); } catch { return false; }
 }
 
-function ensureDurableStoreFile(targetFile) {
-  if (fs.existsSync(targetFile)) return { action: 'existing' };
-
-  const local = readJsonSafe(LOCAL_STORE_FILE);
-  if (isMeaningfulRuntimeStore(local)) {
-    atomicWriteJson(targetFile, normalizeStoreShape(local));
-    return { action: 'migrated-local-runtime-store' };
-  }
-
-  atomicWriteJson(targetFile, createEmptyStore());
-  return { action: 'initialized-empty' };
-}
-
-function replaceLocalDataDirWithSymlink(targetDir) {
-  if (samePath(LOCAL_DATA_DIR, targetDir)) {
-    fs.mkdirSync(LOCAL_DATA_DIR, { recursive: true });
-    return { action: 'local-data-dir-used' };
-  }
-
-  if (fs.existsSync(LOCAL_DATA_DIR)) {
-    const stat = fs.lstatSync(LOCAL_DATA_DIR);
-    if (stat.isSymbolicLink()) {
-      let currentTarget = '';
-      try { currentTarget = fs.realpathSync.native(LOCAL_DATA_DIR); } catch {}
-      if (currentTarget && samePath(currentTarget, targetDir)) return { action: 'symlink-already-ok' };
-      fs.unlinkSync(LOCAL_DATA_DIR);
-    } else {
-      const backup = LOCAL_DATA_DIR + '.runtime-backup-' + Date.now();
-      fs.renameSync(LOCAL_DATA_DIR, backup);
+function installWriteMirror() {
+  if (mirrorInstalled || !pgState.isConfigured()) return false;
+  mirrorInstalled = true;
+  const originalWriteFileSync = fs.writeFileSync.bind(fs);
+  fs.writeFileSync = function adminkitWriteFileSync(filePath, data, options) {
+    const result = originalWriteFileSync(filePath, data, options);
+    try {
+      if (samePath(filePath, LOCAL_STORE_FILE)) {
+        const text = Buffer.isBuffer(data) ? data.toString('utf8') : String(data || '');
+        const parsed = JSON.parse(text);
+        pgState.scheduleSave(normalizeStoreShape(parsed));
+      }
+    } catch (error) {
+      process.env.ADMINKIT_STORE_LAST_MIRROR_ERROR = String(error && error.message || error).slice(0, 500);
     }
-  }
-
-  fs.symlinkSync(targetDir, LOCAL_DATA_DIR, 'dir');
-  return { action: 'symlink-created' };
+    return result;
+  };
+  return true;
 }
 
 function publishEnv(state) {
   process.env.ADMINKIT_STORE_BACKEND = state.backend;
   process.env.ADMINKIT_STORE_MODE = state.mode;
-  process.env.ADMINKIT_STORE_DIR = state.dir;
-  process.env.ADMINKIT_STORE_FILE = state.file;
+  process.env.ADMINKIT_STORE_FILE = state.file || '';
+  process.env.ADMINKIT_STORE_DIR = state.dir || '';
+  process.env.ADMINKIT_STORE_TABLE = state.table || '';
+  process.env.ADMINKIT_STORE_KEY = state.key || '';
   process.env.ADMINKIT_STORE_PERSISTENT = state.persistent ? '1' : '0';
   process.env.ADMINKIT_STORE_BOOTSTRAP_OK = state.ok ? '1' : '0';
+  process.env.ADMINKIT_STORE_POSTGRES_CONFIGURED = state.postgresConfigured ? '1' : '0';
 }
 
-function install(options = {}) {
+async function install(options = {}) {
   if (installedState) return installedState;
   const runtimeVersion = clean(options.runtimeVersion || process.env.RUNTIME_VERSION || process.env.BUILD_VERSION || 'unknown');
-  const resolved = resolveDurableDir();
-  const targetDir = resolved.dir;
-  const targetFile = path.join(targetDir, STORE_FILE_NAME);
+  fs.mkdirSync(LOCAL_DATA_DIR, { recursive: true });
 
-  try {
-    if (!canUseDirectory(targetDir, true)) throw new Error('store_dir_not_writable:' + targetDir);
-    const fileState = ensureDurableStoreFile(targetFile);
-    const linkState = replaceLocalDataDirWithSymlink(targetDir);
+  if (pgState.isConfigured()) {
+    const loaded = await pgState.loadSnapshot();
+    const local = readJsonSafe(LOCAL_STORE_FILE);
+    let seed = null;
+    let action = '';
+
+    if (loaded.ok && loaded.found && loaded.value) {
+      seed = normalizeStoreShape(loaded.value);
+      action = 'loaded-from-postgres';
+    } else if (isMeaningfulRuntimeStore(local)) {
+      seed = normalizeStoreShape(local);
+      const saved = await pgState.saveSnapshot(seed);
+      action = saved.ok ? 'migrated-local-to-postgres' : 'local-cache-postgres-save-failed';
+    } else if (loaded.ok) {
+      seed = createEmptyStore();
+      const saved = await pgState.saveSnapshot(seed);
+      action = saved.ok ? 'initialized-postgres-empty' : 'initialized-local-cache-only';
+    }
+
+    if (seed) atomicWriteJson(LOCAL_STORE_FILE, seed);
+    const mirror = installWriteMirror();
     installedState = {
-      ok: true,
-      backend: 'persistent-json-file',
-      mode: resolved.mode,
-      persistent: resolved.mode !== 'local-fallback',
+      ok: Boolean(loaded.ok || seed),
+      backend: 'postgres-jsonb',
+      mode: 'postgres-primary-json-cache',
+      persistent: Boolean(loaded.ok || seed),
+      postgresConfigured: true,
       runtimeVersion,
-      dir: targetDir,
-      file: targetFile,
-      localDataDir: LOCAL_DATA_DIR,
-      fileState: fileState.action,
-      linkState: linkState.action,
-      installedAt: new Date().toISOString()
-    };
-  } catch (error) {
-    fs.mkdirSync(LOCAL_DATA_DIR, { recursive: true });
-    if (!fs.existsSync(LOCAL_STORE_FILE)) atomicWriteJson(LOCAL_STORE_FILE, createEmptyStore());
-    installedState = {
-      ok: false,
-      backend: 'local-json-file-fallback',
-      mode: 'local-fallback',
-      persistent: false,
-      runtimeVersion,
+      table: pgState.tableName(),
+      key: pgState.stateKey(),
       dir: LOCAL_DATA_DIR,
       file: LOCAL_STORE_FILE,
-      localDataDir: LOCAL_DATA_DIR,
-      error: String(error && error.message || error),
+      action,
+      mirrorInstalled: mirror,
+      postgres: pgState.info(),
+      error: loaded.ok ? '' : loaded.error || '',
       installedAt: new Date().toISOString()
     };
+    publishEnv(installedState);
+    console.log('adminkit postgres store bootstrap', JSON.stringify({
+      ok: installedState.ok,
+      backend: installedState.backend,
+      mode: installedState.mode,
+      persistent: installedState.persistent,
+      runtimeVersion,
+      action,
+      table: installedState.table,
+      key: installedState.key,
+      mirrorInstalled: mirror,
+      error: installedState.error || ''
+    }));
+    return installedState;
   }
 
+  if (!fs.existsSync(LOCAL_STORE_FILE)) atomicWriteJson(LOCAL_STORE_FILE, createEmptyStore());
+  installedState = {
+    ok: true,
+    backend: 'local-json-file-fallback',
+    mode: 'postgres-env-missing-local-cache-only',
+    persistent: false,
+    postgresConfigured: false,
+    runtimeVersion,
+    dir: LOCAL_DATA_DIR,
+    file: LOCAL_STORE_FILE,
+    error: 'postgres_env_missing',
+    installedAt: new Date().toISOString()
+  };
   publishEnv(installedState);
-  console.log('adminkit persistent store bootstrap', JSON.stringify({
-    ok: installedState.ok,
-    backend: installedState.backend,
-    mode: installedState.mode,
-    persistent: installedState.persistent,
-    runtimeVersion: installedState.runtimeVersion,
-    fileState: installedState.fileState,
-    linkState: installedState.linkState,
-    error: installedState.error || ''
-  }));
+  console.log('adminkit postgres store fallback', JSON.stringify({ ok: true, backend: installedState.backend, persistent: false, runtimeVersion }));
   return installedState;
 }
 
 function info() {
+  const pg = pgState.info();
   return installedState || {
     ok: process.env.ADMINKIT_STORE_BOOTSTRAP_OK === '1',
     backend: clean(process.env.ADMINKIT_STORE_BACKEND) || 'not-installed',
     mode: clean(process.env.ADMINKIT_STORE_MODE) || '',
     persistent: process.env.ADMINKIT_STORE_PERSISTENT === '1',
+    postgresConfigured: process.env.ADMINKIT_STORE_POSTGRES_CONFIGURED === '1' || pg.configured,
+    table: clean(process.env.ADMINKIT_STORE_TABLE) || pg.table,
+    key: clean(process.env.ADMINKIT_STORE_KEY) || pg.key,
     dir: clean(process.env.ADMINKIT_STORE_DIR),
-    file: clean(process.env.ADMINKIT_STORE_FILE)
+    file: clean(process.env.ADMINKIT_STORE_FILE),
+    postgres: pg,
+    lastMirrorError: clean(process.env.ADMINKIT_STORE_LAST_MIRROR_ERROR)
   };
 }
 
@@ -264,6 +241,5 @@ module.exports = {
   info,
   createEmptyStore,
   isMeaningfulRuntimeStore,
-  isKnownFixtureStore,
-  resolveDurableDir
+  isKnownFixtureStore
 };
