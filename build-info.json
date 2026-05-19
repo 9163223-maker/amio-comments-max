@@ -1,10 +1,10 @@
 {
-  "runtimeVersion": "CC7.5.36-CORE-1.53.11-POSTGRES-STORE",
-  "buildVersion": "CC7.5.36-CORE-1.53.11-POSTGRES-STORE",
-  "displayVersion": "CC7.5.36",
-  "packageVersion": "CC7.5.36-v1-core-1.53.11-postgres-store",
-  "sourceMarker": "adminkit-cc7-5-36-core-1-53-11-postgres-store",
-  "buildGeneratedAt": "2026-05-19T16:05:00Z",
+  "runtimeVersion": "CC7.5.37-CORE-1.53.11-POSTGRES-ARCHIVE",
+  "buildVersion": "CC7.5.37-CORE-1.53.11-POSTGRES-ARCHIVE",
+  "displayVersion": "CC7.5.37",
+  "packageVersion": "CC7.5.37-v1-core-1.53.11-postgres-archive",
+  "sourceMarker": "adminkit-cc7-5-37-core-1-53-11-postgres-archive",
+  "buildGeneratedAt": "2026-05-19T16:30:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
     "version": "1.53.11",
@@ -31,6 +31,18 @@
     "localStoreJsonRole": "runtime compatibility cache only",
     "goal": "channel bindings, active channel, patched posts, comments, handoffs, reactions, gifts, moderation and growth state survive redeploys and code updates in the already connected Northflank Postgres database"
   },
+  "postArchive": {
+    "enabled": true,
+    "adapterPath": "postgres-post-archive.js",
+    "tables": [
+      "ak_channels",
+      "ak_posts",
+      "ak_post_snapshots",
+      "ak_post_archive"
+    ],
+    "debugEndpoint": "/debug/archive/status",
+    "goal": "every saved/patched post is mirrored into tabular Postgres archive so deleted content can later be restored as a new post"
+  },
   "v3MenuSections": [
     "Подключение канала",
     "Комментарии под постами",
@@ -51,14 +63,15 @@
     "Production checklist"
   ],
   "policy": "No video/files in comments. Photos only inside comments. Native inline hints only; no overlay/float hints.",
-  "debugPolicy": "Clean V3 menu audit routes plus Postgres store status. No stress in normal checks.",
+  "debugPolicy": "Clean V3 menu audit routes plus Postgres store/archive status. No stress in normal checks.",
   "manualCheck": [
-    "Deploy and confirm log: adminkit clean 1.53.11 postgres store start",
-    "Open /version?t=15311 and confirm runtimeVersion CC7.5.36-CORE-1.53.11-POSTGRES-STORE",
+    "Deploy and confirm log: adminkit clean 1.53.11 postgres archive start",
+    "Open /version?t=15311 and confirm runtimeVersion CC7.5.37-CORE-1.53.11-POSTGRES-ARCHIVE",
     "Confirm /version persistentStore.backend=postgres-jsonb",
     "Confirm /version persistentStore.bootstrapOk=true",
     "Confirm /version persistentStore.postgresConfigured=true",
     "Confirm /version persistentStore.persistent=true",
+    "Open /debug/archive/status?t=15311 and confirm ok=true and tables/counts are visible",
     "Open /debug/menu/audit?t=15311 and confirm visibleMainMenuTotal=12",
     "Check MAX /start and then test redeploy without re-forwarding channel post"
   ]
