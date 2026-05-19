@@ -1,8 +1,8 @@
 'use strict';
 
-const RUNTIME = 'CC7.5.34-CORE-1.51.0-PRODUCTION-CHECKLIST-LITE';
-const SOURCE = 'adminkit-cc7-5-34-core-1-51-0-production-checklist-lite';
-const MARKER = '__ADMINKIT_CC7_5_34_CORE_1_51_0_PRODUCTION_CHECKLIST_LITE_LOADER__';
+const RUNTIME = 'CC7.5.34-CORE-1.51.1-PRODUCTION-CHECKLIST-LITE';
+const SOURCE = 'adminkit-cc7-5-34-core-1-51-1-production-checklist-lite';
+const MARKER = '__ADMINKIT_CC7_5_34_CORE_1_51_1_PRODUCTION_CHECKLIST_LITE_LOADER__';
 const CANONICAL_PUBLIC_BASE_URL = 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run';
 
 process.env.BUILD_VERSION = RUNTIME;
