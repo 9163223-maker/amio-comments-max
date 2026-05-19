@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.35-v1-core-1.53.11-durable-store",
+  "version": "CC7.5.36-v1-core-1.53.11-postgres-store",
   "main": "clean-entrypoint-1.53.9.js",
   "scripts": {
     "start": "node clean-entrypoint-1.53.9.js"
