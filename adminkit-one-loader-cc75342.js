@@ -22,11 +22,24 @@ function installDebugLite() {
   }
 }
 
+function installCleanEntrypointDryRunRoute() {
+  try {
+    const layer = require('./src/diagnostics/clean-entrypoint-dry-run-route-1.52.4');
+    if (layer && typeof layer.install === 'function') return layer.install();
+    return { ok: false, error: 'clean_entrypoint_dry_run_route_install_missing' };
+  } catch (error) {
+    return { ok: false, error: error && error.message ? error.message : String(error) };
+  }
+}
+
 if (!global[MARKER]) {
   global[MARKER] = true;
   const lite = installDebugLite();
+  const dryRunRoute = installCleanEntrypointDryRunRoute();
   process.env.ADMINKIT_DEBUG_LITE_LAYER_OK = lite.ok !== false ? '1' : '0';
   process.env.ADMINKIT_DEBUG_LITE_LAYER_RUNTIME = lite.runtimeVersion || '';
+  process.env.ADMINKIT_DRY_RUN_ROUTE_LAYER_OK = dryRunRoute.ok !== false ? '1' : '0';
+  process.env.ADMINKIT_DRY_RUN_ROUTE_LAYER_RUNTIME = dryRunRoute.runtimeVersion || '';
   require('./adminkit-one-loader-cc7534');
   process.env.BUILD_VERSION = RUNTIME;
   process.env.RUNTIME_VERSION = RUNTIME;
