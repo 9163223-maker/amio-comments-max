@@ -1,11 +1,11 @@
 {
-  "runtimeVersion": "CC7.5.34-CORE-1.51.1-PRODUCTION-CHECKLIST-LITE",
-  "buildVersion": "CC7.5.34-CORE-1.51.1-PRODUCTION-CHECKLIST-LITE",
+  "runtimeVersion": "CC7.5.34-CORE-1.52.7-CLEAN-ENTRYPOINT-PRODUCTION-RUNTIME",
+  "buildVersion": "CC7.5.34-CORE-1.52.7-CLEAN-ENTRYPOINT-PRODUCTION-RUNTIME",
   "displayVersion": "CC7.5.34",
-  "packageVersion": "CC7.5.34-v1-core-1.51.1-production-checklist-lite",
-  "sourceMarker": "adminkit-cc7-5-34-core-1-51-1-production-checklist-lite",
-  "buildGeneratedAt": "2026-05-19T05:55:00Z",
-  "coreRuntimeVersion": "ADMINKIT-CORE-1.51.1-PRODUCTION-CHECKLIST-LITE",
+  "packageVersion": "CC7.5.34-v1-core-1.52.7-clean-entrypoint-production-runtime",
+  "sourceMarker": "adminkit-cc7-5-34-core-1-52-7-clean-entrypoint-production-runtime",
+  "buildGeneratedAt": "2026-05-19T06:30:00Z",
+  "coreRuntimeVersion": "ADMINKIT-CORE-1.52.7-CLEAN-ENTRYPOINT-PRODUCTION-RUNTIME",
   "architectureAuditVersion": "1.52.0",
   "architectureAuditReportVersion": "1.52.1",
   "cleanCoreScaffoldVersion": "1.52.1",
@@ -16,13 +16,15 @@
   "cleanEntrypointDryRunRuntime": "ADMINKIT-CLEAN-ENTRYPOINT-DRY-RUN-1.52.3",
   "safeDryRunRouteVersion": "1.52.4",
   "safeDryRunRouteRuntime": "ADMINKIT-CLEAN-ENTRYPOINT-DRY-RUN-ROUTE-1.52.4",
-  "cleanEntrypointActiveRuntimeChange": false,
-  "cleanEntrypointPackageJsonSwitched": false,
-  "cleanEntrypointPath": "clean-entrypoint-1.52.2.js",
+  "cleanEntrypointActiveRuntimeChange": true,
+  "cleanEntrypointPackageJsonSwitched": true,
+  "cleanEntrypointPath": "clean-entrypoint-1.52.7.js",
   "cleanEntrypointDryRunPath": "src/diagnostics/clean-entrypoint-dry-run-1.52.3.js",
   "cleanEntrypointDryRunRoutePath": "src/diagnostics/clean-entrypoint-dry-run-route-1.52.4.js",
   "explicitDebugLiteRoutesPath": "src/diagnostics/debug-lite-routes.js",
   "cleanCoreScaffoldPath": "src/core/clean-core-scaffold-1.52.1.js",
+  "activeProductionRuntime": "index.js",
+  "safeRollbackRuntime": "clean-entrypoint-1.52.5.js",
   "coreStressTest": "disabled; replaced by segmented production checklist lite",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "debugPolicy": "Debug Lite plus segmented Production Checklist Lite. Heavy debug remains guarded.",
@@ -39,8 +41,8 @@
     "noStressTest": true,
     "noMaxApiCall": true,
     "noSecrets": true,
-    "doesNotSwitchPackageJson": true,
-    "doesNotSwitchActiveRuntime": true
+    "doesNotSwitchPackageJson": false,
+    "doesNotSwitchActiveRuntime": false
   },
   "productionChecklistLite": {
     "enabled": true,
@@ -72,12 +74,25 @@
     "noMaxApiCall": true,
     "noSecrets": true
   },
+  "startMenuSwitch": {
+    "expectedHandler": "bot.js handleStart",
+    "expectedMenuText": "АдминКит — панель управления MAX-каналом.",
+    "expectedMenuButtons": [
+      "Комментарии",
+      "Модерация",
+      "Редактор постов",
+      "Кнопки под постами",
+      "Подарки / лид-магниты",
+      "Статистика",
+      "Каналы и подключение",
+      "Помощь"
+    ],
+    "legacyTextMustNotAppear": "Настройки и выбранные посты берутся только из Postgres."
+  },
   "notes": [
     "Correct public domain is p01--amio-commnets-max--qkpwxnxqqrnw.code.run with commnets.",
-    "1.52.3 adds clean-entrypoint dry-run diagnostics but does not switch package.json runtime.",
-    "1.52.4 exposes the dry-run through a separate lightweight route only.",
-    "Current production start remains adminkit-one-loader-cc75342.js until manual approval.",
-    "Base remains CC7.5.34 because it is before the heavy debug-export layer.",
+    "1.52.7 switches package.json to the clean entrypoint and starts index.js directly after installing debug-lite guards.",
+    "Rollback: set package.json start back to node clean-entrypoint-1.52.5.js.",
     "Heavy endpoints remain guarded to protect 0.1 vCPU."
   ]
 }
