@@ -1,6 +1,7 @@
 'use strict';
 
 const { Pool } = require('pg');
+const postArchive = require('./postgres-post-archive');
 
 let pool = null;
 let lastInfo = {
@@ -10,7 +11,8 @@ let lastInfo = {
   table: '',
   key: '',
   lastSyncAt: '',
-  lastError: ''
+  lastError: '',
+  postArchive: postArchive.info()
 };
 let pendingSnapshot = null;
 let pendingTimer = null;
@@ -101,6 +103,20 @@ async function ensureTable(client) {
   return t;
 }
 
+function scheduleArchive(snapshot, reason) {
+  try {
+    const scheduled = postArchive.scheduleSync(snapshot || {}, { reason: reason || 'state-sync' });
+    process.env.ADMINKIT_POST_ARCHIVE_LAST_SCHEDULED = scheduled ? '1' : '0';
+    const arch = postArchive.info();
+    process.env.ADMINKIT_POST_ARCHIVE_ENABLED = arch.configured ? '1' : '0';
+    process.env.ADMINKIT_POST_ARCHIVE_OK = arch.ok ? '1' : '0';
+    process.env.ADMINKIT_POST_ARCHIVE_LAST_ERROR = clean(arch.lastError || '');
+    lastInfo = { ...lastInfo, postArchive: arch };
+  } catch (error) {
+    process.env.ADMINKIT_POST_ARCHIVE_LAST_ERROR = String(error && error.message || error).slice(0, 500);
+  }
+}
+
 async function loadSnapshot() {
   const p = getPool();
   const key = stateKey();
@@ -114,6 +130,7 @@ async function loadSnapshot() {
     const result = await client.query(`SELECT value, updated_at FROM ${t} WHERE key = $1 LIMIT 1`, [key]);
     const row = result.rows && result.rows[0];
     lastInfo = { ...lastInfo, ok: true, configured: true, table: t, key, lastError: '', lastSyncAt: row ? new Date(row.updated_at).toISOString() : '' };
+    if (row && row.value) scheduleArchive(row.value, 'startup-load');
     return { ok: true, configured: true, found: Boolean(row), value: row ? row.value : null, updatedAt: row ? row.updated_at : null, table: t, key };
   } catch (error) {
     lastInfo = { ...lastInfo, ok: false, configured: true, table: t, key, lastError: String(error && error.message || error) };
@@ -140,6 +157,7 @@ async function saveSnapshot(snapshot) {
       [key, JSON.stringify(snapshot || {})]
     );
     lastInfo = { ...lastInfo, ok: true, configured: true, table: t, key, lastError: '', lastSyncAt: new Date().toISOString() };
+    scheduleArchive(snapshot || {}, 'state-save');
     return { ok: true, configured: true, table: t, key };
   } catch (error) {
     lastInfo = { ...lastInfo, ok: false, configured: true, table: t, key, lastError: String(error && error.message || error) };
@@ -173,6 +191,7 @@ async function flush() {
     await saveSnapshot(next || {});
   }
   if (pendingPromise) await pendingPromise;
+  await postArchive.flush();
   return info();
 }
 
@@ -183,6 +202,7 @@ function info() {
     backend: 'postgres-jsonb',
     table: tableName(),
     key: stateKey(),
+    postArchive: postArchive.info(),
     pending: Boolean(pendingTimer || pendingSnapshot || pendingPromise)
   };
 }
