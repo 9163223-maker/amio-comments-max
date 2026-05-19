@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+.DS_Store
+npm-debug.log*
+
+# Runtime state must live in persistent storage, not in repo commits
+data/*.json
+data/comment-files/
+public/comment-uploads/
+*.runtime-backup-*
+*.tmp-*
