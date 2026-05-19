@@ -1,9 +1,9 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.34-v1-core-1.53.7-clean-menu-comments-nested",
-  "main": "clean-entrypoint-1.53.7.js",
+  "version": "CC7.5.34-v1-core-1.53.9-v3-callback-trace",
+  "main": "clean-entrypoint-1.53.9.js",
   "scripts": {
-    "start": "node clean-entrypoint-1.53.7.js"
+    "start": "node clean-entrypoint-1.53.9.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
