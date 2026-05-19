@@ -1,9 +1,9 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.34-v1-core-1.53.3-early-v3-menu-audit",
-  "main": "clean-entrypoint-1.53.3.js",
+  "version": "CC7.5.34-v1-core-1.53.4-v3-menu-route-fix",
+  "main": "clean-entrypoint-1.53.4.js",
   "scripts": {
-    "start": "node clean-entrypoint-1.53.3.js"
+    "start": "node clean-entrypoint-1.53.4.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
