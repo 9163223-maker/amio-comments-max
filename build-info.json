@@ -4,12 +4,18 @@
   "displayVersion": "CC7.5.34",
   "packageVersion": "CC7.5.34-v1-core-1.51.1-production-checklist-lite",
   "sourceMarker": "adminkit-cc7-5-34-core-1-51-1-production-checklist-lite",
-  "buildGeneratedAt": "2026-05-19T05:10:00Z",
+  "buildGeneratedAt": "2026-05-19T05:20:00Z",
   "coreRuntimeVersion": "ADMINKIT-CORE-1.51.1-PRODUCTION-CHECKLIST-LITE",
   "architectureAuditVersion": "1.52.0",
+  "architectureAuditReportVersion": "1.52.1",
   "cleanCoreScaffoldVersion": "1.52.1",
   "cleanCoreScaffoldRuntime": "ADMINKIT-CORE-1.52.1-CLEAN-CORE-SCAFFOLD",
-  "cleanCoreScaffoldActiveRuntimeChange": false,
+  "cleanEntrypointScaffoldVersion": "1.52.2",
+  "cleanEntrypointScaffoldRuntime": "CC7.5.34-CORE-1.52.2-CLEAN-ENTRYPOINT-SCAFFOLD",
+  "cleanEntrypointActiveRuntimeChange": false,
+  "cleanEntrypointPackageJsonSwitched": false,
+  "cleanEntrypointPath": "clean-entrypoint-1.52.2.js",
+  "explicitDebugLiteRoutesPath": "src/diagnostics/debug-lite-routes.js",
   "cleanCoreScaffoldPath": "src/core/clean-core-scaffold-1.52.1.js",
   "coreStressTest": "disabled; replaced by segmented production checklist lite",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
@@ -46,9 +52,9 @@
   },
   "notes": [
     "Correct public domain is p01--amio-commnets-max--qkpwxnxqqrnw.code.run with commnets.",
-    "1.52.1 adds clean-core scaffold as metadata-only code and does not switch runtime entrypoint.",
+    "1.52.2 adds clean-entrypoint scaffold and explicit debug-lite routes but does not switch package.json runtime.",
+    "Current production start remains adminkit-one-loader-cc75342.js until manual approval.",
     "Base remains CC7.5.34 because it is before the heavy debug-export layer.",
-    "Production checklist is split into small lite endpoints and must not call DB, store, MAX API, GitHub export or stress-test.",
     "Heavy endpoints remain guarded to protect 0.1 vCPU."
   ]
 }
