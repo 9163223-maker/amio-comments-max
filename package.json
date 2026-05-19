@@ -1,7 +1,7 @@
 {
   "name": "amio-comments-max",
   "version": "CC7.5.34-v1-core-1.53.5-v3-section-route-audit",
-  "main": "clean-entrypoint-1.53.4.js",
+  "main": "clean-entrypoint-1.53.5.js",
   "scripts": {
     "start": "node clean-entrypoint-1.53.4.js"
   },
