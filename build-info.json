@@ -1,19 +1,20 @@
 {
-  "runtimeVersion": "CC7.5.38-CORE-1.53.11-ARCHIVE-KEYFLOW",
-  "buildVersion": "CC7.5.38-CORE-1.53.11-ARCHIVE-KEYFLOW",
-  "displayVersion": "CC7.5.38",
+  "runtimeVersion": "CC7.5.40-CORE-1.53.11-POLLS-KEYFLOW",
+  "buildVersion": "CC7.5.40-CORE-1.53.11-POLLS-KEYFLOW",
+  "displayVersion": "CC7.5.40",
   "packageVersion": "CC7.5.38-v1-core-1.53.11-archive-keyflow",
-  "sourceMarker": "adminkit-cc7-5-38-core-1-53-11-archive-keyflow",
-  "buildGeneratedAt": "2026-05-19T16:50:00Z",
+  "sourceMarker": "adminkit-cc7-5-40-core-1-53-11-polls-keyflow",
+  "buildGeneratedAt": "2026-05-20T06:20:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
     "version": "1.53.11",
     "entrypoint": "clean-entrypoint-1.53.9.js",
-    "packageEntrypointProxy": "clean-entrypoint-1.53.9.js keeps Northflank start stable and boots runtime 1.53.11",
     "menuCorePath": "v3-menu-core-1539.js",
     "botAdapterPath": "clean-bot-1539.js",
     "routesPath": "v3-menu-routes-1539.js",
     "archiveFlowPath": "archive-flow-15311.js",
+    "pollFlowPath": "poll-flow-15311.js",
+    "pollServicePath": "services/pollService.js",
     "activeRuntime": "index.js",
     "cleanBase": true,
     "noModuleLoadPatch": true,
@@ -36,23 +37,18 @@
     "enabled": true,
     "adapterPath": "postgres-post-archive.js",
     "flowPath": "archive-flow-15311.js",
-    "tables": [
-      "ak_channels",
-      "ak_posts",
-      "ak_post_snapshots",
-      "ak_post_archive"
-    ],
+    "tables": ["ak_channels", "ak_posts", "ak_post_snapshots", "ak_post_archive"],
     "debugEndpoint": "/debug/archive/status",
-    "botFlow": [
-      "admin_section_archive",
-      "archive_list",
-      "archive_open",
-      "archive_restore_confirm",
-      "archive_restore_run",
-      "archive_limits"
-    ],
-    "currentStoragePolicy": "store all posts/snapshots physically; tariff limits 5/15/30 are marketing limits to apply later without deleting stored data",
-    "goal": "owner can list archived post snapshots and restore a selected snapshot as a new post"
+    "currentStoragePolicy": "store all posts/snapshots physically; tariff limits 5/15/30 are marketing limits to apply later without deleting stored data"
+  },
+  "polls": {
+    "enabled": true,
+    "flowPath": "poll-flow-15311.js",
+    "servicePath": "services/pollService.js",
+    "tables": ["ak_polls", "ak_poll_votes"],
+    "mode": "callback buttons under patched MAX post",
+    "quickTemplates": ["yes_no", "like_dislike", "three"],
+    "reason": "the previous polls section was only a shell and had no creation/voting mechanism"
   },
   "v3MenuSections": [
     "Подключение канала",
@@ -68,22 +64,13 @@
     "Тарифы / кабинет",
     "Debug / GitHub export"
   ],
-  "hiddenServiceSections": [
-    "Меню и навигация",
-    "Посадочная Start",
-    "Production checklist"
-  ],
+  "hiddenServiceSections": ["Меню и навигация", "Посадочная Start", "Production checklist"],
   "policy": "No video/files in comments. Photos only inside comments. Native inline hints only; no overlay/float hints.",
-  "debugPolicy": "Clean V3 menu audit routes plus Postgres store/archive status. No stress in normal checks.",
+  "debugPolicy": "Clean V3 menu audit routes plus Postgres store/archive/polls status. No stress in normal checks.",
   "manualCheck": [
-    "Deploy and confirm log: adminkit clean 1.53.11 archive keyflow start",
-    "Open /version?t=15311 and confirm runtimeVersion CC7.5.38-CORE-1.53.11-ARCHIVE-KEYFLOW",
-    "Confirm /version persistentStore.backend=postgres-jsonb",
-    "Confirm /version persistentStore.bootstrapOk=true",
-    "Confirm /version persistentStore.postgresConfigured=true",
-    "Confirm /version persistentStore.persistent=true",
-    "Open /debug/archive/status?t=15311 and confirm ok=true and tables/counts are visible",
-    "Open MAX /start → Архив / восстановление → Список архива → открыть снимок → восстановить как новый пост",
-    "Verify channel binding and post list survive redeploy without re-forwarding channel post"
+    "After redeploy open /version?t=1540 and verify buildInfo displayVersion CC7.5.40 if build-info is surfaced",
+    "Open MAX /start and verify channel/post binding survived without re-forwarding a channel post",
+    "Open Голосовалки / опросы → choose post → create quick poll → vote by callback button under post",
+    "Open Архив / восстановление and verify archive counts survived the same update"
   ]
 }
