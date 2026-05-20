@@ -1,7 +1,7 @@
 'use strict';
 
-const DEFAULT_LIMIT=40;
-function enabled(){return String(process.env.ADMINKIT_UI_TRACE_FORCE||'0').trim()==='1';}
+const DEFAULT_LIMIT=20;
+function enabled(){return String(process.env.ADMINKIT_UI_TRACE_DISABLED||'0').trim()!=='1';}
 function consoleEnabled(){return String(process.env.ADMINKIT_UI_TRACE_CONSOLE||'0').trim()==='1';}
 function limit(){const n=Number(process.env.ADMINKIT_UI_TRACE_LIMIT||DEFAULT_LIMIT);return Number.isFinite(n)&&n>0?Math.min(Math.floor(n),80):DEFAULT_LIMIT;}
 function state(){
@@ -34,5 +34,5 @@ function log(type,data){
 }
 function list(){const st=state();return st.events.slice().reverse();}
 function clear(){const st=state();st.events=[];st.seq=0;return true;}
-function info(){return{enabled:enabled(),console:consoleEnabled(),limit:limit(),events:state().events.length,runtimeVersion:process.env.RUNTIME_VERSION||process.env.BUILD_VERSION||'unknown',note:'trace is off by default; set ADMINKIT_UI_TRACE_FORCE=1 only for short diagnostics'};}
+function info(){return{enabled:enabled(),console:consoleEnabled(),limit:limit(),events:state().events.length,runtimeVersion:process.env.RUNTIME_VERSION||process.env.BUILD_VERSION||'unknown',note:'global UI trace is always on for the last 20 admin actions; set ADMINKIT_UI_TRACE_DISABLED=1 to disable'};}
 module.exports={log,list,clear,mask,lightPayload,enabled,info,LIMIT:DEFAULT_LIMIT};
