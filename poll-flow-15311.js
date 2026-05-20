@@ -7,7 +7,7 @@ const max = require('./services/maxApi');
 const { buildCustomKeyboardRows } = require('./services/keyboardBuilderService');
 const { findGiftCampaignForPost } = require('./services/giftService');
 
-const RUNTIME = 'ADMINKIT-POLL-FLOW-1.1-CUSTOM-FIELDS';
+const RUNTIME = 'ADMINKIT-POLL-FLOW-1.4-EXACT-POLL-PATCH';
 
 function clean(v){return String(v||'').replace(/\s+/g,' ').trim();}
 function sh(v,n=90){const s=clean(v||'Пост');return s.length<=n?s:s.slice(0,n-1).trim()+'…';}
@@ -50,7 +50,7 @@ function optionsPrompt(menu,commentKey,question){
   return {id:'poll_custom_options',text:['✍️ Варианты ответа','','Вопрос: '+sh(question,180),'','Напишите от 2 до 4 ответов. Каждый ответ — с новой строки.','','Пример:','Да','Нет','','Короткие ответы автоматически встанут по две кнопки в ряд.'].join('\n'),attachments:menu.keyboard([[menu.button('↩️ Отмена','comments_pick_post',{source:'polls',commentKey})],[menu.button('🏠 Главное меню','admin_section_main')]])};
 }
 
-async function patchPostWithPoll({config,commentKey}){
+async function patchPostWithPoll({config,commentKey,pollId=''}){
   const post=postByKey(commentKey);
   if(!post||!post.messageId)return {ok:false,error:'post_or_message_missing'};
   const commentCount=(store.getComments(commentKey)||[]).length;
@@ -58,7 +58,7 @@ async function patchPostWithPoll({config,commentKey}){
   const giftCampaign=findGiftCampaignForPost({channelId:post.channelId,postId:post.postId});
   const giftRows=giftCampaign?max.buildGiftKeyboardRows({campaign:giftCampaign,commentKey,channelId:post.channelId,postId:post.postId}):[];
   const customRows=buildCustomKeyboardRows({builder:post.customKeyboard||{},appBaseUrl:config.appBaseUrl,channelId:post.channelId,postId:post.postId,commentKey});
-  const pollRows=await pollService.buildPollKeyboardRows({channelId:post.channelId,postId:post.postId,commentKey});
+  const pollRows=await pollService.buildPollKeyboardRows({channelId:post.channelId,postId:post.postId,commentKey,pollId});
   const keyboard=max.buildCommentsKeyboard({
     appBaseUrl:config.appBaseUrl,botUsername:config.botUsername,maxDeepLinkBase:config.maxDeepLinkBase,
     handoffToken:post.handoffToken,postId:post.postId,channelId:post.channelId,commentKey,messageId:post.messageId||post.postId,
@@ -69,8 +69,8 @@ async function patchPostWithPoll({config,commentKey}){
   if(post.originalLink)payload.link=clone(post.originalLink,null);
   if(post.originalFormat!==undefined&&post.originalFormat!==null)payload.format=post.originalFormat;
   const result=await max.editMessage(payload);
-  store.savePost(commentKey,{lastPollPatchAt:Date.now(),lastPollRowsCount:pollRows.length,lastPollPatchError:null});
-  return {ok:true,result,pollRows:pollRows.length};
+  store.savePost(commentKey,{lastPollPatchAt:Date.now(),lastPollRowsCount:pollRows.length,lastPollPatchError:null,lastPollPatchId:pollId||null});
+  return {ok:true,result,pollRows:pollRows.length,pollId:pollId||null};
 }
 
 async function finishCreate(menu,{config,userId='',commentKey='',question='',options=[],template='custom'}={}){
@@ -79,7 +79,7 @@ async function finishCreate(menu,{config,userId='',commentKey='',question='',opt
   const created=template==='custom'?await pollService.createPoll({adminId:userId,channelId:post.channelId,postId:post.postId,commentKey,question,options,template}):await pollService.createQuickPoll({adminId:userId,channelId:post.channelId,postId:post.postId,commentKey,postTitle:postTitle(post,commentKey),template});
   if(!created.ok)return {id:'poll_error',text:['⚠️ Не удалось создать опрос','','Ошибка: '+String(created.error||'unknown')].join('\n'),attachments:menu.keyboard([[menu.button('🗳 В начало опросов','admin_section_polls')],[menu.button('🏠 Главное меню','admin_section_main')]])};
   let patched={ok:false};
-  try{patched=await patchPostWithPoll({config,commentKey});}catch(e){patched={ok:false,error:String(e&&e.message||e),status:e&&e.status,data:e&&e.data};}
+  try{patched=await patchPostWithPoll({config,commentKey,pollId:created.poll&&created.poll.id});}catch(e){patched={ok:false,error:String(e&&e.message||e),status:e&&e.status,data:e&&e.data};}
   const lines=['✅ Опрос создан','','Пост: '+postTitle(post,commentKey),'Вопрос: '+sh(created.poll&&created.poll.question||question,180),'Ответов: '+((created.poll&&created.poll.options&&created.poll.options.length)||options.length),'Голоса будут сохраняться в Postgres.'];
   if(patched.ok)lines.push('','Кнопки опроса добавлены под постом.'); else lines.push('','Опрос создан в базе, но пост пока не пропатчился: '+String(patched.error||'patch_failed'));
   return {id:'poll_created',text:lines.join('\n'),attachments:menu.keyboard([[menu.button('📊 Статус опросов','poll_status')],[menu.button('📌 Выбрать другой пост','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]])};
@@ -106,7 +106,8 @@ async function handleTextInput(menu,{config,userId='',text=''}={}){
 }
 async function vote({config,userId='',pollId='',optionId='',commentKey=''}){
   const r=await pollService.vote({pollId,optionId,userId});
-  if(r.ok&&commentKey){try{await patchPostWithPoll({config,commentKey});}catch(e){return {ok:true,patchError:String(e&&e.message||e),summary:r.summary};}}
+  const key=commentKey||clean(r&&r.summary&&r.summary.commentKey);
+  if(r.ok&&key){try{await patchPostWithPoll({config,commentKey:key,pollId});}catch(e){return {ok:true,patchError:String(e&&e.message||e),summary:r.summary};}}
   return r;
 }
 async function statusScreen(menu){
