@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.38-v1-core-1.53.11-archive-keyflow",
+  "version": "CC7.5.41-v1-core-1.53.11-custom-polls-wrapper",
   "main": "clean-entrypoint-1.53.9.js",
   "scripts": {
     "start": "node clean-entrypoint-1.53.9.js"
