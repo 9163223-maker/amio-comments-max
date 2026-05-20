@@ -274,6 +274,7 @@ const state = {
   commentTrace: [],
   searchOpen: false, searchQuery: ''
 };
+window.__ADMINKIT_CC7_5_55_STATE__ = state;
 window.__ADMINKIT_CC7_5_53_STATE__ = state;
 window.__ADMINKIT_CC7_5_47_STATE__ = state;
 window.__ADMINKIT_CC7_5_6_STATE__ = state;
@@ -311,6 +312,16 @@ function pushCommentTrace(event, payload) {
     quality: Number(safe.quality || 0) || 0,
     maxSide: Number(safe.maxSide || 0) || 0,
     durationMs: Number(safe.durationMs || 0) || 0,
+    thumbDataUrlBytes: Number(safe.thumbDataUrlBytes || attachment.thumbDataUrlBytes || 0) || 0,
+    hasThumbDataUrl: Boolean(safe.hasThumbDataUrl || attachment.hasThumbDataUrl),
+    hasPreviewDataUrl: Boolean(safe.hasPreviewDataUrl || attachment.hasPreviewDataUrl),
+    hasDataUrl: Boolean(safe.hasDataUrl || attachment.hasDataUrl),
+    hasPreviewUrl: Boolean(safe.hasPreviewUrl || attachment.hasPreviewUrl),
+    hasUrl: Boolean(safe.hasUrl || attachment.hasUrl),
+    selectedSourceKind: clean(safe.selectedSourceKind || attachment.selectedSourceKind),
+    selectedSourceLength: Number(safe.selectedSourceLength || attachment.selectedSourceLength || 0) || 0,
+    fileName: clean(safe.fileName || attachment.fileName),
+    mimeType: clean(safe.mimeType || attachment.mimeType),
     status: clean(safe.status),
     error: clean(safe.error),
     attachment: {
@@ -817,6 +828,7 @@ function boot() {
   if (state.currentUserAvatarUrl && refs.composerAvatar) { refs.composerAvatar.src = state.currentUserAvatarUrl; refs.composerAvatar.style.display = 'block'; if (refs.composerAvatarFallback) refs.composerAvatarFallback.style.display = 'none'; }
 
   const initial = loadOpenStateSync();
+  window.__ADMINKIT_CC7_5_55_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_53_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_47_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_6_INITIAL__ = initial;
