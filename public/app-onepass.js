@@ -1,8 +1,8 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.5.47-COMMENT-UI-NAV-SEARCH';
-const MARKER = '__ADMINKIT_CC7_5_47_COMMENT_UI_NAV_SEARCH__';
+const RUNTIME = 'CC7.5.48-COMMENT-PHOTO-ATTACHMENTS';
+const MARKER = '__ADMINKIT_CC7_5_48_COMMENT_PHOTO_ATTACHMENTS__';
 if (window[MARKER]) return;
 window[MARKER] = true;
 
@@ -259,7 +259,8 @@ const refs = {
   composerAvatar: byId('composerAvatar'), composerAvatarFallback: byId('composerAvatarFallback'), discussionLabel: byId('discussionLabel'), composerCard: byId('composerCard'),
   postError: byId('postError'), commentInlineStatus: byId('commentInlineStatus'), commentsWrap: byId('commentsWrap'),
   miniAppStartCard: byId('miniAppStartCard'), miniAppStartText: byId('miniAppStartText'), miniAppStartWorkBtn: byId('miniAppStartWorkBtn'),
-  miniAppCommunityBtn: byId('miniAppCommunityBtn'), miniAppTopbar: byId('miniAppTopbar')
+  miniAppCommunityBtn: byId('miniAppCommunityBtn'), miniAppTopbar: byId('miniAppTopbar'),
+  attachmentPreview: byId('attachmentPreview')
 };
 
 const params = scanParams();
@@ -269,8 +270,11 @@ const state = {
   currentUserId: getBridgeUserId(), currentUserName: getBridgeUserName(), currentUserAvatarUrl: getBridgeAvatarUrl(),
   comments: [], meta: {}, commentsCount: 0, pollTimer: null, requestInFlight: false,
   sendInFlight: false, lastSendFingerprint: '', lastSendStartedAt: 0,
+  pendingPhoto: null,
+  commentTrace: [],
   searchOpen: false, searchQuery: ''
 };
+window.__ADMINKIT_CC7_5_48_STATE__ = state;
 window.__ADMINKIT_CC7_5_47_STATE__ = state;
 window.__ADMINKIT_CC7_5_6_STATE__ = state;
 window.__ADMINKIT_CC7_5_3_STATE__ = state;
@@ -289,6 +293,83 @@ function setSendingUi(isSending) {
     refs.sendBtn.classList.toggle('is-sending', Boolean(isSending));
   }
   if (refs.commentInput) refs.commentInput.readOnly = Boolean(isSending);
+}
+function pushCommentTrace(event, payload) {
+  const safe = payload && typeof payload === 'object' ? payload : {};
+  const item = {
+    at: Date.now(),
+    event: clean(event),
+    type: clean(safe.type),
+    mimeType: clean(safe.mimeType),
+    fileName: clean(safe.fileName),
+    commentKey: clean(safe.commentKey || state.commentKey),
+    size: Number(safe.size || 0) || 0,
+    error: clean(safe.error)
+  };
+  state.commentTrace.push(item);
+  if (state.commentTrace.length > 20) state.commentTrace = state.commentTrace.slice(-20);
+}
+function clearPendingPhoto() {
+  if (state.pendingPhoto && state.pendingPhoto.previewUrl) {
+    try { URL.revokeObjectURL(state.pendingPhoto.previewUrl); } catch (_) {}
+  }
+  state.pendingPhoto = null;
+  if (refs.attachmentInput) refs.attachmentInput.value = '';
+  renderAttachmentPreview();
+}
+function renderAttachmentPreview() {
+  if (!refs.attachmentPreview) return;
+  const pending = state.pendingPhoto;
+  if (!pending || !pending.previewUrl) {
+    refs.attachmentPreview.innerHTML = '';
+    refs.attachmentPreview.classList.add('hidden');
+    return;
+  }
+  refs.attachmentPreview.classList.remove('hidden');
+  refs.attachmentPreview.innerHTML = '<div class="composer-photo-preview"><img src="' + escapeHtml(pending.previewUrl) + '" alt="' + escapeHtml(pending.fileName || 'photo') + '" loading="lazy"><button class="composer-photo-remove" type="button" aria-label="Убрать фото">×</button></div>';
+  const removeBtn = refs.attachmentPreview.querySelector('.composer-photo-remove');
+  if (removeBtn) removeBtn.addEventListener('click', () => clearPendingPhoto(), { once: true });
+}
+function handleAttachmentChange() {
+  const file = refs.attachmentInput && refs.attachmentInput.files && refs.attachmentInput.files[0];
+  if (!file) return;
+  const mimeType = clean(file.type || '');
+  const fileName = clean(file.name || 'photo');
+  const size = Number(file.size || 0) || 0;
+  pushCommentTrace('attachment_pick', { type: 'file', mimeType, fileName, size });
+  if (!/^image\//i.test(mimeType)) {
+    clearPendingPhoto();
+    setInlineStatus('Пока в комментариях можно прикреплять только фото. Видео и файлы сейчас не поддерживаются.', true);
+    pushCommentTrace('attachment_reject', { type: 'file', mimeType, fileName, size, error: 'only_image_supported' });
+    return;
+  }
+  const previewUrl = URL.createObjectURL(file);
+  state.pendingPhoto = { file, mimeType: mimeType || 'image/jpeg', fileName, size, previewUrl, status: 'picked' };
+  renderAttachmentPreview();
+  setInlineStatus('', false);
+  pushCommentTrace('attachment_preview', { type: 'image', mimeType: state.pendingPhoto.mimeType, fileName, size });
+}
+async function uploadPendingPhotoIfNeeded() {
+  if (!state.pendingPhoto || !state.pendingPhoto.file) return [];
+  const pending = state.pendingPhoto;
+  pending.status = 'uploading';
+  pushCommentTrace('attachment_upload_start', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size });
+  const form = new FormData();
+  form.append('file', pending.file, pending.fileName || 'photo.jpg');
+  form.append('commentKey', state.commentKey || '');
+  form.append('type', 'image');
+  form.append('mimeType', pending.mimeType || pending.file.type || 'image/jpeg');
+  form.append('fileName', pending.fileName || pending.file.name || 'photo.jpg');
+  form.append('size', String(Number(pending.size || pending.file.size || 0) || 0));
+  const response = await fetch('/api/comments/attachments/upload', { method: 'POST', body: form });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false || !data.attachment) {
+    pushCommentTrace('attachment_upload_error', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size, error: clean(data.error || data.message || ('http_' + response.status) || 'upload_failed') });
+    throw new Error(clean(data.message || data.userMessage || data.friendlyMessage || data.error) || 'Не удалось загрузить фото. Попробуйте ещё раз.');
+  }
+  pending.status = 'uploaded';
+  pushCommentTrace('attachment_upload_ok', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size });
+  return [data.attachment];
 }
 function buildOpenStateUrl() {
   const q = new URLSearchParams();
@@ -429,11 +510,12 @@ async function refreshOpenState() {
 function outgoingUserName() { return clean(state.currentUserName || (refs.nameInput && refs.nameInput.value) || 'Гость'); }
 function outgoingUserId() { return clean(state.currentUserId || (refs.nameInput && refs.nameInput.value) || 'guest'); }
 function makeSendFingerprint(text) {
-  return [state.commentKey || '', outgoingUserId() || 'guest', text || ''].join('|');
+  return [state.commentKey || '', outgoingUserId() || 'guest', text || '', state.pendingPhoto ? 'has_photo' : 'no_photo'].join('|');
 }
 async function sendComment() {
   const text = clean(refs.commentInput && refs.commentInput.value);
-  if (!text || !state.commentKey) return;
+  const hasPhoto = Boolean(state.pendingPhoto && state.pendingPhoto.file);
+  if ((!text && !hasPhoto) || !state.commentKey) return;
   const fingerprint = makeSendFingerprint(text);
   if (state.sendInFlight) return;
   if (fingerprint === state.lastSendFingerprint && Date.now() - Number(state.lastSendStartedAt || 0) < 8000) return;
@@ -443,16 +525,21 @@ async function sendComment() {
   setInlineStatus('Отправляем…', false);
   setSendingUi(true);
   try {
+    const attachments = hasPhoto ? await uploadPendingPhotoIfNeeded() : [];
+    pushCommentTrace('comment_create_start', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length });
     const response = await fetch('/api/comments', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commentKey: state.commentKey, userId: outgoingUserId(), userName: outgoingUserName(), avatarUrl: state.currentUserAvatarUrl || '', text, attachments: [] })
+      body: JSON.stringify({ commentKey: state.commentKey, userId: outgoingUserId(), userName: outgoingUserName(), avatarUrl: state.currentUserAvatarUrl || '', text, attachments })
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) {
+      pushCommentTrace('comment_create_error', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length, error: clean(data.error || data.message || ('http_' + response.status)) });
       setInlineStatus(clean(data.message || data.userMessage || data.friendlyMessage) || 'Комментарий не опубликован: сработала модерация или правила обсуждения.', true);
       return;
     }
+    pushCommentTrace('comment_create_ok', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length });
     if (refs.commentInput) refs.commentInput.value = '';
+    clearPendingPhoto();
     state.lastSendFingerprint = '';
     setInlineStatus('', false);
     await refreshOpenState();
@@ -501,6 +588,7 @@ function bindEvents() {
   if (refs.commentSearchInput) refs.commentSearchInput.addEventListener('input', () => { state.searchQuery = clean(refs.commentSearchInput.value); renderComments(); });
   if (refs.commentSearchClear) refs.commentSearchClear.addEventListener('click', closeSearch);
   if (refs.attachBtn && refs.attachmentInput) refs.attachBtn.addEventListener('click', () => refs.attachmentInput.click());
+  if (refs.attachmentInput) refs.attachmentInput.addEventListener('change', handleAttachmentChange);
   if (refs.miniAppStartWorkBtn) refs.miniAppStartWorkBtn.addEventListener('click', () => openMaxLink('https://max.ru/id781310320690_bot?start=menu'));
   if (refs.miniAppCommunityBtn) refs.miniAppCommunityBtn.addEventListener('click', () => openMaxLink('https://max.ru/id781310320690_biz'));
 }
@@ -521,6 +609,7 @@ function boot() {
   if (state.currentUserAvatarUrl && refs.composerAvatar) { refs.composerAvatar.src = state.currentUserAvatarUrl; refs.composerAvatar.style.display = 'block'; if (refs.composerAvatarFallback) refs.composerAvatarFallback.style.display = 'none'; }
 
   const initial = loadOpenStateSync();
+  window.__ADMINKIT_CC7_5_48_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_47_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_6_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_3_INITIAL__ = initial;
