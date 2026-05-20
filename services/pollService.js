@@ -1,12 +1,13 @@
 'use strict';
 
 const db = require('../cc5-db-core');
-const RUNTIME = 'ADMINKIT-POLL-SERVICE-1.3-LIVE-COUNTS-COMPACT';
+const RUNTIME = 'ADMINKIT-POLL-SERVICE-1.4-PERCENT-VOTES-LABELS';
 let ensured = null;
 
 function clean(v){return String(v||'').replace(/\s+/g,' ').trim();}
 function cut(v,n){const s=clean(v);return s.length>n?s.slice(0,Math.max(0,n-1)).trim()+'…':s;}
 function countText(n){n=Number(n||0);if(!Number.isFinite(n)||n<0)n=0;return n>9999?'9999':String(Math.floor(n));}
+function percentText(n){n=Number(n||0);if(!Number.isFinite(n)||n<0)n=0;return n>100?100:String(Math.round(n));}
 function questionLabel(q,total){const suffix=' · '+countText(total);const max=64;return cut('🗳 '+cut(q,Math.max(8,max-suffix.length-3)),max-suffix.length)+suffix;}
 function idFromText(v,i){const base=clean(v).toLowerCase().replace(/[^a-zа-я0-9]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,18);return (base||('o'+(i+1)))+'_'+(i+1);}
 async function q(sql,params=[]){await ensure();return db.query(sql,params);}
@@ -131,10 +132,10 @@ async function vote({pollId='',optionId='',userId=''}={}){
   return {ok:true,summary:await summary(id)};
 }
 function payload(action,data){return JSON.stringify(Object.assign({action},data||{}));}
-function optionLabel(o){return `${cut(o.text,46)} · ${countText(o.votes)}`;}
+function optionLabel(o){const suffix=` · ${percentText(o.percent)}% (${countText(o.votes)})`;return `${cut(o.text,Math.max(8,64-suffix.length))}${suffix}`;}
 function adaptiveOptionRows(options,total,pollId,commentKey){
   const buttons=options.map(o=>({type:'callback',text:cut(optionLabel(o),64),payload:payload('poll_vote',{pollId,optionId:o.id,commentKey})}));
-  const compact=buttons.length<=4&&buttons.every(b=>clean(b.text).length<=22);
+  const compact=buttons.length<=4&&buttons.every(b=>clean(b.text).length<=26);
   if(!compact)return buttons.map(b=>[b]);
   const rows=[];
   for(let i=0;i<buttons.length;i+=2) rows.push(buttons.slice(i,i+2));
@@ -148,4 +149,4 @@ async function buildPollKeyboardRows({channelId='',postId='',commentKey=''}={}){
   return rows;
 }
 async function status(){await ensure();const a=await q('select count(*)::int n from ak_polls');const b=await q('select count(*)::int n from ak_poll_votes');return {ok:true,runtimeVersion:RUNTIME,counts:{polls:a.rows[0].n,votes:b.rows[0].n}};}
-module.exports={RUNTIME,ensure,createPoll,createQuickPoll,parseOptionsText,normalizeOptions,activePoll,summary,vote,buildPollKeyboardRows,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-custom-callback-polls-live-counts-compact'})};
+module.exports={RUNTIME,ensure,createPoll,createQuickPoll,parseOptionsText,normalizeOptions,activePoll,summary,vote,buildPollKeyboardRows,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-custom-callback-polls-percent-votes-labels'})};
