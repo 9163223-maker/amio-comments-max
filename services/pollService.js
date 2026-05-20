@@ -1,7 +1,7 @@
 'use strict';
 
 const db = require('../cc5-db-core');
-const RUNTIME = 'ADMINKIT-POLL-SERVICE-1.7-DROP-LEGACY-FK';
+const RUNTIME = 'ADMINKIT-POLL-SERVICE-1.8-UNIQUE-VOTE-KEY';
 let ensured = null;
 
 function clean(v){ return String(v || '').replace(/\s+/g, ' ').trim(); }
@@ -81,6 +81,16 @@ async function ensure(){
       "alter table ak_poll_votes alter column updated_at set default now()",
       "create index if not exists ak_poll_votes_poll_idx on ak_poll_votes(poll_id,updated_at desc)"
     ]) await raw(m);
+
+    // ON CONFLICT(poll_id,user_id) требует реального unique/primary ключа.
+    // В старой таблице он мог не создаться, поэтому перед добавлением ключа сжимаем возможные дубли.
+    await raw(`delete from ak_poll_votes a
+      using ak_poll_votes b
+      where a.ctid < b.ctid
+        and a.poll_id = b.poll_id
+        and a.user_id = b.user_id`);
+    await raw("create unique index if not exists ak_poll_votes_poll_user_uidx on ak_poll_votes(poll_id,user_id)");
+
     return {ok:true,runtimeVersion:RUNTIME};
   })().catch(e=>{ensured=null;throw e;});
   return ensured;
@@ -149,4 +159,4 @@ async function buildPollKeyboardRows({channelId='',postId='',commentKey=''}={}){
   return rows;
 }
 async function status(){ await ensure(); const a=await q('select count(*)::int n from ak_polls'), b=await q('select count(*)::int n from ak_poll_votes'); return {ok:true,runtimeVersion:RUNTIME,counts:{polls:a.rows[0].n,votes:b.rows[0].n}}; }
-module.exports={RUNTIME,ensure,createPoll,createQuickPoll,parseOptionsText,normalizeOptions,activePoll,summary,vote,buildPollKeyboardRows,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-custom-callback-polls-drop-legacy-fk'})};
+module.exports={RUNTIME,ensure,createPoll,createQuickPoll,parseOptionsText,normalizeOptions,activePoll,summary,vote,buildPollKeyboardRows,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-custom-callback-polls-unique-vote-key'})};
