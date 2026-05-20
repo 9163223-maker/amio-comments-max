@@ -1,15 +1,15 @@
 ;(() => {
 'use strict';
-const RUNTIME = 'CC7.5.51-COMMENT-PHOTO-JSON-UPLOAD';
-const LOADER_MARKER = '__ADMINKIT_CC7_5_51_COMMENT_PHOTO_JSON_UPLOAD_LOADER__';
-const ONEPASS_MARKER = '__ADMINKIT_CC7_5_51_COMMENT_PHOTO_JSON_UPLOAD__';
+const RUNTIME = 'CC7.5.52-COMMENT-PHOTO-COMPRESS-TRACE';
+const LOADER_MARKER = '__ADMINKIT_CC7_5_52_COMMENT_PHOTO_COMPRESS_TRACE_LOADER__';
+const ONEPASS_MARKER = '__ADMINKIT_CC7_5_52_COMMENT_PHOTO_COMPRESS_TRACE__';
 if (window[LOADER_MARKER]) return;
 window[LOADER_MARKER] = true;
 window.__ADMINKIT_PUBLIC_APP_RUNTIME__ = RUNTIME;
 function bootOnepass() {
   if (window[ONEPASS_MARKER]) return;
   const script = document.createElement('script');
-  script.src = '/public/app-onepass.js?v=7551';
+  script.src = '/public/app-onepass.js?v=7552';
   script.async = false;
   script.dataset.adminkitRuntime = RUNTIME;
   script.onerror = () => {

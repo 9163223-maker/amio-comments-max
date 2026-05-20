@@ -73,6 +73,24 @@ const { listAdminPosts, buildPostAdminCard, editPostText, savePostKeyboard, repl
 const app = express();
 const deferredVideoResults = new Map();
 
+const COMMENT_TRACE_LIMIT = 20;
+const commentTraceEvents = [];
+function pushCommentTraceEvent(event = '', payload = {}) {
+  const safe = payload && typeof payload === 'object' ? payload : {};
+  const item = {
+    at: Date.now(),
+    event: String(event || '').trim(),
+    runtimeVersion: 'CC7.5.52-COMMENT-PHOTO-COMPRESS-TRACE',
+    mimeType: String(safe.mimeType || '').trim(),
+    fileName: String(safe.fileName || '').trim(),
+    size: Number(safe.size || 0) || 0,
+    error: String(safe.error || '').trim(),
+    commentKey: String(safe.commentKey || '').trim()
+  };
+  commentTraceEvents.push(item);
+  if (commentTraceEvents.length > COMMENT_TRACE_LIMIT) commentTraceEvents.splice(0, commentTraceEvents.length - COMMENT_TRACE_LIMIT);
+}
+
 function setNoCacheHeaders(res) {
   res.set({
     "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
@@ -1053,6 +1071,7 @@ app.all("/debug/export", async (req, res) => {
         message: `Update АдминКИТ debug lite ${BUILD_INFO.runtimeVersion}`
       });
     }
+    pushCommentTraceEvent('attachment_upload_ok', { mimeType: parsed?.mimeType || parsed?.mime || '', fileName: parsed?.fileName || parsed?.filename || '', size: Number(parsed?.size || 0) || 0, commentKey: parsed?.commentKey || '' });
     return res.json({ ok: true, repo, branch, path: fullPath, litePath, commit: full?.commit?.sha || "", liteCommit: lite?.commit?.sha || "" });
   } catch (error) {
     return res.status(error?.status || 500).json({ ok: false, error: error?.message || "debug_export_failed", data: error?.data || null });
@@ -1173,7 +1192,8 @@ app.post("/api/moderation/settings", requireGiftAdmin, (req, res) => {
   try {
     const channelId = resolveChannelIdFromRequest({ body: req.body });
     if (!channelId) {
-      return res.status(400).json({ ok: false, error: "channelId_required" });
+      pushCommentTraceEvent('attachment_upload_error', { error: error?.message || 'upload_failed', commentKey: parsed?.commentKey || '' });
+    return res.status(400).json({ ok: false, error: "channelId_required" });
     }
 
     const payload = {
@@ -1493,6 +1513,27 @@ app.get("/go/:channelId/:buttonId", (req, res) => {
   return res.redirect(302, redirectUrl);
 });
 
+
+app.post('/api/debug/comment-trace-event', (req, res) => {
+  const event = String(req.body?.event || '').trim();
+  if (!event) return res.status(400).json({ ok: false, error: 'event_required' });
+  pushCommentTraceEvent(event, req.body?.payload || {});
+  return res.json({ ok: true });
+});
+
+app.get('/debug/comment-trace', (req, res) => {
+  if (String(req.query.t || '') !== '7552') return res.status(404).json({ ok: false, error: 'not_found' });
+  return res.json({
+    ok: true,
+    runtimeVersion: 'CC7.5.52-COMMENT-PHOTO-COMPRESS-TRACE',
+    generatedAt: new Date().toISOString(),
+    total: commentTraceEvents.length,
+    noDatabaseRead: true,
+    noMaxApiCall: true,
+    events: commentTraceEvents.slice(-COMMENT_TRACE_LIMIT)
+  });
+});
+
 app.get("/api/post", (req, res) => {
   const commentKey = normalizeKey(req.query.commentKey || "");
   const startapp = normalizeKey(req.query.startapp || req.query.start_param || req.query.WebAppStartParam || req.query.postId || "");
@@ -1550,6 +1591,7 @@ app.post("/api/comments/attachments/upload", express.raw({
   let previewUrl = "";
   let posterUrl = "";
 
+  pushCommentTraceEvent('attachment_upload_start', { commentKey: req.body?.commentKey || req.query?.commentKey || '' });
   logCommentUploadDiagnostic({
     stage: "request_received",
     ok: undefined,
@@ -1808,6 +1850,7 @@ app.get("/api/comments", (req, res) => {
 
 app.post("/api/comments", async (req, res) => {
   try {
+    pushCommentTraceEvent('comment_create_start', { commentKey: req.body?.commentKey || '', size: Array.isArray(req.body?.attachments) ? req.body.attachments.length : 0 });
     const commentKey = normalizeKey(req.body?.commentKey || "");
     if (!commentKey) {
       return res.status(400).json({ ok: false, error: "commentKey_required" });
@@ -1891,6 +1934,7 @@ app.post("/api/comments", async (req, res) => {
       error: error?.message || "comment_create_failed",
       data: { clientUploadIds: Array.isArray(req.body?.clientUploadIds) ? req.body.clientUploadIds.slice(0, 5) : [] }
     });
+    pushCommentTraceEvent('comment_create_error', { commentKey: req.body?.commentKey || '', error: error?.message || 'comment_create_failed' });
     return res.status(400).json({ ok: false, error: error?.message || "comment_create_failed" });
   }
 });
