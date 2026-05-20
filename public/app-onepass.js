@@ -1,8 +1,8 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.5.48-COMMENT-PHOTO-ATTACHMENTS';
-const MARKER = '__ADMINKIT_CC7_5_48_COMMENT_PHOTO_ATTACHMENTS__';
+const RUNTIME = 'CC7.5.51-COMMENT-PHOTO-JSON-UPLOAD';
+const MARKER = '__ADMINKIT_CC7_5_51_COMMENT_PHOTO_JSON_UPLOAD__';
 if (window[MARKER]) return;
 window[MARKER] = true;
 
@@ -274,7 +274,7 @@ const state = {
   commentTrace: [],
   searchOpen: false, searchQuery: ''
 };
-window.__ADMINKIT_CC7_5_48_STATE__ = state;
+window.__ADMINKIT_CC7_5_51_STATE__ = state;
 window.__ADMINKIT_CC7_5_47_STATE__ = state;
 window.__ADMINKIT_CC7_5_6_STATE__ = state;
 window.__ADMINKIT_CC7_5_3_STATE__ = state;
@@ -349,23 +349,39 @@ function handleAttachmentChange() {
   setInlineStatus('', false);
   pushCommentTrace('attachment_preview', { type: 'image', mimeType: state.pendingPhoto.mimeType, fileName, size });
 }
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(clean(reader.result));
+    reader.onerror = () => reject(new Error('file_reader_failed'));
+    reader.readAsDataURL(file);
+  });
+}
 async function uploadPendingPhotoIfNeeded() {
   if (!state.pendingPhoto || !state.pendingPhoto.file) return [];
   const pending = state.pendingPhoto;
   pending.status = 'uploading';
   pushCommentTrace('attachment_upload_start', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size });
-  const form = new FormData();
-  form.append('file', pending.file, pending.fileName || 'photo.jpg');
-  form.append('commentKey', state.commentKey || '');
-  form.append('type', 'image');
-  form.append('mimeType', pending.mimeType || pending.file.type || 'image/jpeg');
-  form.append('fileName', pending.fileName || pending.file.name || 'photo.jpg');
-  form.append('size', String(Number(pending.size || pending.file.size || 0) || 0));
-  const response = await fetch('/api/comments/attachments/upload', { method: 'POST', body: form });
+  const dataUrl = await readFileAsDataUrl(pending.file);
+  const body = {
+    commentKey: state.commentKey || '',
+    type: 'image',
+    mimeType: pending.mimeType || pending.file.type || 'image/jpeg',
+    fileName: pending.fileName || pending.file.name || 'photo.jpg',
+    size: Number(pending.size || pending.file.size || 0) || 0,
+    dataUrl,
+    fallbackReason: 'max_webview_json_photo_upload',
+    clientUploadId: 'upload_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10)
+  };
+  const response = await fetch('/api/comments/attachments/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.ok === false || !data.attachment) {
     pushCommentTrace('attachment_upload_error', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size, error: clean(data.error || data.message || ('http_' + response.status) || 'upload_failed') });
-    throw new Error(clean(data.message || data.userMessage || data.friendlyMessage || data.error) || 'Не удалось загрузить фото. Попробуйте ещё раз.');
+    throw new Error(clean(data.message || data.userMessage || data.friendlyMessage || data.error) || 'Не удалось отправить фото. Попробуйте ещё раз.');
   }
   pending.status = 'uploaded';
   pushCommentTrace('attachment_upload_ok', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size });
@@ -543,7 +559,11 @@ async function sendComment() {
     state.lastSendFingerprint = '';
     setInlineStatus('', false);
     await refreshOpenState();
-  } catch (_) { setInlineStatus('Не удалось отправить комментарий. Попробуйте ещё раз.', true); }
+  } catch (error) {
+    const message = clean(error && error.message);
+    if (message === 'Не удалось отправить фото. Попробуйте ещё раз.') setInlineStatus(message, true);
+    else setInlineStatus('Не удалось отправить комментарий. Попробуйте ещё раз.', true);
+  }
   finally {
     state.sendInFlight = false;
     setSendingUi(false);
@@ -609,7 +629,7 @@ function boot() {
   if (state.currentUserAvatarUrl && refs.composerAvatar) { refs.composerAvatar.src = state.currentUserAvatarUrl; refs.composerAvatar.style.display = 'block'; if (refs.composerAvatarFallback) refs.composerAvatarFallback.style.display = 'none'; }
 
   const initial = loadOpenStateSync();
-  window.__ADMINKIT_CC7_5_48_INITIAL__ = initial;
+  window.__ADMINKIT_CC7_5_51_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_47_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_6_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_3_INITIAL__ = initial;
