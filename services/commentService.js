@@ -58,6 +58,15 @@ function findRecentDuplicateComment({ commentKey = "", userId = "", text = "", a
   return null;
 }
 function stripLargeInlinePayload(value = "") { const raw = String(value || "").trim(); if (/^(data|blob):/i.test(raw)) return ""; return raw.slice(0, 4096); }
+function sanitizeSmallImageDataUrl(value = "") {
+  const raw = String(value || "").trim();
+  const m = raw.match(/^data:(image\/(?:jpeg|jpg|png|webp));base64,([a-z0-9+/=\s]+)$/i);
+  if (!m) return "";
+  const base64 = String(m[2] || "").replace(/\s+/g, "");
+  const approxBytes = Math.floor((base64.length * 3) / 4);
+  if (!approxBytes || approxBytes > 70 * 1024) return "";
+  return `data:${m[1].toLowerCase()};base64,${base64}`;
+}
 function sanitizeAttachmentPayload(source = {}) {
   const payload = source.payload && typeof source.payload === "object" ? source.payload : null;
   const maxAttachment = source.maxAttachment && typeof source.maxAttachment === "object" ? source.maxAttachment : null;
@@ -86,6 +95,9 @@ function sanitizeAttachments(value) {
     const payload = sanitizeAttachmentPayload(source);
     const url = stripLargeInlinePayload(source.url || payload.url || payload.download_url || payload.link || "");
     const previewUrl = stripLargeInlinePayload(source.previewUrl || source.preview_url || source.localPreviewUrl || "");
+    const previewDataUrl = sanitizeSmallImageDataUrl(source.previewDataUrl || source.preview_data_url || "");
+    const thumbDataUrl = sanitizeSmallImageDataUrl(source.thumbDataUrl || source.thumb_data_url || "");
+    const dataUrl = sanitizeSmallImageDataUrl(source.dataUrl || source.data_url || "");
     const posterUrl = stripLargeInlinePayload(source.posterUrl || source.poster_url || "");
     const fallbackId = String(Date.now()) + "_" + Math.random().toString(36).slice(2, 8);
     const rawUrl = stripLargeInlinePayload(source.rawUrl || source.raw_url || "");
@@ -93,12 +105,12 @@ function sanitizeAttachments(value) {
     const status = String(source.status || "").slice(0, 40);
     const processing = Boolean(source.processing) || status === "processing";
     const isPendingVideo = allowedType === "video" && processing && Boolean(uploadId || source.id || source.clientUploadId);
-    const hasStableStoredSource = Boolean(url || previewUrl || posterUrl || rawUrl || Object.keys(payload).length || isPendingVideo);
+    const hasStableStoredSource = Boolean(url || previewUrl || posterUrl || rawUrl || dataUrl || previewDataUrl || thumbDataUrl || Object.keys(payload).length || isPendingVideo);
     if (!hasStableStoredSource) return null;
     const stableId = String(source.id || uploadId || payload.token || payload.file_id || payload.image_id || payload.photo_id || fallbackId);
     return {
       id: stableId, type: allowedType, name: String(source.name || "Вложение").slice(0, 180), mime: String(source.mime || source.mimeType || "").slice(0, 120), size: Number(source.size || 0) || 0,
-      url, previewUrl, posterUrl, payload, native: Boolean(source.native || Object.keys(payload).length), storage: String(source.storage || "").slice(0, 60), uploadId,
+      url, previewUrl, posterUrl, dataUrl, previewDataUrl, thumbDataUrl, payload, native: Boolean(source.native || Object.keys(payload).length), storage: String(source.storage || "").slice(0, 60), uploadId,
       clientUploadId: String(source.clientUploadId || source.client_upload_id || uploadId || "").slice(0, 180), rawUrl, processing, status, transcodeError: String(source.transcodeError || "").slice(0, 220)
     };
   }).filter(Boolean);

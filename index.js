@@ -81,7 +81,7 @@ function pushCommentTraceEvent(event = '', payload = {}) {
   const item = {
     at: Date.now(),
     event: String(event || '').trim(),
-    runtimeVersion: 'CC7.5.54-COMMENT-PHOTO-OPTIMISTIC-PREVIEW',
+    runtimeVersion: 'CC7.5.55-COMMENT-PHOTO-INLINE-THUMB',
     commentKey: String(safe.commentKey || '').trim(),
     clientCommentId: String(safe.clientCommentId || '').trim(),
     originalSize: Number(safe.originalSize || 0) || 0,
@@ -325,6 +325,8 @@ function normalizeCommentAttachmentUploadRequest(req) {
       size: Number(body.size || buffer.length || 0) || buffer.length,
       posterBuffer: tryDecodeOptionalDataUrl(body.posterDataUrl || body.poster_data_url || ""),
       posterMimeType: "image/jpeg",
+      thumbDataUrl: String(body.thumbDataUrl || body.thumb_data_url || body.previewDataUrl || body.preview_data_url || body.dataUrl || body.data_url || "").trim(),
+      previewDataUrl: String(body.previewDataUrl || body.preview_data_url || body.thumbDataUrl || body.thumb_data_url || body.dataUrl || body.data_url || "").trim(),
       uploadDiagnostics: diagnostics
     };
   }
@@ -361,6 +363,8 @@ function normalizeCommentAttachmentUploadRequest(req) {
     size: Number(fields.size || file.buffer.length || 0) || file.buffer.length,
     posterBuffer: poster?.buffer || null,
     posterMimeType: poster?.mimeType || "image/jpeg",
+    thumbDataUrl: String(fields.thumbDataUrl || fields.thumb_data_url || fields.previewDataUrl || fields.preview_data_url || fields.dataUrl || fields.data_url || "").trim(),
+    previewDataUrl: String(fields.previewDataUrl || fields.preview_data_url || fields.thumbDataUrl || fields.thumb_data_url || fields.dataUrl || fields.data_url || "").trim(),
     uploadDiagnostics: diagnostics
   };
 }
@@ -1538,10 +1542,10 @@ app.post('/api/debug/comment-trace-event', (req, res) => {
 
 app.get(['/debug/comment-trace','/api/debug/comment-trace'], (req, res) => {
   setNoCacheHeaders(res);
-  if (req.path === '/debug/comment-trace' && String(req.query.t || '') !== '7554') return res.status(404).json({ ok: false, error: 'not_found' });
+  if (req.path === '/debug/comment-trace' && String(req.query.t || '') !== '7555') return res.status(404).json({ ok: false, error: 'not_found' });
   return res.json({
     ok: true,
-    runtimeVersion: 'CC7.5.54-COMMENT-PHOTO-OPTIMISTIC-PREVIEW',
+    runtimeVersion: 'CC7.5.55-COMMENT-PHOTO-INLINE-THUMB',
     generatedAt: new Date().toISOString(),
     total: commentTraceEvents.length,
     noDatabaseRead: true,
@@ -1747,11 +1751,13 @@ app.post("/api/comments/attachments/upload", express.raw({
     });
 
     serverAttachment.clientUploadId = parsed.clientUploadId || "";
+    serverAttachment.thumbDataUrl = parsed.thumbDataUrl || "";
+    serverAttachment.previewDataUrl = parsed.previewDataUrl || parsed.thumbDataUrl || "";
     serverAttachment.native = false;
     serverAttachment.localOnly = false;
     serverAttachment.storage = isDeferredVideo ? "server_original_processing" : "server_public";
     serverAttachment.syncStatus = parsed.uploadType === "image"
-      ? "server_preview_only_no_max_sync"
+      ? ((serverAttachment.thumbDataUrl || serverAttachment.previewDataUrl) ? "server_preview_with_inline_thumb" : "inline_preview_saved")
       : (config.botToken ? "server_saved_max_sync_deferred" : "server_saved_bot_token_missing");
 
     if (isDeferredVideo) {
