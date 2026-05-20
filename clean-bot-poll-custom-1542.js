@@ -3,6 +3,7 @@ const base=require('./clean-bot-1539');
 const menu=require('./v3-menu-core-1539');
 const max=require('./services/maxApi');
 const polls=require('./poll-flow-15313');
+const pollService=require('./services/pollService');
 function find(o,p,d){if(!o||d<0)return null;if(p(o))return o;if(typeof o!=='object')return null;for(const v of (Array.isArray(o)?o:Object.values(o))){const r=find(v,p,d-1);if(r)return r;}return null;}
 function msg(u){return u&&(u.message||u.data&&u.data.message||u.callback&&u.callback.message||u.data&&u.data.callback&&u.data.callback.message||find(u,x=>x&&typeof x==='object'&&(x.body&&x.body.text||x.text)&&(x.recipient||x.sender||x.message_id||x.id),5))||null;}
 function cb(u){return u&&(u.callback||u.data&&u.data.callback||u.message&&u.message.callback||u.data&&u.data.message&&u.data.message.callback||find(u,x=>x&&typeof x==='object'&&(x.callback_id||x.callbackId||x.payload||x.callback_data||x.callbackData)&&!(x.body&&x.body.text),6))||null;}
@@ -13,34 +14,18 @@ function sender(m){return String(m&&m.sender&&(m.sender.user_id||m.sender.id)||m
 function clean(v){return String(v||'').trim();}
 function firstId(){for(const v of arguments){const s=clean(v);if(s)return s;}return'';}
 function userFromObject(o){if(!o||typeof o!=='object')return'';return firstId(o.user_id,o.userId,o.userID,o.sender_id,o.senderId,o.from_id,o.fromId,o.id,o.uid,o.user&&userFromObject(o.user),o.sender&&userFromObject(o.sender),o.from&&userFromObject(o.from),o.author&&userFromObject(o.author));}
-function uid(u,c,m){
-  const direct=firstId(userFromObject(c),userFromObject(u),sender(m));
-  if(direct)return direct;
-  const deep=find(u,x=>x&&typeof x==='object'&&(x.user_id||x.userId||x.sender_id||x.senderId||x.from_id||x.fromId),7);
-  const deepId=userFromObject(deep);
-  if(deepId)return deepId;
-  return '';
-}
+function uid(u,c,m){const direct=firstId(userFromObject(c),userFromObject(u),sender(m));if(direct)return direct;const deep=find(u,x=>x&&typeof x==='object'&&(x.user_id||x.userId||x.sender_id||x.senderId||x.from_id||x.fromId),7);const deepId=userFromObject(deep);if(deepId)return deepId;return '';}
 function cbid(c){return String(c&&(c.callback_id||c.callbackId||c.id)||'').trim();}
 function pv(c){return !c?'':c.payload!==undefined?c.payload:c.data!==undefined?c.data:c.value!==undefined?c.value:c.callback_data!==undefined?c.callback_data:c.callbackData!==undefined?c.callbackData:'';}
-function parse(c){const v=pv(c);if(v&&typeof v==='object')return v;const s=String(v||'').trim();if(!s)return{};try{return JSON.parse(s)}catch{return{action:s,raw:s}}}
+function parse(c){const v=pv(c);if(v&&typeof v==='object')return v;const s=String(v||'').trim();if(!s)return{};if(/^pv:/i.test(s)){const parts=s.split(':');return{action:'poll_vote',pollId:parts[1]||'',optionId:parts.slice(2).join(':')||'',raw:s};}if(/^pi:/i.test(s)){const parts=s.split(':');return{action:'poll_info',pollId:parts[1]||'',raw:s};}try{return JSON.parse(s)}catch{return{action:s,raw:s}}}
 async function ack(config,id,text){if(!id)return null;try{return await max.answerCallback({botToken:config.botToken,callbackId:id,notification:text||undefined});}catch{return null;}}
 async function show(config,u,c,m,s,edit){const id=mid(m);if(edit&&id){try{return await max.editMessage({botToken:config.botToken,messageId:id,text:s.text,attachments:s.attachments,notify:false});}catch{}}
 const chatId=chat(m), userId=uid(u,c,m)||sender(m);return max.sendMessage({botToken:config.botToken,userId:chatId?'':userId,chatId,text:s.text,attachments:s.attachments,notify:false});}
 function err(e){return{id:'poll_custom_error',text:['⚠️ Ошибка сценария опроса','',String(e&&e.message||e||'unknown')].join('\n'),attachments:menu.keyboard([[menu.button('🗳 В начало опросов','admin_section_polls')],[menu.button('🏠 Главное меню','admin_section_main')]])};}
 async function pollScreen(p,userId,config){const a=String(p.action||'');if(a==='poll_custom_start')return polls.customStart(menu,{userId,commentKey:p.commentKey||''});if(a==='poll_custom_cancel')return polls.customCancel(menu,{userId,commentKey:p.commentKey||''});if(a==='poll_custom_edit_question')return polls.customEditQuestion(menu,{userId,commentKey:p.commentKey||''});if(a==='poll_custom_edit_options')return polls.customEditOptions(menu,{userId,commentKey:p.commentKey||''});if(a==='poll_custom_run')return polls.customRun(menu,{config,userId,commentKey:p.commentKey||''});if(a==='poll_status')return polls.statusScreen(menu);return null;}
-function fallbackVoter(c,m){
-  const id=uid(null,c,m);
-  if(id)return id;
-  const cb=cbid(c);
-  return cb?('callback:'+cb.slice(0,64)):'';
-}
-function createCleanBot(legacy){const wrapped=base.createCleanBot(legacy);return{handleWebhook:async function(req,res,config){const u=req.body||{},c=cb(u),m=msg(u);try{if(c){const p=parse(c),a=String(p.action||''),userId=uid(u,c,m)||sender(m);if(a==='poll_vote'){
-const voterId=fallbackVoter(c,m)||userId;
-const vr=await polls.vote({config,userId:voterId,pollId:p.pollId,optionId:p.optionId,commentKey:p.commentKey||''});
-await ack(config,cbid(c),vr&&vr.ok?'Голос учтён':'Не удалось учесть голос');
-return res.status(200).json({ok:true,handledBy:'clean-bot-poll-custom-1542',action:a,voted:!!(vr&&vr.ok),pollId:p.pollId||'',optionId:p.optionId||'',hasVoterId:!!voterId,patchError:vr&&vr.patchError||'',error:vr&&vr.error||''});
-}let s=null;try{s=await pollScreen(p,userId,config);}catch(e){s=err(e);}if(s){await ack(config,cbid(c));await show(config,u,c,m,s,true);return res.status(200).json({ok:true,handledBy:'clean-bot-poll-custom-1542',action:a,screenId:s.id});}}
+function fallbackVoter(c,m){const id=uid(null,c,m);if(id)return id;const cb=cbid(c);return cb?('callback:'+cb.slice(0,64)):'';}
+async function handlePollVote({config,c,m,p,userId}){const voterId=fallbackVoter(c,m)||userId;const vr=await pollService.vote({userId:voterId,pollId:p.pollId,optionId:p.optionId});let patchError='';if(vr&&vr.ok){const key=clean(p.commentKey)||clean(vr&&vr.summary&&vr.summary.commentKey);if(key){try{await polls.patchPostWithPoll({config,commentKey:key});}catch(e){patchError=String(e&&e.message||e);}}}await ack(config,cbid(c),vr&&vr.ok?'Голос учтён':'Не удалось учесть голос');return{vr,voterId,patchError};}
+function createCleanBot(legacy){const wrapped=base.createCleanBot(legacy);return{handleWebhook:async function(req,res,config){const u=req.body||{},c=cb(u),m=msg(u);try{if(c){const p=parse(c),a=String(p.action||''),userId=uid(u,c,m)||sender(m);if(a==='poll_vote'){const out=await handlePollVote({config,c,m,p,userId});return res.status(200).json({ok:true,handledBy:'clean-bot-poll-custom-1542',action:a,voted:!!(out.vr&&out.vr.ok),pollId:p.pollId||'',optionId:p.optionId||'',hasVoterId:!!out.voterId,patchError:out.patchError||'',error:out.vr&&out.vr.error||''});}let s=null;try{s=await pollScreen(p,userId,config);}catch(e){s=err(e);}if(s){await ack(config,cbid(c));await show(config,u,c,m,s,true);return res.status(200).json({ok:true,handledBy:'clean-bot-poll-custom-1542',action:a,screenId:s.id});}}
 if(m&&text(m).trim()&&!/^\/?start(?:\s|$)/i.test(text(m).trim())){const userId=sender(m)||uid(u,c,m);const s=await polls.handleTextInput(menu,{config,userId,text:text(m)});if(s){await show(config,u,c,m,s,false);return res.status(200).json({ok:true,handledBy:'clean-bot-poll-custom-1542',action:'poll_custom_text',screenId:s.id});}}
 return wrapped.handleWebhook(req,res,config);}catch(e){if(!res.headersSent)return res.status(500).json({ok:false,error:e&&e.message||'poll_custom_wrapper_failed',handledBy:'clean-bot-poll-custom-1542'});return null;}}};}
 module.exports={createCleanBot};
