@@ -1,11 +1,12 @@
 'use strict';
 
 const db = require('../cc5-db-core');
-const RUNTIME = 'ADMINKIT-POLL-SERVICE-1.0-CALLBACK-POLLS';
+const RUNTIME = 'ADMINKIT-POLL-SERVICE-1.1-CUSTOM-FIELDS-ADAPTIVE';
 let ensured = null;
 
 function clean(v){return String(v||'').replace(/\s+/g,' ').trim();}
 function cut(v,n){const s=clean(v);return s.length>n?s.slice(0,n-1).trim()+'…':s;}
+function idFromText(v,i){const base=clean(v).toLowerCase().replace(/[^a-zа-я0-9]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,18);return (base||('o'+(i+1)))+'_'+(i+1);}
 async function q(sql,params=[]){await ensure();return db.query(sql,params);}
 async function raw(sql,params=[]){await db.init();return db.query(sql,params);}
 
@@ -63,11 +64,23 @@ async function ensure(){
   return ensured;
 }
 
+function normalizeOptions(list=[]){
+  return (Array.isArray(list)?list:[]).map((x,i)=>{
+    const text=typeof x==='string'?clean(x):clean(x&&x.text||x&&x.label||'');
+    const id=typeof x==='object'&&x&&x.id?clean(x.id).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,24):idFromText(text,i);
+    return {id:id||('o'+(i+1)),text:cut(text,48)};
+  }).filter(x=>x.text).slice(0,4);
+}
+function parseOptionsText(text){
+  const raw=String(text||'').replace(/\r/g,'\n');
+  const parts=raw.includes('\n')?raw.split('\n'):raw.split(/[;|]/g);
+  return normalizeOptions(parts.map(x=>x.replace(/^[-•*\d.)\s]+/,'').trim()).filter(Boolean));
+}
 function optionsFor(template){
   const t=clean(template||'yes_no');
-  if(t==='like_dislike')return [{id:'yes',text:'👍 Нравится'},{id:'no',text:'👎 Не нравится'}];
-  if(t==='three')return [{id:'o1',text:'1 вариант'},{id:'o2',text:'2 вариант'},{id:'o3',text:'3 вариант'}];
-  return [{id:'yes',text:'Да'},{id:'no',text:'Нет'}];
+  if(t==='like_dislike')return normalizeOptions(['👍 Нравится','👎 Не нравится']);
+  if(t==='three')return normalizeOptions(['1 вариант','2 вариант','3 вариант']);
+  return normalizeOptions(['Да','Нет']);
 }
 function questionFor(template,title){
   const name=cut(title||'этот пост',80);
@@ -75,13 +88,19 @@ function questionFor(template,title){
   if(template==='three')return 'Выберите вариант по посту: '+name;
   return 'Полезен ли пост: '+name+'?';
 }
-async function createQuickPoll({adminId='',channelId='',postId='',commentKey='',postTitle='',template='yes_no'}={}){
+async function createPoll({adminId='',channelId='',postId='',commentKey='',question='',options=[],template='custom'}={}){
   const ch=clean(channelId),post=clean(postId),ck=clean(commentKey)||(ch&&post?ch+':'+post:'');
+  const qText=cut(question,220);
+  const opts=normalizeOptions(options);
   if(!ch||!post)return {ok:false,error:'post_required'};
+  if(qText.length<3)return {ok:false,error:'question_required'};
+  if(opts.length<2)return {ok:false,error:'at_least_two_options_required'};
   await q("update ak_polls set status='archived',updated_at=now() where channel_id=$1 and post_id=$2 and status='active'",[ch,post]);
-  const opts=optionsFor(template);
-  const r=await q("insert into ak_polls(admin_id,channel_id,post_id,comment_key,question,options,status,template,created_at,updated_at) values($1,$2,$3,$4,$5,$6::jsonb,'active',$7,now(),now()) returning *",[clean(adminId),ch,post,ck,questionFor(template,postTitle),JSON.stringify(opts),clean(template)]);
+  const r=await q("insert into ak_polls(admin_id,channel_id,post_id,comment_key,question,options,status,template,created_at,updated_at) values($1,$2,$3,$4,$5,$6::jsonb,'active',$7,now(),now()) returning *",[clean(adminId),ch,post,ck,qText,JSON.stringify(opts),clean(template||'custom')]);
   return {ok:true,poll:r.rows[0]};
+}
+async function createQuickPoll({adminId='',channelId='',postId='',commentKey='',postTitle='',template='yes_no'}={}){
+  return createPoll({adminId,channelId,postId,commentKey,question:questionFor(template,postTitle),options:optionsFor(template),template});
 }
 async function activePoll({channelId='',postId='',commentKey=''}={}){
   const ch=clean(channelId),post=clean(postId),ck=clean(commentKey);
@@ -91,7 +110,6 @@ async function activePoll({channelId='',postId='',commentKey=''}={}){
   else return null;
   return r.rows[0]||null;
 }
-function normalizeOptions(v){return Array.isArray(v)?v:[];}
 async function summary(pollId){
   const id=Number(pollId||0);if(!id)return null;
   const pr=await q('select * from ak_polls where id=$1 limit 1',[id]);
@@ -111,12 +129,21 @@ async function vote({pollId='',optionId='',userId=''}={}){
   return {ok:true,summary:await summary(id)};
 }
 function payload(action,data){return JSON.stringify(Object.assign({action},data||{}));}
+function optionLabel(o,total){return total?`${o.text} · ${o.votes} (${o.percent}%)`:o.text;}
+function adaptiveOptionRows(options,total,pollId,commentKey){
+  const buttons=options.map(o=>({type:'callback',text:cut(optionLabel(o,total),64),payload:payload('poll_vote',{pollId,optionId:o.id,commentKey})}));
+  const compact=buttons.length<=4&&buttons.every(b=>clean(b.text).length<=22);
+  if(!compact)return buttons.map(b=>[b]);
+  const rows=[];
+  for(let i=0;i<buttons.length;i+=2) rows.push(buttons.slice(i,i+2));
+  return rows;
+}
 async function buildPollKeyboardRows({channelId='',postId='',commentKey=''}={}){
   const poll=await activePoll({channelId,postId,commentKey});if(!poll)return [];
   const s=await summary(poll.id);if(!s)return [];
   const rows=[[{type:'callback',text:cut('🗳 '+s.question,64),payload:payload('poll_info',{pollId:s.pollId,commentKey:s.commentKey})}]];
-  for(const o of s.options){const label=s.total?`${o.text} · ${o.votes} (${o.percent}%)`:o.text;rows.push([{type:'callback',text:cut(label,64),payload:payload('poll_vote',{pollId:s.pollId,optionId:o.id,commentKey:s.commentKey})}]);}
+  rows.push(...adaptiveOptionRows(s.options,s.total,s.pollId,s.commentKey));
   return rows;
 }
 async function status(){await ensure();const a=await q('select count(*)::int n from ak_polls');const b=await q('select count(*)::int n from ak_poll_votes');return {ok:true,runtimeVersion:RUNTIME,counts:{polls:a.rows[0].n,votes:b.rows[0].n}};}
-module.exports={RUNTIME,ensure,createQuickPoll,activePoll,summary,vote,buildPollKeyboardRows,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-callback-polls'})};
+module.exports={RUNTIME,ensure,createPoll,createQuickPoll,parseOptionsText,normalizeOptions,activePoll,summary,vote,buildPollKeyboardRows,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-custom-callback-polls'})};
