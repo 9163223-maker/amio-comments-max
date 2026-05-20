@@ -1,8 +1,8 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.5.51-COMMENT-PHOTO-JSON-UPLOAD';
-const MARKER = '__ADMINKIT_CC7_5_51_COMMENT_PHOTO_JSON_UPLOAD__';
+const RUNTIME = 'CC7.5.52-COMMENT-PHOTO-COMPRESS-TRACE';
+const MARKER = '__ADMINKIT_CC7_5_52_COMMENT_PHOTO_COMPRESS_TRACE__';
 if (window[MARKER]) return;
 window[MARKER] = true;
 
@@ -274,7 +274,7 @@ const state = {
   commentTrace: [],
   searchOpen: false, searchQuery: ''
 };
-window.__ADMINKIT_CC7_5_51_STATE__ = state;
+window.__ADMINKIT_CC7_5_52_STATE__ = state;
 window.__ADMINKIT_CC7_5_47_STATE__ = state;
 window.__ADMINKIT_CC7_5_6_STATE__ = state;
 window.__ADMINKIT_CC7_5_3_STATE__ = state;
@@ -344,7 +344,7 @@ function handleAttachmentChange() {
     return;
   }
   const previewUrl = URL.createObjectURL(file);
-  state.pendingPhoto = { file, mimeType: mimeType || 'image/jpeg', fileName, size, previewUrl, status: 'picked' };
+  state.pendingPhoto = { file, mimeType: mimeType || 'image/jpeg', fileName, size, previewUrl, status: 'picked', compressed: null };
   renderAttachmentPreview();
   setInlineStatus('', false);
   pushCommentTrace('attachment_preview', { type: 'image', mimeType: state.pendingPhoto.mimeType, fileName, size });
@@ -357,19 +357,81 @@ function readFileAsDataUrl(file) {
     reader.readAsDataURL(file);
   });
 }
+
+function loadImageElementFromDataUrl(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('image_decode_failed'));
+    img.src = dataUrl;
+  });
+}
+async function compressImageForComment(file) {
+  const sourceDataUrl = await readFileAsDataUrl(file);
+  const maxSide = 1280;
+  const quality = 0.78;
+  let width = 0; let height = 0;
+  let drawSource = null;
+  if (window.createImageBitmap) {
+    try { drawSource = await createImageBitmap(file); width = drawSource.width || 0; height = drawSource.height || 0; } catch (_) {}
+  }
+  if (!drawSource) {
+    const img = await loadImageElementFromDataUrl(sourceDataUrl);
+    drawSource = img; width = img.naturalWidth || img.width || 0; height = img.naturalHeight || img.height || 0;
+  }
+  if (!width || !height) return { dataUrl: sourceDataUrl, mimeType: file.type || 'image/jpeg', size: file.size || 0, fileName: file.name || 'photo.jpg', compressed: false };
+  const longSide = Math.max(width, height);
+  const ratio = longSide > maxSide ? (maxSide / longSide) : 1;
+  const targetW = Math.max(1, Math.round(width * ratio));
+  const targetH = Math.max(1, Math.round(height * ratio));
+  if (ratio === 1 && /^image\/jpe?g$/i.test(file.type || '') && (file.size || 0) < 420000) return { dataUrl: sourceDataUrl, mimeType: file.type || 'image/jpeg', size: file.size || 0, fileName: file.name || 'photo.jpg', compressed: false };
+  const canvas = document.createElement('canvas');
+  canvas.width = targetW; canvas.height = targetH;
+  const ctx = canvas.getContext('2d', { alpha: false });
+  if (!ctx) throw new Error('canvas_context_failed');
+  ctx.drawImage(drawSource, 0, 0, targetW, targetH);
+  const outDataUrl = canvas.toDataURL('image/jpeg', quality);
+  const outSize = Math.floor(((outDataUrl.split(',')[1] || '').length * 3) / 4);
+  return { dataUrl: outDataUrl, mimeType: 'image/jpeg', size: outSize, fileName: (file.name || 'photo').replace(/\.[^/.]+$/, '') + '.jpg', compressed: true, width: targetW, height: targetH };
+}
+function computeCommentsFingerprint(list) {
+  const safe = Array.isArray(list) ? list : [];
+  return safe.map((comment) => {
+    const attachments = (Array.isArray(comment.attachments) ? comment.attachments : []).map((a) => [clean(a && a.type), clean(a && a.url), clean(a && a.previewUrl), clean(a && a.posterUrl)].join(':')).join('|');
+    return [clean(comment.id), clean(comment.text || comment.body), attachments, clean(comment.updatedAt || comment.updated_at || comment.createdAt || comment.created_at)].join('~');
+  }).join('||');
+}
+function emitTraceEvent(event, payload) {
+  const body = { event: clean(event), payload: payload && typeof payload === 'object' ? payload : {}, runtimeVersion: RUNTIME };
+  try {
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/debug/comment-trace-event', new Blob([JSON.stringify(body)], { type: 'application/json' }));
+      return;
+    }
+  } catch (_) {}
+  try {
+    fetch('/api/debug/comment-trace-event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: true });
+  } catch (_) {}
+}
+
 async function uploadPendingPhotoIfNeeded() {
   if (!state.pendingPhoto || !state.pendingPhoto.file) return [];
   const pending = state.pendingPhoto;
   pending.status = 'uploading';
   pushCommentTrace('attachment_upload_start', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size });
-  const dataUrl = await readFileAsDataUrl(pending.file);
+  pushCommentTrace('attachment_compress_start', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size });
+  let packed = pending.compressed;
+  if (!packed) {
+    try { packed = await compressImageForComment(pending.file); pending.compressed = packed; pushCommentTrace('attachment_compress_ok', { type: 'image', mimeType: packed.mimeType, fileName: packed.fileName, size: packed.size }); emitTraceEvent('attachment_compress_ok', { mimeType: packed.mimeType, size: packed.size }); }
+    catch (error) { pushCommentTrace('attachment_compress_error', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size, error: clean(error && error.message) || 'compress_failed' }); emitTraceEvent('attachment_compress_error', { error: clean(error && error.message) || 'compress_failed' }); throw new Error('Не удалось обработать фото. Попробуйте другое изображение.'); }
+  }
   const body = {
     commentKey: state.commentKey || '',
     type: 'image',
-    mimeType: pending.mimeType || pending.file.type || 'image/jpeg',
-    fileName: pending.fileName || pending.file.name || 'photo.jpg',
-    size: Number(pending.size || pending.file.size || 0) || 0,
-    dataUrl,
+    mimeType: packed.mimeType || pending.mimeType || pending.file.type || 'image/jpeg',
+    fileName: packed.fileName || pending.fileName || pending.file.name || 'photo.jpg',
+    size: Number(packed.size || pending.size || pending.file.size || 0) || 0,
+    dataUrl: packed.dataUrl,
     fallbackReason: 'max_webview_json_photo_upload',
     clientUploadId: 'upload_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10)
   };
@@ -514,7 +576,16 @@ function renderOpenState(data) {
   const list = Array.isArray(data.comments) ? data.comments : [];
   const count = Number(data.commentsCount || list.length || 0) || 0;
   state.commentsCount = count;
-  renderComments(list);
+  const fingerprint = computeCommentsFingerprint(list);
+  if (fingerprint === state.lastRenderFingerprint) {
+    pushCommentTrace('comment_render_skip_unchanged', { type: 'comments', size: list.length });
+    emitTraceEvent('comment_render_skip_unchanged', { size: list.length });
+  } else {
+    state.lastRenderFingerprint = fingerprint;
+    renderComments(list);
+    pushCommentTrace('comment_render_apply', { type: 'comments', size: list.length });
+    emitTraceEvent('comment_render_apply', { size: list.length });
+  }
   if (refs.commentsCountPill && !state.searchQuery) refs.commentsCountPill.textContent = pluralComments(count);
 }
 async function refreshOpenState() {
@@ -629,7 +700,7 @@ function boot() {
   if (state.currentUserAvatarUrl && refs.composerAvatar) { refs.composerAvatar.src = state.currentUserAvatarUrl; refs.composerAvatar.style.display = 'block'; if (refs.composerAvatarFallback) refs.composerAvatarFallback.style.display = 'none'; }
 
   const initial = loadOpenStateSync();
-  window.__ADMINKIT_CC7_5_51_INITIAL__ = initial;
+  window.__ADMINKIT_CC7_5_52_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_47_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_6_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_3_INITIAL__ = initial;
