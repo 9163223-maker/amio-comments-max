@@ -1,6 +1,9 @@
 'use strict';
 
-const LIMIT=300;
+const DEFAULT_LIMIT=60;
+function enabled(){return String(process.env.ADMINKIT_UI_TRACE||process.env.ADMINKIT_UI_TRACE_ENABLED||'0').trim()==='1';}
+function consoleEnabled(){return String(process.env.ADMINKIT_UI_TRACE_CONSOLE||'0').trim()==='1';}
+function limit(){const n=Number(process.env.ADMINKIT_UI_TRACE_LIMIT||DEFAULT_LIMIT);return Number.isFinite(n)&&n>0?Math.min(Math.floor(n),120):DEFAULT_LIMIT;}
 function state(){
   if(!global.__ADMINKIT_UI_TRACE_1539__) global.__ADMINKIT_UI_TRACE_1539__={seq:0,events:[]};
   return global.__ADMINKIT_UI_TRACE_1539__;
@@ -14,11 +17,12 @@ function mask(v){
 function lightPayload(p){
   p=p||{};
   const out={};
-  ['action','source','focus','context','commentKey','channelId','postId','raw'].forEach((k)=>{if(p[k]!==undefined&&p[k]!==null&&String(p[k])!=='') out[k]=String(p[k]).slice(0,180);});
+  ['action','source','focus','context','commentKey','channelId','postId','pollId','optionId','raw'].forEach((k)=>{if(p[k]!==undefined&&p[k]!==null&&String(p[k])!=='') out[k]=String(p[k]).slice(0,120);});
   return out;
 }
 function log(type,data){
   try{
+    if(!enabled()) return null;
     const st=state();
     const entry={
       seq:++st.seq,
@@ -28,11 +32,13 @@ function log(type,data){
       ...(data||{})
     };
     st.events.push(entry);
-    if(st.events.length>LIMIT) st.events.splice(0,st.events.length-LIMIT);
-    try{console.log('ADMINKIT_UI_TRACE', JSON.stringify(entry));}catch(e){}
+    const cap=limit();
+    if(st.events.length>cap) st.events.splice(0,st.events.length-cap);
+    if(consoleEnabled()) try{console.log('ADMINKIT_UI_TRACE', JSON.stringify(entry));}catch(e){}
     return entry;
   }catch(e){return null;}
 }
 function list(){const st=state();return st.events.slice().reverse();}
 function clear(){const st=state();st.events=[];st.seq=0;return true;}
-module.exports={log,list,clear,mask,lightPayload,LIMIT};
+function info(){return{enabled:enabled(),console:consoleEnabled(),limit:limit(),events:state().events.length,runtimeVersion:process.env.RUNTIME_VERSION||process.env.BUILD_VERSION||'unknown'};}
+module.exports={log,list,clear,mask,lightPayload,enabled,info,LIMIT:DEFAULT_LIMIT};
