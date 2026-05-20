@@ -1,24 +1,35 @@
 'use strict';
 
-const LIMIT = 40;
-function isOn(){ return process.env.ADMINKIT_POLL_TRACE === '1'; }
+// Постоянный безопасный trace для последних действий опросов.
+// Не пишет в базу и не вызывает MAX API; живёт только в памяти процесса и перезаписывает старые события.
+const LIMIT = 6;
+function isOn(){ return true; }
 function state(){
   if(!global.__ADMINKIT_POLL_DEBUG_TRACE__) global.__ADMINKIT_POLL_DEBUG_TRACE__={seq:0,events:[]};
   return global.__ADMINKIT_POLL_DEBUG_TRACE__;
 }
 function clean(v){return String(v||'').replace(/\s+/g,' ').trim();}
 function mask(v){const s=clean(v);if(!s)return'';return s.length<=8?'***'+s.slice(-3):s.slice(0,3)+'…'+s.slice(-5);}
-function safe(v,n=180){
+function safe(v,n=140){
   try{
     const s=typeof v==='string'?v:JSON.stringify(v);
     return String(s||'').slice(0,n);
   }catch{return'';}
 }
+function compactData(data={}){
+  const out={};
+  for(const [k,v] of Object.entries(data||{})){
+    if(k==='stack') continue;
+    if(k==='raw') out[k]=safe(v,120);
+    else if(k==='error'||k==='patchError') out[k]=safe(v,180);
+    else out[k]=v;
+  }
+  return out;
+}
 function add(type,data={}){
-  if(!isOn()) return null;
   try{
     const st=state();
-    const e={seq:++st.seq,at:new Date().toISOString(),type:clean(type||'event'),runtimeVersion:process.env.RUNTIME_VERSION||process.env.BUILD_VERSION||'',...data};
+    const e={seq:++st.seq,at:new Date().toISOString(),type:clean(type||'event'),runtimeVersion:process.env.RUNTIME_VERSION||process.env.BUILD_VERSION||'',...compactData(data)};
     st.events.push(e);
     if(st.events.length>LIMIT) st.events.splice(0,st.events.length-LIMIT);
     return e;
@@ -26,5 +37,5 @@ function add(type,data={}){
 }
 function list(){return state().events.slice().reverse();}
 function clear(){const st=state();st.seq=0;st.events=[];return true;}
-function info(){const on=isOn();return{ok:true,enabled:on,mode:on?'poll-debug-trace-ring-buffer':'poll-debug-trace-off',limit:LIMIT,total:on?state().events.length:0,events:on?list():[],safe:true,noDatabaseRead:true,noMaxApiCall:true};}
+function info(){return{ok:true,enabled:true,mode:'poll-debug-trace-last-6-always-on',limit:LIMIT,total:state().events.length,events:list(),safe:true,noDatabaseRead:true,noMaxApiCall:true,volatileMemory:true};}
 module.exports={LIMIT,isOn,add,list,clear,info,mask,safe};
