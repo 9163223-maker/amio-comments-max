@@ -1,8 +1,8 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.5.6-COMMENT-UI-SEND-GUARD';
-const MARKER = '__ADMINKIT_CC7_5_6_COMMENT_UI_SEND_GUARD__';
+const RUNTIME = 'CC7.5.47-COMMENT-UI-NAV-SEARCH';
+const MARKER = '__ADMINKIT_CC7_5_47_COMMENT_UI_NAV_SEARCH__';
 if (window[MARKER]) return;
 window[MARKER] = true;
 
@@ -27,6 +27,7 @@ function escapeHtml(v) {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
 }
+function normalizeSearch(v) { return clean(v).toLowerCase().replace(/ё/g, 'е'); }
 function formatTime(ts) {
   if (!ts) return '';
   try { return new Date(ts).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; }
@@ -253,8 +254,9 @@ const refs = {
   postCard: byId('postCard'), postTitle: byId('postTitle'), postMedia: byId('postMedia'), commentsList: byId('commentsList'),
   emptyState: byId('emptyState'), nameInput: byId('nameInput'), commentInput: byId('commentInput'), sendBtn: byId('sendBtn'),
   attachBtn: byId('attachBtn'), attachmentInput: byId('attachmentInput'), commentsCountPill: byId('commentsCountPill'),
-  adminkitDiscussionLink: byId('adminkitDiscussionLink'), backBtn: byId('backBtn'), composerAvatar: byId('composerAvatar'),
-  composerAvatarFallback: byId('composerAvatarFallback'), discussionLabel: byId('discussionLabel'), composerCard: byId('composerCard'),
+  adminkitDiscussionLink: byId('adminkitDiscussionLink'), backBtn: byId('backBtn'), searchBtn: byId('searchBtn'),
+  commentSearchPanel: byId('commentSearchPanel'), commentSearchInput: byId('commentSearchInput'), commentSearchClear: byId('commentSearchClear'),
+  composerAvatar: byId('composerAvatar'), composerAvatarFallback: byId('composerAvatarFallback'), discussionLabel: byId('discussionLabel'), composerCard: byId('composerCard'),
   postError: byId('postError'), commentInlineStatus: byId('commentInlineStatus'), commentsWrap: byId('commentsWrap'),
   miniAppStartCard: byId('miniAppStartCard'), miniAppStartText: byId('miniAppStartText'), miniAppStartWorkBtn: byId('miniAppStartWorkBtn'),
   miniAppCommunityBtn: byId('miniAppCommunityBtn'), miniAppTopbar: byId('miniAppTopbar')
@@ -266,8 +268,10 @@ const state = {
   title: params.title, raw: params.raw, launchMode: params.launchMode, hasCommentIdentity: params.hasCommentIdentity,
   currentUserId: getBridgeUserId(), currentUserName: getBridgeUserName(), currentUserAvatarUrl: getBridgeAvatarUrl(),
   comments: [], meta: {}, commentsCount: 0, pollTimer: null, requestInFlight: false,
-  sendInFlight: false, lastSendFingerprint: '', lastSendStartedAt: 0
+  sendInFlight: false, lastSendFingerprint: '', lastSendStartedAt: 0,
+  searchOpen: false, searchQuery: ''
 };
+window.__ADMINKIT_CC7_5_47_STATE__ = state;
 window.__ADMINKIT_CC7_5_6_STATE__ = state;
 window.__ADMINKIT_CC7_5_3_STATE__ = state;
 window.__ADMINKIT_CC7_2_STATE__ = state;
@@ -319,6 +323,7 @@ function showMiniStart() {
   if (refs.miniAppTopbar) refs.miniAppTopbar.style.display = 'none';
   if (refs.postCard) refs.postCard.style.display = 'none';
   if (refs.commentsWrap) refs.commentsWrap.style.display = 'none';
+  if (refs.commentSearchPanel) refs.commentSearchPanel.classList.add('hidden');
   const wrap = document.querySelector('.discussion-label-wrap');
   if (wrap) wrap.style.display = 'none';
   if (refs.composerCard) refs.composerCard.style.display = 'none';
@@ -367,14 +372,29 @@ function renderAttachment(attachment) {
   if (type === 'video' || /\.(mp4|mov|webm)$/i.test(url)) return '<div class="comment-attachment comment-attachment-video"><video controls playsinline src="' + escapeHtml(url) + '"></video></div>';
   return '<a class="comment-attachment comment-attachment-file" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(name) + '</a>';
 }
+function searchableComment(comment) {
+  return normalizeSearch([
+    comment && (comment.text || comment.body || ''),
+    comment && (comment.userName || comment.user_name || comment.name || ''),
+    comment && (comment.createdAt || comment.created_at || '')
+  ].join(' '));
+}
+function visibleComments() {
+  const query = normalizeSearch(state.searchQuery || (refs.commentSearchInput && refs.commentSearchInput.value) || '');
+  if (!query) return state.comments;
+  return state.comments.filter((comment) => searchableComment(comment).includes(query));
+}
 function renderComments(list) {
-  state.comments = Array.isArray(list) ? list : [];
+  if (Array.isArray(list)) state.comments = list;
+  const all = Array.isArray(state.comments) ? state.comments : [];
+  const visible = visibleComments();
+  const query = normalizeSearch(state.searchQuery || '');
   if (refs.emptyState) {
-    refs.emptyState.textContent = state.comments.length ? '' : 'Комментариев пока нет';
-    refs.emptyState.style.display = state.comments.length ? 'none' : 'block';
+    refs.emptyState.textContent = visible.length ? '' : (query ? 'Ничего не найдено' : 'Комментариев пока нет');
+    refs.emptyState.style.display = visible.length ? 'none' : 'block';
   }
   if (!refs.commentsList) return;
-  refs.commentsList.innerHTML = state.comments.map((comment) => {
+  refs.commentsList.innerHTML = visible.map((comment) => {
     const userId = clean(comment.userId || comment.user_id || '');
     const userName = clean(comment.userName || comment.user_name || comment.name || 'Гость');
     const own = Boolean(state.currentUserId && userId && String(state.currentUserId) === String(userId));
@@ -386,6 +406,7 @@ function renderComments(list) {
     const ownClass = own ? ' own' : '';
     return '<div class="comment-row ' + (own ? 'own' : 'other') + '" data-comment-id="' + escapeHtml(comment.id || '') + '">' + avatar + '<div class="comment-bubble' + ownClass + '">' + author + (text ? '<div class="comment-text">' + escapeHtml(text) + '</div>' : '') + attachments + '<div class="comment-time">' + escapeHtml(time) + '</div></div></div>';
   }).join('');
+  if (refs.commentsCountPill) refs.commentsCountPill.textContent = query ? (visible.length + ' из ' + pluralComments(all.length)) : pluralComments(all.length);
 }
 function renderOpenState(data) {
   data = data || {};
@@ -395,8 +416,9 @@ function renderOpenState(data) {
   applyMeta(data.meta || {});
   const list = Array.isArray(data.comments) ? data.comments : [];
   const count = Number(data.commentsCount || list.length || 0) || 0;
+  state.commentsCount = count;
   renderComments(list);
-  if (refs.commentsCountPill) refs.commentsCountPill.textContent = pluralComments(count);
+  if (refs.commentsCountPill && !state.searchQuery) refs.commentsCountPill.textContent = pluralComments(count);
 }
 async function refreshOpenState() {
   if (state.launchMode !== 'comments' || state.requestInFlight) return;
@@ -444,10 +466,40 @@ function openMaxLink(target) {
   const app = getPossibleWebApps()[0];
   try { if (app && app.openMaxLink) app.openMaxLink(target); else location.href = target; } catch (_) { location.href = target; }
 }
+function closeSearch() {
+  state.searchOpen = false;
+  state.searchQuery = '';
+  if (refs.commentSearchInput) refs.commentSearchInput.value = '';
+  if (refs.commentSearchPanel) refs.commentSearchPanel.classList.add('hidden');
+  if (refs.searchBtn) refs.searchBtn.setAttribute('aria-pressed', 'false');
+  renderComments();
+}
+function openSearch() {
+  state.searchOpen = true;
+  if (refs.commentSearchPanel) refs.commentSearchPanel.classList.remove('hidden');
+  if (refs.searchBtn) refs.searchBtn.setAttribute('aria-pressed', 'true');
+  setTimeout(() => { try { refs.commentSearchInput && refs.commentSearchInput.focus(); } catch (_) {} }, 30);
+}
+function toggleSearch() { state.searchOpen ? closeSearch() : openSearch(); }
+function closeMiniApp() {
+  if (state.searchOpen) { closeSearch(); return; }
+  for (const app of getPossibleWebApps()) {
+    for (const method of ['close', 'closeWebApp', 'closeMiniApp']) {
+      try { if (app && typeof app[method] === 'function') { app[method](); return; } } catch (_) {}
+    }
+  }
+  try { window.parent && window.parent !== window && window.parent.postMessage({ type: 'web_app_close', source: 'adminkit' }, '*'); } catch (_) {}
+  try { if (history.length > 1) { history.back(); return; } } catch (_) {}
+  try { window.close(); return; } catch (_) {}
+  location.href = 'https://max.ru/id781310320690_biz';
+}
 function bindEvents() {
   if (refs.sendBtn) refs.sendBtn.addEventListener('click', sendComment);
   if (refs.commentInput) refs.commentInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); } });
-  if (refs.backBtn) refs.backBtn.addEventListener('click', () => { try { history.back(); } catch (_) {} });
+  if (refs.backBtn) refs.backBtn.addEventListener('click', closeMiniApp);
+  if (refs.searchBtn) refs.searchBtn.addEventListener('click', toggleSearch);
+  if (refs.commentSearchInput) refs.commentSearchInput.addEventListener('input', () => { state.searchQuery = clean(refs.commentSearchInput.value); renderComments(); });
+  if (refs.commentSearchClear) refs.commentSearchClear.addEventListener('click', closeSearch);
   if (refs.attachBtn && refs.attachmentInput) refs.attachBtn.addEventListener('click', () => refs.attachmentInput.click());
   if (refs.miniAppStartWorkBtn) refs.miniAppStartWorkBtn.addEventListener('click', () => openMaxLink('https://max.ru/id781310320690_bot?start=menu'));
   if (refs.miniAppCommunityBtn) refs.miniAppCommunityBtn.addEventListener('click', () => openMaxLink('https://max.ru/id781310320690_biz'));
@@ -469,6 +521,7 @@ function boot() {
   if (state.currentUserAvatarUrl && refs.composerAvatar) { refs.composerAvatar.src = state.currentUserAvatarUrl; refs.composerAvatar.style.display = 'block'; if (refs.composerAvatarFallback) refs.composerAvatarFallback.style.display = 'none'; }
 
   const initial = loadOpenStateSync();
+  window.__ADMINKIT_CC7_5_47_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_6_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_3_INITIAL__ = initial;
   window.__ADMINKIT_CC7_2_INITIAL__ = initial;
