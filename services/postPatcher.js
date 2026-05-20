@@ -19,8 +19,9 @@ const {
 } = require("./maxApi");
 const { findGiftCampaignForPost } = require("./giftService");
 const { buildCustomKeyboardRows } = require("./keyboardBuilderService");
+const pollService = require("./pollService");
 
-const DB_SYNC_RUNTIME = "CC7.4.7-POST-PATCHER-PERSIST-ADMIN-ADDONS";
+const DB_SYNC_RUNTIME = "CC7.5.45-POST-PATCHER-SAFE-COMPOSE";
 
 function normalizeAttachments(value) {
   return Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : [];
@@ -49,6 +50,14 @@ function cloneKeyboardBuilder(value) {
   if (!cloned || typeof cloned !== "object") return {};
   if (!Array.isArray(cloned.rows)) cloned.rows = [];
   return cloned;
+}
+
+function highlightText(post = {}, originalText = "") {
+  const txt = String(originalText || post.originalText || post.postText || "");
+  const h = post && post.highlight && post.highlight.enabled ? post.highlight : null;
+  if (!h) return txt;
+  const label = clean(h.label || "⭐ Важно");
+  return label + (txt ? "\n\n" + txt : "");
 }
 
 function buildPostSnapshotRaw({
@@ -102,9 +111,7 @@ async function adminIdsForChannel(channelId, fallbackAdminId = "") {
   try {
     await db.init();
     const result = await db.query("select admin_id from ak_admin_channels where channel_id=$1 order by updated_at desc limit 20", [String(channelId || "")]);
-    for (const row of result.rows || []) {
-      if (row.admin_id) ids.add(String(row.admin_id));
-    }
+    for (const row of result.rows || []) if (row.admin_id) ids.add(String(row.admin_id));
   } catch {}
   return [...ids];
 }
@@ -132,7 +139,6 @@ async function syncPatchedPostToDb({
   const ch = clean(channelId);
   const post = clean(postId);
   if (!ch || !post || ch === "CHANNEL_ID" || post === "POST_ID") return { ok: true, skipped: true, reason: "invalid_channel_or_post" };
-
   const ck = clean(commentKey || `${ch}:${post}`);
   const payload = clean(stablePayload || buildStableOpenPayload({ commentKey: ck, channelId: ch, postId: post, messageId: messageId || post }));
   const raw = buildPostSnapshotRaw({
@@ -155,15 +161,41 @@ async function syncPatchedPostToDb({
     commentsDisabled,
     giftCampaignId
   });
-
   const admins = await adminIdsForChannel(ch, linkedByUserId);
   const registered = [];
   for (const adminId of admins) {
     const result = await db.upsertPost(adminId, ch, post, String(title || originalText || post).slice(0, 120), raw, clean(messageId || post));
     if (result) registered.push(result);
   }
-
   return { ok: true, runtimeVersion: DB_SYNC_RUNTIME, registered: registered.length, admins, channelId: ch, postId: post, commentKey: ck, stablePayload: payload };
+}
+
+async function enrichOriginalFromLive({ botToken, post, commentKey }) {
+  let originalAttachments = stripInlineKeyboard(post.sourceAttachments || post.attachments || []);
+  let originalText = String(post.originalText || "");
+  let originalLink = cloneObject(post.originalLink, null);
+  let originalFormat = post.originalFormat !== undefined ? post.originalFormat : undefined;
+
+  if ((!originalAttachments.length || !originalText || !originalLink || originalFormat === undefined) && botToken && post.messageId) {
+    try {
+      const liveMessage = await getMessage({ botToken, messageId: post.messageId });
+      const liveBody = liveMessage?.body && typeof liveMessage.body === "object" ? liveMessage.body : {};
+      const liveAttachments = stripInlineKeyboard(Array.isArray(liveBody.attachments) ? liveBody.attachments : []);
+      const liveLink = cloneObject(liveBody.link, null);
+      if (!originalAttachments.length && liveAttachments.length) originalAttachments = liveAttachments;
+      if (!originalText && liveBody.text) originalText = String(liveBody.text || "");
+      if (!originalLink && liveLink) originalLink = liveLink;
+      if (originalFormat === undefined && liveBody.format !== undefined) originalFormat = liveBody.format;
+      savePost(commentKey, {
+        sourceAttachments: normalizeAttachments(liveAttachments.length ? liveAttachments : originalAttachments),
+        originalText,
+        originalLink,
+        ...(originalFormat !== undefined ? { originalFormat } : {})
+      });
+      post = getPost(commentKey) || post;
+    } catch {}
+  }
+  return { post, originalAttachments, originalText, originalLink, originalFormat };
 }
 
 async function patchStoredPost({
@@ -174,36 +206,13 @@ async function patchStoredPost({
   commentKey
 }) {
   let post = getPost(commentKey);
-  if (!post) {
-    return { ok: false, reason: "post_not_found" };
-  }
+  if (!post) return { ok: false, reason: "post_not_found" };
+  if (!post.messageId) return { ok: false, reason: "message_id_missing", post };
 
-  if (!post.messageId) {
-    return { ok: false, reason: "message_id_missing", post };
-  }
-
+  const live = await enrichOriginalFromLive({ botToken, post, commentKey });
+  post = live.post;
+  const { originalAttachments, originalText, originalLink, originalFormat } = live;
   const commentCount = getComments(commentKey).length;
-  let originalAttachments = stripInlineKeyboard(post.sourceAttachments || post.attachments || []);
-  let originalText = String(post.originalText || "");
-  let originalLink = post.originalLink && typeof post.originalLink === "object" ? JSON.parse(JSON.stringify(post.originalLink)) : null;
-  let originalFormat = post.originalFormat !== undefined ? post.originalFormat : undefined;
-
-  if ((!originalAttachments.length || !originalText || !originalLink || originalFormat === undefined) && botToken && post.messageId) {
-    try {
-      const liveMessage = await getMessage({ botToken, messageId: post.messageId });
-      const liveBody = liveMessage?.body && typeof liveMessage.body === "object" ? liveMessage.body : {};
-      const liveAttachments = stripInlineKeyboard(Array.isArray(liveBody.attachments) ? liveBody.attachments : []);
-      const liveLink = liveBody.link && typeof liveBody.link === "object" ? JSON.parse(JSON.stringify(liveBody.link)) : null;
-      if (!originalAttachments.length && liveAttachments.length) originalAttachments = liveAttachments;
-      if (!originalText && liveBody.text) originalText = String(liveBody.text || "");
-      if (!originalLink && liveLink) originalLink = liveLink;
-      if (originalFormat === undefined && liveBody.format !== undefined) originalFormat = liveBody.format;
-      if ((liveAttachments.length && stableStringify(post.sourceAttachments || []) !== stableStringify(liveAttachments)) || (originalText && originalText !== String(post.originalText || "")) || (liveLink && stableStringify(post.originalLink || null) !== stableStringify(liveLink)) || (originalFormat !== post.originalFormat && originalFormat !== undefined)) {
-        savePost(commentKey, { sourceAttachments: normalizeAttachments(liveAttachments.length ? liveAttachments : originalAttachments), originalText, originalLink, ...(originalFormat !== undefined ? { originalFormat } : {}) });
-        post = getPost(commentKey) || post;
-      }
-    } catch {}
-  }
 
   const stablePayload = clean(post.stablePayload || buildStableOpenPayload({
     commentKey,
@@ -219,26 +228,15 @@ async function patchStoredPost({
     messageId: String(post.messageId || ""),
     stablePayload
   });
-
   if ((handoffToken && handoffToken !== post.handoffToken) || (stablePayload && stablePayload !== post.stablePayload)) {
     savePost(commentKey, { handoffToken, stablePayload });
     post = getPost(commentKey) || post;
   }
 
-  const giftCampaign = findGiftCampaignForPost({
-    channelId: post.channelId,
-    postId: post.postId
-  });
-
+  const giftCampaign = findGiftCampaignForPost({ channelId: post.channelId, postId: post.postId });
   const giftRows = giftCampaign
-    ? buildGiftKeyboardRows({
-        campaign: giftCampaign,
-        commentKey,
-        channelId: post.channelId,
-        postId: post.postId
-      })
+    ? buildGiftKeyboardRows({ campaign: giftCampaign, commentKey, channelId: post.channelId, postId: post.postId })
     : [];
-
   const customRows = buildCustomKeyboardRows({
     builder: post.customKeyboard || {},
     appBaseUrl,
@@ -246,6 +244,12 @@ async function patchStoredPost({
     postId: post.postId,
     commentKey
   });
+  let pollRows = [];
+  try {
+    pollRows = await pollService.buildPollKeyboardRows({ channelId: post.channelId, postId: post.postId, commentKey });
+  } catch (error) {
+    savePost(commentKey, { lastPollRowsComposeError: String(error?.message || error), lastPollRowsComposeErrorAt: Date.now() });
+  }
 
   await syncPatchedPostToDb({
     channelId: post.channelId,
@@ -265,7 +269,7 @@ async function patchStoredPost({
     customKeyboard: post.customKeyboard || {},
     commentsDisabled: Boolean(post?.commentsDisabled),
     giftCampaignId: giftCampaign?.id || post.giftCampaignId || "",
-    source: "post_patcher_patch_stored_post_snapshot"
+    source: "post_patcher_safe_compose_snapshot"
   });
 
   const keyboardAttachments = buildCommentsKeyboard({
@@ -278,77 +282,52 @@ async function patchStoredPost({
     commentKey,
     messageId: post.messageId || post.postId,
     count: commentCount,
-    extraRows: [...customRows, ...giftRows],
+    extraRows: [...customRows, ...pollRows, ...giftRows],
     buttonSuffix: "",
     primaryButtonText: String(post?.customKeyboard?.commentButtonText || "").trim(),
     showPrimaryButton: !Boolean(post?.commentsDisabled)
   });
   const mergedAttachments = [...originalAttachments, ...keyboardAttachments];
-  const nextFingerprint = stableStringify(mergedAttachments);
+  const nextText = highlightText(post, originalText);
+  const nextFingerprint = stableStringify({ attachments: mergedAttachments, text: nextText });
 
-  if (stableStringify(post.patchedAttachments) === nextFingerprint) {
-    return { ok: true, commentCount, skipped: true, reason: "already_patched", giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length };
+  if (post.lastPatchedFingerprint === nextFingerprint) {
+    return { ok: true, commentCount, skipped: true, reason: "already_patched", giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length, pollRowsCount: pollRows.length, giftRowsCount: giftRows.length, runtimeVersion: DB_SYNC_RUNTIME };
   }
 
   try {
-    const payload = {
-      botToken,
-      messageId: post.messageId,
-      attachments: mergedAttachments,
-      notify: false
-    };
-
-    // CC7.4.5+: MAX PUT /messages may rebuild the message when only attachments are sent.
-    // Always send the original text/link/format back when we have them, so native links/entities survive patching.
-    if (originalText) {
-      payload.text = String(originalText || "");
-    }
-    if (originalLink && typeof originalLink === "object") {
-      payload.link = JSON.parse(JSON.stringify(originalLink));
-    }
-    if (originalFormat !== undefined && originalFormat !== null) {
-      payload.format = originalFormat;
-    }
-
+    const payload = { botToken, messageId: post.messageId, attachments: mergedAttachments, notify: false };
+    if (nextText) payload.text = nextText;
+    if (originalLink && typeof originalLink === "object") payload.link = cloneObject(originalLink, null);
+    if (originalFormat !== undefined && originalFormat !== null) payload.format = originalFormat;
     const patchResult = await editMessage(payload);
-
     savePost(commentKey, {
       patchedAttachments: mergedAttachments,
+      lastPatchedText: nextText,
       lastPatchedFingerprint: nextFingerprint,
       lastPatchedAt: Date.now(),
       lastPatchError: null,
       stablePayload,
       giftCampaignId: giftCampaign?.id || "",
       lastCustomRowsCount: customRows.length,
-      lastGiftRowsCount: giftRows.length
+      lastPollRowsCount: pollRows.length,
+      lastGiftRowsCount: giftRows.length,
+      lastSafeComposeRuntime: DB_SYNC_RUNTIME
     });
-
-    return { ok: true, commentCount, patchResult, giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length, giftRowsCount: giftRows.length };
+    return { ok: true, commentCount, patchResult, giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length, pollRowsCount: pollRows.length, giftRowsCount: giftRows.length, runtimeVersion: DB_SYNC_RUNTIME };
   } catch (error) {
-    const patchError = {
-      status: error?.status || 0,
-      message: error?.message || "patch_failed",
-      data: error?.data || null
-    };
-
+    const patchError = { status: error?.status || 0, message: error?.message || "patch_failed", data: error?.data || null };
     savePost(commentKey, {
       lastPatchError: patchError,
       lastPatchAttemptAt: Date.now(),
       stablePayload,
       giftCampaignId: giftCampaign?.id || "",
       lastCustomRowsCount: customRows.length,
-      lastGiftRowsCount: giftRows.length
+      lastPollRowsCount: pollRows.length,
+      lastGiftRowsCount: giftRows.length,
+      lastSafeComposeRuntime: DB_SYNC_RUNTIME
     });
-
-    return {
-      ok: false,
-      commentCount,
-      error: patchError,
-      giftCampaignId: giftCampaign?.id || "",
-      stablePayload,
-      customRowsCount: customRows.length,
-      giftRowsCount: giftRows.length
-    };
+    return { ok: false, commentCount, error: patchError, giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length, pollRowsCount: pollRows.length, giftRowsCount: giftRows.length, runtimeVersion: DB_SYNC_RUNTIME };
   }
 }
 
@@ -372,44 +351,9 @@ async function tryPatchChannelPost({
 }) {
   const commentKey = makeCommentKey(channelId, postId);
   const stablePayload = buildStableOpenPayload({ commentKey, postId, channelId, messageId: messageId || postId });
-
   const existingPost = getPost(commentKey);
-  if (existingPost && String(existingPost.messageId || "") === String(messageId || "") && existingPost.lastPatchedFingerprint) {
-    await syncPatchedPostToDb({
-      channelId,
-      postId,
-      messageId,
-      title: existingPost.originalText || originalText || postId,
-      channelTitle: existingPost.channelTitle || channelTitle,
-      linkedByUserId: existingPost.linkedByUserId || linkedByUserId,
-      linkedByName: existingPost.linkedByName || linkedByName,
-      commentKey,
-      originalText: existingPost.originalText || originalText || "",
-      sourceAttachments: existingPost.sourceAttachments || sourceAttachments || [],
-      originalLink: existingPost.originalLink || originalLink || null,
-      originalFormat: existingPost.originalFormat !== undefined ? existingPost.originalFormat : originalFormat,
-      handoffToken: existingPost.handoffToken,
-      stablePayload: existingPost.stablePayload || stablePayload,
-      customKeyboard: existingPost.customKeyboard || {},
-      commentsDisabled: Boolean(existingPost.commentsDisabled),
-      giftCampaignId: existingPost.giftCampaignId || "",
-      source: "post_patcher_existing_already_patched"
-    });
-    return {
-      commentKey,
-      botStartLink: buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken: existingPost.handoffToken, postId, channelId, commentKey, messageId }),
-      miniAppLink: buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken: existingPost.handoffToken, postId, channelId, commentKey, messageId }),
-      fallbackLink: `${String(appBaseUrl || "").replace(/\/$/, "")}/fallback?postId=${encodeURIComponent(String(postId || ""))}`,
-      post: existingPost,
-      patchResult: null,
-      patchError: null,
-      commentCount: getComments(commentKey).length,
-      skipped: true,
-      stablePayload: existingPost.stablePayload || stablePayload
-    };
-  }
 
-  const handoffToken = saveHandoff(makeHandoffToken(commentKey), {
+  const handoffToken = String(existingPost?.handoffToken || "").trim() || saveHandoff(makeHandoffToken(commentKey), {
     commentKey,
     postId: String(postId || ""),
     channelId: String(channelId || ""),
@@ -418,23 +362,24 @@ async function tryPatchChannelPost({
   });
 
   const postRecord = savePost(commentKey, {
+    ...(existingPost || {}),
     postId: String(postId || ""),
     channelId: String(channelId || ""),
-    messageId: String(messageId || ""),
-    originalText: String(originalText || ""),
-    sourceAttachments: normalizeAttachments(sourceAttachments),
+    messageId: String(messageId || existingPost?.messageId || ""),
+    originalText: String(existingPost?.originalText || originalText || ""),
+    sourceAttachments: normalizeAttachments(existingPost?.sourceAttachments || sourceAttachments),
     nativeReactions: Array.isArray(nativeReactions) ? JSON.parse(JSON.stringify(nativeReactions)).slice(0, 8) : [],
-    originalLink: originalLink && typeof originalLink === "object" ? JSON.parse(JSON.stringify(originalLink)) : null,
-    ...(originalFormat !== undefined ? { originalFormat } : {}),
-    channelTitle: String(channelTitle || "").trim(),
+    originalLink: cloneObject(existingPost?.originalLink || originalLink, null),
+    ...(existingPost?.originalFormat !== undefined ? { originalFormat: existingPost.originalFormat } : (originalFormat !== undefined ? { originalFormat } : {})),
+    channelTitle: String(existingPost?.channelTitle || channelTitle || "").trim(),
     textOverrideActive: false,
-    linkedByUserId: String(linkedByUserId || ""),
-    linkedByName: String(linkedByName || ""),
+    linkedByUserId: String(existingPost?.linkedByUserId || linkedByUserId || ""),
+    linkedByName: String(existingPost?.linkedByName || linkedByName || ""),
     autoMode: Boolean(autoMode),
     handoffToken,
     stablePayload,
     customKeyboard: existingPost?.customKeyboard || {},
-    createdAt: Date.now()
+    createdAt: existingPost?.createdAt || Date.now()
   });
 
   saveChannel(channelId, {
@@ -450,28 +395,24 @@ async function tryPatchChannelPost({
     channelId,
     postId,
     messageId,
-    title: originalText || postId,
+    title: postRecord.originalText || originalText || postId,
     channelTitle,
     linkedByUserId,
     linkedByName,
     commentKey,
-    originalText,
-    sourceAttachments,
-    originalLink,
-    originalFormat,
+    originalText: postRecord.originalText || originalText || "",
+    sourceAttachments: postRecord.sourceAttachments || sourceAttachments || [],
+    originalLink: postRecord.originalLink || originalLink || null,
+    originalFormat: postRecord.originalFormat !== undefined ? postRecord.originalFormat : originalFormat,
     handoffToken,
     stablePayload,
     customKeyboard: postRecord?.customKeyboard || {},
-    source: "post_patcher_try_patch_channel_post"
+    commentsDisabled: Boolean(postRecord?.commentsDisabled),
+    giftCampaignId: postRecord?.giftCampaignId || "",
+    source: "post_patcher_try_patch_channel_post_safe_compose"
   });
 
-  const patchAttempt = await patchStoredPost({
-    botToken,
-    appBaseUrl,
-    botUsername,
-    maxDeepLinkBase,
-    commentKey
-  });
+  const patchAttempt = await patchStoredPost({ botToken, appBaseUrl, botUsername, maxDeepLinkBase, commentKey });
 
   return {
     commentKey,
@@ -485,6 +426,7 @@ async function tryPatchChannelPost({
     giftCampaignId: patchAttempt.giftCampaignId || "",
     stablePayload: patchAttempt.stablePayload || stablePayload,
     customRowsCount: patchAttempt.customRowsCount || 0,
+    pollRowsCount: patchAttempt.pollRowsCount || 0,
     giftRowsCount: patchAttempt.giftRowsCount || 0
   };
 }
