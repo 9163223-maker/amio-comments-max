@@ -402,6 +402,7 @@ async function compressImageForComment(file) {
     drawSource = img; width = img.naturalWidth || img.width || 0; height = img.naturalHeight || img.height || 0;
   }
   if (!width || !height) throw new Error('image_size_unknown');
+  let fallbackPacked = null;
   for (const maxSide of maxSideSteps) {
     const longSide = Math.max(width, height);
     const ratio = longSide > maxSide ? (maxSide / longSide) : 1;
@@ -416,12 +417,13 @@ async function compressImageForComment(file) {
       const outDataUrl = canvas.toDataURL('image/jpeg', quality);
       const outSize = Math.floor(((outDataUrl.split(',')[1] || '').length * 3) / 4);
       const packed = { dataUrl: outDataUrl, mimeType: 'image/jpeg', size: outSize, fileName: (file.name || 'photo').replace(/\.[^/.]+$/, '') + '.jpg', compressed: true, width: targetW, height: targetH, quality, maxSide };
-      if (outSize <= hardMax) {
-        if (outSize >= targetMin && outSize <= targetMax) return packed;
-        return packed;
-      }
+      if (outSize > hardMax) continue;
+      fallbackPacked = packed;
+      if (outSize >= targetMin && outSize <= targetMax) return packed;
+      if (outSize < targetMin) return packed;
     }
   }
+  if (fallbackPacked && fallbackPacked.size <= hardMax) return fallbackPacked;
   throw new Error('compress_limit_exceeded');
 }
 function computeCommentsFingerprint(list) {
