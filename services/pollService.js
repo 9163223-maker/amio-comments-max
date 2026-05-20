@@ -1,7 +1,7 @@
 'use strict';
 
 const db = require('../cc5-db-core');
-const RUNTIME = 'ADMINKIT-POLL-SERVICE-1.8-UNIQUE-VOTE-KEY';
+const RUNTIME = 'ADMINKIT-POLL-SERVICE-1.9-LEGACY-VOTER-ID';
 let ensured = null;
 
 function clean(v){ return String(v || '').replace(/\s+/g, ' ').trim(); }
@@ -50,6 +50,7 @@ async function ensure(){
     await raw(`create table if not exists ak_poll_votes(
       poll_id bigint not null,
       user_id text not null default '',
+      voter_id text not null default '',
       option_id text not null default '',
       created_at timestamptz default now(),
       updated_at timestamptz default now(),
@@ -71,14 +72,28 @@ async function ensure(){
       end if;
     end $$`);
 
+    // Приводим таблицу голосов к новой устойчивой схеме, но сохраняем совместимость со старыми колонками.
+    await raw("alter table ak_poll_votes add column if not exists user_id text not null default ''");
+    await raw("alter table ak_poll_votes add column if not exists voter_id text not null default ''");
+    await raw("alter table ak_poll_votes add column if not exists option_id text not null default ''");
+    await raw("alter table ak_poll_votes add column if not exists created_at timestamptz default now()");
+    await raw("alter table ak_poll_votes add column if not exists updated_at timestamptz default now()");
+
     await raw("alter table ak_poll_votes alter column user_id type text using user_id::text");
+    await raw("alter table ak_poll_votes alter column voter_id type text using voter_id::text");
     await raw("alter table ak_poll_votes alter column option_id type text using option_id::text");
     await raw("alter table ak_poll_votes alter column poll_id type bigint using nullif(poll_id::text,'')::bigint");
+    await raw("update ak_poll_votes set user_id = coalesce(nullif(user_id,''), nullif(voter_id,''), '') where user_id is null or user_id = ''");
+    await raw("update ak_poll_votes set voter_id = coalesce(nullif(voter_id,''), nullif(user_id,''), '') where voter_id is null or voter_id = ''");
     for(const m of [
       "alter table ak_poll_votes alter column user_id set default ''",
+      "alter table ak_poll_votes alter column voter_id set default ''",
       "alter table ak_poll_votes alter column option_id set default ''",
       "alter table ak_poll_votes alter column created_at set default now()",
       "alter table ak_poll_votes alter column updated_at set default now()",
+      "alter table ak_poll_votes alter column user_id set not null",
+      "alter table ak_poll_votes alter column voter_id set not null",
+      "alter table ak_poll_votes alter column option_id set not null",
       "create index if not exists ak_poll_votes_poll_idx on ak_poll_votes(poll_id,updated_at desc)"
     ]) await raw(m);
 
@@ -140,7 +155,7 @@ async function vote({pollId='',optionId='',userId=''}={}){
   if(!id||!opt||!uid) return {ok:false,error:'vote_payload_missing'};
   const s=await summary(id); if(!s) return {ok:false,error:'poll_not_found'};
   if(!s.options.some(o=>o.id===opt)) return {ok:false,error:'option_not_found'};
-  await q("insert into ak_poll_votes(poll_id,user_id,option_id,created_at,updated_at) values($1::bigint,$2::text,$3::text,now(),now()) on conflict(poll_id,user_id) do update set option_id=excluded.option_id,updated_at=now()",[id,uid,opt]);
+  await q("insert into ak_poll_votes(poll_id,user_id,voter_id,option_id,created_at,updated_at) values($1::bigint,$2::text,$2::text,$3::text,now(),now()) on conflict(poll_id,user_id) do update set option_id=excluded.option_id,voter_id=excluded.voter_id,updated_at=now()",[id,uid,opt]);
   return {ok:true,summary:await summary(id)};
 }
 function buttonPayload(action,data){ if(action==='poll_vote') return `pv:${data.pollId}:${data.optionId}`; if(action==='poll_info') return `pi:${data.pollId}`; return JSON.stringify(Object.assign({action},data||{})); }
@@ -159,4 +174,4 @@ async function buildPollKeyboardRows({channelId='',postId='',commentKey=''}={}){
   return rows;
 }
 async function status(){ await ensure(); const a=await q('select count(*)::int n from ak_polls'), b=await q('select count(*)::int n from ak_poll_votes'); return {ok:true,runtimeVersion:RUNTIME,counts:{polls:a.rows[0].n,votes:b.rows[0].n}}; }
-module.exports={RUNTIME,ensure,createPoll,createQuickPoll,parseOptionsText,normalizeOptions,activePoll,summary,vote,buildPollKeyboardRows,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-custom-callback-polls-unique-vote-key'})};
+module.exports={RUNTIME,ensure,createPoll,createQuickPoll,parseOptionsText,normalizeOptions,activePoll,summary,vote,buildPollKeyboardRows,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-custom-callback-polls-legacy-voter-id'})};
