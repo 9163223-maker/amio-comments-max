@@ -77,15 +77,30 @@ const COMMENT_TRACE_LIMIT = 20;
 const commentTraceEvents = [];
 function pushCommentTraceEvent(event = '', payload = {}) {
   const safe = payload && typeof payload === 'object' ? payload : {};
+  const attachment = safe.attachment && typeof safe.attachment === 'object' ? safe.attachment : {};
   const item = {
     at: Date.now(),
     event: String(event || '').trim(),
-    runtimeVersion: 'CC7.5.52-COMMENT-PHOTO-COMPRESS-TRACE',
-    mimeType: String(safe.mimeType || '').trim(),
-    fileName: String(safe.fileName || '').trim(),
-    size: Number(safe.size || 0) || 0,
+    runtimeVersion: 'CC7.5.54-COMMENT-PHOTO-OPTIMISTIC-PREVIEW',
+    commentKey: String(safe.commentKey || '').trim(),
+    clientCommentId: String(safe.clientCommentId || '').trim(),
+    originalSize: Number(safe.originalSize || 0) || 0,
+    compressedSize: Number(safe.compressedSize || 0) || 0,
+    uploadSize: Number(safe.uploadSize || safe.size || 0) || 0,
+    width: Number(safe.width || 0) || 0,
+    height: Number(safe.height || 0) || 0,
+    quality: Number(safe.quality || 0) || 0,
+    maxSide: Number(safe.maxSide || 0) || 0,
+    durationMs: Number(safe.durationMs || 0) || 0,
+    status: String(safe.status || '').trim(),
     error: String(safe.error || '').trim(),
-    commentKey: String(safe.commentKey || '').trim()
+    attachment: {
+      hasUrl: Boolean(attachment.hasUrl),
+      hasPreviewUrl: Boolean(attachment.hasPreviewUrl),
+      hasDataUrl: Boolean(attachment.hasDataUrl),
+      mimeType: String(attachment.mimeType || safe.mimeType || '').trim(),
+      fileName: String(attachment.fileName || safe.fileName || '').trim()
+    }
   };
   commentTraceEvents.push(item);
   if (commentTraceEvents.length > COMMENT_TRACE_LIMIT) commentTraceEvents.splice(0, commentTraceEvents.length - COMMENT_TRACE_LIMIT);
@@ -1521,11 +1536,12 @@ app.post('/api/debug/comment-trace-event', (req, res) => {
   return res.json({ ok: true });
 });
 
-app.get('/debug/comment-trace', (req, res) => {
-  if (String(req.query.t || '') !== '7552') return res.status(404).json({ ok: false, error: 'not_found' });
+app.get(['/debug/comment-trace','/api/debug/comment-trace'], (req, res) => {
+  setNoCacheHeaders(res);
+  if (req.path === '/debug/comment-trace' && String(req.query.t || '') !== '7554') return res.status(404).json({ ok: false, error: 'not_found' });
   return res.json({
     ok: true,
-    runtimeVersion: 'CC7.5.52-COMMENT-PHOTO-COMPRESS-TRACE',
+    runtimeVersion: 'CC7.5.54-COMMENT-PHOTO-OPTIMISTIC-PREVIEW',
     generatedAt: new Date().toISOString(),
     total: commentTraceEvents.length,
     noDatabaseRead: true,

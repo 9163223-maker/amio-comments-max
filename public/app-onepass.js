@@ -1,8 +1,8 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.5.53-COMMENT-PHOTO-PREVIEW-COMPRESS';
-const MARKER = '__ADMINKIT_CC7_5_53_COMMENT_PHOTO_PREVIEW_COMPRESS__';
+const RUNTIME = 'CC7.5.54-COMMENT-PHOTO-OPTIMISTIC-PREVIEW';
+const MARKER = '__ADMINKIT_CC7_5_54_COMMENT_PHOTO_OPTIMISTIC_PREVIEW__';
 if (window[MARKER]) return;
 window[MARKER] = true;
 
@@ -296,15 +296,30 @@ function setSendingUi(isSending) {
 }
 function pushCommentTrace(event, payload) {
   const safe = payload && typeof payload === 'object' ? payload : {};
+  const attachment = safe.attachment && typeof safe.attachment === 'object' ? safe.attachment : {};
   const item = {
     at: Date.now(),
     event: clean(event),
-    type: clean(safe.type),
-    mimeType: clean(safe.mimeType),
-    fileName: clean(safe.fileName),
+    runtimeVersion: RUNTIME,
     commentKey: clean(safe.commentKey || state.commentKey),
-    size: Number(safe.size || 0) || 0,
-    error: clean(safe.error)
+    clientCommentId: clean(safe.clientCommentId),
+    originalSize: Number(safe.originalSize || 0) || 0,
+    compressedSize: Number(safe.compressedSize || 0) || 0,
+    uploadSize: Number(safe.uploadSize || 0) || 0,
+    width: Number(safe.width || 0) || 0,
+    height: Number(safe.height || 0) || 0,
+    quality: Number(safe.quality || 0) || 0,
+    maxSide: Number(safe.maxSide || 0) || 0,
+    durationMs: Number(safe.durationMs || 0) || 0,
+    status: clean(safe.status),
+    error: clean(safe.error),
+    attachment: {
+      hasUrl: Boolean(attachment.hasUrl),
+      hasPreviewUrl: Boolean(attachment.hasPreviewUrl),
+      hasDataUrl: Boolean(attachment.hasDataUrl),
+      mimeType: clean(attachment.mimeType || safe.mimeType),
+      fileName: clean(attachment.fileName || safe.fileName)
+    }
   };
   state.commentTrace.push(item);
   if (state.commentTrace.length > 20) state.commentTrace = state.commentTrace.slice(-20);
@@ -387,11 +402,11 @@ function loadImageElementFromDataUrl(dataUrl) {
 }
 async function compressImageForComment(file) {
   const sourceDataUrl = await readFileAsDataUrl(file);
-  const qualitySteps = [0.62, 0.55, 0.48];
-  const maxSideSteps = [640, 520, 420];
-  const targetMin = 50 * 1024;
-  const targetMax = 90 * 1024;
-  const hardMax = 120 * 1024;
+  const qualitySteps = [0.55, 0.48, 0.42];
+  const maxSideSteps = [480, 420, 360];
+  const targetMin = 35 * 1024;
+  const targetMax = 60 * 1024;
+  const hardMax = 80 * 1024;
   let width = 0; let height = 0;
   let drawSource = null;
   if (window.createImageBitmap) {
@@ -556,12 +571,25 @@ function applyMeta(meta) {
 }
 function renderAttachment(attachment) {
   const type = clean(attachment && (attachment.type || attachment.kind));
-  const url = clean(attachment && (attachment.url || attachment.previewUrl || attachment.posterUrl));
-  const name = clean(attachment && (attachment.name || attachment.fileName)) || 'файл';
-  if (!url) return '';
-  if (type === 'image' || /\.(jpg|jpeg|png|webp|gif)$/i.test(url)) return '<div class="comment-attachment comment-attachment-image"><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(name) + '" loading="lazy"></div>';
-  if (type === 'video' || /\.(mp4|mov|webm)$/i.test(url)) return '<div class="comment-attachment comment-attachment-video"><video controls playsinline src="' + escapeHtml(url) + '"></video></div>';
-  return '<a class="comment-attachment comment-attachment-file" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(name) + '</a>';
+  const mimeType = clean(attachment && attachment.mimeType);
+  const name = clean(attachment && (attachment.name || attachment.fileName)) || 'фото';
+  const candidates = [
+    clean(attachment && attachment.url),
+    clean(attachment && attachment.previewUrl),
+    clean(attachment && attachment.dataUrl),
+    clean(attachment && attachment.previewDataUrl),
+    clean(attachment && attachment.thumbDataUrl),
+    clean(attachment && attachment.posterUrl)
+  ].filter(Boolean);
+  const url = candidates.find(Boolean) || '';
+  const isImage = type === 'image' || /^image\//i.test(mimeType) || /\.(jpg|jpeg|png|webp|gif)$/i.test(url);
+  if (isImage && !url) {
+    pushCommentTrace('attachment_render_missing_url', { attachment: { hasUrl: Boolean(clean(attachment && attachment.url)), hasPreviewUrl: Boolean(clean(attachment && attachment.previewUrl)), hasDataUrl: Boolean(clean(attachment && (attachment.dataUrl || attachment.previewDataUrl || attachment.thumbDataUrl))), mimeType, fileName: name } });
+    emitTraceEvent('attachment_render_missing_url', { attachment: { hasUrl: Boolean(clean(attachment && attachment.url)), hasPreviewUrl: Boolean(clean(attachment && attachment.previewUrl)), hasDataUrl: Boolean(clean(attachment && (attachment.dataUrl || attachment.previewDataUrl || attachment.thumbDataUrl))), mimeType, fileName: name } });
+    return '<div class="comment-attachment comment-attachment-missing">Фото недоступно</div>';
+  }
+  if (!url) return '';  if (isImage) return '<div class="comment-attachment comment-attachment-image"><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(name) + '" loading="lazy"></div>';
+  return '';
 }
 function searchableComment(comment) {
   return normalizeSearch([
@@ -606,17 +634,19 @@ function renderOpenState(data) {
   hideMiniStart();
   applyMeta(data.meta || {});
   const list = Array.isArray(data.comments) ? data.comments : [];
-  const count = Number(data.commentsCount || list.length || 0) || 0;
+  const optimistic = (Array.isArray(state.comments) ? state.comments : []).filter((c) => c && c.clientCommentId && c.sendStatus !== 'error' && !list.some((srv) => String(srv.id||'')===String(c.id||'')));
+  const mergedList = list.concat(optimistic);
+  const count = Number(data.commentsCount || mergedList.length || 0) || 0;
   state.commentsCount = count;
-  const fingerprint = computeCommentsFingerprint(list);
+  const fingerprint = computeCommentsFingerprint(mergedList);
   if (fingerprint === state.lastRenderFingerprint) {
-    pushCommentTrace('comment_render_skip_unchanged', { type: 'comments', size: list.length });
-    emitTraceEvent('comment_render_skip_unchanged', { size: list.length });
+    pushCommentTrace('comment_render_skip_unchanged', { status: 'unchanged', uploadSize: mergedList.length });
+    emitTraceEvent('comment_render_skip_unchanged', { size: mergedList.length });
   } else {
     state.lastRenderFingerprint = fingerprint;
-    renderComments(list);
-    pushCommentTrace('comment_render_apply', { type: 'comments', size: list.length });
-    emitTraceEvent('comment_render_apply', { size: list.length });
+    renderComments(mergedList);
+    pushCommentTrace('comment_render_apply', { status: 'applied', uploadSize: mergedList.length });
+    emitTraceEvent('comment_render_apply', { size: mergedList.length });
   }
   if (refs.commentsCountPill && !state.searchQuery) refs.commentsCountPill.textContent = pluralComments(count);
 }
@@ -643,6 +673,16 @@ async function sendComment() {
   state.lastSendStartedAt = Date.now();
   setInlineStatus('Отправляем…', false);
   setSendingUi(true);
+  let optimisticCommentId = '';
+  if (hasPhoto) {
+    optimisticCommentId = 'client_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const preview = clean(state.pendingPhoto && ((state.pendingPhoto.compressed && state.pendingPhoto.compressed.dataUrl) || state.pendingPhoto.previewUrl));
+    const optimisticComment = { id: optimisticCommentId, clientCommentId: optimisticCommentId, userId: outgoingUserId(), userName: outgoingUserName(), text, own: true, createdAt: new Date().toISOString(), sendStatus: 'sending', attachments: [{ type: 'image', mimeType: clean(state.pendingPhoto && state.pendingPhoto.mimeType) || 'image/jpeg', fileName: clean(state.pendingPhoto && state.pendingPhoto.fileName) || 'photo.jpg', previewUrl: preview, dataUrl: preview }] };
+    state.comments = state.comments.concat([optimisticComment]);
+    pushCommentTrace('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
+    emitTraceEvent('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
+    renderComments();
+  }
   try {
     const attachments = hasPhoto ? await uploadPendingPhotoIfNeeded() : [];
     emitTraceEvent('comment_create_start', { size: attachments.length });
@@ -659,6 +699,12 @@ async function sendComment() {
     }
     emitTraceEvent('comment_create_ok', { size: attachments.length });
     pushCommentTrace('comment_create_ok', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length });
+    if (optimisticCommentId && data && data.comment) {
+      state.comments = (state.comments || []).map((x) => (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId) ? data.comment : x);
+      pushCommentTrace('optimistic_comment_replaced', { clientCommentId: optimisticCommentId, status: 'ok' });
+      emitTraceEvent('optimistic_comment_replaced', { clientCommentId: optimisticCommentId, status: 'ok' });
+      renderComments();
+    }
     if (refs.commentInput) refs.commentInput.value = '';
     clearPendingPhoto();
     state.lastSendFingerprint = '';
@@ -666,6 +712,11 @@ async function sendComment() {
     await refreshOpenState();
   } catch (error) {
     const message = clean(error && error.message);
+    if (optimisticCommentId) {
+      state.comments = (state.comments || []).map((x) => (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId) ? Object.assign({}, x, { sendStatus: 'error' }) : x);
+      renderComments();
+    }
+    emitTraceEvent('comment_create_error', { clientCommentId: optimisticCommentId, error: message || 'comment_create_failed' });
     if (message === 'Не удалось отправить фото. Попробуйте ещё раз.') setInlineStatus(message, true);
     else setInlineStatus('Не удалось отправить комментарий. Попробуйте ещё раз.', true);
   }
