@@ -1,7 +1,7 @@
 'use strict';
 
 const db = require('../cc5-db-core');
-const RUNTIME = 'ADMINKIT-POLL-SERVICE-1.6-OPTION-ID-TEXT-MIGRATE';
+const RUNTIME = 'ADMINKIT-POLL-SERVICE-1.7-DROP-LEGACY-FK';
 let ensured = null;
 
 function clean(v){ return String(v || '').replace(/\s+/g, ' ').trim(); }
@@ -55,6 +55,22 @@ async function ensure(){
       updated_at timestamptz default now(),
       primary key(poll_id,user_id)
     )`);
+
+    // Старые экспериментальные сборки могли создать внешние ключи на option_id как bigint.
+    // Сейчас option_id — стабильный текстовый id варианта (_1, _2, gore_1 и т.п.), поэтому legacy FK нужно снять до миграции типа.
+    await raw(`do $$
+    declare r record;
+    begin
+      if to_regclass('public.ak_poll_votes') is not null then
+        for r in
+          select conname from pg_constraint
+          where conrelid = 'public.ak_poll_votes'::regclass and contype = 'f'
+        loop
+          execute 'alter table public.ak_poll_votes drop constraint if exists ' || quote_ident(r.conname);
+        end loop;
+      end if;
+    end $$`);
+
     await raw("alter table ak_poll_votes alter column user_id type text using user_id::text");
     await raw("alter table ak_poll_votes alter column option_id type text using option_id::text");
     await raw("alter table ak_poll_votes alter column poll_id type bigint using nullif(poll_id::text,'')::bigint");
@@ -133,4 +149,4 @@ async function buildPollKeyboardRows({channelId='',postId='',commentKey=''}={}){
   return rows;
 }
 async function status(){ await ensure(); const a=await q('select count(*)::int n from ak_polls'), b=await q('select count(*)::int n from ak_poll_votes'); return {ok:true,runtimeVersion:RUNTIME,counts:{polls:a.rows[0].n,votes:b.rows[0].n}}; }
-module.exports={RUNTIME,ensure,createPoll,createQuickPoll,parseOptionsText,normalizeOptions,activePoll,summary,vote,buildPollKeyboardRows,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-custom-callback-polls-option-id-text-migrate'})};
+module.exports={RUNTIME,ensure,createPoll,createQuickPoll,parseOptionsText,normalizeOptions,activePoll,summary,vote,buildPollKeyboardRows,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-custom-callback-polls-drop-legacy-fk'})};
