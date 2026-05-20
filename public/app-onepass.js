@@ -1,8 +1,8 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.5.52-COMMENT-PHOTO-COMPRESS-TRACE';
-const MARKER = '__ADMINKIT_CC7_5_52_COMMENT_PHOTO_COMPRESS_TRACE__';
+const RUNTIME = 'CC7.5.53-COMMENT-PHOTO-PREVIEW-COMPRESS';
+const MARKER = '__ADMINKIT_CC7_5_53_COMMENT_PHOTO_PREVIEW_COMPRESS__';
 if (window[MARKER]) return;
 window[MARKER] = true;
 
@@ -274,7 +274,7 @@ const state = {
   commentTrace: [],
   searchOpen: false, searchQuery: ''
 };
-window.__ADMINKIT_CC7_5_52_STATE__ = state;
+window.__ADMINKIT_CC7_5_53_STATE__ = state;
 window.__ADMINKIT_CC7_5_47_STATE__ = state;
 window.__ADMINKIT_CC7_5_6_STATE__ = state;
 window.__ADMINKIT_CC7_5_3_STATE__ = state;
@@ -335,19 +335,38 @@ function handleAttachmentChange() {
   if (!file) return;
   const mimeType = clean(file.type || '');
   const fileName = clean(file.name || 'photo');
-  const size = Number(file.size || 0) || 0;
-  pushCommentTrace('attachment_pick', { type: 'file', mimeType, fileName, size });
+  const originalSize = Number(file.size || 0) || 0;
+  pushCommentTrace('attachment_pick', { type: 'file', mimeType, fileName, originalSize });
   if (!/^image\//i.test(mimeType)) {
     clearPendingPhoto();
     setInlineStatus('Пока в комментариях можно прикреплять только фото. Видео и файлы сейчас не поддерживаются.', true);
-    pushCommentTrace('attachment_reject', { type: 'file', mimeType, fileName, size, error: 'only_image_supported' });
+    pushCommentTrace('attachment_reject', { type: 'file', mimeType, fileName, originalSize, error: 'only_image_supported' });
     return;
   }
   const previewUrl = URL.createObjectURL(file);
-  state.pendingPhoto = { file, mimeType: mimeType || 'image/jpeg', fileName, size, previewUrl, status: 'picked', compressed: null };
+  const pending = { file, mimeType: mimeType || 'image/jpeg', fileName, size: originalSize, originalSize, previewUrl, status: 'compressing', compressed: null, compressPromise: null };
+  state.pendingPhoto = pending;
   renderAttachmentPreview();
-  setInlineStatus('', false);
-  pushCommentTrace('attachment_preview', { type: 'image', mimeType: state.pendingPhoto.mimeType, fileName, size });
+  setInlineStatus('Готовим фото…', false);
+  const startedAt = Date.now();
+  pushCommentTrace('attachment_compress_start', { type: 'image', mimeType: pending.mimeType, fileName, originalSize });
+  pending.compressPromise = compressImageForComment(file).then((packed) => {
+    if (state.pendingPhoto !== pending) return packed;
+    pending.compressed = packed;
+    pending.status = 'compressed';
+    setInlineStatus('', false);
+    pushCommentTrace('attachment_compress_ok', { type: 'image', mimeType: packed.mimeType, fileName: packed.fileName, originalSize, compressedSize: packed.size, width: packed.width, height: packed.height, quality: packed.quality, maxSide: packed.maxSide, durationMs: Date.now() - startedAt });
+    emitTraceEvent('attachment_compress_ok', { originalSize, compressedSize: packed.size, width: packed.width, height: packed.height, quality: packed.quality, maxSide: packed.maxSide, durationMs: Date.now() - startedAt });
+    return packed;
+  }).catch((error) => {
+    if (state.pendingPhoto === pending) {
+      pending.status = 'error';
+      setInlineStatus('Не удалось обработать фото. Попробуйте другое изображение.', true);
+    }
+    pushCommentTrace('attachment_compress_error', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, originalSize, error: clean(error && error.message) || 'compress_failed', durationMs: Date.now() - startedAt });
+    emitTraceEvent('attachment_compress_error', { error: clean(error && error.message) || 'compress_failed', durationMs: Date.now() - startedAt });
+    throw error;
+  });
 }
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -368,8 +387,11 @@ function loadImageElementFromDataUrl(dataUrl) {
 }
 async function compressImageForComment(file) {
   const sourceDataUrl = await readFileAsDataUrl(file);
-  const maxSide = 1280;
-  const quality = 0.78;
+  const qualitySteps = [0.62, 0.55, 0.48];
+  const maxSideSteps = [640, 520, 420];
+  const targetMin = 50 * 1024;
+  const targetMax = 90 * 1024;
+  const hardMax = 120 * 1024;
   let width = 0; let height = 0;
   let drawSource = null;
   if (window.createImageBitmap) {
@@ -379,20 +401,30 @@ async function compressImageForComment(file) {
     const img = await loadImageElementFromDataUrl(sourceDataUrl);
     drawSource = img; width = img.naturalWidth || img.width || 0; height = img.naturalHeight || img.height || 0;
   }
-  if (!width || !height) return { dataUrl: sourceDataUrl, mimeType: file.type || 'image/jpeg', size: file.size || 0, fileName: file.name || 'photo.jpg', compressed: false };
-  const longSide = Math.max(width, height);
-  const ratio = longSide > maxSide ? (maxSide / longSide) : 1;
-  const targetW = Math.max(1, Math.round(width * ratio));
-  const targetH = Math.max(1, Math.round(height * ratio));
-  if (ratio === 1 && /^image\/jpe?g$/i.test(file.type || '') && (file.size || 0) < 420000) return { dataUrl: sourceDataUrl, mimeType: file.type || 'image/jpeg', size: file.size || 0, fileName: file.name || 'photo.jpg', compressed: false };
-  const canvas = document.createElement('canvas');
-  canvas.width = targetW; canvas.height = targetH;
-  const ctx = canvas.getContext('2d', { alpha: false });
-  if (!ctx) throw new Error('canvas_context_failed');
-  ctx.drawImage(drawSource, 0, 0, targetW, targetH);
-  const outDataUrl = canvas.toDataURL('image/jpeg', quality);
-  const outSize = Math.floor(((outDataUrl.split(',')[1] || '').length * 3) / 4);
-  return { dataUrl: outDataUrl, mimeType: 'image/jpeg', size: outSize, fileName: (file.name || 'photo').replace(/\.[^/.]+$/, '') + '.jpg', compressed: true, width: targetW, height: targetH };
+  if (!width || !height) throw new Error('image_size_unknown');
+  let fallbackPacked = null;
+  for (const maxSide of maxSideSteps) {
+    const longSide = Math.max(width, height);
+    const ratio = longSide > maxSide ? (maxSide / longSide) : 1;
+    const targetW = Math.max(1, Math.round(width * ratio));
+    const targetH = Math.max(1, Math.round(height * ratio));
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW; canvas.height = targetH;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) throw new Error('canvas_context_failed');
+    ctx.drawImage(drawSource, 0, 0, targetW, targetH);
+    for (const quality of qualitySteps) {
+      const outDataUrl = canvas.toDataURL('image/jpeg', quality);
+      const outSize = Math.floor(((outDataUrl.split(',')[1] || '').length * 3) / 4);
+      const packed = { dataUrl: outDataUrl, mimeType: 'image/jpeg', size: outSize, fileName: (file.name || 'photo').replace(/\.[^/.]+$/, '') + '.jpg', compressed: true, width: targetW, height: targetH, quality, maxSide };
+      if (outSize > hardMax) continue;
+      fallbackPacked = packed;
+      if (outSize >= targetMin && outSize <= targetMax) return packed;
+      if (outSize < targetMin) return packed;
+    }
+  }
+  if (fallbackPacked && fallbackPacked.size <= hardMax) return fallbackPacked;
+  throw new Error('compress_limit_exceeded');
 }
 function computeCommentsFingerprint(list) {
   const safe = Array.isArray(list) ? list : [];
@@ -418,13 +450,13 @@ async function uploadPendingPhotoIfNeeded() {
   if (!state.pendingPhoto || !state.pendingPhoto.file) return [];
   const pending = state.pendingPhoto;
   pending.status = 'uploading';
-  pushCommentTrace('attachment_upload_start', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size });
-  pushCommentTrace('attachment_compress_start', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size });
   let packed = pending.compressed;
-  if (!packed) {
-    try { packed = await compressImageForComment(pending.file); pending.compressed = packed; pushCommentTrace('attachment_compress_ok', { type: 'image', mimeType: packed.mimeType, fileName: packed.fileName, size: packed.size }); emitTraceEvent('attachment_compress_ok', { mimeType: packed.mimeType, size: packed.size }); }
-    catch (error) { pushCommentTrace('attachment_compress_error', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size, error: clean(error && error.message) || 'compress_failed' }); emitTraceEvent('attachment_compress_error', { error: clean(error && error.message) || 'compress_failed' }); throw new Error('Не удалось обработать фото. Попробуйте другое изображение.'); }
+  if (!packed && pending.compressPromise) {
+    try { packed = await pending.compressPromise; } catch (_) { throw new Error('Не удалось обработать фото. Попробуйте другое изображение.'); }
   }
+  if (!packed) throw new Error('Не удалось обработать фото. Попробуйте другое изображение.');
+  const uploadStartedAt = Date.now();
+  pushCommentTrace('attachment_upload_start', { type: 'image', mimeType: packed.mimeType || pending.mimeType, fileName: packed.fileName || pending.fileName, compressedSize: packed.size });
   const body = {
     commentKey: state.commentKey || '',
     type: 'image',
@@ -446,7 +478,7 @@ async function uploadPendingPhotoIfNeeded() {
     throw new Error(clean(data.message || data.userMessage || data.friendlyMessage || data.error) || 'Не удалось отправить фото. Попробуйте ещё раз.');
   }
   pending.status = 'uploaded';
-  pushCommentTrace('attachment_upload_ok', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size });
+  pushCommentTrace('attachment_upload_ok', { type: 'image', mimeType: packed.mimeType || pending.mimeType, fileName: packed.fileName || pending.fileName, compressedSize: packed.size, durationMs: Date.now() - uploadStartedAt });
   return [data.attachment];
 }
 function buildOpenStateUrl() {
@@ -613,6 +645,7 @@ async function sendComment() {
   setSendingUi(true);
   try {
     const attachments = hasPhoto ? await uploadPendingPhotoIfNeeded() : [];
+    emitTraceEvent('comment_create_start', { size: attachments.length });
     pushCommentTrace('comment_create_start', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length });
     const response = await fetch('/api/comments', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -624,6 +657,7 @@ async function sendComment() {
       setInlineStatus(clean(data.message || data.userMessage || data.friendlyMessage) || 'Комментарий не опубликован: сработала модерация или правила обсуждения.', true);
       return;
     }
+    emitTraceEvent('comment_create_ok', { size: attachments.length });
     pushCommentTrace('comment_create_ok', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length });
     if (refs.commentInput) refs.commentInput.value = '';
     clearPendingPhoto();
@@ -700,7 +734,7 @@ function boot() {
   if (state.currentUserAvatarUrl && refs.composerAvatar) { refs.composerAvatar.src = state.currentUserAvatarUrl; refs.composerAvatar.style.display = 'block'; if (refs.composerAvatarFallback) refs.composerAvatarFallback.style.display = 'none'; }
 
   const initial = loadOpenStateSync();
-  window.__ADMINKIT_CC7_5_52_INITIAL__ = initial;
+  window.__ADMINKIT_CC7_5_53_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_47_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_6_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_3_INITIAL__ = initial;
