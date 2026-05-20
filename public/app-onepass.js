@@ -1,8 +1,8 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.5.55-COMMENT-PHOTO-INLINE-THUMB';
-const MARKER = '__ADMINKIT_CC7_5_55_COMMENT_PHOTO_INLINE_THUMB__';
+const RUNTIME = 'CC7.5.56-COMMENT-SEND-FAST-HOTFIX';
+const MARKER = '__ADMINKIT_CC7_5_56_COMMENT_SEND_FAST_HOTFIX__';
 if (window[MARKER]) return;
 window[MARKER] = true;
 
@@ -296,6 +296,8 @@ function setSendingUi(isSending) {
   if (refs.commentInput) refs.commentInput.readOnly = Boolean(isSending);
 }
 function pushCommentTrace(event, payload) {
+  const allowed = { attachment_pick: 1, attachment_compress_start: 1, attachment_compress_ok: 1, attachment_upload_start: 1, attachment_upload_ok: 1, attachment_upload_error: 1, comment_create_start: 1, comment_create_ok: 1, comment_create_error: 1, optimistic_comment_inserted: 1, optimistic_comment_replaced: 1 };
+  if (!allowed[String(event || '')]) return;
   const safe = payload && typeof payload === 'object' ? payload : {};
   const attachment = safe.attachment && typeof safe.attachment === 'object' ? safe.attachment : {};
   const item = {
@@ -480,7 +482,10 @@ function computeCommentsFingerprint(list) {
   }).join('||');
 }
 function emitTraceEvent(event, payload) {
-  const body = { event: clean(event), payload: payload && typeof payload === 'object' ? payload : {}, runtimeVersion: RUNTIME };
+  const eventName = clean(event);
+  const traceEnabled = /(?:^|[?&])(debugTrace|trace)=1(?:&|$)/.test(String(location.search || ''));
+  if (!traceEnabled && (eventName === 'comment_render_skip_unchanged' || eventName === 'comment_render_apply' || eventName === 'attachment_render_missing_url')) return;
+  const body = { event: eventName, payload: payload && typeof payload === 'object' ? payload : {}, runtimeVersion: RUNTIME };
   try {
     if (navigator.sendBeacon) {
       navigator.sendBeacon('/api/debug/comment-trace-event', new Blob([JSON.stringify(body)], { type: 'application/json' }));
@@ -518,6 +523,7 @@ async function uploadPendingPhotoIfNeeded() {
     mimeType: packed.mimeType || pending.mimeType || pending.file.type || 'image/jpeg',
     fileName: packed.fileName || pending.fileName || pending.file.name || 'photo.jpg',
     size: Number(packed.size || pending.size || pending.file.size || 0) || 0,
+    dataUrl: packed.dataUrl,
     thumbDataUrl: packed.dataUrl,
     fallbackReason: 'max_webview_json_photo_upload',
     clientUploadId: 'upload_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10)
@@ -721,16 +727,15 @@ async function sendComment() {
   state.lastSendStartedAt = Date.now();
   setInlineStatus('Отправляем…', false);
   setSendingUi(true);
-  let optimisticCommentId = '';
-  if (hasPhoto) {
-    optimisticCommentId = 'client_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-    const preview = clean(state.pendingPhoto && ((state.pendingPhoto.compressed && state.pendingPhoto.compressed.dataUrl) || state.pendingPhoto.previewUrl));
-    const optimisticComment = { id: optimisticCommentId, clientCommentId: optimisticCommentId, userId: outgoingUserId(), userName: outgoingUserName(), text, own: true, createdAt: new Date().toISOString(), sendStatus: 'sending', attachments: [{ type: 'image', mimeType: clean(state.pendingPhoto && state.pendingPhoto.mimeType) || 'image/jpeg', fileName: clean(state.pendingPhoto && state.pendingPhoto.fileName) || 'photo.jpg', thumbDataUrl: preview }] };
-    state.comments = state.comments.concat([optimisticComment]);
-    pushCommentTrace('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
-    emitTraceEvent('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
-    renderComments();
-  }
+  const optimisticCommentId = 'client_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  const preview = clean(state.pendingPhoto && ((state.pendingPhoto.compressed && state.pendingPhoto.compressed.dataUrl) || state.pendingPhoto.previewUrl));
+  const optimisticAttachments = hasPhoto ? [{ type: 'image', mimeType: clean(state.pendingPhoto && state.pendingPhoto.mimeType) || 'image/jpeg', fileName: clean(state.pendingPhoto && state.pendingPhoto.fileName) || 'photo.jpg', thumbDataUrl: preview }] : [];
+  const optimisticComment = { id: optimisticCommentId, clientCommentId: optimisticCommentId, userId: outgoingUserId(), userName: outgoingUserName(), text, own: true, createdAt: new Date().toISOString(), sendStatus: 'sending', attachments: optimisticAttachments };
+  state.comments = (state.comments || []).concat([optimisticComment]);
+  pushCommentTrace('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
+  emitTraceEvent('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
+  if (refs.commentInput) refs.commentInput.value = '';
+  renderComments();
   try {
     const attachments = hasPhoto ? await uploadPendingPhotoIfNeeded() : [];
     emitTraceEvent('comment_create_start', { size: attachments.length });
@@ -741,13 +746,15 @@ async function sendComment() {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) {
+      state.comments = (state.comments || []).map((x) => (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId) ? Object.assign({}, x, { sendStatus: 'error' }) : x);
+      renderComments();
       pushCommentTrace('comment_create_error', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length, error: clean(data.error || data.message || ('http_' + response.status)) });
       setInlineStatus(clean(data.message || data.userMessage || data.friendlyMessage) || 'Комментарий не опубликован: сработала модерация или правила обсуждения.', true);
       return;
     }
     emitTraceEvent('comment_create_ok', { size: attachments.length });
     pushCommentTrace('comment_create_ok', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length });
-    if (optimisticCommentId && data && data.comment) {
+    if (data && data.comment) {
       const mergedComment = Object.assign({}, data.comment || {});
       const serverAtt = Array.isArray(mergedComment.attachments) ? mergedComment.attachments : [];
       const localOptimistic = (state.comments || []).find((x) => x && (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId));
@@ -766,17 +773,14 @@ async function sendComment() {
       emitTraceEvent('optimistic_comment_replaced', { clientCommentId: optimisticCommentId, status: 'ok' });
       renderComments();
     }
-    if (refs.commentInput) refs.commentInput.value = '';
     clearPendingPhoto();
     state.lastSendFingerprint = '';
     setInlineStatus('', false);
-    await refreshOpenState();
+    refreshOpenState();
   } catch (error) {
     const message = clean(error && error.message);
-    if (optimisticCommentId) {
-      state.comments = (state.comments || []).map((x) => (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId) ? Object.assign({}, x, { sendStatus: 'error' }) : x);
-      renderComments();
-    }
+    state.comments = (state.comments || []).map((x) => (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId) ? Object.assign({}, x, { sendStatus: 'error' }) : x);
+    renderComments();
     emitTraceEvent('comment_create_error', { clientCommentId: optimisticCommentId, error: message || 'comment_create_failed' });
     if (message === 'Не удалось отправить фото. Попробуйте ещё раз.') setInlineStatus(message, true);
     else setInlineStatus('Не удалось отправить комментарий. Попробуйте ещё раз.', true);

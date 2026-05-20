@@ -81,7 +81,7 @@ function pushCommentTraceEvent(event = '', payload = {}) {
   const item = {
     at: Date.now(),
     event: String(event || '').trim(),
-    runtimeVersion: 'CC7.5.55-COMMENT-PHOTO-INLINE-THUMB',
+    runtimeVersion: 'CC7.5.56-COMMENT-SEND-FAST-HOTFIX',
     commentKey: String(safe.commentKey || '').trim(),
     clientCommentId: String(safe.clientCommentId || '').trim(),
     originalSize: Number(safe.originalSize || 0) || 0,
@@ -162,8 +162,8 @@ function detectCommentAttachmentType({ explicitType = "", mimeType = "", fileNam
   return "file";
 }
 
-function decodeCommentUploadBody({ dataUrl = "", base64 = "" } = {}) {
-  const raw = String(base64 || dataUrl || "").trim();
+function decodeCommentUploadBody({ dataUrl = "", thumbDataUrl = "", previewDataUrl = "", base64 = "" } = {}) {
+  const raw = String(base64 || dataUrl || thumbDataUrl || previewDataUrl || "").trim();
   if (!raw) throw new Error("upload_data_required");
   const cleaned = raw.includes(",") ? raw.split(",").slice(1).join(",") : raw;
   const buffer = Buffer.from(cleaned, "base64");
@@ -309,7 +309,12 @@ function normalizeCommentAttachmentUploadRequest(req) {
 
   if (/application\/json/i.test(contentType) && req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) {
     const body = req.body || {};
-    const buffer = decodeCommentUploadBody({ dataUrl: body.dataUrl || body.data_url || "", base64: body.base64 || "" });
+    const buffer = decodeCommentUploadBody({
+      dataUrl: body.dataUrl || body.data_url || "",
+      thumbDataUrl: body.thumbDataUrl || body.thumb_data_url || "",
+      previewDataUrl: body.previewDataUrl || body.preview_data_url || "",
+      base64: body.base64 || ""
+    });
     const fileName = String(body.fileName || body.filename || body.name || "attachment.bin").trim() || "attachment.bin";
     const mimeType = String(body.mimeType || body.mime || "application/octet-stream").trim() || "application/octet-stream";
     const uploadType = detectCommentAttachmentType({ explicitType: body.type || body.uploadType || "", mimeType, fileName });
@@ -1569,7 +1574,7 @@ app.get(['/debug/comment-trace','/api/debug/comment-trace'], (req, res) => {
   if (req.path === '/debug/comment-trace' && String(req.query.t || '') !== '7555') return res.status(404).json({ ok: false, error: 'not_found' });
   return res.json({
     ok: true,
-    runtimeVersion: 'CC7.5.55-COMMENT-PHOTO-INLINE-THUMB',
+    runtimeVersion: 'CC7.5.56-COMMENT-SEND-FAST-HOTFIX',
     generatedAt: new Date().toISOString(),
     total: commentTraceEvents.length,
     noDatabaseRead: true,
