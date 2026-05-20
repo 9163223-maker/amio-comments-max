@@ -455,8 +455,28 @@ async function compressImageForComment(file) {
 function computeCommentsFingerprint(list) {
   const safe = Array.isArray(list) ? list : [];
   return safe.map((comment) => {
-    const attachments = (Array.isArray(comment.attachments) ? comment.attachments : []).map((a) => [clean(a && a.type), clean(a && a.thumbDataUrl), clean(a && a.previewDataUrl), clean(a && a.dataUrl), clean(a && a.url), clean(a && a.previewUrl), clean(a && a.posterUrl)].join(':')).join('|');
-    return [clean(comment.id), clean(comment.text || comment.body), attachments, clean(comment.updatedAt || comment.updated_at || comment.createdAt || comment.created_at)].join('~');
+    const commentCreated = clean(comment.createdAt || comment.created_at || '');
+    const commentUpdated = clean(comment.updatedAt || comment.updated_at || '');
+    const commentClientId = clean(comment.clientCommentId || '');
+    const attachments = (Array.isArray(comment.attachments) ? comment.attachments : []).map((a) => {
+      const thumb = clean(a && a.thumbDataUrl);
+      const previewData = clean(a && a.previewDataUrl);
+      const data = clean(a && a.dataUrl);
+      const sourceKind = thumb ? 'thumbDataUrl' : (previewData ? 'previewDataUrl' : (data ? 'dataUrl' : (clean(a && a.previewUrl) ? 'previewUrl' : (clean(a && a.url) ? 'url' : (clean(a && a.posterUrl) ? 'posterUrl' : '')))));
+      const sourceLength = thumb.length || previewData.length || data.length || clean(a && a.previewUrl).length || clean(a && a.url).length || clean(a && a.posterUrl).length || 0;
+      return [
+        clean(a && (a.id || a.uploadId || a.clientUploadId)),
+        clean(a && a.type),
+        clean(a && (a.fileName || a.name)),
+        clean(a && (a.mimeType || a.mime)),
+        clean(a && (a.createdAt || a.created_at || '')),
+        clean(a && (a.updatedAt || a.updated_at || '')),
+        clean(a && (a.clientUploadId || '')),
+        sourceKind,
+        sourceLength
+      ].join(':');
+    }).join('|');
+    return [clean(comment.id), commentClientId, clean(comment.text || comment.body), attachments, commentCreated, commentUpdated].join('~');
   }).join('||');
 }
 function emitTraceEvent(event, payload) {
@@ -498,9 +518,7 @@ async function uploadPendingPhotoIfNeeded() {
     mimeType: packed.mimeType || pending.mimeType || pending.file.type || 'image/jpeg',
     fileName: packed.fileName || pending.fileName || pending.file.name || 'photo.jpg',
     size: Number(packed.size || pending.size || pending.file.size || 0) || 0,
-    dataUrl: packed.dataUrl,
     thumbDataUrl: packed.dataUrl,
-    previewDataUrl: packed.dataUrl,
     fallbackReason: 'max_webview_json_photo_upload',
     clientUploadId: 'upload_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10)
   };
@@ -707,7 +725,7 @@ async function sendComment() {
   if (hasPhoto) {
     optimisticCommentId = 'client_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     const preview = clean(state.pendingPhoto && ((state.pendingPhoto.compressed && state.pendingPhoto.compressed.dataUrl) || state.pendingPhoto.previewUrl));
-    const optimisticComment = { id: optimisticCommentId, clientCommentId: optimisticCommentId, userId: outgoingUserId(), userName: outgoingUserName(), text, own: true, createdAt: new Date().toISOString(), sendStatus: 'sending', attachments: [{ type: 'image', mimeType: clean(state.pendingPhoto && state.pendingPhoto.mimeType) || 'image/jpeg', fileName: clean(state.pendingPhoto && state.pendingPhoto.fileName) || 'photo.jpg', thumbDataUrl: preview, previewDataUrl: preview, dataUrl: preview }] };
+    const optimisticComment = { id: optimisticCommentId, clientCommentId: optimisticCommentId, userId: outgoingUserId(), userName: outgoingUserName(), text, own: true, createdAt: new Date().toISOString(), sendStatus: 'sending', attachments: [{ type: 'image', mimeType: clean(state.pendingPhoto && state.pendingPhoto.mimeType) || 'image/jpeg', fileName: clean(state.pendingPhoto && state.pendingPhoto.fileName) || 'photo.jpg', thumbDataUrl: preview }] };
     state.comments = state.comments.concat([optimisticComment]);
     pushCommentTrace('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
     emitTraceEvent('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
@@ -739,8 +757,8 @@ async function sendComment() {
         const fallback = localAtt[idx] || {};
         return Object.assign({}, att, {
           thumbDataUrl: clean(att.thumbDataUrl || fallback.thumbDataUrl),
-          previewDataUrl: clean(att.previewDataUrl || fallback.previewDataUrl),
-          dataUrl: clean(att.dataUrl || fallback.dataUrl)
+          previewDataUrl: clean(att.previewDataUrl),
+          dataUrl: clean(att.dataUrl)
         });
       });
       state.comments = (state.comments || []).map((x) => (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId) ? mergedComment : x);

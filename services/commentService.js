@@ -95,9 +95,12 @@ function sanitizeAttachments(value) {
     const payload = sanitizeAttachmentPayload(source);
     const url = stripLargeInlinePayload(source.url || payload.url || payload.download_url || payload.link || "");
     const previewUrl = stripLargeInlinePayload(source.previewUrl || source.preview_url || source.localPreviewUrl || "");
-    const previewDataUrl = sanitizeSmallImageDataUrl(source.previewDataUrl || source.preview_data_url || "");
-    const thumbDataUrl = sanitizeSmallImageDataUrl(source.thumbDataUrl || source.thumb_data_url || "");
-    const dataUrl = sanitizeSmallImageDataUrl(source.dataUrl || source.data_url || "");
+    const incomingThumb = sanitizeSmallImageDataUrl(source.thumbDataUrl || source.thumb_data_url || "");
+    const incomingPreview = sanitizeSmallImageDataUrl(source.previewDataUrl || source.preview_data_url || "");
+    const incomingData = sanitizeSmallImageDataUrl(source.dataUrl || source.data_url || "");
+    const thumbDataUrl = incomingThumb || incomingPreview || incomingData;
+    const previewDataUrl = incomingPreview && incomingPreview !== thumbDataUrl ? incomingPreview : "";
+    const dataUrl = incomingData && incomingData !== thumbDataUrl && incomingData !== previewDataUrl ? incomingData : "";
     const posterUrl = stripLargeInlinePayload(source.posterUrl || source.poster_url || "");
     const fallbackId = String(Date.now()) + "_" + Math.random().toString(36).slice(2, 8);
     const rawUrl = stripLargeInlinePayload(source.rawUrl || source.raw_url || "");

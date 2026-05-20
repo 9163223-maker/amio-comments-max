@@ -325,6 +325,12 @@ function normalizeCommentAttachmentUploadRequest(req) {
       partCount: 1,
       fallbackReason: String(body.fallbackReason || req.get("x-upload-fallback") || "json_fallback").slice(0, 80)
     };
+    const incomingThumb = String(body.thumbDataUrl || body.thumb_data_url || "").trim();
+    const incomingPreview = String(body.previewDataUrl || body.preview_data_url || "").trim();
+    const incomingData = String(body.dataUrl || body.data_url || "").trim();
+    const canonicalThumb = incomingThumb || incomingPreview || incomingData;
+    const canonicalPreview = incomingPreview && incomingPreview !== canonicalThumb ? incomingPreview : "";
+    const canonicalData = incomingData && incomingData !== canonicalThumb && incomingData !== canonicalPreview ? incomingData : "";
     return {
       commentKey: normalizeKey(body.commentKey || req.get("x-comment-key") || ""),
       clientUploadId: String(body.clientUploadId || body.client_upload_id || req.get("x-client-upload-id") || "").trim().slice(0, 120),
@@ -335,8 +341,9 @@ function normalizeCommentAttachmentUploadRequest(req) {
       size: Number(body.size || buffer.length || 0) || buffer.length,
       posterBuffer: tryDecodeOptionalDataUrl(body.posterDataUrl || body.poster_data_url || ""),
       posterMimeType: "image/jpeg",
-      thumbDataUrl: String(body.thumbDataUrl || body.thumb_data_url || body.previewDataUrl || body.preview_data_url || body.dataUrl || body.data_url || "").trim(),
-      previewDataUrl: String(body.previewDataUrl || body.preview_data_url || body.thumbDataUrl || body.thumb_data_url || body.dataUrl || body.data_url || "").trim(),
+      thumbDataUrl: canonicalThumb,
+      previewDataUrl: canonicalPreview,
+      dataUrl: canonicalData,
       uploadDiagnostics: diagnostics
     };
   }
@@ -363,6 +370,12 @@ function normalizeCommentAttachmentUploadRequest(req) {
   const mimeType = String(fields.mimeType || fields.mime || file.mimeType || "application/octet-stream").trim() || "application/octet-stream";
   const uploadType = detectCommentAttachmentType({ explicitType: fields.type || fields.uploadType || "", mimeType, fileName });
 
+  const incomingThumb = String(fields.thumbDataUrl || fields.thumb_data_url || "").trim();
+  const incomingPreview = String(fields.previewDataUrl || fields.preview_data_url || "").trim();
+  const incomingData = String(fields.dataUrl || fields.data_url || "").trim();
+  const canonicalThumb = incomingThumb || incomingPreview || incomingData;
+  const canonicalPreview = incomingPreview && incomingPreview !== canonicalThumb ? incomingPreview : "";
+  const canonicalData = incomingData && incomingData !== canonicalThumb && incomingData !== canonicalPreview ? incomingData : "";
   return {
     commentKey: normalizeKey(fields.commentKey || req.get("x-comment-key") || ""),
     clientUploadId: String(fields.clientUploadId || fields.client_upload_id || req.get("x-client-upload-id") || "").trim().slice(0, 120),
@@ -373,8 +386,9 @@ function normalizeCommentAttachmentUploadRequest(req) {
     size: Number(fields.size || file.buffer.length || 0) || file.buffer.length,
     posterBuffer: poster?.buffer || null,
     posterMimeType: poster?.mimeType || "image/jpeg",
-    thumbDataUrl: String(fields.thumbDataUrl || fields.thumb_data_url || fields.previewDataUrl || fields.preview_data_url || fields.dataUrl || fields.data_url || "").trim(),
-    previewDataUrl: String(fields.previewDataUrl || fields.preview_data_url || fields.thumbDataUrl || fields.thumb_data_url || fields.dataUrl || fields.data_url || "").trim(),
+    thumbDataUrl: canonicalThumb,
+    previewDataUrl: canonicalPreview,
+    dataUrl: canonicalData,
     uploadDiagnostics: diagnostics
   };
 }
@@ -1761,8 +1775,9 @@ app.post("/api/comments/attachments/upload", express.raw({
     });
 
     serverAttachment.clientUploadId = parsed.clientUploadId || "";
-    serverAttachment.thumbDataUrl = parsed.thumbDataUrl || "";
-    serverAttachment.previewDataUrl = parsed.previewDataUrl || parsed.thumbDataUrl || "";
+    serverAttachment.thumbDataUrl = parsed.thumbDataUrl || parsed.previewDataUrl || parsed.dataUrl || "";
+    serverAttachment.previewDataUrl = parsed.previewDataUrl && parsed.previewDataUrl !== serverAttachment.thumbDataUrl ? parsed.previewDataUrl : "";
+    serverAttachment.dataUrl = parsed.dataUrl && parsed.dataUrl !== serverAttachment.thumbDataUrl && parsed.dataUrl !== serverAttachment.previewDataUrl ? parsed.dataUrl : "";
     serverAttachment.native = false;
     serverAttachment.localOnly = false;
     serverAttachment.storage = isDeferredVideo ? "server_original_processing" : "server_public";
