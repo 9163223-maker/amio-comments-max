@@ -100,10 +100,8 @@ function commentsCount(post = {}) { return safeCall(() => array(store.getComment
 function versionsCount(post = {}) { return array(post.versions).length; }
 function buildPostRows(menu, post = {}) {
   const target = targetRecord(post);
-  const commentsEnabled = !Boolean(post.commentsDisabled);
   return [
     [button(menu, '✏️ Изменить текст поста', 'comments_edit_text')],
-    [button(menu, commentsEnabled ? '🗑 Убрать комментарии' : '↩️ Вернуть комментарии', 'comments_toggle_post_comments', { enabled: commentsEnabled ? '0' : '1' })],
     [button(menu, '🕘 История версий', 'admin_posts_history', { commentKey: target.commentKey })],
     [button(menu, '📌 Выбрать другой пост', 'admin_posts_picker')],
     ...footer(menu)
@@ -122,14 +120,14 @@ async function home(menu, ctx = {}) {
   return screen(menu, 'posts_clean_home', '✏️ Редактор постов', [
     'Сначала выберите пост. После выбора на этом же экране появятся действия именно редактора:',
     '• изменить текст поста;',
-    '• убрать / вернуть комментарии;',
     '• открыть историю версий.',
     '',
-    'CTA-кнопки редактируются в отдельном разделе «CTA / пользовательские кнопки», чтобы не дублировать один и тот же функционал в двух местах.',
+    'Комментарии включаются/выключаются в разделе «Комментарии под постами».',
+    'CTA-кнопки редактируются в отдельном разделе «CTA / пользовательские кнопки».',
     '',
     'Постов в быстром списке: ' + posts.length,
     '',
-    'Важно: действия, которые реально перепатчивают пост в MAX, могут занимать дольше обычного. Их ускоряем отдельным PR, без подмены результата заглушкой.'
+    'Важно: реальные операции с постом в MAX могут занимать дольше обычного. Их ускоряем отдельными PR, без подмены результата заглушкой.'
   ], rows);
 }
 
@@ -173,7 +171,7 @@ async function details(menu, payload = {}, ctx = {}) {
     'Версий в истории: ' + n(card.versionsCount || versionsCount(post)),
     'Окно редактирования: ' + (editable.editable ? 'доступно' : 'может быть ограничено MAX'),
     '',
-    'Здесь только функции редактора поста. CTA-кнопки — в отдельном разделе.'
+    'Здесь только функции редактора поста. Комментарии и CTA-кнопки — в отдельных разделах.'
   ], buildPostRows(menu, post));
 }
 
@@ -184,7 +182,7 @@ async function history(menu, payload = {}, ctx = {}) {
   const versions = safeCall(() => postEditor.listPostVersions(clean(post.commentKey)), []);
   const lines = ['История сохранённых изменений выбранного поста.'];
   if (!versions.length) {
-    lines.push('', 'Версий пока нет. Они появятся после изменения текста, кнопок, медиа или отката.');
+    lines.push('', 'Версий пока нет. Они появятся после изменения текста, медиа или отката.');
   } else {
     lines.push('');
     versions.slice(0, 8).forEach((item, index) => {
