@@ -2,13 +2,13 @@
 
 const core = require('./index');
 
-const RUNTIME = 'CC8.0.0-CLEAN-CONTROLLED-BASE';
+const RUNTIME = 'CC8.0.1-ACCOUNT-CONTEXT-FALLBACK';
 
 function clean(value) {
   return String(value || '').trim();
 }
 
-function findDeep(value, predicate, depth = 6, seen = new Set()) {
+function findDeep(value, predicate, depth = 7, seen = new Set()) {
   if (!value || depth < 0) return null;
   if (typeof value !== 'object') return null;
   if (seen.has(value)) return null;
@@ -22,12 +22,34 @@ function findDeep(value, predicate, depth = 6, seen = new Set()) {
   return null;
 }
 
+function hasCallbackShape(item = {}) {
+  return Boolean(item && typeof item === 'object' && (
+    item.callback_id || item.callbackId || item.payload || item.callback_data || item.callbackData || item.data
+  ));
+}
+
+function hasMessageShape(item = {}) {
+  return Boolean(item && typeof item === 'object' && (
+    item.body?.text || item.text || item.message?.text || item.recipient || item.sender || item.message_id || item.messageId
+  ));
+}
+
 function getMessage(update = {}) {
-  return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || null;
+  return update?.message ||
+    update?.data?.message ||
+    update?.callback?.message ||
+    update?.data?.callback?.message ||
+    findDeep(update, hasMessageShape, 7) ||
+    null;
 }
 
 function getCallback(update = {}) {
-  return update?.callback || update?.data?.callback || update?.message?.callback || update?.data?.message?.callback || null;
+  return update?.callback ||
+    update?.data?.callback ||
+    update?.message?.callback ||
+    update?.data?.message?.callback ||
+    findDeep(update, hasCallbackShape, 7) ||
+    null;
 }
 
 function getText(message = {}) {
@@ -43,32 +65,57 @@ function parseStartReferral(text = '') {
   return payload.replace(/^ref_/, '');
 }
 
+function pickUserLikeObject(update = {}) {
+  return findDeep(update, (item) => item && typeof item === 'object' && (
+    item.user_id || item.userId || item.userID || item.sender_id || item.senderId || item.from_id || item.fromId || item.uid || item.id
+  ), 8) || {};
+}
+
 function extractUserProfile(update = {}) {
   const callback = getCallback(update) || {};
   const message = getMessage(update) || {};
-  const deepUser = findDeep(update, (item) => item && typeof item === 'object' && (item.user_id || item.userId || item.id) && (item.first_name || item.name || item.username), 7) || {};
-  const userSource = callback.user || callback.sender || update.user || update.sender || message.sender || message.from || deepUser || {};
+  const deepUser = pickUserLikeObject(update);
+  const userSource = callback.user || callback.sender || callback.from || update.user || update.sender || update.from || message.sender || message.from || deepUser || {};
   const maxUserId = clean(
     userSource.user_id ||
     userSource.userId ||
+    userSource.userID ||
+    userSource.sender_id ||
+    userSource.senderId ||
+    userSource.from_id ||
+    userSource.fromId ||
+    userSource.uid ||
     userSource.id ||
     callback.user_id ||
     callback.userId ||
+    callback.sender_id ||
+    callback.senderId ||
+    callback.from_id ||
+    callback.fromId ||
     update.user_id ||
     update.userId ||
+    update.sender_id ||
+    update.senderId ||
+    update.from_id ||
+    update.fromId ||
     message.sender?.user_id ||
+    message.sender?.userId ||
     message.sender?.id ||
+    message.from?.user_id ||
+    message.from?.userId ||
+    message.from?.id ||
     message.user_id ||
+    message.userId ||
     ''
   );
   if (!maxUserId) return null;
   return {
     maxUserId,
-    displayName: clean(userSource.displayName || userSource.display_name || userSource.name || [userSource.first_name, userSource.last_name].filter(Boolean).join(' ') || userSource.firstName || ''),
+    displayName: clean(userSource.displayName || userSource.display_name || userSource.name || [userSource.first_name, userSource.last_name].filter(Boolean).join(' ') || userSource.firstName || userSource.username || ''),
     username: clean(userSource.username || userSource.login || ''),
     first_name: clean(userSource.first_name || userSource.firstName || ''),
     last_name: clean(userSource.last_name || userSource.lastName || ''),
-    rawKind: callback.user || callback.sender ? 'callback' : 'message'
+    rawKind: callback.user || callback.sender || callback.user_id || callback.userId ? 'callback' : 'message'
   };
 }
 
