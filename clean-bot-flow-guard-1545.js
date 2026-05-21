@@ -15,8 +15,9 @@ const db = require('./cc5-db-core');
 const store = require('./store');
 const pollTrace = require('./poll-debug-trace');
 const uiTrace = require('./v3-ui-trace-1539');
+const accountRuntime = require('./src/core/accountRuntime');
 
-const RUNTIME = 'CC7.5.45-FLOW-GUARD-UI20-CHANNEL-SAFE';
+const RUNTIME = 'CC8.0.0-ACCOUNT-CABINET-ADAPTER-WIRE';
 
 function find(o,p,d){ if(!o||d<0) return null; if(p(o)) return o; if(typeof o!=='object') return null; for(const v of (Array.isArray(o)?o:Object.values(o))){ const r=find(v,p,d-1); if(r) return r; } return null; }
 function msg(u){ return u && (u.message || u.data?.message || u.callback?.message || u.data?.callback?.message || find(u,x=>x&&typeof x==='object'&&(x.body?.text||x.text)&&(x.recipient||x.sender||x.message_id||x.id),5)) || null; }
@@ -77,6 +78,14 @@ function createCleanBot(legacy){
           uiTrace.log('channel_admin_callback_blocked',{action:a,payload:uiTrace.lightPayload(p),reason:'admin_ui_not_allowed_in_channel'});
           await ack(config,cbid(c),'Служебная кнопка недоступна в канале');
           return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,blocked:true,reason:'admin_ui_not_allowed_in_channel'});
+        }
+
+        const accountScreen = await accountRuntime.buildAccountScreenForUpdate({ update:u, context:req.adminkitUserContext || {}, config }).catch(e=>({ok:false,error:String(e?.message||e)}));
+        if(accountScreen?.ok && accountScreen.screen){
+          uiTrace.log('account_screen_resolved',{action:a,screenId:accountScreen.screen.id,userId:uiTrace.mask(userId)});
+          await ack(config,cbid(c));
+          await show(config,u,c,m,accountScreen.screen,true);
+          return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,screenId:accountScreen.screen.id,accountRuntime:true});
         }
 
         if(isHighlight(p)) return highlightOnly.handleWebhook(req,res,config);
