@@ -15,8 +15,8 @@ function clean(value) {
   return String(value || "").trim();
 }
 
-const CURRENT_RUNTIME = "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE";
-const BLOCKED_STALE_MARKERS = [/CC7\.5\.40/i, /CC7\.5\.45/i];
+const CURRENT_RUNTIME = "CC8.0.0-ACCOUNT-CABINET-ADAPTER-WIRE";
+const BLOCKED_STALE_MARKERS = [/CC7\.5\.40/i, /CC7\.5\.45/i, /CC7\.5\.62/i, /CC7\.5\.64/i];
 
 function isStaleDiagnosticVersion(value) {
   const text = clean(value);
@@ -37,9 +37,6 @@ const envBuildVersion = clean(process.env.BUILD_VERSION);
 const envRuntimeVersion = clean(process.env.RUNTIME_VERSION);
 const envSourceMarker = clean(process.env.BUILD_SOURCE_MARKER);
 
-// In Northflank, old ENV values can survive a repository deploy and make /debug/store
-// look stale even when the running code is already new. Build metadata from the repo
-// must be the source of truth; ENV is accepted only when it is not the old diagnostic marker.
 const runtimeVersion = firstFresh(
   markerJson.runtimeVersion,
   markerJson.displayVersion,
@@ -49,7 +46,7 @@ const runtimeVersion = firstFresh(
   envBuildVersion,
   envRuntimeVersion,
   CURRENT_RUNTIME
-);
+) || CURRENT_RUNTIME;
 
 const buildVersion = firstFresh(
   markerJson.buildVersion,
@@ -58,8 +55,9 @@ const buildVersion = firstFresh(
   packageJson.version,
   envBuildVersion,
   envRuntimeVersion,
-  runtimeVersion
-);
+  runtimeVersion,
+  CURRENT_RUNTIME
+) || CURRENT_RUNTIME;
 
 const displayVersion = firstFresh(
   markerJson.displayVersion,
@@ -69,8 +67,9 @@ const displayVersion = firstFresh(
   packageJson.version,
   envBuildVersion,
   envRuntimeVersion,
-  runtimeVersion
-);
+  runtimeVersion,
+  CURRENT_RUNTIME
+) || CURRENT_RUNTIME;
 
 const sourceMarker = firstFresh(
   markerJson.sourceMarker,
@@ -91,7 +90,7 @@ const BUILD_INFO = Object.freeze({
   runtimeVersion,
   buildVersion,
   displayVersion,
-  packageVersion: clean(packageJson.version),
+  packageVersion: firstFresh(clean(packageJson.version), buildVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME,
   packageName: clean(packageJson.name || "amio-comments-max"),
   sourceMarker,
   buildGeneratedAt: clean(markerJson.buildGeneratedAt),
