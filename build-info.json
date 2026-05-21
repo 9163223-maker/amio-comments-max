@@ -1,10 +1,10 @@
 {
-  "runtimeVersion": "CC7.5.40-CORE-1.53.11-POLLS-KEYFLOW",
-  "buildVersion": "CC7.5.40-CORE-1.53.11-POLLS-KEYFLOW",
-  "displayVersion": "CC7.5.40",
-  "packageVersion": "CC7.5.38-v1-core-1.53.11-archive-keyflow",
-  "sourceMarker": "adminkit-cc7-5-40-core-1-53-11-polls-keyflow",
-  "buildGeneratedAt": "2026-05-20T06:20:00Z",
+  "runtimeVersion": "CC7.5.62-BOOT-VERSION-DEBUG-CLEANUP",
+  "buildVersion": "CC7.5.62-BOOT-VERSION-DEBUG-CLEANUP",
+  "displayVersion": "CC7.5.62-BOOT-VERSION-DEBUG-CLEANUP",
+  "packageVersion": "CC7.5.62-BOOT-VERSION-DEBUG-CLEANUP",
+  "sourceMarker": "adminkit-cc7-5-62-boot-version-debug-cleanup",
+  "buildGeneratedAt": "2026-05-21T09:00:15Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
     "version": "1.53.11",
@@ -15,7 +15,7 @@
     "archiveFlowPath": "archive-flow-15311.js",
     "pollFlowPath": "poll-flow-15311.js",
     "pollServicePath": "services/pollService.js",
-    "activeRuntime": "index.js",
+    "activeRuntime": "clean-entrypoint-1.53.9.js",
     "cleanBase": true,
     "noModuleLoadPatch": true,
     "noMaxApiPatch": true,
@@ -37,7 +37,12 @@
     "enabled": true,
     "adapterPath": "postgres-post-archive.js",
     "flowPath": "archive-flow-15311.js",
-    "tables": ["ak_channels", "ak_posts", "ak_post_snapshots", "ak_post_archive"],
+    "tables": [
+      "ak_channels",
+      "ak_posts",
+      "ak_post_snapshots",
+      "ak_post_archive"
+    ],
     "debugEndpoint": "/debug/archive/status",
     "currentStoragePolicy": "store all posts/snapshots physically; tariff limits 5/15/30 are marketing limits to apply later without deleting stored data"
   },
@@ -45,9 +50,16 @@
     "enabled": true,
     "flowPath": "poll-flow-15311.js",
     "servicePath": "services/pollService.js",
-    "tables": ["ak_polls", "ak_poll_votes"],
+    "tables": [
+      "ak_polls",
+      "ak_poll_votes"
+    ],
     "mode": "callback buttons under patched MAX post",
-    "quickTemplates": ["yes_no", "like_dislike", "three"],
+    "quickTemplates": [
+      "yes_no",
+      "like_dislike",
+      "three"
+    ],
     "reason": "the previous polls section was only a shell and had no creation/voting mechanism"
   },
   "v3MenuSections": [
@@ -64,7 +76,11 @@
     "Тарифы / кабинет",
     "Debug / GitHub export"
   ],
-  "hiddenServiceSections": ["Меню и навигация", "Посадочная Start", "Production checklist"],
+  "hiddenServiceSections": [
+    "Меню и навигация",
+    "Посадочная Start",
+    "Production checklist"
+  ],
   "policy": "No video/files in comments. Photos only inside comments. Native inline hints only; no overlay/float hints.",
   "debugPolicy": "Clean V3 menu audit routes plus Postgres store/archive/polls status. No stress in normal checks.",
   "manualCheck": [

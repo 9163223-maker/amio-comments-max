@@ -1,6 +1,6 @@
 'use strict';
-const RUNTIME='CC7.5.45-CORE-1.53.11-UI20-CHANNEL-SAFE';
-const SOURCE='adminkit-cc7-5-45-core-1-53-11-ui20-channel-safe';
+const RUNTIME='CC7.5.62-BOOT-VERSION-DEBUG-CLEANUP';
+const SOURCE='adminkit-cc7-5-62-boot-version-debug-cleanup';
 const BASE='https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run';
 let persistentStoreState=null;
 function applyEnv(){process.env.BUILD_VERSION=RUNTIME;process.env.RUNTIME_VERSION=RUNTIME;process.env.BUILD_SOURCE_MARKER=SOURCE;process.env.ADMINKIT_PUBLIC_BASE_URL=BASE;process.env.ADMINKIT_CLEAN_MENU_CORE='1';process.env.ADMINKIT_CLEAN_ENTRYPOINT='1.53.11';process.env.ADMINKIT_UI_TRACE='1';if(process.env.ADMINKIT_UI_TRACE_LIMIT===undefined)process.env.ADMINKIT_UI_TRACE_LIMIT='20';}

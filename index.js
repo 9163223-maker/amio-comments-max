@@ -986,8 +986,24 @@ function buildLiveDebugPayload() {
 
 app.get(["/debug", "/debug/store", "/debug/store-live"], (req, res) => {
   setNoCacheHeaders(res);
+  const payload = buildLiveDebugPayload();
+  const summary = summarizeStoreSnapshot(payload.store);
   res.type("application/json");
-  res.json(buildLiveDebugPayload());
+  res.json({
+    ...payload,
+    store: {
+      channels: payload.store?.channels || {},
+      counts: { postsCount: summary.postsCount, commentsCount: summary.commentsCount },
+      persistentStore: summary.persistentStore,
+      postArchive: summary.postArchive,
+      mediaDiagnostics: payload.store?.uploadDiagnostics?.slice(0, 40) || [],
+      commentsTrace: Array.isArray(payload.store?.commentTraceEvents) ? payload.store.commentTraceEvents.slice(0, 20).map((item) => ({
+        ...item,
+        hasThumbDataUrl: Boolean(item?.hasThumbDataUrl),
+        thumbDataUrlBytes: Number(item?.thumbDataUrlBytes || 0) || 0
+      })) : []
+    }
+  });
 });
 
 app.get("/debug/build", (req, res) => {
@@ -995,6 +1011,32 @@ app.get("/debug/build", (req, res) => {
   res.type("application/json");
   res.json({ ok: true, service: "amio-comments-max", meta: getBuildInfo(), ...getBuildInfo() });
 });
+
+
+function summarizeStoreSnapshot(snapshot = {}) {
+  const posts = snapshot?.posts && typeof snapshot.posts === "object" ? snapshot.posts : {};
+  const comments = snapshot?.comments && typeof snapshot.comments === "object" ? snapshot.comments : {};
+  const postArchive = snapshot?.postArchive && typeof snapshot.postArchive === "object" ? snapshot.postArchive : {};
+  return {
+    postsCount: Object.keys(posts).length,
+    commentsCount: Object.values(comments).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0),
+    persistentStore: {
+      ok: Boolean(snapshot?.persistentStore?.ok),
+      backend: String(snapshot?.persistentStore?.backend || ""),
+      mode: String(snapshot?.persistentStore?.mode || ""),
+      bootstrapOk: Boolean(snapshot?.persistentStore?.bootstrapOk),
+      postgresConfigured: Boolean(snapshot?.persistentStore?.postgresConfigured),
+      persistent: Boolean(snapshot?.persistentStore?.persistent)
+    },
+    postArchive: {
+      enabled: Boolean(postArchive?.enabled),
+      ok: Boolean(postArchive?.ok),
+      channelsCount: Number(postArchive?.channelsCount || 0) || 0,
+      postsCount: Number(postArchive?.postsCount || 0) || 0,
+      snapshotsCount: Number(postArchive?.snapshotsCount || 0) || 0
+    }
+  };
+}
 
 function sanitizeDebugForGithub(value, depth = 0) {
   if (depth > 12) return "[depth-limit]";
@@ -1130,6 +1172,24 @@ app.get("/debug/store-raw", (req, res) => {
   setNoCacheHeaders(res);
   res.type("application/json");
   res.json({ ok: true, meta: getBuildInfo(), store });
+});
+
+app.get("/debug/store-lite", (req, res) => {
+  setNoCacheHeaders(res);
+  const build = getBuildInfo();
+  const summary = summarizeStoreSnapshot(getDebugSnapshot());
+  res.type("application/json");
+  res.json({
+    ok: true,
+    runtimeVersion: build.runtimeVersion,
+    generatedAt: build.generatedAt,
+    serverStartedAt: build.serverStartedAt,
+    persistentStore: summary.persistentStore,
+    postArchive: summary.postArchive,
+    counts: { postsCount: summary.postsCount, commentsCount: summary.commentsCount },
+    activeEntrypoint: build.activeEntrypoint,
+    buildInfoSource: build.buildInfoSource
+  });
 });
 
 app.get("/debug/ping", (req, res) => {
