@@ -328,9 +328,13 @@ async function patchStoredPost({
     if (nextText) payload.text = nextText;
     if (originalLink && typeof originalLink === "object") payload.link = cloneObject(originalLink, null);
     if (originalFormat !== undefined && originalFormat !== null) payload.format = originalFormat;
-    const patchResult = await editMessage(payload);
-    patchResult.durationMs = Date.now() - editStartedAt;
-    emitPostPatchTrace("edit_message_ok", { commentKey, channelId: post.channelId, postId: post.postId, messageId: post.messageId, durationMs: patchResult.durationMs, status: "ok" });
+const rawPatchResult = await editMessage(payload);
+const editDurationMs = Date.now() - editStartedAt;
+const patchResult = rawPatchResult && typeof rawPatchResult === "object"
+  ? rawPatchResult
+  : { ok: true, emptyBody: true };
+patchResult.durationMs = editDurationMs;
+emitPostPatchTrace("edit_message_ok", { commentKey, channelId: post.channelId, postId: post.postId, messageId: post.messageId, durationMs: patchResult.durationMs, status: "ok" });
     savePost(commentKey, {
       patchedAttachments: mergedAttachments,
       lastPatchedText: nextText,
