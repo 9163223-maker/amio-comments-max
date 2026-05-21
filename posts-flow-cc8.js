@@ -63,6 +63,11 @@ function getStoredTarget(userId = '') {
   const post = target && target.commentKey ? findPost(target.commentKey) : null;
   return post || target || null;
 }
+function resolvePost(payload = {}, ctx = {}) {
+  const explicitKey = clean(payload.commentKey || payload.key || '');
+  if (explicitKey) return findPost(explicitKey);
+  return getStoredTarget(ctx.userId);
+}
 function targetRecord(post = {}) {
   return {
     channelId: clean(post.channelId),
@@ -151,7 +156,7 @@ async function picker(menu, ctx = {}) {
 }
 
 async function details(menu, payload = {}, ctx = {}) {
-  const post = findPost(payload.commentKey || payload.key || '') || getStoredTarget(ctx.userId);
+  const post = resolvePost(payload, ctx);
   if (!post || !post.commentKey) {
     return screen(menu, 'posts_clean_not_found', '✏️ Редактор постов', ['Пост не найден в store/cache.', 'Выберите другой пост или перешлите публикацию боту.'], [[button(menu, '📌 Выбрать другой пост', 'admin_posts_picker')], ...footer(menu)]);
   }
@@ -176,7 +181,7 @@ async function details(menu, payload = {}, ctx = {}) {
 }
 
 async function history(menu, payload = {}, ctx = {}) {
-  const post = findPost(payload.commentKey || payload.key || '') || getStoredTarget(ctx.userId);
+  const post = resolvePost(payload, ctx);
   if (!post || !post.commentKey) return details(menu, payload, ctx);
   bindTargetForLegacy(ctx.userId, post);
   const versions = safeCall(() => postEditor.listPostVersions(clean(post.commentKey)), []);
