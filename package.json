@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.62-BOOT-VERSION-DEBUG-CLEANUP",
+  "version": "CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE",
   "main": "clean-entrypoint-1.53.9.js",
   "scripts": {
     "start": "node clean-entrypoint-1.53.9.js"

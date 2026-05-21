@@ -149,8 +149,8 @@ function cleanupStoreForRuntime(value) {
     value.moderation.logs = value.moderation.logs.slice(-500);
     stats.changed = true;
   }
-  if (Array.isArray(value?.uploadDiagnostics) && value.uploadDiagnostics.length > 800) {
-    value.uploadDiagnostics = value.uploadDiagnostics.slice(-800);
+  if (Array.isArray(value?.uploadDiagnostics) && value.uploadDiagnostics.length > 50) {
+    value.uploadDiagnostics = value.uploadDiagnostics.slice(-50);
     stats.changed = true;
   }
   return stats;
@@ -1215,14 +1215,17 @@ function addUploadDiagnostic(entry = {}) {
     size: Number(entry.size || 0) || 0,
     ok: entry.ok === undefined ? undefined : Boolean(entry.ok),
     mode: String(entry.mode || '').slice(0, 80),
+    attachmentCount: Number(entry.attachmentCount || 0) || 0,
     previewUrl: String(entry.previewUrl || '').slice(0, 300),
     posterUrl: String(entry.posterUrl || '').slice(0, 300),
     error: String(entry.error || '').slice(0, 500),
     status: entry.status === undefined ? undefined : Number(entry.status) || 0,
-    data: entry.data === undefined ? undefined : String(typeof entry.data === 'object' ? JSON.stringify(entry.data) : entry.data).slice(0, 1000)
+    data: entry.data === undefined ? undefined : String(typeof entry.data === 'object' ? JSON.stringify(entry.data) : entry.data).slice(0, 400)
   };
+  if (/^(data|blob):/i.test(item.data || '')) item.data = "[removed]";
+  item.data = String(item.data || "").replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/gi, "[removed]").replace(/[A-Za-z0-9+/=]{200,}/g, "[removed]").slice(0, 400);
   store.uploadDiagnostics.unshift(item);
-  store.uploadDiagnostics = store.uploadDiagnostics.slice(0, 800);
+  store.uploadDiagnostics = store.uploadDiagnostics.slice(0, 50);
   persist();
   return item;
 }

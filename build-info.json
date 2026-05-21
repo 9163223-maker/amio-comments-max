@@ -1,8 +1,8 @@
 {
-  "runtimeVersion": "CC7.5.62-BOOT-VERSION-DEBUG-CLEANUP",
-  "buildVersion": "CC7.5.62-BOOT-VERSION-DEBUG-CLEANUP",
-  "displayVersion": "CC7.5.62-BOOT-VERSION-DEBUG-CLEANUP",
-  "packageVersion": "CC7.5.62-BOOT-VERSION-DEBUG-CLEANUP",
+  "runtimeVersion": "CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE",
+  "buildVersion": "CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE",
+  "displayVersion": "CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE",
+  "packageVersion": "CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE",
   "sourceMarker": "adminkit-cc7-5-62-boot-version-debug-cleanup",
   "buildGeneratedAt": "2026-05-21T09:00:15Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",

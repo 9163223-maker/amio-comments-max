@@ -1,8 +1,8 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.5.60-COMMENT-UX-STABILIZE';
-const MARKER = '__ADMINKIT_CC7_5_60_COMMENT_UX_STABILIZE__';
+const RUNTIME = 'CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE';
+const MARKER = '__ADMINKIT_CC7_5_63_DEBUG_ENDPOINTS_PERF_LITE__';
 if (window[MARKER]) return;
 window[MARKER] = true;
 
