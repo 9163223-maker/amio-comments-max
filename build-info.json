@@ -1,9 +1,9 @@
 {
-  "runtimeVersion": "CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE",
-  "buildVersion": "CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE",
-  "displayVersion": "CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE",
-  "packageVersion": "CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE",
-  "sourceMarker": "adminkit-cc7-5-63-debug-endpoints-perf-lite",
+  "runtimeVersion": "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE",
+  "buildVersion": "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE",
+  "displayVersion": "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE",
+  "packageVersion": "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE",
+  "sourceMarker": "adminkit-cc7-5-64-direct-media-post-patch-trace",
   "buildGeneratedAt": "2026-05-21T09:51:18Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {

@@ -47,6 +47,7 @@ const {
 } = require("./services/commentService");
 const { buildSetupHint } = require("./services/setupText");
 const { patchStoredPost } = require("./services/postPatcher");
+const RUNTIME = "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE";
 const { PRESET_COMMON_STOPWORDS, moderateComment } = require("./services/moderationService");
 const {
   listGiftCampaigns,
@@ -81,7 +82,7 @@ function pushCommentTraceEvent(event = '', payload = {}) {
   const item = {
     at: Date.now(),
     event: String(event || '').trim(),
-    runtimeVersion: 'CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE',
+    runtimeVersion: RUNTIME,
     commentKey: String(safe.commentKey || '').trim(),
     clientCommentId: String(safe.clientCommentId || '').trim(),
     originalSize: Number(safe.originalSize || 0) || 0,
@@ -1050,7 +1051,8 @@ app.get("/debug/store-lite", (req, res) => {
 
 app.get(["/debug/perf", "/debug/comment-timing"], (req, res) => {
   setNoCacheHeaders(res);
-  res.json({ ...baseDebugPayload(), bootMs: perfMetrics.bootMs, openStateMs: perfMetrics.openStateMs, commentCreateMs: perfMetrics.commentCreateMs, attachmentCompressMs: perfMetrics.attachmentCompressMs, commentRenderMs: perfMetrics.commentRenderMs, lastEvents: perfMetrics.lastEvents.slice(-20), noDatabaseRead: Boolean(perfMetrics.noDatabaseRead), noMaxApiCall: Boolean(perfMetrics.noMaxApiCall) });
+  const patchPerf = botModule.getPostPatchPerfMetrics ? botModule.getPostPatchPerfMetrics() : {};
+  res.json({ ...baseDebugPayload(), bootMs: perfMetrics.bootMs, openStateMs: perfMetrics.openStateMs, commentCreateMs: perfMetrics.commentCreateMs, attachmentCompressMs: perfMetrics.attachmentCompressMs, commentRenderMs: perfMetrics.commentRenderMs, directPostDetectMs: Number(patchPerf.directPostDetectMs || 0) || 0, postPatchMs: Number(patchPerf.postPatchMs || 0) || 0, editMessageMs: Number(patchPerf.editMessageMs || 0) || 0, sourceAttachmentExtractMs: Number(patchPerf.sourceAttachmentExtractMs || 0) || 0, lastEvents: perfMetrics.lastEvents.slice(-20), noDatabaseRead: Boolean(perfMetrics.noDatabaseRead), noMaxApiCall: Boolean(perfMetrics.noMaxApiCall) });
 });
 
 app.get("/debug/comment-open-state-ping", (req, res) => {
@@ -1605,13 +1607,19 @@ app.get(['/debug/comment-trace','/api/debug/comment-trace'], (req, res) => {
   if (req.path === '/debug/comment-trace' && String(req.query.t || '') !== '7560') return res.status(404).json({ ok: false, error: 'not_found' });
   return res.json({
     ok: true,
-    runtimeVersion: 'CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE',
+    runtimeVersion: RUNTIME,
     generatedAt: new Date().toISOString(),
     total: commentTraceEvents.length,
     noDatabaseRead: true,
     noMaxApiCall: true,
-    events: commentTraceEvents.slice(-COMMENT_TRACE_LIMIT)
+    events: commentTraceEvents.slice(-COMMENT_TRACE_LIMIT),
+    postPatchEvents: botModule.getPostPatchTraceEvents ? botModule.getPostPatchTraceEvents() : []
   });
+});
+app.get('/debug/post-patch-trace', (req, res) => {
+  setNoCacheHeaders(res);
+  const events = botModule.getPostPatchTraceEvents ? botModule.getPostPatchTraceEvents() : [];
+  return res.json({ ok: true, runtimeVersion: RUNTIME, generatedAt: new Date().toISOString(), total: events.length, events: events.slice(-20) });
 });
 
 app.get("/api/post", (req, res) => {
