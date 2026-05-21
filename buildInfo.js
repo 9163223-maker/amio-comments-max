@@ -15,7 +15,7 @@ function clean(value) {
   return String(value || "").trim();
 }
 
-const CURRENT_RUNTIME = "CC8.0.10-POSTS-TEXT-FLOW-HOTFIX";
+const CURRENT_RUNTIME = "CC8.0.11-POSTS-SAVE-STAGED";
 const BLOCKED_STALE_MARKERS = [/CC7[.\-_]?5[.\-_]?40/i, /CC7[.\-_]?5[.\-_]?45/i, /CC7[.\-_]?5[.\-_]?62/i, /CC7[.\-_]?5[.\-_]?64/i];
 
 function isStaleDiagnosticVersion(value) {

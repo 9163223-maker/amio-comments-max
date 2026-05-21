@@ -3,9 +3,10 @@
 const store = require('./store');
 const channelService = require('./services/channelService');
 const postEditor = require('./services/postEditorService');
+const fastText = require('./services/postEditorFastTextService');
 const basePosts = require('./posts-flow-cc8');
 
-const RUNTIME = 'CC8.0.10-POSTS-TEXT-FLOW-HOTFIX';
+const RUNTIME = 'CC8.0.11-POSTS-SAVE-STAGED';
 const EDIT_FLOW_KIND = 'post_edit_text';
 
 function clean(value) { return String(value || '').trim(); }
@@ -160,15 +161,12 @@ async function details(menu, payload = {}, ctx = {}) {
   const target = bindTarget(ctx.userId, post);
   const card = safeCall(() => postEditor.buildPostAdminCard(post, ctx.config || {}), {}) || {};
   const editable = card.editable || {};
-  const commentsEnabled = !Boolean(post.commentsDisabled);
   return screen(menu, 'posts_clean_detail', '✏️ Редактор постов', [
     payload.fromHome ? 'Выбранный пост уже сохранён. Можно сразу выполнять действия ниже.' : 'Пост выбран и передан в рабочие мастера редактора.',
     '',
     'Канал: ' + channelTitle(target.channelId),
     'Пост: ' + postTitle(post),
     'Post ID: ' + short(target.postId || '—', 80),
-    'Комментариев: ' + commentsCount(post),
-    'Комментарии под постом: ' + (commentsEnabled ? 'включены' : 'выключены'),
     'Медиа в посте: ' + n(card.sourceAttachmentsCount || card.mediaCount || 0),
     'Версий в истории: ' + n(card.versionsCount || versionsCount(post)),
     'Окно редактирования: ' + (editable.editable ? 'доступно' : 'может быть ограничено MAX'),
@@ -183,7 +181,7 @@ async function editTextStart(menu, payload = {}, ctx = {}) {
   return screen(menu, 'posts_clean_edit_text', '✏️ Изменение текста поста', [
     'Отправьте следующим сообщением новый текст выбранного поста.',
     '',
-    'Это отдельный Clean Core flow редактора постов. Он не использует comments_edit_text и не уходит в общий comments/text legacy-flow.',
+    'Сохранение идёт staged-путём: текст меняется сразу, а пересборка кнопок/комментариев догоняется отдельным async patch.',
     '',
     'Текущий пост: ' + postTitle(post),
     'Текущий текст:',
@@ -195,6 +193,23 @@ async function editTextStart(menu, payload = {}, ctx = {}) {
 async function editTextCancel(menu, payload = {}, ctx = {}) {
   clearPostEditFlow(ctx.userId);
   return details(menu, payload, ctx);
+}
+async function history(menu, payload = {}, ctx = {}) {
+  const post = resolvePost(payload, ctx);
+  if (!post || !post.commentKey) return details(menu, payload, ctx);
+  bindTarget(ctx.userId, post);
+  const versions = safeCall(() => postEditor.listPostVersions(clean(post.commentKey)), []);
+  const lines = ['История сохранённых изменений выбранного поста берётся из store/cache без пересканирования постов.'];
+  if (!versions.length) {
+    lines.push('', 'Версий пока нет. Они появятся после изменения текста, медиа или отката.');
+  } else {
+    lines.push('');
+    versions.slice(0, 8).forEach((item, index) => {
+      const at = item.createdAt ? new Date(Number(item.createdAt)).toISOString().slice(0, 16).replace('T', ' ') : '';
+      lines.push(`${index + 1}. ${clean(item.type || 'version')} ${at ? '· ' + at : ''}`);
+    });
+  }
+  return screen(menu, 'posts_clean_history', '🕘 История версий поста', lines, [[button(menu, '↩️ К выбранному посту', 'admin_posts_open', { commentKey: clean(post.commentKey) })], ...footer(menu)]);
 }
 async function handleTextInput(menu, { config = {}, userId = '', text = '' } = {}) {
   const uid = clean(userId);
@@ -215,16 +230,16 @@ async function handleTextInput(menu, { config = {}, userId = '', text = '' } = {
     return details(menu, { commentKey: post.commentKey }, { userId: uid, config });
   }
   try {
-    const result = await postEditor.editPostText({ commentKey: post.commentKey, text: nextText, actorId: uid, actorName: 'admin', config });
+    const result = await fastText.editPostTextFast({ commentKey: post.commentKey, text: nextText, actorId: uid, actorName: 'admin', config });
     clearPostEditFlow(uid);
     const updatedPost = result?.post || findPost(post.commentKey) || post;
     bindTarget(uid, updatedPost);
     return screen(menu, 'posts_clean_edit_saved', '✅ Текст поста изменён', [
-      'Изменение сохранено через Clean Core post editor flow.',
+      'Текст сохранён через быстрый staged-flow редактора постов.',
       '',
       'Пост: ' + postTitle(updatedPost),
       'Версия: ' + clean(result?.version?.id || 'создана'),
-      'Патч кнопок/комментариев: ' + (result?.patch?.ok ? 'обновлён' : 'без подтверждения'),
+      'Патч кнопок/комментариев: ' + (result?.patch?.pending ? 'поставлен в очередь' : (result?.patch?.ok ? 'обновлён' : 'без подтверждения')),
       '',
       'Дальше можно открыть историю версий или вернуться к карточке поста.'
     ], [[button(menu, '↩️ К выбранному посту', 'admin_posts_open', { commentKey: clean(updatedPost.commentKey) })], [button(menu, '🕘 История версий', 'admin_posts_history', { commentKey: clean(updatedPost.commentKey) })], ...footer(menu)]);
@@ -243,6 +258,7 @@ async function screenForPayload(menu, payload = {}, ctx = {}) {
   if (action === 'admin_section_posts') return home(menu, ctx);
   if (action === 'admin_posts_picker') return picker(menu, ctx);
   if (action === 'admin_posts_open') return details(menu, payload, ctx);
+  if (action === 'admin_posts_history') return history(menu, payload, ctx);
   if (action === 'admin_posts_edit_text') return editTextStart(menu, payload, ctx);
   if (action === 'admin_posts_edit_cancel') return editTextCancel(menu, payload, ctx);
   if (action === 'comments_pick_post' && clean(payload.source).toLowerCase() === 'posts') return details(menu, payload, ctx);
