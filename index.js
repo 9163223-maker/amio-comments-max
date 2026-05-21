@@ -81,7 +81,7 @@ function pushCommentTraceEvent(event = '', payload = {}) {
   const item = {
     at: Date.now(),
     event: String(event || '').trim(),
-    runtimeVersion: 'CC7.5.57-COMMENT-PHOTO-PREVIEW-ONLY',
+    runtimeVersion: 'CC7.5.60-COMMENT-UX-STABILIZE',
     commentKey: String(safe.commentKey || '').trim(),
     clientCommentId: String(safe.clientCommentId || '').trim(),
     originalSize: Number(safe.originalSize || 0) || 0,
@@ -1571,10 +1571,10 @@ app.post('/api/debug/comment-trace-event', (req, res) => {
 
 app.get(['/debug/comment-trace','/api/debug/comment-trace'], (req, res) => {
   setNoCacheHeaders(res);
-  if (req.path === '/debug/comment-trace' && String(req.query.t || '') !== '7557') return res.status(404).json({ ok: false, error: 'not_found' });
+  if (req.path === '/debug/comment-trace' && String(req.query.t || '') !== '7560') return res.status(404).json({ ok: false, error: 'not_found' });
   return res.json({
     ok: true,
-    runtimeVersion: 'CC7.5.57-COMMENT-PHOTO-PREVIEW-ONLY',
+    runtimeVersion: 'CC7.5.60-COMMENT-UX-STABILIZE',
     generatedAt: new Date().toISOString(),
     total: commentTraceEvents.length,
     noDatabaseRead: true,
