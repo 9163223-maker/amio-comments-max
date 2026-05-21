@@ -1,8 +1,8 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.5.57-COMMENT-PHOTO-PREVIEW-ONLY';
-const MARKER = '__ADMINKIT_CC7_5_57_COMMENT_PHOTO_PREVIEW_ONLY__';
+const RUNTIME = 'CC7.5.58-COMMENT-BUBBLE-REACTIONS-STABLE';
+const MARKER = '__ADMINKIT_CC7_5_58_COMMENT_BUBBLE_REACTIONS_STABLE__';
 if (window[MARKER]) return;
 window[MARKER] = true;
 
@@ -260,7 +260,10 @@ const refs = {
   postError: byId('postError'), commentInlineStatus: byId('commentInlineStatus'), commentsWrap: byId('commentsWrap'),
   miniAppStartCard: byId('miniAppStartCard'), miniAppStartText: byId('miniAppStartText'), miniAppStartWorkBtn: byId('miniAppStartWorkBtn'),
   miniAppCommunityBtn: byId('miniAppCommunityBtn'), miniAppTopbar: byId('miniAppTopbar'),
-  attachmentPreview: byId('attachmentPreview')
+  attachmentPreview: byId('attachmentPreview'),
+  sheetOverlay: byId('sheetOverlay'), commentFocusModal: byId('commentFocusModal'), focusedCommentCard: byId('focusedCommentCard'),
+  reactionBar: byId('reactionBar'), actionSheet: byId('actionSheet'), composerReply: byId('composerReply'),
+  composerReplyName: byId('composerReplyName'), composerReplyText: byId('composerReplyText'), composerReplyClose: byId('composerReplyClose')
 };
 
 const params = scanParams();
@@ -272,7 +275,8 @@ const state = {
   sendInFlight: false, lastSendFingerprint: '', lastSendStartedAt: 0,
   pendingPhoto: null,
   commentTrace: [],
-  searchOpen: false, searchQuery: ''
+  searchOpen: false, searchQuery: '',
+  activeCommentId: '', replyToId: ''
 };
 window.__ADMINKIT_CC7_5_55_STATE__ = state;
 window.__ADMINKIT_CC7_5_53_STATE__ = state;
@@ -655,12 +659,44 @@ function renderComments(list) {
     const text = clean(comment.text || comment.body || '');
     const time = formatTime(comment.createdAt || comment.created_at || comment.updatedAt || comment.updated_at);
     const attachments = (Array.isArray(comment.attachments) ? comment.attachments : []).map(renderAttachment).join('');
+    const reply = comment.replyTo && comment.replyTo.text ? ('<div class="comment-reply-inline">В ответ на ' + escapeHtml(clean(comment.replyTo.userName || 'автора')) + ': ' + escapeHtml(clean(comment.replyTo.text).slice(0, 80)) + '</div>') : '';
+    const reactionDetails = Array.isArray(comment.reactionDetails) ? comment.reactionDetails : [];
+    const reactions = reactionDetails.length ? ('<div class="comment-reactions">' + reactionDetails.map((r) => '<button type="button" class="reaction-pill' + (r.active ? ' active' : '') + '" data-reaction-emoji="' + escapeHtml(r.emoji || '') + '">' + escapeHtml(r.emoji || '') + ' ' + escapeHtml(String(r.count || 0)) + '</button>').join('') + '</div>') : '';
     const avatar = own ? '' : '<div class="comment-avatar">' + escapeHtml(userName.charAt(0).toUpperCase() || 'Г') + '</div>';
     const author = own ? '' : '<div class="comment-author">' + escapeHtml(userName) + '</div>';
     const ownClass = own ? ' own' : '';
-    return '<div class="comment-row ' + (own ? 'own' : 'other') + '" data-comment-id="' + escapeHtml(comment.id || '') + '">' + avatar + '<div class="comment-bubble' + ownClass + '">' + author + (text ? '<div class="comment-text">' + escapeHtml(text) + '</div>' : '') + attachments + '<div class="comment-time">' + escapeHtml(time) + '</div></div></div>';
+    return '<div class="comment-row ' + (own ? 'own' : 'other') + '" data-comment-id="' + escapeHtml(comment.id || '') + '">' + avatar + '<div class="comment-bubble' + ownClass + '">' + author + reply + (text ? '<div class="comment-text">' + escapeHtml(text) + '</div>' : '') + attachments + reactions + '<div class="comment-time">' + escapeHtml(time) + '</div></div></div>';
   }).join('');
   if (refs.commentsCountPill) refs.commentsCountPill.textContent = query ? (visible.length + ' из ' + pluralComments(all.length)) : pluralComments(all.length);
+}
+const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
+function findCommentById(commentId) { return (state.comments || []).find((c) => String(c.id || '') === String(commentId || '')); }
+function renderReplyComposer() {
+  const comment = findCommentById(state.replyToId);
+  if (!refs.composerReply || !comment) { if (refs.composerReply) refs.composerReply.classList.add('hidden'); return; }
+  refs.composerReply.classList.remove('hidden');
+  if (refs.composerReplyName) refs.composerReplyName.textContent = clean(comment.userName || 'Гость');
+  if (refs.composerReplyText) refs.composerReplyText.textContent = clean(comment.text || '').slice(0, 120) || 'Фото';
+}
+function closeOverlay() { state.activeCommentId = ''; if (refs.sheetOverlay) refs.sheetOverlay.classList.add('hidden'); if (refs.commentFocusModal) refs.commentFocusModal.classList.add('hidden'); }
+function openOverlay(commentId) {
+  const comment = findCommentById(commentId); if (!comment) return;
+  state.activeCommentId = String(commentId || '');
+  emitTraceEvent('reaction_overlay_open', { commentId: state.activeCommentId });
+  if (refs.focusedCommentCard) refs.focusedCommentCard.innerHTML = '<div class="comment-bubble">' + (clean(comment.text) ? '<div class="comment-text">' + escapeHtml(clean(comment.text)) + '</div>' : '<div class="comment-text">Фото</div>') + '</div>';
+  if (refs.reactionBar) refs.reactionBar.innerHTML = QUICK_REACTIONS.map((e) => '<button type="button" class="reaction-pill" data-quick-reaction="' + escapeHtml(e) + '">' + escapeHtml(e) + '</button>').join('');
+  if (refs.sheetOverlay) refs.sheetOverlay.classList.remove('hidden');
+  if (refs.commentFocusModal) refs.commentFocusModal.classList.remove('hidden');
+}
+async function toggleReaction(commentId, emoji) {
+  emitTraceEvent('reaction_toggle_start', { commentId, emoji });
+  try {
+    const response = await fetch('/api/comments/reactions/toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commentKey: state.commentKey, commentId, userId: outgoingUserId(), emoji }) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) throw new Error(clean(data.error || 'reaction_toggle_failed'));
+    emitTraceEvent('reaction_toggle_ok', { commentId, emoji });
+    await refreshOpenState();
+  } catch (error) { emitTraceEvent('reaction_toggle_error', { commentId, emoji, error: clean(error && error.message) || 'reaction_toggle_failed' }); }
 }
 function renderOpenState(data) {
   data = data || {};
@@ -710,6 +746,7 @@ function syncCommentsBottomInset() {
   if (!list || !composer) return;
   const h = composer.offsetHeight || 0;
   list.style.paddingBottom = (h + 20) + 'px';
+  emitTraceEvent('composer_anchor_fix', { composerHeight: h });
 }
 function hasRenderablePhotoSource(att) {
   const a = att || {};
@@ -746,7 +783,7 @@ async function sendComment() {
     pushCommentTrace('comment_create_start', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length });
     const response = await fetch('/api/comments', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commentKey: state.commentKey, userId: outgoingUserId(), userName: outgoingUserName(), avatarUrl: state.currentUserAvatarUrl || '', text, attachments })
+      body: JSON.stringify({ commentKey: state.commentKey, userId: outgoingUserId(), userName: outgoingUserName(), avatarUrl: state.currentUserAvatarUrl || '', text, replyToId: state.replyToId || '', attachments })
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) {
@@ -779,6 +816,8 @@ async function sendComment() {
       scrollToBottom(true);
     }
     clearPendingPhoto();
+    state.replyToId = '';
+    renderReplyComposer();
     state.lastSendFingerprint = '';
     setInlineStatus('', false);
     refreshOpenState();
@@ -837,6 +876,24 @@ function bindEvents() {
   if (refs.attachBtn && refs.attachmentInput) refs.attachBtn.addEventListener('click', () => refs.attachmentInput.click());
   if (refs.attachmentInput) refs.attachmentInput.addEventListener('change', handleAttachmentChange);
   if (refs.commentsList) refs.commentsList.addEventListener('load', (e) => { if (e && e.target && e.target.tagName === 'IMG') scrollToBottom(false); }, true);
+  if (refs.commentsList) refs.commentsList.addEventListener('click', (e) => {
+    const row = e.target && e.target.closest ? e.target.closest('.comment-row') : null;
+    if (!row) return;
+    const reactionBtn = e.target && e.target.closest ? e.target.closest('[data-reaction-emoji]') : null;
+    if (reactionBtn) { e.preventDefault(); toggleReaction(clean(row.getAttribute('data-comment-id')), clean(reactionBtn.getAttribute('data-reaction-emoji'))); return; }
+    openOverlay(clean(row.getAttribute('data-comment-id')));
+  });
+  if (refs.sheetOverlay) refs.sheetOverlay.addEventListener('click', closeOverlay);
+  if (refs.actionSheet) refs.actionSheet.addEventListener('click', async (e) => {
+    const action = clean(e.target && e.target.getAttribute && e.target.getAttribute('data-action'));
+    const commentId = state.activeCommentId;
+    if (!action) return;
+    if (action === 'close') { closeOverlay(); return; }
+    if (action === 'reply') { state.replyToId = commentId; renderReplyComposer(); emitTraceEvent('reply_mode_start', { commentId }); closeOverlay(); }
+    if (action === 'copy') { const c = findCommentById(commentId); try { await navigator.clipboard.writeText(clean(c && c.text)); } catch (_) {} closeOverlay(); }
+  });
+  if (refs.reactionBar) refs.reactionBar.addEventListener('click', (e) => { const emoji = clean(e.target && e.target.getAttribute && e.target.getAttribute('data-quick-reaction')); if (!emoji || !state.activeCommentId) return; toggleReaction(state.activeCommentId, emoji); closeOverlay(); });
+  if (refs.composerReplyClose) refs.composerReplyClose.addEventListener('click', () => { state.replyToId = ''; renderReplyComposer(); });
   if (window.ResizeObserver && refs.composerCard) { const ro = new ResizeObserver(() => { syncCommentsBottomInset(); scrollToBottom(false); }); ro.observe(refs.composerCard); }
   if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { syncCommentsBottomInset(); scrollToBottom(false); });
   if (refs.miniAppStartWorkBtn) refs.miniAppStartWorkBtn.addEventListener('click', () => openMaxLink('https://max.ru/id781310320690_bot?start=menu'));

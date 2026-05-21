@@ -2048,6 +2048,20 @@ app.post("/api/comments/react", async (req, res) => {
     return res.status(400).json({ ok: false, error: error?.message || "reaction_toggle_failed" });
   }
 });
+app.post("/api/comments/reactions/toggle", async (req, res) => {
+  try {
+    const commentKey = normalizeKey(req.body?.commentKey || "");
+    const commentId = String(req.body?.commentId || "").trim();
+    const userId = String(req.body?.userId || "guest").trim();
+    const emoji = String(req.body?.emoji || "").trim();
+    if (!commentKey || !commentId || !emoji) return res.status(400).json({ ok: false, error: "commentKey_commentId_emoji_required" });
+    const result = toggleReaction({ commentKey, commentId, userId, emoji });
+    const comment = listComments(commentKey, userId).find((item) => String(item.id || "") === String(commentId));
+    return res.json({ ok: true, result, comment: comment || null });
+  } catch (error) {
+    return res.status(400).json({ ok: false, error: error?.message || "reaction_toggle_failed" });
+  }
+});
 
 app.post("/api/comments/update", async (req, res) => {
   try {
