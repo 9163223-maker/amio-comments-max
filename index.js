@@ -1066,6 +1066,114 @@ app.get("/debug/build", (req, res) => {
   setNoCacheHeaders(res);
   res.json({ ...baseDebugPayload(), meta: getBuildInfo() });
 });
+app.get("/debug/ping", (req, res) => {
+  setNoCacheHeaders(res);
+  res.json(baseDebugPayload());
+});
+
+function sanitizeDebugForGithub(value, depth = 0) {
+  if (depth > 12) return "[depth-limit]";
+  if (value === null || value === undefined) return value;
+  if (Array.isArray(value)) return value.slice(0, 250).map((item) => sanitizeDebugForGithub(item, depth + 1));
+  if (typeof value !== "object") {
+    if (typeof value === "string") {
+      const raw = value;
+      if (/^(data|blob):/i.test(raw)) return "[inline-data-removed]";
+      if (raw.length > 600) return raw.slice(0, 240) + `...[${raw.length} chars]`;
+    }
+    return value;
+  }
+  const out = {};
+  const sensitiveKeys = /^(token|authorization|botToken|webhookSecret|secret|password|apiKey|accessToken|refreshToken)$/i;
+  const bulkyKeys = /^(buffer|rawBody|body|base64|dataUrl|thumbDataUrl|previewDataUrl|previewData|photos)$/i;
+  for (const [key, item] of Object.entries(value)) {
+    if (sensitiveKeys.test(key)) { out[key] = "[redacted]"; continue; }
+    if (bulkyKeys.test(key)) { out[key] = "[removed]"; continue; }
+    out[key] = sanitizeDebugForGithub(item, depth + 1);
+  }
+  return out;
+}
+
+function buildGithubDebugPayload({ lite = false } = {}) {
+  const payload = buildLiveDebugPayload();
+  const clean = sanitizeDebugForGithub(payload);
+  if (!lite) return clean;
+  return {
+    ...baseDebugPayload(),
+    mediaDiagnostics: clean.mediaDiagnostics,
+    channels: clean.store?.channels || {},
+    postsCount: Object.keys(clean.store?.posts || {}).length,
+    commentsCount: Object.values(clean.store?.comments || {}).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0),
+    generatedAt: Date.now()
+  };
+}
+
+async function putGithubFile({ repo, branch, filePath, token, content, message }) {
+  const normalizedRepo = String(repo || "").trim();
+  const normalizedPath = String(filePath || "").trim().replace(/^\/+/, "");
+  if (!normalizedRepo || !normalizedPath || !token) throw new Error("github_debug_config_missing");
+  const apiBase = `https://api.github.com/repos/${normalizedRepo}/contents/${encodeURIComponent(normalizedPath).replace(/%2F/g, "/")}`;
+  let sha = "";
+  try {
+    const existing = await fetch(`${apiBase}?ref=${encodeURIComponent(branch || "main")}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "adminkit-debug-export" }
+    });
+    if (existing.ok) {
+      const data = await existing.json().catch(() => ({}));
+      sha = String(data?.sha || "");
+    }
+  } catch {}
+  const response = await fetch(apiBase, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "Content-Type": "application/json", "User-Agent": "adminkit-debug-export" },
+    body: JSON.stringify({
+      message: message || `Update АдминКИТ debug ${BUILD_INFO.runtimeVersion}`,
+      branch: branch || "main",
+      content: Buffer.from(content, "utf8").toString("base64"),
+      ...(sha ? { sha } : {})
+    })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(`github_export_failed_${response.status}`);
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+  return data;
+}
+
+function requireDebugExportAccess(req, res) {
+  if (config.debugExportAllowPublic) return true;
+  const expected = String(config.giftAdminToken || process.env.ADMIN_TOKEN || "").trim();
+  if (!expected) return true;
+  const provided = String(req.query?.token || req.headers["x-admin-token"] || "").trim();
+  if (provided === expected) return true;
+  res.status(403).json({ ok: false, error: "debug_export_token_required" });
+  return false;
+}
+
+app.all("/debug/export", async (req, res) => {
+  setNoCacheHeaders(res);
+  res.type("application/json");
+  if (!requireDebugExportAccess(req, res)) return;
+  try {
+    const fullPayload = buildGithubDebugPayload({ lite: false });
+    const litePayload = buildGithubDebugPayload({ lite: true });
+    const branch = config.githubDebugBranch || "main";
+    const repo = config.githubDebugRepo;
+    const fullPath = config.githubDebugPath || "debug/latest.json";
+    const litePath = config.githubDebugLitePath || "debug/latest-lite.json";
+    const full = await putGithubFile({ repo, branch, filePath: fullPath, token: config.githubDebugToken, content: JSON.stringify(fullPayload, null, 2), message: `Update АдминКИТ debug ${BUILD_INFO.runtimeVersion}` });
+    let lite = null;
+    if (litePath && litePath !== fullPath) {
+      lite = await putGithubFile({ repo, branch, filePath: litePath, token: config.githubDebugToken, content: JSON.stringify(litePayload, null, 2), message: `Update АдминКИТ debug lite ${BUILD_INFO.runtimeVersion}` });
+    }
+    return res.json({ ok: true, repo, branch, path: fullPath, litePath, commit: full?.commit?.sha || "", liteCommit: lite?.commit?.sha || "" });
+  } catch (error) {
+    return res.status(error?.status || 500).json({ ok: false, error: error?.message || "debug_export_failed", data: error?.data || null });
+  }
+});
 app.get("/api/diagnostics", (req, res) => {
   setNoCacheHeaders(res);
   const latestPost = getLatestPost();

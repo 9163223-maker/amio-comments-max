@@ -150,7 +150,7 @@ function cleanupStoreForRuntime(value) {
     stats.changed = true;
   }
   if (Array.isArray(value?.uploadDiagnostics) && value.uploadDiagnostics.length > 50) {
-    value.uploadDiagnostics = value.uploadDiagnostics.slice(-50);
+    value.uploadDiagnostics = value.uploadDiagnostics.slice(0, 50);
     stats.changed = true;
   }
   return stats;
