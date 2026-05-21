@@ -16,7 +16,7 @@ function clean(value) {
 }
 
 const CURRENT_RUNTIME = "CC8.0.0-ACCOUNT-CABINET-ADAPTER-WIRE";
-const BLOCKED_STALE_MARKERS = [/CC7\.5\.40/i, /CC7\.5\.45/i, /CC7\.5\.62/i, /CC7\.5\.64/i];
+const BLOCKED_STALE_MARKERS = [/CC7[.\-_]?5[.\-_]?40/i, /CC7[.\-_]?5[.\-_]?45/i, /CC7[.\-_]?5[.\-_]?62/i, /CC7[.\-_]?5[.\-_]?64/i];
 
 function isStaleDiagnosticVersion(value) {
   const text = clean(value);
@@ -76,7 +76,7 @@ const sourceMarker = firstFresh(
   packageJson.sourceMarker,
   envSourceMarker,
   `adminkit-${displayVersion}-local`
-);
+) || `adminkit-${CURRENT_RUNTIME.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
 const staleEnvIgnored = {
   BUILD_VERSION: Boolean(envBuildVersion && isStaleDiagnosticVersion(envBuildVersion)),
