@@ -64,7 +64,7 @@ function sanitizeSmallImageDataUrl(value = "") {
   if (!m) return "";
   const base64 = String(m[2] || "").replace(/\s+/g, "");
   const approxBytes = Math.floor((base64.length * 3) / 4);
-  if (!approxBytes || approxBytes > 70 * 1024) return "";
+  if (!approxBytes || approxBytes > 80 * 1024) return "";
   return `data:${m[1].toLowerCase()};base64,${base64}`;
 }
 function sanitizeAttachmentPayload(source = {}) {
