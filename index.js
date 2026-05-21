@@ -81,7 +81,7 @@ function pushCommentTraceEvent(event = '', payload = {}) {
   const item = {
     at: Date.now(),
     event: String(event || '').trim(),
-    runtimeVersion: 'CC7.5.60-COMMENT-UX-STABILIZE',
+    runtimeVersion: 'CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE',
     commentKey: String(safe.commentKey || '').trim(),
     clientCommentId: String(safe.clientCommentId || '').trim(),
     originalSize: Number(safe.originalSize || 0) || 0,
@@ -114,6 +114,48 @@ function pushCommentTraceEvent(event = '', payload = {}) {
   };
   commentTraceEvents.push(item);
   if (commentTraceEvents.length > COMMENT_TRACE_LIMIT) commentTraceEvents.splice(0, commentTraceEvents.length - COMMENT_TRACE_LIMIT);
+}
+
+
+const PERF_TRACE_LIMIT = 20;
+const perfMetrics = {
+  bootMs: 0,
+  openStateMs: 0,
+  commentCreateMs: 0,
+  attachmentCompressMs: 0,
+  commentRenderMs: 0,
+  noDatabaseRead: false,
+  noMaxApiCall: false,
+  lastEvents: []
+};
+function pushPerfEvent(event, valueMs = 0, extra = {}) {
+  const item = { at: Date.now(), event: String(event||''), ms: Number(valueMs||0)||0, ...extra };
+  perfMetrics.lastEvents.push(item);
+  if (perfMetrics.lastEvents.length > PERF_TRACE_LIMIT) perfMetrics.lastEvents.splice(0, perfMetrics.lastEvents.length - PERF_TRACE_LIMIT);
+}
+perfMetrics.bootMs = Date.now() - Date.parse(BUILD_INFO.serverStartedAt || new Date().toISOString());
+pushPerfEvent('boot', perfMetrics.bootMs, { noDatabaseRead: true, noMaxApiCall: true });
+
+function trimLong(value, max = 120) {
+  const raw = String(value ?? '');
+  if (raw.length <= max) return { value: raw, truncated: false };
+  return { value: raw.slice(0, max), truncated: true };
+}
+function sanitizeUpload(item = {}) {
+  const src = item && typeof item === 'object' ? { ...item } : {};
+  let truncated = false;
+  for (const key of ['data','dataUrl','base64','thumbDataUrl','previewDataUrl']) {
+    if (src[key] !== undefined) {
+      const cut = trimLong(src[key],120); src[key]=cut.value; truncated = truncated || cut.truncated;
+    }
+  }
+  if (typeof src.data === 'string' && src.data.length > 120) { src.data = src.data.slice(0,120); truncated = true; }
+  if (truncated) src.truncated = true;
+  return src;
+}
+function baseDebugPayload() {
+  const b = getBuildInfo();
+  return { ok:true, runtimeVersion:b.runtimeVersion, buildVersion:b.buildVersion, displayVersion:b.displayVersion, packageVersion:b.packageVersion, sourceMarker:b.sourceMarker, activeEntrypoint:b.activeEntrypoint, expectedRuntimeVersion:b.expectedRuntimeVersion, generatedAt:b.generatedAt, serverStartedAt:b.serverStartedAt, staleEndpointDetected:Boolean(b.staleEndpointDetected) };
 }
 
 function setNoCacheHeaders(res) {
@@ -970,73 +1012,64 @@ app.get("/health", async (req, res) => {
 
 function buildLiveDebugPayload() {
   const snapshot = getDebugSnapshot();
-  const build = getBuildInfo();
+  const uploads = Array.isArray(snapshot.uploadDiagnostics) ? snapshot.uploadDiagnostics.slice(0, 20).map(sanitizeUpload) : [];
   return {
-    ok: true,
-    service: "amio-comments-max",
-    meta: build,
+    ...baseDebugPayload(),
+    meta: getBuildInfo(),
     mediaDiagnostics: {
-      uploads: Array.isArray(snapshot.uploadDiagnostics) ? snapshot.uploadDiagnostics.slice(0, 120) : [],
-      lastErrors: Array.isArray(snapshot.uploadDiagnostics) ? snapshot.uploadDiagnostics.filter((item) => item && item.ok === false).slice(0, 40) : []
+      uploads,
+      lastErrors: uploads.filter((item) => item && item.ok === false).slice(0, 20)
     },
-    store: snapshot,
-    ...build
+    store: snapshot
   };
 }
 
+app.get(["/debug/version", "/version/debug"], (req, res) => {
+  setNoCacheHeaders(res);
+  res.json(baseDebugPayload());
+});
+
 app.get(["/debug", "/debug/store", "/debug/store-live"], (req, res) => {
   setNoCacheHeaders(res);
-  const payload = buildLiveDebugPayload();
-  const summary = summarizeStoreSnapshot(payload.store);
-  res.type("application/json");
+  res.json(buildLiveDebugPayload());
+});
+
+app.get("/debug/store-lite", (req, res) => {
+  setNoCacheHeaders(res);
+  const snapshot = getDebugSnapshot();
+  const posts = snapshot.posts && typeof snapshot.posts === 'object' ? Object.values(snapshot.posts) : [];
+  const comments = snapshot.comments && typeof snapshot.comments === 'object' ? Object.values(snapshot.comments).flat().filter(Boolean) : [];
+  const uploads = Array.isArray(snapshot.uploadDiagnostics) ? snapshot.uploadDiagnostics.slice(0, 10).map(sanitizeUpload) : [];
+  const liteComments = comments.slice(-5).map((c) => ({ id: c.id, commentKey: c.commentKey, text: String(c.text||'').slice(0,120), createdAt: c.createdAt }));
   res.json({
-    ...payload,
-    store: {
-      channels: payload.store?.channels || {},
-      counts: { postsCount: summary.postsCount, commentsCount: summary.commentsCount },
-      persistentStore: summary.persistentStore,
-      postArchive: summary.postArchive,
-      mediaDiagnostics: payload.store?.uploadDiagnostics?.slice(0, 40) || [],
-      commentsTrace: Array.isArray(payload.store?.commentTraceEvents) ? payload.store.commentTraceEvents.slice(0, 20).map((item) => ({
-        ...item,
-        hasThumbDataUrl: Boolean(item?.hasThumbDataUrl),
-        thumbDataUrlBytes: Number(item?.thumbDataUrlBytes || 0) || 0
-      })) : []
-    }
+    ...baseDebugPayload(),
+    counts: { channels: Object.keys(snapshot.channels||{}).length, posts: posts.length, comments: comments.length, uploads: uploads.length },
+    latest: { posts: posts.slice(-5).map((p)=>({ commentKey:p.commentKey, postId:p.postId, createdAt:p.createdAt })), comments: liteComments, uploads }
   });
+});
+
+app.get(["/debug/perf", "/debug/comment-timing"], (req, res) => {
+  setNoCacheHeaders(res);
+  res.json({ ...baseDebugPayload(), bootMs: perfMetrics.bootMs, openStateMs: perfMetrics.openStateMs, commentCreateMs: perfMetrics.commentCreateMs, attachmentCompressMs: perfMetrics.attachmentCompressMs, commentRenderMs: perfMetrics.commentRenderMs, lastEvents: perfMetrics.lastEvents.slice(-20), noDatabaseRead: Boolean(perfMetrics.noDatabaseRead), noMaxApiCall: Boolean(perfMetrics.noMaxApiCall) });
+});
+
+app.get("/debug/comment-open-state-ping", (req, res) => {
+  setNoCacheHeaders(res);
+  perfMetrics.openStateMs = Number(req.query.ms || perfMetrics.openStateMs || 0) || perfMetrics.openStateMs;
+  perfMetrics.noDatabaseRead = true;
+  perfMetrics.noMaxApiCall = true;
+  pushPerfEvent('comment-open-state-ping', perfMetrics.openStateMs, { noDatabaseRead: true, noMaxApiCall: true });
+  res.json({ ...baseDebugPayload(), openStateMs: perfMetrics.openStateMs, noDatabaseRead: true, noMaxApiCall: true });
 });
 
 app.get("/debug/build", (req, res) => {
   setNoCacheHeaders(res);
-  res.type("application/json");
-  res.json({ ok: true, service: "amio-comments-max", meta: getBuildInfo(), ...getBuildInfo() });
+  res.json({ ...baseDebugPayload(), meta: getBuildInfo() });
 });
-
-
-function summarizeStoreSnapshot(snapshot = {}) {
-  const posts = snapshot?.posts && typeof snapshot.posts === "object" ? snapshot.posts : {};
-  const comments = snapshot?.comments && typeof snapshot.comments === "object" ? snapshot.comments : {};
-  const postArchive = snapshot?.postArchive && typeof snapshot.postArchive === "object" ? snapshot.postArchive : {};
-  return {
-    postsCount: Object.keys(posts).length,
-    commentsCount: Object.values(comments).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0),
-    persistentStore: {
-      ok: Boolean(snapshot?.persistentStore?.ok),
-      backend: String(snapshot?.persistentStore?.backend || ""),
-      mode: String(snapshot?.persistentStore?.mode || ""),
-      bootstrapOk: Boolean(snapshot?.persistentStore?.bootstrapOk),
-      postgresConfigured: Boolean(snapshot?.persistentStore?.postgresConfigured),
-      persistent: Boolean(snapshot?.persistentStore?.persistent)
-    },
-    postArchive: {
-      enabled: Boolean(postArchive?.enabled),
-      ok: Boolean(postArchive?.ok),
-      channelsCount: Number(postArchive?.channelsCount || 0) || 0,
-      postsCount: Number(postArchive?.postsCount || 0) || 0,
-      snapshotsCount: Number(postArchive?.snapshotsCount || 0) || 0
-    }
-  };
-}
+app.get("/debug/ping", (req, res) => {
+  setNoCacheHeaders(res);
+  res.json(baseDebugPayload());
+});
 
 function sanitizeDebugForGithub(value, depth = 0) {
   if (depth > 12) return "[depth-limit]";
@@ -1052,19 +1085,10 @@ function sanitizeDebugForGithub(value, depth = 0) {
   }
   const out = {};
   const sensitiveKeys = /^(token|authorization|botToken|webhookSecret|secret|password|apiKey|accessToken|refreshToken)$/i;
-  const bulkyKeys = /^(buffer|rawBody|body|base64|dataUrl|previewData|photos)$/i;
+  const bulkyKeys = /^(buffer|rawBody|body|base64|dataUrl|thumbDataUrl|previewDataUrl|previewData|photos)$/i;
   for (const [key, item] of Object.entries(value)) {
     if (sensitiveKeys.test(key)) { out[key] = "[redacted]"; continue; }
     if (bulkyKeys.test(key)) { out[key] = "[removed]"; continue; }
-    if (/payload/i.test(key) && item && typeof item === "object") {
-      out[key] = sanitizeDebugForGithub(item, depth + 1);
-      if (out[key] && typeof out[key] === "object") {
-        for (const payloadKey of Object.keys(out[key])) {
-          if (/token|photos/i.test(payloadKey)) out[key][payloadKey] = "[redacted]";
-        }
-      }
-      continue;
-    }
     out[key] = sanitizeDebugForGithub(item, depth + 1);
   }
   return out;
@@ -1075,13 +1099,11 @@ function buildGithubDebugPayload({ lite = false } = {}) {
   const clean = sanitizeDebugForGithub(payload);
   if (!lite) return clean;
   return {
-    ok: true,
-    service: clean.service,
-    meta: clean.meta,
+    ...baseDebugPayload(),
     mediaDiagnostics: clean.mediaDiagnostics,
-    channels: clean.store?.channels || clean.channels || {},
-    postsCount: Object.keys(clean.store?.posts || clean.posts || {}).length,
-    commentsCount: Object.values(clean.store?.comments || clean.comments || {}).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0),
+    channels: clean.store?.channels || {},
+    postsCount: Object.keys(clean.store?.posts || {}).length,
+    commentsCount: Object.values(clean.store?.comments || {}).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0),
     generatedAt: Date.now()
   };
 }
@@ -1142,67 +1164,16 @@ app.all("/debug/export", async (req, res) => {
     const repo = config.githubDebugRepo;
     const fullPath = config.githubDebugPath || "debug/latest.json";
     const litePath = config.githubDebugLitePath || "debug/latest-lite.json";
-    const full = await putGithubFile({
-      repo,
-      branch,
-      filePath: fullPath,
-      token: config.githubDebugToken,
-      content: JSON.stringify(fullPayload, null, 2),
-      message: `Update АдминКИТ debug ${BUILD_INFO.runtimeVersion}`
-    });
+    const full = await putGithubFile({ repo, branch, filePath: fullPath, token: config.githubDebugToken, content: JSON.stringify(fullPayload, null, 2), message: `Update АдминКИТ debug ${BUILD_INFO.runtimeVersion}` });
     let lite = null;
     if (litePath && litePath !== fullPath) {
-      lite = await putGithubFile({
-        repo,
-        branch,
-        filePath: litePath,
-        token: config.githubDebugToken,
-        content: JSON.stringify(litePayload, null, 2),
-        message: `Update АдминКИТ debug lite ${BUILD_INFO.runtimeVersion}`
-      });
+      lite = await putGithubFile({ repo, branch, filePath: litePath, token: config.githubDebugToken, content: JSON.stringify(litePayload, null, 2), message: `Update АдминКИТ debug lite ${BUILD_INFO.runtimeVersion}` });
     }
-    pushCommentTraceEvent('attachment_upload_ok', { mimeType: parsed?.mimeType || parsed?.mime || '', fileName: parsed?.fileName || parsed?.filename || '', size: Number(parsed?.size || 0) || 0, commentKey: parsed?.commentKey || '' });
     return res.json({ ok: true, repo, branch, path: fullPath, litePath, commit: full?.commit?.sha || "", liteCommit: lite?.commit?.sha || "" });
   } catch (error) {
     return res.status(error?.status || 500).json({ ok: false, error: error?.message || "debug_export_failed", data: error?.data || null });
   }
 });
-
-app.get("/debug/store-raw", (req, res) => {
-  setNoCacheHeaders(res);
-  res.type("application/json");
-  res.json({ ok: true, meta: getBuildInfo(), store });
-});
-
-app.get("/debug/store-lite", (req, res) => {
-  setNoCacheHeaders(res);
-  const build = getBuildInfo();
-  const summary = summarizeStoreSnapshot(getDebugSnapshot());
-  res.type("application/json");
-  res.json({
-    ok: true,
-    runtimeVersion: build.runtimeVersion,
-    generatedAt: build.generatedAt,
-    serverStartedAt: build.serverStartedAt,
-    persistentStore: summary.persistentStore,
-    postArchive: summary.postArchive,
-    counts: { postsCount: summary.postsCount, commentsCount: summary.commentsCount },
-    activeEntrypoint: build.activeEntrypoint,
-    buildInfoSource: build.buildInfoSource
-  });
-});
-
-app.get("/debug/ping", (req, res) => {
-  setNoCacheHeaders(res);
-  res.type("application/json");
-  res.json({
-    ok: true,
-    service: "amio-comments-max",
-    ...getBuildInfo()
-  });
-});
-
-
 app.get("/api/diagnostics", (req, res) => {
   setNoCacheHeaders(res);
   const latestPost = getLatestPost();
@@ -1634,7 +1605,7 @@ app.get(['/debug/comment-trace','/api/debug/comment-trace'], (req, res) => {
   if (req.path === '/debug/comment-trace' && String(req.query.t || '') !== '7560') return res.status(404).json({ ok: false, error: 'not_found' });
   return res.json({
     ok: true,
-    runtimeVersion: 'CC7.5.60-COMMENT-UX-STABILIZE',
+    runtimeVersion: 'CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE',
     generatedAt: new Date().toISOString(),
     total: commentTraceEvents.length,
     noDatabaseRead: true,

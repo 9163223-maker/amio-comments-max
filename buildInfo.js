@@ -15,7 +15,7 @@ function clean(value) {
   return String(value || "").trim();
 }
 
-const CURRENT_RUNTIME = "CC7.5.62-BOOT-VERSION-DEBUG-CLEANUP";
+const CURRENT_RUNTIME = "CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE";
 const BLOCKED_STALE_MARKERS = [/CC7\.5\.40/i, /CC7\.5\.45/i];
 
 function isStaleDiagnosticVersion(value) {
@@ -98,7 +98,7 @@ const BUILD_INFO = Object.freeze({
   serverStartedAt: SERVER_STARTED_AT,
   buildInfoSource: "build-info.json/package.json/env-fresh-only",
   staleEnvIgnored,
-  staleVersionDetected,
+  staleEndpointDetected: staleVersionDetected,
   activeEntrypoint: clean(process.argv?.[1] ? path.basename(process.argv[1]) : process.env.npm_package_main || packageJson.main || "index.js"),
   expectedRuntimeVersion: CURRENT_RUNTIME
 });
