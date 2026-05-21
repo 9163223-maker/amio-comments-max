@@ -15,7 +15,7 @@ function clean(value) {
   return String(value || "").trim();
 }
 
-const CURRENT_RUNTIME = "CC7.5.63-DEBUG-ENDPOINTS-PERF-LITE";
+const CURRENT_RUNTIME = "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE";
 const BLOCKED_STALE_MARKERS = [/CC7\.5\.40/i, /CC7\.5\.45/i];
 
 function isStaleDiagnosticVersion(value) {

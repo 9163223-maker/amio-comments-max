@@ -21,7 +21,10 @@ const { findGiftCampaignForPost } = require("./giftService");
 const { buildCustomKeyboardRows } = require("./keyboardBuilderService");
 const pollService = require("./pollService");
 
-const DB_SYNC_RUNTIME = "CC7.5.61-MEDIA-POST-PATCH-FALLBACK";
+const DB_SYNC_RUNTIME = "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE";
+let postPatchTraceHook = null;
+function setPostPatchTraceHook(fn) { postPatchTraceHook = typeof fn === "function" ? fn : null; }
+function emitPostPatchTrace(event, payload = {}) { if (postPatchTraceHook) { try { postPatchTraceHook(event, payload); } catch {} } }
 
 function normalizeAttachments(value) {
   return Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : [];
@@ -310,11 +313,28 @@ async function patchStoredPost({
   }
 
   try {
+    emitPostPatchTrace("edit_message_started", {
+      commentKey,
+      channelId: post.channelId,
+      postId: post.postId,
+      messageId: post.messageId,
+      originalAttachmentCount: originalAttachments.length,
+      keyboardAttachmentCount: keyboardAttachments.length,
+      attachmentCount: mergedAttachments.length,
+      attachmentTypes: mergedAttachments.map((x) => String(x?.type || "file")).slice(0, 20)
+    });
+    const editStartedAt = Date.now();
     const payload = { botToken, messageId: post.messageId, attachments: mergedAttachments, notify: false };
     if (nextText) payload.text = nextText;
     if (originalLink && typeof originalLink === "object") payload.link = cloneObject(originalLink, null);
     if (originalFormat !== undefined && originalFormat !== null) payload.format = originalFormat;
-    const patchResult = await editMessage(payload);
+const rawPatchResult = await editMessage(payload);
+const editDurationMs = Date.now() - editStartedAt;
+const patchResult = rawPatchResult && typeof rawPatchResult === "object"
+  ? rawPatchResult
+  : { ok: true, emptyBody: true };
+patchResult.durationMs = editDurationMs;
+emitPostPatchTrace("edit_message_ok", { commentKey, channelId: post.channelId, postId: post.postId, messageId: post.messageId, durationMs: patchResult.durationMs, status: "ok" });
     savePost(commentKey, {
       patchedAttachments: mergedAttachments,
       lastPatchedText: nextText,
@@ -341,6 +361,7 @@ async function patchStoredPost({
       lastGiftRowsCount: giftRows.length,
       lastSafeComposeRuntime: DB_SYNC_RUNTIME
     });
+    emitPostPatchTrace("edit_message_failed", { commentKey, channelId: post.channelId, postId: post.postId, messageId: post.messageId, status: "error", error: patchError.message, durationMs: 0 });
     return { ok: false, commentCount, error: patchError, giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length, pollRowsCount: pollRows.length, giftRowsCount: giftRows.length, runtimeVersion: DB_SYNC_RUNTIME };
   }
 }
@@ -451,5 +472,6 @@ module.exports = {
   tryPatchChannelPost,
   patchStoredPost,
   syncPatchedPostToDb,
-  DB_SYNC_RUNTIME
+  DB_SYNC_RUNTIME,
+  setPostPatchTraceHook
 };

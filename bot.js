@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { tryPatchChannelPost, patchStoredPost } = require("./services/postPatcher");
+const { tryPatchChannelPost, patchStoredPost, setPostPatchTraceHook } = require("./services/postPatcher");
 const { editPostText, savePostKeyboard, setPostCommentsEnabled } = require("./services/postEditorService");
 const {
   claimGift,
@@ -693,7 +693,18 @@ function getRecipientChatType(message) {
 }
 
 function getMessageText(message) {
-  return String(getMessageBody(message)?.text || message?.text || message?.message?.text || "");
+  const body = getMessageBody(message);
+  return String(
+    body?.text ||
+    body?.caption ||
+    body?.message?.text ||
+    body?.message?.caption ||
+    message?.text ||
+    message?.caption ||
+    message?.message?.text ||
+    message?.message?.caption ||
+    ""
+  );
 }
 
 function getMessageId(message) {
@@ -736,6 +747,7 @@ function getMessageIdCandidates(message) {
 
 function getPostId(message) {
   const body = getMessageBody(message);
+  const directPayload = body?.message || message?.message || body || message || {};
   return String(
     body?.seq ||
       message?.seq ||
@@ -748,6 +760,7 @@ function getPostId(message) {
       body?.forward?.message?.body?.seq ||
       message?.link?.message?.seq ||
       findFirstDeepValue(body?.link?.message || body?.forward?.message || message?.link?.message || message?.forward?.message || {}, ['seq', 'post_id']) ||
+      (getRecipientChatType(message) === "channel" ? findFirstDeepValue(directPayload, ['seq', 'post_id']) : "") ||
       ''
   ).trim();
 }
@@ -811,9 +824,12 @@ function collectAttachmentLikeItems(source = null) {
 function getMessageAttachments(message) {
   const body = getMessageBody(message);
   const pools = [
+    ...collectAttachmentLikeItems(body?.message),
+    ...collectAttachmentLikeItems(body?.message?.body),
     ...collectAttachmentLikeItems(body),
     ...collectAttachmentLikeItems(message),
-    ...collectAttachmentLikeItems(message?.message)
+    ...collectAttachmentLikeItems(message?.message),
+    ...collectAttachmentLikeItems(message?.message?.body)
   ];
   const serialized = new Set();
   return pools.filter((item) => {
@@ -823,6 +839,42 @@ function getMessageAttachments(message) {
     return true;
   });
 }
+
+const POST_PATCH_TRACE_LIMIT = 20;
+const postPatchTraceEvents = [];
+const patchPerf = { directPostDetectMs: 0, postPatchMs: 0, editMessageMs: 0, sourceAttachmentExtractMs: 0 };
+function getAttachmentTypes(attachments = []) {
+  return Array.isArray(attachments) ? attachments.map((item) => String(item?.type || item?.kind || "file")).slice(0, 20) : [];
+}
+function pushPostPatchTrace(event = "", payload = {}) {
+  const item = {
+    runtimeVersion: "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE",
+    at: new Date().toISOString(),
+    event: String(event || "").trim(),
+    updateType: String(payload.updateType || "").trim(),
+    recipientChatType: String(payload.recipientChatType || "").trim(),
+    channelId: String(payload.channelId || "").trim(),
+    postId: String(payload.postId || "").trim(),
+    messageId: String(payload.messageId || "").trim(),
+    messageIdCandidates: Array.isArray(payload.messageIdCandidates) ? payload.messageIdCandidates.slice(0, 20) : [],
+    textLength: Number(payload.textLength || 0) || 0,
+    attachmentCount: Number(payload.attachmentCount || 0) || 0,
+    attachmentTypes: Array.isArray(payload.attachmentTypes) ? payload.attachmentTypes.slice(0, 20) : [],
+    hasInlineKeyboard: Boolean(payload.hasInlineKeyboard),
+    reason: String(payload.reason || "").trim(),
+    status: String(payload.status || "").trim(),
+    error: payload.error ? String(payload.error) : "",
+    durationMs: Number(payload.durationMs || 0) || 0
+  };
+  postPatchTraceEvents.push(item);
+  if (postPatchTraceEvents.length > POST_PATCH_TRACE_LIMIT) postPatchTraceEvents.splice(0, postPatchTraceEvents.length - POST_PATCH_TRACE_LIMIT);
+}
+function getPostPatchTraceEvents() { return postPatchTraceEvents.slice(-POST_PATCH_TRACE_LIMIT); }
+function getPostPatchPerfMetrics() { return { ...patchPerf }; }
+setPostPatchTraceHook((event, payload = {}) => {
+  pushPostPatchTrace(event, payload);
+  if (event === "edit_message_ok") patchPerf.editMessageMs = Number(payload.durationMs || 0) || 0;
+});
 
 function getForwardedMessageAttachments(message) {
   const body = getMessageBody(message);
@@ -4045,13 +4097,28 @@ async function handleForward(message, config) {
 }
 
 async function handleDirectChannelPost(message, config) {
+  const detectStartedAt = Date.now();
   const channelId = getRecipientChatId(message);
   const postId = getPostId(message);
   const messageId = getMessageId(message);
+  const messageIdCandidates = getMessageIdCandidates(message);
   const postText = getMessageText(message);
+  const extractStartedAt = Date.now();
   const sourceAttachments = getMessageAttachments(message);
+  patchPerf.sourceAttachmentExtractMs = Date.now() - extractStartedAt;
   const originalLink = getMessageLink(message);
   const originalFormat = getMessageFormat(message);
+  patchPerf.directPostDetectMs = Date.now() - detectStartedAt;
+  pushPostPatchTrace("direct_channel_post_received", {
+    updateType: "message_created",
+    recipientChatType: getRecipientChatType(message),
+    channelId, postId, messageId, messageIdCandidates,
+    textLength: String(postText || "").length,
+    attachmentCount: sourceAttachments.length,
+    attachmentTypes: getAttachmentTypes(sourceAttachments),
+    hasInlineKeyboard: hasCommentsKeyboard(message),
+    durationMs: patchPerf.directPostDetectMs
+  });
   let channelTitle = extractChannelTitle(message);
 
   registerChannel(channelId, {
@@ -4074,6 +4141,8 @@ async function handleDirectChannelPost(message, config) {
     } catch {}
   }
 
+  const patchStartedAt = Date.now();
+  pushPostPatchTrace("direct_channel_post_patch_started", { channelId, postId, messageId, messageIdCandidates });
   const result = await tryPatchChannelPost({
     botToken: config.botToken,
     appBaseUrl: config.appBaseUrl,
@@ -4091,6 +4160,11 @@ async function handleDirectChannelPost(message, config) {
     linkedByUserId: getSenderUserId(message),
     linkedByName: getSenderFirstName(message),
     autoMode: true
+  });
+  patchPerf.postPatchMs = Date.now() - patchStartedAt;
+  patchPerf.editMessageMs = Number(result?.patchResult?.durationMs || result?.patchResult?.ms || 0) || patchPerf.editMessageMs;
+  pushPostPatchTrace(result?.patchError ? "direct_channel_post_patch_failed" : "direct_channel_post_patch_ok", {
+    channelId, postId, messageId, messageIdCandidates, durationMs: patchPerf.postPatchMs, status: result?.patchError ? "error" : "ok", error: result?.patchError ? JSON.stringify(result.patchError) : ""
   });
 
   logInfo(config, "CHANNEL PATCH", {
@@ -5154,6 +5228,20 @@ async function handleWebhook(req, res, config) {
 
     if (isDirectChannelPost(message)) {
       if (hasCommentsKeyboard(message)) {
+        pushPostPatchTrace("direct_channel_post_skipped", {
+          updateType: "message_created",
+          recipientChatType: getRecipientChatType(message),
+          channelId: getRecipientChatId(message),
+          postId: getPostId(message),
+          messageId: getMessageId(message),
+          messageIdCandidates: getMessageIdCandidates(message),
+          textLength: String(getMessageText(message) || "").length,
+          attachmentCount: getMessageAttachments(message).length,
+          attachmentTypes: getAttachmentTypes(getMessageAttachments(message)),
+          hasInlineKeyboard: true,
+          reason: "already_patched",
+          status: "skipped"
+        });
         logVerbose(config, "CHANNEL SKIP", {
           reason: "already_has_keyboard",
           messageId: getMessageId(message),
@@ -5178,5 +5266,8 @@ async function handleWebhook(req, res, config) {
 }
 
 module.exports = {
-  handleWebhook
+  handleWebhook,
+  getPostPatchTraceEvents,
+  getPostPatchPerfMetrics,
+  pushPostPatchTrace
 };
