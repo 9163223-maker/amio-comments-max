@@ -21,7 +21,7 @@ const { findGiftCampaignForPost } = require("./giftService");
 const { buildCustomKeyboardRows } = require("./keyboardBuilderService");
 const pollService = require("./pollService");
 
-const DB_SYNC_RUNTIME = "CC7.5.45-POST-PATCHER-SAFE-COMPOSE";
+const DB_SYNC_RUNTIME = "CC7.5.61-MEDIA-POST-PATCH-FALLBACK";
 
 function normalizeAttachments(value) {
   return Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : [];
@@ -52,6 +52,14 @@ function cloneKeyboardBuilder(value) {
   return cloned;
 }
 
+function resolvePatchMessageId({ messageId = "", postId = "", existingPost = null } = {}) {
+  // CC7.5.61: MAX can deliver media/channel post updates without the normal mid,
+  // while the channel seq/postId is still present. Text posts usually had mid, media
+  // posts sometimes did not, so auto-patching silently stopped before editMessage.
+  // Keep the original mid when it exists; otherwise fall back to the stable post id.
+  return clean(messageId || existingPost?.messageId || postId);
+}
+
 function highlightText(post = {}, originalText = "") {
   const txt = String(originalText || post.originalText || post.postText || "");
   const h = post && post.highlight && post.highlight.enabled ? post.highlight : null;
@@ -80,13 +88,14 @@ function buildPostSnapshotRaw({
   commentsDisabled,
   giftCampaignId
 } = {}) {
+  const resolvedMessageId = resolvePatchMessageId({ messageId, postId });
   return {
     source: clean(source || "post_patcher"),
     runtimeVersion: DB_SYNC_RUNTIME,
     commentKey: clean(commentKey),
     channelId: clean(channelId),
     postId: clean(postId),
-    messageId: clean(messageId || postId),
+    messageId: resolvedMessageId,
     title: clean(title || originalText || postId),
     channelTitle: clean(channelTitle || channelId),
     originalText: String(originalText || ""),
@@ -140,13 +149,14 @@ async function syncPatchedPostToDb({
   const post = clean(postId);
   if (!ch || !post || ch === "CHANNEL_ID" || post === "POST_ID") return { ok: true, skipped: true, reason: "invalid_channel_or_post" };
   const ck = clean(commentKey || `${ch}:${post}`);
-  const payload = clean(stablePayload || buildStableOpenPayload({ commentKey: ck, channelId: ch, postId: post, messageId: messageId || post }));
+  const resolvedMessageId = resolvePatchMessageId({ messageId, postId: post });
+  const payload = clean(stablePayload || buildStableOpenPayload({ commentKey: ck, channelId: ch, postId: post, messageId: resolvedMessageId }));
   const raw = buildPostSnapshotRaw({
     source,
     commentKey: ck,
     channelId: ch,
     postId: post,
-    messageId: messageId || post,
+    messageId: resolvedMessageId,
     title: title || originalText || post,
     channelTitle,
     originalText: originalText || title || "",
@@ -164,10 +174,10 @@ async function syncPatchedPostToDb({
   const admins = await adminIdsForChannel(ch, linkedByUserId);
   const registered = [];
   for (const adminId of admins) {
-    const result = await db.upsertPost(adminId, ch, post, String(title || originalText || post).slice(0, 120), raw, clean(messageId || post));
+    const result = await db.upsertPost(adminId, ch, post, String(title || originalText || post).slice(0, 120), raw, resolvedMessageId);
     if (result) registered.push(result);
   }
-  return { ok: true, runtimeVersion: DB_SYNC_RUNTIME, registered: registered.length, admins, channelId: ch, postId: post, commentKey: ck, stablePayload: payload };
+  return { ok: true, runtimeVersion: DB_SYNC_RUNTIME, registered: registered.length, admins, channelId: ch, postId: post, commentKey: ck, stablePayload: payload, messageId: resolvedMessageId };
 }
 
 async function enrichOriginalFromLive({ botToken, post, commentKey }) {
@@ -207,7 +217,11 @@ async function patchStoredPost({
 }) {
   let post = getPost(commentKey);
   if (!post) return { ok: false, reason: "post_not_found" };
-  if (!post.messageId) return { ok: false, reason: "message_id_missing", post };
+  if (!post.messageId && post.postId) {
+    savePost(commentKey, { messageId: String(post.postId || "") });
+    post = getPost(commentKey) || post;
+  }
+  if (!post.messageId) return { ok: false, reason: "message_id_missing", post, runtimeVersion: DB_SYNC_RUNTIME };
 
   const live = await enrichOriginalFromLive({ botToken, post, commentKey });
   post = live.post;
@@ -269,7 +283,7 @@ async function patchStoredPost({
     customKeyboard: post.customKeyboard || {},
     commentsDisabled: Boolean(post?.commentsDisabled),
     giftCampaignId: giftCampaign?.id || post.giftCampaignId || "",
-    source: "post_patcher_safe_compose_snapshot"
+    source: "post_patcher_media_post_fallback_snapshot"
   });
 
   const keyboardAttachments = buildCommentsKeyboard({
@@ -350,14 +364,15 @@ async function tryPatchChannelPost({
   autoMode = false
 }) {
   const commentKey = makeCommentKey(channelId, postId);
-  const stablePayload = buildStableOpenPayload({ commentKey, postId, channelId, messageId: messageId || postId });
   const existingPost = getPost(commentKey);
+  const resolvedMessageId = resolvePatchMessageId({ messageId, postId, existingPost });
+  const stablePayload = buildStableOpenPayload({ commentKey, postId, channelId, messageId: resolvedMessageId });
 
   const handoffToken = String(existingPost?.handoffToken || "").trim() || saveHandoff(makeHandoffToken(commentKey), {
     commentKey,
     postId: String(postId || ""),
     channelId: String(channelId || ""),
-    messageId: String(messageId || ""),
+    messageId: String(resolvedMessageId || ""),
     stablePayload
   });
 
@@ -365,7 +380,7 @@ async function tryPatchChannelPost({
     ...(existingPost || {}),
     postId: String(postId || ""),
     channelId: String(channelId || ""),
-    messageId: String(messageId || existingPost?.messageId || ""),
+    messageId: resolvedMessageId,
     originalText: String(existingPost?.originalText || originalText || ""),
     sourceAttachments: normalizeAttachments(existingPost?.sourceAttachments || sourceAttachments),
     nativeReactions: Array.isArray(nativeReactions) ? JSON.parse(JSON.stringify(nativeReactions)).slice(0, 8) : [],
@@ -384,7 +399,7 @@ async function tryPatchChannelPost({
 
   saveChannel(channelId, {
     lastPostId: String(postId || ""),
-    lastMessageId: String(messageId || ""),
+    lastMessageId: String(resolvedMessageId || ""),
     linkedByUserId: String(linkedByUserId || ""),
     linkedByName: String(linkedByName || ""),
     ...(String(channelTitle || "").trim() ? { title: String(channelTitle || "").trim() } : {}),
@@ -394,7 +409,7 @@ async function tryPatchChannelPost({
   await syncPatchedPostToDb({
     channelId,
     postId,
-    messageId,
+    messageId: resolvedMessageId,
     title: postRecord.originalText || originalText || postId,
     channelTitle,
     linkedByUserId,
@@ -409,15 +424,15 @@ async function tryPatchChannelPost({
     customKeyboard: postRecord?.customKeyboard || {},
     commentsDisabled: Boolean(postRecord?.commentsDisabled),
     giftCampaignId: postRecord?.giftCampaignId || "",
-    source: "post_patcher_try_patch_channel_post_safe_compose"
+    source: "post_patcher_try_patch_channel_post_media_fallback"
   });
 
   const patchAttempt = await patchStoredPost({ botToken, appBaseUrl, botUsername, maxDeepLinkBase, commentKey });
 
   return {
     commentKey,
-    botStartLink: buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, messageId }),
-    miniAppLink: buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, messageId }),
+    botStartLink: buildBotStartLink({ botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, messageId: resolvedMessageId }),
+    miniAppLink: buildMiniAppLaunchUrl({ appBaseUrl, botUsername, maxDeepLinkBase, handoffToken, postId, channelId, commentKey, messageId: resolvedMessageId }),
     fallbackLink: `${String(appBaseUrl || "").replace(/\/$/, "")}/fallback?postId=${encodeURIComponent(String(postId || ""))}`,
     post: postRecord,
     patchResult: patchAttempt.ok ? patchAttempt.patchResult : null,
@@ -427,7 +442,8 @@ async function tryPatchChannelPost({
     stablePayload: patchAttempt.stablePayload || stablePayload,
     customRowsCount: patchAttempt.customRowsCount || 0,
     pollRowsCount: patchAttempt.pollRowsCount || 0,
-    giftRowsCount: patchAttempt.giftRowsCount || 0
+    giftRowsCount: patchAttempt.giftRowsCount || 0,
+    runtimeVersion: DB_SYNC_RUNTIME
   };
 }
 
