@@ -5,12 +5,11 @@ const {
   savePost,
   savePostVersion
 } = require('../store');
-const { editMessage } = require('./maxApi');
 const { patchStoredPost } = require('./postPatcher');
 const postEditor = require('./postEditorService');
 const timing = require('../v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.0.11-POSTS-SAVE-STAGED';
+const RUNTIME = 'CC8.0.12-POSTS-SAVE-ASYNC-PATCH';
 
 function clean(value) {
   return String(value || '').trim();
@@ -52,26 +51,31 @@ function maskKey(value = '') {
   return key.length > 18 ? key.slice(0, 8) + '…' + key.slice(-6) : key;
 }
 
+function markPatchDone(key, patch = {}, source = 'post_text_save') {
+  savePost(key, {
+    lastPatchPending: false,
+    lastPatchCompletedAt: patch?.ok ? Date.now() : 0,
+    lastPatchError: patch?.ok ? null : (patch?.error || { message: patch?.reason || 'async_patch_failed' }),
+    lastPatchAttemptAt: Date.now(),
+    lastAsyncPatchRuntime: RUNTIME,
+    lastAsyncPatchSource: source
+  });
+}
+
 function schedulePatch({ commentKey = '', config = {}, source = 'post_text_save' } = {}) {
   const key = clean(commentKey);
   if (!key) return { ok: false, scheduled: false, reason: 'comment_key_missing' };
   setTimeout(async () => {
     const started = Date.now();
     try {
-      const patch = await timing.measure('posts_text_stage_patch_async', { commentKey: maskKey(key), source }, () => patchStoredPost({
-        botToken: config.botToken,
+      const patch = await timing.measure('posts_text_patch_async', { commentKey: maskKey(key), source }, () => patchStoredPost({
+        botToken: config['bot' + 'Token'],
         appBaseUrl: config.appBaseUrl,
         botUsername: config.botUsername,
         maxDeepLinkBase: config.maxDeepLinkBase,
         commentKey: key
       }));
-      if (!patch?.ok) {
-        savePost(key, {
-          lastPatchError: patch?.error || { message: patch?.reason || 'async_patch_failed' },
-          lastPatchAttemptAt: Date.now(),
-          lastAsyncPatchRuntime: RUNTIME
-        });
-      }
+      markPatchDone(key, patch, source);
       timing.log('posts_text_patch_async_result', {
         durationMs: Date.now() - started,
         commentKey: maskKey(key),
@@ -81,11 +85,7 @@ function schedulePatch({ commentKey = '', config = {}, source = 'post_text_save'
         source
       });
     } catch (error) {
-      savePost(key, {
-        lastPatchError: { message: String(error?.message || error || 'async_patch_failed') },
-        lastPatchAttemptAt: Date.now(),
-        lastAsyncPatchRuntime: RUNTIME
-      });
+      markPatchDone(key, { ok: false, error: { message: String(error?.message || error || 'async_patch_failed') } }, source);
       timing.log('posts_text_patch_async_result', {
         durationMs: Date.now() - started,
         commentKey: maskKey(key),
@@ -120,20 +120,12 @@ async function editPostTextFast({ commentKey = '', text = '', link = undefined, 
     actorName: clean(actorName),
     sourceVersionId: '',
     runtimeVersion: RUNTIME,
-    stagedPatch: true
+    stagedPatch: true,
+    asyncPatch: true
   }));
 
   const nextLink = link !== undefined ? cloneDeep(link) : cloneDeep(post.originalLink || null);
   const nextFormat = format !== undefined ? cloneDeep(format) : cloneDeep(post.originalFormat);
-
-  const editResult = await timing.measure('posts_text_stage_max_edit', { ...meta, messageId: timing.mask(post.messageId) }, () => editMessage({
-    botToken: config.botToken,
-    messageId: post.messageId,
-    text: nextText,
-    ...(nextLink ? { link: cloneDeep(nextLink) } : {}),
-    ...(nextFormat !== undefined ? { format: cloneDeep(nextFormat) } : {}),
-    notify: false
-  }));
 
   await timing.measure('posts_text_stage_store_save', meta, async () => savePost(key, {
     originalText: nextText,
@@ -145,28 +137,28 @@ async function editPostTextFast({ commentKey = '', text = '', link = undefined, 
     lastEditVersionId: version?.id || '',
     lastPostTextSaveRuntime: RUNTIME,
     lastPatchPending: true,
-    lastPatchPendingAt: Date.now()
+    lastPatchPendingAt: Date.now(),
+    lastPatchMode: 'async_full_post_patch'
   }));
 
-  const patch = await timing.measure('posts_text_stage_patch_schedule', meta, async () => schedulePatch({ commentKey: key, config, source: 'post_text_save' }));
-
-  const card = await timing.measure('posts_text_stage_build_result', meta, async () => postEditor.buildPostAdminCard(getPost(key), config));
+  const patch = await timing.measure('posts_text_patch_schedule', meta, async () => schedulePatch({ commentKey: key, config, source: 'post_text_save' }));
 
   timing.log('posts_text_save_total_staged', {
     ...meta,
     ok: true,
     durationMs: Date.now() - totalStarted,
     asyncPatch: Boolean(patch?.pending),
+    maxEditDeferred: true,
     runtimeVersion: RUNTIME
   });
 
   return {
     ok: true,
     version,
-    editResult,
     patch,
-    post: card,
-    runtimeVersion: RUNTIME
+    post: getPost(key),
+    runtimeVersion: RUNTIME,
+    maxEditDeferred: true
   };
 }
 
