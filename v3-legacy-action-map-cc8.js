@@ -3,7 +3,7 @@
 const timing = require('./v3-ui-timing-cc8');
 const menu = require('./v3-menu-core-1539');
 
-const RUNTIME = 'CC8.0.4-LEGACY-ACTION-MAP';
+const RUNTIME = 'CC8.0.5-STATS-CLEAN-CORE-MAP';
 const SLOW_MS = 900;
 
 const LABELS = {
@@ -13,6 +13,9 @@ const LABELS = {
   admin_section_posts: 'Редактирование постов',
   admin_section_moderation: 'Модерация',
   admin_section_stats: 'Статистика',
+  admin_stats_subscribers_day: 'Статистика: подписчики за день',
+  admin_stats_posts_cache: 'Статистика: посты и архив',
+  admin_stats_comments_cache: 'Статистика: комментарии',
   admin_section_main: 'Главное меню',
   admin_section_highlights: 'Выделение постов',
   admin_section_polls: 'Голосовалки / опросы',
@@ -36,9 +39,9 @@ function timingEvents() {
   return (timing.list ? timing.list() : []).slice().reverse();
 }
 
-function routeTypeFromEvent(event = {}) {
+function routeTypeFromEvent(action, event = {}) {
   const path = clean(event.path);
-  if (path.startsWith('delegate_legacy')) return 'legacy';
+  if (path.startsWith('delegate_legacy')) return isCleanOwnedAction(action) ? 'clean_delegated' : 'legacy';
   if (path === 'highlight_adapter') return 'clean_adapter';
   if (path === 'account_runtime') return 'clean_core';
   if (path === 'poll_screen' || path === 'poll_vote' || path === 'poll_text_flow') return 'clean_core';
@@ -54,7 +57,7 @@ function aggregate() {
     if (event.name !== 'webhook_total') continue;
     const action = clean(event.action || 'unknown');
     const path = clean(event.path || '');
-    const routeType = routeTypeFromEvent(event);
+    const routeType = routeTypeFromEvent(action, event);
     const key = `${action}|${routeType}|${path}`;
     const ms = Number(event.durationMs || 0);
     if (!rows[key]) {
