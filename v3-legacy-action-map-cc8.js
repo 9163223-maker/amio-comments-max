@@ -3,7 +3,7 @@
 const timing = require('./v3-ui-timing-cc8');
 const menu = require('./v3-menu-core-1539');
 
-const RUNTIME = 'CC8.0.5-STATS-CLEAN-CORE-MAP';
+const RUNTIME = 'CC8.0.6-STATS-FEATURE-PARITY-MAP';
 const SLOW_MS = 900;
 
 const LABELS = {
@@ -13,9 +13,22 @@ const LABELS = {
   admin_section_posts: 'Редактирование постов',
   admin_section_moderation: 'Модерация',
   admin_section_stats: 'Статистика',
-  admin_stats_subscribers_day: 'Статистика: подписчики за день',
-  admin_stats_posts_cache: 'Статистика: посты и архив',
+  admin_stats_overview_cache: 'Статистика: общая',
+  admin_stats_subscribers_day: 'Статистика: подписчики сегодня',
+  admin_stats_subscribers_7: 'Статистика: подписчики 7 дней',
+  admin_stats_subscribers_14: 'Статистика: подписчики 14 дней',
+  admin_stats_subscribers_30: 'Статистика: подписчики 30 дней',
+  admin_stats_subscribers_trend: 'Статистика: динамика подписчиков',
+  admin_stats_posts_cache: 'Статистика: посты',
+  admin_stats_views_cache: 'Статистика: просмотры',
   admin_stats_comments_cache: 'Статистика: комментарии',
+  admin_stats_reactions_cache: 'Статистика: реакции',
+  admin_stats_polls_cache: 'Статистика: опросы',
+  admin_stats_gifts_cache: 'Статистика: подарки',
+  admin_stats_buttons_cache: 'Статистика: CTA-кнопки',
+  admin_stats_archive_cache: 'Статистика: архив',
+  admin_stats_refresh: 'Статистика: live-обновление',
+  admin_stats_post: 'Статистика: выбранный пост',
   admin_section_main: 'Главное меню',
   admin_section_highlights: 'Выделение постов',
   admin_section_polls: 'Голосовалки / опросы',
