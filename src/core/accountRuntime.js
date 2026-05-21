@@ -1,8 +1,9 @@
 'use strict';
 
 const accountCabinet = require('./accountCabinet');
+const webhookContext = require('./webhookContext');
 
-const RUNTIME = 'CC8.0.0-ACCOUNT-RUNTIME-HELPER';
+const RUNTIME = 'CC8.0.1-ACCOUNT-CONTEXT-FALLBACK';
 const ACCOUNT_ACTIONS = new Set([
   'admin_section_tariffs',
   'billing_current_plan',
@@ -63,11 +64,18 @@ function shouldHandleAccountUpdate(update = {}) {
   return { ok: true, action };
 }
 
+async function resolveContext(update = {}, context = {}) {
+  if (context?.ok && context?.user) return context;
+  const retry = await webhookContext.ensureWebhookUserContext(update, { throwOnError: false });
+  return retry;
+}
+
 async function buildAccountScreenForUpdate({ update = {}, context = {}, config = {} } = {}) {
   const decision = shouldHandleAccountUpdate(update);
   if (!decision.ok) return { ...decision, screen: null, runtimeVersion: RUNTIME };
-  const screen = await accountCabinet.buildAccountScreen({ action: decision.action, context, config });
-  return { ok: true, action: decision.action, screen, runtimeVersion: RUNTIME };
+  const resolvedContext = await resolveContext(update, context).catch((error) => ({ ok: false, reason: 'context_retry_failed', error: error?.message || String(error) }));
+  const screen = await accountCabinet.buildAccountScreen({ action: decision.action, context: resolvedContext?.ok ? resolvedContext : {}, config });
+  return { ok: true, action: decision.action, screen, contextOk: Boolean(resolvedContext?.ok), contextReason: resolvedContext?.reason || '', runtimeVersion: RUNTIME };
 }
 
 module.exports = {
