@@ -105,7 +105,6 @@ function buildPostRows(menu, post = {}) {
     [button(menu, '✏️ Изменить текст поста', 'comments_edit_text')],
     [button(menu, commentsEnabled ? '🗑 Убрать комментарии' : '↩️ Вернуть комментарии', 'comments_toggle_post_comments', { enabled: commentsEnabled ? '0' : '1' })],
     [button(menu, '🕘 История версий', 'admin_posts_history', { commentKey: target.commentKey })],
-    [button(menu, '🔘 CTA-кнопки поста', 'admin_section_buttons')],
     [button(menu, '📌 Выбрать другой пост', 'admin_posts_picker')],
     ...footer(menu)
   ];
@@ -121,11 +120,12 @@ async function home(menu, ctx = {}) {
   if (posts[0]) rows.push([button(menu, '🧾 Последний пост', 'admin_posts_open', { commentKey: clean(posts[0].commentKey) })]);
   rows.push(...footer(menu));
   return screen(menu, 'posts_clean_home', '✏️ Редактор постов', [
-    'Сначала выберите пост. После выбора на этом же экране появятся реальные действия:',
+    'Сначала выберите пост. После выбора на этом же экране появятся действия именно редактора:',
     '• изменить текст поста;',
     '• убрать / вернуть комментарии;',
-    '• открыть историю версий;',
-    '• перейти к CTA-кнопкам поста.',
+    '• открыть историю версий.',
+    '',
+    'CTA-кнопки редактируются в отдельном разделе «CTA / пользовательские кнопки», чтобы не дублировать один и тот же функционал в двух местах.',
     '',
     'Постов в быстром списке: ' + posts.length,
     '',
@@ -162,7 +162,7 @@ async function details(menu, payload = {}, ctx = {}) {
   const editable = card.editable || {};
   const commentsEnabled = !Boolean(post.commentsDisabled);
   return screen(menu, 'posts_clean_detail', '✏️ Редактор постов', [
-    payload.fromHome ? 'Выбранный пост уже сохранён. Можно сразу выполнять действия ниже.' : 'Пост выбран и передан в существующие рабочие мастера редактирования.',
+    payload.fromHome ? 'Выбранный пост уже сохранён. Можно сразу выполнять действия ниже.' : 'Пост выбран и передан в рабочие мастера редактора.',
     '',
     'Канал: ' + channelTitle(target.channelId),
     'Пост: ' + postTitle(post),
@@ -173,7 +173,7 @@ async function details(menu, payload = {}, ctx = {}) {
     'Версий в истории: ' + n(card.versionsCount || versionsCount(post)),
     'Окно редактирования: ' + (editable.editable ? 'доступно' : 'может быть ограничено MAX'),
     '',
-    'Кнопки ниже запускают реальные текущие функции, не заглушки.'
+    'Здесь только функции редактора поста. CTA-кнопки — в отдельном разделе.'
   ], buildPostRows(menu, post));
 }
 
