@@ -81,7 +81,7 @@ function pushCommentTraceEvent(event = '', payload = {}) {
   const item = {
     at: Date.now(),
     event: String(event || '').trim(),
-    runtimeVersion: 'CC7.5.56-COMMENT-SEND-FAST-HOTFIX',
+    runtimeVersion: 'CC7.5.57-COMMENT-PHOTO-PREVIEW-ONLY',
     commentKey: String(safe.commentKey || '').trim(),
     clientCommentId: String(safe.clientCommentId || '').trim(),
     originalSize: Number(safe.originalSize || 0) || 0,
@@ -1571,10 +1571,10 @@ app.post('/api/debug/comment-trace-event', (req, res) => {
 
 app.get(['/debug/comment-trace','/api/debug/comment-trace'], (req, res) => {
   setNoCacheHeaders(res);
-  if (req.path === '/debug/comment-trace' && String(req.query.t || '') !== '7555') return res.status(404).json({ ok: false, error: 'not_found' });
+  if (req.path === '/debug/comment-trace' && String(req.query.t || '') !== '7557') return res.status(404).json({ ok: false, error: 'not_found' });
   return res.json({
     ok: true,
-    runtimeVersion: 'CC7.5.56-COMMENT-SEND-FAST-HOTFIX',
+    runtimeVersion: 'CC7.5.57-COMMENT-PHOTO-PREVIEW-ONLY',
     generatedAt: new Date().toISOString(),
     total: commentTraceEvents.length,
     noDatabaseRead: true,
@@ -1900,6 +1900,21 @@ app.get("/api/comments", (req, res) => {
   return res.json({ ok: true, post, comments, count: comments.length });
 });
 
+
+function validateInlinePreviewAttachments(attachments = []) {
+  const list = Array.isArray(attachments) ? attachments : [];
+  for (const item of list) {
+    const dataUrl = String(item?.thumbDataUrl || item?.previewDataUrl || item?.dataUrl || '').trim();
+    if (!/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(dataUrl)) continue;
+    const b64 = dataUrl.split(',')[1] || '';
+    const bytes = Math.floor((b64.length * 3) / 4);
+    if (bytes > 80 * 1024) {
+      const err = new Error('inline_preview_too_large');
+      err.status = 413;
+      throw err;
+    }
+  }
+}
 app.post("/api/comments", async (req, res) => {
   try {
     pushCommentTraceEvent('comment_create_start', { commentKey: req.body?.commentKey || '', size: Array.isArray(req.body?.attachments) ? req.body.attachments.length : 0 });
@@ -1949,6 +1964,7 @@ app.post("/api/comments", async (req, res) => {
       });
     }
 
+    validateInlinePreviewAttachments(req.body?.attachments || []);
     const comment = createComment({
       commentKey,
       userId: req.body?.userId || "guest",

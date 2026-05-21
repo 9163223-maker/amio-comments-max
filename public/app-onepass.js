@@ -1,8 +1,8 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.5.56-COMMENT-SEND-FAST-HOTFIX';
-const MARKER = '__ADMINKIT_CC7_5_56_COMMENT_SEND_FAST_HOTFIX__';
+const RUNTIME = 'CC7.5.57-COMMENT-PHOTO-PREVIEW-ONLY';
+const MARKER = '__ADMINKIT_CC7_5_57_COMMENT_PHOTO_PREVIEW_ONLY__';
 if (window[MARKER]) return;
 window[MARKER] = true;
 
@@ -296,7 +296,7 @@ function setSendingUi(isSending) {
   if (refs.commentInput) refs.commentInput.readOnly = Boolean(isSending);
 }
 function pushCommentTrace(event, payload) {
-  const allowed = { attachment_pick: 1, attachment_compress_start: 1, attachment_compress_ok: 1, attachment_upload_start: 1, attachment_upload_ok: 1, attachment_upload_error: 1, comment_create_start: 1, comment_create_ok: 1, comment_create_error: 1, optimistic_comment_inserted: 1, optimistic_comment_replaced: 1 };
+  const allowed = { attachment_pick: 1, attachment_compress_start: 1, attachment_compress_ok: 1, comment_create_start: 1, comment_create_ok: 1, comment_create_error: 1, optimistic_comment_inserted: 1, optimistic_comment_replaced: 1 };
   if (!allowed[String(event || '')]) return;
   const safe = payload && typeof payload === 'object' ? payload : {};
   const attachment = safe.attachment && typeof safe.attachment === 'object' ? safe.attachment : {};
@@ -506,41 +506,26 @@ window.__ADMINKIT_COMMENT_PHOTO_EVENT__ = function(eventName, node) {
   emitTraceEvent(eventName, { selectedSourceKind: kind, selectedSourceLength: src.length });
 };
 
-async function uploadPendingPhotoIfNeeded() {
+async function buildPreviewOnlyAttachment() {
   if (!state.pendingPhoto || !state.pendingPhoto.file) return [];
   const pending = state.pendingPhoto;
-  pending.status = 'uploading';
   let packed = pending.compressed;
   if (!packed && pending.compressPromise) {
     try { packed = await pending.compressPromise; } catch (_) { throw new Error('Не удалось обработать фото. Попробуйте другое изображение.'); }
   }
-  if (!packed) throw new Error('Не удалось обработать фото. Попробуйте другое изображение.');
-  const uploadStartedAt = Date.now();
-  pushCommentTrace('attachment_upload_start', { type: 'image', mimeType: packed.mimeType || pending.mimeType, fileName: packed.fileName || pending.fileName, compressedSize: packed.size, originalSize: pending.originalSize || pending.size || 0, thumbDataUrlBytes: Number(packed.size || 0), hasThumbDataUrl: Boolean(packed.dataUrl), hasPreviewDataUrl: Boolean(packed.dataUrl), hasDataUrl: Boolean(packed.dataUrl), clientCommentId: pending.clientCommentId || '' });
-  const body = {
-    commentKey: state.commentKey || '',
+  if (!packed || !packed.dataUrl) throw new Error('Не удалось отправить фото. Попробуйте ещё раз.');
+  return [{
     type: 'image',
-    mimeType: packed.mimeType || pending.mimeType || pending.file.type || 'image/jpeg',
-    fileName: packed.fileName || pending.fileName || pending.file.name || 'photo.jpg',
-    size: Number(packed.size || pending.size || pending.file.size || 0) || 0,
-    dataUrl: packed.dataUrl,
+    inlineOnly: true,
+    previewOnly: true,
     thumbDataUrl: packed.dataUrl,
-    fallbackReason: 'max_webview_json_photo_upload',
-    clientUploadId: 'upload_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10)
-  };
-  const response = await fetch('/api/comments/attachments/upload', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok === false || !data.attachment) {
-    pushCommentTrace('attachment_upload_error', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, size: pending.size, error: clean(data.error || data.message || ('http_' + response.status) || 'upload_failed') });
-    throw new Error(clean(data.message || data.userMessage || data.friendlyMessage || data.error) || 'Не удалось отправить фото. Попробуйте ещё раз.');
-  }
-  pending.status = 'uploaded';
-  pushCommentTrace('attachment_upload_ok', { type: 'image', mimeType: packed.mimeType || pending.mimeType, fileName: packed.fileName || pending.fileName, compressedSize: packed.size, durationMs: Date.now() - uploadStartedAt });
-  return [data.attachment];
+    previewDataUrl: packed.dataUrl,
+    mimeType: 'image/jpeg',
+    fileName: packed.fileName || pending.fileName || 'photo.jpg',
+    size: Number(packed.size || 0) || 0,
+    width: Number(packed.width || 0) || 0,
+    height: Number(packed.height || 0) || 0
+  }];
 }
 function buildOpenStateUrl() {
   const q = new URLSearchParams();
@@ -623,8 +608,8 @@ function renderAttachment(attachment) {
     ['thumbDataUrl', clean(attachment && attachment.thumbDataUrl)],
     ['previewDataUrl', clean(attachment && attachment.previewDataUrl)],
     ['dataUrl', clean(attachment && attachment.dataUrl)],
-    ['previewUrl', clean(attachment && attachment.previewUrl)],
     ['url', clean(attachment && attachment.url)],
+    ['previewUrl', clean(attachment && attachment.previewUrl)],
     ['posterUrl', clean(attachment && attachment.posterUrl)]
   ];
   const selected = candidates.find((x) => Boolean(x[1])) || ['', ''];
@@ -708,6 +693,24 @@ async function refreshOpenState() {
 }
 function outgoingUserName() { return clean(state.currentUserName || (refs.nameInput && refs.nameInput.value) || 'Гость'); }
 function outgoingUserId() { return clean(state.currentUserId || (refs.nameInput && refs.nameInput.value) || 'guest'); }
+
+function isNearBottom() {
+  const el = refs.commentsWrap;
+  if (!el) return true;
+  return (el.scrollHeight - el.scrollTop - el.clientHeight) < 160;
+}
+function scrollToBottom(force) {
+  const el = refs.commentsWrap;
+  if (!el) return;
+  if (!force && !isNearBottom()) return;
+  el.scrollTop = el.scrollHeight;
+}
+function syncCommentsBottomInset() {
+  const list = refs.commentsList; const composer = refs.composerCard;
+  if (!list || !composer) return;
+  const h = composer.offsetHeight || 0;
+  list.style.paddingBottom = (h + 20) + 'px';
+}
 function hasRenderablePhotoSource(att) {
   const a = att || {};
   return Boolean(clean(a.thumbDataUrl || a.previewDataUrl || a.dataUrl || a.previewUrl || a.url || a.posterUrl));
@@ -736,8 +739,9 @@ async function sendComment() {
   emitTraceEvent('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
   if (refs.commentInput) refs.commentInput.value = '';
   renderComments();
+  scrollToBottom(true);
   try {
-    const attachments = hasPhoto ? await uploadPendingPhotoIfNeeded() : [];
+    const attachments = hasPhoto ? await buildPreviewOnlyAttachment() : [];
     emitTraceEvent('comment_create_start', { size: attachments.length });
     pushCommentTrace('comment_create_start', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length });
     const response = await fetch('/api/comments', {
@@ -748,6 +752,8 @@ async function sendComment() {
     if (!response.ok || data.ok === false) {
       state.comments = (state.comments || []).map((x) => (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId) ? Object.assign({}, x, { sendStatus: 'error' }) : x);
       renderComments();
+    scrollToBottom(true);
+      scrollToBottom(true);
       pushCommentTrace('comment_create_error', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length, error: clean(data.error || data.message || ('http_' + response.status)) });
       setInlineStatus(clean(data.message || data.userMessage || data.friendlyMessage) || 'Комментарий не опубликован: сработала модерация или правила обсуждения.', true);
       return;
@@ -760,18 +766,17 @@ async function sendComment() {
       const localOptimistic = (state.comments || []).find((x) => x && (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId));
       const localAtt = Array.isArray(localOptimistic && localOptimistic.attachments) ? localOptimistic.attachments : [];
       mergedComment.attachments = serverAtt.map((att, idx) => {
-        if (hasRenderablePhotoSource(att)) return att;
         const fallback = localAtt[idx] || {};
-        return Object.assign({}, att, {
-          thumbDataUrl: clean(att.thumbDataUrl || fallback.thumbDataUrl),
-          previewDataUrl: clean(att.previewDataUrl),
-          dataUrl: clean(att.dataUrl)
-        });
+        if (!hasRenderablePhotoSource(att)) return Object.assign({}, att, { thumbDataUrl: clean(fallback.thumbDataUrl), previewDataUrl: clean(fallback.previewDataUrl || fallback.thumbDataUrl), dataUrl: clean(fallback.dataUrl) });
+        if (clean(fallback.thumbDataUrl) && !clean(att.thumbDataUrl)) return Object.assign({}, att, { thumbDataUrl: clean(fallback.thumbDataUrl), previewDataUrl: clean(att.previewDataUrl || fallback.previewDataUrl || fallback.thumbDataUrl) });
+        return att;
       });
       state.comments = (state.comments || []).map((x) => (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId) ? mergedComment : x);
       pushCommentTrace('optimistic_comment_replaced', { clientCommentId: optimisticCommentId, status: 'ok' });
       emitTraceEvent('optimistic_comment_replaced', { clientCommentId: optimisticCommentId, status: 'ok' });
       renderComments();
+    scrollToBottom(true);
+      scrollToBottom(true);
     }
     clearPendingPhoto();
     state.lastSendFingerprint = '';
@@ -781,6 +786,7 @@ async function sendComment() {
     const message = clean(error && error.message);
     state.comments = (state.comments || []).map((x) => (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId) ? Object.assign({}, x, { sendStatus: 'error' }) : x);
     renderComments();
+    scrollToBottom(true);
     emitTraceEvent('comment_create_error', { clientCommentId: optimisticCommentId, error: message || 'comment_create_failed' });
     if (message === 'Не удалось отправить фото. Попробуйте ещё раз.') setInlineStatus(message, true);
     else setInlineStatus('Не удалось отправить комментарий. Попробуйте ещё раз.', true);
@@ -830,6 +836,9 @@ function bindEvents() {
   if (refs.commentSearchClear) refs.commentSearchClear.addEventListener('click', closeSearch);
   if (refs.attachBtn && refs.attachmentInput) refs.attachBtn.addEventListener('click', () => refs.attachmentInput.click());
   if (refs.attachmentInput) refs.attachmentInput.addEventListener('change', handleAttachmentChange);
+  if (refs.commentsList) refs.commentsList.addEventListener('load', (e) => { if (e && e.target && e.target.tagName === 'IMG') scrollToBottom(false); }, true);
+  if (window.ResizeObserver && refs.composerCard) { const ro = new ResizeObserver(() => { syncCommentsBottomInset(); scrollToBottom(false); }); ro.observe(refs.composerCard); }
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { syncCommentsBottomInset(); scrollToBottom(false); });
   if (refs.miniAppStartWorkBtn) refs.miniAppStartWorkBtn.addEventListener('click', () => openMaxLink('https://max.ru/id781310320690_bot?start=menu'));
   if (refs.miniAppCommunityBtn) refs.miniAppCommunityBtn.addEventListener('click', () => openMaxLink('https://max.ru/id781310320690_biz'));
 }
@@ -856,6 +865,7 @@ function boot() {
   window.__ADMINKIT_CC7_5_6_INITIAL__ = initial;
   window.__ADMINKIT_CC7_5_3_INITIAL__ = initial;
   window.__ADMINKIT_CC7_2_INITIAL__ = initial;
+  syncCommentsBottomInset();
   if (initial && initial.ok && initial.meta) {
     renderOpenState(initial);
     state.pollTimer = setInterval(refreshOpenState, 5000);
