@@ -21,7 +21,7 @@ const { findGiftCampaignForPost } = require("./giftService");
 const { buildCustomKeyboardRows } = require("./keyboardBuilderService");
 const pollService = require("./pollService");
 
-const DB_SYNC_RUNTIME = "CC7.5.61-MEDIA-POST-PATCH-FALLBACK";
+const DB_SYNC_RUNTIME = "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE";
 let postPatchTraceHook = null;
 function setPostPatchTraceHook(fn) { postPatchTraceHook = typeof fn === "function" ? fn : null; }
 function emitPostPatchTrace(event, payload = {}) { if (postPatchTraceHook) { try { postPatchTraceHook(event, payload); } catch {} } }
