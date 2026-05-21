@@ -15,9 +15,12 @@ function clean(value) {
   return String(value || "").trim();
 }
 
+const CURRENT_RUNTIME = "CC7.5.62-BOOT-VERSION-DEBUG-CLEANUP";
+const BLOCKED_STALE_MARKERS = [/CC7\.5\.40/i, /CC7\.5\.45/i];
+
 function isStaleDiagnosticVersion(value) {
   const text = clean(value);
-  return /^SP38\.3(?:$|[-_])/i.test(text) || /safe[-_ ]?diag|stable[-_ ]?media[-_ ]?compat/i.test(text);
+  return /^SP38\.3(?:$|[-_])/i.test(text) || /safe[-_ ]?diag|stable[-_ ]?media[-_ ]?compat/i.test(text) || BLOCKED_STALE_MARKERS.some((rx) => rx.test(text));
 }
 
 function firstFresh(...values) {
@@ -45,7 +48,7 @@ const runtimeVersion = firstFresh(
   packageJson.version,
   envBuildVersion,
   envRuntimeVersion,
-  "dev"
+  CURRENT_RUNTIME
 );
 
 const buildVersion = firstFresh(
@@ -82,6 +85,8 @@ const staleEnvIgnored = {
   BUILD_SOURCE_MARKER: Boolean(envSourceMarker && isStaleDiagnosticVersion(envSourceMarker))
 };
 
+const staleVersionDetected = isStaleDiagnosticVersion(runtimeVersion) || runtimeVersion !== CURRENT_RUNTIME;
+
 const BUILD_INFO = Object.freeze({
   runtimeVersion,
   buildVersion,
@@ -92,7 +97,10 @@ const BUILD_INFO = Object.freeze({
   buildGeneratedAt: clean(markerJson.buildGeneratedAt),
   serverStartedAt: SERVER_STARTED_AT,
   buildInfoSource: "build-info.json/package.json/env-fresh-only",
-  staleEnvIgnored
+  staleEnvIgnored,
+  staleVersionDetected,
+  activeEntrypoint: clean(process.argv?.[1] ? path.basename(process.argv[1]) : process.env.npm_package_main || packageJson.main || "index.js"),
+  expectedRuntimeVersion: CURRENT_RUNTIME
 });
 
 function getBuildInfo() {
