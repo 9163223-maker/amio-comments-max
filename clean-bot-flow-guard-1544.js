@@ -1,12 +1,10 @@
 'use strict';
 
-// Clean Core 8 bridge: create user/tenant/tariff context before private admin flows.
-// This wrapper intentionally does not change Telegram-style comments UI, post patching,
-// webhook routing decisions, gifts, CTA, reactions, or public channel callbacks.
 const flowGuard = require('./clean-bot-flow-guard-1545');
 const webhookContext = require('./src/core/webhookContext');
+const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.0.0-USER-CONTEXT-BRIDGE';
+const RUNTIME = 'CC8.0.3-UI-TIMING-DIAGNOSTICS-BRIDGE';
 
 function find(value, predicate, depth = 6, seen = new Set()) {
   if (!value || depth < 0 || typeof value !== 'object' || seen.has(value)) return null;
@@ -42,9 +40,13 @@ function isPrivateAdminCandidate(update = {}) {
   return !isChannelMessage(msg);
 }
 
+function updateType(update = {}) {
+  return String(update.update_type || update.type || '').trim();
+}
+
 async function safeEnsureUserContext(update = {}) {
   if (!isPrivateAdminCandidate(update)) return { ok: false, skipped: true, reason: 'not_private_admin_candidate' };
-  return webhookContext.ensureWebhookUserContext(update, { throwOnError: false });
+  return timing.measure('user_context_bridge', { updateType: updateType(update) }, () => webhookContext.ensureWebhookUserContext(update, { throwOnError: false }));
 }
 
 function createCleanBot(legacy) {
@@ -53,11 +55,23 @@ function createCleanBot(legacy) {
     handleWebhook: async function handleWebhookWithUserContext(req, res, config) {
       try {
         const result = await safeEnsureUserContext(req.body || {});
+        timing.log('user_context_bridge_result', {
+          durationMs: 0,
+          ok: Boolean(result?.ok),
+          reason: result?.reason || '',
+          skipped: Boolean(result?.skipped),
+          updateType: updateType(req.body || {})
+        });
         if (result?.ok) {
           req.adminkitUserContext = result;
         }
-      } catch {
-        // User context must never block existing bot behaviour.
+      } catch (error) {
+        timing.log('user_context_bridge_error', {
+          durationMs: 0,
+          ok: false,
+          error: String(error?.message || error),
+          updateType: updateType(req.body || {})
+        });
       }
       return wrapped.handleWebhook(req, res, config);
     }

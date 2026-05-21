@@ -1,10 +1,5 @@
 'use strict';
 
-// Global flow guard + public/channel guard + 20-step UI trace.
-// Rules:
-// 1) Only one text-input wizard may own the next admin message.
-// 2) Admin callbacks must never render admin menus into a channel post.
-// 3) Post keyboard compose must be delegated to the safe composer via entrypoint cache.
 const base = require('./clean-bot-1539');
 const highlightAdapter = require('./clean-bot-highlight-1543');
 const menu = require('./v3-menu-core-1539');
@@ -15,9 +10,10 @@ const db = require('./cc5-db-core');
 const store = require('./store');
 const pollTrace = require('./poll-debug-trace');
 const uiTrace = require('./v3-ui-trace-1539');
+const timing = require('./v3-ui-timing-cc8');
 const accountRuntime = require('./src/core/accountRuntime');
 
-const RUNTIME = 'CC8.0.0-ACCOUNT-CABINET-ADAPTER-WIRE';
+const RUNTIME = 'CC8.0.3-UI-TIMING-DIAGNOSTICS';
 
 function find(o,p,d){ if(!o||d<0) return null; if(p(o)) return o; if(typeof o!=='object') return null; for(const v of (Array.isArray(o)?o:Object.values(o))){ const r=find(v,p,d-1); if(r) return r; } return null; }
 function msg(u){ return u && (u.message || u.data?.message || u.callback?.message || u.data?.callback?.message || find(u,x=>x&&typeof x==='object'&&(x.body?.text||x.text)&&(x.recipient||x.sender||x.message_id||x.id),5)) || null; }
@@ -38,81 +34,82 @@ function parse(c){ const v=pv(c); if(v&&typeof v==='object') return v; const s=S
 function isHighlight(p){ const a=String(p?.action||''), s=String(p?.source||''); return a==='admin_section_highlights'||a==='highlight_status'||a==='highlight_apply'||a==='highlight_remove'||a==='highlight_info'||(a==='comments_select_post'&&s==='highlights')||(a==='comments_pick_post'&&s==='highlights'); }
 function isPoll(p){ const a=String(p?.action||''), s=String(p?.source||''); return a==='poll_vote'||a==='poll_info'||a==='poll_status'||a==='poll_create'||a==='poll_custom_start'||a==='poll_custom_cancel'||a==='poll_custom_edit_question'||a==='poll_custom_edit_options'||a==='poll_custom_run'||a==='admin_section_polls'||(a==='comments_select_post'&&s==='polls')||(a==='comments_pick_post'&&s==='polls'); }
 function legacyFlow(userId){ try{ const st=store.getSetupState(String(userId||''))||{}; if(st.commentAdminFlow?.mode) return 'comment:'+String(st.commentAdminFlow.mode); if(st.giftFlow) return 'gift'; const k=String(st.activeAdminFlowKind||'').trim(); return k && k!=='poll' ? k : ''; }catch{return '';} }
-async function getPollFlow(userId){ try{return await db.getFlow(String(userId||''));}catch{return null;} }
-async function clearPollFlow(userId,reason){ try{ const f=await getPollFlow(userId); if(f?.type==='poll_custom'){ await db.clearFlow(String(userId||'')); pollTrace.add('poll_flow_cleared_by_guard',{reason:String(reason||''),step:String(f.step||''),userId:pollTrace.mask(userId)}); uiTrace.log('poll_flow_cleared_by_guard',{reason:String(reason||''),step:String(f.step||''),userId:uiTrace.mask(userId)}); return true; } }catch(e){ pollTrace.add('poll_flow_guard_clear_error',{reason:String(reason||''),error:String(e?.message||e)}); } return false; }
-async function ack(config,id,notification){ if(!id) return null; try{ const r=await max.answerCallback({botToken:config.botToken,callbackId:id,notification:notification||undefined}); pollTrace.add('ack_ok',{callbackId:pollTrace.mask(id),notification:pollTrace.safe(notification,80)}); return r; }catch(e){ pollTrace.add('ack_error',{callbackId:pollTrace.mask(id),error:String(e?.message||e),status:e?.status}); return null; } }
-async function show(config,u,c,m,s,edit){ const id=mid(m); if(edit&&id){ try{ const r=await max.editMessage({botToken:config.botToken,messageId:id,text:s.text,attachments:s.attachments,notify:false}); uiTrace.log('screen_edit_ok',{screenId:s?.id,messageId:uiTrace.mask(id)}); pollTrace.add('screen_edit_ok',{screenId:s?.id,messageId:pollTrace.mask(id)}); return r; }catch(e){ uiTrace.log('screen_edit_error_fallback_send',{screenId:s?.id,messageId:uiTrace.mask(id),error:String(e?.message||e),status:e?.status}); pollTrace.add('screen_edit_error_fallback_send',{screenId:s?.id,error:String(e?.message||e),status:e?.status}); } }
-  const chatId=chat(m), userId=uid(u,c,m)||sender(m); const r=await max.sendMessage({botToken:config.botToken,userId:chatId?'':userId,chatId,text:s.text,attachments:s.attachments,notify:false}); uiTrace.log('screen_send_ok',{screenId:s?.id,chatId:uiTrace.mask(chatId),userId:uiTrace.mask(userId),isChannel:isChannelMessage(m)}); pollTrace.add('screen_send_ok',{screenId:s?.id,chatId:pollTrace.mask(chatId),userId:pollTrace.mask(userId)}); return r; }
+async function getPollFlow(userId){ return timing.measure('db_get_poll_flow',{userId:timing.mask(userId)},async()=>{ try{return await db.getFlow(String(userId||''));}catch{return null;} }); }
+async function clearPollFlow(userId,reason){ try{ const f=await getPollFlow(userId); if(f?.type==='poll_custom'){ await timing.measure('db_clear_poll_flow',{reason:String(reason||''),userId:timing.mask(userId)},()=>db.clearFlow(String(userId||''))); pollTrace.add('poll_flow_cleared_by_guard',{reason:String(reason||''),step:String(f.step||''),userId:pollTrace.mask(userId)}); uiTrace.log('poll_flow_cleared_by_guard',{reason:String(reason||''),step:String(f.step||''),userId:uiTrace.mask(userId)}); return true; } }catch(e){ pollTrace.add('poll_flow_guard_clear_error',{reason:String(reason||''),error:String(e?.message||e)}); } return false; }
+async function ack(config,id,notification){ if(!id) return null; try{ const r=await timing.measure('max_answer_callback',{callbackId:timing.mask(id),notification:Boolean(notification)},()=>max.answerCallback({botToken:config.botToken,callbackId:id,notification:notification||undefined})); pollTrace.add('ack_ok',{callbackId:pollTrace.mask(id),notification:pollTrace.safe(notification,80)}); return r; }catch(e){ pollTrace.add('ack_error',{callbackId:pollTrace.mask(id),error:String(e?.message||e),status:e?.status}); return null; } }
+async function show(config,u,c,m,s,edit){ const id=mid(m); if(edit&&id){ try{ const r=await timing.measure('max_edit_message',{screenId:s?.id,messageId:timing.mask(id)},()=>max.editMessage({botToken:config.botToken,messageId:id,text:s.text,attachments:s.attachments,notify:false})); uiTrace.log('screen_edit_ok',{screenId:s?.id,messageId:uiTrace.mask(id)}); pollTrace.add('screen_edit_ok',{screenId:s?.id,messageId:pollTrace.mask(id)}); return r; }catch(e){ uiTrace.log('screen_edit_error_fallback_send',{screenId:s?.id,messageId:uiTrace.mask(id),error:String(e?.message||e),status:e?.status}); pollTrace.add('screen_edit_error_fallback_send',{screenId:s?.id,error:String(e?.message||e),status:e?.status}); } }
+  const chatId=chat(m), userId=uid(u,c,m)||sender(m); const r=await timing.measure('max_send_message',{screenId:s?.id,chatId:timing.mask(chatId),userId:timing.mask(userId),isChannel:isChannelMessage(m)},()=>max.sendMessage({botToken:config.botToken,userId:chatId?'':userId,chatId,text:s.text,attachments:s.attachments,notify:false})); uiTrace.log('screen_send_ok',{screenId:s?.id,chatId:uiTrace.mask(chatId),userId:uiTrace.mask(userId),isChannel:isChannelMessage(m)}); pollTrace.add('screen_send_ok',{screenId:s?.id,chatId:pollTrace.mask(chatId),userId:pollTrace.mask(userId)}); return r; }
 function err(e){ return {id:'poll_custom_error',text:['⚠️ Ошибка сценария опроса','',String(e?.message||e||'unknown')].join('\n'),attachments:menu.keyboard([[menu.button('🗳 В начало опросов','admin_section_polls')],[menu.button('🏠 Главное меню','admin_section_main')]])}; }
-async function pollScreen(p,userId,config){ const a=String(p.action||''); if(a==='poll_custom_start')return polls.customStart(menu,{userId,commentKey:p.commentKey||''}); if(a==='poll_custom_cancel')return polls.customCancel(menu,{userId,commentKey:p.commentKey||''}); if(a==='poll_custom_edit_question')return polls.customEditQuestion(menu,{userId,commentKey:p.commentKey||''}); if(a==='poll_custom_edit_options')return polls.customEditOptions(menu,{userId,commentKey:p.commentKey||''}); if(a==='poll_custom_run')return polls.customRun(menu,{config,userId,commentKey:p.commentKey||''}); if(a==='poll_status')return polls.statusScreen(menu); return null; }
+async function pollScreen(p,userId,config){ const a=String(p.action||''); return timing.measure('poll_screen_build',{action:a,userId:timing.mask(userId)},async()=>{ if(a==='poll_custom_start')return polls.customStart(menu,{userId,commentKey:p.commentKey||''}); if(a==='poll_custom_cancel')return polls.customCancel(menu,{userId,commentKey:p.commentKey||''}); if(a==='poll_custom_edit_question')return polls.customEditQuestion(menu,{userId,commentKey:p.commentKey||''}); if(a==='poll_custom_edit_options')return polls.customEditOptions(menu,{userId,commentKey:p.commentKey||''}); if(a==='poll_custom_run')return polls.customRun(menu,{config,userId,commentKey:p.commentKey||''}); if(a==='poll_status')return polls.statusScreen(menu); return null; }); }
 function fallbackVoter(c,m){ return uid(null,c,m) || (cbid(c)?'callback:'+cbid(c).slice(0,64):''); }
-async function handleVote({config,c,m,p,userId}){ const voterId=fallbackVoter(c,m)||userId; pollTrace.add('poll_vote_start',{pollId:String(p.pollId||''),optionId:String(p.optionId||''),hasVoterId:!!voterId,callbackId:pollTrace.mask(cbid(c)),messageId:pollTrace.mask(mid(m))}); uiTrace.log('poll_vote_start',{pollId:String(p.pollId||''),optionId:String(p.optionId||''),hasVoterId:!!voterId,messageId:uiTrace.mask(mid(m))}); const vr=await pollService.vote({userId:voterId,pollId:p.pollId,optionId:p.optionId}); let patchError='', key=''; if(vr?.ok){ key=clean(p.commentKey)||clean(vr?.summary?.commentKey); if(key){ try{ await polls.patchPostWithPoll({config,commentKey:key,pollId:p.pollId}); }catch(e){ patchError=String(e?.message||e); } } } pollTrace.add('poll_vote_result',{ok:!!vr?.ok,error:vr?.error||'',pollId:String(p.pollId||''),optionId:String(p.optionId||''),summaryTotal:vr?.summary?.total,commentKeyFound:!!key,patchError}); uiTrace.log('poll_vote_result',{ok:!!vr?.ok,error:vr?.error||'',pollId:String(p.pollId||''),optionId:String(p.optionId||''),summaryTotal:vr?.summary?.total,commentKeyFound:!!key,patchError}); await ack(config,cbid(c),vr?.ok?'Голос учтён':'Не удалось учесть голос'); return {vr,voterId,patchError}; }
+async function handleVote({config,c,m,p,userId}){ const voterId=fallbackVoter(c,m)||userId; pollTrace.add('poll_vote_start',{pollId:String(p.pollId||''),optionId:String(p.optionId||''),hasVoterId:!!voterId,callbackId:pollTrace.mask(cbid(c)),messageId:pollTrace.mask(mid(m))}); uiTrace.log('poll_vote_start',{pollId:String(p.pollId||''),optionId:String(p.optionId||''),hasVoterId:!!voterId,messageId:uiTrace.mask(mid(m))}); const vr=await timing.measure('poll_vote_service',{pollId:String(p.pollId||''),optionId:String(p.optionId||''),hasVoterId:!!voterId},()=>pollService.vote({userId:voterId,pollId:p.pollId,optionId:p.optionId})); let patchError='', key=''; if(vr?.ok){ key=clean(p.commentKey)||clean(vr?.summary?.commentKey); if(key){ try{ await timing.measure('poll_patch_post',{pollId:String(p.pollId||''),commentKey:timing.mask(key)},()=>polls.patchPostWithPoll({config,commentKey:key,pollId:p.pollId})); }catch(e){ patchError=String(e?.message||e); } } } pollTrace.add('poll_vote_result',{ok:!!vr?.ok,error:vr?.error||'',pollId:String(p.pollId||''),optionId:String(p.optionId||''),summaryTotal:vr?.summary?.total,commentKeyFound:!!key,patchError}); uiTrace.log('poll_vote_result',{ok:!!vr?.ok,error:vr?.error||'',pollId:String(p.pollId||''),optionId:String(p.optionId||''),summaryTotal:vr?.summary?.total,commentKeyFound:!!key,patchError}); await ack(config,cbid(c),vr?.ok?'Голос учтён':'Не удалось учесть голос'); return {vr,voterId,patchError}; }
 
 function createCleanBot(legacy){
   const wrapped=base.createCleanBot(legacy);
   const highlightOnly=highlightAdapter.createCleanBot(legacy);
   return { handleWebhook: async function(req,res,config){
+    const requestStartedAt=Date.now(); let timingAction='', timingScreen='', timingPath='';
     const u=req.body||{}, c=cb(u), m=msg(u);
     try{
       uiTrace.log('webhook_in',{updateType:String(u.update_type||u.type||''),hasCallback:!!c,hasMessage:!!m,messageId:uiTrace.mask(mid(m)),chatId:uiTrace.mask(chat(m)),chatType:chatType(m),isChannel:isChannelMessage(m)});
       if(c){
-        const p=parse(c), a=String(p.action||''), userId=uid(u,c,m)||sender(m), raw=rawPayload(c);
+        const p=parse(c), a=String(p.action||''), userId=uid(u,c,m)||sender(m), raw=rawPayload(c); timingAction=a;
         uiTrace.log('callback_received',{action:a,payload:uiTrace.lightPayload(p),rawLen:raw.length,callbackId:uiTrace.mask(cbid(c)),userId:uiTrace.mask(userId),messageId:uiTrace.mask(mid(m)),chatId:uiTrace.mask(chat(m)),isChannel:isChannelMessage(m)});
 
-        // Absolute safety gate: old service/admin callback buttons that remain under a channel post
-        // must not open/edit/send admin menus in the public channel.
         if(isChannelMessage(m)){
           if(a==='poll_vote'){
-            const out=await handleVote({config,c,m,p,userId});
+            const out=await handleVote({config,c,m,p,userId}); timingPath='channel_poll_vote';
             return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,voted:!!out.vr?.ok,pollId:p.pollId||'',optionId:p.optionId||'',hasVoterId:!!out.voterId,patchError:out.patchError||'',error:out.vr?.error||''});
           }
           if(a==='poll_info'){
             uiTrace.log('channel_callback_ack_only',{action:a,reason:'poll_info_no_admin_menu'});
-            await ack(config,cbid(c),'Выберите вариант ниже');
+            await ack(config,cbid(c),'Выберите вариант ниже'); timingPath='channel_poll_info_ack';
             return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,ackOnly:true,channelSafe:true});
           }
           if(a==='gift_claim'){
-            uiTrace.log('delegate_legacy',{reason:'public_gift_claim',action:a});
-            return wrapped.handleWebhook(req,res,config);
+            uiTrace.log('delegate_legacy',{reason:'public_gift_claim',action:a}); timingPath='delegate_legacy_public_gift';
+            return await timing.measure('delegate_legacy',{action:a,path:timingPath},()=>wrapped.handleWebhook(req,res,config));
           }
           uiTrace.log('channel_admin_callback_blocked',{action:a,payload:uiTrace.lightPayload(p),reason:'admin_ui_not_allowed_in_channel'});
-          await ack(config,cbid(c),'Служебная кнопка недоступна в канале');
+          await ack(config,cbid(c),'Служебная кнопка недоступна в канале'); timingPath='channel_admin_blocked';
           return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,blocked:true,reason:'admin_ui_not_allowed_in_channel'});
         }
 
-        const accountScreen = await accountRuntime.buildAccountScreenForUpdate({ update:u, context:req.adminkitUserContext || {}, config }).catch(e=>({ok:false,error:String(e?.message||e)}));
+        const accountScreen = await timing.measure('account_screen_build',{action:a,userId:timing.mask(userId)},()=>accountRuntime.buildAccountScreenForUpdate({ update:u, context:req.adminkitUserContext || {}, config })).catch(e=>({ok:false,error:String(e?.message||e)}));
         if(accountScreen?.ok && accountScreen.screen){
+          timingScreen=accountScreen.screen.id; timingPath='account_runtime';
           uiTrace.log('account_screen_resolved',{action:a,screenId:accountScreen.screen.id,userId:uiTrace.mask(userId)});
           await ack(config,cbid(c));
           await show(config,u,c,m,accountScreen.screen,true);
           return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,screenId:accountScreen.screen.id,accountRuntime:true});
         }
 
-        if(isHighlight(p)) return highlightOnly.handleWebhook(req,res,config);
+        if(isHighlight(p)){ timingPath='highlight_adapter'; return await timing.measure('highlight_adapter',{action:a,userId:timing.mask(userId)},()=>highlightOnly.handleWebhook(req,res,config)); }
         pollTrace.add('callback_received',{action:a,raw:pollTrace.safe(raw,160),rawLen:raw.length,callbackId:pollTrace.mask(cbid(c)),userId:pollTrace.mask(userId),pollId:String(p.pollId||''),optionId:String(p.optionId||'')});
-        if(!isPoll(p)){ await clearPollFlow(userId,'non_poll_callback:'+a); uiTrace.log('delegate_legacy',{reason:'non_poll_callback',action:a}); pollTrace.add('delegate_legacy',{reason:'non_poll_callback',action:a}); return wrapped.handleWebhook(req,res,config); }
+        if(!isPoll(p)){ await clearPollFlow(userId,'non_poll_callback:'+a); uiTrace.log('delegate_legacy',{reason:'non_poll_callback',action:a}); pollTrace.add('delegate_legacy',{reason:'non_poll_callback',action:a}); timingPath='delegate_legacy_non_poll'; return await timing.measure('delegate_legacy',{action:a,userId:timing.mask(userId),path:timingPath},()=>wrapped.handleWebhook(req,res,config)); }
         if(a==='poll_vote'){
-          const out=await handleVote({config,c,m,p,userId});
+          const out=await handleVote({config,c,m,p,userId}); timingPath='poll_vote';
           return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,voted:!!out.vr?.ok,pollId:p.pollId||'',optionId:p.optionId||'',hasVoterId:!!out.voterId,patchError:out.patchError||'',error:out.vr?.error||''});
         }
         if(a==='poll_info'){
-          await ack(config,cbid(c),'Выберите вариант ниже');
+          await ack(config,cbid(c),'Выберите вариант ниже'); timingPath='poll_info_ack';
           return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,ackOnly:true});
         }
-        let s=null; try{s=await pollScreen(p,userId,config);}catch(e){pollTrace.add('poll_screen_error',{action:a,error:String(e?.message||e)});s=err(e);} if(s){ await ack(config,cbid(c)); await show(config,u,c,m,s,true); return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,screenId:s.id}); }
+        let s=null; try{s=await pollScreen(p,userId,config);}catch(e){pollTrace.add('poll_screen_error',{action:a,error:String(e?.message||e)});s=err(e);} if(s){ timingScreen=s.id; timingPath='poll_screen'; await ack(config,cbid(c)); await show(config,u,c,m,s,true); return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,screenId:s.id}); }
       }
       if(m && text(m).trim() && !/^\/?start(?:\s|$)/i.test(text(m).trim())){
         const userId=sender(m)||uid(u,c,m), lf=legacyFlow(userId), pf=await getPollFlow(userId);
         uiTrace.log('text_received',{userId:uiTrace.mask(userId),textLen:text(m).length,legacyFlow:lf||'',pollFlow:pf?.type==='poll_custom'?String(pf.step||'poll_custom'):'',isChannel:isChannelMessage(m)});
-        if(lf){ if(pf?.type==='poll_custom') await clearPollFlow(userId,'legacy_text:'+lf); uiTrace.log('delegate_legacy',{reason:'legacy_active_text_flow',legacyKind:lf,userId:uiTrace.mask(userId)}); pollTrace.add('delegate_legacy',{reason:'legacy_active_text_flow',legacyKind:lf,userId:pollTrace.mask(userId)}); return wrapped.handleWebhook(req,res,config); }
+        if(lf){ if(pf?.type==='poll_custom') await clearPollFlow(userId,'legacy_text:'+lf); uiTrace.log('delegate_legacy',{reason:'legacy_active_text_flow',legacyKind:lf,userId:uiTrace.mask(userId)}); pollTrace.add('delegate_legacy',{reason:'legacy_active_text_flow',legacyKind:lf,userId:pollTrace.mask(userId)}); timingPath='delegate_legacy_text_flow'; timingAction='text_flow'; return await timing.measure('delegate_legacy',{action:timingAction,userId:timing.mask(userId),path:timingPath},()=>wrapped.handleWebhook(req,res,config)); }
         if(pf?.type==='poll_custom'){
-          const s=await polls.handleTextInput(menu,{config,userId,text:text(m)});
-          if(s){ uiTrace.log('poll_text_flow',{screenId:s.id,userId:uiTrace.mask(userId),textLen:text(m).length}); pollTrace.add('poll_text_flow',{screenId:s.id,userId:pollTrace.mask(userId),textLen:text(m).length}); await show(config,u,c,m,s,false); return res.status(200).json({ok:true,handledBy:RUNTIME,action:'poll_custom_text',screenId:s.id}); }
+          const s=await timing.measure('poll_text_input',{userId:timing.mask(userId),textLen:text(m).length},()=>polls.handleTextInput(menu,{config,userId,text:text(m)}));
+          if(s){ timingScreen=s.id; timingPath='poll_text_flow'; uiTrace.log('poll_text_flow',{screenId:s.id,userId:uiTrace.mask(userId),textLen:text(m).length}); pollTrace.add('poll_text_flow',{screenId:s.id,userId:pollTrace.mask(userId),textLen:text(m).length}); await show(config,u,c,m,s,false); return res.status(200).json({ok:true,handledBy:RUNTIME,action:'poll_custom_text',screenId:s.id}); }
         }
       }
-      uiTrace.log('delegate_legacy',{reason:'no_wrapper_match'});
-      return wrapped.handleWebhook(req,res,config);
+      uiTrace.log('delegate_legacy',{reason:'no_wrapper_match'}); timingPath='delegate_legacy_no_match';
+      return await timing.measure('delegate_legacy',{action:timingAction||String(u.update_type||u.type||''),path:timingPath},()=>wrapped.handleWebhook(req,res,config));
     }catch(e){ uiTrace.log('flow_guard_error',{error:String(e?.message||e),stack:String(e?.stack||'').slice(0,400)}); pollTrace.add('flow_guard_error',{error:String(e?.message||e),stack:String(e?.stack||'').slice(0,400)}); if(!res.headersSent) return res.status(500).json({ok:false,error:e?.message||'flow_guard_failed',handledBy:RUNTIME}); return null; }
+    finally{ timing.log('webhook_total',{durationMs:Date.now()-requestStartedAt,action:timingAction,screenId:timingScreen,path:timingPath,updateType:String(u.update_type||u.type||''),hasCallback:!!c,hasMessage:!!m,isChannel:isChannelMessage(m)}); }
   }};
 }
 module.exports={createCleanBot,RUNTIME};
