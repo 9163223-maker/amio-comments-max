@@ -1,8 +1,9 @@
 'use strict';
 
 const core = require('./index');
+const cleanCoreSchema = require('../db/ensureCleanCoreSchema');
 
-const RUNTIME = 'CC8.0.1-ACCOUNT-CONTEXT-FALLBACK';
+const RUNTIME = 'CC8.0.2-ACCOUNT-DB-CONFIG';
 
 function clean(value) {
   return String(value || '').trim();
@@ -129,6 +130,10 @@ async function ensureWebhookUserContext(update = {}, options = {}) {
     return { ok: false, skipped: true, reason: 'database_url_missing', profile, durationMs: Date.now() - startedAt };
   }
   try {
+    const schema = await cleanCoreSchema.ensureCleanCoreSchema();
+    if (!schema.ok) {
+      return { ok: false, reason: 'clean_core_schema_failed', schema, profile, durationMs: Date.now() - startedAt };
+    }
     const user = await core.users.ensureUserFromMaxProfile(profile);
     const text = getText(getMessage(update) || {});
     const referralCode = parseStartReferral(text);
@@ -148,6 +153,7 @@ async function ensureWebhookUserContext(update = {}, options = {}) {
       user,
       access,
       referral,
+      schema,
       durationMs: Date.now() - startedAt
     };
   } catch (error) {
@@ -157,6 +163,7 @@ async function ensureWebhookUserContext(update = {}, options = {}) {
       reason: 'user_context_failed',
       error: error?.message || String(error),
       profile,
+      schema: cleanCoreSchema.info(),
       durationMs: Date.now() - startedAt
     };
   }

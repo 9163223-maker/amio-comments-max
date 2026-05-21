@@ -14,19 +14,55 @@ function clean(value) {
   return String(value || '').trim();
 }
 
+function boolEnv(value, fallback = false) {
+  const raw = clean(value).toLowerCase();
+  if (!raw) return fallback;
+  return ['1', 'true', 'yes', 'on', 'require'].includes(raw);
+}
+
 function getDatabaseUrl() {
-  return clean(process.env.DATABASE_URL || process.env.POSTGRES_URI || process.env.POSTGRES_URL || '');
+  return clean(
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URI ||
+    process.env.POSTGRES_URL ||
+    process.env.PG_URL ||
+    process.env.PGURI ||
+    process.env.NF_POSTGRES_URI ||
+    process.env.NF_POSTGRES_URL ||
+    process.env.DB_URL ||
+    process.env.DB_CONNECTION_STRING ||
+    ''
+  );
+}
+
+function hasHostConfig() {
+  return Boolean(clean(process.env.PGHOST || process.env.POSTGRES_HOST || process.env.DB_HOST || process.env.NF_POSTGRES_HOST));
 }
 
 function hasDatabaseUrl() {
-  return Boolean(getDatabaseUrl());
+  return Boolean(getDatabaseUrl() || hasHostConfig());
+}
+
+function sslConfig(connectionString = getDatabaseUrl()) {
+  if (/sslmode=disable/i.test(connectionString)) return false;
+  const sslMode = clean(process.env.PGSSLMODE || process.env.POSTGRES_SSLMODE || '').toLowerCase();
+  const sslRequired = boolEnv(process.env.DATABASE_SSL || process.env.POSTGRES_SSL || process.env.PGSSL, false) || sslMode === 'require' || Boolean(connectionString && !/sslmode=disable/i.test(connectionString));
+  return sslRequired ? { rejectUnauthorized: false } : undefined;
 }
 
 function buildPoolOptions(connectionString = getDatabaseUrl()) {
-  if (!connectionString) return null;
+  const ssl = sslConfig(connectionString);
+  if (connectionString) {
+    return ssl === undefined ? { connectionString, ...DEFAULT_POOL_OPTIONS } : { connectionString, ssl, ...DEFAULT_POOL_OPTIONS };
+  }
+  if (!hasHostConfig()) return null;
   return {
-    connectionString,
-    ssl: /sslmode=disable/i.test(connectionString) ? false : { rejectUnauthorized: false },
+    host: clean(process.env.PGHOST || process.env.POSTGRES_HOST || process.env.DB_HOST || process.env.NF_POSTGRES_HOST),
+    port: Number(process.env.PGPORT || process.env.POSTGRES_PORT || process.env.DB_PORT || process.env.NF_POSTGRES_PORT || 5432),
+    database: clean(process.env.PGDATABASE || process.env.POSTGRES_DB || process.env.POSTGRES_DATABASE || process.env.DB_NAME || process.env.NF_POSTGRES_DATABASE),
+    user: clean(process.env.PGUSER || process.env.POSTGRES_USER || process.env.DB_USER || process.env.NF_POSTGRES_USER),
+    password: clean(process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD || process.env.NF_POSTGRES_PASSWORD),
+    ssl,
     ...DEFAULT_POOL_OPTIONS
   };
 }
@@ -94,6 +130,7 @@ module.exports = {
   clean,
   getDatabaseUrl,
   hasDatabaseUrl,
+  hasHostConfig,
   buildPoolOptions,
   getPool,
   query,
