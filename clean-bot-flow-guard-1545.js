@@ -68,7 +68,7 @@ function createCleanBot(legacy){
           }
           if(a==='gift_claim'){
             uiTrace.log('delegate_legacy',{reason:'public_gift_claim',action:a}); timingPath='delegate_legacy_public_gift';
-            return timing.measure('delegate_legacy',{action:a,path:timingPath},()=>wrapped.handleWebhook(req,res,config));
+            return await timing.measure('delegate_legacy',{action:a,path:timingPath},()=>wrapped.handleWebhook(req,res,config));
           }
           uiTrace.log('channel_admin_callback_blocked',{action:a,payload:uiTrace.lightPayload(p),reason:'admin_ui_not_allowed_in_channel'});
           await ack(config,cbid(c),'Служебная кнопка недоступна в канале'); timingPath='channel_admin_blocked';
@@ -84,9 +84,9 @@ function createCleanBot(legacy){
           return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,screenId:accountScreen.screen.id,accountRuntime:true});
         }
 
-        if(isHighlight(p)){ timingPath='highlight_adapter'; return timing.measure('highlight_adapter',{action:a,userId:timing.mask(userId)},()=>highlightOnly.handleWebhook(req,res,config)); }
+        if(isHighlight(p)){ timingPath='highlight_adapter'; return await timing.measure('highlight_adapter',{action:a,userId:timing.mask(userId)},()=>highlightOnly.handleWebhook(req,res,config)); }
         pollTrace.add('callback_received',{action:a,raw:pollTrace.safe(raw,160),rawLen:raw.length,callbackId:pollTrace.mask(cbid(c)),userId:pollTrace.mask(userId),pollId:String(p.pollId||''),optionId:String(p.optionId||'')});
-        if(!isPoll(p)){ await clearPollFlow(userId,'non_poll_callback:'+a); uiTrace.log('delegate_legacy',{reason:'non_poll_callback',action:a}); pollTrace.add('delegate_legacy',{reason:'non_poll_callback',action:a}); timingPath='delegate_legacy_non_poll'; return timing.measure('delegate_legacy',{action:a,userId:timing.mask(userId),path:timingPath},()=>wrapped.handleWebhook(req,res,config)); }
+        if(!isPoll(p)){ await clearPollFlow(userId,'non_poll_callback:'+a); uiTrace.log('delegate_legacy',{reason:'non_poll_callback',action:a}); pollTrace.add('delegate_legacy',{reason:'non_poll_callback',action:a}); timingPath='delegate_legacy_non_poll'; return await timing.measure('delegate_legacy',{action:a,userId:timing.mask(userId),path:timingPath},()=>wrapped.handleWebhook(req,res,config)); }
         if(a==='poll_vote'){
           const out=await handleVote({config,c,m,p,userId}); timingPath='poll_vote';
           return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,voted:!!out.vr?.ok,pollId:p.pollId||'',optionId:p.optionId||'',hasVoterId:!!out.voterId,patchError:out.patchError||'',error:out.vr?.error||''});
@@ -100,14 +100,14 @@ function createCleanBot(legacy){
       if(m && text(m).trim() && !/^\/?start(?:\s|$)/i.test(text(m).trim())){
         const userId=sender(m)||uid(u,c,m), lf=legacyFlow(userId), pf=await getPollFlow(userId);
         uiTrace.log('text_received',{userId:uiTrace.mask(userId),textLen:text(m).length,legacyFlow:lf||'',pollFlow:pf?.type==='poll_custom'?String(pf.step||'poll_custom'):'',isChannel:isChannelMessage(m)});
-        if(lf){ if(pf?.type==='poll_custom') await clearPollFlow(userId,'legacy_text:'+lf); uiTrace.log('delegate_legacy',{reason:'legacy_active_text_flow',legacyKind:lf,userId:uiTrace.mask(userId)}); pollTrace.add('delegate_legacy',{reason:'legacy_active_text_flow',legacyKind:lf,userId:pollTrace.mask(userId)}); timingPath='delegate_legacy_text_flow'; timingAction='text_flow'; return timing.measure('delegate_legacy',{action:timingAction,userId:timing.mask(userId),path:timingPath},()=>wrapped.handleWebhook(req,res,config)); }
+        if(lf){ if(pf?.type==='poll_custom') await clearPollFlow(userId,'legacy_text:'+lf); uiTrace.log('delegate_legacy',{reason:'legacy_active_text_flow',legacyKind:lf,userId:uiTrace.mask(userId)}); pollTrace.add('delegate_legacy',{reason:'legacy_active_text_flow',legacyKind:lf,userId:pollTrace.mask(userId)}); timingPath='delegate_legacy_text_flow'; timingAction='text_flow'; return await timing.measure('delegate_legacy',{action:timingAction,userId:timing.mask(userId),path:timingPath},()=>wrapped.handleWebhook(req,res,config)); }
         if(pf?.type==='poll_custom'){
           const s=await timing.measure('poll_text_input',{userId:timing.mask(userId),textLen:text(m).length},()=>polls.handleTextInput(menu,{config,userId,text:text(m)}));
           if(s){ timingScreen=s.id; timingPath='poll_text_flow'; uiTrace.log('poll_text_flow',{screenId:s.id,userId:uiTrace.mask(userId),textLen:text(m).length}); pollTrace.add('poll_text_flow',{screenId:s.id,userId:pollTrace.mask(userId),textLen:text(m).length}); await show(config,u,c,m,s,false); return res.status(200).json({ok:true,handledBy:RUNTIME,action:'poll_custom_text',screenId:s.id}); }
         }
       }
       uiTrace.log('delegate_legacy',{reason:'no_wrapper_match'}); timingPath='delegate_legacy_no_match';
-      return timing.measure('delegate_legacy',{action:timingAction||String(u.update_type||u.type||''),path:timingPath},()=>wrapped.handleWebhook(req,res,config));
+      return await timing.measure('delegate_legacy',{action:timingAction||String(u.update_type||u.type||''),path:timingPath},()=>wrapped.handleWebhook(req,res,config));
     }catch(e){ uiTrace.log('flow_guard_error',{error:String(e?.message||e),stack:String(e?.stack||'').slice(0,400)}); pollTrace.add('flow_guard_error',{error:String(e?.message||e),stack:String(e?.stack||'').slice(0,400)}); if(!res.headersSent) return res.status(500).json({ok:false,error:e?.message||'flow_guard_failed',handledBy:RUNTIME}); return null; }
     finally{ timing.log('webhook_total',{durationMs:Date.now()-requestStartedAt,action:timingAction,screenId:timingScreen,path:timingPath,updateType:String(u.update_type||u.type||''),hasCallback:!!c,hasMessage:!!m,isChannel:isChannelMessage(m)}); }
   }};
