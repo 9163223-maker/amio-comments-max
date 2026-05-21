@@ -3,7 +3,7 @@
 const timing = require('./v3-ui-timing-cc8');
 const menu = require('./v3-menu-core-1539');
 
-const RUNTIME = 'CC8.0.6-STATS-FEATURE-PARITY-MAP';
+const RUNTIME = 'CC8.0.8-POSTS-CLEAN-CORE-MAP';
 const SLOW_MS = 900;
 
 const LABELS = {
@@ -11,6 +11,9 @@ const LABELS = {
   admin_section_gifts: 'Подарки / лид-магниты',
   admin_section_buttons: 'CTA / пользовательские кнопки',
   admin_section_posts: 'Редактирование постов',
+  admin_posts_picker: 'Редактирование постов: выбор поста',
+  admin_posts_open: 'Редактирование постов: карточка поста',
+  admin_posts_history: 'Редактирование постов: история версий',
   admin_section_moderation: 'Модерация',
   admin_section_stats: 'Статистика',
   admin_stats_overview_cache: 'Статистика: общая',
