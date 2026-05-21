@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>АдминКит</title>
-  <link rel="stylesheet" href="/public/styles.css?v=7558" />
-  <link rel="stylesheet" href="/public/comment-photo-layout.css?v=7558" />
+  <link rel="stylesheet" href="/public/styles.css?v=7560" />
+  <link rel="stylesheet" href="/public/comment-photo-layout.css?v=7560" />
   <script src="https://st.max.ru/js/max-web-app.js"></script>
 </head>
 <body>
@@ -82,7 +82,7 @@
           </div>
           <div class="composer-input-main">
             <input id="nameInput" class="text-input hidden-name" placeholder="Ваше имя" />
-            <textarea id="commentInput" class="text-input comment-line-input" rows="1" placeholder="Комментарий" autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false"></textarea>
+            <textarea id="commentInput" class="text-input comment-line-input" rows="1" placeholder="Комментарий" autocomplete="on" autocorrect="on" autocapitalize="sentences" spellcheck="true" enterkeyhint="send"></textarea>
           </div>
         </div>
         <button id="sendBtn" class="send-btn" type="button" aria-label="Отправить">➤</button>
@@ -100,12 +100,12 @@
     <div id="mediaPreviewBottom" class="media-preview-bottom">
       <div id="mediaPreviewStatus" class="media-preview-status hidden"></div>
       <div class="media-preview-compose-row">
-        <textarea id="mediaPreviewCaption" class="media-preview-caption" rows="1" placeholder="Добавить подпись…" autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false"></textarea>
+        <textarea id="mediaPreviewCaption" class="media-preview-caption" rows="1" placeholder="Добавить подпись…" autocomplete="on" autocorrect="on" autocapitalize="sentences" spellcheck="true" enterkeyhint="send"></textarea>
         <button id="mediaPreviewSend" class="media-preview-send" type="button" aria-label="Отправить">↑</button>
       </div>
     </div>
   </section>
-  <section id="mediaViewerModal" class="media-viewer-modal hidden" aria-hidden="true">
+  <section id="mediaViewerModal" class="media-viewer-modal hidden" aria-hidden="true" style="display:none">
     <button id="mediaViewerClose" class="media-viewer-close" type="button" aria-label="Закрыть">×</button>
     <div id="mediaViewerStage" class="media-viewer-stage"></div>
     <div id="mediaViewerCaption" class="media-viewer-caption hidden"></div>
@@ -127,6 +127,6 @@
     </div>
   </div>
 
-  <script src="/public/app.js?v=7558"></script>
+  <script src="/public/app.js?v=7560"></script>
 </body>
 </html>
