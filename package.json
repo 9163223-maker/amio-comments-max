@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.0.14-POSTS-OPEN-ASYNC-DELIVERY",
+  "version": "CC8.0.16-POSTS-LEGACY-REPATCH",
   "main": "clean-entrypoint-pr41.js",
   "scripts": {
     "start": "node clean-entrypoint-pr41.js"
