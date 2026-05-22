@@ -6,15 +6,15 @@
   "runtimeTarget": "CC8.2.0-ADMINKIT-STICKERS-COMMENTS",
   "defaultEnabled": false,
   "assetBasePath": "/public/stickers/adminkit/v1",
-  "format": "webp",
-  "fallbackFormat": "png",
+  "format": "svg",
+  "fallbackFormat": "svg",
   "stickers": [
     {
       "id": "adminkit_angry",
       "title": "Сердитый кит",
       "emoji": "😤",
-      "file": "angry.webp",
-      "fallbackFile": "angry.png",
+      "file": "angry.svg",
+      "fallbackFile": "angry.svg",
       "alt": "Сердитый робот-кит АдминКИТ выпускает пар",
       "tags": ["angry", "warning", "focus", "no"]
     },
@@ -22,8 +22,8 @@
       "id": "adminkit_ok",
       "title": "Кит одобряет",
       "emoji": "✅",
-      "file": "ok.webp",
-      "fallbackFile": "ok.png",
+      "file": "ok.svg",
+      "fallbackFile": "ok.svg",
       "alt": "Робот-кит АдминКИТ показывает лайк и знак подтверждения",
       "tags": ["ok", "yes", "approved", "done"]
     },
@@ -31,8 +31,8 @@
       "id": "adminkit_party",
       "title": "Праздничный кит",
       "emoji": "🎉",
-      "file": "party.webp",
-      "fallbackFile": "party.png",
+      "file": "party.svg",
+      "fallbackFile": "party.svg",
       "alt": "Робот-кит АдминКИТ празднует с конфетти",
       "tags": ["party", "celebrate", "success", "wow"]
     },
@@ -40,8 +40,8 @@
       "id": "adminkit_sad",
       "title": "Грустный кит",
       "emoji": "😢",
-      "file": "sad.webp",
-      "fallbackFile": "sad.png",
+      "file": "sad.svg",
+      "fallbackFile": "sad.svg",
       "alt": "Грустный робот-кит АдминКИТ плачет",
       "tags": ["sad", "sorry", "error", "fail"]
     },
@@ -49,8 +49,8 @@
       "id": "adminkit_surprise",
       "title": "Удивлённый кит",
       "emoji": "❗",
-      "file": "surprise.webp",
-      "fallbackFile": "surprise.png",
+      "file": "surprise.svg",
+      "fallbackFile": "surprise.svg",
       "alt": "Удивлённый робот-кит АдминКИТ с восклицательным знаком",
       "tags": ["surprise", "attention", "alert", "wow"]
     },
@@ -58,8 +58,8 @@
       "id": "adminkit_idea",
       "title": "Кит придумал",
       "emoji": "💡",
-      "file": "idea.webp",
-      "fallbackFile": "idea.png",
+      "file": "idea.svg",
+      "fallbackFile": "idea.svg",
       "alt": "Робот-кит АдминКИТ думает и показывает лампочку идеи",
       "tags": ["idea", "thinking", "smart", "hint"]
     },
@@ -67,8 +67,8 @@
       "id": "adminkit_love",
       "title": "Кит с сердечками",
       "emoji": "💙",
-      "file": "love.webp",
-      "fallbackFile": "love.png",
+      "file": "love.svg",
+      "fallbackFile": "love.svg",
       "alt": "Милый робот-кит АдминКИТ с сердечками",
       "tags": ["love", "thanks", "cute", "heart"]
     },
@@ -76,8 +76,8 @@
       "id": "adminkit_playful",
       "title": "Весёлый кит",
       "emoji": "🌊",
-      "file": "playful.webp",
-      "fallbackFile": "playful.png",
+      "file": "playful.svg",
+      "fallbackFile": "playful.svg",
       "alt": "Весёлый робот-кит АдминКИТ играет и плещется",
       "tags": ["playful", "fun", "hello", "active"]
     }
