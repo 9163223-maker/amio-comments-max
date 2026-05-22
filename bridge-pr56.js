@@ -48,7 +48,7 @@ function createCleanBot(wrapped) {
       const text = readText(message);
       const userId = readUserId(update, message);
       if (message && text && userId && !isCallback(update) && !isChannel(message) && !/^\/?start(?:\s|$)/i.test(text)) {
-        const handled = await helper.processPendingGiftClaimInput({ config, userId, text });
+        const handled = await helper.processPendingGiftClaimInput({ config, userId, input: text });
         if (handled && handled.handled) {
           return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'gift_claim_code_input', status: handled.status || '' });
         }
