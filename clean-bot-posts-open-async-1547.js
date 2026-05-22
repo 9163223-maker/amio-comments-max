@@ -3,12 +3,12 @@
 const guard = require('./clean-bot-flow-guard-1546');
 const menu = require('./v3-menu-core-1539');
 const posts = require('./posts-flow-cc8-text-flow');
-const gifts = require('./gifts-flow-cc8-fast');
+const gifts = require('./gifts-flow-cc811-ux');
 const buttons = require('./buttons-flow-cc8-clean');
 const max = require('./services/maxApi');
 const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.1.0-CLEAN-GIFTS-BUTTONS-TENANT-FOUNDATION';
+const RUNTIME = 'CC8.1.1-GIFTS-WIZARD-UX-CONDITIONS-CLEANUP';
 
 function clean(v){ return String(v || '').trim(); }
 function find(o,p,d){ if(!o||d<0) return null; if(typeof o==='object'&&p(o)) return o; if(typeof o!=='object') return null; for(const v of (Array.isArray(o)?o:Object.values(o))){ const r=find(v,p,d-1); if(r) return r; } return null; }
@@ -49,7 +49,7 @@ function createCleanBot(legacy){
       const fastTimingName = startCreate ? 'gifts_start_create_fast_screen' : 'gifts_fast_screen';
       const asyncTimingName = startCreate ? 'gifts_start_create_async_show_result' : 'gifts_async_show_result';
       const screen = await timing.measure(fastTimingName,{action,userId:timing.mask(userId)},()=>gifts.screenForPayload(menu,p,{userId,config}));
-      if(screen){ await answer(config,cbid(c),{action,userId,notification:'',cleanOwned:true}); later(config,u,m,screen,{action,userId,timingName:asyncTimingName}); return res.status(200).json({ok:true,handledBy:RUNTIME,action,screenId:screen.id,giftsCleanFlow:true,asyncDelivery:true}); }
+      if(screen){ await answer(config,cbid(c),{action,userId,notification:'',cleanOwned:true}); later(config,u,m,screen,{action,userId,timingName:asyncTimingName}); return res.status(200).json({ok:true,handledBy:RUNTIME,action,screenId:screen.id,giftsCleanFlow:true,giftsUxCleanup:true,asyncDelivery:true}); }
     }
     if(c && !channel(m) && isButtonClean(p)){
       const screen = await timing.measure('buttons_fast_screen',{action,userId:timing.mask(userId)},()=>buttons.screenForPayload(menu,p,{userId,config}));
