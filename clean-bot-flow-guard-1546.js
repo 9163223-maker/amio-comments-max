@@ -3,11 +3,13 @@
 const guard = require('./clean-bot-flow-guard-1544');
 const menu = require('./v3-menu-core-1539');
 const postsTextFlow = require('./posts-flow-cc8-text-flow');
+const giftsFlow = require('./gifts-flow-cc8-fast');
+const buttonsFlow = require('./buttons-flow-cc8-clean');
 const max = require('./services/maxApi');
 const store = require('./store');
 const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.0.21-GIFTS-MESSAGE-CREATED-HANDOFF';
+const RUNTIME = 'CC8.1.0-CLEAN-GIFTS-BUTTONS-TENANT-FOUNDATION';
 const EDIT_FLOW_KIND = 'post_edit_text';
 
 function find(value, predicate, depth = 6, seen = new Set()) {
@@ -44,9 +46,7 @@ function parsePayload(cb = {}) {
   if (!raw) return {};
   try { return JSON.parse(raw); } catch { return { action: raw, raw }; }
 }
-function isMessageCreatedLikeUpdate(kind = '') {
-  return kind === 'message_created' || kind === 'message_created_callback' || kind === 'bot_started';
-}
+function isMessageCreatedLikeUpdate(kind = '') { return kind === 'message_created' || kind === 'message_created_callback' || kind === 'bot_started'; }
 function isRealCallbackUpdate(update = {}, cb = null) {
   const kind = updateType(update);
   if (isMessageCreatedLikeUpdate(kind)) return false;
@@ -56,16 +56,15 @@ function isRealCallbackUpdate(update = {}, cb = null) {
   return Boolean(cbid(cb));
 }
 function setup(uid = '') { try { return store.getSetupState(clean(uid)) || {}; } catch { return {}; } }
+function hasGiftFlowPriority(state = {}) { return clean(state.activeAdminFlowKind) === 'gift' || Boolean(state.giftFlow); }
+function hasButtonFlowPriority(state = {}) { return clean(state.activeAdminFlowKind) === 'button' || Boolean(state.buttonFlow); }
 function isPostsEditCallback(action = '', state = {}) {
   if (action === 'admin_posts_edit_text' || action === 'admin_posts_edit_cancel') return true;
   if (action !== 'comments_edit_text') return false;
   return clean(state.adminUi?.section) === 'posts' || clean(state.activeAdminUi?.section) === 'posts' || Boolean(state.postEditFlow?.commentKey) || Boolean(state.commentTargetPost?.commentKey);
 }
-function hasGiftFlowPriority(state = {}) {
-  return clean(state.activeAdminFlowKind) === 'gift' || Boolean(state.giftFlow);
-}
 function hasActivePostsTextFlow(state = {}) {
-  if (hasGiftFlowPriority(state)) return false;
+  if (hasGiftFlowPriority(state) || hasButtonFlowPriority(state)) return false;
   return clean(state.activeAdminFlowKind) === EDIT_FLOW_KIND || clean(state.postEditFlow?.mode) === 'edit_text';
 }
 async function ack(config, id, notification) {
@@ -75,9 +74,7 @@ async function ack(config, id, notification) {
 async function show(config, update, msg, screen, edit = false) {
   const messageId = clean(msg?.body?.mid || msg?.body?.message_id || msg?.message_id || msg?.messageId || msg?.id);
   if (edit && messageId) {
-    try {
-      return await max.editMessage({ botToken: config.botToken, messageId, text: screen.text, attachments: screen.attachments, notify: false });
-    } catch {}
+    try { return await max.editMessage({ botToken: config.botToken, messageId, text: screen.text, attachments: screen.attachments, notify: false }); } catch {}
   }
   const cid = chatId(msg);
   const uid = userId(update, null, msg);
@@ -87,7 +84,7 @@ async function show(config, update, msg, screen, edit = false) {
 function createCleanBot(legacy) {
   const wrapped = guard.createCleanBot(legacy);
   return {
-    handleWebhook: async function handleWebhookWithPostsTextFlow(req, res, config) {
+    handleWebhook: async function handleWebhookWithCleanFlowGuard(req, res, config) {
       const started = Date.now();
       const update = req.body || {};
       const msg = message(update);
@@ -96,6 +93,7 @@ function createCleanBot(legacy) {
       const cb = realCb ? rawCb : null;
       const uid = userId(update, cb, msg);
       const state = setup(uid);
+      const incomingText = text(msg);
       try {
         if (cb && !isChannelMessage(msg)) {
           const payload = parsePayload(cb);
@@ -111,34 +109,34 @@ function createCleanBot(legacy) {
           }
         }
 
-        if (!realCb && msg && text(msg) && !/^\/?start(?:\s|$)/i.test(text(msg)) && !isChannelMessage(msg) && hasGiftFlowPriority(state)) {
-          msg.__senderUserId = uid;
-          msg.sender = { ...(msg.sender || {}), user_id: uid };
-          msg.user_id = uid;
-          timing.log('gifts_text_flow_direct_to_legacy', {
-            durationMs: Date.now() - started,
-            userId: timing.mask(uid),
-            activeAdminFlowKind: clean(state.activeAdminFlowKind),
-            hasGiftFlow: Boolean(state.giftFlow),
-            legacySenderInjected: true,
-            fakeCallbackIgnored: Boolean(rawCb && !realCb),
-            updateType: updateType(update)
-          });
-          return wrapped.handleWebhook(req, res, config);
+        if (!realCb && msg && incomingText && !/^\/?start(?:\s|$)/i.test(incomingText) && !isChannelMessage(msg) && hasGiftFlowPriority(state)) {
+          const screen = await timing.measure('gifts_text_flow_clean', { userId: timing.mask(uid), textLen: incomingText.length, fakeCallbackIgnored: Boolean(rawCb && !realCb) }, () => giftsFlow.handleTextInput(menu, { config, userId: uid, text: incomingText, update }));
+          if (screen) {
+            await show(config, update, msg, screen, false);
+            return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'gift_text_input', screenId: screen.id, giftsCleanFlow: true });
+          }
         }
 
-        if (msg && text(msg) && !/^\/?start(?:\s|$)/i.test(text(msg)) && !isChannelMessage(msg) && hasActivePostsTextFlow(state)) {
-          const screen = await timing.measure('posts_text_flow_save', { userId: timing.mask(uid), textLen: text(msg).length }, () => postsTextFlow.handleTextInput(menu, { config, userId: uid, text: text(msg) }));
+        if (!realCb && msg && incomingText && !/^\/?start(?:\s|$)/i.test(incomingText) && !isChannelMessage(msg) && hasButtonFlowPriority(state)) {
+          const screen = await timing.measure('buttons_text_flow_clean', { userId: timing.mask(uid), textLen: incomingText.length, fakeCallbackIgnored: Boolean(rawCb && !realCb) }, () => buttonsFlow.handleTextInput(menu, { config, userId: uid, text: incomingText, update }));
+          if (screen) {
+            await show(config, update, msg, screen, false);
+            return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'button_text_input', screenId: screen.id, buttonsCleanFlow: true });
+          }
+        }
+
+        if (msg && incomingText && !/^\/?start(?:\s|$)/i.test(incomingText) && !isChannelMessage(msg) && hasActivePostsTextFlow(state)) {
+          const screen = await timing.measure('posts_text_flow_save', { userId: timing.mask(uid), textLen: incomingText.length }, () => postsTextFlow.handleTextInput(menu, { config, userId: uid, text: incomingText }));
           if (screen) {
             await show(config, update, msg, screen, false);
             return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'admin_posts_text_save', screenId: screen.id, postsTextFlow: true });
           }
         }
       } catch (error) {
-        timing.log('posts_text_flow_error', { durationMs: Date.now() - started, error: String(error?.message || error), userId: timing.mask(uid) });
+        timing.log('clean_flow_guard_error', { durationMs: Date.now() - started, error: String(error?.message || error), userId: timing.mask(uid) });
       } finally {
         const action = cb ? clean(parsePayload(cb).action || parsePayload(cb).raw) : 'message_created';
-        timing.log('posts_text_flow_guard', { durationMs: Date.now() - started, action, active: hasActivePostsTextFlow(state), giftActive: hasGiftFlowPriority(state), realCallback: realCb, fakeCallbackIgnored: Boolean(rawCb && !realCb), userId: timing.mask(uid), updateType: updateType(update) });
+        timing.log('posts_text_flow_guard', { durationMs: Date.now() - started, action, active: hasActivePostsTextFlow(state), giftActive: hasGiftFlowPriority(state), buttonActive: hasButtonFlowPriority(state), realCallback: realCb, fakeCallbackIgnored: Boolean(rawCb && !realCb), userId: timing.mask(uid), updateType: updateType(update) });
       }
       return wrapped.handleWebhook(req, res, config);
     }

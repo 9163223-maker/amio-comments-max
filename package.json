@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.0.21-GIFTS-MESSAGE-CREATED-HANDOFF",
+  "version": "CC8.1.0-CLEAN-GIFTS-BUTTONS-TENANT-FOUNDATION",
   "main": "clean-entrypoint-pr41.js",
   "scripts": {
     "start": "node clean-entrypoint-pr41.js"

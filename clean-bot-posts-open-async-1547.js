@@ -4,10 +4,11 @@ const guard = require('./clean-bot-flow-guard-1546');
 const menu = require('./v3-menu-core-1539');
 const posts = require('./posts-flow-cc8-text-flow');
 const gifts = require('./gifts-flow-cc8-fast');
+const buttons = require('./buttons-flow-cc8-clean');
 const max = require('./services/maxApi');
 const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.0.20-GIFTS-LEGACY-HANDOFF-FIX';
+const RUNTIME = 'CC8.1.0-CLEAN-GIFTS-BUTTONS-TENANT-FOUNDATION';
 
 function clean(v){ return String(v || '').trim(); }
 function find(o,p,d){ if(!o||d<0) return null; if(typeof o==='object'&&p(o)) return o; if(typeof o!=='object') return null; for(const v of (Array.isArray(o)?o:Object.values(o))){ const r=find(v,p,d-1); if(r) return r; } return null; }
@@ -23,11 +24,12 @@ function mid(m){ return clean(m?.body?.mid||m?.body?.message_id||m?.message_id||
 function payload(c){ const raw=c?.payload??c?.data??c?.value??c?.callback_data??c?.callbackData??''; if(raw&&typeof raw==='object') return raw; try{return JSON.parse(clean(raw));}catch{return {action:clean(raw),raw:clean(raw)};} }
 function isPostOpen(p){ const a=clean(p.action||p.raw); return a==='admin_posts_open'||(a==='comments_pick_post'&&clean(p.source).toLowerCase()==='posts'); }
 function isGiftClean(p){ const a=clean(p.action||p.raw); return gifts.isCleanGiftAction&&gifts.isCleanGiftAction(a); }
-function isGiftStartCreate(p){ const a=clean(p.action||p.raw); return a==='gift_admin_start_create'||a==='gift_admin_create_from_target'||a==='gift_admin_pick_file'; }
+function isButtonClean(p){ const a=clean(p.action||p.raw); return buttons.isCleanButtonAction&&buttons.isCleanButtonAction(a); }
+function isGiftStartCreate(p){ const a=clean(p.action||p.raw); return a==='gift_admin_start_create'||a==='gift_admin_create_from_target'||a==='gift_admin_pick_file'||a==='gift_admin_replace_existing'; }
 async function answer(config,id,meta={}){
   if(!id) return null;
   const hasNotification = Object.prototype.hasOwnProperty.call(meta, 'notification');
-  if(meta.skipAck===true || (meta.giftClean===true && hasNotification && clean(meta.notification)==='')) return null;
+  if(meta.skipAck===true || (meta.cleanOwned===true && hasNotification && clean(meta.notification)==='')) return null;
   try{
     return await max.answerCallback({botToken:config.botToken,callbackId:id,notification:hasNotification?meta.notification:'Открываю пост…'});
   }catch(e){
@@ -47,7 +49,11 @@ function createCleanBot(legacy){
       const fastTimingName = startCreate ? 'gifts_start_create_fast_screen' : 'gifts_fast_screen';
       const asyncTimingName = startCreate ? 'gifts_start_create_async_show_result' : 'gifts_async_show_result';
       const screen = await timing.measure(fastTimingName,{action,userId:timing.mask(userId)},()=>gifts.screenForPayload(menu,p,{userId,config}));
-      if(screen){ await answer(config,cbid(c),{action,userId,notification:'',giftClean:true}); later(config,u,m,screen,{action,userId,timingName:asyncTimingName}); return res.status(200).json({ok:true,handledBy:RUNTIME,action,screenId:screen.id,giftsFastEntry:!startCreate,giftsStartCreateFast:startCreate,asyncDelivery:true}); }
+      if(screen){ await answer(config,cbid(c),{action,userId,notification:'',cleanOwned:true}); later(config,u,m,screen,{action,userId,timingName:asyncTimingName}); return res.status(200).json({ok:true,handledBy:RUNTIME,action,screenId:screen.id,giftsCleanFlow:true,asyncDelivery:true}); }
+    }
+    if(c && !channel(m) && isButtonClean(p)){
+      const screen = await timing.measure('buttons_fast_screen',{action,userId:timing.mask(userId)},()=>buttons.screenForPayload(menu,p,{userId,config}));
+      if(screen){ await answer(config,cbid(c),{action,userId,notification:'',cleanOwned:true}); later(config,u,m,screen,{action,userId,timingName:'buttons_async_show_result'}); return res.status(200).json({ok:true,handledBy:RUNTIME,action,screenId:screen.id,buttonsCleanFlow:true,asyncDelivery:true}); }
     }
     if(c && !channel(m) && isPostOpen(p)){
       const screen = await timing.measure('posts_open_fast_screen',{action,userId:timing.mask(userId)},()=>posts.screenForPayload(menu,p,{userId,config}));
