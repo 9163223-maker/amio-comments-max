@@ -32,10 +32,11 @@ function listPosts() {
     .sort((a, b) => n(b.updatedAt || b.createdAt || b.ts) - n(a.updatedAt || a.createdAt || a.ts))
     .slice(0, MAX_POSTS);
 }
-function channelTitle(postOrChannelId = '', maybePost = null) {
-  const post = maybePost || (postOrChannelId && typeof postOrChannelId === 'object' ? postOrChannelId : null) || {};
-  const channelId = typeof postOrChannelId === 'string' ? postOrChannelId : clean(post.channelId);
-  return clean(post.channelTitle || post.channelName || post.chatTitle || post.title || post.name || channelId || 'Канал');
+function channelTitle(postOrChannelId = '') {
+  if (postOrChannelId && typeof postOrChannelId === 'object') {
+    return clean(postOrChannelId.channelTitle || postOrChannelId.channelName || postOrChannelId.chatTitle || postOrChannelId.title || postOrChannelId.name || postOrChannelId.channelId || 'Канал');
+  }
+  return clean(postOrChannelId || 'Канал');
 }
 function postTitle(post = {}) { return short(post.originalText || post.postText || post.text || post.caption || post.postId || post.messageId || post.commentKey || 'Пост без текста', 58); }
 function postTime(post = {}) {
@@ -207,7 +208,7 @@ async function details(menu, payload = {}, ctx = {}) {
   return screen(menu, 'posts_clean_detail', '✏️ Редактор постов', [
     payload.fromHome ? 'Выбранный пост уже сохранён. Можно сразу выполнять действия ниже.' : 'Пост выбран и передан в рабочие мастера редактора.',
     '',
-    'Канал: ' + channelTitle(post, target.channelId),
+    'Канал: ' + channelTitle(post),
     'Пост: ' + postTitle(post),
     'Post ID: ' + short(target.postId || '—', 80),
     'Медиа в посте: ' + mediaCount(post),
