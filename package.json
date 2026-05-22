@@ -1,9 +1,9 @@
 {
   "name": "amio-comments-max",
-  "version": "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE",
-  "main": "clean-entrypoint-1.53.9.js",
+  "version": "CC8.0.14-POSTS-OPEN-ASYNC-DELIVERY",
+  "main": "clean-entrypoint-pr41.js",
   "scripts": {
-    "start": "node clean-entrypoint-1.53.9.js"
+    "start": "node clean-entrypoint-pr41.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
