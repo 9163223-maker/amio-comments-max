@@ -1,6 +1,7 @@
 'use strict';
 
 const store = require('./store');
+const RUNTIME = 'CC8.1.0-CLEAN-GIFTS-BUTTONS-TENANT-FOUNDATION';
 
 function clean(value) { return String(value || '').trim(); }
 function safe(fn, fallback) { try { return fn(); } catch { return fallback; } }
@@ -17,7 +18,13 @@ function ensureTenantContext(userId = '', patch = {}) {
   const tenantKey = clean(patch.tenantKey || current.tenantKey || defaultTenantKey(uid));
   const ownerUserId = clean(patch.ownerUserId || current.ownerUserId || uid);
   const ctx = { tenantKey, ownerUserId, userId: uid, createdByUserId: clean(patch.createdByUserId || uid), updatedByUserId: clean(patch.updatedByUserId || uid) };
-  if (uid) safe(() => store.setSetupState(uid, { tenantKey, ownerUserId, tenantInitializedAt: current.tenantInitializedAt || Date.now(), tenantRuntimeVersion: 'CC8.1.0-CLEAN-GIFTS-BUTTONS-TENANT-FOUNDATION' }), null);
+  const needsWrite = Boolean(uid && (
+    clean(current.tenantKey) !== tenantKey ||
+    clean(current.ownerUserId) !== ownerUserId ||
+    !current.tenantInitializedAt ||
+    clean(current.tenantRuntimeVersion) !== RUNTIME
+  ));
+  if (needsWrite) safe(() => store.setSetupState(uid, { tenantKey, ownerUserId, tenantInitializedAt: current.tenantInitializedAt || Date.now(), tenantRuntimeVersion: RUNTIME }), null);
   return ctx;
 }
 function stampRecord(record = {}, ctx = {}, existing = null) {
