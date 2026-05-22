@@ -64,7 +64,7 @@ function belongsToTenant(record = {}, ctx = {}) {
   if (tenantKey) return tenantKey === clean(ctx.tenantKey);
   const ctxOwners = [ctx.ownerUserId, ctx.userId].map(clean).filter(Boolean);
   const recordOwners = recordOwnerCandidates(record);
-  if (recordOwners.length && ctxOwners.some((owner) => recordOwners.includes(owner))) return true;
+  if (recordOwners.length) return ctxOwners.some((owner) => recordOwners.includes(owner));
   return canReadUnscopedLegacy(ctx);
 }
 function filterTenantRecords(records = [], ctx = {}) { return (Array.isArray(records) ? records : []).filter((item) => belongsToTenant(item, ctx)); }
