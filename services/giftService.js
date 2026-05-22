@@ -34,24 +34,13 @@ function normalizeMaxUrl(url = "") {
 function buildGiftLinkButtonAttachment(campaign, directGiftUrl = "") {
   const targetUrl = normalizeMaxUrl(directGiftUrl || campaign?.giftUrl || "");
   if (!targetUrl) return null;
-  return {
-    type: "inline_keyboard",
-    payload: {
-      buttons: [[{
-        type: "link",
-        text: String(campaign?.dmButtonText || "Открыть подарок").trim(),
-        url: targetUrl
-      }]]
-    }
-  };
+  return { type: "inline_keyboard", payload: { buttons: [[{ type: "link", text: String(campaign?.dmButtonText || "Открыть подарок").trim(), url: targetUrl }]] } };
 }
 
 function buildGiftDeliveryAttachments(campaign) {
   const attachments = [];
   const giftAttachment = normalizeGiftAttachment(campaign?.giftAttachment);
-  if (giftAttachment?.type && giftAttachment?.payload) {
-    attachments.push({ type: giftAttachment.type, payload: giftAttachment.payload });
-  }
+  if (giftAttachment?.type && giftAttachment?.payload) attachments.push({ type: giftAttachment.type, payload: giftAttachment.payload });
   const linkButton = buildGiftLinkButtonAttachment(campaign);
   if (linkButton) attachments.push(linkButton);
   return attachments;
@@ -96,6 +85,11 @@ async function safeSendPrompt({ botToken, userId, text }) {
   try { return await sendMessage({ botToken, userId, text: String(text || "").trim() }); } catch { return null; }
 }
 
+function hasWrongPromoCode(gate = {}, providedCode = "") {
+  if (!String(providedCode || "").trim()) return false;
+  return Boolean(gate.checks?.some((item) => item.type === 'promoCode' && !item.ok));
+}
+
 async function claimGift({ botToken, campaignId, userId, userName = "", callbackId = "", providedCode = "" }) {
   const campaign = getGiftCampaign(campaignId);
   if (!campaign || !campaign.enabled) {
@@ -105,47 +99,35 @@ async function claimGift({ botToken, campaignId, userId, userName = "", callback
 
   const gate = await evaluateGiftConditions({ botToken, campaign, userId, providedCode });
   if (!gate.ok) {
+    const wrongCode = hasWrongPromoCode(gate, providedCode);
+    const keepPending = gate.status === "condition_input_required" || wrongCode;
     const claim = saveGiftClaim(campaign.id, userId, {
-      status: gate.status,
+      status: keepPending ? "condition_input_required" : gate.status,
       userName,
       checkedAt: Date.now(),
-      pendingInputType: gate.inputType || "",
+      pendingInputType: keepPending ? "promoCode" : (gate.inputType || ""),
       conditions: gate.checks || []
     });
 
-    if (gate.status === "condition_input_required") {
-      await safeAnswerCallback({ botToken, callbackId, notification: gate.notification || "Введите кодовое слово" });
-      await safeSendPrompt({ botToken, userId, text: gate.promptText || "Введите кодовое слово или промокод." });
+    if (keepPending) {
+      await safeAnswerCallback({ botToken, callbackId, notification: wrongCode ? "Кодовое слово не подошло" : (gate.notification || "Введите кодовое слово") });
+      await safeSendPrompt({ botToken, userId, text: wrongCode ? "Кодовое слово не подошло. Проверьте код и отправьте его ещё раз." : (gate.promptText || "Введите кодовое слово или промокод.") });
       return { ok: true, status: "condition_input_required", campaign, claim, gate };
     }
 
     await safeAnswerCallback({ botToken, callbackId, notification: gate.notification || "Сначала выполните условия получения подарка" });
-    if (providedCode && gate.checks?.some((item) => item.type === 'promoCode' && !item.ok)) {
-      await safeSendPrompt({ botToken, userId, text: "Кодовое слово не подошло. Проверьте код и отправьте его ещё раз." });
-    }
     return { ok: true, status: "conditions_not_met", campaign, claim, gate };
   }
 
   let delivery = { success: false, skipped: true, reason: "dm_disabled" };
   let deliveryError = null;
   if (campaign.deliverToDm !== false) {
-    try {
-      delivery = await deliverGiftToUser({ botToken, campaign, userId, userName });
-    } catch (error) {
-      deliveryError = { status: error?.status || 0, message: error?.message || "gift_delivery_failed", data: error?.data || null };
-    }
+    try { delivery = await deliverGiftToUser({ botToken, campaign, userId, userName }); }
+    catch (error) { deliveryError = { status: error?.status || 0, message: error?.message || "gift_delivery_failed", data: error?.data || null }; }
   }
 
   const deliverySucceeded = Boolean(delivery?.message || delivery?.success);
-  const claim = saveGiftClaim(campaign.id, userId, {
-    status: deliverySucceeded ? "delivered_dm" : "delivery_failed",
-    userName,
-    checkedAt: Date.now(),
-    ...(deliverySucceeded ? { deliveredAt: Date.now() } : {}),
-    conditions: gate.checks || [],
-    delivery,
-    deliveryError
-  });
+  const claim = saveGiftClaim(campaign.id, userId, { status: deliverySucceeded ? "delivered_dm" : "delivery_failed", userName, checkedAt: Date.now(), ...(deliverySucceeded ? { deliveredAt: Date.now(), pendingInputType: "" } : {}), conditions: gate.checks || [], delivery, deliveryError });
 
   if (callbackId) {
     if (deliverySucceeded) await answerGiftReady({ botToken, callbackId, campaign, deliverySucceeded: true });
