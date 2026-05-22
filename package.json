@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.1.2-GIFTS-BOTTOM-SUMMARY",
+  "version": "CC8.1.3-GIFTS-NO-LINK-PREVIEW",
   "main": "clean-entrypoint-pr41.js",
   "scripts": {
     "start": "node clean-entrypoint-pr41.js"
