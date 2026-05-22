@@ -5,7 +5,7 @@
   "brand": "АдминКИТ",
   "runtimeTarget": "CC8.2.0-ADMINKIT-STICKERS-COMMENTS",
   "defaultEnabled": false,
-  "assetBasePath": "/stickers/adminkit/v1",
+  "assetBasePath": "/public/stickers/adminkit/v1",
   "format": "webp",
   "fallbackFormat": "png",
   "stickers": [
