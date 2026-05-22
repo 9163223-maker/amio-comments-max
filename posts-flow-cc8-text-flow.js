@@ -1,13 +1,13 @@
 'use strict';
 
 const store = require('./store');
-const channelService = require('./services/channelService');
 const postEditor = require('./services/postEditorService');
 const fastText = require('./services/postEditorFastTextService');
 const basePosts = require('./posts-flow-cc8');
 
-const RUNTIME = 'CC8.0.11-POSTS-SAVE-STAGED';
+const RUNTIME = 'CC8.0.13-POSTS-FAST-OPEN';
 const EDIT_FLOW_KIND = 'post_edit_text';
+const MAX_POSTS = 8;
 
 function clean(value) { return String(value || '').trim(); }
 function n(value) { const num = Number(value || 0); return Number.isFinite(num) ? num : 0; }
@@ -25,11 +25,17 @@ function screen(menu, id, title, lines, rows) {
 }
 function getSetup(userId = '') { return safeCall(() => store.getSetupState(clean(userId)), {}) || {}; }
 function findPost(commentKey = '') { return basePosts.findPost(clean(commentKey)); }
-function listPosts(userId = '') { return basePosts.listPosts(clean(userId)); }
-function channelTitle(channelId = '') {
-  const id = clean(channelId);
-  const channel = safeCall(() => channelService.listChannels().find((item) => clean(item.channelId) === id), null) || {};
-  return clean(channel.title || channel.channelTitle || channel.name || channel.chatTitle || channel.channelName || id || 'Канал');
+function listPosts() {
+  const posts = safeCall(() => array(store.getPostsList()), []);
+  return posts
+    .filter((post) => clean(post && post.commentKey))
+    .sort((a, b) => n(b.updatedAt || b.createdAt || b.ts) - n(a.updatedAt || a.createdAt || a.ts))
+    .slice(0, MAX_POSTS);
+}
+function channelTitle(postOrChannelId = '', maybePost = null) {
+  const post = maybePost || (postOrChannelId && typeof postOrChannelId === 'object' ? postOrChannelId : null) || {};
+  const channelId = typeof postOrChannelId === 'string' ? postOrChannelId : clean(post.channelId);
+  return clean(post.channelTitle || post.channelName || post.chatTitle || post.title || post.name || channelId || 'Канал');
 }
 function postTitle(post = {}) { return short(post.originalText || post.postText || post.text || post.caption || post.postId || post.messageId || post.commentKey || 'Пост без текста', 58); }
 function postTime(post = {}) {
@@ -37,8 +43,19 @@ function postTime(post = {}) {
   if (!ts) return '';
   try { return new Date(ts).toISOString().slice(0, 16).replace('T', ' '); } catch { return ''; }
 }
-function commentsCount(post = {}) { return safeCall(() => array(store.getComments(clean(post.commentKey))).length, 0); }
-function versionsCount(post = {}) { return array(post.versions).length; }
+function commentsCount(post = {}) { return n(post.commentCount || post.commentsCount || post.comments_count || 0); }
+function versionsCount(post = {}) { return array(post.versions).length || n(post.versionsCount || post.versionCount || 0); }
+function mediaCount(post = {}) {
+  const attachments = array(post.sourceAttachments || post.attachments);
+  return attachments.filter((item) => clean(item?.type).toLowerCase() !== 'inline_keyboard').length;
+}
+function editableMeta(post = {}, config = {}) {
+  const hours = Math.max(1, Number(config.postEditWindowHours || 24) || 24);
+  const createdAt = n(post.createdAt || post.updatedAt || 0);
+  const deadlineAt = createdAt ? createdAt + hours * 60 * 60 * 1000 : 0;
+  const msLeft = deadlineAt ? deadlineAt - Date.now() : 0;
+  return { editable: Boolean(deadlineAt) && msLeft > 0, windowHours: hours, msLeft: Math.max(0, msLeft) };
+}
 function getStoredTarget(userId = '') {
   const state = getSetup(userId);
   const target = state.commentTargetPost || state.giftTargetPost || null;
@@ -53,7 +70,7 @@ function resolvePost(payload = {}, ctx = {}) {
 function targetRecord(post = {}) {
   return {
     channelId: clean(post.channelId),
-    channelTitle: clean(post.channelTitle || post.title || channelTitle(post.channelId)),
+    channelTitle: channelTitle(post),
     postId: clean(post.postId),
     messageId: clean(post.messageId),
     commentKey: clean(post.commentKey),
@@ -62,13 +79,36 @@ function targetRecord(post = {}) {
   };
 }
 function bindTarget(userId = '', post = {}) {
-  return basePosts.bindTargetForLegacy(clean(userId), post);
+  const uid = clean(userId);
+  const target = targetRecord(post);
+  if (!uid || !target.commentKey) return target;
+  safeCall(() => {
+    const prev = getSetup(uid);
+    const currentKey = clean(prev.commentTargetPost?.commentKey || prev.giftTargetPost?.commentKey || '');
+    const currentSection = clean(prev.adminUi?.section || prev.activeAdminUi?.section || '');
+    if (currentKey === target.commentKey && currentSection === 'posts') return;
+    const adminUi = {
+      ...(prev.adminUi || {}),
+      section: 'posts',
+      backAction: 'admin_posts_open',
+      rootAction: 'admin_section_posts',
+      selectMode: 'posts'
+    };
+    store.setSetupState(uid, {
+      commentTargetPost: target,
+      giftTargetPost: target,
+      adminUi,
+      activeAdminUi: adminUi
+    });
+  }, null);
+  return target;
 }
 function clearPostEditFlow(userId = '') {
   const uid = clean(userId);
   if (!uid) return;
   safeCall(() => {
     const prev = getSetup(uid);
+    if (!prev.postEditFlow && clean(prev.activeAdminFlowKind) !== EDIT_FLOW_KIND) return;
     store.setSetupState(uid, {
       postEditFlow: null,
       activeAdminFlowKind: clean(prev.activeAdminFlowKind) === EDIT_FLOW_KIND ? '' : prev.activeAdminFlowKind
@@ -117,16 +157,20 @@ function editTextRows(menu, post = {}) {
   ];
 }
 async function home(menu, ctx = {}) {
+  clearPostEditFlow(ctx.userId);
   const selected = getStoredTarget(ctx.userId);
-  if (selected && selected.commentKey) return details(menu, { commentKey: selected.commentKey, fromHome: '1' }, ctx);
-  const posts = listPosts(ctx.userId);
+  const posts = listPosts();
   const rows = [[button(menu, '📌 Выбрать пост для редактирования', 'admin_posts_picker')]];
-  if (posts[0]) rows.push([button(menu, '🧾 Последний пост', 'admin_posts_open', { commentKey: clean(posts[0].commentKey) })]);
+  if (selected && selected.commentKey) rows.push([button(menu, '↩️ К выбранному посту', 'admin_posts_open', { commentKey: clean(selected.commentKey) })]);
+  if (posts[0] && clean(posts[0].commentKey) !== clean(selected?.commentKey)) rows.push([button(menu, '🧾 Последний пост', 'admin_posts_open', { commentKey: clean(posts[0].commentKey) })]);
   rows.push(...footer(menu));
   return screen(menu, 'posts_clean_home', '✏️ Редактор постов', [
-    'Сначала выберите пост. После выбора появятся действия именно редактора:',
-    '• изменить текст поста;',
-    '• открыть историю версий.',
+    'Быстрый Clean Core экран редактора постов. Он не сканирует комментарии, каналы и MAX при открытии.',
+    '',
+    'Рабочие функции сохранены:',
+    '• выбор поста из store/cache;',
+    '• изменение текста через staged-flow;',
+    '• история версий;',
     '',
     'Комментарии включаются/выключаются в разделе «Комментарии под постами».',
     'CTA-кнопки редактируются в отдельном разделе «CTA / пользовательские кнопки».',
@@ -134,17 +178,17 @@ async function home(menu, ctx = {}) {
     'Постов в быстром списке: ' + posts.length
   ], rows);
 }
-async function picker(menu, ctx = {}) {
-  const posts = listPosts(ctx.userId);
+async function picker(menu) {
+  const posts = listPosts();
   const rows = posts.map((post, index) => [button(menu, `${index + 1}. ${postTitle(post)}`, 'admin_posts_open', { commentKey: clean(post.commentKey) })]);
   if (!rows.length) rows.push([button(menu, 'Пока нет постов в памяти', 'admin_section_posts')]);
   rows.push([button(menu, '📌 Выбрать через список канал/пост', 'comments_select_post', { source: 'posts' })]);
   rows.push(...footer(menu));
-  const lines = ['Выберите пост из последних сохранённых постов. Это быстрый список из store/cache.'];
+  const lines = ['Выберите пост из последних сохранённых постов. Это быстрый список из store/cache без live-запросов к MAX.'];
   if (posts.length) {
     lines.push('');
     posts.forEach((post, index) => {
-      const meta = [channelTitle(post.channelId), postTime(post), `${commentsCount(post)} комм.`].filter(Boolean).join(' · ');
+      const meta = [channelTitle(post), postTime(post), commentsCount(post) ? `${commentsCount(post)} комм.` : 'комм. не сканируем'].filter(Boolean).join(' · ');
       lines.push(`${index + 1}. ${postTitle(post)}${meta ? '\n   ' + meta : ''}`);
     });
   } else {
@@ -159,16 +203,15 @@ async function details(menu, payload = {}, ctx = {}) {
   }
   clearPostEditFlow(ctx.userId);
   const target = bindTarget(ctx.userId, post);
-  const card = safeCall(() => postEditor.buildPostAdminCard(post, ctx.config || {}), {}) || {};
-  const editable = card.editable || {};
+  const editable = editableMeta(post, ctx.config || {});
   return screen(menu, 'posts_clean_detail', '✏️ Редактор постов', [
     payload.fromHome ? 'Выбранный пост уже сохранён. Можно сразу выполнять действия ниже.' : 'Пост выбран и передан в рабочие мастера редактора.',
     '',
-    'Канал: ' + channelTitle(target.channelId),
+    'Канал: ' + channelTitle(post, target.channelId),
     'Пост: ' + postTitle(post),
     'Post ID: ' + short(target.postId || '—', 80),
-    'Медиа в посте: ' + n(card.sourceAttachmentsCount || card.mediaCount || 0),
-    'Версий в истории: ' + n(card.versionsCount || versionsCount(post)),
+    'Медиа в посте: ' + mediaCount(post),
+    'Версий в истории: ' + versionsCount(post),
     'Окно редактирования: ' + (editable.editable ? 'доступно' : 'может быть ограничено MAX'),
     '',
     'Здесь только функции редактора поста. Комментарии и CTA-кнопки — в отдельных разделах.'
@@ -198,7 +241,7 @@ async function history(menu, payload = {}, ctx = {}) {
   const post = resolvePost(payload, ctx);
   if (!post || !post.commentKey) return details(menu, payload, ctx);
   bindTarget(ctx.userId, post);
-  const versions = safeCall(() => postEditor.listPostVersions(clean(post.commentKey)), []);
+  const versions = array(post.versions).length ? array(post.versions) : safeCall(() => postEditor.listPostVersions(clean(post.commentKey)), []);
   const lines = ['История сохранённых изменений выбранного поста берётся из store/cache без пересканирования постов.'];
   if (!versions.length) {
     lines.push('', 'Версий пока нет. Они появятся после изменения текста, медиа или отката.');
