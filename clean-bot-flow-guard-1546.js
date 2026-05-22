@@ -9,7 +9,7 @@ const max = require('./services/maxApi');
 const store = require('./store');
 const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.1.2-GIFTS-BOTTOM-SUMMARY';
+const RUNTIME = 'CC8.1.4-GIFTS-SAVE-PATCH-CLEANUP';
 const EDIT_FLOW_KIND = 'post_edit_text';
 
 function find(value, predicate, depth = 6, seen = new Set()) {
@@ -127,7 +127,7 @@ function createCleanBot(legacy) {
           const screen = await timing.measure('gifts_text_flow_clean', { userId: timing.mask(uid), textLen: incomingText.length, fakeCallbackIgnored: Boolean(rawCb && !realCb) }, () => giftsFlow.handleTextInput(menu, { config, userId: uid, text: incomingText, update }));
           if (screen) {
             await show(config, update, msg, screen, false, { userId: uid });
-            return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'gift_text_input', screenId: screen.id, giftsCleanFlow: true, giftsBottomSummary: true });
+            return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'gift_text_input', screenId: screen.id, giftsCleanFlow: true, giftsBottomSummary: true, giftsSavePatch: true, giftsStepNumberingClean: true });
           }
         }
 
