@@ -3,7 +3,7 @@
 const store = require('./store');
 const giftService = require('./services/giftService');
 
-const RUNTIME = 'CC8.0.18-GIFTS-START-CREATE-FAST';
+const RUNTIME = 'CC8.0.19-GIFTS-FLOW-HANDOFF-SILENT';
 const MAX_POSTS = 8;
 
 const CLEAN_GIFT_ACTIONS = [
@@ -201,6 +201,7 @@ function setGiftFlow(userId = '', flow = null) {
     store.setSetupState(uid, {
       giftFlow: flow,
       commentAdminFlow: null,
+      postEditFlow: null,
       activeAdminFlowKind: 'gift',
       adminUi,
       activeAdminUi: adminUi
