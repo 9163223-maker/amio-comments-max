@@ -7,7 +7,7 @@ const max = require('./services/maxApi');
 const store = require('./store');
 const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.0.10-POSTS-TEXT-FLOW-HOTFIX-GUARD';
+const RUNTIME = 'CC8.0.19-GIFTS-FLOW-HANDOFF-SILENT';
 const EDIT_FLOW_KIND = 'post_edit_text';
 
 function find(value, predicate, depth = 6, seen = new Set()) {
@@ -48,7 +48,11 @@ function isPostsEditCallback(action = '', state = {}) {
   if (action !== 'comments_edit_text') return false;
   return clean(state.adminUi?.section) === 'posts' || clean(state.activeAdminUi?.section) === 'posts' || Boolean(state.postEditFlow?.commentKey) || Boolean(state.commentTargetPost?.commentKey);
 }
+function hasGiftFlowPriority(state = {}) {
+  return clean(state.activeAdminFlowKind) === 'gift' || Boolean(state.giftFlow);
+}
 function hasActivePostsTextFlow(state = {}) {
+  if (hasGiftFlowPriority(state)) return false;
   return clean(state.activeAdminFlowKind) === EDIT_FLOW_KIND || clean(state.postEditFlow?.mode) === 'edit_text';
 }
 async function ack(config, id, notification) {
@@ -90,6 +94,11 @@ function createCleanBot(legacy) {
               return res.status(200).json({ ok: true, handledBy: RUNTIME, action: normalized.action, screenId: screen.id, postsTextFlow: true });
             }
           }
+        }
+
+        if (msg && text(msg) && !/^\/?start(?:\s|$)/i.test(text(msg)) && !isChannelMessage(msg) && hasGiftFlowPriority(state)) {
+          timing.log('gifts_text_flow_direct_to_legacy', { durationMs: Date.now() - started, userId: timing.mask(uid), activeAdminFlowKind: clean(state.activeAdminFlowKind), hasGiftFlow: Boolean(state.giftFlow) });
+          return wrapped.handleWebhook(req, res, config);
         }
 
         if (msg && text(msg) && !/^\/?start(?:\s|$)/i.test(text(msg)) && !isChannelMessage(msg) && hasActivePostsTextFlow(state)) {

@@ -7,7 +7,7 @@ const gifts = require('./gifts-flow-cc8-fast');
 const max = require('./services/maxApi');
 const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.0.18-GIFTS-START-CREATE-FAST';
+const RUNTIME = 'CC8.0.19-GIFTS-FLOW-HANDOFF-SILENT';
 
 function clean(v){ return String(v || '').trim(); }
 function find(o,p,d){ if(!o||d<0) return null; if(typeof o==='object'&&p(o)) return o; if(typeof o!=='object') return null; for(const v of (Array.isArray(o)?o:Object.values(o))){ const r=find(v,p,d-1); if(r) return r; } return null; }
@@ -27,7 +27,8 @@ function isGiftStartCreate(p){ const a=clean(p.action||p.raw); return a==='gift_
 async function answer(config,id,meta={}){
   if(!id) return null;
   try{
-    return await max.answerCallback({botToken:config.botToken,callbackId:id,notification:meta.notification||'Открываю пост…'});
+    const hasNotification = Object.prototype.hasOwnProperty.call(meta, 'notification');
+    return await max.answerCallback({botToken:config.botToken,callbackId:id,notification:hasNotification?meta.notification:'Открываю пост…'});
   }catch(e){
     timing.log('posts_open_callback_ack_error',{durationMs:0,ok:false,action:clean(meta.action),userId:timing.mask(meta.userId||''),status:e?.status||0,error:String(e?.message||e)});
     return null;
@@ -45,7 +46,7 @@ function createCleanBot(legacy){
       const fastTimingName = startCreate ? 'gifts_start_create_fast_screen' : 'gifts_fast_screen';
       const asyncTimingName = startCreate ? 'gifts_start_create_async_show_result' : 'gifts_async_show_result';
       const screen = await timing.measure(fastTimingName,{action,userId:timing.mask(userId)},()=>gifts.screenForPayload(menu,p,{userId,config}));
-      if(screen){ await answer(config,cbid(c),{action,userId,notification:startCreate?'Открываю создание подарка…':'Открываю подарки…'}); later(config,u,m,screen,{action,userId,timingName:asyncTimingName}); return res.status(200).json({ok:true,handledBy:RUNTIME,action,screenId:screen.id,giftsFastEntry:!startCreate,giftsStartCreateFast:startCreate,asyncDelivery:true}); }
+      if(screen){ await answer(config,cbid(c),{action,userId,notification:''}); later(config,u,m,screen,{action,userId,timingName:asyncTimingName}); return res.status(200).json({ok:true,handledBy:RUNTIME,action,screenId:screen.id,giftsFastEntry:!startCreate,giftsStartCreateFast:startCreate,asyncDelivery:true}); }
     }
     if(c && !channel(m) && isPostOpen(p)){
       const screen = await timing.measure('posts_open_fast_screen',{action,userId:timing.mask(userId)},()=>posts.screenForPayload(menu,p,{userId,config}));
