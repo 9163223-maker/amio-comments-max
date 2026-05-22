@@ -6,7 +6,7 @@ const posts = require('./posts-flow-cc8-text-flow');
 const max = require('./services/maxApi');
 const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.0.15-POSTS-OPEN-ACK-HOTFIX';
+const RUNTIME = 'CC8.0.16-POSTS-LEGACY-REPATCH';
 
 function clean(v){ return String(v || '').trim(); }
 function find(o,p,d){ if(!o||d<0) return null; if(typeof o==='object'&&p(o)) return o; if(typeof o!=='object') return null; for(const v of (Array.isArray(o)?o:Object.values(o))){ const r=find(v,p,d-1); if(r) return r; } return null; }
@@ -39,7 +39,7 @@ function createCleanBot(legacy){
     const u=req.body||{}, m=msg(u), c=cb(u), p=payload(c), userId=uid(u,c,m), action=clean(p.action||p.raw);
     if(c && !channel(m) && isPostOpen(p)){
       const screen = await timing.measure('posts_open_fast_screen',{action,userId:timing.mask(userId)},()=>posts.screenForPayload(menu,p,{userId,config}));
-      if(screen){ await answer(config,cbid(c),{action,userId}); later(config,u,m,screen,{action,userId}); return res.status(200).json({ok:true,handledBy:RUNTIME,action,screenId:screen.id,postsOpenAsyncDelivery:true,ackHotfix:true}); }
+      if(screen){ await answer(config,cbid(c),{action,userId}); later(config,u,m,screen,{action,userId}); return res.status(200).json({ok:true,handledBy:RUNTIME,action,screenId:screen.id,postsOpenAsyncDelivery:true,ackHotfix:true,legacyRepatch:true}); }
     }
     return wrapped.handleWebhook(req,res,config);
   }};
