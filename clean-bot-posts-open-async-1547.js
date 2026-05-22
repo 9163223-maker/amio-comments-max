@@ -27,7 +27,8 @@ function isGiftStartCreate(p){ const a=clean(p.action||p.raw); return a==='gift_
 async function answer(config,id,meta={}){
   if(!id) return null;
   try{
-    return await max.answerCallback({botToken:config.botToken,callbackId:id,notification:meta.notification||'Открываю пост…'});
+    const hasNotification = Object.prototype.hasOwnProperty.call(meta, 'notification');
+    return await max.answerCallback({botToken:config.botToken,callbackId:id,notification:hasNotification?meta.notification:'Открываю пост…'});
   }catch(e){
     timing.log('posts_open_callback_ack_error',{durationMs:0,ok:false,action:clean(meta.action),userId:timing.mask(meta.userId||''),status:e?.status||0,error:String(e?.message||e)});
     return null;
