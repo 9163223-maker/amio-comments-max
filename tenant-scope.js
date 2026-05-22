@@ -49,12 +49,22 @@ function canReadUnscopedLegacy(ctx = {}) {
   const legacyOwner = clean(process.env.ADMINKIT_LEGACY_OWNER_USER_ID || process.env.ADMIN_USER_ID || '');
   return Boolean(legacyOwner && legacyOwner === clean(ctx.ownerUserId || ctx.userId));
 }
+function recordOwnerCandidates(record = {}) {
+  return [
+    record.ownerUserId,
+    record.linkedByUserId,
+    record.createdByUserId,
+    record.updatedByUserId,
+    record.userId
+  ].map(clean).filter(Boolean);
+}
 function belongsToTenant(record = {}, ctx = {}) {
   if (!record || typeof record !== 'object') return false;
   const tenantKey = clean(record.tenantKey);
-  const ownerUserId = clean(record.ownerUserId);
   if (tenantKey) return tenantKey === clean(ctx.tenantKey);
-  if (ownerUserId) return ownerUserId === clean(ctx.ownerUserId || ctx.userId);
+  const ctxOwners = [ctx.ownerUserId, ctx.userId].map(clean).filter(Boolean);
+  const recordOwners = recordOwnerCandidates(record);
+  if (recordOwners.length && ctxOwners.some((owner) => recordOwners.includes(owner))) return true;
   return canReadUnscopedLegacy(ctx);
 }
 function filterTenantRecords(records = [], ctx = {}) { return (Array.isArray(records) ? records : []).filter((item) => belongsToTenant(item, ctx)); }
