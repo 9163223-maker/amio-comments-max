@@ -3,13 +3,13 @@
 const guard = require('./clean-bot-flow-guard-1544');
 const menu = require('./v3-menu-core-1539');
 const postsTextFlow = require('./posts-flow-cc8-text-flow');
-const giftsFlow = require('./gifts-flow-cc8-fast');
+const giftsFlow = require('./gifts-flow-cc811-ux');
 const buttonsFlow = require('./buttons-flow-cc8-clean');
 const max = require('./services/maxApi');
 const store = require('./store');
 const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.1.0-CLEAN-GIFTS-BUTTONS-TENANT-FOUNDATION';
+const RUNTIME = 'CC8.1.1-GIFTS-WIZARD-UX-CONDITIONS-CLEANUP';
 const EDIT_FLOW_KIND = 'post_edit_text';
 
 function find(value, predicate, depth = 6, seen = new Set()) {
@@ -67,18 +67,45 @@ function hasActivePostsTextFlow(state = {}) {
   if (hasGiftFlowPriority(state) || hasButtonFlowPriority(state)) return false;
   return clean(state.activeAdminFlowKind) === EDIT_FLOW_KIND || clean(state.postEditFlow?.mode) === 'edit_text';
 }
+function isGiftScreen(screen = null) { return /^gifts?_/i.test(clean(screen && screen.id)); }
+function resultMessageId(result, fallback = '') { return clean(result?.message?.body?.mid || result?.message?.id || result?.body?.mid || result?.message_id || result?.messageId || result?.id || fallback); }
+function rememberGiftScreen(uid = '', messageId = '', screen = null) {
+  const user = clean(uid);
+  const mid = clean(messageId);
+  if (!user || !mid || !isGiftScreen(screen)) return;
+  try { store.setSetupState(user, { giftActiveScreenMessageId: mid, giftActiveScreenId: clean(screen.id), giftActiveScreenAt: Date.now() }); } catch {}
+}
 async function ack(config, id, notification) {
   if (!id) return null;
   try { return await max.answerCallback({ botToken: config.botToken, callbackId: id, notification: notification || undefined }); } catch { return null; }
 }
-async function show(config, update, msg, screen, edit = false) {
+async function show(config, update, msg, screen, edit = false, options = {}) {
   const messageId = clean(msg?.body?.mid || msg?.body?.message_id || msg?.message_id || msg?.messageId || msg?.id);
-  if (edit && messageId) {
-    try { return await max.editMessage({ botToken: config.botToken, messageId, text: screen.text, attachments: screen.attachments, notify: false }); } catch {}
-  }
   const cid = chatId(msg);
-  const uid = userId(update, null, msg);
-  return max.sendMessage({ botToken: config.botToken, userId: cid ? '' : uid, chatId: cid, text: screen.text, attachments: screen.attachments, notify: false });
+  const uid = clean(options.userId || userId(update, null, msg));
+  if (options.preferGiftActive && isGiftScreen(screen)) {
+    const activeId = clean(setup(uid).giftActiveScreenMessageId);
+    if (activeId) {
+      try {
+        const result = await max.editMessage({ botToken: config.botToken, messageId: activeId, text: screen.text, attachments: screen.attachments, notify: false });
+        rememberGiftScreen(uid, activeId, screen);
+        timing.log('gifts_active_screen_edit', { durationMs: 0, ok: true, screenId: screen.id, userId: timing.mask(uid) });
+        return result;
+      } catch (error) {
+        timing.log('gifts_active_screen_edit', { durationMs: 0, ok: false, screenId: screen.id, userId: timing.mask(uid), error: String(error?.message || error) });
+      }
+    }
+  }
+  if (edit && messageId) {
+    try {
+      const result = await max.editMessage({ botToken: config.botToken, messageId, text: screen.text, attachments: screen.attachments, notify: false });
+      rememberGiftScreen(uid, messageId, screen);
+      return result;
+    } catch {}
+  }
+  const result = await max.sendMessage({ botToken: config.botToken, userId: cid ? '' : uid, chatId: cid, text: screen.text, attachments: screen.attachments, notify: false });
+  rememberGiftScreen(uid, resultMessageId(result), screen);
+  return result;
 }
 
 function createCleanBot(legacy) {
@@ -103,7 +130,7 @@ function createCleanBot(legacy) {
             const screen = await timing.measure('posts_text_flow_screen', { action: normalized.action, userId: timing.mask(uid) }, () => postsTextFlow.screenForPayload(menu, normalized, { userId: uid, config }));
             if (screen) {
               await ack(config, cbid(cb));
-              await show(config, update, msg, screen, true);
+              await show(config, update, msg, screen, true, { userId: uid });
               return res.status(200).json({ ok: true, handledBy: RUNTIME, action: normalized.action, screenId: screen.id, postsTextFlow: true });
             }
           }
@@ -112,15 +139,15 @@ function createCleanBot(legacy) {
         if (!realCb && msg && incomingText && !/^\/?start(?:\s|$)/i.test(incomingText) && !isChannelMessage(msg) && hasGiftFlowPriority(state)) {
           const screen = await timing.measure('gifts_text_flow_clean', { userId: timing.mask(uid), textLen: incomingText.length, fakeCallbackIgnored: Boolean(rawCb && !realCb) }, () => giftsFlow.handleTextInput(menu, { config, userId: uid, text: incomingText, update }));
           if (screen) {
-            await show(config, update, msg, screen, false);
-            return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'gift_text_input', screenId: screen.id, giftsCleanFlow: true });
+            await show(config, update, msg, screen, false, { userId: uid, preferGiftActive: true });
+            return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'gift_text_input', screenId: screen.id, giftsCleanFlow: true, activeGiftScreenEditAttempt: true });
           }
         }
 
         if (!realCb && msg && incomingText && !/^\/?start(?:\s|$)/i.test(incomingText) && !isChannelMessage(msg) && hasButtonFlowPriority(state)) {
           const screen = await timing.measure('buttons_text_flow_clean', { userId: timing.mask(uid), textLen: incomingText.length, fakeCallbackIgnored: Boolean(rawCb && !realCb) }, () => buttonsFlow.handleTextInput(menu, { config, userId: uid, text: incomingText, update }));
           if (screen) {
-            await show(config, update, msg, screen, false);
+            await show(config, update, msg, screen, false, { userId: uid });
             return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'button_text_input', screenId: screen.id, buttonsCleanFlow: true });
           }
         }
@@ -128,7 +155,7 @@ function createCleanBot(legacy) {
         if (msg && incomingText && !/^\/?start(?:\s|$)/i.test(incomingText) && !isChannelMessage(msg) && hasActivePostsTextFlow(state)) {
           const screen = await timing.measure('posts_text_flow_save', { userId: timing.mask(uid), textLen: incomingText.length }, () => postsTextFlow.handleTextInput(menu, { config, userId: uid, text: incomingText }));
           if (screen) {
-            await show(config, update, msg, screen, false);
+            await show(config, update, msg, screen, false, { userId: uid });
             return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'admin_posts_text_save', screenId: screen.id, postsTextFlow: true });
           }
         }

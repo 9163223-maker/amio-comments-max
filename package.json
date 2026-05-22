@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.1.0-CLEAN-GIFTS-BUTTONS-TENANT-FOUNDATION",
+  "version": "CC8.1.1-GIFTS-WIZARD-UX-CONDITIONS-CLEANUP",
   "main": "clean-entrypoint-pr41.js",
   "scripts": {
     "start": "node clean-entrypoint-pr41.js"
