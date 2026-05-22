@@ -5,6 +5,7 @@ const path = require('path');
 
 const DEFAULT_PACK_ID = 'adminkit_whales_v1';
 const DEFAULT_MANIFEST_PATH = path.join(__dirname, '..', 'public', 'stickers', 'adminkit', 'v1', 'manifest.json');
+const RUNTIME_TARGET = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS';
 
 let cachedManifest = null;
 let cachedManifestPath = '';
@@ -15,6 +16,10 @@ function clean(value) {
 
 function envEnabled() {
   return clean(process.env.ADMINKIT_STICKERS_ENABLED) === '1';
+}
+
+function strictTrue(value) {
+  return value === true;
 }
 
 function manifestPath() {
@@ -55,9 +60,9 @@ function normalizeManifest(manifest = {}) {
 }
 
 function listStickers(options = {}) {
-  const manifest = readManifest(options.manifestPath);
-  const includeDisabled = Boolean(options.includeDisabled);
+  const includeDisabled = strictTrue(options.includeDisabled);
   if (!envEnabled() && !includeDisabled) return [];
+  const manifest = readManifest(options.manifestPath);
   return manifest.stickers.map((item) => publicSticker(item, manifest));
 }
 
@@ -76,6 +81,8 @@ function publicSticker(item = {}, manifest = readManifest()) {
 }
 
 function getSticker(packId = DEFAULT_PACK_ID, stickerId = '', options = {}) {
+  const allowDisabled = strictTrue(options.allowDisabled);
+  if (!envEnabled() && !allowDisabled) return null;
   const manifest = readManifest(options.manifestPath);
   if (clean(packId) !== manifest.packId) return null;
   const item = manifest.byId[clean(stickerId)];
@@ -83,16 +90,17 @@ function getSticker(packId = DEFAULT_PACK_ID, stickerId = '', options = {}) {
 }
 
 function validateSticker(packId = DEFAULT_PACK_ID, stickerId = '', options = {}) {
-  if (!envEnabled() && !options.allowDisabled) {
+  const allowDisabled = strictTrue(options.allowDisabled);
+  if (!envEnabled() && !allowDisabled) {
     return { ok: false, error: 'stickers_disabled' };
   }
-  const sticker = getSticker(packId, stickerId, options);
+  const sticker = getSticker(packId, stickerId, { ...options, allowDisabled });
   if (!sticker) return { ok: false, error: 'sticker_not_allowed' };
   return { ok: true, sticker };
 }
 
-function makeStickerCommentPayload({ packId = DEFAULT_PACK_ID, stickerId = '', tenantKey = '', channelId = '', postId = '', commentKey = '', authorUserId = '' } = {}) {
-  const check = validateSticker(packId, stickerId);
+function makeStickerCommentPayload({ packId = DEFAULT_PACK_ID, stickerId = '', tenantKey = '', channelId = '', postId = '', commentKey = '', authorUserId = '' } = {}, options = {}) {
+  const check = validateSticker(packId, stickerId, options);
   if (!check.ok) return check;
   return {
     ok: true,
@@ -106,13 +114,24 @@ function makeStickerCommentPayload({ packId = DEFAULT_PACK_ID, stickerId = '', t
       commentKey: clean(commentKey),
       authorUserId: clean(authorUserId),
       createdAt: Date.now(),
-      runtimeVersion: 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS'
+      runtimeVersion: RUNTIME_TARGET
     },
     sticker: check.sticker
   };
 }
 
 function audit() {
+  const enabled = envEnabled();
+  if (!enabled) {
+    return {
+      stickersFoundation: true,
+      stickersEnabled: false,
+      manifestOk: null,
+      manifestLoaded: false,
+      stickersTotal: 0,
+      runtimeTarget: RUNTIME_TARGET
+    };
+  }
   let manifest = null;
   let manifestOk = false;
   let stickersTotal = 0;
@@ -123,26 +142,31 @@ function audit() {
   } catch (error) {
     return {
       stickersFoundation: true,
-      stickersEnabled: envEnabled(),
+      stickersEnabled: enabled,
       manifestOk: false,
-      error: clean(error && error.message || error)
+      manifestLoaded: false,
+      error: clean(error && error.message || error),
+      runtimeTarget: RUNTIME_TARGET
     };
   }
   return {
     stickersFoundation: true,
-    stickersEnabled: envEnabled(),
+    stickersEnabled: enabled,
     manifestOk,
+    manifestLoaded: true,
     packId: manifest.packId,
     stickersTotal,
     assetBasePath: manifest.assetBasePath,
-    runtimeTarget: clean(manifest.runtimeTarget || 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS')
+    runtimeTarget: clean(manifest.runtimeTarget || RUNTIME_TARGET)
   };
 }
 
 module.exports = {
   DEFAULT_PACK_ID,
   DEFAULT_MANIFEST_PATH,
+  RUNTIME_TARGET,
   envEnabled,
+  strictTrue,
   readManifest,
   listStickers,
   getSticker,
