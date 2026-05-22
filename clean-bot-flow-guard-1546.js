@@ -44,12 +44,15 @@ function parsePayload(cb = {}) {
   if (!raw) return {};
   try { return JSON.parse(raw); } catch { return { action: raw, raw }; }
 }
+function isMessageCreatedLikeUpdate(kind = '') {
+  return kind === 'message_created' || kind === 'message_created_callback' || kind === 'bot_started';
+}
 function isRealCallbackUpdate(update = {}, cb = null) {
   const kind = updateType(update);
-  if (kind.includes('callback')) return true;
+  if (isMessageCreatedLikeUpdate(kind)) return false;
   if (directCallback(update)) return true;
   if (!cb) return false;
-  if (kind === 'message_created' || kind === 'message_created_callback' || kind === 'bot_started') return false;
+  if (kind.includes('callback')) return true;
   return Boolean(cbid(cb));
 }
 function setup(uid = '') { try { return store.getSetupState(clean(uid)) || {}; } catch { return {}; } }
