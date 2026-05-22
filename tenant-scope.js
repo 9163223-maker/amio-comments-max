@@ -1,0 +1,58 @@
+'use strict';
+
+const store = require('./store');
+
+function clean(value) { return String(value || '').trim(); }
+function safe(fn, fallback) { try { return fn(); } catch { return fallback; } }
+function idPart(value) { return clean(value).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80); }
+function defaultTenantKey(userId = '') {
+  const envKey = clean(process.env.ADMINKIT_TENANT_KEY || process.env.TENANT_KEY || '');
+  if (envKey) return envKey;
+  const uid = idPart(userId);
+  return uid ? `tenant_${uid}` : 'tenant_empty';
+}
+function ensureTenantContext(userId = '', patch = {}) {
+  const uid = clean(userId);
+  const current = uid ? (safe(() => store.getSetupState(uid), null) || {}) : {};
+  const tenantKey = clean(patch.tenantKey || current.tenantKey || defaultTenantKey(uid));
+  const ownerUserId = clean(patch.ownerUserId || current.ownerUserId || uid);
+  const ctx = { tenantKey, ownerUserId, userId: uid, createdByUserId: clean(patch.createdByUserId || uid), updatedByUserId: clean(patch.updatedByUserId || uid) };
+  if (uid) safe(() => store.setSetupState(uid, { tenantKey, ownerUserId, tenantInitializedAt: current.tenantInitializedAt || Date.now(), tenantRuntimeVersion: 'CC8.1.0-CLEAN-GIFTS-BUTTONS-TENANT-FOUNDATION' }), null);
+  return ctx;
+}
+function stampRecord(record = {}, ctx = {}, existing = null) {
+  const source = record && typeof record === 'object' ? record : {};
+  const prev = existing && typeof existing === 'object' ? existing : {};
+  return { ...source, tenantKey: clean(source.tenantKey || prev.tenantKey || ctx.tenantKey || defaultTenantKey(ctx.userId)), ownerUserId: clean(source.ownerUserId || prev.ownerUserId || ctx.ownerUserId || ctx.userId), createdByUserId: clean(source.createdByUserId || prev.createdByUserId || ctx.createdByUserId || ctx.userId), updatedByUserId: clean(ctx.updatedByUserId || ctx.userId || source.updatedByUserId || prev.updatedByUserId), createdAt: Number(source.createdAt || prev.createdAt || Date.now()) || Date.now(), updatedAt: Date.now() };
+}
+function belongsToTenant(record = {}, ctx = {}) {
+  if (!record || typeof record !== 'object') return false;
+  const tenantKey = clean(record.tenantKey);
+  const ownerUserId = clean(record.ownerUserId);
+  if (tenantKey) return tenantKey === clean(ctx.tenantKey);
+  if (ownerUserId) return ownerUserId === clean(ctx.ownerUserId || ctx.userId);
+  return true;
+}
+function filterTenantRecords(records = [], ctx = {}) { return (Array.isArray(records) ? records : []).filter((item) => belongsToTenant(item, ctx)); }
+function patchStoredGiftCampaign(campaign = {}, ctx = {}) {
+  const id = clean(campaign.id || campaign.campaignId);
+  if (!id) return campaign;
+  if (!store.store.gifts) store.store.gifts = { campaigns: {}, claims: {}, settings: {} };
+  if (!store.store.gifts.campaigns) store.store.gifts.campaigns = {};
+  const stamped = stampRecord({ ...(store.store.gifts.campaigns[id] || {}), ...campaign }, ctx, store.store.gifts.campaigns[id]);
+  store.store.gifts.campaigns[id] = stamped;
+  safe(() => store.saveStore(store.store), null);
+  return stamped;
+}
+function listTenantGiftCampaigns(ctx = {}) { return filterTenantRecords(safe(() => store.listGiftCampaigns(), []) || [], ctx); }
+function findTenantGiftCampaignForPost(target = {}, ctx = {}) {
+  const channelId = clean(target.channelId), postId = clean(target.postId), commentKey = clean(target.commentKey);
+  return listTenantGiftCampaigns(ctx).find((campaign) => {
+    if (!campaign || campaign.enabled === false) return false;
+    if (commentKey && clean(campaign.commentKey) === commentKey) return true;
+    const postIds = Array.isArray(campaign.postIds) ? campaign.postIds.map(clean) : [];
+    const channelIds = [campaign.channelId, campaign.requiredChatId].map(clean).filter(Boolean);
+    return Boolean(postId && postIds.includes(postId) && (!channelId || !channelIds.length || channelIds.includes(channelId)));
+  }) || null;
+}
+module.exports = { clean, ensureTenantContext, defaultTenantKey, stampRecord, belongsToTenant, filterTenantRecords, patchStoredGiftCampaign, listTenantGiftCampaigns, findTenantGiftCampaignForPost };
