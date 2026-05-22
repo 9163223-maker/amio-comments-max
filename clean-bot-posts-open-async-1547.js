@@ -3,13 +3,13 @@
 const guard = require('./clean-bot-flow-guard-1546');
 const menu = require('./v3-menu-core-1539');
 const posts = require('./posts-flow-cc8-text-flow');
-const gifts = require('./gifts-flow-cc811-ux');
+const gifts = require('./gifts-flow-cc812-bottom');
 const buttons = require('./buttons-flow-cc8-clean');
 const max = require('./services/maxApi');
 const timing = require('./v3-ui-timing-cc8');
 const store = require('./store');
 
-const RUNTIME = 'CC8.1.1-GIFTS-WIZARD-UX-CONDITIONS-CLEANUP';
+const RUNTIME = 'CC8.1.2-GIFTS-BOTTOM-SUMMARY';
 
 function clean(v){ return String(v || '').trim(); }
 function find(o,p,d){ if(!o||d<0) return null; if(typeof o==='object'&&p(o)) return o; if(typeof o!=='object') return null; for(const v of (Array.isArray(o)?o:Object.values(o))){ const r=find(v,p,d-1); if(r) return r; } return null; }
@@ -28,7 +28,7 @@ function isGiftClean(p){ const a=clean(p.action||p.raw); return gifts.isCleanGif
 function isButtonClean(p){ const a=clean(p.action||p.raw); return buttons.isCleanButtonAction&&buttons.isCleanButtonAction(a); }
 function isGiftStartCreate(p){ const a=clean(p.action||p.raw); return a==='gift_admin_start_create'||a==='gift_admin_create_from_target'||a==='gift_admin_pick_file'||a==='gift_admin_replace_existing'; }
 function resultMessageId(result, fallback=''){ return clean(result?.message?.body?.mid||result?.message?.id||result?.body?.mid||result?.message_id||result?.messageId||result?.id||fallback); }
-function isGiftScreen(screen){ return /^gifts?_/i.test(clean(screen&&screen.id)); }
+function isGiftScreen(screen){ return /^(gifts?|adminkit_gift)/i.test(clean(screen&&screen.id)); }
 function rememberGiftScreen(userId='', messageId='', screen=null){ const u=clean(userId), m=clean(messageId); if(!u||!m||!isGiftScreen(screen)) return; try{ store.setSetupState(u,{ giftActiveScreenMessageId:m, giftActiveScreenId:clean(screen.id), giftActiveScreenAt:Date.now() }); }catch{} }
 async function answer(config,id,meta={}){
   if(!id) return null;
@@ -53,7 +53,7 @@ function createCleanBot(legacy){
       const fastTimingName = startCreate ? 'gifts_start_create_fast_screen' : 'gifts_fast_screen';
       const asyncTimingName = startCreate ? 'gifts_start_create_async_show_result' : 'gifts_async_show_result';
       const screen = await timing.measure(fastTimingName,{action,userId:timing.mask(userId)},()=>gifts.screenForPayload(menu,p,{userId,config}));
-      if(screen){ await answer(config,cbid(c),{action,userId,notification:'',cleanOwned:true}); later(config,u,m,screen,{action,userId,timingName:asyncTimingName}); return res.status(200).json({ok:true,handledBy:RUNTIME,action,screenId:screen.id,giftsCleanFlow:true,giftsUxCleanup:true,activeGiftScreenTracked:true,asyncDelivery:true}); }
+      if(screen){ await answer(config,cbid(c),{action,userId,notification:'',cleanOwned:true}); later(config,u,m,screen,{action,userId,timingName:asyncTimingName}); return res.status(200).json({ok:true,handledBy:RUNTIME,action,screenId:screen.id,giftsCleanFlow:true,giftsBottomSummary:true,activeGiftScreenTracked:true,asyncDelivery:true}); }
     }
     if(c && !channel(m) && isButtonClean(p)){
       const screen = await timing.measure('buttons_fast_screen',{action,userId:timing.mask(userId)},()=>buttons.screenForPayload(menu,p,{userId,config}));
