@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const SERVER_STARTED_AT = new Date().toISOString();
-const CURRENT_RUNTIME = 'CC8.0.12-POSTS-SAVE-ASYNC-PATCH';
+const CURRENT_RUNTIME = 'CC8.0.13-POSTS-FAST-OPEN';
 
 function clean(value) { return String(value || '').trim(); }
 function readJsonSafe(filePath) {
