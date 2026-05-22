@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.0.17-GIFTS-FAST-ENTRY",
+  "version": "CC8.0.18-GIFTS-START-CREATE-FAST",
   "main": "clean-entrypoint-pr41.js",
   "scripts": {
     "start": "node clean-entrypoint-pr41.js"

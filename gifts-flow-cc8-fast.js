@@ -3,7 +3,7 @@
 const store = require('./store');
 const giftService = require('./services/giftService');
 
-const RUNTIME = 'CC8.0.17-GIFTS-FAST-ENTRY';
+const RUNTIME = 'CC8.0.18-GIFTS-START-CREATE-FAST';
 const MAX_POSTS = 8;
 
 const CLEAN_GIFT_ACTIONS = [
@@ -11,7 +11,10 @@ const CLEAN_GIFT_ACTIONS = [
   'gift_admin_recent_posts',
   'gift_admin_channel_pick',
   'gift_admin_select_post',
-  'gift_admin_show_current'
+  'gift_admin_show_current',
+  'gift_admin_start_create',
+  'gift_admin_create_from_target',
+  'gift_admin_pick_file'
 ];
 
 function clean(value) { return String(value || '').trim(); }
@@ -87,7 +90,7 @@ function getStoredTarget(userId = '') {
   const post = target && target.commentKey ? findPost(target.commentKey) : null;
   return post || target || null;
 }
-function bindTarget(userId = '', post = {}) {
+function bindTarget(userId = '', post = {}, options = {}) {
   const uid = clean(userId);
   const target = targetRecord(post);
   if (!uid || !target.commentKey) return target;
@@ -100,14 +103,17 @@ function bindTarget(userId = '', post = {}) {
       rootAction: 'admin_section_gifts',
       selectMode: 'gifts'
     };
-    store.setSetupState(uid, {
+    const patch = {
       giftTargetPost: target,
       commentTargetPost: target,
-      giftFlow: null,
-      activeAdminFlowKind: '',
       adminUi,
       activeAdminUi: adminUi
-    });
+    };
+    if (!options.keepFlow) {
+      patch.giftFlow = null;
+      patch.activeAdminFlowKind = '';
+    }
+    store.setSetupState(uid, patch);
   }, null);
   return target;
 }
@@ -147,6 +153,71 @@ function targetLines(targetPost = null) {
     `Post ID: ${short(targetPost.postId || '—', 80)}`
   ];
 }
+function defaultSubscribeUrl(channelId = '') {
+  const id = clean(channelId);
+  return id ? `https://max.ru/${id}` : '';
+}
+function buildGiftFlowFromTarget(targetPost = null, previousFlow = null) {
+  const target = targetRecord(targetPost || {});
+  const previousDraft = previousFlow && typeof previousFlow === 'object' ? (previousFlow.draft || {}) : {};
+  const id = clean(previousDraft.id) || `gift_${Date.now().toString(36)}`;
+  const title = clean(previousDraft.title) || `Подарок к посту (${short(target.originalText || target.postId || 'пост', 48)})`;
+  return {
+    mode: 'gift_wizard',
+    stepIndex: 0,
+    awaitingConfirmation: false,
+    targetPost: target,
+    startedAt: Date.now(),
+    runtimeVersion: RUNTIME,
+    draft: {
+      ...previousDraft,
+      id,
+      title,
+      channelId: target.channelId,
+      requiredChatId: target.channelId,
+      postIds: target.postId ? [target.postId] : [],
+      commentKey: target.commentKey,
+      subscribeUrl: clean(previousDraft.subscribeUrl) || defaultSubscribeUrl(target.channelId),
+      subscribeUrlAutoFilled: true,
+      giftUrl: clean(previousDraft.giftUrl),
+      giftAttachment: previousDraft.giftAttachment || null,
+      giftMessage: clean(previousDraft.giftMessage),
+      deliverToDm: true
+    }
+  };
+}
+function setGiftFlow(userId = '', flow = null) {
+  const uid = clean(userId);
+  if (!uid || !flow) return null;
+  safeCall(() => {
+    const prev = getSetup(uid);
+    const adminUi = {
+      ...(prev.adminUi || {}),
+      section: 'gifts',
+      backAction: 'admin_section_gifts',
+      rootAction: 'admin_section_gifts',
+      selectMode: 'gifts'
+    };
+    store.setSetupState(uid, {
+      giftFlow: flow,
+      commentAdminFlow: null,
+      activeAdminFlowKind: 'gift',
+      adminUi,
+      activeAdminUi: adminUi
+    });
+  }, null);
+  return flow;
+}
+function startRows(menu, targetPost = null) {
+  const key = clean(targetPost && targetPost.commentKey);
+  return [
+    [button(menu, '🧾 Текущий подарок', 'gift_admin_show_current')],
+    [button(menu, '❌ Отменить', 'gift_admin_cancel')],
+    [button(menu, '📌 Выбрать другой пост', 'gift_admin_recent_posts', { page: 0 })],
+    ...(key ? [[button(menu, '🎁 В начало подарков', 'admin_section_gifts')]] : []),
+    [button(menu, '🏠 Главное меню', 'admin_section_main')]
+  ];
+}
 function homeRows(menu, targetPost = null, flow = null) {
   const existing = getCampaignForTarget(targetPost);
   const rows = [];
@@ -183,7 +254,7 @@ async function home(menu, payload = {}, ctx = {}) {
     '',
     `Всего сохранённых подарков: ${countCampaigns()}`,
     '',
-    'Создание, сохранение, замена и удаление подарка остаются в рабочем мастере. Этот экран только быстро открывает раздел, выбирает пост и показывает состояние.'
+    'Создание, сохранение, замена и удаление подарка остаются в рабочем мастере. Этот экран быстро открывает раздел, выбирает пост, показывает состояние и теперь быстро стартует мастер.'
   ];
   if (payload.note) lines.unshift(clean(payload.note), '');
   return screen(menu, 'gifts_clean_home', '🎁 Подарки / лид-магниты', lines, homeRows(menu, target, flow));
@@ -228,6 +299,29 @@ async function selectPost(menu, payload = {}, ctx = {}) {
   bindTarget(ctx.userId, post);
   return home(menu, { note: 'Пост для подарка выбран.' }, ctx);
 }
+async function startCreate(menu, payload = {}, ctx = {}) {
+  const state = getSetup(ctx.userId);
+  const target = getStoredTarget(ctx.userId);
+  if (!target || !target.commentKey || !target.channelId || !target.postId) {
+    return picker(menu, { page: 0 }, ctx);
+  }
+  const existing = getCampaignForTarget(target);
+  if (existing) {
+    return home(menu, { note: 'Для этого поста уже сохранён подарок. Можно заменить или удалить его.' }, ctx);
+  }
+  const flow = buildGiftFlowFromTarget(target, state.giftFlow || null);
+  bindTarget(ctx.userId, target, { keepFlow: true });
+  setGiftFlow(ctx.userId, flow);
+  return screen(menu, 'gifts_clean_start_create', '🎁 Создание подарка', [
+    'Шаг 2/4. Пришлите файл подарка ИЛИ вставьте ссылку на подарок.',
+    '',
+    'Этот экран открыт через быстрый Clean Core. Дальше загрузка файла, ссылка, текст получателю и сохранение идут через существующий рабочий мастер, чтобы не потерять функционал.',
+    '',
+    ...targetLines(target),
+    '',
+    'После загрузки или ссылки бот сам перейдёт к следующему шагу.'
+  ], startRows(menu, target));
+}
 async function showCurrent(menu, payload = {}, ctx = {}) {
   const state = getSetup(ctx.userId);
   const target = getStoredTarget(ctx.userId);
@@ -252,6 +346,7 @@ async function screenForPayload(menu, payload = {}, ctx = {}) {
   if (action === 'gift_admin_channel_pick') return picker(menu, { ...payload, skipChannels: '1' }, ctx);
   if (action === 'gift_admin_select_post') return selectPost(menu, payload, ctx);
   if (action === 'gift_admin_show_current') return showCurrent(menu, payload, ctx);
+  if (action === 'gift_admin_start_create' || action === 'gift_admin_create_from_target' || action === 'gift_admin_pick_file') return startCreate(menu, payload, ctx);
   return null;
 }
 function isCleanGiftAction(action = '') { return CLEAN_GIFT_ACTIONS.includes(clean(action)); }
