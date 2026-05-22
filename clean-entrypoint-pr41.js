@@ -1,5 +1,5 @@
 'use strict';
-const RUNTIME='CC8.0.18-GIFTS-START-CREATE-FAST';
+const RUNTIME='CC8.0.20-GIFTS-LEGACY-HANDOFF-FIX';
 const SOURCE='adminkit-cc8-0-18-gifts-start-create-fast';
 const BASE='https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run';
 let persistentStoreState=null;

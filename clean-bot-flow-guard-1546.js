@@ -7,7 +7,7 @@ const max = require('./services/maxApi');
 const store = require('./store');
 const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.0.19-GIFTS-FLOW-HANDOFF-SILENT';
+const RUNTIME = 'CC8.0.20-GIFTS-LEGACY-HANDOFF-FIX';
 const EDIT_FLOW_KIND = 'post_edit_text';
 
 function find(value, predicate, depth = 6, seen = new Set()) {
@@ -96,8 +96,11 @@ function createCleanBot(legacy) {
           }
         }
 
-        if (msg && text(msg) && !/^\/?start(?:\s|$)/i.test(text(msg)) && !isChannelMessage(msg) && hasGiftFlowPriority(state)) {
-          timing.log('gifts_text_flow_direct_to_legacy', { durationMs: Date.now() - started, userId: timing.mask(uid), activeAdminFlowKind: clean(state.activeAdminFlowKind), hasGiftFlow: Boolean(state.giftFlow) });
+        if (!cb && msg && text(msg) && !/^\/?start(?:\s|$)/i.test(text(msg)) && !isChannelMessage(msg) && hasGiftFlowPriority(state)) {
+          msg.__senderUserId = uid;
+          msg.sender = { ...(msg.sender || {}), user_id: uid };
+          msg.user_id = uid;
+          timing.log('gifts_text_flow_direct_to_legacy', { durationMs: Date.now() - started, userId: timing.mask(uid), activeAdminFlowKind: clean(state.activeAdminFlowKind), hasGiftFlow: Boolean(state.giftFlow), legacySenderInjected: true });
           return wrapped.handleWebhook(req, res, config);
         }
 
