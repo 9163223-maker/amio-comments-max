@@ -9,7 +9,7 @@ const max = require('./services/maxApi');
 const timing = require('./v3-ui-timing-cc8');
 const store = require('./store');
 
-const RUNTIME = 'CC8.1.2-GIFTS-BOTTOM-SUMMARY';
+const RUNTIME = 'CC8.1.4-GIFTS-SAVE-PATCH-CLEANUP';
 
 function clean(v){ return String(v || '').trim(); }
 function find(o,p,d){ if(!o||d<0) return null; if(typeof o==='object'&&p(o)) return o; if(typeof o!=='object') return null; for(const v of (Array.isArray(o)?o:Object.values(o))){ const r=find(v,p,d-1); if(r) return r; } return null; }
@@ -53,7 +53,7 @@ function createCleanBot(legacy){
       const fastTimingName = startCreate ? 'gifts_start_create_fast_screen' : 'gifts_fast_screen';
       const asyncTimingName = startCreate ? 'gifts_start_create_async_show_result' : 'gifts_async_show_result';
       const screen = await timing.measure(fastTimingName,{action,userId:timing.mask(userId)},()=>gifts.screenForPayload(menu,p,{userId,config}));
-      if(screen){ await answer(config,cbid(c),{action,userId,notification:'',cleanOwned:true}); later(config,u,m,screen,{action,userId,timingName:asyncTimingName}); return res.status(200).json({ok:true,handledBy:RUNTIME,action,screenId:screen.id,giftsCleanFlow:true,giftsBottomSummary:true,activeGiftScreenTracked:true,asyncDelivery:true}); }
+      if(screen){ await answer(config,cbid(c),{action,userId,notification:'',cleanOwned:true}); later(config,u,m,screen,{action,userId,timingName:asyncTimingName}); return res.status(200).json({ok:true,handledBy:RUNTIME,action,screenId:screen.id,giftsCleanFlow:true,giftsBottomSummary:true,giftsSavePatch:true,giftsStepNumberingClean:true,activeGiftScreenTracked:true,asyncDelivery:true}); }
     }
     if(c && !channel(m) && isButtonClean(p)){
       const screen = await timing.measure('buttons_fast_screen',{action,userId:timing.mask(userId)},()=>buttons.screenForPayload(menu,p,{userId,config}));
