@@ -42,7 +42,7 @@ function normalizeManifest(manifest = {}) {
   const normalized = {
     ...manifest,
     packId,
-    assetBasePath: clean(manifest.assetBasePath || '/stickers/adminkit/v1'),
+    assetBasePath: clean(manifest.assetBasePath || '/public/stickers/adminkit/v1'),
     stickers: stickers
       .map((item) => ({
         id: clean(item.id),
