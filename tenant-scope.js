@@ -2,6 +2,7 @@
 
 const store = require('./store');
 const RUNTIME = 'CC8.1.0-CLEAN-GIFTS-BUTTONS-TENANT-FOUNDATION';
+const TENANT_KEYS = new Set(['tenantKey', 'ownerUserId', 'tenantInitializedAt', 'tenantRuntimeVersion', 'canReadLegacyUnscoped', 'updatedAt']);
 
 function clean(value) { return String(value || '').trim(); }
 function safe(fn, fallback) { try { return fn(); } catch { return fallback; } }
@@ -12,19 +13,29 @@ function defaultTenantKey(userId = '') {
   const uid = idPart(userId);
   return uid ? `tenant_${uid}` : 'tenant_empty';
 }
+function hadLegacyUserState(current = {}) {
+  if (!current || typeof current !== 'object') return false;
+  return Object.keys(current).some((key) => !TENANT_KEYS.has(key));
+}
 function ensureTenantContext(userId = '', patch = {}) {
   const uid = clean(userId);
   const current = uid ? (safe(() => store.getSetupState(uid), null) || {}) : {};
   const tenantKey = clean(patch.tenantKey || current.tenantKey || defaultTenantKey(uid));
   const ownerUserId = clean(patch.ownerUserId || current.ownerUserId || uid);
-  const ctx = { tenantKey, ownerUserId, userId: uid, createdByUserId: clean(patch.createdByUserId || uid), updatedByUserId: clean(patch.updatedByUserId || uid) };
+  const canReadLegacyUnscoped = Boolean(
+    patch.canReadLegacyUnscoped ||
+    current.canReadLegacyUnscoped ||
+    (!current.tenantInitializedAt && hadLegacyUserState(current))
+  );
+  const ctx = { tenantKey, ownerUserId, userId: uid, createdByUserId: clean(patch.createdByUserId || uid), updatedByUserId: clean(patch.updatedByUserId || uid), canReadLegacyUnscoped };
   const needsWrite = Boolean(uid && (
     clean(current.tenantKey) !== tenantKey ||
     clean(current.ownerUserId) !== ownerUserId ||
+    Boolean(current.canReadLegacyUnscoped) !== canReadLegacyUnscoped ||
     !current.tenantInitializedAt ||
     clean(current.tenantRuntimeVersion) !== RUNTIME
   ));
-  if (needsWrite) safe(() => store.setSetupState(uid, { tenantKey, ownerUserId, tenantInitializedAt: current.tenantInitializedAt || Date.now(), tenantRuntimeVersion: RUNTIME }), null);
+  if (needsWrite) safe(() => store.setSetupState(uid, { tenantKey, ownerUserId, canReadLegacyUnscoped, tenantInitializedAt: current.tenantInitializedAt || Date.now(), tenantRuntimeVersion: RUNTIME }), null);
   return ctx;
 }
 function stampRecord(record = {}, ctx = {}, existing = null) {
@@ -33,6 +44,7 @@ function stampRecord(record = {}, ctx = {}, existing = null) {
   return { ...source, tenantKey: clean(source.tenantKey || prev.tenantKey || ctx.tenantKey || defaultTenantKey(ctx.userId)), ownerUserId: clean(source.ownerUserId || prev.ownerUserId || ctx.ownerUserId || ctx.userId), createdByUserId: clean(source.createdByUserId || prev.createdByUserId || ctx.createdByUserId || ctx.userId), updatedByUserId: clean(ctx.updatedByUserId || ctx.userId || source.updatedByUserId || prev.updatedByUserId), createdAt: Number(source.createdAt || prev.createdAt || Date.now()) || Date.now(), updatedAt: Date.now() };
 }
 function canReadUnscopedLegacy(ctx = {}) {
+  if (ctx.canReadLegacyUnscoped === true) return true;
   if (clean(process.env.ADMINKIT_ALLOW_UNSCOPED_LEGACY) === '1') return true;
   const legacyOwner = clean(process.env.ADMINKIT_LEGACY_OWNER_USER_ID || process.env.ADMIN_USER_ID || '');
   return Boolean(legacyOwner && legacyOwner === clean(ctx.ownerUserId || ctx.userId));
