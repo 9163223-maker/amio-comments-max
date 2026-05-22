@@ -7,7 +7,7 @@ const max = require('./services/maxApi');
 const store = require('./store');
 const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.0.20-GIFTS-LEGACY-HANDOFF-FIX';
+const RUNTIME = 'CC8.0.21-GIFTS-MESSAGE-CREATED-HANDOFF';
 const EDIT_FLOW_KIND = 'post_edit_text';
 
 function find(value, predicate, depth = 6, seen = new Set()) {
@@ -21,8 +21,10 @@ function find(value, predicate, depth = 6, seen = new Set()) {
   return null;
 }
 function message(update = {}) { return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || find(update, (x) => x && typeof x === 'object' && (x.body?.text || x.text) && (x.recipient || x.sender || x.message_id || x.id), 5) || null; }
-function callback(update = {}) { return update?.callback || update?.data?.callback || update?.message?.callback || update?.data?.message?.callback || find(update, (x) => x && typeof x === 'object' && (x.callback_id || x.callbackId || x.payload || x.callback_data || x.callbackData) && !(x.body && x.body.text), 6) || null; }
+function directCallback(update = {}) { return update?.callback || update?.data?.callback || update?.message?.callback || update?.data?.message?.callback || null; }
+function callback(update = {}) { return directCallback(update) || find(update, (x) => x && typeof x === 'object' && (x.callback_id || x.callbackId || x.payload || x.callback_data || x.callbackData) && !(x.body && x.body.text), 6) || null; }
 function clean(value) { return String(value || '').trim(); }
+function updateType(update = {}) { return clean(update.update_type || update.type || update?.data?.update_type || update?.data?.type).toLowerCase(); }
 function text(msg = {}) { return clean(msg?.body?.text || msg?.text || ''); }
 function chatId(msg = {}) { return clean(msg?.recipient?.chat_id || msg?.recipient?.id || msg?.chat_id || msg?.chat?.id); }
 function chatType(msg = {}) { return clean(msg?.recipient?.chat_type || msg?.recipient?.type || msg?.chat_type || msg?.chat?.type).toLowerCase(); }
@@ -41,6 +43,17 @@ function parsePayload(cb = {}) {
   const raw = clean(value);
   if (!raw) return {};
   try { return JSON.parse(raw); } catch { return { action: raw, raw }; }
+}
+function isMessageCreatedLikeUpdate(kind = '') {
+  return kind === 'message_created' || kind === 'message_created_callback' || kind === 'bot_started';
+}
+function isRealCallbackUpdate(update = {}, cb = null) {
+  const kind = updateType(update);
+  if (isMessageCreatedLikeUpdate(kind)) return false;
+  if (directCallback(update)) return true;
+  if (!cb) return false;
+  if (kind.includes('callback')) return true;
+  return Boolean(cbid(cb));
 }
 function setup(uid = '') { try { return store.getSetupState(clean(uid)) || {}; } catch { return {}; } }
 function isPostsEditCallback(action = '', state = {}) {
@@ -78,7 +91,9 @@ function createCleanBot(legacy) {
       const started = Date.now();
       const update = req.body || {};
       const msg = message(update);
-      const cb = callback(update);
+      const rawCb = callback(update);
+      const realCb = isRealCallbackUpdate(update, rawCb);
+      const cb = realCb ? rawCb : null;
       const uid = userId(update, cb, msg);
       const state = setup(uid);
       try {
@@ -96,11 +111,19 @@ function createCleanBot(legacy) {
           }
         }
 
-        if (!cb && msg && text(msg) && !/^\/?start(?:\s|$)/i.test(text(msg)) && !isChannelMessage(msg) && hasGiftFlowPriority(state)) {
+        if (!realCb && msg && text(msg) && !/^\/?start(?:\s|$)/i.test(text(msg)) && !isChannelMessage(msg) && hasGiftFlowPriority(state)) {
           msg.__senderUserId = uid;
           msg.sender = { ...(msg.sender || {}), user_id: uid };
           msg.user_id = uid;
-          timing.log('gifts_text_flow_direct_to_legacy', { durationMs: Date.now() - started, userId: timing.mask(uid), activeAdminFlowKind: clean(state.activeAdminFlowKind), hasGiftFlow: Boolean(state.giftFlow), legacySenderInjected: true });
+          timing.log('gifts_text_flow_direct_to_legacy', {
+            durationMs: Date.now() - started,
+            userId: timing.mask(uid),
+            activeAdminFlowKind: clean(state.activeAdminFlowKind),
+            hasGiftFlow: Boolean(state.giftFlow),
+            legacySenderInjected: true,
+            fakeCallbackIgnored: Boolean(rawCb && !realCb),
+            updateType: updateType(update)
+          });
           return wrapped.handleWebhook(req, res, config);
         }
 
@@ -114,7 +137,8 @@ function createCleanBot(legacy) {
       } catch (error) {
         timing.log('posts_text_flow_error', { durationMs: Date.now() - started, error: String(error?.message || error), userId: timing.mask(uid) });
       } finally {
-        timing.log('posts_text_flow_guard', { durationMs: Date.now() - started, action: cb ? clean(parsePayload(cb).action || parsePayload(cb).raw) : 'message_created', active: hasActivePostsTextFlow(state), userId: timing.mask(uid), updateType: clean(update.update_type || update.type) });
+        const action = cb ? clean(parsePayload(cb).action || parsePayload(cb).raw) : 'message_created';
+        timing.log('posts_text_flow_guard', { durationMs: Date.now() - started, action, active: hasActivePostsTextFlow(state), giftActive: hasGiftFlowPriority(state), realCallback: realCb, fakeCallbackIgnored: Boolean(rawCb && !realCb), userId: timing.mask(uid), updateType: updateType(update) });
       }
       return wrapped.handleWebhook(req, res, config);
     }
