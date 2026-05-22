@@ -74,7 +74,7 @@ function publicSticker(item = {}, manifest = readManifest()) {
     title: item.title,
     emoji: item.emoji,
     alt: item.alt,
-    tags: item.tags || [],
+    tags: Array.isArray(item.tags) ? [...item.tags] : [],
     url: `${base}/${item.file}`,
     fallbackUrl: item.fallbackFile ? `${base}/${item.fallbackFile}` : ''
   };
