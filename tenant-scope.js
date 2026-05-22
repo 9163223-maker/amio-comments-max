@@ -25,13 +25,18 @@ function stampRecord(record = {}, ctx = {}, existing = null) {
   const prev = existing && typeof existing === 'object' ? existing : {};
   return { ...source, tenantKey: clean(source.tenantKey || prev.tenantKey || ctx.tenantKey || defaultTenantKey(ctx.userId)), ownerUserId: clean(source.ownerUserId || prev.ownerUserId || ctx.ownerUserId || ctx.userId), createdByUserId: clean(source.createdByUserId || prev.createdByUserId || ctx.createdByUserId || ctx.userId), updatedByUserId: clean(ctx.updatedByUserId || ctx.userId || source.updatedByUserId || prev.updatedByUserId), createdAt: Number(source.createdAt || prev.createdAt || Date.now()) || Date.now(), updatedAt: Date.now() };
 }
+function canReadUnscopedLegacy(ctx = {}) {
+  if (clean(process.env.ADMINKIT_ALLOW_UNSCOPED_LEGACY) === '1') return true;
+  const legacyOwner = clean(process.env.ADMINKIT_LEGACY_OWNER_USER_ID || process.env.ADMIN_USER_ID || '');
+  return Boolean(legacyOwner && legacyOwner === clean(ctx.ownerUserId || ctx.userId));
+}
 function belongsToTenant(record = {}, ctx = {}) {
   if (!record || typeof record !== 'object') return false;
   const tenantKey = clean(record.tenantKey);
   const ownerUserId = clean(record.ownerUserId);
   if (tenantKey) return tenantKey === clean(ctx.tenantKey);
   if (ownerUserId) return ownerUserId === clean(ctx.ownerUserId || ctx.userId);
-  return true;
+  return canReadUnscopedLegacy(ctx);
 }
 function filterTenantRecords(records = [], ctx = {}) { return (Array.isArray(records) ? records : []).filter((item) => belongsToTenant(item, ctx)); }
 function patchStoredGiftCampaign(campaign = {}, ctx = {}) {
@@ -55,4 +60,4 @@ function findTenantGiftCampaignForPost(target = {}, ctx = {}) {
     return Boolean(postId && postIds.includes(postId) && (!channelId || !channelIds.length || channelIds.includes(channelId)));
   }) || null;
 }
-module.exports = { clean, ensureTenantContext, defaultTenantKey, stampRecord, belongsToTenant, filterTenantRecords, patchStoredGiftCampaign, listTenantGiftCampaigns, findTenantGiftCampaignForPost };
+module.exports = { clean, ensureTenantContext, defaultTenantKey, stampRecord, canReadUnscopedLegacy, belongsToTenant, filterTenantRecords, patchStoredGiftCampaign, listTenantGiftCampaigns, findTenantGiftCampaignForPost };
