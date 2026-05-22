@@ -3,7 +3,7 @@
 const base = require('./gifts-flow-cc811-ux');
 const store = require('./store');
 
-const RUNTIME = 'CC8.1.2-GIFTS-BOTTOM-SUMMARY';
+const RUNTIME = 'CC8.1.3-GIFTS-NO-LINK-PREVIEW';
 const EXTRA_ACTIONS = ['gift_admin_commit_save'];
 const CLEAN_GIFT_ACTIONS = Array.from(new Set([...(base.CLEAN_GIFT_ACTIONS || []), ...EXTRA_ACTIONS]));
 
@@ -12,6 +12,18 @@ function arr(value) { return Array.isArray(value) ? value : []; }
 function short(value, max = 90) { const s = clean(value).replace(/\s+/g, ' '); return s.length <= max ? s : `${s.slice(0, Math.max(1, max - 1)).trim()}…`; }
 function setup(userId = '') { try { return store.getSetupState(clean(userId)) || {}; } catch { return {}; } }
 function draftState(userId = '') { const flow = setup(userId).giftFlow || {}; return { flow, draft: flow.draft || {}, config: flow.draft?.conditionsConfig || {} }; }
+function safeLinkLabel(url = '') {
+  const raw = clean(url);
+  if (!raw) return 'ссылка сохранена';
+  let host = '';
+  try { host = new URL(raw).hostname || ''; } catch {}
+  if (!host) host = raw.replace(/^https?:\/\//i, '').split(/[/?#]/)[0] || 'ссылка';
+  host = host.replace(/^www\./i, '').replace(/\./g, '[.]');
+  return `ссылка сохранена · ${host}`;
+}
+function stripRawUrls(text = '') {
+  return String(text || '').replace(/https?:\/\/[^\s)\]]+/gi, (url) => safeLinkLabel(url));
+}
 function conditionLabel(item = {}) {
   if (item.type === 'subscription') return `Подписка: ${arr(item.channels).length || 0} канал(а) · ${item.mode === 'any' ? 'любой' : 'все'}`;
   if (item.type === 'promoCode') return `Промокод: ${arr(item.codes).join(', ') || 'не задан'}`;
@@ -26,10 +38,10 @@ function summaryLines(userId = '') {
   const { draft, config } = draftState(userId);
   const items = arr(config.items).filter((x) => x && x.enabled !== false);
   return [
-    `Материал: ${draft.giftAttachment ? 'файл/вложение' : (draft.giftUrl ? `ссылка — ${short(draft.giftUrl, 70)}` : 'не добавлен')}`,
-    `Текст получателю: ${draft.giftMessage ? short(draft.giftMessage, 100) : 'не задан'}`,
+    `Материал: ${draft.giftAttachment ? 'файл/вложение' : (draft.giftUrl ? safeLinkLabel(draft.giftUrl) : 'не добавлен')}`,
+    `Текст получателю: ${draft.giftMessage ? short(stripRawUrls(draft.giftMessage), 100) : 'не задан'}`,
     `Условия: ${items.length ? `${items.length} услов.` : 'без условий'}`,
-    ...items.map((item) => `• ${conditionLabel(item)}`)
+    ...items.map((item) => `• ${stripRawUrls(conditionLabel(item))}`)
   ];
 }
 function button(menu, text, action, extra) { return menu.button(text, action, extra || {}); }
@@ -60,15 +72,15 @@ function isSuccessSave(screen = null) { return /Подарок сохранён/
 function rewriteScreen(screen = null, ctx = {}) {
   if (!screen) return screen;
   const id = clean(screen.id);
-  const text = clean(screen.text);
+  const text = stripRawUrls(clean(screen.text));
   if (id === 'gifts_clean_message_step') {
     return { ...screen, id: 'adminkit_gift_message_step', text: ['🎁 Создание подарка', '', 'Шаг 3 — текст получателю', '', 'Сейчас в черновике:', ...summaryLines(ctx.userId).filter((line) => !/^Текст получателю:/.test(line)), '', 'Напишите сообщение, которое человек увидит вместе с подарком.', '', 'Например:', 'Спасибо за подписку! Забирайте подарок ниже.'].join('\n') };
   }
   if (/^gifts_clean_conditions/.test(id)) {
     return { ...screen, id: 'adminkit_gift_conditions', text: text.replace(/PR52 сохраняет[\s\S]*$/i, '').trim() };
   }
-  if (/^gifts?_/.test(id)) return { ...screen, id: `adminkit_${id}` };
-  return screen;
+  if (/^gifts?_/.test(id)) return { ...screen, id: `adminkit_${id}`, text };
+  return { ...screen, text };
 }
 async function screenForPayload(menu, payload = {}, ctx = {}) {
   const action = clean(payload.action || payload.raw);
@@ -83,4 +95,4 @@ async function screenForPayload(menu, payload = {}, ctx = {}) {
 async function handleTextInput(menu, ctx = {}) { return rewriteScreen(await base.handleTextInput(menu, ctx), ctx); }
 function isCleanGiftAction(action = '') { return CLEAN_GIFT_ACTIONS.includes(clean(action)) || (base.isCleanGiftAction ? base.isCleanGiftAction(action) : false); }
 
-module.exports = { ...base, RUNTIME, CLEAN_GIFT_ACTIONS, isCleanGiftAction, screenForPayload, handleTextInput };
+module.exports = { ...base, RUNTIME, CLEAN_GIFT_ACTIONS, isCleanGiftAction, screenForPayload, handleTextInput, safeLinkLabel, stripRawUrls };
