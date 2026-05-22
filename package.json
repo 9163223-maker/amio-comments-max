@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.0.20-GIFTS-LEGACY-HANDOFF-FIX",
+  "version": "CC8.0.21-GIFTS-MESSAGE-CREATED-HANDOFF",
   "main": "clean-entrypoint-pr41.js",
   "scripts": {
     "start": "node clean-entrypoint-pr41.js"
