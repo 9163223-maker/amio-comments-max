@@ -3,13 +3,13 @@
 const guard = require('./clean-bot-flow-guard-1544');
 const menu = require('./v3-menu-core-1539');
 const postsTextFlow = require('./posts-flow-cc8-text-flow');
-const giftsFlow = require('./gifts-flow-cc8-fast');
+const giftsFlow = require('./gifts-flow-cc811-ux');
 const buttonsFlow = require('./buttons-flow-cc8-clean');
 const max = require('./services/maxApi');
 const store = require('./store');
 const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.1.0-CLEAN-GIFTS-BUTTONS-TENANT-FOUNDATION';
+const RUNTIME = 'CC8.1.1-GIFTS-WIZARD-UX-CONDITIONS-CLEANUP';
 const EDIT_FLOW_KIND = 'post_edit_text';
 
 function find(value, predicate, depth = 6, seen = new Set()) {
