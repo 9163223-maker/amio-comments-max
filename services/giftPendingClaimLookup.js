@@ -42,16 +42,13 @@ function listPendingGiftClaims(userId = '', config = {}) {
 
 function findPendingGiftClaim(userId = '', config = {}) {
   const claims = listPendingGiftClaims(userId, config);
-  return claims.length === 1 ? claims[0] : null;
+  return claims[0] || null;
 }
 
 async function processPendingGiftClaimInput({ config = {}, userId = '', userName = '', input = '' } = {}) {
   const pendingClaims = listPendingGiftClaims(userId, config);
-  if (pendingClaims.length > 1) {
-    return { handled: false, ambiguous: true, pendingCount: pendingClaims.length, status: 'pending_claim_ambiguous' };
-  }
-  if (pendingClaims.length !== 1) {
-    return { handled: false, pendingCount: pendingClaims.length };
+  if (!pendingClaims.length) {
+    return { handled: false, pendingCount: 0 };
   }
   const pending = pendingClaims[0];
   if (!pending?.campaignId) return { handled: false };
@@ -71,6 +68,8 @@ async function processPendingGiftClaimInput({ config = {}, userId = '', userName
   }
   return {
     handled: true,
+    ambiguous: pendingClaims.length > 1,
+    pendingCount: pendingClaims.length,
     runtimeVersion: RUNTIME,
     campaignId: pending.campaignId,
     status: result?.status || '',
