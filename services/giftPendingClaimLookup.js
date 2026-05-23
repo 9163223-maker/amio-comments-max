@@ -9,19 +9,28 @@ function clean(value) {
   return String(value || '').trim();
 }
 
-function findPendingGiftClaim(userId = '') {
+function listPendingGiftClaims(userId = '') {
   const uid = clean(userId);
-  if (!uid) return null;
+  if (!uid) return [];
   const claims = Object.values(store.store?.gifts?.claims || {})
     .filter((claim) => clean(claim.userId) === uid)
     .filter((claim) => clean(claim.status) === 'condition_input_required')
     .filter((claim) => clean(claim.pendingInputType || 'promoCode'));
   claims.sort((left, right) => Number(right.updatedAt || 0) - Number(left.updatedAt || 0));
-  return claims[0] || null;
+  return claims;
+}
+
+function findPendingGiftClaim(userId = '') {
+  const claims = listPendingGiftClaims(userId);
+  return claims.length === 1 ? claims[0] : null;
 }
 
 async function processPendingGiftClaimInput({ config = {}, userId = '', userName = '', input = '' } = {}) {
-  const pending = findPendingGiftClaim(userId);
+  const pendingClaims = listPendingGiftClaims(userId);
+  if (pendingClaims.length !== 1) {
+    return { handled: false, ambiguous: pendingClaims.length > 1, pendingCount: pendingClaims.length };
+  }
+  const pending = pendingClaims[0];
   if (!pending?.campaignId) return { handled: false };
   const result = await giftService.claimGift({
     botToken: config.botToken,
@@ -41,6 +50,7 @@ async function processPendingGiftClaimInput({ config = {}, userId = '', userName
 
 module.exports = {
   RUNTIME,
+  listPendingGiftClaims,
   findPendingGiftClaim,
   processPendingGiftClaimInput
 };
