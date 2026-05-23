@@ -1,9 +1,10 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.1.4-GIFTS-SAVE-PATCH-CLEANUP",
+  "version": "CC8.1.5-GIFT-CONDITIONS-GATEKEEPER",
   "main": "clean-entrypoint-pr41.js",
   "scripts": {
-    "start": "node clean-entrypoint-pr41.js"
+    "start": "node clean-entrypoint-pr41.js",
+    "test": "node scripts/smoke-test.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
