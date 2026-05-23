@@ -87,7 +87,7 @@ async function safeSendPrompt({ botToken, userId, text }) {
 
 function hasWrongPromoCode(gate = {}, providedCode = "") {
   if (!String(providedCode || "").trim()) return false;
-  return Boolean(gate.checks?.some((item) => item.type === 'promoCode' && !item.ok));
+  return Boolean(gate.checks?.some((item) => item.type === 'promoCode' && !item.ok && item.reason === 'wrong_code'));
 }
 
 async function notifyConditionFailure({ botToken, callbackId, userId, notification }) {
