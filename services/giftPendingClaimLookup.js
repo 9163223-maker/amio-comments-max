@@ -48,7 +48,7 @@ function findPendingGiftClaim(userId = '', config = {}) {
 async function processPendingGiftClaimInput({ config = {}, userId = '', userName = '', input = '' } = {}) {
   const pendingClaims = listPendingGiftClaims(userId, config);
   if (pendingClaims.length > 1) {
-    return { handled: true, ambiguous: true, pendingCount: pendingClaims.length, status: 'pending_claim_ambiguous' };
+    return { handled: false, ambiguous: true, pendingCount: pendingClaims.length, status: 'pending_claim_ambiguous' };
   }
   if (pendingClaims.length !== 1) {
     return { handled: false, pendingCount: pendingClaims.length };
