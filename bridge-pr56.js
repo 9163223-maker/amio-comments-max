@@ -38,10 +38,14 @@ function isCommand(text = '') {
   return /^\/\S+/.test(str(text));
 }
 
-function isChannel(message = {}) {
-  const type = str(message.recipient?.chat_type || message.recipient?.type || message.chat_type || message.chat?.type).toLowerCase();
-  const id = str(message.recipient?.chat_id || message.recipient?.id || message.chat_id || message.chat?.id);
-  return type === 'channel' || /^-/.test(id);
+function chatType(message = {}) {
+  return str(message.recipient?.chat_type || message.recipient?.type || message.chat_type || message.chat?.type).toLowerCase();
+}
+
+function isPrivateDialog(message = {}) {
+  const type = chatType(message);
+  if (!type) return true;
+  return ['dialog', 'private', 'user', 'dm'].includes(type);
 }
 
 function createCleanBot(wrapped) {
@@ -51,7 +55,7 @@ function createCleanBot(wrapped) {
       const message = readMessage(update);
       const text = readText(message);
       const userId = readUserId(update, message);
-      if (message && text && userId && !isCommand(text) && !isCallback(update) && !isChannel(message)) {
+      if (message && text && userId && isPrivateDialog(message) && !isCommand(text) && !isCallback(update)) {
         const handled = await helper.processPendingGiftClaimInput({ config, userId, input: text });
         if (handled && handled.handled) {
           return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'gift_claim_code_input', status: handled.status || '' });
