@@ -23,11 +23,13 @@ function readMessage(update = {}) {
 }
 
 function readUserId(update = {}, message = {}) {
-  return str(update.user?.id || update.user_id || update.userId || message.sender?.user_id || message.sender?.id || message.user_id);
+  const msg = message || {};
+  return str(update.user?.id || update.user_id || update.userId || msg.sender?.user_id || msg.sender?.id || msg.user_id);
 }
 
 function readText(message = {}) {
-  return str(message.body?.text || message.text);
+  const msg = message || {};
+  return str(msg.body?.text || msg.text);
 }
 
 function isCallback(update = {}) {
@@ -39,10 +41,12 @@ function isCommand(text = '') {
 }
 
 function chatType(message = {}) {
-  return str(message.recipient?.chat_type || message.recipient?.type || message.chat_type || message.chat?.type).toLowerCase();
+  const msg = message || {};
+  return str(msg.recipient?.chat_type || msg.recipient?.type || msg.chat_type || msg.chat?.type).toLowerCase();
 }
 
 function isPrivateDialog(message = {}) {
+  if (!message) return false;
   const type = chatType(message);
   if (!type) return true;
   return ['dialog', 'private', 'user', 'dm'].includes(type);
