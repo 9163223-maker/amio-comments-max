@@ -2,7 +2,6 @@
 
 const store = require('../store');
 const giftService = require('./giftService');
-const tenantScope = require('../tenant-scope');
 
 const RUNTIME = 'CC8.1.5-GIFT-CONDITIONS-GATEKEEPER';
 
@@ -18,10 +17,16 @@ function hasPendingInputType(claim = {}) {
   return clean(claim.pendingInputType) === 'promoCode';
 }
 
-function listPendingGiftClaims(userId = '', tenantCtx = null) {
+function campaignRuntimeMatches(campaign = {}, config = {}) {
+  const current = clean(config.runtimeId || config.botId || config.botUserId);
+  const saved = clean(campaign.runtimeId || campaign.botId || campaign.botUserId);
+  if (!saved) return true;
+  return Boolean(current && current === saved);
+}
+
+function listPendingGiftClaims(userId = '', config = {}) {
   const uid = clean(userId);
   if (!uid) return [];
-  const ctx = tenantCtx || tenantScope.ensureTenantContext(uid);
   const claims = Object.values(store.store?.gifts?.claims || {})
     .filter((claim) => clean(claim.userId) === uid)
     .filter((claim) => clean(claim.status) === 'condition_input_required')
@@ -29,27 +34,29 @@ function listPendingGiftClaims(userId = '', tenantCtx = null) {
     .filter((claim) => {
       const campaign = getCampaignForClaim(claim);
       if (!campaign || campaign.enabled === false) return false;
-      return tenantScope.belongsToTenant(campaign, ctx);
+      return campaignRuntimeMatches(campaign, config);
     });
   claims.sort((left, right) => Number(right.updatedAt || 0) - Number(left.updatedAt || 0));
   return claims;
 }
 
-function findPendingGiftClaim(userId = '', tenantCtx = null) {
-  const claims = listPendingGiftClaims(userId, tenantCtx);
+function findPendingGiftClaim(userId = '', config = {}) {
+  const claims = listPendingGiftClaims(userId, config);
   return claims.length === 1 ? claims[0] : null;
 }
 
-async function processPendingGiftClaimInput({ config = {}, userId = '', userName = '', input = '', tenantCtx = null } = {}) {
-  const ctx = tenantCtx || tenantScope.ensureTenantContext(userId);
-  const pendingClaims = listPendingGiftClaims(userId, ctx);
+async function processPendingGiftClaimInput({ config = {}, userId = '', userName = '', input = '' } = {}) {
+  const pendingClaims = listPendingGiftClaims(userId, config);
+  if (pendingClaims.length > 1) {
+    return { handled: true, ambiguous: true, pendingCount: pendingClaims.length, status: 'pending_claim_ambiguous' };
+  }
   if (pendingClaims.length !== 1) {
-    return { handled: false, ambiguous: pendingClaims.length > 1, pendingCount: pendingClaims.length };
+    return { handled: false, pendingCount: pendingClaims.length };
   }
   const pending = pendingClaims[0];
   if (!pending?.campaignId) return { handled: false };
   const campaign = getCampaignForClaim(pending);
-  if (!campaign || campaign.enabled === false || !tenantScope.belongsToTenant(campaign, ctx)) {
+  if (!campaign || campaign.enabled === false || !campaignRuntimeMatches(campaign, config)) {
     return { handled: false, stale: true, campaignId: pending.campaignId };
   }
   const result = await giftService.claimGift({
@@ -73,6 +80,7 @@ async function processPendingGiftClaimInput({ config = {}, userId = '', userName
 
 module.exports = {
   RUNTIME,
+  campaignRuntimeMatches,
   listPendingGiftClaims,
   findPendingGiftClaim,
   processPendingGiftClaimInput
