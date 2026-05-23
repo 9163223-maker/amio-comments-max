@@ -20,8 +20,8 @@ function hasPendingInputType(claim = {}) {
 function campaignRuntimeMatches(campaign = {}, config = {}) {
   const current = clean(config.runtimeId || config.botId || config.botUserId);
   const saved = clean(campaign.runtimeId || campaign.botId || campaign.botUserId);
-  if (!saved) return true;
-  return Boolean(current && current === saved);
+  if (!saved || !current) return true;
+  return current === saved;
 }
 
 function listPendingGiftClaims(userId = '', config = {}) {
