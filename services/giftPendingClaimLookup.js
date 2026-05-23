@@ -14,6 +14,10 @@ function getCampaignForClaim(claim = {}) {
   return store.getGiftCampaign(clean(claim.campaignId));
 }
 
+function hasPendingInputType(claim = {}) {
+  return clean(claim.pendingInputType) === 'promoCode';
+}
+
 function listPendingGiftClaims(userId = '', tenantCtx = null) {
   const uid = clean(userId);
   if (!uid) return [];
@@ -21,7 +25,7 @@ function listPendingGiftClaims(userId = '', tenantCtx = null) {
   const claims = Object.values(store.store?.gifts?.claims || {})
     .filter((claim) => clean(claim.userId) === uid)
     .filter((claim) => clean(claim.status) === 'condition_input_required')
-    .filter((claim) => clean(claim.pendingInputType || 'promoCode'))
+    .filter(hasPendingInputType)
     .filter((claim) => {
       const campaign = getCampaignForClaim(claim);
       if (!campaign || campaign.enabled === false) return false;
