@@ -90,10 +90,16 @@ function hasWrongPromoCode(gate = {}, providedCode = "") {
   return Boolean(gate.checks?.some((item) => item.type === 'promoCode' && !item.ok));
 }
 
+async function notifyConditionFailure({ botToken, callbackId, userId, notification }) {
+  const text = String(notification || "Сначала выполните условия получения подарка").trim();
+  await safeAnswerCallback({ botToken, callbackId, notification: text });
+  if (!callbackId) await safeSendPrompt({ botToken, userId, text });
+}
+
 async function claimGift({ botToken, campaignId, userId, userName = "", callbackId = "", providedCode = "" }) {
   const campaign = getGiftCampaign(campaignId);
   if (!campaign || !campaign.enabled) {
-    await safeAnswerCallback({ botToken, callbackId, notification: "Акция сейчас недоступна" });
+    await notifyConditionFailure({ botToken, callbackId, userId, notification: "Акция сейчас недоступна" });
     return { ok: false, status: "campaign_not_found" };
   }
 
@@ -115,7 +121,7 @@ async function claimGift({ botToken, campaignId, userId, userName = "", callback
       return { ok: true, status: "condition_input_required", campaign, claim, gate };
     }
 
-    await safeAnswerCallback({ botToken, callbackId, notification: gate.notification || "Сначала выполните условия получения подарка" });
+    await notifyConditionFailure({ botToken, callbackId, userId, notification: gate.notification || "Сначала выполните условия получения подарка" });
     return { ok: true, status: "conditions_not_met", campaign, claim, gate };
   }
 
