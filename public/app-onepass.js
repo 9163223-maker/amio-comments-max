@@ -781,9 +781,10 @@ function beginTextSend(fingerprint) {
   state.textSendInFlight[key] = Date.now();
   return true;
 }
-}
+function endTextSend(fingerprint) {
   const key = clean(fingerprint);
   if (key && state.textSendInFlight) delete state.textSendInFlight[key];
+}
 }
 async function sendComment() {
   const text = clean(refs.commentInput && refs.commentInput.value);
