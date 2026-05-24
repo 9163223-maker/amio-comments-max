@@ -5,6 +5,9 @@ const RUNTIME = 'CC8.1.9-COMMENT-SKELETON-CONSUMER-GUARDED';
 const MARKER = '__ADMINKIT_CC8_1_9_COMMENT_SKELETON_CONSUMER_GUARDED__';
 const LEGACY_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
 const LEGACY_SRC = '/public/app-onepass.js?v=7564';
+const GUARD_TIMEOUT_MS = 1200;
+const SKELETON_TIMEOUT_MS = 1600;
+const HYDRATE_TIMEOUT_MS = 2500;
 if (window[MARKER]) return;
 window[MARKER] = true;
 window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_RUNTIME__ = RUNTIME;
@@ -52,6 +55,30 @@ function buildSkeletonUrl() {
   params.set('t', String(Date.now()));
   return '/api/adminkit/comment-open-state?' + params.toString();
 }
+function fetchJsonWithTimeout(url, timeoutMs, label) {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const timer = window.setTimeout(() => {
+      if (done) return;
+      done = true;
+      reject(new Error(clean(label) || 'fetch_timeout'));
+    }, Math.max(250, Number(timeoutMs || 0) || 1000));
+    fetch(url, { cache: 'no-store' }).then((response) => {
+      return response.json().catch(() => ({})).then((data) => ({ response, data }));
+    }).then(({ response, data }) => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(timer);
+      if (!response.ok || data.ok === false) reject(new Error(data.error || ('http_' + response.status)));
+      else resolve(data);
+    }).catch((error) => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(timer);
+      reject(error);
+    });
+  });
+}
 function contractAllowsSkeleton(info) {
   return Boolean(info && info.ok && info.commentOpenState && info.commentOpenState.legacyRuntimeStable === true && info.commentOpenState.skeletonOptInWorks === true && info.commentOpenState.hydrateUrlStripsSkeleton === true && info.guardrails && info.guardrails.defaultPayloadMustRemainLegacy === true && info.guardrails.skeletonMustStayOptIn === true && info.guardrails.hydrateUrlMustFetchFullLegacyPayload === true && info.guardrails.noUserUiChange === true);
 }
@@ -84,33 +111,33 @@ function showSkeleton(data) {
 async function prefetchHydrate(data) {
   const url = clean(data && data.hydrateUrl);
   if (!url) return null;
-  const response = await fetch(url, { cache: 'no-store' });
-  const full = await response.json().catch(() => ({}));
-  if (!response.ok || full.ok === false) throw new Error(full.error || 'hydrate_failed');
+  const full = await fetchJsonWithTimeout(url, HYDRATE_TIMEOUT_MS, 'hydrate_timeout');
   window.__ADMINKIT_PR67_PREFETCHED_OPEN_STATE__ = full;
   return full;
 }
 async function boot() {
   let contract = null;
   try {
-    const response = await fetch('/debug/comment-ui/contract?t=' + Date.now(), { cache: 'no-store' });
-    contract = await response.json().catch(() => null);
-  } catch (_) {}
+    contract = await fetchJsonWithTimeout('/debug/comment-ui/contract?t=' + Date.now(), GUARD_TIMEOUT_MS, 'contract_timeout');
+  } catch (error) {
+    window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_ERROR__ = clean(error && error.message);
+    loadLegacy('contract_timeout');
+    return;
+  }
   window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_CONTRACT__ = contract;
   if (!contractAllowsSkeleton(contract)) { loadLegacy('contract_guard_failed'); return; }
   const url = buildSkeletonUrl();
   if (!url) { loadLegacy('identity_guard_failed'); return; }
   try {
-    const response = await fetch(url, { cache: 'no-store' });
-    const skeleton = await response.json().catch(() => ({}));
-    if (!response.ok || skeleton.ok === false || skeleton.skeleton !== true || !skeleton.hydrateUrl) throw new Error(skeleton.error || 'skeleton_invalid');
+    const skeleton = await fetchJsonWithTimeout(url, SKELETON_TIMEOUT_MS, 'skeleton_timeout');
+    if (skeleton.skeleton !== true || !skeleton.hydrateUrl) throw new Error(skeleton.error || 'skeleton_invalid');
     window.__ADMINKIT_PR67_INITIAL_SKELETON__ = skeleton;
     showSkeleton(skeleton);
     prefetchHydrate(skeleton).catch((error) => { window.__ADMINKIT_PR67_HYDRATE_ERROR__ = clean(error && error.message); });
     window.setTimeout(() => loadLegacy(''), 80);
   } catch (error) {
     window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_ERROR__ = clean(error && error.message);
-    loadLegacy('skeleton_fetch_failed');
+    loadLegacy(clean(error && error.message) === 'skeleton_timeout' ? 'skeleton_timeout' : 'skeleton_fetch_failed');
   }
 }
 
