@@ -4,13 +4,14 @@ const store = require('./store');
 const { listComments } = require('./services/commentService');
 const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.1.6-COMMENT-OPEN-TIMING-INSTRUMENTATION';
+const RUNTIME = 'CC7.5.46-COMMENT-OPEN-STATE-CANONICAL';
+const INSTRUMENTATION_VERSION = 'CC8.1.6-COMMENT-OPEN-TIMING-INSTRUMENTATION';
 
 function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
 function key(value) { return store.normalizeKey ? store.normalizeKey(value || '') : clean(value); }
 function nowMs() { return Date.now(); }
 function makeTraceId() { return `co_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`; }
-function timed(name, startedAt, data = {}) { return timing.log(name, { ...(data || {}), durationMs: nowMs() - startedAt }); }
+function timed(name, startedAt, data = {}) { return timing.log(name, { instrumentationVersion: INSTRUMENTATION_VERSION, ...(data || {}), durationMs: nowMs() - startedAt }); }
 function safeDecode(value) {
   let current = String(value || '');
   for (let i = 0; i < 5; i += 1) {
@@ -162,7 +163,7 @@ function install(app) {
     const totalStarted = nowMs();
     const traceId = clean(req.query && (req.query.trace_id || req.query.traceId)) || makeTraceId();
     noCache(res);
-    timing.log('comment_open.request.received', { traceId, route: '/api/adminkit/comment-open-state', durationMs: 0, queryKeys: Object.keys(req.query || {}).sort().join(',') });
+    timing.log('comment_open.request.received', { instrumentationVersion: INSTRUMENTATION_VERSION, traceId, route: '/api/adminkit/comment-open-state', durationMs: 0, queryKeys: Object.keys(req.query || {}).sort().join(',') });
     try {
       const resolveStarted = nowMs();
       const resolved = resolvePost(req.query || {});
@@ -187,4 +188,4 @@ function install(app) {
   });
   return app;
 }
-module.exports = { RUNTIME, install, resolvePost, buildMeta, collectCandidates, compactToCommentKey };
+module.exports = { RUNTIME, INSTRUMENTATION_VERSION, install, resolvePost, buildMeta, collectCandidates, compactToCommentKey };
