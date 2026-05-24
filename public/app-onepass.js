@@ -2,9 +2,11 @@
 'use strict';
 
 const RUNTIME = 'CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE';
+const CORE_SEND_RUNTIME = 'CC8.1.12-CORE-FAST-TEXT-SEND';
 const MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
 if (window[MARKER]) return;
 window[MARKER] = true;
+window.__ADMINKIT_CORE_FAST_TEXT_SEND_RUNTIME__ = CORE_SEND_RUNTIME;
 
 function byId(id) { return document.getElementById(id); }
 function clean(v) { return String(v || '').replace(/\s+/g, ' ').trim(); }
@@ -272,7 +274,7 @@ const state = {
   title: params.title, raw: params.raw, launchMode: params.launchMode, hasCommentIdentity: params.hasCommentIdentity,
   currentUserId: getBridgeUserId(), currentUserName: getBridgeUserName(), currentUserAvatarUrl: getBridgeAvatarUrl(),
   comments: [], meta: {}, commentsCount: 0, pollTimer: null, requestInFlight: false,
-  sendInFlight: false, lastSendFingerprint: '', lastSendStartedAt: 0,
+  sendInFlight: false, textSendInFlight: {}, lastSendFingerprint: '', lastSendStartedAt: 0,
   pendingPhoto: null,
   commentTrace: [],
   searchOpen: false, searchQuery: '',
@@ -300,7 +302,7 @@ function setSendingUi(isSending) {
   if (refs.commentInput) refs.commentInput.readOnly = Boolean(isSending);
 }
 function pushCommentTrace(event, payload) {
-  const allowed = { attachment_pick: 1, attachment_compress_start: 1, attachment_compress_ok: 1, comment_create_start: 1, comment_create_ok: 1, comment_create_error: 1, optimistic_comment_inserted: 1, optimistic_comment_replaced: 1 };
+  const allowed = { attachment_pick: 1, attachment_compress_start: 1, attachment_compress_ok: 1, comment_create_start: 1, comment_create_ok: 1, comment_create_error: 1, optimistic_comment_inserted: 1, optimistic_comment_replaced: 1, text_comment_send_queued: 1, text_comment_send_released: 1 };
   if (!allowed[String(event || '')]) return;
   const safe = payload && typeof payload === 'object' ? payload : {};
   const attachment = safe.attachment && typeof safe.attachment === 'object' ? safe.attachment : {};
@@ -308,6 +310,7 @@ function pushCommentTrace(event, payload) {
     at: Date.now(),
     event: clean(event),
     runtimeVersion: RUNTIME,
+    coreSendRuntime: CORE_SEND_RUNTIME,
     commentKey: clean(safe.commentKey || state.commentKey),
     clientCommentId: clean(safe.clientCommentId),
     originalSize: Number(safe.originalSize || 0) || 0,
@@ -489,7 +492,7 @@ function emitTraceEvent(event, payload) {
   const eventName = clean(event);
   const traceEnabled = /(?:^|[?&])(debugTrace|trace)=1(?:&|$)/.test(String(location.search || ''));
   if (!traceEnabled && (eventName === 'comment_render_skip_unchanged' || eventName === 'comment_render_apply' || eventName === 'attachment_render_missing_url')) return;
-  const body = { event: eventName, payload: payload && typeof payload === 'object' ? payload : {}, runtimeVersion: RUNTIME };
+  const body = { event: eventName, payload: payload && typeof payload === 'object' ? payload : {}, runtimeVersion: RUNTIME, coreSendRuntime: CORE_SEND_RUNTIME };
   try {
     if (navigator.sendBeacon) {
       navigator.sendBeacon('/api/debug/comment-trace-event', new Blob([JSON.stringify(body)], { type: 'application/json' }));
@@ -771,26 +774,52 @@ function hasRenderablePhotoSource(att) {
 function makeSendFingerprint(text) {
   return [state.commentKey || '', outgoingUserId() || 'guest', text || '', state.pendingPhoto ? 'has_photo' : 'no_photo'].join('|');
 }
+function pruneTextSendGuards() {
+  const now = Date.now();
+  const guards = state.textSendInFlight && typeof state.textSendInFlight === 'object' ? state.textSendInFlight : {};
+  Object.keys(guards).forEach((key) => { if (now - Number(guards[key] || 0) > 10000) delete guards[key]; });
+  state.textSendInFlight = guards;
+}
+function beginTextSend(fingerprint) {
+  const key = clean(fingerprint);
+  if (!key) return false;
+  pruneTextSendGuards();
+  if (state.textSendInFlight[key]) return false;
+  state.textSendInFlight[key] = Date.now();
+  return true;
+}
+function endTextSend(fingerprint) {
+  const key = clean(fingerprint);
+  if (key && state.textSendInFlight) delete state.textSendInFlight[key];
+}
 async function sendComment() {
   const text = clean(refs.commentInput && refs.commentInput.value);
   const hasPhoto = Boolean(state.pendingPhoto && state.pendingPhoto.file);
+  const textOnly = !hasPhoto;
   if ((!text && !hasPhoto) || !state.commentKey) return;
   const fingerprint = makeSendFingerprint(text);
   if (state.sendInFlight) return;
-  if (fingerprint === state.lastSendFingerprint && Date.now() - Number(state.lastSendStartedAt || 0) < 8000) return;
-  state.sendInFlight = true;
+  if (hasPhoto) {
+    if (fingerprint === state.lastSendFingerprint && Date.now() - Number(state.lastSendStartedAt || 0) < 8000) return;
+    state.sendInFlight = true;
+    setInlineStatus('Отправляем…', false);
+    setSendingUi(true);
+  } else {
+    if (!beginTextSend(fingerprint)) return;
+    setInlineStatus('', false);
+  }
   state.lastSendFingerprint = fingerprint;
   state.lastSendStartedAt = Date.now();
-  setInlineStatus('Отправляем…', false);
-  setSendingUi(true);
   const optimisticCommentId = 'client_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
   const preview = clean(state.pendingPhoto && ((state.pendingPhoto.compressed && state.pendingPhoto.compressed.dataUrl) || state.pendingPhoto.previewUrl));
   const optimisticAttachments = hasPhoto ? [{ type: 'image', mimeType: clean(state.pendingPhoto && state.pendingPhoto.mimeType) || 'image/jpeg', fileName: clean(state.pendingPhoto && state.pendingPhoto.fileName) || 'photo.jpg', thumbDataUrl: preview }] : [];
   const optimisticComment = { id: optimisticCommentId, clientCommentId: optimisticCommentId, userId: outgoingUserId(), userName: outgoingUserName(), text, own: true, createdAt: new Date().toISOString(), sendStatus: 'sending', attachments: optimisticAttachments };
   state.comments = (state.comments || []).concat([optimisticComment]);
   pushCommentTrace('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
+  if (textOnly) pushCommentTrace('text_comment_send_queued', { clientCommentId: optimisticCommentId, status: 'queued' });
   emitTraceEvent('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
   if (refs.commentInput) refs.commentInput.value = '';
+  autoResizeComposerInput();
   renderComments();
   scrollToBottom(true);
   try {
@@ -805,7 +834,6 @@ async function sendComment() {
     if (!response.ok || data.ok === false) {
       state.comments = (state.comments || []).map((x) => (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId) ? Object.assign({}, x, { sendStatus: 'error' }) : x);
       renderComments();
-    scrollToBottom(true);
       scrollToBottom(true);
       pushCommentTrace('comment_create_error', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length, error: clean(data.error || data.message || ('http_' + response.status)) });
       setInlineStatus(clean(data.message || data.userMessage || data.friendlyMessage) || 'Комментарий не опубликован: сработала модерация или правила обсуждения.', true);
@@ -826,12 +854,12 @@ async function sendComment() {
       });
       state.comments = (state.comments || []).map((x) => (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId) ? mergedComment : x);
       pushCommentTrace('optimistic_comment_replaced', { clientCommentId: optimisticCommentId, status: 'ok' });
+      if (textOnly) pushCommentTrace('text_comment_send_released', { clientCommentId: optimisticCommentId, status: 'ok' });
       emitTraceEvent('optimistic_comment_replaced', { clientCommentId: optimisticCommentId, status: 'ok' });
       renderComments();
-    scrollToBottom(true);
       scrollToBottom(true);
     }
-    clearPendingPhoto();
+    if (hasPhoto) clearPendingPhoto();
     state.replyToId = '';
     renderReplyComposer();
     state.lastSendFingerprint = '';
@@ -847,8 +875,12 @@ async function sendComment() {
     else setInlineStatus('Не удалось отправить комментарий. Попробуйте ещё раз.', true);
   }
   finally {
-    state.sendInFlight = false;
-    setSendingUi(false);
+    if (hasPhoto) {
+      state.sendInFlight = false;
+      setSendingUi(false);
+    } else {
+      endTextSend(fingerprint);
+    }
   }
 }
 function openMaxLink(target) {
