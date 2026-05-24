@@ -114,12 +114,30 @@ function testCommentUiContractPayloadShape() {
   assert.ok(!Object.prototype.hasOwnProperty.call(route, 'claimGift'), 'comment route must not expose or mix gift service behavior');
 }
 
+function testCommentUiContractAudit() {
+  const audit = load('../comment-ui-contract-audit-cc8');
+  assert.strictEqual(audit.RUNTIME, 'CC8.1.8-COMMENT-UI-CONTRACT-AUDIT');
+  assert.strictEqual(typeof audit.info, 'function', 'comment UI contract audit must export info');
+  assert.strictEqual(typeof audit.recentCommentOpenEvents, 'function', 'comment UI contract audit must export timing reader');
+  const info = audit.info();
+  assert.strictEqual(info.ok, true);
+  assert.strictEqual(info.auditRuntimeVersion, audit.RUNTIME);
+  assert.strictEqual(info.commentOpenState.legacyRuntimeStable, true);
+  assert.strictEqual(info.commentOpenState.skeletonOptInWorks, true);
+  assert.strictEqual(info.commentOpenState.hydrateUrlStripsSkeleton, true);
+  assert.strictEqual(info.guardrails.defaultPayloadMustRemainLegacy, true);
+  assert.strictEqual(info.guardrails.noDatabaseRead, true);
+  assert.strictEqual(info.guardrails.noMaxApiCall, true);
+  assert.strictEqual(info.guardrails.noUserUiChange, true);
+}
+
 function testCriticalModulesLoad() {
   const modules = [
     '../clean-entrypoint-pr41',
     '../clean-bot-flow-guard-1546',
     '../clean-bot-posts-open-async-1547',
     '../comment-open-state-route-1546',
+    '../comment-ui-contract-audit-cc8',
     '../gifts-flow-cc8-fast',
     '../gifts-flow-cc811-ux',
     '../services/giftConditionGate',
@@ -136,6 +154,7 @@ function testCriticalModulesLoad() {
   testConditionGateFailClosed();
   testCommentOpenRouteInstrumentationExports();
   testCommentUiContractPayloadShape();
+  testCommentUiContractAudit();
   console.log('timing/menu audit smoke ok');
 })().catch((error) => {
   console.error(error && error.stack || error);
