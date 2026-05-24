@@ -64,11 +64,23 @@ function testConditionGateFailClosed() {
   assert.strictEqual(Boolean(raw.start), false, 'impossible raw time window must not parse as valid');
 }
 
+function testCommentOpenRouteInstrumentationExports() {
+  const route = load('../comment-open-state-route-1546');
+  assert.strictEqual(route.RUNTIME, 'CC8.1.6-COMMENT-OPEN-TIMING-INSTRUMENTATION');
+  assert.strictEqual(typeof route.install, 'function', 'comment open route install must be exported');
+  assert.strictEqual(typeof route.resolvePost, 'function', 'comment open resolvePost must remain exported');
+  assert.strictEqual(typeof route.buildMeta, 'function', 'comment open buildMeta must remain exported');
+  assert.strictEqual(typeof route.collectCandidates, 'function', 'comment open collectCandidates should be exported for smoke coverage');
+  assert.strictEqual(typeof route.compactToCommentKey, 'function', 'compactToCommentKey should be exported for smoke coverage');
+  assert.strictEqual(route.compactToCommentKey('ck_12345_678'), '12345:678');
+}
+
 function testCriticalModulesLoad() {
   const modules = [
     '../clean-entrypoint-pr41',
     '../clean-bot-flow-guard-1546',
     '../clean-bot-posts-open-async-1547',
+    '../comment-open-state-route-1546',
     '../gifts-flow-cc8-fast',
     '../gifts-flow-cc811-ux',
     '../services/giftConditionGate',
@@ -83,6 +95,7 @@ function testCriticalModulesLoad() {
   await testBridgeNullWebhook();
   await testGiftConditionInputScreensReplaceKeyboard();
   testConditionGateFailClosed();
+  testCommentOpenRouteInstrumentationExports();
   console.log('timing/menu audit smoke ok');
 })().catch((error) => {
   console.error(error && error.stack || error);
