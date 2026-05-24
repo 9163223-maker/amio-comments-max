@@ -7,6 +7,7 @@ const ASSET_VERSION = 'v7564';
 if (window[LOADER_MARKER]) return;
 window[LOADER_MARKER] = true;
 window.__ADMINKIT_PUBLIC_APP_RUNTIME__ = RUNTIME;
+window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_RUNTIME__ = 'CC8.1.9-COMMENT-SKELETON-CONSUMER-GUARDED';
 function bootOnepass() {
   if (window[ONEPASS_MARKER]) return;
   const script = document.createElement('script');
