@@ -785,7 +785,6 @@ function endTextSend(fingerprint) {
   const key = clean(fingerprint);
   if (key && state.textSendInFlight) delete state.textSendInFlight[key];
 }
-}
 async function sendComment() {
   const text = clean(refs.commentInput && refs.commentInput.value);
   const hasPhoto = Boolean(state.pendingPhoto && state.pendingPhoto.file);
