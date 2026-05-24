@@ -2,11 +2,15 @@
 
 const store = require('./store');
 const { listComments } = require('./services/commentService');
+const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC7.5.46-COMMENT-OPEN-STATE-CANONICAL';
+const RUNTIME = 'CC8.1.6-COMMENT-OPEN-TIMING-INSTRUMENTATION';
 
 function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
 function key(value) { return store.normalizeKey ? store.normalizeKey(value || '') : clean(value); }
+function nowMs() { return Date.now(); }
+function makeTraceId() { return `co_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`; }
+function timed(name, startedAt, data = {}) { return timing.log(name, { ...(data || {}), durationMs: nowMs() - startedAt }); }
 function safeDecode(value) {
   let current = String(value || '');
   for (let i = 0; i < 5; i += 1) {
@@ -155,20 +159,32 @@ function install(app) {
   if (!app || app.__adminkitCommentOpenState1546) return app;
   app.__adminkitCommentOpenState1546 = true;
   app.get('/api/adminkit/comment-open-state', (req, res) => {
+    const totalStarted = nowMs();
+    const traceId = clean(req.query && (req.query.trace_id || req.query.traceId)) || makeTraceId();
     noCache(res);
+    timing.log('comment_open.request.received', { traceId, route: '/api/adminkit/comment-open-state', durationMs: 0, queryKeys: Object.keys(req.query || {}).sort().join(',') });
     try {
+      const resolveStarted = nowMs();
       const resolved = resolvePost(req.query || {});
       const commentKey = key(resolved.commentKey || (resolved.post && resolved.post.commentKey) || '');
+      timed('comment_open.resolver.end', resolveStarted, { traceId, ok: !!commentKey, resolveReason: resolved.reason, commentKey, hasPost: !!resolved.post });
       if (!commentKey) {
+        timed('comment_open.response.sent', totalStarted, { traceId, ok: false, status: 404, resolveReason: resolved.reason });
         return res.status(404).json({ ok: false, error: 'post_not_found', runtimeVersion: RUNTIME, reason: resolved.reason, requested: req.query || {} });
       }
+      const commentsStarted = nowMs();
       const comments = listComments(commentKey, clean(req.query.userId || req.query.user_id || '')) || [];
+      timed('comment_open.comments_fetch.end', commentsStarted, { traceId, ok: true, commentKey, commentsCount: comments.length });
+      const metaStarted = nowMs();
       const meta = buildMeta(resolved.post || null, commentKey, req.query || {}, resolved.reason);
+      timed('comment_open.meta_build.end', metaStarted, { traceId, ok: true, commentKey, resolveReason: resolved.reason });
+      timed('comment_open.response.sent', totalStarted, { traceId, ok: true, status: 200, commentKey, commentsCount: comments.length, resolveReason: resolved.reason });
       return res.json({ ok: true, runtimeVersion: RUNTIME, meta, post: resolved.post || null, comments, commentsCount: comments.length, count: comments.length, safe: true });
     } catch (error) {
+      timed('comment_open.error', totalStarted, { traceId, ok: false, error: error && error.message || 'comment_open_state_failed' });
       return res.status(500).json({ ok: false, error: error && error.message || 'comment_open_state_failed', runtimeVersion: RUNTIME });
     }
   });
   return app;
 }
-module.exports = { RUNTIME, install, resolvePost, buildMeta };
+module.exports = { RUNTIME, install, resolvePost, buildMeta, collectCandidates, compactToCommentKey };
