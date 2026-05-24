@@ -774,19 +774,13 @@ function hasRenderablePhotoSource(att) {
 function makeSendFingerprint(text) {
   return [state.commentKey || '', outgoingUserId() || 'guest', text || '', state.pendingPhoto ? 'has_photo' : 'no_photo'].join('|');
 }
-function pruneTextSendGuards() {
-  const now = Date.now();
-  const guards = state.textSendInFlight && typeof state.textSendInFlight === 'object' ? state.textSendInFlight : {};
-  Object.keys(guards).forEach((key) => { if (now - Number(guards[key] || 0) > 10000) delete guards[key]; });
-  state.textSendInFlight = guards;
-}
 function beginTextSend(fingerprint) {
   const key = clean(fingerprint);
   if (!key) return false;
-  pruneTextSendGuards();
   if (state.textSendInFlight[key]) return false;
   state.textSendInFlight[key] = Date.now();
   return true;
+}
 }
 function endTextSend(fingerprint) {
   const key = clean(fingerprint);
