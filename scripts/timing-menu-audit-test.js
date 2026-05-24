@@ -66,7 +66,8 @@ function testConditionGateFailClosed() {
 
 function testCommentOpenRouteInstrumentationExports() {
   const route = load('../comment-open-state-route-1546');
-  assert.strictEqual(route.RUNTIME, 'CC8.1.6-COMMENT-OPEN-TIMING-INSTRUMENTATION');
+  assert.strictEqual(route.RUNTIME, 'CC7.5.46-COMMENT-OPEN-STATE-CANONICAL');
+  assert.strictEqual(route.INSTRUMENTATION_VERSION, 'CC8.1.6-COMMENT-OPEN-TIMING-INSTRUMENTATION');
   assert.strictEqual(typeof route.install, 'function', 'comment open route install must be exported');
   assert.strictEqual(typeof route.resolvePost, 'function', 'comment open resolvePost must remain exported');
   assert.strictEqual(typeof route.buildMeta, 'function', 'comment open buildMeta must remain exported');
