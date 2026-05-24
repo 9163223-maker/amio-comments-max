@@ -10,6 +10,13 @@ function load(modulePath) {
   return mod;
 }
 
+function runSmoke(script, label) {
+  const result = spawnSync(process.execPath, [path.join(__dirname, script)], { encoding: 'utf8' });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  assert.strictEqual(result.status, 0, `${label} must pass`);
+}
+
 const conditionGate = load('../services/giftConditionGate');
 assert.strictEqual(typeof conditionGate.evaluateGiftConditions, 'function', 'giftConditionGate.evaluateGiftConditions must be a function');
 
@@ -22,9 +29,7 @@ assert.strictEqual(typeof giftService.claimGift, 'function', 'giftService.claimG
 const bridge = load('../bridge-pr56');
 assert.strictEqual(typeof bridge.createCleanBot, 'function', 'bridge-pr56.createCleanBot must be a function');
 
-const audit = spawnSync(process.execPath, [path.join(__dirname, 'timing-menu-audit-test.js')], { encoding: 'utf8' });
-if (audit.stdout) process.stdout.write(audit.stdout);
-if (audit.stderr) process.stderr.write(audit.stderr);
-assert.strictEqual(audit.status, 0, 'timing/menu audit smoke test must pass');
+runSmoke('timing-menu-audit-test.js', 'timing/menu audit smoke test');
+runSmoke('comment-skeleton-consumer-pr67-test.js', 'comment skeleton consumer PR67 smoke test');
 
 console.log('smoke ok');
