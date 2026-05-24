@@ -79,12 +79,39 @@ function testCommentOpenRouteInstrumentationExports() {
   assert.strictEqual(typeof route.compactToCommentKey, 'function', 'compactToCommentKey should be exported for smoke coverage');
   assert.strictEqual(route.compactToCommentKey('ck_12345_678'), '12345:678');
   assert.strictEqual(route.wantsSkeleton({ skeleton: '1' }), true);
+  assert.strictEqual(route.wantsSkeleton({ skeleton_first: '1' }), true);
+  assert.strictEqual(route.wantsSkeleton({ skeletonFirst: '1' }), true);
   assert.strictEqual(route.wantsSkeleton({}), false);
-  const url = route.hydrateUrl({ commentKey: '123:456', skeleton: '1', userId: 'u1' });
+  assert.strictEqual(route.wantsSkeleton({ skeleton: '0' }), false);
+  const url = route.hydrateUrl({ commentKey: '123:456', skeleton: '1', skeleton_first: '1', skeletonFirst: '1', userId: 'u1' });
   assert.ok(url.includes('/api/adminkit/comment-open-state?'), 'hydrateUrl must point to the same endpoint');
   assert.ok(url.includes('commentKey=123%3A456'), 'hydrateUrl must preserve commentKey');
   assert.ok(url.includes('userId=u1'), 'hydrateUrl must preserve userId');
   assert.ok(!url.includes('skeleton='), 'hydrateUrl must remove skeleton flag to fetch the full legacy payload');
+  assert.ok(!url.includes('skeleton_first='), 'hydrateUrl must remove skeleton_first flag');
+  assert.ok(!url.includes('skeletonFirst='), 'hydrateUrl must remove skeletonFirst flag');
+}
+
+function testCommentUiContractPayloadShape() {
+  const route = load('../comment-open-state-route-1546');
+  const query = { commentKey: '123:456', userId: 'u1', skeleton: '1', title: 'Contract test post' };
+  const resolved = { post: { commentKey: '123:456', postId: '456', channelId: '123', originalText: 'Contract test post' }, commentKey: '123:456', reason: 'commentKey' };
+  const payload = route.buildSkeletonPayload(resolved, '123:456', query, 'trace_contract');
+  assert.strictEqual(payload.ok, true);
+  assert.strictEqual(payload.runtimeVersion, route.RUNTIME, 'skeleton must preserve legacy runtimeVersion payload contract');
+  assert.strictEqual(payload.skeleton, true);
+  assert.strictEqual(payload.loading, true);
+  assert.strictEqual(payload.traceId, 'trace_contract');
+  assert.ok(payload.hydrateUrl, 'skeleton payload must expose hydrateUrl');
+  assert.ok(!payload.hydrateUrl.includes('skeleton='), 'skeleton hydrateUrl must fetch full payload');
+  assert.ok(payload.meta && payload.meta.commentKey === '123:456', 'skeleton payload must include meta/commentKey');
+  assert.ok(Object.prototype.hasOwnProperty.call(payload, 'post'), 'skeleton payload must keep post key');
+  assert.ok(Array.isArray(payload.comments), 'skeleton payload must keep comments array key');
+  assert.strictEqual(payload.comments.length, 0, 'skeleton payload should not fetch comments');
+  assert.strictEqual(payload.commentsCount, 0, 'skeleton commentsCount should be zero before hydrate');
+  assert.strictEqual(payload.count, 0, 'skeleton count should be zero before hydrate');
+  assert.strictEqual(payload.safe, true);
+  assert.ok(!Object.prototype.hasOwnProperty.call(route, 'claimGift'), 'comment route must not expose or mix gift service behavior');
 }
 
 function testCriticalModulesLoad() {
@@ -108,6 +135,7 @@ function testCriticalModulesLoad() {
   await testGiftConditionInputScreensReplaceKeyboard();
   testConditionGateFailClosed();
   testCommentOpenRouteInstrumentationExports();
+  testCommentUiContractPayloadShape();
   console.log('timing/menu audit smoke ok');
 })().catch((error) => {
   console.error(error && error.stack || error);
