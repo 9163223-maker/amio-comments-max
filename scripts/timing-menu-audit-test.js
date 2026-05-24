@@ -68,12 +68,23 @@ function testCommentOpenRouteInstrumentationExports() {
   const route = load('../comment-open-state-route-1546');
   assert.strictEqual(route.RUNTIME, 'CC7.5.46-COMMENT-OPEN-STATE-CANONICAL');
   assert.strictEqual(route.INSTRUMENTATION_VERSION, 'CC8.1.6-COMMENT-OPEN-TIMING-INSTRUMENTATION');
+  assert.strictEqual(route.SKELETON_VERSION, 'CC8.1.7-COMMENT-OPEN-SKELETON-OPTIN');
   assert.strictEqual(typeof route.install, 'function', 'comment open route install must be exported');
   assert.strictEqual(typeof route.resolvePost, 'function', 'comment open resolvePost must remain exported');
   assert.strictEqual(typeof route.buildMeta, 'function', 'comment open buildMeta must remain exported');
+  assert.strictEqual(typeof route.buildSkeletonPayload, 'function', 'comment open skeleton builder must be exported');
+  assert.strictEqual(typeof route.hydrateUrl, 'function', 'hydrateUrl helper should be exported');
+  assert.strictEqual(typeof route.wantsSkeleton, 'function', 'wantsSkeleton helper should be exported');
   assert.strictEqual(typeof route.collectCandidates, 'function', 'comment open collectCandidates should be exported for smoke coverage');
   assert.strictEqual(typeof route.compactToCommentKey, 'function', 'compactToCommentKey should be exported for smoke coverage');
   assert.strictEqual(route.compactToCommentKey('ck_12345_678'), '12345:678');
+  assert.strictEqual(route.wantsSkeleton({ skeleton: '1' }), true);
+  assert.strictEqual(route.wantsSkeleton({}), false);
+  const url = route.hydrateUrl({ commentKey: '123:456', skeleton: '1', userId: 'u1' });
+  assert.ok(url.includes('/api/adminkit/comment-open-state?'), 'hydrateUrl must point to the same endpoint');
+  assert.ok(url.includes('commentKey=123%3A456'), 'hydrateUrl must preserve commentKey');
+  assert.ok(url.includes('userId=u1'), 'hydrateUrl must preserve userId');
+  assert.ok(!url.includes('skeleton='), 'hydrateUrl must remove skeleton flag to fetch the full legacy payload');
 }
 
 function testCriticalModulesLoad() {
