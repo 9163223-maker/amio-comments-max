@@ -782,7 +782,6 @@ function beginTextSend(fingerprint) {
   return true;
 }
 }
-function endTextSend(fingerprint) {
   const key = clean(fingerprint);
   if (key && state.textSendInFlight) delete state.textSendInFlight[key];
 }
