@@ -29,7 +29,13 @@ assert.strictEqual(typeof giftService.claimGift, 'function', 'giftService.claimG
 const bridge = load('../bridge-pr56');
 assert.strictEqual(typeof bridge.createCleanBot, 'function', 'bridge-pr56.createCleanBot must be a function');
 
+const postPatcher = load('../services/postPatcher');
+assert.strictEqual(typeof postPatcher.patchStoredPost, 'function', 'postPatcher.patchStoredPost must be a function');
+assert.strictEqual(typeof postPatcher.getPatchCoalescingSnapshot, 'function', 'postPatcher.getPatchCoalescingSnapshot must be a function');
+assert.strictEqual(postPatcher.PATCH_COALESCE_RUNTIME, 'CC8.1.10-PATCH-REPATCH-COALESCING', 'post patch coalescing runtime must be stable');
+
 runSmoke('timing-menu-audit-test.js', 'timing/menu audit smoke test');
 runSmoke('comment-skeleton-consumer-pr67-test.js', 'comment skeleton consumer PR67 smoke test');
+runSmoke('patch-coalescing-pr68-test.js', 'patch coalescing PR68 smoke test');
 
 console.log('smoke ok');
