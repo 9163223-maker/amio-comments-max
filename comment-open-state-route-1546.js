@@ -6,12 +6,26 @@ const timing = require('./v3-ui-timing-cc8');
 
 const RUNTIME = 'CC7.5.46-COMMENT-OPEN-STATE-CANONICAL';
 const INSTRUMENTATION_VERSION = 'CC8.1.6-COMMENT-OPEN-TIMING-INSTRUMENTATION';
+const SKELETON_VERSION = 'CC8.1.7-COMMENT-OPEN-SKELETON-OPTIN';
 
 function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
 function key(value) { return store.normalizeKey ? store.normalizeKey(value || '') : clean(value); }
 function nowMs() { return Date.now(); }
 function makeTraceId() { return `co_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`; }
 function timed(name, startedAt, data = {}) { return timing.log(name, { instrumentationVersion: INSTRUMENTATION_VERSION, ...(data || {}), durationMs: nowMs() - startedAt }); }
+function truthy(value) { return ['1', 'true', 'yes', 'on'].includes(clean(value).toLowerCase()); }
+function wantsSkeleton(query = {}) { return truthy(query.skeleton || query.skeleton_first || query.skeletonFirst); }
+function hydrateUrl(query = {}) {
+  const params = new URLSearchParams();
+  for (const [name, value] of Object.entries(query || {})) {
+    if (['skeleton', 'skeleton_first', 'skeletonFirst'].includes(name)) continue;
+    if (value === undefined || value === null) continue;
+    const values = Array.isArray(value) ? value : [value];
+    values.forEach((item) => params.append(name, String(item)));
+  }
+  const suffix = params.toString();
+  return `/api/adminkit/comment-open-state${suffix ? `?${suffix}` : ''}`;
+}
 function safeDecode(value) {
   let current = String(value || '');
   for (let i = 0; i < 5; i += 1) {
@@ -156,6 +170,24 @@ function buildMeta(post, commentKey, query, reason) {
     }
   };
 }
+function buildSkeletonPayload(resolved, commentKey, query, traceId) {
+  const meta = buildMeta(resolved.post || null, commentKey, query || {}, resolved.reason);
+  return {
+    ok: true,
+    runtimeVersion: RUNTIME,
+    mode: 'comment_open_skeleton_optin',
+    skeleton: true,
+    loading: true,
+    hydrateUrl: hydrateUrl(query || {}),
+    traceId,
+    meta,
+    post: resolved.post || null,
+    comments: [],
+    commentsCount: 0,
+    count: 0,
+    safe: true
+  };
+}
 function install(app) {
   if (!app || app.__adminkitCommentOpenState1546) return app;
   app.__adminkitCommentOpenState1546 = true;
@@ -163,7 +195,7 @@ function install(app) {
     const totalStarted = nowMs();
     const traceId = clean(req.query && (req.query.trace_id || req.query.traceId)) || makeTraceId();
     noCache(res);
-    timing.log('comment_open.request.received', { instrumentationVersion: INSTRUMENTATION_VERSION, traceId, route: '/api/adminkit/comment-open-state', durationMs: 0, queryKeys: Object.keys(req.query || {}).sort().join(',') });
+    timing.log('comment_open.request.received', { instrumentationVersion: INSTRUMENTATION_VERSION, skeletonOptIn: wantsSkeleton(req.query || {}), traceId, route: '/api/adminkit/comment-open-state', durationMs: 0, queryKeys: Object.keys(req.query || {}).sort().join(',') });
     try {
       const resolveStarted = nowMs();
       const resolved = resolvePost(req.query || {});
@@ -172,6 +204,11 @@ function install(app) {
       if (!commentKey) {
         timed('comment_open.response.sent', totalStarted, { traceId, ok: false, status: 404, resolveReason: resolved.reason });
         return res.status(404).json({ ok: false, error: 'post_not_found', runtimeVersion: RUNTIME, reason: resolved.reason, requested: req.query || {} });
+      }
+      if (wantsSkeleton(req.query || {})) {
+        const payload = buildSkeletonPayload(resolved, commentKey, req.query || {}, traceId);
+        timing.log('comment_open.skeleton.sent', { instrumentationVersion: INSTRUMENTATION_VERSION, skeletonVersion: SKELETON_VERSION, traceId, ok: true, status: 200, commentKey, resolveReason: resolved.reason, durationMs: nowMs() - totalStarted });
+        return res.json(payload);
       }
       const commentsStarted = nowMs();
       const comments = listComments(commentKey, clean(req.query.userId || req.query.user_id || '')) || [];
@@ -188,4 +225,4 @@ function install(app) {
   });
   return app;
 }
-module.exports = { RUNTIME, INSTRUMENTATION_VERSION, install, resolvePost, buildMeta, collectCandidates, compactToCommentKey };
+module.exports = { RUNTIME, INSTRUMENTATION_VERSION, SKELETON_VERSION, install, resolvePost, buildMeta, buildSkeletonPayload, collectCandidates, compactToCommentKey, hydrateUrl, wantsSkeleton };
