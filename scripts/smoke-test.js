@@ -37,5 +37,6 @@ assert.strictEqual(postPatcher.PATCH_COALESCE_RUNTIME, 'CC8.1.10-PATCH-REPATCH-C
 runSmoke('timing-menu-audit-test.js', 'timing/menu audit smoke test');
 runSmoke('comment-skeleton-consumer-pr67-test.js', 'comment skeleton consumer PR67 smoke test');
 runSmoke('patch-coalescing-pr68-test.js', 'patch coalescing PR68 smoke test');
+runSmoke('fast-comment-send-pr69-test.js', 'fast comment send PR69 smoke test');
 
 console.log('smoke ok');
