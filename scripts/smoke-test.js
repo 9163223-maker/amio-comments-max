@@ -34,6 +34,7 @@ assert.strictEqual(typeof postPatcher.patchStoredPost, 'function', 'postPatcher.
 assert.strictEqual(typeof postPatcher.getPatchCoalescingSnapshot, 'function', 'postPatcher.getPatchCoalescingSnapshot must be a function');
 assert.strictEqual(postPatcher.PATCH_COALESCE_RUNTIME, 'CC8.1.10-PATCH-REPATCH-COALESCING', 'post patch coalescing runtime must be stable');
 assert.strictEqual(postPatcher.PATCH_COMPUTE_BREAKDOWN_RUNTIME, 'CC8.1.15-PATCH-COMPUTE-BREAKDOWN', 'post patch breakdown runtime must be stable');
+assert.strictEqual(postPatcher.POST_PATCHER_CLEAN_CORE_RUNTIME, 'CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77', 'post patch clean core runtime must be stable');
 
 runSmoke('timing-menu-audit-test.js', 'timing/menu audit smoke test');
 runSmoke('comment-skeleton-consumer-pr67-test.js', 'comment skeleton consumer PR67 smoke test');
@@ -41,5 +42,6 @@ runSmoke('patch-coalescing-pr68-test.js', 'patch coalescing PR68 smoke test');
 runSmoke('core-fast-text-send-pr70-test.js', 'core fast text send PR70 smoke test');
 runSmoke('wire-pr73-active-entrypoint-test.js', 'wire PR73 active entrypoint smoke test');
 runSmoke('patch-compute-breakdown-pr75-test.js', 'patch compute breakdown PR75 smoke test');
+runSmoke('post-patcher-clean-core-pr77-test.js', 'post patcher clean core PR77 smoke test');
 
 console.log('smoke ok');
