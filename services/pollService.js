@@ -1,7 +1,8 @@
 'use strict';
 
 const db = require('../cc5-db-core');
-const RUNTIME = 'ADMINKIT-POLL-SERVICE-1.9-LEGACY-VOTER-ID';
+const store = require('../store');
+const RUNTIME = 'ADMINKIT-POLL-SERVICE-1.10-FAST-NO-MARKER-SKIP';
 let ensured = null;
 
 function clean(v){ return String(v || '').replace(/\s+/g, ' ').trim(); }
@@ -11,6 +12,33 @@ function percentText(n){ n=Number(n||0); if(!Number.isFinite(n)||n<0)n=0; return
 function questionLabel(q,total){ const suffix=' · '+countText(total), max=64; return cut('🗳 '+cut(q, Math.max(8,max-suffix.length-3)), max-suffix.length)+suffix; }
 function idFromText(v,i){ const b=clean(v).toLowerCase().replace(/[^a-zа-я0-9]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,18); return (b || ('o'+(i+1)))+'_'+(i+1); }
 function pollNumber(v){ const n=Number(v||0); return Number.isFinite(n) && n>0 ? Math.floor(n) : 0; }
+function commentKeyFor({channelId='',postId='',commentKey=''}={}){ const ck=clean(commentKey); if(ck)return ck; const ch=clean(channelId), post=clean(postId); return ch&&post ? ch+':'+post : ''; }
+function postByKey(commentKey){ try{return store.getPost(commentKey)||null;}catch{return null;} }
+function hasLocalPollMarker({channelId='',postId='',commentKey='',pollId=''}={}){
+  if(pollNumber(pollId)) return true;
+  const key=commentKeyFor({channelId,postId,commentKey});
+  const post=key?postByKey(key):null;
+  if(!post) return false;
+  return Boolean(
+    post.pollId ||
+    post.activePollId ||
+    post.lastPollPatchId ||
+    post.hasPoll ||
+    post.pollEnabled ||
+    post.pollConfig ||
+    post.poll ||
+    Number(post.lastPollRowsCount||0)>0
+  );
+}
+function markPostHasPoll({channelId='',postId='',commentKey='',pollId=''}={}){
+  const key=commentKeyFor({channelId,postId,commentKey});
+  const id=clean(pollId);
+  if(!key||!id) return false;
+  try{
+    store.savePost(key,{hasPoll:true,pollId:id,activePollId:id,lastPollPatchId:id,pollRowsKnownEmpty:false,lastPollRowsCheckedAt:Date.now()});
+    return true;
+  }catch{return false;}
+}
 
 async function raw(sql,params=[]){ await db.init(); return db.query(sql,params); }
 async function q(sql,params=[]){ await ensure(); return db.query(sql,params); }
@@ -57,8 +85,6 @@ async function ensure(){
       primary key(poll_id,user_id)
     )`);
 
-    // Старые экспериментальные сборки могли создать внешние ключи на option_id как bigint.
-    // Сейчас option_id — стабильный текстовый id варианта (_1, _2, gore_1 и т.п.), поэтому legacy FK нужно снять до миграции типа.
     await raw(`do $$
     declare r record;
     begin
@@ -72,7 +98,6 @@ async function ensure(){
       end if;
     end $$`);
 
-    // Приводим таблицу голосов к новой устойчивой схеме, но сохраняем совместимость со старыми колонками.
     await raw("alter table ak_poll_votes add column if not exists user_id text not null default ''");
     await raw("alter table ak_poll_votes add column if not exists voter_id text not null default ''");
     await raw("alter table ak_poll_votes add column if not exists option_id text not null default ''");
@@ -97,8 +122,6 @@ async function ensure(){
       "create index if not exists ak_poll_votes_poll_idx on ak_poll_votes(poll_id,updated_at desc)"
     ]) await raw(m);
 
-    // ON CONFLICT(poll_id,user_id) требует реального unique/primary ключа.
-    // В старой таблице он мог не создаться, поэтому перед добавлением ключа сжимаем возможные дубли.
     await raw(`delete from ak_poll_votes a
       using ak_poll_votes b
       where a.ctid < b.ctid
@@ -130,7 +153,9 @@ async function createPoll({adminId='',channelId='',postId='',commentKey='',quest
   if(opts.length<2) return {ok:false,error:'at_least_two_options_required'};
   await q("update ak_polls set status='archived',updated_at=now() where channel_id=$1 and post_id=$2 and status='active'",[ch,post]);
   const r=await q("insert into ak_polls(admin_id,channel_id,post_id,comment_key,question,options,status,template,created_at,updated_at) values($1,$2,$3,$4,$5,$6::jsonb,'active',$7,now(),now()) returning *",[clean(adminId),ch,post,ck,qText,JSON.stringify(opts),clean(template||'custom')]);
-  return {ok:true,poll:r.rows[0]};
+  const poll=r.rows[0];
+  if(poll&&poll.id) markPostHasPoll({channelId:ch,postId:post,commentKey:ck,pollId:poll.id});
+  return {ok:true,poll};
 }
 async function createQuickPoll(args={}){ return createPoll({...args,question:questionFor(args.template,args.postTitle),options:optionsFor(args.template)}); }
 async function activePoll({channelId='',postId='',commentKey=''}={}){
@@ -138,6 +163,11 @@ async function activePoll({channelId='',postId='',commentKey=''}={}){
   if(ch&&post) r=await q("select * from ak_polls where channel_id=$1 and post_id=$2 and status='active' order by updated_at desc limit 1",[ch,post]);
   else if(ck) r=await q("select * from ak_polls where comment_key=$1 and status='active' order by updated_at desc limit 1",[ck]);
   else return null;
+  return r.rows[0]||null;
+}
+async function pollById(pollId=''){
+  const id=pollNumber(pollId); if(!id) return null;
+  const r=await q("select * from ak_polls where id=$1 and status='active' limit 1",[id]);
   return r.rows[0]||null;
 }
 async function summary(pollId){
@@ -166,12 +196,13 @@ function adaptiveOptionRows(options,total,pollId,commentKey){
   if(!compact) return buttons.map(b=>[b]);
   const rows=[]; for(let i=0;i<buttons.length;i+=2) rows.push(buttons.slice(i,i+2)); return rows;
 }
-async function buildPollKeyboardRows({channelId='',postId='',commentKey=''}={}){
-  const poll=await activePoll({channelId,postId,commentKey}); if(!poll) return [];
+async function buildPollKeyboardRows({channelId='',postId='',commentKey='',pollId=''}={}){
+  if(!hasLocalPollMarker({channelId,postId,commentKey,pollId})) return [];
+  const poll=pollNumber(pollId)?await pollById(pollId):await activePoll({channelId,postId,commentKey}); if(!poll) return [];
   const s=await summary(poll.id); if(!s) return [];
   const rows=[[{type:'callback',text:questionLabel(s.question,s.total),payload:buttonPayload('poll_info',{pollId:s.pollId,commentKey:s.commentKey})}]];
   rows.push(...adaptiveOptionRows(s.options,s.total,s.pollId,s.commentKey));
   return rows;
 }
 async function status(){ await ensure(); const a=await q('select count(*)::int n from ak_polls'), b=await q('select count(*)::int n from ak_poll_votes'); return {ok:true,runtimeVersion:RUNTIME,counts:{polls:a.rows[0].n,votes:b.rows[0].n}}; }
-module.exports={RUNTIME,ensure,createPoll,createQuickPoll,parseOptionsText,normalizeOptions,activePoll,summary,vote,buildPollKeyboardRows,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-custom-callback-polls-legacy-voter-id'})};
+module.exports={RUNTIME,ensure,createPoll,createQuickPoll,parseOptionsText,normalizeOptions,activePoll,summary,vote,buildPollKeyboardRows,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-custom-callback-polls-fast-no-marker-skip'})};
