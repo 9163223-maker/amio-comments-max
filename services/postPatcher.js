@@ -23,6 +23,7 @@ const pollService = require("./pollService");
 
 const DB_SYNC_RUNTIME = "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE";
 const PATCH_COALESCE_RUNTIME = "CC8.1.10-PATCH-REPATCH-COALESCING";
+const PATCH_COMPUTE_BREAKDOWN_RUNTIME = "CC8.1.15-PATCH-COMPUTE-BREAKDOWN";
 const PATCH_COALESCE_EVENT_LIMIT = 50;
 const patchCoalescingQueues = new Map();
 const patchCoalescingEvents = [];
@@ -50,6 +51,13 @@ function emitPostPatchTrace(event, payload = {}) {
   for (const hook of postPatchTraceHooks.slice()) {
     try { hook(event, payload); } catch {}
   }
+}
+function emitPatchStep(name, startedAt, payload = {}) {
+  emitPostPatchTrace(name, {
+    ...(payload || {}),
+    breakdownRuntime: PATCH_COMPUTE_BREAKDOWN_RUNTIME,
+    durationMs: Math.max(0, Date.now() - Number(startedAt || Date.now()))
+  });
 }
 
 function pushPatchCoalescingEvent(name = "", payload = {}) {
@@ -281,9 +289,12 @@ async function patchStoredPostRaw({
   commentKey
 }) {
   const computeStartedAt = Date.now();
-  emitPostPatchTrace("patch.compute.begin", { commentKey, status: "started" });
+  emitPostPatchTrace("patch.compute.begin", { commentKey, status: "started", breakdownRuntime: PATCH_COMPUTE_BREAKDOWN_RUNTIME });
+
+  const resolveStartedAt = Date.now();
   let post = getPost(commentKey);
   if (!post) {
+    emitPatchStep("patch.compute.resolve_post.end", resolveStartedAt, { commentKey, status: "missing", reason: "post_not_found" });
     emitPostPatchTrace("patch.compute.end", { commentKey, status: "skipped", reason: "post_not_found", durationMs: Date.now() - computeStartedAt });
     return { ok: false, reason: "post_not_found" };
   }
@@ -292,15 +303,30 @@ async function patchStoredPostRaw({
     post = getPost(commentKey) || post;
   }
   if (!post.messageId) {
+    emitPatchStep("patch.compute.resolve_post.end", resolveStartedAt, { commentKey, status: "missing", reason: "message_id_missing", hasPost: true });
     emitPostPatchTrace("patch.compute.end", { commentKey, status: "skipped", reason: "message_id_missing", durationMs: Date.now() - computeStartedAt });
     return { ok: false, reason: "message_id_missing", post, runtimeVersion: DB_SYNC_RUNTIME };
   }
+  emitPatchStep("patch.compute.resolve_post.end", resolveStartedAt, { commentKey, status: "ok", hasPost: true, hasMessageId: true });
 
+  const liveStartedAt = Date.now();
   const live = await enrichOriginalFromLive({ botToken, post, commentKey });
   post = live.post;
   const { originalAttachments, originalText, originalLink, originalFormat } = live;
-  const commentCount = getComments(commentKey).length;
+  emitPatchStep("patch.compute.enrich_live.end", liveStartedAt, {
+    commentKey,
+    status: "ok",
+    originalAttachmentCount: originalAttachments.length,
+    hasOriginalText: Boolean(originalText),
+    hasOriginalLink: Boolean(originalLink),
+    hasOriginalFormat: originalFormat !== undefined
+  });
 
+  const commentsStartedAt = Date.now();
+  const commentCount = getComments(commentKey).length;
+  emitPatchStep("patch.compute.comments_count.end", commentsStartedAt, { commentKey, status: "ok", commentCount });
+
+  const handoffStartedAt = Date.now();
   const stablePayload = clean(post.stablePayload || buildStableOpenPayload({
     commentKey,
     postId: post.postId,
@@ -319,11 +345,16 @@ async function patchStoredPostRaw({
     savePost(commentKey, { handoffToken, stablePayload });
     post = getPost(commentKey) || post;
   }
+  emitPatchStep("patch.compute.handoff_payload.end", handoffStartedAt, { commentKey, status: "ok", hasHandoffToken: Boolean(handoffToken), hasStablePayload: Boolean(stablePayload) });
 
+  const giftStartedAt = Date.now();
   const giftCampaign = findGiftCampaignForPost({ channelId: post.channelId, postId: post.postId });
   const giftRows = giftCampaign
     ? buildGiftKeyboardRows({ campaign: giftCampaign, commentKey, channelId: post.channelId, postId: post.postId })
     : [];
+  emitPatchStep("patch.compute.gift_rows.end", giftStartedAt, { commentKey, status: "ok", hasGiftCampaign: Boolean(giftCampaign), giftRowsCount: giftRows.length });
+
+  const customStartedAt = Date.now();
   const customRows = buildCustomKeyboardRows({
     builder: post.customKeyboard || {},
     appBaseUrl,
@@ -331,14 +362,20 @@ async function patchStoredPostRaw({
     postId: post.postId,
     commentKey
   });
+  emitPatchStep("patch.compute.custom_rows.end", customStartedAt, { commentKey, status: "ok", customRowsCount: customRows.length });
+
+  const pollStartedAt = Date.now();
   let pollRows = [];
   try {
     pollRows = await pollService.buildPollKeyboardRows({ channelId: post.channelId, postId: post.postId, commentKey });
+    emitPatchStep("patch.compute.poll_rows.end", pollStartedAt, { commentKey, status: "ok", pollRowsCount: pollRows.length });
   } catch (error) {
     savePost(commentKey, { lastPollRowsComposeError: String(error?.message || error), lastPollRowsComposeErrorAt: Date.now() });
+    emitPatchStep("patch.compute.poll_rows.end", pollStartedAt, { commentKey, status: "error", error: String(error?.message || error), pollRowsCount: 0 });
   }
 
-  await syncPatchedPostToDb({
+  const dbStartedAt = Date.now();
+  const dbSyncResult = await syncPatchedPostToDb({
     channelId: post.channelId,
     postId: post.postId,
     messageId: post.messageId,
@@ -358,7 +395,9 @@ async function patchStoredPostRaw({
     giftCampaignId: giftCampaign?.id || post.giftCampaignId || "",
     source: "post_patcher_media_post_fallback_snapshot"
   });
+  emitPatchStep("patch.compute.db_sync.end", dbStartedAt, { commentKey, status: dbSyncResult?.ok ? "ok" : "unknown", registered: Number(dbSyncResult?.registered || 0), adminsCount: Array.isArray(dbSyncResult?.admins) ? dbSyncResult.admins.length : 0, skipped: Boolean(dbSyncResult?.skipped), reason: clean(dbSyncResult?.reason) });
 
+  const keyboardStartedAt = Date.now();
   const keyboardAttachments = buildCommentsKeyboard({
     appBaseUrl,
     botUsername,
@@ -377,13 +416,14 @@ async function patchStoredPostRaw({
   const mergedAttachments = [...originalAttachments, ...keyboardAttachments];
   const nextText = highlightText(post, originalText);
   const nextFingerprint = stableStringify({ attachments: mergedAttachments, text: nextText });
+  emitPatchStep("patch.compute.keyboard_fingerprint.end", keyboardStartedAt, { commentKey, status: "ok", originalAttachmentCount: originalAttachments.length, keyboardAttachmentCount: keyboardAttachments.length, attachmentCount: mergedAttachments.length, hasText: Boolean(nextText) });
   const computeDurationMs = Date.now() - computeStartedAt;
 
   if (post.lastPatchedFingerprint === nextFingerprint) {
     emitPostPatchTrace("patch.compute.end", { commentKey, status: "skipped", reason: "already_patched", durationMs: computeDurationMs });
     return { ok: true, commentCount, skipped: true, reason: "already_patched", giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length, pollRowsCount: pollRows.length, giftRowsCount: giftRows.length, runtimeVersion: DB_SYNC_RUNTIME };
   }
-  emitPostPatchTrace("patch.compute.end", { commentKey, status: "ready", durationMs: computeDurationMs });
+  emitPostPatchTrace("patch.compute.end", { commentKey, status: "ready", durationMs: computeDurationMs, breakdownRuntime: PATCH_COMPUTE_BREAKDOWN_RUNTIME });
 
   try {
     emitPostPatchTrace("edit_message_started", {
@@ -402,14 +442,14 @@ async function patchStoredPostRaw({
     if (nextText) payload.text = nextText;
     if (originalLink && typeof originalLink === "object") payload.link = cloneObject(originalLink, null);
     if (originalFormat !== undefined && originalFormat !== null) payload.format = originalFormat;
-const rawPatchResult = await editMessage(payload);
-const editDurationMs = Date.now() - editStartedAt;
-const patchResult = rawPatchResult && typeof rawPatchResult === "object"
-  ? rawPatchResult
-  : { ok: true, emptyBody: true };
-patchResult.durationMs = editDurationMs;
-emitPostPatchTrace("edit_message_ok", { commentKey, channelId: post.channelId, postId: post.postId, messageId: post.messageId, durationMs: patchResult.durationMs, status: "ok" });
-emitPostPatchTrace("patch.edit_api.end", { commentKey, channelId: post.channelId, postId: post.postId, messageId: post.messageId, durationMs: patchResult.durationMs, status: "ok" });
+    const rawPatchResult = await editMessage(payload);
+    const editDurationMs = Date.now() - editStartedAt;
+    const patchResult = rawPatchResult && typeof rawPatchResult === "object"
+      ? rawPatchResult
+      : { ok: true, emptyBody: true };
+    patchResult.durationMs = editDurationMs;
+    emitPostPatchTrace("edit_message_ok", { commentKey, channelId: post.channelId, postId: post.postId, messageId: post.messageId, durationMs: patchResult.durationMs, status: "ok" });
+    emitPostPatchTrace("patch.edit_api.end", { commentKey, channelId: post.channelId, postId: post.postId, messageId: post.messageId, durationMs: patchResult.durationMs, status: "ok" });
     savePost(commentKey, {
       patchedAttachments: mergedAttachments,
       lastPatchedText: nextText,
@@ -530,6 +570,7 @@ async function tryPatchChannelPost({
   linkedByName,
   autoMode = false
 }) {
+  const bootstrapStartedAt = Date.now();
   const commentKey = makeCommentKey(channelId, postId);
   const existingPost = getPost(commentKey);
   const resolvedMessageId = resolvePatchMessageId({ messageId, postId, existingPost });
@@ -573,7 +614,8 @@ async function tryPatchChannelPost({
     autoModeEnabled: true
   });
 
-  await syncPatchedPostToDb({
+  const bootstrapDbStartedAt = Date.now();
+  const bootstrapDbSync = await syncPatchedPostToDb({
     channelId,
     postId,
     messageId: resolvedMessageId,
@@ -593,8 +635,10 @@ async function tryPatchChannelPost({
     giftCampaignId: postRecord?.giftCampaignId || "",
     source: "post_patcher_try_patch_channel_post_media_fallback"
   });
+  emitPatchStep("patch.bootstrap.db_sync.end", bootstrapDbStartedAt, { commentKey, status: bootstrapDbSync?.ok ? "ok" : "unknown", registered: Number(bootstrapDbSync?.registered || 0), adminsCount: Array.isArray(bootstrapDbSync?.admins) ? bootstrapDbSync.admins.length : 0 });
 
   const patchAttempt = await patchStoredPost({ botToken, appBaseUrl, botUsername, maxDeepLinkBase, commentKey });
+  emitPatchStep("patch.bootstrap.total.end", bootstrapStartedAt, { commentKey, status: patchAttempt?.ok ? "ok" : "error", ok: Boolean(patchAttempt?.ok) });
 
   return {
     commentKey,
@@ -622,6 +666,7 @@ module.exports = {
   getPatchCoalescingSnapshot,
   DB_SYNC_RUNTIME,
   PATCH_COALESCE_RUNTIME,
+  PATCH_COMPUTE_BREAKDOWN_RUNTIME,
   setPostPatchTraceHook,
   addPostPatchTraceHook
 };
