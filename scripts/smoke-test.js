@@ -38,5 +38,6 @@ runSmoke('timing-menu-audit-test.js', 'timing/menu audit smoke test');
 runSmoke('comment-skeleton-consumer-pr67-test.js', 'comment skeleton consumer PR67 smoke test');
 runSmoke('patch-coalescing-pr68-test.js', 'patch coalescing PR68 smoke test');
 runSmoke('core-fast-text-send-pr70-test.js', 'core fast text send PR70 smoke test');
+runSmoke('wire-pr73-active-entrypoint-test.js', 'wire PR73 active entrypoint smoke test');
 
 console.log('smoke ok');
