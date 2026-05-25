@@ -24,11 +24,14 @@ const pollService = require("./pollService");
 const DB_SYNC_RUNTIME = "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE";
 const PATCH_COALESCE_RUNTIME = "CC8.1.10-PATCH-REPATCH-COALESCING";
 const PATCH_COMPUTE_BREAKDOWN_RUNTIME = "CC8.1.15-PATCH-COMPUTE-BREAKDOWN";
+const POST_PATCHER_CLEAN_CORE_RUNTIME = "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77";
 const PATCH_COALESCE_EVENT_LIMIT = 50;
+const POLL_EMPTY_CACHE_TTL_MS = 15000;
 const patchCoalescingQueues = new Map();
 const patchCoalescingEvents = [];
 const patchCoalescingStats = {
   runtimeVersion: PATCH_COALESCE_RUNTIME,
+  cleanCoreRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME,
   totalRequests: 0,
   startedRuns: 0,
   finishedRuns: 0,
@@ -55,6 +58,7 @@ function emitPostPatchTrace(event, payload = {}) {
 function emitPatchStep(name, startedAt, payload = {}) {
   emitPostPatchTrace(name, {
     ...(payload || {}),
+    cleanCoreRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME,
     breakdownRuntime: PATCH_COMPUTE_BREAKDOWN_RUNTIME,
     durationMs: Math.max(0, Date.now() - Number(startedAt || Date.now()))
   });
@@ -65,6 +69,7 @@ function pushPatchCoalescingEvent(name = "", payload = {}) {
   const item = {
     at: new Date().toISOString(),
     runtimeVersion: PATCH_COALESCE_RUNTIME,
+    cleanCoreRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME,
     name: String(name || "").trim(),
     commentKey: clean(safe.commentKey),
     status: clean(safe.status),
@@ -112,6 +117,10 @@ function clean(value) {
   return String(value || "").trim();
 }
 
+function hasOwn(obj, key) {
+  return Boolean(obj && Object.prototype.hasOwnProperty.call(obj, key));
+}
+
 function cloneObject(value, fallback = null) {
   if (!value || typeof value !== "object") return fallback;
   try { return JSON.parse(JSON.stringify(value)); } catch { return fallback; }
@@ -126,10 +135,8 @@ function cloneKeyboardBuilder(value) {
 }
 
 function resolvePatchMessageId({ messageId = "", postId = "", existingPost = null } = {}) {
-  // CC7.5.61: MAX can deliver media/channel post updates without the normal mid,
-  // while the channel seq/postId is still present. Text posts usually had mid, media
-  // posts sometimes did not, so auto-patching silently stopped before editMessage.
-  // Keep the original mid when it exists; otherwise fall back to the stable post id.
+  // CC7.5.61 / PR77: MAX can deliver channel/media/forwarded post updates without mid,
+  // while seq/postId is stable. Never make mid mandatory for patching.
   return clean(messageId || existingPost?.messageId || postId);
 }
 
@@ -139,6 +146,40 @@ function highlightText(post = {}, originalText = "") {
   if (!h) return txt;
   const label = clean(h.label || "⭐ Важно");
   return label + (txt ? "\n\n" + txt : "");
+}
+
+function snapshotKnown(post = {}) {
+  return Boolean(
+    post.originalSnapshotCaptured === true ||
+    post.originalTextKnown === true ||
+    post.sourceAttachmentsKnown === true ||
+    post.originalLinkKnown === true ||
+    post.originalFormatKnown === true ||
+    hasOwn(post, "originalText") ||
+    hasOwn(post, "sourceAttachments") ||
+    hasOwn(post, "originalLink") ||
+    hasOwn(post, "originalFormat")
+  );
+}
+
+function shouldHydrateOriginalFromLive({ post = {}, originalAttachments = [], originalText = "", originalLink = null, originalFormat = undefined } = {}) {
+  // Old behavior treated empty attachments/link/format as missing and called getMessage for ordinary text posts.
+  // PR77 only hydrates when the entire original snapshot is unknown/empty.
+  if (snapshotKnown(post)) return false;
+  if (clean(originalText)) return false;
+  if (Array.isArray(originalAttachments) && originalAttachments.length) return false;
+  if (originalLink) return false;
+  if (originalFormat !== undefined) return false;
+  return true;
+}
+
+function shouldBuildPollRows(post = {}) {
+  if (!post || typeof post !== "object") return true;
+  if (post.pollId || post.activePollId || post.lastPollPatchId || post.hasPoll || post.pollEnabled || post.pollConfig || post.poll) return true;
+  if (Number(post.lastPollRowsCount || 0) > 0) return true;
+  const emptyAt = Number(post.pollRowsKnownEmptyAt || 0) || 0;
+  if (post.pollRowsKnownEmpty === true && emptyAt && Date.now() - emptyAt < POLL_EMPTY_CACHE_TTL_MS) return false;
+  return true;
 }
 
 function buildPostSnapshotRaw({
@@ -165,6 +206,7 @@ function buildPostSnapshotRaw({
   return {
     source: clean(source || "post_patcher"),
     runtimeVersion: DB_SYNC_RUNTIME,
+    cleanCoreRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME,
     commentKey: clean(commentKey),
     channelId: clean(channelId),
     postId: clean(postId),
@@ -182,6 +224,7 @@ function buildPostSnapshotRaw({
     customKeyboard: cloneKeyboardBuilder(customKeyboard),
     commentsDisabled: Boolean(commentsDisabled),
     giftCampaignId: clean(giftCampaignId),
+    originalSnapshotCaptured: true,
     patchedAt: new Date().toISOString()
   };
 }
@@ -250,7 +293,30 @@ async function syncPatchedPostToDb({
     const result = await db.upsertPost(adminId, ch, post, String(title || originalText || post).slice(0, 120), raw, resolvedMessageId);
     if (result) registered.push(result);
   }
-  return { ok: true, runtimeVersion: DB_SYNC_RUNTIME, registered: registered.length, admins, channelId: ch, postId: post, commentKey: ck, stablePayload: payload, messageId: resolvedMessageId };
+  return { ok: true, runtimeVersion: DB_SYNC_RUNTIME, cleanCoreRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME, registered: registered.length, admins, channelId: ch, postId: post, commentKey: ck, stablePayload: payload, messageId: resolvedMessageId };
+}
+
+function schedulePatchedPostDbSync(reason = "after_edit", payload = {}) {
+  const commentKey = clean(payload.commentKey);
+  const scheduledAt = Date.now();
+  setTimeout(async () => {
+    const startedAt = Date.now();
+    try {
+      const result = await syncPatchedPostToDb({ ...(payload || {}), source: payload.source || `post_patcher_clean_core_${reason}` });
+      emitPatchStep("patch.db_sync_async.end", startedAt, {
+        commentKey,
+        status: result?.ok ? "ok" : "unknown",
+        registered: Number(result?.registered || 0),
+        adminsCount: Array.isArray(result?.admins) ? result.admins.length : 0,
+        skipped: Boolean(result?.skipped),
+        reason: clean(result?.reason || reason),
+        scheduledDelayMs: Math.max(0, startedAt - scheduledAt)
+      });
+    } catch (error) {
+      emitPatchStep("patch.db_sync_async.end", startedAt, { commentKey, status: "error", reason: clean(error?.message || error || reason), scheduledDelayMs: Math.max(0, startedAt - scheduledAt) });
+    }
+  }, 0);
+  return { ok: true, scheduled: true, reason, cleanCoreRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME };
 }
 
 async function enrichOriginalFromLive({ botToken, post, commentKey }) {
@@ -259,7 +325,7 @@ async function enrichOriginalFromLive({ botToken, post, commentKey }) {
   let originalLink = cloneObject(post.originalLink, null);
   let originalFormat = post.originalFormat !== undefined ? post.originalFormat : undefined;
 
-  if ((!originalAttachments.length || !originalText || !originalLink || originalFormat === undefined) && botToken && post.messageId) {
+  if (shouldHydrateOriginalFromLive({ post, originalAttachments, originalText, originalLink, originalFormat }) && botToken && post.messageId) {
     try {
       const liveMessage = await getMessage({ botToken, messageId: post.messageId });
       const liveBody = liveMessage?.body && typeof liveMessage.body === "object" ? liveMessage.body : {};
@@ -273,7 +339,10 @@ async function enrichOriginalFromLive({ botToken, post, commentKey }) {
         sourceAttachments: normalizeAttachments(liveAttachments.length ? liveAttachments : originalAttachments),
         originalText,
         originalLink,
-        ...(originalFormat !== undefined ? { originalFormat } : {})
+        ...(originalFormat !== undefined ? { originalFormat } : {}),
+        originalSnapshotCaptured: true,
+        originalHydratedFromLiveAt: Date.now(),
+        originalHydratedFromLiveRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME
       });
       post = getPost(commentKey) || post;
     } catch {}
@@ -289,7 +358,7 @@ async function patchStoredPostRaw({
   commentKey
 }) {
   const computeStartedAt = Date.now();
-  emitPostPatchTrace("patch.compute.begin", { commentKey, status: "started", breakdownRuntime: PATCH_COMPUTE_BREAKDOWN_RUNTIME });
+  emitPostPatchTrace("patch.compute.begin", { commentKey, status: "started", breakdownRuntime: PATCH_COMPUTE_BREAKDOWN_RUNTIME, cleanCoreRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME });
 
   const resolveStartedAt = Date.now();
   let post = getPost(commentKey);
@@ -315,7 +384,8 @@ async function patchStoredPostRaw({
   const { originalAttachments, originalText, originalLink, originalFormat } = live;
   emitPatchStep("patch.compute.enrich_live.end", liveStartedAt, {
     commentKey,
-    status: "ok",
+    status: shouldHydrateOriginalFromLive({ post, originalAttachments, originalText, originalLink, originalFormat }) ? "hydrated_or_attempted" : "skipped_snapshot_ready",
+    reason: shouldHydrateOriginalFromLive({ post, originalAttachments, originalText, originalLink, originalFormat }) ? "snapshot_missing" : "snapshot_ready_no_live_getMessage",
     originalAttachmentCount: originalAttachments.length,
     hasOriginalText: Boolean(originalText),
     hasOriginalLink: Boolean(originalLink),
@@ -366,16 +436,21 @@ async function patchStoredPostRaw({
 
   const pollStartedAt = Date.now();
   let pollRows = [];
-  try {
-    pollRows = await pollService.buildPollKeyboardRows({ channelId: post.channelId, postId: post.postId, commentKey });
-    emitPatchStep("patch.compute.poll_rows.end", pollStartedAt, { commentKey, status: "ok", pollRowsCount: pollRows.length });
-  } catch (error) {
-    savePost(commentKey, { lastPollRowsComposeError: String(error?.message || error), lastPollRowsComposeErrorAt: Date.now() });
-    emitPatchStep("patch.compute.poll_rows.end", pollStartedAt, { commentKey, status: "error", error: String(error?.message || error), pollRowsCount: 0 });
+  if (shouldBuildPollRows(post)) {
+    try {
+      pollRows = await pollService.buildPollKeyboardRows({ channelId: post.channelId, postId: post.postId, commentKey });
+      if (pollRows.length) savePost(commentKey, { pollRowsKnownEmpty: false, lastPollRowsCount: pollRows.length, lastPollRowsCheckedAt: Date.now() });
+      else savePost(commentKey, { pollRowsKnownEmpty: true, pollRowsKnownEmptyAt: Date.now(), lastPollRowsCount: 0, lastPollRowsCheckedAt: Date.now() });
+      emitPatchStep("patch.compute.poll_rows.end", pollStartedAt, { commentKey, status: "ok", pollRowsCount: pollRows.length });
+    } catch (error) {
+      savePost(commentKey, { lastPollRowsComposeError: String(error?.message || error), lastPollRowsComposeErrorAt: Date.now() });
+      emitPatchStep("patch.compute.poll_rows.end", pollStartedAt, { commentKey, status: "error", error: String(error?.message || error), pollRowsCount: 0 });
+    }
+  } else {
+    emitPatchStep("patch.compute.poll_rows.end", pollStartedAt, { commentKey, status: "skipped", reason: "no_poll_marker_cached_empty", pollRowsCount: 0 });
   }
 
-  const dbStartedAt = Date.now();
-  const dbSyncResult = await syncPatchedPostToDb({
+  const dbSyncPayload = {
     channelId: post.channelId,
     postId: post.postId,
     messageId: post.messageId,
@@ -393,9 +468,10 @@ async function patchStoredPostRaw({
     customKeyboard: post.customKeyboard || {},
     commentsDisabled: Boolean(post?.commentsDisabled),
     giftCampaignId: giftCampaign?.id || post.giftCampaignId || "",
-    source: "post_patcher_media_post_fallback_snapshot"
-  });
-  emitPatchStep("patch.compute.db_sync.end", dbStartedAt, { commentKey, status: dbSyncResult?.ok ? "ok" : "unknown", registered: Number(dbSyncResult?.registered || 0), adminsCount: Array.isArray(dbSyncResult?.admins) ? dbSyncResult.admins.length : 0, skipped: Boolean(dbSyncResult?.skipped), reason: clean(dbSyncResult?.reason) });
+    source: "post_patcher_clean_core_after_edit_snapshot"
+  };
+  const dbStartedAt = Date.now();
+  emitPatchStep("patch.compute.db_sync.end", dbStartedAt, { commentKey, status: "deferred", skipped: true, reason: "async_after_edit" });
 
   const keyboardStartedAt = Date.now();
   const keyboardAttachments = buildCommentsKeyboard({
@@ -415,15 +491,24 @@ async function patchStoredPostRaw({
   });
   const mergedAttachments = [...originalAttachments, ...keyboardAttachments];
   const nextText = highlightText(post, originalText);
-  const nextFingerprint = stableStringify({ attachments: mergedAttachments, text: nextText });
-  emitPatchStep("patch.compute.keyboard_fingerprint.end", keyboardStartedAt, { commentKey, status: "ok", originalAttachmentCount: originalAttachments.length, keyboardAttachmentCount: keyboardAttachments.length, attachmentCount: mergedAttachments.length, hasText: Boolean(nextText) });
+  const nextFingerprint = stableStringify({
+    attachments: mergedAttachments,
+    text: nextText,
+    link: originalLink || null,
+    format: originalFormat === undefined ? null : originalFormat,
+    commentsDisabled: Boolean(post?.commentsDisabled),
+    customRowsCount: customRows.length,
+    pollRowsCount: pollRows.length,
+    giftRowsCount: giftRows.length
+  });
+  emitPatchStep("patch.compute.keyboard_fingerprint.end", keyboardStartedAt, { commentKey, status: "ok", originalAttachmentCount: originalAttachments.length, keyboardAttachmentCount: keyboardAttachments.length, attachmentCount: mergedAttachments.length, hasText: Boolean(nextText), hasOriginalLink: Boolean(originalLink), hasOriginalFormat: originalFormat !== undefined });
   const computeDurationMs = Date.now() - computeStartedAt;
 
   if (post.lastPatchedFingerprint === nextFingerprint) {
-    emitPostPatchTrace("patch.compute.end", { commentKey, status: "skipped", reason: "already_patched", durationMs: computeDurationMs });
-    return { ok: true, commentCount, skipped: true, reason: "already_patched", giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length, pollRowsCount: pollRows.length, giftRowsCount: giftRows.length, runtimeVersion: DB_SYNC_RUNTIME };
+    emitPostPatchTrace("patch.compute.end", { commentKey, status: "skipped", reason: "already_patched", durationMs: computeDurationMs, cleanCoreRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME });
+    return { ok: true, commentCount, skipped: true, reason: "already_patched", giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length, pollRowsCount: pollRows.length, giftRowsCount: giftRows.length, runtimeVersion: DB_SYNC_RUNTIME, cleanCoreRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME };
   }
-  emitPostPatchTrace("patch.compute.end", { commentKey, status: "ready", durationMs: computeDurationMs, breakdownRuntime: PATCH_COMPUTE_BREAKDOWN_RUNTIME });
+  emitPostPatchTrace("patch.compute.end", { commentKey, status: "ready", durationMs: computeDurationMs, breakdownRuntime: PATCH_COMPUTE_BREAKDOWN_RUNTIME, cleanCoreRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME });
 
   try {
     emitPostPatchTrace("edit_message_started", {
@@ -461,9 +546,10 @@ async function patchStoredPostRaw({
       lastCustomRowsCount: customRows.length,
       lastPollRowsCount: pollRows.length,
       lastGiftRowsCount: giftRows.length,
-      lastSafeComposeRuntime: DB_SYNC_RUNTIME
+      lastSafeComposeRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME
     });
-    return { ok: true, commentCount, patchResult, giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length, pollRowsCount: pollRows.length, giftRowsCount: giftRows.length, runtimeVersion: DB_SYNC_RUNTIME };
+    schedulePatchedPostDbSync("after_edit", dbSyncPayload);
+    return { ok: true, commentCount, patchResult, giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length, pollRowsCount: pollRows.length, giftRowsCount: giftRows.length, runtimeVersion: DB_SYNC_RUNTIME, cleanCoreRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME };
   } catch (error) {
     const patchError = { status: error?.status || 0, message: error?.message || "patch_failed", data: error?.data || null };
     savePost(commentKey, {
@@ -474,11 +560,11 @@ async function patchStoredPostRaw({
       lastCustomRowsCount: customRows.length,
       lastPollRowsCount: pollRows.length,
       lastGiftRowsCount: giftRows.length,
-      lastSafeComposeRuntime: DB_SYNC_RUNTIME
+      lastSafeComposeRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME
     });
     emitPostPatchTrace("edit_message_failed", { commentKey, channelId: post.channelId, postId: post.postId, messageId: post.messageId, status: "error", error: patchError.message, durationMs: 0 });
     emitPostPatchTrace("patch.edit_api.end", { commentKey, channelId: post.channelId, postId: post.postId, messageId: post.messageId, status: "error", error: patchError.message, durationMs: 0 });
-    return { ok: false, commentCount, error: patchError, giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length, pollRowsCount: pollRows.length, giftRowsCount: giftRows.length, runtimeVersion: DB_SYNC_RUNTIME };
+    return { ok: false, commentCount, error: patchError, giftCampaignId: giftCampaign?.id || "", stablePayload, customRowsCount: customRows.length, pollRowsCount: pollRows.length, giftRowsCount: giftRows.length, runtimeVersion: DB_SYNC_RUNTIME, cleanCoreRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME };
   }
 }
 
@@ -594,6 +680,11 @@ async function tryPatchChannelPost({
     nativeReactions: Array.isArray(nativeReactions) ? JSON.parse(JSON.stringify(nativeReactions)).slice(0, 8) : [],
     originalLink: cloneObject(existingPost?.originalLink || originalLink, null),
     ...(existingPost?.originalFormat !== undefined ? { originalFormat: existingPost.originalFormat } : (originalFormat !== undefined ? { originalFormat } : {})),
+    originalSnapshotCaptured: true,
+    originalTextKnown: originalText !== undefined,
+    sourceAttachmentsKnown: Array.isArray(sourceAttachments),
+    originalLinkKnown: originalLink !== undefined,
+    originalFormatKnown: originalFormat !== undefined,
     channelTitle: String(existingPost?.channelTitle || channelTitle || "").trim(),
     textOverrideActive: false,
     linkedByUserId: String(existingPost?.linkedByUserId || linkedByUserId || ""),
@@ -602,7 +693,9 @@ async function tryPatchChannelPost({
     handoffToken,
     stablePayload,
     customKeyboard: existingPost?.customKeyboard || {},
-    createdAt: existingPost?.createdAt || Date.now()
+    createdAt: existingPost?.createdAt || Date.now(),
+    lastIngestedAt: Date.now(),
+    lastIngestedRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME
   });
 
   saveChannel(channelId, {
@@ -615,7 +708,7 @@ async function tryPatchChannelPost({
   });
 
   const bootstrapDbStartedAt = Date.now();
-  const bootstrapDbSync = await syncPatchedPostToDb({
+  const bootstrapDbPayload = {
     channelId,
     postId,
     messageId: resolvedMessageId,
@@ -633,9 +726,10 @@ async function tryPatchChannelPost({
     customKeyboard: postRecord?.customKeyboard || {},
     commentsDisabled: Boolean(postRecord?.commentsDisabled),
     giftCampaignId: postRecord?.giftCampaignId || "",
-    source: "post_patcher_try_patch_channel_post_media_fallback"
-  });
-  emitPatchStep("patch.bootstrap.db_sync.end", bootstrapDbStartedAt, { commentKey, status: bootstrapDbSync?.ok ? "ok" : "unknown", registered: Number(bootstrapDbSync?.registered || 0), adminsCount: Array.isArray(bootstrapDbSync?.admins) ? bootstrapDbSync.admins.length : 0 });
+    source: "post_patcher_clean_core_bootstrap_snapshot"
+  };
+  schedulePatchedPostDbSync("bootstrap", bootstrapDbPayload);
+  emitPatchStep("patch.bootstrap.db_sync.end", bootstrapDbStartedAt, { commentKey, status: "scheduled", registered: 0, adminsCount: 0, reason: "async_bootstrap" });
 
   const patchAttempt = await patchStoredPost({ botToken, appBaseUrl, botUsername, maxDeepLinkBase, commentKey });
   emitPatchStep("patch.bootstrap.total.end", bootstrapStartedAt, { commentKey, status: patchAttempt?.ok ? "ok" : "error", ok: Boolean(patchAttempt?.ok) });
@@ -654,7 +748,8 @@ async function tryPatchChannelPost({
     customRowsCount: patchAttempt.customRowsCount || 0,
     pollRowsCount: patchAttempt.pollRowsCount || 0,
     giftRowsCount: patchAttempt.giftRowsCount || 0,
-    runtimeVersion: DB_SYNC_RUNTIME
+    runtimeVersion: DB_SYNC_RUNTIME,
+    cleanCoreRuntime: POST_PATCHER_CLEAN_CORE_RUNTIME
   };
 }
 
@@ -667,6 +762,7 @@ module.exports = {
   DB_SYNC_RUNTIME,
   PATCH_COALESCE_RUNTIME,
   PATCH_COMPUTE_BREAKDOWN_RUNTIME,
+  POST_PATCHER_CLEAN_CORE_RUNTIME,
   setPostPatchTraceHook,
   addPostPatchTraceHook
 };
