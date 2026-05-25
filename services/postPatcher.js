@@ -26,7 +26,6 @@ const PATCH_COALESCE_RUNTIME = 'CC8.1.10-PATCH-REPATCH-COALESCING';
 const PATCH_COMPUTE_BREAKDOWN_RUNTIME = 'CC8.1.15-PATCH-COMPUTE-BREAKDOWN';
 const POST_PATCHER_CLEAN_CORE_RUNTIME = 'CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77';
 const PATCH_COALESCE_EVENT_LIMIT = 50;
-const POLL_EMPTY_CACHE_TTL_MS = 15000;
 
 const patchCoalescingQueues = new Map();
 const patchCoalescingEvents = [];
@@ -194,11 +193,10 @@ function shouldHydrateOriginalFromLive({
 }
 
 function shouldBuildPollRows(post = {}) {
-  if (!post || typeof post !== 'object') return true;
+  if (!post || typeof post !== 'object') return false;
   if (post.pollId || post.activePollId || post.lastPollPatchId || post.hasPoll || post.pollEnabled || post.pollConfig || post.poll) return true;
   if (Number(post.lastPollRowsCount || 0) > 0) return true;
-  const emptyAt = Number(post.pollRowsKnownEmptyAt || 0) || 0;
-  return !(post.pollRowsKnownEmpty === true && emptyAt && Date.now() - emptyAt < POLL_EMPTY_CACHE_TTL_MS);
+  return false;
 }
 
 function buildPostSnapshotRaw(input = {}) {
