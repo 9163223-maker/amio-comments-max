@@ -6,6 +6,7 @@ const API_BASE_URL = "https://platform-api.max.ru";
 // Legacy h_ handoff is fallback only, because in-memory handoff may disappear after redeploy.
 const USE_OPEN_APP_BUTTON = String(process.env.ADMINKIT_USE_OPEN_APP_BUTTON || "1").trim() !== "0";
 const MAX_STARTAPP_PAYLOAD_BYTES = 512;
+const CHAT_INFO_TIMEOUT_MS = Number(process.env.ADMINKIT_CHAT_INFO_TIMEOUT_MS || 350) || 350;
 
 async function readJsonSafe(response) {
   try { return await response.json(); } catch { return null; }
@@ -30,7 +31,7 @@ async function maxApi(path, { token, method = "GET", query = null, body, timeout
   const url = new URL(`${API_BASE_URL}${path}`);
   appendQueryParams(url, query);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs || 9000)));
+  const timeout = setTimeout(() => controller.abort(), Math.max(100, Number(timeoutMs || 9000)));
   let response;
   try {
     response = await fetch(url, {
@@ -133,9 +134,9 @@ async function getChatMembers({ botToken, chatId, userIds, marker, count }) {
   });
 }
 
-async function getChat({ botToken, chatId }) {
+async function getChat({ botToken, chatId, timeoutMs = CHAT_INFO_TIMEOUT_MS }) {
   if (!chatId) throw new Error("chatId is required");
-  return maxApi(`/chats/${encodeURIComponent(String(chatId))}`, { token: botToken, method: "GET" });
+  return maxApi(`/chats/${encodeURIComponent(String(chatId))}`, { token: botToken, method: "GET", timeoutMs });
 }
 
 async function getBotChatMember({ botToken, chatId }) {
