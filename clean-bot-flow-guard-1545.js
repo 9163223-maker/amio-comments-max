@@ -13,7 +13,7 @@ const uiTrace = require('./v3-ui-trace-1539');
 const timing = require('./v3-ui-timing-cc8');
 const accountRuntime = require('./src/core/accountRuntime');
 
-const RUNTIME = 'CC8.0.3-UI-TIMING-DIAGNOSTICS';
+const RUNTIME = 'CC8.1.17-DIRECT-CHANNEL-FAST-DELEGATE-PR80';
 
 function find(o,p,d){ if(!o||d<0) return null; if(p(o)) return o; if(typeof o!=='object') return null; for(const v of (Array.isArray(o)?o:Object.values(o))){ const r=find(v,p,d-1); if(r) return r; } return null; }
 function msg(u){ return u && (u.message || u.data?.message || u.callback?.message || u.data?.callback?.message || find(u,x=>x&&typeof x==='object'&&(x.body?.text||x.text)&&(x.recipient||x.sender||x.message_id||x.id),5)) || null; }
@@ -96,6 +96,12 @@ function createCleanBot(legacy){
           return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,ackOnly:true});
         }
         let s=null; try{s=await pollScreen(p,userId,config);}catch(e){pollTrace.add('poll_screen_error',{action:a,error:String(e?.message||e)});s=err(e);} if(s){ timingScreen=s.id; timingPath='poll_screen'; await ack(config,cbid(c)); await show(config,u,c,m,s,true); return res.status(200).json({ok:true,handledBy:RUNTIME,action:a,screenId:s.id}); }
+      }
+      if(m && isChannelMessage(m) && !c){
+        timingAction=String(u.update_type||u.type||'message_created');
+        timingPath='delegate_legacy_direct_channel_fast';
+        uiTrace.log('direct_channel_fast_delegate',{reason:'channel_message_skip_poll_and_admin_flow_guards',updateType:timingAction,messageId:uiTrace.mask(mid(m)),chatId:uiTrace.mask(chat(m)),chatType:chatType(m),textLen:text(m).length});
+        return await timing.measure('delegate_legacy',{action:timingAction,path:timingPath,isChannel:true},()=>wrapped.handleWebhook(req,res,config));
       }
       if(m && text(m).trim() && !/^\/?start(?:\s|$)/i.test(text(m).trim())){
         const userId=sender(m)||uid(u,c,m), lf=legacyFlow(userId), pf=await getPollFlow(userId);
