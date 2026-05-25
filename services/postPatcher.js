@@ -37,9 +37,20 @@ const patchCoalescingStats = {
   lastCommentKey: "",
   lastResultOk: null
 };
-let postPatchTraceHook = null;
-function setPostPatchTraceHook(fn) { postPatchTraceHook = typeof fn === "function" ? fn : null; }
-function emitPostPatchTrace(event, payload = {}) { if (postPatchTraceHook) { try { postPatchTraceHook(event, payload); } catch {} } }
+let postPatchTraceHooks = [];
+function setPostPatchTraceHook(fn) {
+  postPatchTraceHooks = typeof fn === "function" ? [fn] : [];
+}
+function addPostPatchTraceHook(fn) {
+  if (typeof fn !== "function") return false;
+  if (!postPatchTraceHooks.includes(fn)) postPatchTraceHooks.push(fn);
+  return true;
+}
+function emitPostPatchTrace(event, payload = {}) {
+  for (const hook of postPatchTraceHooks.slice()) {
+    try { hook(event, payload); } catch {}
+  }
+}
 
 function pushPatchCoalescingEvent(name = "", payload = {}) {
   const safe = payload && typeof payload === "object" ? payload : {};
@@ -611,5 +622,6 @@ module.exports = {
   getPatchCoalescingSnapshot,
   DB_SYNC_RUNTIME,
   PATCH_COALESCE_RUNTIME,
-  setPostPatchTraceHook
+  setPostPatchTraceHook,
+  addPostPatchTraceHook
 };
