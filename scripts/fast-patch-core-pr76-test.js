@@ -1,0 +1,18 @@
+'use strict';
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const entry = fs.readFileSync(path.join(__dirname, '..', 'clean-entrypoint-pr41.js'), 'utf8');
+const fast = fs.readFileSync(path.join(__dirname, '..', 'services', 'postPatcherFast76.js'), 'utf8');
+assert.ok(entry.includes('CC8.1.16-FAST-PATCH-CORE-PR76'), 'entrypoint exposes PR76 runtime');
+assert.ok(entry.includes('installFastPatchCore'), 'entrypoint installs fast patch core');
+assert.ok(entry.indexOf('installFastPatchCore()') < entry.indexOf('installCleanBot()'), 'fast patch installs before bot');
+assert.ok(fast.includes("FAST_RUNTIME = 'CC8.1.16-FAST-PATCH-CORE-PR76'"), 'fast core runtime is present');
+assert.ok(fast.includes('core.patchStoredPost = fastPatchStoredPost'), 'fast core overrides patchStoredPost');
+assert.ok(fast.includes('core.tryPatchChannelPost = fastTryPatchChannelPost'), 'fast core overrides tryPatchChannelPost');
+assert.ok(fast.includes('fast_no_live_getMessage'), 'fast core skips live message read in default path');
+assert.ok(fast.includes("scheduleDbSync('after_edit'"), 'db sync after edit is async');
+assert.ok(fast.includes("scheduleDbSync('bootstrap'"), 'bootstrap db sync is async');
+assert.ok(fast.includes('no_poll_marker'), 'poll rows are skipped without marker');
+assert.ok(fast.includes('editMessage(payload)'), 'direct editMessage path is kept');
+console.log('fast patch core PR76 smoke ok');
