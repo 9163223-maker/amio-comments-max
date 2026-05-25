@@ -8,8 +8,9 @@ const buttonsFlow = require('./buttons-flow-cc8-clean');
 const max = require('./services/maxApi');
 const store = require('./store');
 const timing = require('./v3-ui-timing-cc8');
+const { tryPatchChannelPost } = require('./services/postPatcher');
 
-const RUNTIME = 'CC8.1.4-GIFTS-SAVE-PATCH-CLEANUP';
+const RUNTIME = 'CC8.1.18-DIRECT-CHANNEL-PRELEGACY-PATCH-PR82';
 const EDIT_FLOW_KIND = 'post_edit_text';
 
 function find(value, predicate, depth = 6, seen = new Set()) {
@@ -27,7 +28,7 @@ function directCallback(update = {}) { return update?.callback || update?.data?.
 function callback(update = {}) { return directCallback(update) || find(update, (x) => x && typeof x === 'object' && (x.callback_id || x.callbackId || x.payload || x.callback_data || x.callbackData) && !(x.body && x.body.text), 6) || null; }
 function clean(value) { return String(value || '').trim(); }
 function updateType(update = {}) { return clean(update.update_type || update.type || update?.data?.update_type || update?.data?.type).toLowerCase(); }
-function text(msg = {}) { return clean(msg?.body?.text || msg?.text || ''); }
+function text(msg = {}) { return clean(msg?.body?.text || msg?.body?.caption || msg?.text || msg?.caption || ''); }
 function chatId(msg = {}) { return clean(msg?.recipient?.chat_id || msg?.recipient?.id || msg?.chat_id || msg?.chat?.id); }
 function chatType(msg = {}) { return clean(msg?.recipient?.chat_type || msg?.recipient?.type || msg?.chat_type || msg?.chat?.type).toLowerCase(); }
 function isChannelMessage(msg = {}) { const id = chatId(msg); return chatType(msg) === 'channel' || /^-/.test(id); }
@@ -95,6 +96,101 @@ async function show(config, update, msg, screen, edit = false, options = {}) {
   return result;
 }
 
+function findFirstDeepValue(value, keys = [], seen = new Set()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) return '';
+  seen.add(value);
+  const keySet = new Set((Array.isArray(keys) ? keys : [keys]).map((key) => String(key || '').toLowerCase()));
+  for (const [key, raw] of Object.entries(value)) {
+    if (keySet.has(String(key || '').toLowerCase())) {
+      const normalized = clean(raw);
+      if (normalized && normalized !== '[object Object]') return normalized;
+    }
+  }
+  for (const raw of Object.values(value)) {
+    const found = findFirstDeepValue(raw, keys, seen);
+    if (found) return found;
+  }
+  return '';
+}
+function body(msg = {}) { return msg?.body && typeof msg.body === 'object' ? msg.body : {}; }
+function messageId(msg = {}) { const b = body(msg); return clean(b.mid || b.message_id || b.messageId || msg.mid || msg.message_id || msg.messageId || msg.id); }
+function messageIdCandidates(msg = {}) {
+  const b = body(msg);
+  const nested = b.message || msg.message || {};
+  return [b.mid, b.message_id, b.messageId, b.id, msg.mid, msg.message_id, msg.messageId, msg.id, nested.mid, nested.message_id, nested.messageId, nested.id].map(clean).filter(Boolean).filter((x, i, arr) => arr.indexOf(x) === i);
+}
+function postId(msg = {}) {
+  const b = body(msg);
+  const direct = b.message || msg.message || b || msg || {};
+  return clean(
+    b.seq || msg.seq || msg.post_id || b.post_id ||
+    b.link?.message?.seq || b.link?.message?.body?.seq || b.link?.message?.post_id ||
+    b.forward?.message?.seq || b.forward?.message?.body?.seq ||
+    msg.link?.message?.seq ||
+    findFirstDeepValue(b.link?.message || b.forward?.message || msg.link?.message || msg.forward?.message || {}, ['seq', 'post_id']) ||
+    (chatType(msg) === 'channel' ? findFirstDeepValue(direct, ['seq', 'post_id']) : '')
+  );
+}
+function channelTitle(msg = {}) { const b = body(msg); return clean(b.link?.chat_title || b.link?.chat?.title || b.forward?.chat_title || b.forward?.chat?.title || msg.recipient?.chat_title || msg.recipient?.title || msg.chat?.title || ''); }
+function clonePlain(value) { try { return value && typeof value === 'object' ? JSON.parse(JSON.stringify(value)) : null; } catch { return null; } }
+function attachmentLikeItems(source = null) {
+  const out = [];
+  const push = (value, forcedType = '') => {
+    if (!value) return;
+    if (Array.isArray(value)) return value.forEach((item) => push(item, forcedType));
+    if (typeof value !== 'object') return;
+    const normalizedType = clean(forcedType || value.type || value.kind || value.attachment_type).toLowerCase();
+    const payload = value?.payload && typeof value.payload === 'object' ? value.payload : value;
+    const looksLikeAttachment = Boolean(normalizedType || value.token || payload.token || payload.url || payload.file_id || payload.photo_id || payload.image_id || payload.video_id || payload.audio_id || payload.document_id || payload.file_name || payload.filename || payload.mime_type || payload.content_type);
+    if (!looksLikeAttachment) return;
+    out.push(value.type || value.kind || value.attachment_type ? value : { type: normalizedType || 'file', payload });
+  };
+  if (!source || typeof source !== 'object') return out;
+  if (Array.isArray(source.attachments)) source.attachments.forEach((entry) => push(entry));
+  ['photo', 'image', 'picture', 'document', 'file', 'video', 'audio', 'voice'].forEach((key) => push(source[key], key));
+  return out;
+}
+function messageAttachments(msg = {}) {
+  const b = body(msg);
+  const pools = [...attachmentLikeItems(b.message), ...attachmentLikeItems(b.message?.body), ...attachmentLikeItems(b), ...attachmentLikeItems(msg), ...attachmentLikeItems(msg.message), ...attachmentLikeItems(msg.message?.body)];
+  const seen = new Set();
+  return pools.filter((item) => { const marker = JSON.stringify(item); if (seen.has(marker)) return false; seen.add(marker); return true; });
+}
+function hasCommentsKeyboard(msg = {}) { return messageAttachments(msg).some((item) => item?.type === 'inline_keyboard' && JSON.stringify(item).includes('Комментар')); }
+function originalLink(msg = {}) { const b = body(msg); return clonePlain(b.link || msg.link || null); }
+function originalFormat(msg = {}) { const b = body(msg); return b.format !== undefined ? b.format : msg.format; }
+function nativeReactions(msg = {}) { const b = body(msg); return Array.isArray(b.reactions) ? b.reactions : Array.isArray(msg.reactions) ? msg.reactions : []; }
+function isDirectPatchCandidate(msg = {}) { return isChannelMessage(msg) && Boolean(chatId(msg) && postId(msg)); }
+
+async function patchDirectChannelPostFast(update, msg, config) {
+  const started = Date.now();
+  const channelId = chatId(msg);
+  const pid = postId(msg);
+  const mid = messageId(msg) || pid;
+  if (!channelId || !pid) return { ok: false, skipped: true, reason: 'direct_channel_identity_missing' };
+  if (hasCommentsKeyboard(msg)) return { ok: true, skipped: true, reason: 'already_patched' };
+  const result = await tryPatchChannelPost({
+    botToken: config.botToken,
+    appBaseUrl: config.appBaseUrl,
+    botUsername: config.botUsername,
+    maxDeepLinkBase: config.maxDeepLinkBase,
+    channelId,
+    postId: pid,
+    messageId: mid,
+    originalText: text(msg),
+    sourceAttachments: messageAttachments(msg),
+    nativeReactions: nativeReactions(msg),
+    originalLink: originalLink(msg),
+    originalFormat: originalFormat(msg),
+    channelTitle: channelTitle(msg) || channelId,
+    linkedByUserId: senderId(msg),
+    linkedByName: clean(msg?.sender?.name || msg?.sender?.first_name || ''),
+    autoMode: true
+  });
+  timing.log('direct_channel_pr82_patch', { durationMs: Date.now() - started, ok: Boolean(result?.patchResult || result?.patchError === null), channelId: timing.mask(channelId), postId: timing.mask(pid), messageId: timing.mask(mid), skipped: Boolean(result?.skipped), reason: clean(result?.reason || result?.patchError?.message || '') });
+  return result;
+}
+
 function createCleanBot(legacy) {
   const wrapped = guard.createCleanBot(legacy);
   return {
@@ -109,6 +205,11 @@ function createCleanBot(legacy) {
       const state = setup(uid);
       const incomingText = text(msg);
       try {
+        if (!realCb && msg && isDirectPatchCandidate(msg)) {
+          const result = await timing.measure('direct_channel_pr82_total', { updateType: updateType(update), channelId: timing.mask(chatId(msg)), postId: timing.mask(postId(msg)), messageId: timing.mask(messageId(msg) || postId(msg)) }, () => patchDirectChannelPostFast(update, msg, config));
+          return res.status(200).json({ ok: true, handledBy: RUNTIME, directChannelFastPatch: true, skipped: Boolean(result?.skipped), reason: result?.reason || '', commentKey: result?.commentKey || '', patchOk: Boolean(result?.patchResult || result?.patchError === null) });
+        }
+
         if (cb && !isChannelMessage(msg)) {
           const payload = parsePayload(cb);
           const action = clean(payload.action || payload.raw);
