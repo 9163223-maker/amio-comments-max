@@ -6,7 +6,7 @@ const COMPOSER_INTENT_RUNTIME = 'CC8.1.13-COMPOSER-INTENT-UNLOCK';
 const PERFORMANCE_TRACE_RUNTIME = 'CC8.1.15-PATCH-COMPUTE-BREAKDOWN';
 const LOADER_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE_LOADER__';
 const ONEPASS_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
-const SKELETON_MARKER = '__ADMINKIT_CC8_1_9_COMMENT_SKELETON_CONSUMER_GUARDED__';
+const SKELETON_MARKER = '__ADMINKIT_CC8_1_19_MINIAPP_SKELETON_DEFAULT_PR84__';
 const COMPOSER_INTENT_MARKER = '__ADMINKIT_CC8_1_13_COMPOSER_INTENT_UNLOCK__';
 const ASSET_VERSION = 'v7564-pr84';
 const LOADER_STARTED_AT = Date.now();
@@ -93,7 +93,7 @@ function bootOnepass() {
   installComposerIntentUnlock();
   postMiniTiming('loader.boot', { status: guardedSkeleton ? 'skeleton' : 'onepass' });
   const script = document.createElement('script');
-  script.src = (guardedSkeleton ? '/public/app-skeleton-consumer-pr67.js?' : '/public/app-onepass.js?') + ASSET_VERSION.replace(/^v/, 'v=');
+  script.src = (guardedSkeleton ? '/public/app-skeleton-consumer-pr84.js?' : '/public/app-onepass.js?') + ASSET_VERSION.replace(/^v/, 'v=');
   script.async = false;
   script.dataset.adminkitRuntime = guardedSkeleton ? SKELETON_RUNTIME : RUNTIME;
   script.onload = () => postMiniTiming('loader.script_loaded', { status: guardedSkeleton ? 'skeleton' : 'onepass', scriptSrc: script.src });
