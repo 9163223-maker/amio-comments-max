@@ -21,7 +21,18 @@ function message(update = {}) {
   return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || find(update, (x) => x && typeof x === 'object' && (x.body?.text || x.body?.caption || x.text || x.caption) && (x.recipient || x.sender || x.message_id || x.id), 5) || null;
 }
 function directCallback(update = {}) { return update?.callback || update?.data?.callback || update?.message?.callback || update?.data?.message?.callback || null; }
+function callback(update = {}) { return directCallback(update) || find(update, (x) => x && typeof x === 'object' && (x.callback_id || x.callbackId || x.payload || x.callback_data || x.callbackData) && !(x.body && (x.body.text || x.body.caption)), 6) || null; }
 function updateType(update = {}) { return clean(update.update_type || update.type || update?.data?.update_type || update?.data?.type).toLowerCase(); }
+function cbid(cb = {}) { return clean(cb.callback_id || cb.callbackId || cb.id); }
+function isMessageCreatedLikeUpdate(kind = '') { return kind === 'message_created' || kind === 'message_created_callback' || kind === 'bot_started'; }
+function isRealCallbackUpdate(update = {}, cb = null) {
+  const kind = updateType(update);
+  if (isMessageCreatedLikeUpdate(kind)) return false;
+  if (directCallback(update)) return true;
+  if (!cb) return false;
+  if (kind.includes('callback')) return true;
+  return Boolean(cbid(cb));
+}
 function body(msg = {}) { return msg?.body && typeof msg.body === 'object' ? msg.body : {}; }
 function text(msg = {}) { const b = body(msg); return clean(b.text || b.caption || msg.text || msg.caption || ''); }
 function chatId(msg = {}) { return clean(msg?.recipient?.chat_id || msg?.recipient?.id || msg?.chat_id || msg?.chat?.id); }
@@ -135,8 +146,9 @@ function createCleanBot(legacy) {
     handleWebhook: async function handleWebhookWithPr84DirectChannelFastPatch(req, res, config) {
       const update = req.body || {};
       const msg = message(update);
-      const hasRealCallback = Boolean(directCallback(update)) && !['message_created', 'message_created_callback', 'bot_started'].includes(updateType(update));
-      if (!hasRealCallback && msg && isDirectPatchCandidate(msg)) {
+      const rawCb = callback(update);
+      const realCb = isRealCallbackUpdate(update, rawCb);
+      if (!realCb && msg && isDirectPatchCandidate(msg)) {
         try {
           const result = await timing.measure('direct_channel_pr84_total', {
             updateType: updateType(update),
