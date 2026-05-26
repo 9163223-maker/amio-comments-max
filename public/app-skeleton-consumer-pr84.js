@@ -101,12 +101,15 @@ function installSyncOpenStateBridge() {
     const native = new NativeXHR();
     let fast = false;
     let fastUrl = '';
-    const wrapper = {
+    const fastState = {
       readyState: 0,
       status: 0,
       statusText: '',
       responseText: '',
       response: '',
+      responseURL: ''
+    };
+    const wrapper = {
       responseType: '',
       timeout: 0,
       withCredentials: false,
@@ -120,7 +123,8 @@ function installSyncOpenStateBridge() {
         if (isSync && String(method || '').toUpperCase() === 'GET' && isOpenState && currentOpenStateSnapshot()) {
           fast = true;
           fastUrl = String(url || '');
-          this.readyState = 1;
+          fastState.readyState = 1;
+          fastState.responseURL = fastUrl;
           return;
         }
         return native.open.apply(native, arguments);
@@ -129,15 +133,16 @@ function installSyncOpenStateBridge() {
       getResponseHeader(name) { if (fast) return String(name || '').toLowerCase() === 'content-type' ? 'application/json' : null; return native.getResponseHeader.apply(native, arguments); },
       getAllResponseHeaders() { if (fast) return 'content-type: application/json\r\n'; return native.getAllResponseHeaders.apply(native, arguments); },
       overrideMimeType() { if (fast) return; return native.overrideMimeType && native.overrideMimeType.apply(native, arguments); },
-      abort() { if (fast) { this.readyState = 0; if (typeof this.onabort === 'function') this.onabort(); return; } return native.abort.apply(native, arguments); },
+      abort() { if (fast) { fastState.readyState = 0; if (typeof this.onabort === 'function') this.onabort(); return; } return native.abort.apply(native, arguments); },
       send() {
         if (fast) {
           const snapshot = currentOpenStateSnapshot() || { ok: false, error: 'pr84_prefetch_missing', runtimeVersion: RUNTIME };
-          this.status = 200;
-          this.statusText = 'OK';
-          this.readyState = 4;
-          this.responseText = JSON.stringify(snapshot);
-          this.response = this.responseText;
+          fastState.status = 200;
+          fastState.statusText = 'OK';
+          fastState.readyState = 4;
+          fastState.responseText = JSON.stringify(snapshot);
+          fastState.response = fastState.responseText;
+          fastState.responseURL = fastUrl;
           window.__ADMINKIT_PR84_SYNC_XHR_BRIDGE_LAST__ = { at: Date.now(), url: fastUrl, usedSkeleton: Boolean(snapshot.skeletonInitial), hasComments: Array.isArray(snapshot.comments) && snapshot.comments.length > 0 };
           if (typeof this.onreadystatechange === 'function') this.onreadystatechange();
           if (typeof this.onload === 'function') this.onload();
@@ -150,7 +155,7 @@ function installSyncOpenStateBridge() {
       wrapper[name] = function() { return native[name] && native[name].apply(native, arguments); };
     });
     ['readyState', 'status', 'statusText', 'responseText', 'response', 'responseURL'].forEach((prop) => {
-      try { Object.defineProperty(wrapper, prop, { get() { return fast ? this['__' + prop] || this[prop] : native[prop]; }, set(value) { this['__' + prop] = value; } }); } catch (_) {}
+      try { Object.defineProperty(wrapper, prop, { get() { return fast ? fastState[prop] : native[prop]; }, set(value) { if (fast) fastState[prop] = value; else { try { native[prop] = value; } catch (_) {} } } }); } catch (_) {}
     });
     return wrapper;
   };
