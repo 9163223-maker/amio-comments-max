@@ -1,14 +1,14 @@
 ;(() => {
 'use strict';
 const RUNTIME = 'CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE';
-const SKELETON_RUNTIME = 'CC8.1.9-COMMENT-SKELETON-CONSUMER-GUARDED';
+const SKELETON_RUNTIME = 'CC8.1.19-MINIAPP-SKELETON-DEFAULT-PR84';
 const COMPOSER_INTENT_RUNTIME = 'CC8.1.13-COMPOSER-INTENT-UNLOCK';
 const PERFORMANCE_TRACE_RUNTIME = 'CC8.1.15-PATCH-COMPUTE-BREAKDOWN';
 const LOADER_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE_LOADER__';
 const ONEPASS_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
-const SKELETON_MARKER = '__ADMINKIT_CC8_1_9_COMMENT_SKELETON_CONSUMER_GUARDED__';
+const SKELETON_MARKER = '__ADMINKIT_CC8_1_19_MINIAPP_SKELETON_DEFAULT_PR84__';
 const COMPOSER_INTENT_MARKER = '__ADMINKIT_CC8_1_13_COMPOSER_INTENT_UNLOCK__';
-const ASSET_VERSION = 'v7564-pr75';
+const ASSET_VERSION = 'v7564-pr84';
 const LOADER_STARTED_AT = Date.now();
 if (window[LOADER_MARKER]) return;
 window[LOADER_MARKER] = true;
@@ -44,9 +44,20 @@ function postMiniTiming(name, extra) {
     beacon();
   } catch (_) {}
 }
+function hasCommentLaunchIdentity(query) {
+  const raw = String(query || '');
+  if (!raw) return false;
+  if (/(?:^|[?&#])(commentKey|handoff|startapp|start_param|WebAppStartParam|payload|channelId|channel_id|postId|post_id|messageId|message_id)=/i.test(raw)) return true;
+  if (/(?:cp|ck)_-?\d{3,}_-?\d{1,}/i.test(raw)) return true;
+  if (/-?\d{3,}:-?\d{1,}/.test(raw)) return true;
+  return false;
+}
 function wantsGuardedSkeletonConsumer() {
   const query = String((location && location.search) || '');
-  return /(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=1(?:&|$)/.test(query);
+  const hash = String((location && location.hash) || '');
+  if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=0(?:&|$)/.test(query)) return false;
+  if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=1(?:&|$)/.test(query)) return true;
+  return hasCommentLaunchIdentity(query) || hasCommentLaunchIdentity(hash);
 }
 function getCommentClientState() {
   return window.__ADMINKIT_CC7_5_55_STATE__ ||
@@ -82,7 +93,7 @@ function bootOnepass() {
   installComposerIntentUnlock();
   postMiniTiming('loader.boot', { status: guardedSkeleton ? 'skeleton' : 'onepass' });
   const script = document.createElement('script');
-  script.src = (guardedSkeleton ? '/public/app-skeleton-consumer-pr67.js?' : '/public/app-onepass.js?') + ASSET_VERSION.replace(/^v/, 'v=');
+  script.src = (guardedSkeleton ? '/public/app-skeleton-consumer-pr84.js?' : '/public/app-onepass.js?') + ASSET_VERSION.replace(/^v/, 'v=');
   script.async = false;
   script.dataset.adminkitRuntime = guardedSkeleton ? SKELETON_RUNTIME : RUNTIME;
   script.onload = () => postMiniTiming('loader.script_loaded', { status: guardedSkeleton ? 'skeleton' : 'onepass', scriptSrc: script.src });
