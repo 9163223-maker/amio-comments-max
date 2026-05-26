@@ -1,21 +1,34 @@
 {
-  "runtimeVersion": "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE",
-  "buildVersion": "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE",
-  "displayVersion": "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE",
-  "packageVersion": "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE",
-  "sourceMarker": "adminkit-cc7-5-64-direct-media-post-patch-trace",
-  "buildGeneratedAt": "2026-05-21T10:49:25Z",
+  "runtimeVersion": "CC8.1.16-FAST-PATCH-CORE-PR76",
+  "buildVersion": "CC8.1.16-FAST-PATCH-CORE-PR76",
+  "displayVersion": "CC8.1.16-FAST-PATCH-CORE-PR76",
+  "packageVersion": "CC8.1.16-FAST-PATCH-CORE-PR76",
+  "sourceMarker": "adminkit-cc8-1-16-fast-patch-core-pr76",
+  "buildGeneratedAt": "2026-05-25T10:05:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
+  "fastPatchCore": {
+    "enabled": true,
+    "path": "services/postPatcherFast76.js",
+    "runtimeVersion": "CC8.1.16-FAST-PATCH-CORE-PR76",
+    "goal": "make post patch/comment counter update use a direct fast path: no default live getMessage, async DB sync after editMessage, skip poll query when no poll marker",
+    "keptContracts": [
+      "gifts",
+      "custom buttons",
+      "comment-open-state",
+      "skeleton/onepass miniapp",
+      "direct editMessage path"
+    ]
+  },
   "cleanMenuCore": {
     "version": "1.53.11",
-    "entrypoint": "clean-entrypoint-1.53.9.js",
+    "entrypoint": "clean-entrypoint-pr41.js",
     "menuCorePath": "v3-menu-core-1539.js",
-    "botAdapterPath": "clean-bot-1539.js",
+    "botAdapterPath": "clean-bot-posts-open-async-1547.js",
     "routesPath": "v3-menu-routes-1539.js",
     "archiveFlowPath": "archive-flow-15311.js",
-    "pollFlowPath": "poll-flow-15311.js",
+    "pollFlowPath": "poll-flow-15313.js",
     "pollServicePath": "services/pollService.js",
-    "activeRuntime": "clean-entrypoint-1.53.9.js",
+    "activeRuntime": "clean-entrypoint-pr41.js",
     "cleanBase": true,
     "noModuleLoadPatch": true,
     "noMaxApiPatch": true,
@@ -48,7 +61,7 @@
   },
   "polls": {
     "enabled": true,
-    "flowPath": "poll-flow-15311.js",
+    "flowPath": "poll-flow-15313.js",
     "servicePath": "services/pollService.js",
     "tables": [
       "ak_polls",
@@ -59,8 +72,7 @@
       "yes_no",
       "like_dislike",
       "three"
-    ],
-    "reason": "the previous polls section was only a shell and had no creation/voting mechanism"
+    ]
   },
   "v3MenuSections": [
     "Подключение канала",
@@ -82,11 +94,11 @@
     "Production checklist"
   ],
   "policy": "No video/files in comments. Photos only inside comments. Native inline hints only; no overlay/float hints.",
-  "debugPolicy": "Clean V3 menu audit routes plus Postgres store/archive/polls status. No stress in normal checks.",
+  "debugPolicy": "Clean V3 menu audit routes plus Postgres store/archive/polls/patch timing status. No stress in normal checks.",
   "manualCheck": [
-    "After redeploy open /version?t=1540 and verify buildInfo displayVersion CC7.5.40 if build-info is surfaced",
-    "Open MAX /start and verify channel/post binding survived without re-forwarding a channel post",
-    "Open Голосовалки / опросы → choose post → create quick poll → vote by callback button under post",
-    "Open Архив / восстановление and verify archive counts survived the same update"
+    "After redeploy open /version?t=7616 and verify runtimeVersion CC8.1.16-FAST-PATCH-CORE-PR76",
+    "Create a new direct channel post and check patch.done is below 900 ms when MAX editMessage is healthy",
+    "Add a text comment and check the post comment counter updates without enrich_live/db_sync blocking",
+    "Forward a post from another channel and verify the forwarded card is selected/saved; if MAX does not allow editing the forwarded original, the admin menu must still keep the selected post context"
   ]
 }
