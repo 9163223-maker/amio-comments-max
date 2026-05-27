@@ -63,6 +63,25 @@ function findRecentDuplicateComment({ commentKey = "", userId = "", text = "", a
   }
   return null;
 }
+function findRecentDuplicateSticker({ commentKey = "", userId = "", packId = "", stickerId = "", windowMs = 8000 } = {}) {
+  const key = String(commentKey || "").trim();
+  if (!key || !stickerId) return null;
+  const normalizedUserId = String(userId || "guest").trim() || "guest";
+  const normalizedPackId = cleanStickerValue(packId || DEFAULT_STICKER_PACK_ID);
+  const normalizedStickerId = cleanStickerValue(stickerId);
+  const now = Date.now();
+  const comments = getComments(key);
+  for (let i = comments.length - 1; i >= 0; i -= 1) {
+    const item = comments[i] || {};
+    if (now - Number(item.createdAt || 0) > windowMs) break;
+    if (String(item.userId || "guest") !== normalizedUserId) continue;
+    if (String(item.type || "") !== "sticker") continue;
+    if (cleanStickerValue(item.packId || DEFAULT_STICKER_PACK_ID) !== normalizedPackId) continue;
+    if (cleanStickerValue(item.stickerId || "") !== normalizedStickerId) continue;
+    return { ...item, deduped: true };
+  }
+  return null;
+}
 function stripLargeInlinePayload(value = "") { const raw = String(value || "").trim(); if (/^(data|blob):/i.test(raw)) return ""; return raw.slice(0, 4096); }
 function sanitizeSmallImageDataUrl(value = "") {
   const raw = String(value || "").trim();
@@ -219,7 +238,7 @@ function createComment({ commentKey, userId, userName, text, avatarUrl, replyToI
   const queuedSticker = resolveQueuedStickerMetadata(attachments);
   if (queuedSticker) {
     const displayText = sanitizeText(queuedSticker.displayText || "Стикер") || "Стикер";
-    const duplicate = findRecentDuplicateComment({ commentKey, userId, text: displayText, attachments: [], windowMs: 8000 });
+    const duplicate = findRecentDuplicateSticker({ commentKey, userId, packId: queuedSticker.packId, stickerId: queuedSticker.stickerId, windowMs: 8000 });
     if (duplicate) return duplicate;
     const dbPolicy = readDbV3PolicySync(commentKey);
     checkCommentsEnabled(commentKey, dbPolicy);
