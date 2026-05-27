@@ -23,6 +23,20 @@ function noCache(res) {
   });
 }
 function json(res, payload, status = 200) { noCache(res); return res.status(status).json(payload); }
+function toArray(value) {
+  if (Array.isArray(value)) return value.map((item) => clean(item)).filter(Boolean);
+  return String(value || '').split(/[\n,;]/g).map((item) => clean(item)).filter(Boolean);
+}
+function countLinks(text = '') {
+  return (String(text || '').match(/(?:https?:\/\/|www\.|t\.me\/|telegram\.me\/|discord\.gg|wa\.me|chat\.whatsapp\.com)/giu) || []).length;
+}
+function makeModerationError({ action = 'reject', mode = 'moderation', reasons = [], matchedWords = [], source = 'moderation' } = {}) {
+  const err = new Error('comment_blocked_by_moderation');
+  err.status = 403;
+  err.code = 'comment_blocked_by_moderation';
+  err.data = { action, mode, reasons, matchedWords, source };
+  return err;
+}
 function isLocalStickerFile(url = '') {
   const value = clean(url);
   if (!value) return false;
@@ -51,7 +65,34 @@ function patchCountAsync(commentKey = '') {
   });
   return { ok: true, scheduled: true, reason: 'db_aware_sticker_comment_updates_channel_button_count' };
 }
-async function enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, stickerId }) {
+function enforceDbStickerModeration({ dbPolicy = null, userId, userName, text }) {
+  if (!dbPolicy || dbPolicy.moderationEnabled !== true) return { allowed: true, action: 'allow', mode: 'db_off' };
+  const normalizedText = clean(text);
+  const lowered = normalizedText.toLowerCase();
+  const reasons = [];
+  const matchedWords = [];
+  const words = toArray(dbPolicy.customBlocklist || []);
+  for (const word of words) {
+    const normalizedWord = clean(word).toLowerCase();
+    if (normalizedWord && lowered.includes(normalizedWord)) matchedWords.push(normalizedWord);
+  }
+  if (matchedWords.length) reasons.push('stopwords_match');
+  if (dbPolicy.blockLinks && countLinks(normalizedText) > 0) reasons.push('links_blocked');
+  if (dbPolicy.blockInvites !== false && /(t\.me\/|telegram\.me\/|discord\.gg|chat\.whatsapp\.com|joinchat|invite)/iu.test(normalizedText)) reasons.push('invite_link');
+  if (!reasons.length) return { allowed: true, action: 'allow', mode: 'db_policy' };
+  throw makeModerationError({
+    action: 'reject',
+    mode: 'db_policy',
+    reasons: [...new Set(reasons)],
+    matchedWords: [...new Set(matchedWords)],
+    source: 'Postgres ak_moderation_rules',
+    userId,
+    userName
+  });
+}
+async function enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, stickerId, dbPolicy }) {
+  const moderationText = 'Стикер';
+  enforceDbStickerModeration({ dbPolicy, userId, userName, text: moderationText });
   if (!moderationService || typeof moderationService.moderateComment !== 'function') return { allowed: true, action: 'allow', mode: 'unavailable' };
   const result = await moderationService.moderateComment({
     commentKey,
@@ -59,17 +100,13 @@ async function enforceStickerModeration({ commentKey, userId, userName, avatarUr
     userName,
     avatarUrl,
     replyToId,
-    text: `Стикер ${stickerId || ''}`.trim(),
+    text: moderationText,
     attachments: [],
     sourceType: 'create',
     config
   });
   if (!result || result.allowed !== false) return result || { allowed: true, action: 'allow' };
-  const err = new Error('comment_blocked_by_moderation');
-  err.status = 403;
-  err.code = 'comment_blocked_by_moderation';
-  err.data = { action: result.action || 'reject', mode: result.mode || 'moderation', reasons: result.reasons || [] };
-  throw err;
+  throw makeModerationError({ action: result.action || 'reject', mode: result.mode || 'moderation', reasons: result.reasons || [], source: result.mode || 'moderation' });
 }
 function install(app) {
   if (!app || app.__adminkitStickersLiveRoutesPr87) return app;
@@ -129,13 +166,13 @@ function install(app) {
       const check = stickerPackService.validateSticker(packId, stickerId);
       if (!check.ok) return json(res, { ok: false, error: check.error || 'sticker_not_allowed', runtimeVersion: RUNTIME }, 403);
       if (!stickerAssetReady(check.sticker)) return json(res, { ok: false, error: 'sticker_asset_missing', runtimeVersion: RUNTIME, stickerId }, 503);
-      await enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, stickerId: check.sticker.id });
+      await enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, stickerId: check.sticker.id, dbPolicy });
       const comment = addComment(commentKey, {
         type: 'sticker',
         userId,
         userName,
         avatarUrl,
-        text: '',
+        text: 'Стикер',
         attachments: [],
         replyToId,
         packId: check.sticker.packId,
