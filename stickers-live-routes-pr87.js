@@ -66,12 +66,13 @@ function buildQueuedStickerMetadata(sticker = {}) {
     moderationText: `Стикер ${stickerId}`.trim()
   };
 }
-function findRecentDuplicateStickerComment({ commentKey = '', userId = '', packId = '', stickerId = '', windowMs = 8000 } = {}) {
+function findRecentDuplicateStickerComment({ commentKey = '', userId = '', packId = '', stickerId = '', replyToId = '', windowMs = 8000 } = {}) {
   const key = normalizeKey(commentKey || '');
   const normalizedStickerId = clean(stickerId);
   if (!key || !normalizedStickerId) return null;
   const normalizedUserId = clean(userId || 'guest') || 'guest';
   const normalizedPackId = clean(packId || DEFAULT_PACK_ID);
+  const normalizedReplyToId = clean(replyToId || '');
   const now = Date.now();
   const comments = getComments(key);
   for (let i = comments.length - 1; i >= 0; i -= 1) {
@@ -81,6 +82,7 @@ function findRecentDuplicateStickerComment({ commentKey = '', userId = '', packI
     if (String(item.type || '') !== 'sticker') continue;
     if (clean(item.packId || DEFAULT_PACK_ID) !== normalizedPackId) continue;
     if (clean(item.stickerId || '') !== normalizedStickerId) continue;
+    if (clean(item.replyToId || '') !== normalizedReplyToId) continue;
     return { ...item, deduped: true };
   }
   return null;
@@ -207,6 +209,7 @@ function install(app) {
         userId,
         packId: check.sticker.packId,
         stickerId: check.sticker.id,
+        replyToId,
         windowMs: 8000
       });
       if (duplicate) {
