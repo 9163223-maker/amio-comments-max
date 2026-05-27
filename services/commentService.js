@@ -63,12 +63,13 @@ function findRecentDuplicateComment({ commentKey = "", userId = "", text = "", a
   }
   return null;
 }
-function findRecentDuplicateSticker({ commentKey = "", userId = "", packId = "", stickerId = "", windowMs = 8000 } = {}) {
+function findRecentDuplicateSticker({ commentKey = "", userId = "", packId = "", stickerId = "", replyToId = "", windowMs = 8000 } = {}) {
   const key = String(commentKey || "").trim();
   if (!key || !stickerId) return null;
   const normalizedUserId = String(userId || "guest").trim() || "guest";
   const normalizedPackId = cleanStickerValue(packId || DEFAULT_STICKER_PACK_ID);
   const normalizedStickerId = cleanStickerValue(stickerId);
+  const normalizedReplyToId = cleanStickerValue(replyToId || "");
   const now = Date.now();
   const comments = getComments(key);
   for (let i = comments.length - 1; i >= 0; i -= 1) {
@@ -78,6 +79,7 @@ function findRecentDuplicateSticker({ commentKey = "", userId = "", packId = "",
     if (String(item.type || "") !== "sticker") continue;
     if (cleanStickerValue(item.packId || DEFAULT_STICKER_PACK_ID) !== normalizedPackId) continue;
     if (cleanStickerValue(item.stickerId || "") !== normalizedStickerId) continue;
+    if (cleanStickerValue(item.replyToId || "") !== normalizedReplyToId) continue;
     return { ...item, deduped: true };
   }
   return null;
@@ -240,11 +242,12 @@ function createComment({ commentKey, userId, userName, text, avatarUrl, replyToI
   if (queuedSticker) {
     const displayText = sanitizeText(queuedSticker.displayText || "Стикер") || "Стикер";
     const moderationText = sanitizeText(queuedSticker.moderationText || `Стикер ${queuedSticker.stickerId}`).trim();
-    const duplicate = findRecentDuplicateSticker({ commentKey, userId, packId: queuedSticker.packId, stickerId: queuedSticker.stickerId, windowMs: 8000 });
+    const moderationAlreadyChecked = normalizeDuplicateText(text) === normalizeDuplicateText(moderationText);
+    const duplicate = findRecentDuplicateSticker({ commentKey, userId, packId: queuedSticker.packId, stickerId: queuedSticker.stickerId, replyToId, windowMs: 8000 });
     if (duplicate) return duplicate;
     const dbPolicy = readDbV3PolicySync(commentKey);
     checkCommentsEnabled(commentKey, dbPolicy);
-    checkModeration({ commentKey, userId, userName, text: moderationText, dbPolicy });
+    if (!moderationAlreadyChecked) checkModeration({ commentKey, userId, userName, text: moderationText, dbPolicy });
     const created = addComment(commentKey, {
       type: "sticker",
       userId: String(userId || "guest"),
