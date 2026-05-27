@@ -59,6 +59,7 @@ function ensureStyles() {
     .adminkit-sticker-tabs{display:flex;gap:8px;margin-top:10px;}
     .adminkit-sticker-tab{border:0;border-radius:16px;background:#edf6fb;color:#426272;padding:6px 12px;font-size:14px;}
     .comment-bubble.has-sticker{background:transparent!important;box-shadow:none!important;padding:2px 0 0!important;}
+    .comment-row[data-sticker-send-status="error"]{opacity:.72;}
     .comment-sticker{max-width:180px;min-width:116px;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;}
     .comment-row.own .comment-sticker{margin-left:auto;}
     .comment-sticker img{width:148px;max-width:42vw;height:auto;display:block;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.12));pointer-events:auto;}
@@ -143,7 +144,7 @@ function decorateStickerRows() {
   const list = getCommentsList();
   if (!s || !list) return;
   const comments = Array.isArray(s.comments) ? s.comments : [];
-  comments.filter((item) => item && item.type === 'sticker').forEach((comment) => {
+  comments.filter((item) => item && item.type === 'sticker' && item.sendStatus !== 'error').forEach((comment) => {
     const id = clean(comment.id);
     const sticker = stickerFor(comment);
     if (!id || !sticker) return;
@@ -166,6 +167,23 @@ function appendOptimistic(comment, sticker) {
   list.appendChild(row);
   try { row.scrollIntoView({ block: 'end' }); } catch (_) {}
   return row;
+}
+function markOptimisticStickerError(stateRef, optimisticId, row, error) {
+  const message = clean(error && (error.message || error)) || 'sticker_send_failed';
+  if (stateRef && Array.isArray(stateRef.comments)) {
+    stateRef.comments = stateRef.comments.map((item) => item && item.id === optimisticId ? { ...item, sendStatus: 'error', error: message } : item);
+  }
+  if (row) {
+    row.setAttribute('data-sticker-send-status', 'error');
+    const status = row.querySelector('.comment-sticker-status');
+    if (status) status.textContent = 'Не отправлено';
+    const bubble = row.querySelector('.comment-bubble');
+    if (bubble && !bubble.querySelector('.comment-sticker-error')) bubble.insertAdjacentHTML('beforeend', '<div class="comment-sticker-error">Не удалось отправить стикер</div>');
+    window.setTimeout(() => {
+      try { if (row && row.parentNode) row.parentNode.removeChild(row); } catch (_) {}
+      if (stateRef && Array.isArray(stateRef.comments)) stateRef.comments = stateRef.comments.filter((item) => !(item && item.id === optimisticId && item.sendStatus === 'error'));
+    }, 1800);
+  }
 }
 async function sendSticker(stickerId) {
   const s = state();
@@ -194,10 +212,7 @@ async function sendSticker(stickerId) {
     decorateStickerRows();
     s.replyToId = '';
   } catch (error) {
-    if (row) {
-      const bubble = row.querySelector('.comment-bubble');
-      if (bubble && !bubble.querySelector('.comment-sticker-error')) bubble.insertAdjacentHTML('beforeend', '<div class="comment-sticker-error">Не удалось отправить стикер</div>');
-    }
+    markOptimisticStickerError(s, optimisticId, row, error);
   }
 }
 async function loadStickers() {
