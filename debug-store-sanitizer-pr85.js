@@ -153,6 +153,16 @@ function countsForStore(store = {}) {
   };
 }
 
+function compactStoreMeta(counts) {
+  return {
+    compact: true,
+    counts,
+    note: 'Full collections are exposed as top-level sanitized fields for legacy diagnostics; nested store keeps only metadata to avoid duplicate full debug shape.',
+    moderationLogLimit: MODERATION_LOG_LIMIT,
+    uploadDiagnosticsLimit: 50
+  };
+}
+
 function sanitizeDebugSnapshot(snapshot = {}) {
   const rawStore = snapshot.store && typeof snapshot.store === 'object'
     ? snapshot.store
@@ -169,12 +179,15 @@ function sanitizeDebugSnapshot(snapshot = {}) {
       growth: snapshot.growth || {},
       gifts: snapshot.gifts || {}
     };
+  const cleanStore = sanitizeStoreObject(rawStore);
+  const counts = countsForStore(rawStore);
   return {
     ok: snapshot.ok !== false,
-    runtimeVersion: snapshot.runtimeVersion || RUNTIME,
     meta: snapshot.meta || {},
-    counts: countsForStore(rawStore),
-    store: sanitizeStoreObject(rawStore),
+    ...cleanStore,
+    runtimeVersion: snapshot.runtimeVersion || RUNTIME,
+    counts,
+    store: compactStoreMeta(counts),
     debugSanitized: true,
     debugSanitizerRuntime: RUNTIME
   };
