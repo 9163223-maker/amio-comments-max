@@ -7,7 +7,7 @@ const config = require('./config');
 const stickerPackService = require('./services/stickerPackService');
 const commentService = require('./services/commentService');
 const moderationService = require('./services/moderationService');
-const { normalizeKey, addComment } = require('./store');
+const { normalizeKey, addComment, getComments } = require('./store');
 
 const RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
 const DEFAULT_PACK_ID = stickerPackService.DEFAULT_PACK_ID || 'adminkit_whales_v1';
@@ -65,6 +65,25 @@ function buildQueuedStickerMetadata(sticker = {}) {
     displayText: 'Стикер',
     moderationText: `Стикер ${stickerId}`.trim()
   };
+}
+function findRecentDuplicateStickerComment({ commentKey = '', userId = '', packId = '', stickerId = '', windowMs = 8000 } = {}) {
+  const key = normalizeKey(commentKey || '');
+  const normalizedStickerId = clean(stickerId);
+  if (!key || !normalizedStickerId) return null;
+  const normalizedUserId = clean(userId || 'guest') || 'guest';
+  const normalizedPackId = clean(packId || DEFAULT_PACK_ID);
+  const now = Date.now();
+  const comments = getComments(key);
+  for (let i = comments.length - 1; i >= 0; i -= 1) {
+    const item = comments[i] || {};
+    if (now - Number(item.createdAt || 0) > windowMs) break;
+    if (clean(item.userId || 'guest') !== normalizedUserId) continue;
+    if (String(item.type || '') !== 'sticker') continue;
+    if (clean(item.packId || DEFAULT_PACK_ID) !== normalizedPackId) continue;
+    if (clean(item.stickerId || '') !== normalizedStickerId) continue;
+    return { ...item, deduped: true };
+  }
+  return null;
 }
 function patchCountAsync(commentKey = '') {
   const key = normalizeKey(commentKey || '');
@@ -183,6 +202,17 @@ function install(app) {
       if (!check.ok) return json(res, { ok: false, error: check.error || 'sticker_not_allowed', runtimeVersion: RUNTIME }, 403);
       if (!stickerAssetReady(check.sticker)) return json(res, { ok: false, error: 'sticker_asset_missing', runtimeVersion: RUNTIME, stickerId }, 503);
       await enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, sticker: check.sticker, dbPolicy });
+      const duplicate = findRecentDuplicateStickerComment({
+        commentKey,
+        userId,
+        packId: check.sticker.packId,
+        stickerId: check.sticker.id,
+        windowMs: 8000
+      });
+      if (duplicate) {
+        const patch = patchCountAsync(commentKey);
+        return json(res, { ok: true, runtimeVersion: RUNTIME, comment: duplicate, sticker: check.sticker, patch, deduped: true });
+      }
       const comment = addComment(commentKey, {
         type: 'sticker',
         userId,
