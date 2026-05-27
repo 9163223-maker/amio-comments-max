@@ -36,6 +36,9 @@ function stickerAssetReady(sticker = {}) {
 function listReadyStickers() {
   return stickerPackService.listStickers().filter(stickerAssetReady);
 }
+function commentsDisabledForPost(post = {}) {
+  return post && (post.commentsDisabled === true || post.commentsEnabled === false);
+}
 function patchCountAsync(commentKey = '') {
   const key = normalizeKey(commentKey || '');
   if (!key) return { ok: true, scheduled: false, reason: 'commentKey_missing' };
@@ -105,6 +108,7 @@ function install(app) {
       if (!commentKey) return json(res, { ok: false, error: 'commentKey_required', runtimeVersion: RUNTIME }, 400);
       const post = getPost(commentKey);
       if (!post) return json(res, { ok: false, error: 'post_not_found', runtimeVersion: RUNTIME }, 404);
+      if (commentsDisabledForPost(post)) return json(res, { ok: false, error: 'comments_disabled', runtimeVersion: RUNTIME }, 403);
       const check = stickerPackService.validateSticker(packId, stickerId);
       if (!check.ok) return json(res, { ok: false, error: check.error || 'sticker_not_allowed', runtimeVersion: RUNTIME }, 403);
       if (!stickerAssetReady(check.sticker)) return json(res, { ok: false, error: 'sticker_asset_missing', runtimeVersion: RUNTIME, stickerId }, 503);
