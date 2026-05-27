@@ -169,9 +169,9 @@ function resolveQueuedStickerMetadata(attachments = []) {
   if (!isLocalStickerAssetUrl(assetUrl) || !isLocalStickerAssetUrl(fallbackUrl)) throw new Error("sticker_asset_missing");
   return {
     packId: check.sticker.packId || packId,
-    stickerId: check.sticker.id || stickerId,
+    stickerId: check.sticker.id,
     displayText: cleanStickerValue(source.displayText || "Стикер") || "Стикер",
-    moderationText: cleanStickerValue(source.moderationText || `Стикер ${check.sticker.id || stickerId}`) || `Стикер ${check.sticker.id || stickerId}`
+    moderationText: `Стикер ${check.sticker.id}`
   };
 }
 function toArray(value) { if (Array.isArray(value)) return value.map((x) => String(x || "").trim()).filter(Boolean); return String(value || "").split(/[\n,;]/g).map((x) => String(x || "").trim()).filter(Boolean); }
