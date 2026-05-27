@@ -168,6 +168,12 @@ function appendOptimistic(comment, sticker) {
   try { row.scrollIntoView({ block: 'end' }); } catch (_) {}
   return row;
 }
+function removeOptimisticSticker(stateRef, optimisticId, row) {
+  if (stateRef && Array.isArray(stateRef.comments)) {
+    stateRef.comments = stateRef.comments.filter((item) => !(item && item.id === optimisticId));
+  }
+  try { if (row && row.parentNode) row.parentNode.removeChild(row); } catch (_) {}
+}
 function markOptimisticStickerError(stateRef, optimisticId, row, error) {
   const message = clean(error && (error.message || error)) || 'sticker_send_failed';
   if (stateRef && Array.isArray(stateRef.comments)) {
@@ -202,12 +208,19 @@ async function sendSticker(stickerId) {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false || !data.comment) throw new Error(clean(data.error || 'sticker_send_failed'));
-    s.comments = (s.comments || []).map((item) => item.id === optimisticId ? { ...data.comment, text: data.comment.text || 'Стикер' } : item);
-    if (row) {
-      row.setAttribute('data-comment-id', clean(data.comment.id));
-      const status = row.querySelector('.comment-sticker-status');
-      if (status) status.remove();
-      row.removeAttribute('data-sticker-decorated');
+    const savedComment = { ...data.comment, text: data.comment.text || 'Стикер' };
+    const savedId = clean(savedComment.id);
+    const alreadyInState = Boolean(data.deduped && savedId && (s.comments || []).some((item) => item && clean(item.id) === savedId && clean(item.id) !== optimisticId));
+    if (alreadyInState) {
+      removeOptimisticSticker(s, optimisticId, row);
+    } else {
+      s.comments = (s.comments || []).map((item) => item.id === optimisticId ? savedComment : item);
+      if (row) {
+        row.setAttribute('data-comment-id', savedId);
+        const status = row.querySelector('.comment-sticker-status');
+        if (status) status.remove();
+        row.removeAttribute('data-sticker-decorated');
+      }
     }
     decorateStickerRows();
     s.replyToId = '';
