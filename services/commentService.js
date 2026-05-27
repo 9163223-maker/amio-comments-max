@@ -217,4 +217,4 @@ function updateComment({ commentKey, commentId, userId, text }) {
   return found;
 }
 function deleteComment({ commentKey, commentId, userId }) { const comments = getComments(commentKey); const target = comments.find((item) => item.id === commentId); if (!target) throw new Error("comment_not_found"); if (String(target.userId || "") !== String(userId || "")) throw new Error("forbidden"); setComments(commentKey, comments.filter((item) => item.id !== commentId)); scheduleCommentButtonRefresh(commentKey); return true; }
-module.exports = { listComments, createComment, toggleLike, toggleReaction, updateComment, deleteComment };
+module.exports = { listComments, createComment, toggleLike, toggleReaction, updateComment, deleteComment, checkCommentsEnabled, readDbV3PolicySync };
