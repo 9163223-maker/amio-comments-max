@@ -2,17 +2,22 @@
 
 const RUNTIME = 'PR85-DEBUG-STORE-SANITIZER';
 const MODERATION_LOG_LIMIT = 50;
-const STRING_LIMIT = 500;
 const LARGE_STRING_LIMIT = 2048;
 const INLINE_KEY_RE = /dataurl|data_url|thumbdataurl|previewdataurl|base64|previewdata|localurl|localonly|rawdata|blob|imagebase64/i;
+const STABLE_PAYLOAD_KEYS = ['token', 'url', 'download_url', 'link', 'file_id', 'image_id', 'photo_id', 'video_id', 'audio_id', 'document_id'];
 
-function cleanString(value = '', limit = STRING_LIMIT) {
+function isInlineString(value = '') {
+  const text = String(value || '').trim();
+  if (!text) return false;
+  if (/^(data|blob):/i.test(text)) return true;
+  return text.length > LARGE_STRING_LIMIT && /^[A-Za-z0-9+/=]+$/.test(text.slice(0, 256));
+}
+
+function sanitizeString(value = '', { marker = false } = {}) {
   const text = String(value || '').trim();
   if (!text) return '';
-  if (/^(data|blob):/i.test(text)) return '[removed:inline-data]';
-  if (text.length > LARGE_STRING_LIMIT && /^[A-Za-z0-9+/=]+$/.test(text.slice(0, 256))) return '[removed:base64]';
-  const noInline = text.replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/gi, '[removed:inline-image]');
-  return noInline.length > limit ? noInline.slice(0, limit) : noInline;
+  if (isInlineString(text)) return marker ? '[removed:inline-data]' : '';
+  return text.replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/gi, marker ? '[removed:inline-image]' : '');
 }
 
 function safeNumber(value) {
@@ -20,74 +25,116 @@ function safeNumber(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function sanitizePlain(value, depth = 4) {
-  if (depth <= 0) return '[truncated]';
+function cloneJson(value) {
+  try { return value && typeof value === 'object' ? JSON.parse(JSON.stringify(value)) : value; } catch { return value; }
+}
+
+function sanitizeInlineDeep(value, { marker = false, depth = 12 } = {}) {
+  if (depth <= 0) return marker ? '[truncated]' : undefined;
   if (value === null || value === undefined) return value;
-  if (typeof value === 'string') return cleanString(value);
+  if (typeof value === 'string') return sanitizeString(value, { marker });
   if (typeof value === 'number' || typeof value === 'boolean') return value;
-  if (Array.isArray(value)) return value.slice(0, 30).map((item) => sanitizePlain(item, depth - 1));
-  if (typeof value !== 'object') return cleanString(value);
+  if (Array.isArray(value)) return value.map((item) => sanitizeInlineDeep(item, { marker, depth: depth - 1 })).filter((item) => item !== undefined);
+  if (typeof value !== 'object') return sanitizeString(value, { marker });
   const out = {};
-  Object.entries(value).slice(0, 80).forEach(([key, raw]) => {
+  Object.entries(value).forEach(([key, raw]) => {
     if (INLINE_KEY_RE.test(key)) {
-      out[key] = raw ? '[removed:inline-data]' : '';
+      if (raw) out[key] = marker ? '[removed:inline-data]' : '';
       return;
     }
-    out[key] = sanitizePlain(raw, depth - 1);
+    const cleaned = sanitizeInlineDeep(raw, { marker, depth: depth - 1 });
+    if (cleaned !== undefined) out[key] = cleaned;
   });
+  return out;
+}
+
+function sanitizePayloadForStorage(input = {}) {
+  const source = input && typeof input === 'object' ? input : {};
+  const out = {};
+  STABLE_PAYLOAD_KEYS.forEach((key) => {
+    if (source[key] === undefined || source[key] === null) return;
+    const cleaned = sanitizeString(source[key]);
+    if (cleaned) out[key] = cleaned;
+  });
+  if (source.photos && typeof source.photos === 'object') {
+    const photos = {};
+    Object.entries(source.photos).forEach(([key, value]) => {
+      const cleanKey = String(key || '').slice(0, 120);
+      const cleanValue = sanitizeString(value);
+      if (cleanKey && cleanValue) photos[cleanKey] = cleanValue;
+    });
+    if (Object.keys(photos).length) out.photos = photos;
+  }
   return out;
 }
 
 function sanitizeModerationAttachment(input = {}) {
   const source = input && typeof input === 'object' ? input : {};
-  const payload = source.payload && typeof source.payload === 'object' ? source.payload : {};
-  const token = cleanString(source.token || payload.token || payload.file_id || payload.image_id || payload.photo_id || payload.document_id || '', 180);
-  return {
-    type: cleanString(source.type || source.kind || source.attachment_type || payload.type || '', 40),
-    mime: cleanString(source.mime || source.mimeType || source.mime_type || payload.mime || payload.mime_type || '', 120),
-    fileName: cleanString(source.fileName || source.filename || source.name || payload.file_name || payload.filename || payload.name || '', 180),
+  const payloadSource = source.payload && typeof source.payload === 'object' ? source.payload : {};
+  const payload = sanitizePayloadForStorage(payloadSource);
+  const url = sanitizeString(source.url || source.download_url || source.link || payload.url || payload.download_url || payload.link || '');
+  const previewUrl = sanitizeString(source.previewUrl || source.preview_url || source.localPreviewUrl || '');
+  const posterUrl = sanitizeString(source.posterUrl || source.poster_url || '');
+  const rawUrl = sanitizeString(source.rawUrl || source.raw_url || '');
+  const rawType = String(source.type || source.kind || source.attachment_type || 'file').trim().toLowerCase();
+  const type = ['image', 'video', 'audio', 'file'].includes(rawType) ? rawType : 'file';
+  const uploadId = sanitizeString(source.uploadId || source.clientUploadId || source.client_upload_id || '').slice(0, 180);
+  const stableId = sanitizeString(source.id || uploadId || payload.token || payload.file_id || payload.image_id || payload.photo_id || '').slice(0, 180);
+  const item = {
+    id: stableId,
+    type,
+    name: sanitizeString(source.name || source.fileName || source.filename || payload.name || payload.file_name || payload.filename || 'Вложение').slice(0, 180),
+    mime: sanitizeString(source.mime || source.mimeType || source.mime_type || payload.mime || payload.mime_type || '').slice(0, 120),
     size: safeNumber(source.size || payload.size || payload.file_size),
-    width: safeNumber(source.width || payload.width),
-    height: safeNumber(source.height || payload.height),
-    token: token ? '[present]' : '',
-    hasPreview: Boolean(source.previewUrl || source.preview_url || source.posterUrl || source.poster_url || source.thumbDataUrl || source.previewDataUrl),
-    previewOnly: Boolean(source.previewOnly),
-    inlineOnly: Boolean(source.inlineOnly || source.dataUrl || source.base64 || source.thumbDataUrl || source.previewDataUrl)
+    url,
+    previewUrl,
+    posterUrl,
+    payload,
+    native: Boolean(source.native || Object.keys(payload).length),
+    storage: sanitizeString(source.storage || '').slice(0, 60),
+    uploadId,
+    clientUploadId: sanitizeString(source.clientUploadId || source.client_upload_id || uploadId || '').slice(0, 180),
+    rawUrl,
+    processing: Boolean(source.processing) || String(source.status || '') === 'processing',
+    status: sanitizeString(source.status || '').slice(0, 40),
+    transcodeError: sanitizeString(source.transcodeError || '').slice(0, 220)
   };
+  Object.keys(item).forEach((key) => {
+    if (item[key] === '' || item[key] === undefined || (key === 'payload' && !Object.keys(payload).length)) delete item[key];
+  });
+  item.inlineOnly = Boolean(source.inlineOnly || source.dataUrl || source.base64 || source.thumbDataUrl || source.previewDataUrl || source.data_url || source.thumb_data_url || source.preview_data_url);
+  item.inlinePayloadStripped = item.inlineOnly;
+  return item;
 }
 
 function sanitizeModerationLog(entry = {}) {
   const source = entry && typeof entry === 'object' ? entry : {};
-  const item = sanitizePlain(source, 3) || {};
-  const hasAttachments = Array.isArray(source.attachments);
-  if (hasAttachments) {
-    const attachments = source.attachments;
-    item.attachments = attachments.map(sanitizeModerationAttachment).slice(0, 10);
-    item.attachmentCount = attachments.length || safeNumber(source.attachmentCount || item.attachmentCount);
+  const item = sanitizeInlineDeep(source, { marker: false, depth: 8 }) || {};
+  if (Array.isArray(source.attachments)) {
+    item.attachments = source.attachments.map(sanitizeModerationAttachment).slice(0, 10);
+    item.attachmentCount = source.attachments.length || safeNumber(source.attachmentCount || item.attachmentCount);
   } else if (source.attachmentCount !== undefined || item.attachmentCount !== undefined) {
     item.attachmentCount = safeNumber(source.attachmentCount || item.attachmentCount);
   }
-  item.hasInlinePayloadStripped = JSON.stringify(source).length !== JSON.stringify(item).length;
+  item.hasInlinePayloadStripped = JSON.stringify(source).length !== JSON.stringify(item);
   return item;
 }
 
 function sanitizeUploadDiagnostic(entry = {}) {
-  const item = sanitizePlain(entry, 3) || {};
-  if (item.data && String(item.data).includes('[removed')) item.data = '[removed:inline-data]';
-  return item;
+  return sanitizeInlineDeep(entry, { marker: true, depth: 8 }) || {};
 }
 
 function sanitizeStoreObject(input = {}) {
-  const source = input && typeof input === 'object' ? input : {};
-  const clone = JSON.parse(JSON.stringify(source));
-  if (clone.moderation && Array.isArray(clone.moderation.logs)) {
-    clone.moderation.logs = clone.moderation.logs.slice(0, MODERATION_LOG_LIMIT).map(sanitizeModerationLog);
-    clone.moderation.logLimit = MODERATION_LOG_LIMIT;
+  const clone = cloneJson(input && typeof input === 'object' ? input : {});
+  const sanitized = sanitizeInlineDeep(clone, { marker: true, depth: 20 }) || {};
+  if (sanitized.moderation && Array.isArray(sanitized.moderation.logs)) {
+    sanitized.moderation.logs = sanitized.moderation.logs.slice(0, MODERATION_LOG_LIMIT).map(sanitizeModerationLog);
+    sanitized.moderation.logLimit = MODERATION_LOG_LIMIT;
   }
-  if (Array.isArray(clone.uploadDiagnostics)) {
-    clone.uploadDiagnostics = clone.uploadDiagnostics.slice(0, 50).map(sanitizeUploadDiagnostic);
+  if (Array.isArray(sanitized.uploadDiagnostics)) {
+    sanitized.uploadDiagnostics = sanitized.uploadDiagnostics.slice(0, 50).map(sanitizeUploadDiagnostic);
   }
-  return sanitizePlain(clone, 8);
+  return sanitized;
 }
 
 function countsForStore(store = {}) {
@@ -122,16 +169,23 @@ function sanitizeDebugSnapshot(snapshot = {}) {
       growth: snapshot.growth || {},
       gifts: snapshot.gifts || {}
     };
-  const cleanStore = sanitizeStoreObject(rawStore);
   return {
     ok: snapshot.ok !== false,
     runtimeVersion: snapshot.runtimeVersion || RUNTIME,
     meta: snapshot.meta || {},
     counts: countsForStore(rawStore),
-    store: cleanStore,
+    store: sanitizeStoreObject(rawStore),
     debugSanitized: true,
     debugSanitizerRuntime: RUNTIME
   };
+}
+
+function trimAndPersistLogs(storeModule) {
+  const logs = storeModule?.store?.moderation?.logs;
+  if (!Array.isArray(logs) || logs.length <= MODERATION_LOG_LIMIT) return false;
+  storeModule.store.moderation.logs = logs.slice(0, MODERATION_LOG_LIMIT);
+  if (typeof storeModule.saveStore === 'function') storeModule.saveStore(storeModule.store);
+  return true;
 }
 
 function cleanupPersistentStore(storeModule) {
@@ -161,7 +215,9 @@ function install() {
     const originalSnapshot = storeModule.getDebugSnapshot;
     if (typeof originalAdd === 'function') {
       storeModule.addModerationLog = function addModerationLogPr85(entry = {}) {
-        return originalAdd.call(this, sanitizeModerationLog(entry));
+        const result = originalAdd.call(this, sanitizeModerationLog(entry));
+        trimAndPersistLogs(storeModule);
+        return result;
       };
     }
     if (typeof originalUpdate === 'function') {
@@ -185,7 +241,8 @@ function install() {
 module.exports = {
   RUNTIME,
   install,
-  sanitizePlain,
+  sanitizeInlineDeep,
+  sanitizeModerationAttachment,
   sanitizeModerationLog,
   sanitizeDebugSnapshot,
   sanitizeStoreObject,
