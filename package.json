@@ -1,9 +1,9 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.1.5-GIFT-CONDITIONS-GATEKEEPER",
-  "main": "clean-entrypoint-pr41.js",
+  "version": "CC8.1.20-DEBUG-STORE-SANITIZER-PR85",
+  "main": "clean-entrypoint-1.53.9.js",
   "scripts": {
-    "start": "node clean-entrypoint-pr41.js",
+    "start": "node clean-entrypoint-1.53.9.js",
     "test": "node scripts/smoke-test.js"
   },
   "dependencies": {
