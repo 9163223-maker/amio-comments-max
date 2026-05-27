@@ -6,6 +6,7 @@ const fs = require('fs');
 const config = require('./config');
 const stickerPackService = require('./services/stickerPackService');
 const postPatcher = require('./services/postPatcher');
+const commentService = require('./services/commentService');
 const { normalizeKey, getPost, addComment } = require('./store');
 
 const RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
@@ -24,7 +25,8 @@ function noCache(res) {
 function json(res, payload, status = 200) { noCache(res); return res.status(status).json(payload); }
 function isLocalStickerFile(url = '') {
   const value = clean(url);
-  if (!value || value.startsWith('data:')) return true;
+  if (!value) return false;
+  if (/^(data|blob):/i.test(value)) return false;
   if (!value.startsWith('/public/stickers/adminkit/v1/')) return false;
   const file = value.split('/').pop();
   if (!/^[a-z0-9_.-]+\.(webp|png)$/i.test(file)) return false;
@@ -35,9 +37,6 @@ function stickerAssetReady(sticker = {}) {
 }
 function listReadyStickers() {
   return stickerPackService.listStickers().filter(stickerAssetReady);
-}
-function commentsDisabledForPost(post = {}) {
-  return post && (post.commentsDisabled === true || post.commentsEnabled === false);
 }
 function patchCountAsync(commentKey = '') {
   const key = normalizeKey(commentKey || '');
@@ -74,7 +73,8 @@ function install(app) {
       safe: true,
       noUserUploads: true,
       noExternalUrls: true,
-      noSvg: true
+      noSvg: true,
+      noDataUri: true
     });
   });
 
@@ -92,7 +92,8 @@ function install(app) {
       expectedFiles: ['adminkit_angry.webp', 'adminkit_ok.webp', 'adminkit_party.webp', 'adminkit_sad.webp', 'adminkit_alert.webp', 'adminkit_idea.webp', 'adminkit_love.webp', 'adminkit_happy.webp'],
       safe: true,
       noDatabaseRead: true,
-      noMaxApiCall: true
+      noMaxApiCall: true,
+      noDataUri: true
     });
   });
 
@@ -108,7 +109,8 @@ function install(app) {
       if (!commentKey) return json(res, { ok: false, error: 'commentKey_required', runtimeVersion: RUNTIME }, 400);
       const post = getPost(commentKey);
       if (!post) return json(res, { ok: false, error: 'post_not_found', runtimeVersion: RUNTIME }, 404);
-      if (commentsDisabledForPost(post)) return json(res, { ok: false, error: 'comments_disabled', runtimeVersion: RUNTIME }, 403);
+      const dbPolicy = typeof commentService.readDbV3PolicySync === 'function' ? commentService.readDbV3PolicySync(commentKey) : null;
+      if (typeof commentService.checkCommentsEnabled === 'function') commentService.checkCommentsEnabled(commentKey, dbPolicy);
       const check = stickerPackService.validateSticker(packId, stickerId);
       if (!check.ok) return json(res, { ok: false, error: check.error || 'sticker_not_allowed', runtimeVersion: RUNTIME }, 403);
       if (!stickerAssetReady(check.sticker)) return json(res, { ok: false, error: 'sticker_asset_missing', runtimeVersion: RUNTIME, stickerId }, 503);
@@ -128,7 +130,8 @@ function install(app) {
       const patch = patchCountAsync(commentKey);
       return json(res, { ok: true, runtimeVersion: RUNTIME, comment, sticker: check.sticker, patch });
     } catch (error) {
-      return json(res, { ok: false, runtimeVersion: RUNTIME, error: clean(error && error.message || error) || 'sticker_comment_create_failed' }, 400);
+      const status = Number(error && error.status) || (String(error && error.code || '').includes('comments_disabled') ? 403 : 400);
+      return json(res, { ok: false, runtimeVersion: RUNTIME, error: clean(error && (error.code || error.publicMessage || error.message) || error) || 'sticker_comment_create_failed' }, status);
     }
   });
   return app;
