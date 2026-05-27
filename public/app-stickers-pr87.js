@@ -174,6 +174,17 @@ function removeOptimisticSticker(stateRef, optimisticId, row) {
   }
   try { if (row && row.parentNode) row.parentNode.removeChild(row); } catch (_) {}
 }
+function hasMatchingPendingSticker(stateRef, optimisticId, optimistic) {
+  const comments = stateRef && Array.isArray(stateRef.comments) ? stateRef.comments : [];
+  return comments.some((item) => item &&
+    clean(item.id) !== optimisticId &&
+    clean(item.sendStatus) === 'sending' &&
+    clean(item.type) === 'sticker' &&
+    clean(item.userId || 'guest') === clean(optimistic.userId || 'guest') &&
+    clean(item.packId) === clean(optimistic.packId) &&
+    clean(item.stickerId) === clean(optimistic.stickerId) &&
+    clean(item.replyToId || '') === clean(optimistic.replyToId || ''));
+}
 function markOptimisticStickerError(stateRef, optimisticId, row, error) {
   const message = clean(error && (error.message || error)) || 'sticker_send_failed';
   if (stateRef && Array.isArray(stateRef.comments)) {
@@ -210,8 +221,10 @@ async function sendSticker(stickerId) {
     if (!response.ok || data.ok === false || !data.comment) throw new Error(clean(data.error || 'sticker_send_failed'));
     const savedComment = { ...data.comment, text: data.comment.text || 'Стикер' };
     const savedId = clean(savedComment.id);
-    const alreadyInState = Boolean(data.deduped && savedId && (s.comments || []).some((item) => item && clean(item.id) === savedId && clean(item.id) !== optimisticId));
-    if (alreadyInState) {
+    const comments = Array.isArray(s.comments) ? s.comments : [];
+    const alreadyInState = Boolean(data.deduped && savedId && comments.some((item) => item && clean(item.id) === savedId && clean(item.id) !== optimisticId));
+    const matchingPending = Boolean(data.deduped && hasMatchingPendingSticker(s, optimisticId, optimistic));
+    if (alreadyInState || matchingPending) {
       removeOptimisticSticker(s, optimisticId, row);
     } else {
       s.comments = (s.comments || []).map((item) => item.id === optimisticId ? savedComment : item);
