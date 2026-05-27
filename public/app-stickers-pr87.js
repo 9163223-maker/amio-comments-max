@@ -235,8 +235,7 @@ async function boot() {
     list.addEventListener('click', (event) => {
       const stickerNode = event.target && event.target.closest ? event.target.closest('.comment-sticker') : null;
       if (!stickerNode) return;
-      event.preventDefault();
-      event.stopPropagation();
+      if (event.target && String(event.target.tagName || '').toUpperCase() === 'IMG') event.preventDefault();
     }, true);
     const observer = new MutationObserver(() => decorateStickerRows());
     observer.observe(list, { childList: true, subtree: true });
