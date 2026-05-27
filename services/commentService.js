@@ -170,7 +170,7 @@ function resolveQueuedStickerMetadata(attachments = []) {
   return {
     packId: check.sticker.packId || packId,
     stickerId: check.sticker.id,
-    displayText: cleanStickerValue(source.displayText || "Стикер") || "Стикер",
+    displayText: "Стикер",
     moderationText: `Стикер ${check.sticker.id}`
   };
 }
