@@ -1,4 +1,7 @@
 const { execFileSync } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+const stickerPackService = require("./stickerPackService");
 const {
   getComments,
   addComment,
@@ -27,6 +30,9 @@ const pool = new Pool({ connectionString: url, ssl: /sslmode=disable/i.test(url)
   await pool.end();
 })().catch(async () => { try { await pool.end(); } catch {} console.log('null'); });
 `;
+
+const STICKER_STATIC_ROOT = path.join(__dirname, "..", "public", "stickers", "adminkit", "v1");
+const DEFAULT_STICKER_PACK_ID = stickerPackService.DEFAULT_PACK_ID || "adminkit_whales_v1";
 
 function sanitizeText(value) { return String(value || "").trim(); }
 function normalizeDuplicateText(value = "") { return String(value || "").replace(/\s+/g, " ").trim(); }
@@ -118,6 +124,36 @@ function sanitizeAttachments(value) {
     };
   }).filter(Boolean);
 }
+function cleanStickerValue(value = "") { return String(value || "").replace(/\s+/g, " ").trim(); }
+function isLocalStickerAssetUrl(value = "") {
+  const url = cleanStickerValue(value);
+  if (!url || /^(data|blob):/i.test(url)) return false;
+  if (!url.startsWith("/public/stickers/adminkit/v1/")) return false;
+  const file = url.split("/").pop();
+  if (!/^[a-z0-9_.-]+\.(webp|png)$/i.test(file)) return false;
+  return fs.existsSync(path.join(STICKER_STATIC_ROOT, file));
+}
+function resolveQueuedStickerMetadata(attachments = []) {
+  const source = (Array.isArray(attachments) ? attachments : []).find((item) => {
+    if (!item || typeof item !== "object") return false;
+    const type = cleanStickerValue(item.commentType || item.type).toLowerCase();
+    return item.adminkitQueuedSticker === true && type === "sticker";
+  });
+  if (!source) return null;
+  const packId = cleanStickerValue(source.packId || DEFAULT_STICKER_PACK_ID);
+  const stickerId = cleanStickerValue(source.stickerId || source.id || "");
+  if (!packId || !stickerId) throw new Error("sticker_metadata_required");
+  const check = stickerPackService.validateSticker(packId, stickerId);
+  if (!check?.ok || !check.sticker) throw new Error(check?.error || "sticker_not_allowed");
+  const assetUrl = check.sticker.url || "";
+  const fallbackUrl = check.sticker.fallbackUrl || assetUrl;
+  if (!isLocalStickerAssetUrl(assetUrl) || !isLocalStickerAssetUrl(fallbackUrl)) throw new Error("sticker_asset_missing");
+  return {
+    packId: check.sticker.packId || packId,
+    stickerId: check.sticker.id || stickerId,
+    displayText: cleanStickerValue(source.displayText || "Стикер") || "Стикер"
+  };
+}
 function toArray(value) { if (Array.isArray(value)) return value.map((x) => String(x || "").trim()).filter(Boolean); return String(value || "").split(/[\n,;]/g).map((x) => String(x || "").trim()).filter(Boolean); }
 function resolveChannelId(commentKey = "") { const post = getPost(commentKey); if (post?.channelId) return String(post.channelId).trim(); return getChannelIdFromCommentKey(commentKey); }
 function makePublicError(message, code, status = 403, data = null) { const error = new Error(message); error.status = status; error.code = code; error.publicMessage = message; if (data) error.data = data; return error; }
@@ -180,6 +216,29 @@ function enrichComments(commentKey, comments, currentUserId = "") {
 }
 function listComments(commentKey, currentUserId = "") { const comments = [...getComments(commentKey)].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); return enrichComments(commentKey, comments, currentUserId); }
 function createComment({ commentKey, userId, userName, text, avatarUrl, replyToId = "", attachments = [] }) {
+  const queuedSticker = resolveQueuedStickerMetadata(attachments);
+  if (queuedSticker) {
+    const displayText = sanitizeText(queuedSticker.displayText || "Стикер") || "Стикер";
+    const duplicate = findRecentDuplicateComment({ commentKey, userId, text: displayText, attachments: [], windowMs: 8000 });
+    if (duplicate) return duplicate;
+    const dbPolicy = readDbV3PolicySync(commentKey);
+    checkCommentsEnabled(commentKey, dbPolicy);
+    checkModeration({ commentKey, userId, userName, text: displayText, dbPolicy });
+    const created = addComment(commentKey, {
+      type: "sticker",
+      userId: String(userId || "guest"),
+      userName: String(userName || "Гость"),
+      avatarUrl: String(avatarUrl || ""),
+      text: displayText,
+      attachments: [],
+      replyToId: String(replyToId || "").trim(),
+      packId: queuedSticker.packId,
+      stickerId: queuedSticker.stickerId,
+      editedAt: 0
+    });
+    scheduleCommentButtonRefresh(commentKey);
+    return created;
+  }
   const cleanText = sanitizeText(text);
   const cleanAttachments = sanitizeAttachments(attachments);
   if (!cleanText && !cleanAttachments.length) throw new Error("text_or_attachment_required");
