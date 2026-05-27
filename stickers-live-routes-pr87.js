@@ -52,6 +52,20 @@ function stickerAssetReady(sticker = {}) {
 function listReadyStickers() {
   return stickerPackService.listStickers().filter(stickerAssetReady);
 }
+function buildQueuedStickerMetadata(sticker = {}) {
+  const packId = clean(sticker.packId || DEFAULT_PACK_ID);
+  const stickerId = clean(sticker.id || sticker.stickerId || '');
+  if (!packId || !stickerId) return null;
+  return {
+    type: 'sticker',
+    commentType: 'sticker',
+    adminkitQueuedSticker: true,
+    packId,
+    stickerId,
+    displayText: 'Стикер',
+    moderationText: `Стикер ${stickerId}`.trim()
+  };
+}
 function patchCountAsync(commentKey = '') {
   const key = normalizeKey(commentKey || '');
   if (!key) return { ok: true, scheduled: false, reason: 'commentKey_missing' };
@@ -90,8 +104,10 @@ function enforceDbStickerModeration({ dbPolicy = null, userId, userName, text })
     userName
   });
 }
-async function enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, stickerId, dbPolicy }) {
-  const moderationText = `Стикер ${stickerId || ''}`.trim();
+async function enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, sticker, stickerId, dbPolicy }) {
+  const effectiveStickerId = clean(sticker?.id || stickerId || '');
+  const moderationText = `Стикер ${effectiveStickerId || ''}`.trim();
+  const queuedStickerMetadata = buildQueuedStickerMetadata(sticker || { stickerId: effectiveStickerId });
   enforceDbStickerModeration({ dbPolicy, userId, userName, text: moderationText });
   if (!moderationService || typeof moderationService.moderateComment !== 'function') return { allowed: true, action: 'allow', mode: 'unavailable' };
   const result = await moderationService.moderateComment({
@@ -101,7 +117,7 @@ async function enforceStickerModeration({ commentKey, userId, userName, avatarUr
     avatarUrl,
     replyToId,
     text: moderationText,
-    attachments: [],
+    attachments: queuedStickerMetadata ? [queuedStickerMetadata] : [],
     sourceType: 'create',
     config
   });
@@ -166,7 +182,7 @@ function install(app) {
       const check = stickerPackService.validateSticker(packId, stickerId);
       if (!check.ok) return json(res, { ok: false, error: check.error || 'sticker_not_allowed', runtimeVersion: RUNTIME }, 403);
       if (!stickerAssetReady(check.sticker)) return json(res, { ok: false, error: 'sticker_asset_missing', runtimeVersion: RUNTIME, stickerId }, 503);
-      await enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, stickerId: check.sticker.id, dbPolicy });
+      await enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, sticker: check.sticker, dbPolicy });
       const comment = addComment(commentKey, {
         type: 'sticker',
         userId,
