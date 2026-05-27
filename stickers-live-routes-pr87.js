@@ -3,9 +3,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const config = require('./config');
 const stickerPackService = require('./services/stickerPackService');
-const postPatcher = require('./services/postPatcher');
 const commentService = require('./services/commentService');
 const { normalizeKey, addComment } = require('./store');
 
@@ -41,18 +39,15 @@ function listReadyStickers() {
 function patchCountAsync(commentKey = '') {
   const key = normalizeKey(commentKey || '');
   if (!key) return { ok: true, scheduled: false, reason: 'commentKey_missing' };
-  setImmediate(() => {
+  setImmediate(async () => {
     try {
-      postPatcher.patchStoredPost({
-        botToken: config.botToken,
-        appBaseUrl: config.appBaseUrl,
-        botUsername: config.botUsername,
-        maxDeepLinkBase: config.maxDeepLinkBase,
-        commentKey: key
-      }).catch(() => {});
+      const dbV3PostPatcher = require('./db-v3-post-patcher');
+      if (typeof dbV3PostPatcher.patchCommentsButtonByCommentKey === 'function') {
+        await dbV3PostPatcher.patchCommentsButtonByCommentKey(key);
+      }
     } catch (_) {}
   });
-  return { ok: true, scheduled: true, reason: 'sticker_comment_updates_channel_button_count' };
+  return { ok: true, scheduled: true, reason: 'db_aware_sticker_comment_updates_channel_button_count' };
 }
 function install(app) {
   if (!app || app.__adminkitStickersLiveRoutesPr87) return app;
