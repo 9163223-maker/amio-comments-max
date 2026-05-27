@@ -135,6 +135,10 @@ function install(app) {
     postPatcher.setPostPatchTraceHook(timingHook);
   }
   app.get('/debug/patch-timing', (req, res) => send(res, patchTimingInfo()));
+  app.get('/debug/patch-timing/clear', (req, res) => {
+    timing.clear();
+    send(res, { ok: true, runtimeVersion: RUNTIME, mode: 'patch-timing-cleared', safe: true, noDatabaseRead: true, noMaxApiCall: true });
+  });
   app.get('/debug/miniapp-timing', (req, res) => send(res, miniappTimingInfo()));
   app.get('/debug/miniapp-timing/clear', (req, res) => { miniEvents.splice(0, miniEvents.length); send(res, { ok: true, runtimeVersion: RUNTIME, mode: 'miniapp-timing-cleared', safe: true }); });
   app.post('/api/debug/miniapp-timing', (req, res) => {
