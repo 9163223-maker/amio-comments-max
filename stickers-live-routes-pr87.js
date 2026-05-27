@@ -91,7 +91,7 @@ function enforceDbStickerModeration({ dbPolicy = null, userId, userName, text })
   });
 }
 async function enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, stickerId, dbPolicy }) {
-  const moderationText = 'Стикер';
+  const moderationText = `Стикер ${stickerId || ''}`.trim();
   enforceDbStickerModeration({ dbPolicy, userId, userName, text: moderationText });
   if (!moderationService || typeof moderationService.moderateComment !== 'function') return { allowed: true, action: 'allow', mode: 'unavailable' };
   const result = await moderationService.moderateComment({
