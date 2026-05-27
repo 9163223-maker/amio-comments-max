@@ -3,8 +3,10 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const config = require('./config');
 const stickerPackService = require('./services/stickerPackService');
 const commentService = require('./services/commentService');
+const moderationService = require('./services/moderationService');
 const { normalizeKey, addComment } = require('./store');
 
 const RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
@@ -49,6 +51,26 @@ function patchCountAsync(commentKey = '') {
   });
   return { ok: true, scheduled: true, reason: 'db_aware_sticker_comment_updates_channel_button_count' };
 }
+async function enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, stickerId }) {
+  if (!moderationService || typeof moderationService.moderateComment !== 'function') return { allowed: true, action: 'allow', mode: 'unavailable' };
+  const result = await moderationService.moderateComment({
+    commentKey,
+    userId,
+    userName,
+    avatarUrl,
+    replyToId,
+    text: `Стикер ${stickerId || ''}`.trim(),
+    attachments: [],
+    sourceType: 'create',
+    config
+  });
+  if (!result || result.allowed !== false) return result || { allowed: true, action: 'allow' };
+  const err = new Error('comment_blocked_by_moderation');
+  err.status = 403;
+  err.code = 'comment_blocked_by_moderation';
+  err.data = { action: result.action || 'reject', mode: result.mode || 'moderation', reasons: result.reasons || [] };
+  throw err;
+}
 function install(app) {
   if (!app || app.__adminkitStickersLiveRoutesPr87) return app;
   app.__adminkitStickersLiveRoutesPr87 = true;
@@ -92,7 +114,7 @@ function install(app) {
     });
   });
 
-  app.post('/api/comments/sticker', express.json({ limit: '32kb' }), (req, res) => {
+  app.post('/api/comments/sticker', express.json({ limit: '32kb' }), async (req, res) => {
     try {
       const commentKey = normalizeKey(req.body?.commentKey || '');
       const packId = clean(req.body?.packId || DEFAULT_PACK_ID);
@@ -107,6 +129,7 @@ function install(app) {
       const check = stickerPackService.validateSticker(packId, stickerId);
       if (!check.ok) return json(res, { ok: false, error: check.error || 'sticker_not_allowed', runtimeVersion: RUNTIME }, 403);
       if (!stickerAssetReady(check.sticker)) return json(res, { ok: false, error: 'sticker_asset_missing', runtimeVersion: RUNTIME, stickerId }, 503);
+      await enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, stickerId: check.sticker.id });
       const comment = addComment(commentKey, {
         type: 'sticker',
         userId,
@@ -123,8 +146,9 @@ function install(app) {
       const patch = patchCountAsync(commentKey);
       return json(res, { ok: true, runtimeVersion: RUNTIME, comment, sticker: check.sticker, patch });
     } catch (error) {
-      const status = Number(error && error.status) || (String(error && error.code || '').includes('comments_disabled') ? 403 : 400);
-      return json(res, { ok: false, runtimeVersion: RUNTIME, error: clean(error && (error.code || error.publicMessage || error.message) || error) || 'sticker_comment_create_failed' }, status);
+      const code = clean(error && (error.code || error.publicMessage || error.message) || error) || 'sticker_comment_create_failed';
+      const status = Number(error && error.status) || (String(code).includes('comments_disabled') || String(code).includes('moderation') ? 403 : 400);
+      return json(res, { ok: false, runtimeVersion: RUNTIME, error: code, data: error && error.data ? error.data : undefined }, status);
     }
   });
   return app;
