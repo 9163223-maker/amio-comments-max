@@ -176,7 +176,8 @@ function sanitizeAttachments(value) {
       clientUploadId: String(source.clientUploadId || source.client_upload_id || uploadId || "").slice(0, 180), rawUrl, processing, status, transcodeError: String(source.transcodeError || "").slice(0, 220)
     };
   }).filter(Boolean);
-}\nfunction isLocalStickerAssetUrl(value = "") {
+}
+function isLocalStickerAssetUrl(value = "") {
   const url = cleanStickerValue(value);
   if (!url || /^(data|blob):/i.test(url)) return false;
   if (!url.startsWith("/public/stickers/adminkit/v1/")) return false;
