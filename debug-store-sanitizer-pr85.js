@@ -59,9 +59,14 @@ function sanitizeModerationAttachment(input = {}) {
 function sanitizeModerationLog(entry = {}) {
   const source = entry && typeof entry === 'object' ? entry : {};
   const item = sanitizePlain(source, 3) || {};
-  const attachments = Array.isArray(source.attachments) ? source.attachments : [];
-  item.attachments = attachments.map(sanitizeModerationAttachment).slice(0, 10);
-  item.attachmentCount = attachments.length || safeNumber(source.attachmentCount || item.attachmentCount);
+  const hasAttachments = Array.isArray(source.attachments);
+  if (hasAttachments) {
+    const attachments = source.attachments;
+    item.attachments = attachments.map(sanitizeModerationAttachment).slice(0, 10);
+    item.attachmentCount = attachments.length || safeNumber(source.attachmentCount || item.attachmentCount);
+  } else if (source.attachmentCount !== undefined || item.attachmentCount !== undefined) {
+    item.attachmentCount = safeNumber(source.attachmentCount || item.attachmentCount);
+  }
   item.hasInlinePayloadStripped = JSON.stringify(source).length !== JSON.stringify(item).length;
   return item;
 }
