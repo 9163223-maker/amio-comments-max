@@ -7,7 +7,7 @@ const config = require('./config');
 const stickerPackService = require('./services/stickerPackService');
 const postPatcher = require('./services/postPatcher');
 const commentService = require('./services/commentService');
-const { normalizeKey, getPost, addComment } = require('./store');
+const { normalizeKey, addComment } = require('./store');
 
 const RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
 const DEFAULT_PACK_ID = stickerPackService.DEFAULT_PACK_ID || 'adminkit_whales_v1';
@@ -107,8 +107,6 @@ function install(app) {
       const avatarUrl = clean(req.body?.avatarUrl || '');
       const replyToId = clean(req.body?.replyToId || '');
       if (!commentKey) return json(res, { ok: false, error: 'commentKey_required', runtimeVersion: RUNTIME }, 400);
-      const post = getPost(commentKey);
-      if (!post) return json(res, { ok: false, error: 'post_not_found', runtimeVersion: RUNTIME }, 404);
       const dbPolicy = typeof commentService.readDbV3PolicySync === 'function' ? commentService.readDbV3PolicySync(commentKey) : null;
       if (typeof commentService.checkCommentsEnabled === 'function') commentService.checkCommentsEnabled(commentKey, dbPolicy);
       const check = stickerPackService.validateSticker(packId, stickerId);
