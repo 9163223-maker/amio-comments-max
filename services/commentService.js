@@ -170,7 +170,8 @@ function resolveQueuedStickerMetadata(attachments = []) {
   return {
     packId: check.sticker.packId || packId,
     stickerId: check.sticker.id || stickerId,
-    displayText: cleanStickerValue(source.displayText || "Стикер") || "Стикер"
+    displayText: cleanStickerValue(source.displayText || "Стикер") || "Стикер",
+    moderationText: cleanStickerValue(source.moderationText || `Стикер ${check.sticker.id || stickerId}`) || `Стикер ${check.sticker.id || stickerId}`
   };
 }
 function toArray(value) { if (Array.isArray(value)) return value.map((x) => String(x || "").trim()).filter(Boolean); return String(value || "").split(/[\n,;]/g).map((x) => String(x || "").trim()).filter(Boolean); }
@@ -238,11 +239,12 @@ function createComment({ commentKey, userId, userName, text, avatarUrl, replyToI
   const queuedSticker = resolveQueuedStickerMetadata(attachments);
   if (queuedSticker) {
     const displayText = sanitizeText(queuedSticker.displayText || "Стикер") || "Стикер";
+    const moderationText = sanitizeText(queuedSticker.moderationText || `Стикер ${queuedSticker.stickerId}`).trim();
     const duplicate = findRecentDuplicateSticker({ commentKey, userId, packId: queuedSticker.packId, stickerId: queuedSticker.stickerId, windowMs: 8000 });
     if (duplicate) return duplicate;
     const dbPolicy = readDbV3PolicySync(commentKey);
     checkCommentsEnabled(commentKey, dbPolicy);
-    checkModeration({ commentKey, userId, userName, text: displayText, dbPolicy });
+    checkModeration({ commentKey, userId, userName, text: moderationText, dbPolicy });
     const created = addComment(commentKey, {
       type: "sticker",
       userId: String(userId || "guest"),
