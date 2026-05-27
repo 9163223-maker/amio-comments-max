@@ -4,11 +4,13 @@ const RUNTIME = 'CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE';
 const SKELETON_RUNTIME = 'CC8.1.19-MINIAPP-SKELETON-DEFAULT-PR84';
 const COMPOSER_INTENT_RUNTIME = 'CC8.1.13-COMPOSER-INTENT-UNLOCK';
 const PERFORMANCE_TRACE_RUNTIME = 'CC8.1.15-PATCH-COMPUTE-BREAKDOWN';
+const STICKERS_RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
 const LOADER_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE_LOADER__';
 const ONEPASS_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
 const SKELETON_MARKER = '__ADMINKIT_CC8_1_19_MINIAPP_SKELETON_DEFAULT_PR84__';
 const COMPOSER_INTENT_MARKER = '__ADMINKIT_CC8_1_13_COMPOSER_INTENT_UNLOCK__';
-const ASSET_VERSION = 'v7564-pr84';
+const STICKERS_LOADER_MARKER = '__ADMINKIT_STICKERS_PR87_LOADER__';
+const ASSET_VERSION = 'v7564-pr87-stickers';
 const LOADER_STARTED_AT = Date.now();
 if (window[LOADER_MARKER]) return;
 window[LOADER_MARKER] = true;
@@ -16,6 +18,7 @@ window.__ADMINKIT_PUBLIC_APP_RUNTIME__ = RUNTIME;
 window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_RUNTIME__ = SKELETON_RUNTIME;
 window.__ADMINKIT_COMPOSER_INTENT_UNLOCK_RUNTIME__ = COMPOSER_INTENT_RUNTIME;
 window.__ADMINKIT_PERFORMANCE_TRACE_RUNTIME__ = PERFORMANCE_TRACE_RUNTIME;
+window.__ADMINKIT_STICKERS_RUNTIME__ = STICKERS_RUNTIME;
 function postMiniTiming(name, extra) {
   try {
     const now = Date.now();
@@ -43,6 +46,18 @@ function postMiniTiming(name, extra) {
     }
     beacon();
   } catch (_) {}
+}
+function loadStickerAddon() {
+  if (window[STICKERS_LOADER_MARKER]) return;
+  window[STICKERS_LOADER_MARKER] = true;
+  const s = document.createElement('script');
+  s.src = '/public/app-stickers-pr87.js?v=pr87-stickers';
+  s.async = true;
+  s.dataset.adminkitRuntime = STICKERS_RUNTIME;
+  s.onload = () => postMiniTiming('loader.stickers_loaded', { status: 'stickers', scriptSrc: s.src, stickersRuntime: STICKERS_RUNTIME });
+  s.onerror = () => postMiniTiming('loader.stickers_error', { status: 'stickers', scriptSrc: s.src, stickersRuntime: STICKERS_RUNTIME });
+  (document.head || document.documentElement).appendChild(s);
+  postMiniTiming('loader.stickers_appended', { status: 'stickers', scriptSrc: s.src, stickersRuntime: STICKERS_RUNTIME });
 }
 function hasCommentLaunchIdentity(query) {
   const raw = String(query || '');
@@ -96,7 +111,7 @@ function bootOnepass() {
   script.src = (guardedSkeleton ? '/public/app-skeleton-consumer-pr84.js?' : '/public/app-onepass.js?') + ASSET_VERSION.replace(/^v/, 'v=');
   script.async = false;
   script.dataset.adminkitRuntime = guardedSkeleton ? SKELETON_RUNTIME : RUNTIME;
-  script.onload = () => postMiniTiming('loader.script_loaded', { status: guardedSkeleton ? 'skeleton' : 'onepass', scriptSrc: script.src });
+  script.onload = () => { postMiniTiming('loader.script_loaded', { status: guardedSkeleton ? 'skeleton' : 'onepass', scriptSrc: script.src }); loadStickerAddon(); };
   script.onerror = () => {
     postMiniTiming('loader.script_error', { status: guardedSkeleton ? 'skeleton' : 'onepass', scriptSrc: script.src });
     const card = document.getElementById('postError');
