@@ -3,6 +3,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const config = require('./config');
 const stickerPackService = require('./services/stickerPackService');
 const commentService = require('./services/commentService');
@@ -30,6 +31,23 @@ function toArray(value) {
 function countLinks(text = '') {
   return (String(text || '').match(/(?:https?:\/\/|www\.|t\.me\/|telegram\.me\/|discord\.gg|wa\.me|chat\.whatsapp\.com)/giu) || []).length;
 }
+function stickerApprovalSecret() {
+  return clean(config.moderationAdminToken || config.giftAdminToken || config.botToken || process.env.WEBHOOK_SECRET || process.env.GITHUB_DEBUG_TOKEN || '');
+}
+function signQueuedStickerApproval({ commentKey = '', userId = '', replyToId = '', packId = '', stickerId = '', moderationText = '' } = {}) {
+  const secret = stickerApprovalSecret();
+  if (!secret) return '';
+  const payload = [
+    'adminkitQueuedSticker:v1',
+    normalizeKey(commentKey || ''),
+    clean(userId || 'guest') || 'guest',
+    clean(replyToId || ''),
+    clean(packId || DEFAULT_PACK_ID),
+    clean(stickerId || ''),
+    clean(moderationText || '')
+  ].join('\n');
+  return crypto.createHmac('sha256', secret).update(payload).digest('hex');
+}
 function makeModerationError({ action = 'reject', mode = 'moderation', reasons = [], matchedWords = [], source = 'moderation' } = {}) {
   const err = new Error('comment_blocked_by_moderation');
   err.status = 403;
@@ -52,19 +70,31 @@ function stickerAssetReady(sticker = {}) {
 function listReadyStickers() {
   return stickerPackService.listStickers().filter(stickerAssetReady);
 }
-function buildQueuedStickerMetadata(sticker = {}) {
+function buildQueuedStickerMetadata(sticker = {}, context = {}) {
   const packId = clean(sticker.packId || DEFAULT_PACK_ID);
   const stickerId = clean(sticker.id || sticker.stickerId || '');
   if (!packId || !stickerId) return null;
-  return {
+  const moderationText = `Стикер ${stickerId}`.trim();
+  const approvalToken = signQueuedStickerApproval({
+    commentKey: context.commentKey,
+    userId: context.userId,
+    replyToId: context.replyToId,
+    packId,
+    stickerId,
+    moderationText
+  });
+  const metadata = {
     type: 'sticker',
     commentType: 'sticker',
     adminkitQueuedSticker: true,
+    approvalContext: 'moderation_queue_v1',
     packId,
     stickerId,
     displayText: 'Стикер',
-    moderationText: `Стикер ${stickerId}`.trim()
+    moderationText
   };
+  if (approvalToken) metadata.approvalToken = approvalToken;
+  return metadata;
 }
 function findRecentDuplicateStickerComment({ commentKey = '', userId = '', packId = '', stickerId = '', replyToId = '', windowMs = 8000 } = {}) {
   const key = normalizeKey(commentKey || '');
@@ -128,7 +158,7 @@ function enforceDbStickerModeration({ dbPolicy = null, userId, userName, text })
 async function enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, sticker, stickerId, dbPolicy }) {
   const effectiveStickerId = clean(sticker?.id || stickerId || '');
   const moderationText = `Стикер ${effectiveStickerId || ''}`.trim();
-  const queuedStickerMetadata = buildQueuedStickerMetadata(sticker || { stickerId: effectiveStickerId });
+  const queuedStickerMetadata = buildQueuedStickerMetadata(sticker || { stickerId: effectiveStickerId }, { commentKey, userId, replyToId });
   enforceDbStickerModeration({ dbPolicy, userId, userName, text: moderationText });
   if (!moderationService || typeof moderationService.moderateComment !== 'function') return { allowed: true, action: 'allow', mode: 'unavailable' };
   const result = await moderationService.moderateComment({
