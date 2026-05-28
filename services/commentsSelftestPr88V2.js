@@ -20,6 +20,7 @@ function pass(id, details) { return { id, status: 'pass', details: details || {}
 function fail(id, expected, actual, details) { return { id, status: 'fail', expected, actual, details: details || {} }; }
 function addAssert(results, id, ok, expected, actual, details) { results.push(ok ? pass(id, details) : fail(id, expected, actual, details)); }
 function findComment(commentKey, commentId) { return getComments(commentKey).find((item) => item && item.id === commentId) || null; }
+function uiWarning(id, message, details) { return { id, severity: 'warning', message, details: details || {} }; }
 
 function clearModerationLogs(key) {
   let removed = 0;
@@ -65,6 +66,15 @@ async function liveSticker(commentKey, opts) {
   });
   const comment = result && result.comment ? { ...result.comment, __liveStickerPath: true } : null;
   return comment;
+}
+
+function summarizeBrowserProbeRequirements(probes) {
+  const required = (probes || []).filter((item) => item && item.status === 'browser_probe_required');
+  return {
+    requiredCount: required.length,
+    requiredProbeIds: required.map((item) => item.id).filter(Boolean),
+    requiredProbes: required.map((item) => ({ id: item.id, commentId: item.commentId, expected: item.expected || item.expectedClientCounters || item.clientTelemetryContract || {} }))
+  };
 }
 
 async function runFullCommentsSelftest(options) {
@@ -143,6 +153,11 @@ async function runFullCommentsSelftest(options) {
 
   const failures = tests.filter((item) => item.status === 'fail');
   const backend = { ok: failures.length === 0, summary: { passed: tests.length - failures.length, failed: failures.length, total: tests.length }, failures, tests };
+  const browserProbeRequirements = summarizeBrowserProbeRequirements(probes);
+  if (browserProbeRequirements.requiredCount > 0) {
+    warnings.push(uiWarning('browser_ui_probe_required', 'Browser-side UI probes are required before UI stability can pass.', browserProbeRequirements));
+  }
+  const uiStatus = browserProbeRequirements.requiredCount > 0 ? 'needs_browser_probe' : (warnings.length ? 'warning' : 'pass');
   const report = {
     ok: backend.ok,
     runtimeVersion: RUNTIME,
@@ -152,7 +167,15 @@ async function runFullCommentsSelftest(options) {
     finishedAt: nowIso(),
     summary: backend.summary,
     backend,
-    uiStability: { ok: warnings.length === 0, warnings, probes, note: 'UI probes are separate from backend release-gating tests.' },
+    uiStability: {
+      ok: uiStatus === 'pass',
+      status: uiStatus,
+      browserProbeRequired: browserProbeRequirements.requiredCount > 0,
+      browserProbeRequirements,
+      warnings,
+      probes,
+      note: 'Backend ok is release-gating. UI stability requires browser probe completion before it can pass.'
+    },
     telemetry: { clientContract: '__adminkitCommentsPerf', requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
     warnings,
     failures,
