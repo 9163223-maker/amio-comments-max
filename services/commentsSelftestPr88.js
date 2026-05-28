@@ -5,11 +5,8 @@ const stickerPackService = require('./stickerPackService');
 const {
   getComments,
   setComments,
-  addComment,
-  getReactionsMap,
-  setReactionState,
-  getLikesMap,
-  setLikeState,
+  store,
+  saveStore,
   normalizeKey
 } = require('../store');
 
@@ -32,7 +29,14 @@ function findById(commentKey, commentId) {
   return getComments(commentKey).find((item) => item && item.id === commentId) || null;
 }
 function resetKey(commentKey) {
-  try { setComments(commentKey, []); } catch {}
+  const key = normalizeKey(commentKey);
+  if (!key) return;
+  try { setComments(key, []); } catch {}
+  try {
+    if (store.likes && Object.prototype.hasOwnProperty.call(store.likes, key)) delete store.likes[key];
+    if (store.reactions && Object.prototype.hasOwnProperty.call(store.reactions, key)) delete store.reactions[key];
+    saveStore(store);
+  } catch {}
 }
 
 function createStickerComment(commentKey, opts = {}) {
