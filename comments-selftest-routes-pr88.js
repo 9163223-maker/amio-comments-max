@@ -29,6 +29,9 @@ function cleanupMode(req) {
   if (!Object.prototype.hasOwnProperty.call(req.query || {}, 'cleanup')) return 'auto';
   return String(req.query?.cleanup || '') === '1';
 }
+function requestedCommentKey(req) {
+  return clean(req.query?.commentKey || req.query?.key || '');
+}
 
 function install(app) {
   if (!app || app.__adminkitCommentsSelftestPr88) return app;
@@ -38,7 +41,7 @@ function install(app) {
     noCache(res);
     if (!adminAllowed(req)) return res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME });
     try {
-      const report = await runFullCommentsSelftest({ cleanup: cleanupMode(req) });
+      const report = await runFullCommentsSelftest({ cleanup: cleanupMode(req), commentKey: requestedCommentKey(req) });
       return res.status(report.ok ? 200 : 500).json(report);
     } catch (error) {
       return res.status(500).json({ ok: false, runtimeVersion: RUNTIME, error: error?.message || 'selftest_failed' });
@@ -65,4 +68,4 @@ function install(app) {
   return app;
 }
 
-module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens };
+module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens, requestedCommentKey };
