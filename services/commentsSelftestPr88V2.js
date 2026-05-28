@@ -84,6 +84,7 @@ async function runFullCommentsSelftest(options) {
   const tests = [];
   const probes = [];
   const warnings = [];
+  const cleanupMode = options && Object.prototype.hasOwnProperty.call(options, 'cleanup') ? options.cleanup : 'auto';
   resetKey(commentKey);
 
   try {
@@ -158,6 +159,8 @@ async function runFullCommentsSelftest(options) {
     warnings.push(uiWarning('browser_ui_probe_required', 'Browser-side UI probes are required before UI stability can pass.', browserProbeRequirements));
   }
   const uiStatus = browserProbeRequirements.requiredCount > 0 ? 'needs_browser_probe' : (warnings.length ? 'warning' : 'pass');
+  const shouldCleanup = cleanupMode === true || (cleanupMode === 'auto' && uiStatus === 'pass');
+  const fixturesPreserved = !shouldCleanup;
   const report = {
     ok: backend.ok,
     runtimeVersion: RUNTIME,
@@ -176,13 +179,20 @@ async function runFullCommentsSelftest(options) {
       probes,
       note: 'Backend ok is release-gating. UI stability requires browser probe completion before it can pass.'
     },
+    fixtures: {
+      preserved: fixturesPreserved,
+      cleanupMode,
+      cleanupRequired: fixturesPreserved,
+      cleanupHint: fixturesPreserved ? '/debug/selftest/comments/full?cleanup=1' : '',
+      reason: fixturesPreserved ? 'Fixtures are preserved because browser UI probes are required.' : 'Fixtures cleaned because cleanup was explicit or UI stability passed.'
+    },
     telemetry: { clientContract: '__adminkitCommentsPerf', requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
     warnings,
     failures,
     tests
   };
   latestReport = report;
-  if (!options || options.cleanup !== false) report.cleanup = resetKey(commentKey);
+  if (shouldCleanup) report.cleanup = resetKey(commentKey);
   return report;
 }
 
