@@ -95,9 +95,19 @@
     u.searchParams.set('t', String(Date.now()));
     return u.toString();
   }
+  function isTargetFrameDocument(doc) {
+    try {
+      if (!doc || !doc.location) return false;
+      if (doc.location.href === 'about:blank') return false;
+      return doc.location.pathname === '/mini-app' && doc.location.search.indexOf('commentKey=') !== -1;
+    } catch (_) {
+      return false;
+    }
+  }
   function currentFrameDocument() {
     try {
-      return frame && (frame.contentDocument || (frame.contentWindow && frame.contentWindow.document));
+      const doc = frame && (frame.contentDocument || (frame.contentWindow && frame.contentWindow.document));
+      return isTargetFrameDocument(doc) ? doc : null;
     } catch (_) {
       return null;
     }
@@ -129,7 +139,7 @@
         if (finish()) return;
         setTimeout(poll, 120);
       }
-      frame.addEventListener('load', () => { finish(); }, { once: true });
+      frame.addEventListener('load', () => { finish(); }, false);
       timer = setTimeout(() => {
         if (done) return;
         if (finish()) return;
@@ -148,7 +158,9 @@
     const started = Date.now();
     let lastMissing = ids.slice();
     while (Date.now() - started < timeoutMs) {
-      const doc = frameDoc || currentFrameDocument();
+      const currentDoc = currentFrameDocument();
+      if (currentDoc) frameDoc = currentDoc;
+      const doc = frameDoc;
       const win = frame && frame.contentWindow;
       const missing = ids.filter((id) => !rowById(doc, id));
       lastMissing = missing;
@@ -288,7 +300,7 @@
       const finalReport = await postJson('/debug/selftest/comments/browser-result', {
         commentKey: full.commentKey,
         probes: { sticker_renderer_contract_probe: sticker, reopen_hydration_stability_probe: hydration },
-        telemetry: { source: 'PR90_BROWSER_RUNNER_REAL_UI_IFRAME_LOAD_FIX', browserMeasured: true, realCommentsIframe: true, userAgent: navigator.userAgent, viewport: { width: innerWidth, height: innerHeight }, at: new Date().toISOString() }
+        telemetry: { source: 'PR90_BROWSER_RUNNER_NAVIGATED_IFRAME_FIX', browserMeasured: true, realCommentsIframe: true, navigatedMiniAppOnly: true, userAgent: navigator.userAgent, viewport: { width: innerWidth, height: innerHeight }, at: new Date().toISOString() }
       });
       setLinks(finalReport.commentKey || full.commentKey);
       log('Browser result accepted: ' + Boolean(finalReport.browserProbeResult && finalReport.browserProbeResult.ok), finalReport.browserProbeResult && finalReport.browserProbeResult.ok ? 'ok' : 'bad');
