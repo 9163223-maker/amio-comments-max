@@ -42,6 +42,17 @@ function getCurrentAvatarUrl() { const s = state(); return clean(s && s.currentU
 function formatTime(ts) { try { return new Date(ts || Date.now()).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; } }
 function isOwnComment(comment) { const uid = getCurrentUserId(); return Boolean(uid && clean(comment && comment.userId) === uid); }
 function stickerFor(comment) { return stickersById[clean(comment && comment.stickerId)] || null; }
+function cssEscape(value) { try { return window.CSS && CSS.escape ? CSS.escape(value) : String(value).replace(/"/g, '\\"'); } catch (_) { return String(value).replace(/"/g, '\\"'); } }
+function findCommentRowById(commentId) {
+  const list = getCommentsList();
+  const id = clean(commentId);
+  if (!list || !id) return null;
+  try { return list.querySelector('[data-comment-id="' + cssEscape(id) + '"]'); } catch (_) { return null; }
+}
+function liveCommentRow(commentId, capturedRow) {
+  if (capturedRow && capturedRow.isConnected && clean(capturedRow.getAttribute('data-comment-id')) === clean(commentId)) return capturedRow;
+  return findCommentRowById(commentId);
+}
 function ensureStyles() {
   if (byId('adminkitStickerStylesPr87')) return;
   const style = document.createElement('style');
@@ -148,7 +159,7 @@ function decorateStickerRows() {
     const id = clean(comment.id);
     const sticker = stickerFor(comment);
     if (!id || !sticker) return;
-    let row = list.querySelector('[data-comment-id="' + CSS.escape(id) + '"]');
+    let row = findCommentRowById(id);
     if (!row) {
       const tmp = document.createElement('div');
       tmp.innerHTML = rowHtml(comment, sticker, false);
@@ -172,7 +183,8 @@ function removeOptimisticSticker(stateRef, optimisticId, row) {
   if (stateRef && Array.isArray(stateRef.comments)) {
     stateRef.comments = stateRef.comments.filter((item) => !(item && item.id === optimisticId));
   }
-  try { if (row && row.parentNode) row.parentNode.removeChild(row); } catch (_) {}
+  const liveRow = liveCommentRow(optimisticId, row);
+  try { if (liveRow && liveRow.parentNode) liveRow.parentNode.removeChild(liveRow); } catch (_) {}
 }
 function isMatchingPendingSticker(item, optimisticId, optimistic) {
   return Boolean(item &&
@@ -191,9 +203,8 @@ function findMatchingPendingSticker(stateRef, optimisticId, optimistic) {
 function replacePendingStickerWithSaved(stateRef, pendingId, savedComment) {
   if (!stateRef || !Array.isArray(stateRef.comments) || !pendingId || !savedComment) return;
   stateRef.comments = stateRef.comments.map((item) => item && clean(item.id) === pendingId ? savedComment : item);
-  const list = getCommentsList();
+  const row = findCommentRowById(pendingId);
   const savedId = clean(savedComment.id);
-  const row = list && window.CSS && CSS.escape ? list.querySelector('[data-comment-id="' + CSS.escape(pendingId) + '"]') : null;
   if (row) {
     row.setAttribute('data-comment-id', savedId);
     const status = row.querySelector('.comment-sticker-status');
@@ -205,18 +216,20 @@ function replacePendingStickerWithSaved(stateRef, pendingId, savedComment) {
 function markOptimisticStickerError(stateRef, optimisticId, row, error) {
   const stillPending = Boolean(stateRef && Array.isArray(stateRef.comments) && stateRef.comments.some((item) => item && clean(item.id) === optimisticId && clean(item.sendStatus) === 'sending'));
   if (!stillPending) return;
+  const liveRow = liveCommentRow(optimisticId, row);
   const message = clean(error && (error.message || error)) || 'sticker_send_failed';
   if (stateRef && Array.isArray(stateRef.comments)) {
     stateRef.comments = stateRef.comments.map((item) => item && item.id === optimisticId ? { ...item, sendStatus: 'error', error: message } : item);
   }
-  if (row) {
-    row.setAttribute('data-sticker-send-status', 'error');
-    const status = row.querySelector('.comment-sticker-status');
+  if (liveRow) {
+    liveRow.setAttribute('data-sticker-send-status', 'error');
+    const status = liveRow.querySelector('.comment-sticker-status');
     if (status) status.textContent = 'Не отправлено';
-    const bubble = row.querySelector('.comment-bubble');
+    const bubble = liveRow.querySelector('.comment-bubble');
     if (bubble && !bubble.querySelector('.comment-sticker-error')) bubble.insertAdjacentHTML('beforeend', '<div class="comment-sticker-error">Не удалось отправить стикер</div>');
     window.setTimeout(() => {
-      try { if (row && row.parentNode && clean(row.getAttribute('data-comment-id')) === optimisticId) row.parentNode.removeChild(row); } catch (_) {}
+      const rowToRemove = findCommentRowById(optimisticId);
+      try { if (rowToRemove && rowToRemove.parentNode) rowToRemove.parentNode.removeChild(rowToRemove); } catch (_) {}
       if (stateRef && Array.isArray(stateRef.comments)) stateRef.comments = stateRef.comments.filter((item) => !(item && item.id === optimisticId && item.sendStatus === 'error'));
     }, 1800);
   }
@@ -250,11 +263,13 @@ async function sendSticker(stickerId) {
       removeOptimisticSticker(s, optimisticId, row);
     } else {
       s.comments = (s.comments || []).map((item) => item.id === optimisticId ? savedComment : item);
-      if (row) {
-        row.setAttribute('data-comment-id', savedId);
-        const status = row.querySelector('.comment-sticker-status');
+      const liveRow = liveCommentRow(optimisticId, row);
+      if (liveRow) {
+        liveRow.setAttribute('data-comment-id', savedId);
+        const status = liveRow.querySelector('.comment-sticker-status');
         if (status) status.remove();
-        row.removeAttribute('data-sticker-decorated');
+        liveRow.removeAttribute('data-sticker-decorated');
+        liveRow.removeAttribute('data-sticker-send-status');
       }
     }
     decorateStickerRows();
