@@ -179,11 +179,13 @@ async function runFullCommentsSelftest(options) {
     warnings.push(uiWarning('browser_ui_probe_required', 'Browser-side UI probes are required before UI stability can pass.', browserProbeRequirements));
   }
   const uiStatus = browserProbeRequirements.requiredCount > 0 ? 'needs_browser_probe' : (warnings.length ? 'warning' : 'pass');
-  const shouldCleanup = cleanupMode === true || (cleanupMode === 'auto' && uiStatus === 'pass');
+  const fullOk = backend.ok && uiStatus === 'pass';
+  const shouldCleanup = cleanupMode === true || (cleanupMode === 'auto' && fullOk);
   const fixturesPreserved = !shouldCleanup;
   const cleanupHint = fixturesPreserved ? `/debug/selftest/comments/full?cleanup=1&commentKey=${encodeURIComponent(commentKey)}` : '';
   const report = {
-    ok: backend.ok,
+    ok: fullOk,
+    backendOk: backend.ok,
     runtimeVersion: RUNTIME,
     suite: 'ADMINKIT_COMMENTS_FULL',
     commentKey,
@@ -198,7 +200,7 @@ async function runFullCommentsSelftest(options) {
       browserProbeRequirements,
       warnings,
       probes,
-      note: 'Backend ok is release-gating. UI stability requires browser probe completion before it can pass.'
+      note: 'Full self-test is only ok when backend passes and UI stability is pass.'
     },
     fixtures: {
       preserved: fixturesPreserved,
@@ -206,7 +208,7 @@ async function runFullCommentsSelftest(options) {
       cleanupRequired: fixturesPreserved,
       cleanupHint,
       commentKey,
-      reason: fixturesPreserved ? 'Fixtures are preserved because browser UI probes are required.' : 'Fixtures cleaned because cleanup was explicit or UI stability passed.'
+      reason: fixturesPreserved ? 'Fixtures are preserved because the full self-test is not green yet.' : 'Fixtures cleaned because cleanup was explicit or the full self-test passed.'
     },
     telemetry: { clientContract: '__adminkitCommentsPerf', requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
     warnings,
@@ -219,7 +221,7 @@ async function runFullCommentsSelftest(options) {
 }
 
 function getLatestReport() {
-  return latestReport || { ok: false, runtimeVersion: RUNTIME, error: 'selftest_not_run_yet' };
+  return latestReport || { ok: false, backendOk: false, runtimeVersion: RUNTIME, error: 'selftest_not_run_yet' };
 }
 
 module.exports = { RUNTIME, SELFTEST_KEY_PREFIX, isSelftestKey, runFullCommentsSelftest, getLatestReport };
