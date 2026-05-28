@@ -5,11 +5,29 @@
   overflow: visible !important;
 }
 
+.comment-row[data-sticker-row="1"] .comment-bubble.has-sticker::before,
+.comment-row[data-sticker-row="1"] .comment-bubble.has-sticker.own::before,
+.comment-row[data-sticker-row="1"] .comment-bubble.own.has-sticker::before {
+  display: none !important;
+  content: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
 .comment-bubble.has-sticker:has(.comment-sticker) {
   background: transparent !important;
   box-shadow: none !important;
   padding: 2px 0 0 !important;
   overflow: visible !important;
+}
+
+.comment-bubble.has-sticker:has(.comment-sticker)::before {
+  display: none !important;
+  content: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 .comment-row[data-sticker-row="1"] .comment-sticker,
