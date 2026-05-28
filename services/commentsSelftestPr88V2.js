@@ -22,6 +22,7 @@ function fail(id, expected, actual, details) { return { id, status: 'fail', expe
 function addAssert(results, id, ok, expected, actual, details) { results.push(ok ? pass(id, details) : fail(id, expected, actual, details)); }
 function findComment(commentKey, commentId) { return getComments(commentKey).find((item) => item && item.id === commentId) || null; }
 function uiWarning(id, message, details) { return { id, severity: 'warning', message, details: details || {} }; }
+function hasOwn(obj, key) { return Boolean(obj && typeof obj === 'object' && Object.prototype.hasOwnProperty.call(obj, key)); }
 function isSelftestKey(commentKey) { return normalizeKey(commentKey).startsWith(SELFTEST_KEY_PREFIX); }
 function selftestKeyError(commentKey) {
   const err = new Error('invalid_selftest_comment_key');
@@ -106,7 +107,7 @@ function boolCheck(value, keys) {
   return keys.some((key) => value && value[key] === true) || keys.some((key) => nested(value, ['checks', key]) === true) || keys.some((key) => nested(value, ['measurements', key]) === true);
 }
 function objectValuesAreZero(value) {
-  if (!value || typeof value !== 'object') return true;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   return Object.values(value).every((item) => Number(item || 0) === 0);
 }
 function validateStickerRendererProbe(value) {
@@ -123,15 +124,24 @@ function validateStickerRendererProbe(value) {
 function validateHydrationProbe(value) {
   if (!value || typeof value !== 'object') return { ok: false, reason: 'probe_result_object_required' };
   const counters = value.counters || value.telemetry || value;
-  const listClearCount = Number(counters.listClearCount || 0);
-  const mediaRemountCount = Number(counters.mediaRemountCount || 0);
-  const stickerImageReloadCount = Number(counters.stickerImageReloadCount || 0);
-  const photoImageReloadCount = Number(counters.photoImageReloadCount || 0);
+  if (!counters || typeof counters !== 'object') return { ok: false, reason: 'hydration_counters_object_required' };
+  const requiredNumericCounters = ['listClearCount'];
+  const requiredMapCounters = ['mediaRemountCountByCommentId', 'imageReloadCountByCommentId'];
+  const missingNumericCounters = requiredNumericCounters.filter((key) => !hasOwn(counters, key));
+  const missingMapCounters = requiredMapCounters.filter((key) => !hasOwn(counters, key));
+  if (missingNumericCounters.length || missingMapCounters.length) {
+    return { ok: false, reason: 'hydration_counters_required', missingNumericCounters, missingMapCounters };
+  }
+  const listClearCount = Number(counters.listClearCount);
+  const mediaRemountCount = hasOwn(counters, 'mediaRemountCount') ? Number(counters.mediaRemountCount) : 0;
+  const stickerImageReloadCount = hasOwn(counters, 'stickerImageReloadCount') ? Number(counters.stickerImageReloadCount) : 0;
+  const photoImageReloadCount = hasOwn(counters, 'photoImageReloadCount') ? Number(counters.photoImageReloadCount) : 0;
   const mediaRemountByIdOk = objectValuesAreZero(counters.mediaRemountCountByCommentId);
   const imageReloadByIdOk = objectValuesAreZero(counters.imageReloadCountByCommentId);
-  const stickerReloadByIdOk = objectValuesAreZero(counters.stickerImageReloadCountByCommentId);
-  const photoReloadByIdOk = objectValuesAreZero(counters.photoImageReloadCountByCommentId);
-  const ok = listClearCount === 0 && mediaRemountCount === 0 && stickerImageReloadCount === 0 && photoImageReloadCount === 0 && mediaRemountByIdOk && imageReloadByIdOk && stickerReloadByIdOk && photoReloadByIdOk;
+  const stickerReloadByIdOk = hasOwn(counters, 'stickerImageReloadCountByCommentId') ? objectValuesAreZero(counters.stickerImageReloadCountByCommentId) : true;
+  const photoReloadByIdOk = hasOwn(counters, 'photoImageReloadCountByCommentId') ? objectValuesAreZero(counters.photoImageReloadCountByCommentId) : true;
+  const numbersOk = [listClearCount, mediaRemountCount, stickerImageReloadCount, photoImageReloadCount].every(Number.isFinite);
+  const ok = numbersOk && listClearCount === 0 && mediaRemountCount === 0 && stickerImageReloadCount === 0 && photoImageReloadCount === 0 && mediaRemountByIdOk && imageReloadByIdOk && stickerReloadByIdOk && photoReloadByIdOk;
   return { ok, counters: { listClearCount, mediaRemountCount, stickerImageReloadCount, photoImageReloadCount, mediaRemountByIdOk, imageReloadByIdOk, stickerReloadByIdOk, photoReloadByIdOk } };
 }
 function validateBrowserProbe(id, value) {
