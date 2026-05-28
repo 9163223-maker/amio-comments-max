@@ -89,19 +89,60 @@ function summarizeBrowserProbeRequirements(probes) {
     requiredProbes: required.map((item) => ({ id: item.id, commentId: item.commentId, expected: item.expected || item.expectedClientCounters || item.clientTelemetryContract || {} }))
   };
 }
-function isProbePassed(value) {
-  if (value === true || value === 'pass' || value === 'passed' || value === 'ok') return true;
-  if (value && typeof value === 'object') return value.ok === true || value.status === 'pass' || value.status === 'passed' || value.status === 'ok';
-  return false;
-}
 function probeValueFor(results, id) {
   if (!results || !id) return undefined;
   if (Array.isArray(results)) return results.find((item) => clean(item && item.id) === id);
   return results[id];
 }
+function nested(value, path) {
+  let current = value;
+  for (const part of path) {
+    if (!current || typeof current !== 'object') return undefined;
+    current = current[part];
+  }
+  return current;
+}
+function boolCheck(value, keys) {
+  return keys.some((key) => value && value[key] === true) || keys.some((key) => nested(value, ['checks', key]) === true) || keys.some((key) => nested(value, ['measurements', key]) === true);
+}
+function objectValuesAreZero(value) {
+  if (!value || typeof value !== 'object') return true;
+  return Object.values(value).every((item) => Number(item || 0) === 0);
+}
+function validateStickerRendererProbe(value) {
+  if (!value || typeof value !== 'object') return { ok: false, reason: 'probe_result_object_required' };
+  const required = {
+    standaloneStickerMedia: boolCheck(value, ['standaloneStickerMedia', 'stickerOnlyComment']),
+    noRegularBubbleVisuals: boolCheck(value, ['noRegularBubbleVisuals', 'noRegularTextBubbleBackground', 'noRegularBubbleTail']),
+    timeDoesNotIntersectMediaBox: boolCheck(value, ['timeDoesNotIntersectMediaBox', 'timestampOutsideStickerMediaBox']),
+    stableMediaBoxBeforeImageLoad: boolCheck(value, ['stableMediaBoxBeforeImageLoad'])
+  };
+  const missing = Object.entries(required).filter(([, ok]) => !ok).map(([key]) => key);
+  return { ok: missing.length === 0, missing };
+}
+function validateHydrationProbe(value) {
+  if (!value || typeof value !== 'object') return { ok: false, reason: 'probe_result_object_required' };
+  const counters = value.counters || value.telemetry || value;
+  const listClearCount = Number(counters.listClearCount || 0);
+  const mediaRemountCount = Number(counters.mediaRemountCount || 0);
+  const stickerImageReloadCount = Number(counters.stickerImageReloadCount || 0);
+  const photoImageReloadCount = Number(counters.photoImageReloadCount || 0);
+  const mediaRemountByIdOk = objectValuesAreZero(counters.mediaRemountCountByCommentId);
+  const imageReloadByIdOk = objectValuesAreZero(counters.imageReloadCountByCommentId);
+  const stickerReloadByIdOk = objectValuesAreZero(counters.stickerImageReloadCountByCommentId);
+  const photoReloadByIdOk = objectValuesAreZero(counters.photoImageReloadCountByCommentId);
+  const ok = listClearCount === 0 && mediaRemountCount === 0 && stickerImageReloadCount === 0 && photoImageReloadCount === 0 && mediaRemountByIdOk && imageReloadByIdOk && stickerReloadByIdOk && photoReloadByIdOk;
+  return { ok, counters: { listClearCount, mediaRemountCount, stickerImageReloadCount, photoImageReloadCount, mediaRemountByIdOk, imageReloadByIdOk, stickerReloadByIdOk, photoReloadByIdOk } };
+}
+function validateBrowserProbe(id, value) {
+  if (id === 'sticker_renderer_contract_probe') return validateStickerRendererProbe(value);
+  if (id === 'reopen_hydration_stability_probe') return validateHydrationProbe(value);
+  return { ok: Boolean(value && typeof value === 'object' && (value.ok === true || value.status === 'pass' || value.status === 'passed' || value.status === 'ok')), reason: 'structured_pass_required' };
+}
 function recalcReportAfterBrowserResults(report, browserResults) {
   const required = report?.uiStability?.browserProbeRequirements?.requiredProbeIds || [];
-  const missing = required.filter((id) => !isProbePassed(probeValueFor(browserResults, id)));
+  const validations = Object.fromEntries(required.map((id) => [id, validateBrowserProbe(id, probeValueFor(browserResults, id))]));
+  const missing = required.filter((id) => !(validations[id] && validations[id].ok));
   const browserPassed = required.length > 0 && missing.length === 0;
   const warnings = (report.warnings || []).filter((item) => !(browserPassed && item && item.id === 'browser_ui_probe_required'));
   const uiStatus = browserPassed ? (warnings.length ? 'warning' : 'pass') : 'needs_browser_probe';
@@ -115,12 +156,13 @@ function recalcReportAfterBrowserResults(report, browserResults) {
     report.uiStability.status = uiStatus;
     report.uiStability.browserProbeRequired = !browserPassed;
     report.uiStability.browserProbeMissing = missing;
+    report.uiStability.browserProbeValidations = validations;
     report.uiStability.warnings = warnings;
     report.uiStability.browserProbeResults = browserResults;
     report.uiStability.browserProbeReceivedAt = nowIso();
     report.uiStability.note = 'Full self-test is only ok when backend passes and UI stability is pass.';
   }
-  report.browserProbeResult = { ok: browserPassed, receivedAt: nowIso(), requiredProbeIds: required, missingProbeIds: missing, results: browserResults };
+  report.browserProbeResult = { ok: browserPassed, receivedAt: nowIso(), requiredProbeIds: required, missingProbeIds: missing, validations, results: browserResults };
   if (report.fixtures) {
     report.fixtures.cleanupRequired = !fullOk;
     report.fixtures.reason = fullOk ? 'Browser probes passed; full self-test is green.' : 'Fixtures are preserved because the full self-test is not green yet.';
@@ -146,9 +188,7 @@ function applyBrowserProbeResult(input = {}) {
       report.fixtures.preserved = false;
       report.fixtures.cleanupRequired = false;
       report.fixtures.cleanupHint = '';
-      report.fixtures.reason = input.cleanup === true
-        ? 'Browser probes passed and cleanup was requested explicitly.'
-        : 'Browser probes passed; auto cleanup removed preserved fixtures.';
+      report.fixtures.reason = input.cleanup === true ? 'Browser probes passed and cleanup was requested explicitly.' : 'Browser probes passed; auto cleanup removed preserved fixtures.';
     }
   }
   latestReport = report;
@@ -236,7 +276,7 @@ async function runFullCommentsSelftest(options) {
     backend,
     uiStability: { ok: uiStatus === 'pass', status: uiStatus, browserProbeRequired: browserProbeRequirements.requiredCount > 0, browserProbeRequirements, warnings, probes, note: 'Full self-test is only ok when backend passes and UI stability is pass.' },
     fixtures: { preserved: fixturesPreserved, cleanupMode, cleanupRequired: fixturesPreserved, cleanupHint, commentKey, reason: fixturesPreserved ? 'Fixtures are preserved because the full self-test is not green yet.' : 'Fixtures cleaned because cleanup was explicit or the full self-test passed.' },
-    telemetry: { clientContract: '__adminkitCommentsPerf', browserResultEndpoint: '/debug/selftest/comments/browser-result', requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
+    telemetry: { clientContract: '__adminkitCommentsPerf', browserResultEndpoint: '/debug/selftest/comments/browser-result', browserResultSchema: { sticker_renderer_contract_probe: { checks: { standaloneStickerMedia: true, noRegularBubbleVisuals: true, timeDoesNotIntersectMediaBox: true, stableMediaBoxBeforeImageLoad: true } }, reopen_hydration_stability_probe: { counters: { listClearCount: 0, mediaRemountCountByCommentId: {}, imageReloadCountByCommentId: {} } } }, requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
     warnings,
     failures,
     tests
