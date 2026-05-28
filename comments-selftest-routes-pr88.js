@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { runFullCommentsSelftest, getLatestReport, applyBrowserProbeResult, RUNTIME } = require('./services/commentsSelftestPr88V2');
+const { runFullCommentsSelftest, getLatestReport, applyBrowserProbeResult, cleanupSelftestFixtures, RUNTIME } = require('./services/commentsSelftestPr88V2');
 
 function noCache(res) {
   res.set({
@@ -51,7 +51,11 @@ function install(app) {
     noCache(res);
     if (!adminAllowed(req)) return res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME });
     try {
-      const report = await runFullCommentsSelftest({ cleanup: cleanupMode(req), commentKey: requestedCommentKey(req) });
+      const cleanup = cleanupMode(req);
+      const commentKey = requestedCommentKey(req);
+      const report = cleanup === true && commentKey
+        ? await cleanupSelftestFixtures({ commentKey })
+        : await runFullCommentsSelftest({ cleanup, commentKey });
       return res.status(report.ok ? 200 : 500).json(report);
     } catch (error) {
       const status = Number(error && error.status) || 500;
