@@ -186,9 +186,9 @@ function decorateStickerRows() {
     decorateRow(row, comment);
   });
 }
-function appendOptimistic(comment, sticker) {
+function appendOptimistic(comment, sticker, stateRef) {
   const list = getCommentsList();
-  if (!list || !sticker) return null;
+  if (!list || !sticker || hasActiveCommentSearch(stateRef)) return null;
   const tmp = document.createElement('div');
   tmp.innerHTML = rowHtml(comment, sticker, true);
   const row = tmp.firstChild;
@@ -259,7 +259,7 @@ async function sendSticker(stickerId) {
   const optimisticId = 'client_sticker_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
   const optimistic = { id: optimisticId, clientCommentId: optimisticId, type: 'sticker', text: 'Стикер', stickerId: sticker.id, packId: sticker.packId, userId: getCurrentUserId(), userName: getCurrentUserName(), avatarUrl: getCurrentAvatarUrl(), replyToId: clean(s.replyToId), createdAt: Date.now(), sendStatus: 'sending' };
   s.comments = (Array.isArray(s.comments) ? s.comments : []).concat([optimistic]);
-  const row = appendOptimistic(optimistic, sticker);
+  const row = appendOptimistic(optimistic, sticker, s);
   try {
     const response = await fetch('/api/comments/sticker', {
       method: 'POST',
