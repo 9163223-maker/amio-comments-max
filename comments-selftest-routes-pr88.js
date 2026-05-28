@@ -59,11 +59,11 @@ function install(app) {
     }
   });
 
-  app.post('/debug/selftest/comments/browser-result', express.json({ limit: '32kb' }), (req, res) => {
+  app.post('/debug/selftest/comments/browser-result', express.json({ limit: '32kb' }), async (req, res) => {
     noCache(res);
     if (!adminAllowed(req)) return res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME });
     try {
-      const report = applyBrowserProbeResult(req.body || {});
+      const report = await applyBrowserProbeResult(req.body || {});
       return res.status(report.ok ? 200 : 202).json(report);
     } catch (error) {
       const status = Number(error && error.status) || 500;
