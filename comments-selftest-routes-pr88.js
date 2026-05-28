@@ -72,6 +72,16 @@ function install(app) {
     return res.type('html').send(runnerHtml());
   });
 
+  app.get('/comments-selftest-runner-pr89.css', (req, res) => {
+    noCache(res);
+    return res.redirect(302, '/public/comments-selftest-runner-pr89.css');
+  });
+
+  app.get('/comments-selftest-runner-pr89.js', (req, res) => {
+    noCache(res);
+    return res.redirect(302, '/public/comments-selftest-runner-pr89.js');
+  });
+
   app.post('/debug/selftest/comments/browser-result', express.json({ limit: '32kb' }), async (req, res) => {
     noCache(res);
     if (!adminAllowed(req)) return res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME });
