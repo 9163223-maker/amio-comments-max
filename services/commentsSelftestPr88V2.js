@@ -22,9 +22,7 @@ function fail(id, expected, actual, details) { return { id, status: 'fail', expe
 function addAssert(results, id, ok, expected, actual, details) { results.push(ok ? pass(id, details) : fail(id, expected, actual, details)); }
 function findComment(commentKey, commentId) { return getComments(commentKey).find((item) => item && item.id === commentId) || null; }
 function uiWarning(id, message, details) { return { id, severity: 'warning', message, details: details || {} }; }
-function isSelftestKey(commentKey) {
-  return normalizeKey(commentKey).startsWith(SELFTEST_KEY_PREFIX);
-}
+function isSelftestKey(commentKey) { return normalizeKey(commentKey).startsWith(SELFTEST_KEY_PREFIX); }
 function selftestKeyError(commentKey) {
   const err = new Error('invalid_selftest_comment_key');
   err.status = 400;
@@ -38,7 +36,6 @@ function resolveCommentKey(options) {
   if (!isSelftestKey(requested)) throw selftestKeyError(requested);
   return requested;
 }
-
 function clearModerationLogs(key) {
   let removed = 0;
   const moderation = store.moderation || {};
@@ -53,7 +50,6 @@ function clearModerationLogs(key) {
   });
   return removed;
 }
-
 function resetKey(commentKey) {
   const key = normalizeKey(commentKey);
   if (!key) return { removedModerationLogs: 0 };
@@ -70,7 +66,6 @@ function resetKey(commentKey) {
   }
   return { removedModerationLogs };
 }
-
 async function liveSticker(commentKey, opts) {
   const stickerId = clean((opts && opts.stickerId) || 'adminkit_ok');
   const result = await stickerRoutes.createLiveStickerComment({
@@ -84,10 +79,8 @@ async function liveSticker(commentKey, opts) {
     windowMs: opts && opts.windowMs,
     __trustedSelftest: true
   });
-  const comment = result && result.comment ? { ...result.comment, __liveStickerPath: true } : null;
-  return comment;
+  return result && result.comment ? { ...result.comment, __liveStickerPath: true } : null;
 }
-
 function summarizeBrowserProbeRequirements(probes) {
   const required = (probes || []).filter((item) => item && item.status === 'browser_probe_required');
   return {
@@ -96,7 +89,60 @@ function summarizeBrowserProbeRequirements(probes) {
     requiredProbes: required.map((item) => ({ id: item.id, commentId: item.commentId, expected: item.expected || item.expectedClientCounters || item.clientTelemetryContract || {} }))
   };
 }
-
+function isProbePassed(value) {
+  if (value === true || value === 'pass' || value === 'passed' || value === 'ok') return true;
+  if (value && typeof value === 'object') return value.ok === true || value.status === 'pass' || value.status === 'passed' || value.status === 'ok';
+  return false;
+}
+function probeValueFor(results, id) {
+  if (!results || !id) return undefined;
+  if (Array.isArray(results)) return results.find((item) => clean(item && item.id) === id);
+  return results[id];
+}
+function recalcReportAfterBrowserResults(report, browserResults) {
+  const required = report?.uiStability?.browserProbeRequirements?.requiredProbeIds || [];
+  const missing = required.filter((id) => !isProbePassed(probeValueFor(browserResults, id)));
+  const browserPassed = required.length > 0 && missing.length === 0;
+  const warnings = (report.warnings || []).filter((item) => !(browserPassed && item && item.id === 'browser_ui_probe_required'));
+  const uiStatus = browserPassed ? (warnings.length ? 'warning' : 'pass') : 'needs_browser_probe';
+  const backendOk = report.backendOk !== undefined ? report.backendOk : Boolean(report.backend && report.backend.ok);
+  const fullOk = Boolean(backendOk && uiStatus === 'pass');
+  report.ok = fullOk;
+  report.backendOk = backendOk;
+  report.warnings = warnings;
+  if (report.uiStability) {
+    report.uiStability.ok = uiStatus === 'pass';
+    report.uiStability.status = uiStatus;
+    report.uiStability.browserProbeRequired = !browserPassed;
+    report.uiStability.browserProbeMissing = missing;
+    report.uiStability.warnings = warnings;
+    report.uiStability.browserProbeResults = browserResults;
+    report.uiStability.browserProbeReceivedAt = nowIso();
+    report.uiStability.note = 'Full self-test is only ok when backend passes and UI stability is pass.';
+  }
+  report.browserProbeResult = { ok: browserPassed, receivedAt: nowIso(), requiredProbeIds: required, missingProbeIds: missing, results: browserResults };
+  if (report.fixtures) {
+    report.fixtures.cleanupRequired = !fullOk;
+    report.fixtures.reason = fullOk ? 'Browser probes passed; full self-test is green. Cleanup may be run with cleanup=1.' : 'Fixtures are preserved because the full self-test is not green yet.';
+  }
+  return report;
+}
+function applyBrowserProbeResult(input = {}) {
+  const commentKey = resolveCommentKey({ commentKey: input.commentKey || input.key });
+  if (!latestReport || latestReport.commentKey !== commentKey) {
+    const err = new Error('selftest_report_not_found_for_comment_key');
+    err.status = 404;
+    err.code = 'selftest_report_not_found_for_comment_key';
+    err.data = { commentKey };
+    throw err;
+  }
+  const results = input.probes || input.results || {};
+  const report = recalcReportAfterBrowserResults(latestReport, results);
+  if (input.telemetry && typeof input.telemetry === 'object') report.browserTelemetry = input.telemetry;
+  latestReport = report;
+  if (input.cleanup === true && report.ok) report.cleanup = resetKey(commentKey);
+  return report;
+}
 async function runFullCommentsSelftest(options) {
   const startedAt = nowIso();
   const openStartedAt = uiTelemetry.now();
@@ -106,62 +152,49 @@ async function runFullCommentsSelftest(options) {
   const warnings = [];
   const cleanupMode = options && Object.prototype.hasOwnProperty.call(options, 'cleanup') ? options.cleanup : 'auto';
   resetKey(commentKey);
-
   try {
     const text = commentService.createComment({ commentKey, userId: TEST_USER, userName: 'Self Test Owner', text: 'Selftest text comment', attachments: [] });
     addAssert(tests, 'create_text_comment', Boolean(text && text.id), 'text comment created', text, { commentId: text && text.id });
-
     const photo = commentService.createComment({ commentKey, userId: TEST_USER, userName: 'Self Test Owner', text: 'Selftest photo caption', attachments: [{ type: 'image', name: 'selftest-photo.webp', url: '/public/stickers/adminkit/v1/adminkit_ok.webp' }] });
     addAssert(tests, 'create_photo_comment', Boolean(photo && photo.id && photo.attachments && photo.attachments.length === 1), 'photo comment created', photo, { commentId: photo && photo.id });
-
     const stickerSendStartedAt = uiTelemetry.now();
     const sticker = await liveSticker(commentKey, { stickerId: 'adminkit_ok' });
     const stickerSendConfirmedAt = uiTelemetry.now();
     addAssert(tests, 'create_sticker_comment_via_live_route', Boolean(sticker && sticker.id && sticker.type === 'sticker' && sticker.text === 'Стикер' && sticker.__liveStickerPath), 'live sticker comment created', sticker, { commentId: sticker && sticker.id });
     probes.push(uiTelemetry.stickerRendererProbe(sticker));
-
     const replyTextToSticker = commentService.createComment({ commentKey, userId: TEST_USER, userName: 'Self Test Owner', text: 'Reply to sticker', replyToId: sticker && sticker.id, attachments: [] });
     addAssert(tests, 'reply_text_to_sticker', Boolean(replyTextToSticker && sticker && replyTextToSticker.replyToId === sticker.id), 'text reply points to sticker', replyTextToSticker, { parentId: sticker && sticker.id });
-
     const replyStickerToPhoto = await liveSticker(commentKey, { stickerId: 'adminkit_love', replyToId: photo && photo.id });
     addAssert(tests, 'reply_sticker_to_photo_via_live_route', Boolean(replyStickerToPhoto && replyStickerToPhoto.replyToId === photo.id && replyStickerToPhoto.__liveStickerPath), 'sticker reply points to photo through live path', replyStickerToPhoto, { parentId: photo && photo.id });
-
     const fetchStartedAt = uiTelemetry.now();
     const listed = commentService.listComments(commentKey, TEST_USER);
     const fetchFinishedAt = uiTelemetry.now();
     const firstCommentRenderedAt = listed.length ? fetchFinishedAt : uiTelemetry.now();
     const listedReply = listed.find((item) => item.id === replyTextToSticker.id);
     addAssert(tests, 'reply_preview_for_sticker_parent', Boolean(listedReply && listedReply.replyTo && listedReply.replyTo.text === 'Стикер'), 'reply preview for sticker parent is Стикер', listedReply && listedReply.replyTo, { commentId: replyTextToSticker && replyTextToSticker.id });
-
     commentService.toggleReaction({ commentKey, commentId: sticker.id, userId: TEST_USER, emoji: '👍' });
     const reacted = commentService.listComments(commentKey, TEST_USER).find((item) => item.id === sticker.id);
     addAssert(tests, 'reaction_on_sticker', Boolean(reacted && reacted.reactionCounts && reacted.reactionCounts['👍'] === 1), 'reaction count is 1', reacted && reacted.reactionCounts, { commentId: sticker && sticker.id });
-
     const duplicateA = await liveSticker(commentKey, { stickerId: 'adminkit_party' });
     const duplicateB = await liveSticker(commentKey, { stickerId: 'adminkit_party' });
     const partyCount = getComments(commentKey).filter((item) => item.type === 'sticker' && item.stickerId === 'adminkit_party').length;
     addAssert(tests, 'dedupe_duplicate_sticker_via_live_route', Boolean(duplicateA && duplicateB && duplicateA.id === duplicateB.id && partyCount === 1), 'duplicate live sticker deduped', { duplicateA, duplicateB, partyCount });
-
     const deleteSticker = await liveSticker(commentKey, { stickerId: 'adminkit_sad' });
     let deleteResult = null;
     try { deleteResult = commentService.deleteComment({ commentKey, commentId: deleteSticker.id, userId: TEST_USER }); } catch (error) { deleteResult = { error: error.message }; }
     const existsAfterDelete = Boolean(findComment(commentKey, deleteSticker.id));
     addAssert(tests, 'delete_sticker_comment_should_work', deleteResult === true && !existsAfterDelete, 'own sticker comment deleted', { deleteResult, existsAfterDelete }, { commentId: deleteSticker && deleteSticker.id });
-
     const otherSticker = await liveSticker(commentKey, { stickerId: 'adminkit_happy', userId: OTHER_USER, userName: 'Self Test Other' });
     let forbiddenDelete = null;
     try { forbiddenDelete = commentService.deleteComment({ commentKey, commentId: otherSticker.id, userId: TEST_USER }); } catch (error) { forbiddenDelete = { error: error.message }; }
     addAssert(tests, 'delete_other_user_sticker_forbidden', Boolean(forbiddenDelete && forbiddenDelete.error === 'forbidden' && findComment(commentKey, otherSticker.id)), 'other user sticker delete forbidden', forbiddenDelete, { commentId: otherSticker && otherSticker.id });
-
     const beforeRefresh = commentService.listComments(commentKey, TEST_USER);
     const afterRefresh = commentService.listComments(commentKey, TEST_USER);
     const hydration = uiTelemetry.hydrationProbe(beforeRefresh, afterRefresh);
     probes.push(hydration);
     if (hydration.status === 'fail') tests.push(fail('reopen_hydration_store_stability', 'comment ids stable across refresh', hydration.missingAfterRefresh, hydration));
-
     const finalComments = getComments(commentKey);
     addAssert(tests, 'list_comments_contains_all_core_types', Boolean(finalComments.some((item) => !item.type && item.text) && finalComments.some((item) => item.attachments && item.attachments.length) && finalComments.some((item) => item.type === 'sticker')), 'text/photo/sticker comments present', finalComments.map((item) => ({ id: item.id, type: item.type || 'text', attachments: (item.attachments || []).length })));
-
     const mediaSettledAt = uiTelemetry.now();
     const stickerPanelOpenStartedAt = uiTelemetry.now();
     const stickerPanelOpenedAt = stickerPanelOpenStartedAt;
@@ -171,13 +204,10 @@ async function runFullCommentsSelftest(options) {
   } catch (error) {
     tests.push(fail('selftest_unhandled_exception', 'no unhandled exception', error && (error.stack || error.message || String(error))));
   }
-
   const failures = tests.filter((item) => item.status === 'fail');
   const backend = { ok: failures.length === 0, summary: { passed: tests.length - failures.length, failed: failures.length, total: tests.length }, failures, tests };
   const browserProbeRequirements = summarizeBrowserProbeRequirements(probes);
-  if (browserProbeRequirements.requiredCount > 0) {
-    warnings.push(uiWarning('browser_ui_probe_required', 'Browser-side UI probes are required before UI stability can pass.', browserProbeRequirements));
-  }
+  if (browserProbeRequirements.requiredCount > 0) warnings.push(uiWarning('browser_ui_probe_required', 'Browser-side UI probes are required before UI stability can pass.', browserProbeRequirements));
   const uiStatus = browserProbeRequirements.requiredCount > 0 ? 'needs_browser_probe' : (warnings.length ? 'warning' : 'pass');
   const fullOk = backend.ok && uiStatus === 'pass';
   const shouldCleanup = cleanupMode === true || (cleanupMode === 'auto' && fullOk);
@@ -193,24 +223,9 @@ async function runFullCommentsSelftest(options) {
     finishedAt: nowIso(),
     summary: backend.summary,
     backend,
-    uiStability: {
-      ok: uiStatus === 'pass',
-      status: uiStatus,
-      browserProbeRequired: browserProbeRequirements.requiredCount > 0,
-      browserProbeRequirements,
-      warnings,
-      probes,
-      note: 'Full self-test is only ok when backend passes and UI stability is pass.'
-    },
-    fixtures: {
-      preserved: fixturesPreserved,
-      cleanupMode,
-      cleanupRequired: fixturesPreserved,
-      cleanupHint,
-      commentKey,
-      reason: fixturesPreserved ? 'Fixtures are preserved because the full self-test is not green yet.' : 'Fixtures cleaned because cleanup was explicit or the full self-test passed.'
-    },
-    telemetry: { clientContract: '__adminkitCommentsPerf', requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
+    uiStability: { ok: uiStatus === 'pass', status: uiStatus, browserProbeRequired: browserProbeRequirements.requiredCount > 0, browserProbeRequirements, warnings, probes, note: 'Full self-test is only ok when backend passes and UI stability is pass.' },
+    fixtures: { preserved: fixturesPreserved, cleanupMode, cleanupRequired: fixturesPreserved, cleanupHint, commentKey, reason: fixturesPreserved ? 'Fixtures are preserved because the full self-test is not green yet.' : 'Fixtures cleaned because cleanup was explicit or the full self-test passed.' },
+    telemetry: { clientContract: '__adminkitCommentsPerf', browserResultEndpoint: '/debug/selftest/comments/browser-result', requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
     warnings,
     failures,
     tests
@@ -219,9 +234,5 @@ async function runFullCommentsSelftest(options) {
   if (shouldCleanup) report.cleanup = resetKey(commentKey);
   return report;
 }
-
-function getLatestReport() {
-  return latestReport || { ok: false, backendOk: false, runtimeVersion: RUNTIME, error: 'selftest_not_run_yet' };
-}
-
-module.exports = { RUNTIME, SELFTEST_KEY_PREFIX, isSelftestKey, runFullCommentsSelftest, getLatestReport };
+function getLatestReport() { return latestReport || { ok: false, backendOk: false, runtimeVersion: RUNTIME, error: 'selftest_not_run_yet' }; }
+module.exports = { RUNTIME, SELFTEST_KEY_PREFIX, isSelftestKey, runFullCommentsSelftest, applyBrowserProbeResult, getLatestReport };
