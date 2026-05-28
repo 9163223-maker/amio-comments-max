@@ -174,9 +174,8 @@ function removeOptimisticSticker(stateRef, optimisticId, row) {
   }
   try { if (row && row.parentNode) row.parentNode.removeChild(row); } catch (_) {}
 }
-function hasMatchingPendingSticker(stateRef, optimisticId, optimistic) {
-  const comments = stateRef && Array.isArray(stateRef.comments) ? stateRef.comments : [];
-  return comments.some((item) => item &&
+function isMatchingPendingSticker(item, optimisticId, optimistic) {
+  return Boolean(item &&
     clean(item.id) !== optimisticId &&
     clean(item.sendStatus) === 'sending' &&
     clean(item.type) === 'sticker' &&
@@ -185,7 +184,27 @@ function hasMatchingPendingSticker(stateRef, optimisticId, optimistic) {
     clean(item.stickerId) === clean(optimistic.stickerId) &&
     clean(item.replyToId || '') === clean(optimistic.replyToId || ''));
 }
+function findMatchingPendingSticker(stateRef, optimisticId, optimistic) {
+  const comments = stateRef && Array.isArray(stateRef.comments) ? stateRef.comments : [];
+  return comments.find((item) => isMatchingPendingSticker(item, optimisticId, optimistic)) || null;
+}
+function replacePendingStickerWithSaved(stateRef, pendingId, savedComment) {
+  if (!stateRef || !Array.isArray(stateRef.comments) || !pendingId || !savedComment) return;
+  stateRef.comments = stateRef.comments.map((item) => item && clean(item.id) === pendingId ? savedComment : item);
+  const list = getCommentsList();
+  const savedId = clean(savedComment.id);
+  const row = list && window.CSS && CSS.escape ? list.querySelector('[data-comment-id="' + CSS.escape(pendingId) + '"]') : null;
+  if (row) {
+    row.setAttribute('data-comment-id', savedId);
+    const status = row.querySelector('.comment-sticker-status');
+    if (status) status.remove();
+    row.removeAttribute('data-sticker-decorated');
+    row.removeAttribute('data-sticker-send-status');
+  }
+}
 function markOptimisticStickerError(stateRef, optimisticId, row, error) {
+  const stillPending = Boolean(stateRef && Array.isArray(stateRef.comments) && stateRef.comments.some((item) => item && clean(item.id) === optimisticId && clean(item.sendStatus) === 'sending'));
+  if (!stillPending) return;
   const message = clean(error && (error.message || error)) || 'sticker_send_failed';
   if (stateRef && Array.isArray(stateRef.comments)) {
     stateRef.comments = stateRef.comments.map((item) => item && item.id === optimisticId ? { ...item, sendStatus: 'error', error: message } : item);
@@ -197,7 +216,7 @@ function markOptimisticStickerError(stateRef, optimisticId, row, error) {
     const bubble = row.querySelector('.comment-bubble');
     if (bubble && !bubble.querySelector('.comment-sticker-error')) bubble.insertAdjacentHTML('beforeend', '<div class="comment-sticker-error">Не удалось отправить стикер</div>');
     window.setTimeout(() => {
-      try { if (row && row.parentNode) row.parentNode.removeChild(row); } catch (_) {}
+      try { if (row && row.parentNode && clean(row.getAttribute('data-comment-id')) === optimisticId) row.parentNode.removeChild(row); } catch (_) {}
       if (stateRef && Array.isArray(stateRef.comments)) stateRef.comments = stateRef.comments.filter((item) => !(item && item.id === optimisticId && item.sendStatus === 'error'));
     }, 1800);
   }
@@ -223,8 +242,11 @@ async function sendSticker(stickerId) {
     const savedId = clean(savedComment.id);
     const comments = Array.isArray(s.comments) ? s.comments : [];
     const alreadyInState = Boolean(data.deduped && savedId && comments.some((item) => item && clean(item.id) === savedId && clean(item.id) !== optimisticId));
-    const matchingPending = Boolean(data.deduped && hasMatchingPendingSticker(s, optimisticId, optimistic));
-    if (alreadyInState || matchingPending) {
+    const matchingPending = data.deduped ? findMatchingPendingSticker(s, optimisticId, optimistic) : null;
+    if (alreadyInState) {
+      removeOptimisticSticker(s, optimisticId, row);
+    } else if (matchingPending) {
+      replacePendingStickerWithSaved(s, clean(matchingPending.id), savedComment);
       removeOptimisticSticker(s, optimisticId, row);
     } else {
       s.comments = (s.comments || []).map((item) => item.id === optimisticId ? savedComment : item);
