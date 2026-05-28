@@ -31,6 +31,18 @@ function selftestKeyError(commentKey) {
   err.data = { commentKey: clean(commentKey), requiredPrefix: SELFTEST_KEY_PREFIX };
   return err;
 }
+function cleanupPersistenceError(commentKey, removedModerationLogs, cause) {
+  const err = new Error('selftest_cleanup_persistence_failed');
+  err.status = 500;
+  err.code = 'selftest_cleanup_persistence_failed';
+  err.data = {
+    commentKey: clean(commentKey),
+    removedModerationLogs,
+    cause: cause && (cause.message || String(cause))
+  };
+  err.cause = cause;
+  return err;
+}
 function resolveCommentKey(options) {
   const requested = normalizeKey(options && options.commentKey);
   if (!requested) return makeKey();
@@ -62,10 +74,11 @@ function resetKey(commentKey) {
     if (store.reactions && Object.prototype.hasOwnProperty.call(store.reactions, key)) delete store.reactions[key];
     removedModerationLogs = clearModerationLogs(key);
     saveStore(store);
+    return { removedModerationLogs };
   } catch (error) {
     if (error && error.code === 'invalid_selftest_comment_key') throw error;
+    throw cleanupPersistenceError(key, removedModerationLogs, error);
   }
-  return { removedModerationLogs };
 }
 async function liveSticker(commentKey, opts) {
   const stickerId = clean((opts && opts.stickerId) || 'adminkit_ok');
