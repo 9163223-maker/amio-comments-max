@@ -60,7 +60,8 @@ async function liveSticker(commentKey, opts) {
     userName: (opts && opts.userName) || 'Self Test Owner',
     avatarUrl: '',
     replyToId: (opts && opts.replyToId) || '',
-    windowMs: opts && opts.windowMs
+    windowMs: opts && opts.windowMs,
+    __trustedSelftest: true
   });
   const comment = result && result.comment ? { ...result.comment, __liveStickerPath: true } : null;
   return comment;
