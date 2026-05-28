@@ -2,9 +2,9 @@
 
 const commentService = require('./commentService');
 const stickerPackService = require('./stickerPackService');
+const stickerRoutes = require('../stickers-live-routes-pr87');
 const {
   getComments,
-  setComments,
   store,
   saveStore,
   normalizeKey
@@ -31,33 +31,29 @@ function findById(commentKey, commentId) {
 function resetKey(commentKey) {
   const key = normalizeKey(commentKey);
   if (!key) return;
-  try { setComments(key, []); } catch {}
   try {
+    if (store.comments && Object.prototype.hasOwnProperty.call(store.comments, key)) delete store.comments[key];
     if (store.likes && Object.prototype.hasOwnProperty.call(store.likes, key)) delete store.likes[key];
     if (store.reactions && Object.prototype.hasOwnProperty.call(store.reactions, key)) delete store.reactions[key];
     saveStore(store);
   } catch {}
 }
 
-function createStickerComment(commentKey, opts = {}) {
+async function createStickerComment(commentKey, opts = {}) {
   const stickerId = clean(opts.stickerId || 'adminkit_ok');
-  return commentService.createComment({
+  const result = await stickerRoutes.createLiveStickerComment({
     commentKey,
+    packId: opts.packId || DEFAULT_PACK_ID,
+    stickerId,
     userId: opts.userId || TEST_USER,
     userName: opts.userName || 'Self Test Owner',
     avatarUrl: '',
     replyToId: opts.replyToId || '',
-    text: `Стикер ${stickerId}`,
-    attachments: [{
-      type: 'sticker',
-      commentType: 'sticker',
-      adminkitQueuedSticker: true,
-      packId: opts.packId || DEFAULT_PACK_ID,
-      stickerId,
-      displayText: 'Стикер',
-      moderationText: `Стикер ${stickerId}`
-    }]
+    windowMs: opts.windowMs
   });
+  const comment = result && result.comment ? { ...result.comment } : null;
+  if (comment) comment.__liveStickerPath = true;
+  return comment;
 }
 
 async function runFullCommentsSelftest(options = {}) {
@@ -85,8 +81,8 @@ async function runFullCommentsSelftest(options = {}) {
     });
     assertResult(results, 'create_photo_comment', Boolean(photo && photo.id && Array.isArray(photo.attachments) && photo.attachments.length === 1), 'photo comment has one attachment', photo, { commentId: photo && photo.id });
 
-    const sticker = createStickerComment(commentKey, { stickerId: 'adminkit_ok' });
-    assertResult(results, 'create_sticker_comment', Boolean(sticker && sticker.id && sticker.type === 'sticker' && sticker.text === 'Стикер' && sticker.stickerId === 'adminkit_ok'), 'sticker comment metadata persisted', sticker, { commentId: sticker && sticker.id });
+    const sticker = await createStickerComment(commentKey, { stickerId: 'adminkit_ok' });
+    assertResult(results, 'create_sticker_comment_via_live_route', Boolean(sticker && sticker.id && sticker.type === 'sticker' && sticker.text === 'Стикер' && sticker.stickerId === 'adminkit_ok' && sticker.__liveStickerPath === true), 'sticker comment is created through live PR87 path', sticker, { commentId: sticker && sticker.id });
 
     const replyTextToSticker = commentService.createComment({
       commentKey,
@@ -96,10 +92,10 @@ async function runFullCommentsSelftest(options = {}) {
       replyToId: sticker && sticker.id,
       attachments: []
     });
-    assertResult(results, 'reply_text_to_sticker', Boolean(replyTextToSticker && replyTextToSticker.replyToId === sticker.id), 'replyToId points to sticker comment', replyTextToSticker, { parentId: sticker && sticker.id });
+    assertResult(results, 'reply_text_to_sticker', Boolean(replyTextToSticker && sticker && replyTextToSticker.replyToId === sticker.id), 'replyToId points to sticker comment', replyTextToSticker, { parentId: sticker && sticker.id });
 
-    const replyStickerToPhoto = createStickerComment(commentKey, { stickerId: 'adminkit_love', replyToId: photo && photo.id });
-    assertResult(results, 'reply_sticker_to_photo', Boolean(replyStickerToPhoto && replyStickerToPhoto.type === 'sticker' && replyStickerToPhoto.replyToId === photo.id), 'sticker reply points to photo comment', replyStickerToPhoto, { parentId: photo && photo.id });
+    const replyStickerToPhoto = await createStickerComment(commentKey, { stickerId: 'adminkit_love', replyToId: photo && photo.id });
+    assertResult(results, 'reply_sticker_to_photo_via_live_route', Boolean(replyStickerToPhoto && replyStickerToPhoto.type === 'sticker' && replyStickerToPhoto.replyToId === photo.id && replyStickerToPhoto.__liveStickerPath === true), 'sticker reply points to photo comment through live path', replyStickerToPhoto, { parentId: photo && photo.id });
 
     const listed = commentService.listComments(commentKey, TEST_USER);
     const listedStickerReply = listed.find((item) => item.id === replyTextToSticker.id);
@@ -109,12 +105,12 @@ async function runFullCommentsSelftest(options = {}) {
     const reacted = commentService.listComments(commentKey, TEST_USER).find((item) => item.id === sticker.id);
     assertResult(results, 'reaction_on_sticker', Boolean(reacted && reacted.reactionCounts && reacted.reactionCounts['👍'] === 1), 'reaction count is 1', reacted && reacted.reactionCounts, { commentId: sticker && sticker.id });
 
-    const duplicateA = createStickerComment(commentKey, { stickerId: 'adminkit_party' });
-    const duplicateB = createStickerComment(commentKey, { stickerId: 'adminkit_party' });
+    const duplicateA = await createStickerComment(commentKey, { stickerId: 'adminkit_party' });
+    const duplicateB = await createStickerComment(commentKey, { stickerId: 'adminkit_party' });
     const partyCount = getComments(commentKey).filter((item) => item.type === 'sticker' && item.stickerId === 'adminkit_party').length;
-    assertResult(results, 'dedupe_duplicate_sticker', Boolean(duplicateA && duplicateB && duplicateA.id === duplicateB.id && partyCount === 1), 'duplicate sticker collapses to one comment', { duplicateA, duplicateB, partyCount });
+    assertResult(results, 'dedupe_duplicate_sticker_via_live_route', Boolean(duplicateA && duplicateB && duplicateA.id === duplicateB.id && partyCount === 1), 'duplicate live sticker collapses to one comment', { duplicateA, duplicateB, partyCount });
 
-    const deleteSticker = createStickerComment(commentKey, { stickerId: 'adminkit_sad' });
+    const deleteSticker = await createStickerComment(commentKey, { stickerId: 'adminkit_sad' });
     let deleteResult = null;
     try {
       deleteResult = commentService.deleteComment({ commentKey, commentId: deleteSticker.id, userId: TEST_USER });
@@ -124,7 +120,7 @@ async function runFullCommentsSelftest(options = {}) {
     const existsAfterDelete = Boolean(findById(commentKey, deleteSticker.id));
     assertResult(results, 'delete_sticker_comment_should_work', deleteResult === true && !existsAfterDelete, 'sticker comment deleted and absent from list', { deleteResult, existsAfterDelete }, { commentId: deleteSticker && deleteSticker.id });
 
-    const otherSticker = createStickerComment(commentKey, { stickerId: 'adminkit_happy', userId: OTHER_USER, userName: 'Self Test Other' });
+    const otherSticker = await createStickerComment(commentKey, { stickerId: 'adminkit_happy', userId: OTHER_USER, userName: 'Self Test Other' });
     let forbiddenDelete = null;
     try {
       forbiddenDelete = commentService.deleteComment({ commentKey, commentId: otherSticker.id, userId: TEST_USER });
