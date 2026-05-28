@@ -10,17 +10,34 @@ const RUNTIME = 'PR88-COMMENTS-FULL-SELFTEST-V2';
 const TEST_USER = 'selftest_owner';
 const OTHER_USER = 'selftest_other';
 const DEFAULT_PACK_ID = stickerPackService.DEFAULT_PACK_ID || 'adminkit_whales_v1';
+const SELFTEST_KEY_PREFIX = 'selftest_pr88_';
 
 let latestReport = null;
 
 function nowIso() { return new Date().toISOString(); }
 function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
-function makeKey() { return normalizeKey(`selftest_pr88_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`); }
+function makeKey() { return normalizeKey(`${SELFTEST_KEY_PREFIX}${Date.now()}_${Math.random().toString(36).slice(2, 8)}`); }
 function pass(id, details) { return { id, status: 'pass', details: details || {} }; }
 function fail(id, expected, actual, details) { return { id, status: 'fail', expected, actual, details: details || {} }; }
 function addAssert(results, id, ok, expected, actual, details) { results.push(ok ? pass(id, details) : fail(id, expected, actual, details)); }
 function findComment(commentKey, commentId) { return getComments(commentKey).find((item) => item && item.id === commentId) || null; }
 function uiWarning(id, message, details) { return { id, severity: 'warning', message, details: details || {} }; }
+function isSelftestKey(commentKey) {
+  return normalizeKey(commentKey).startsWith(SELFTEST_KEY_PREFIX);
+}
+function selftestKeyError(commentKey) {
+  const err = new Error('invalid_selftest_comment_key');
+  err.status = 400;
+  err.code = 'invalid_selftest_comment_key';
+  err.data = { commentKey: clean(commentKey), requiredPrefix: SELFTEST_KEY_PREFIX };
+  return err;
+}
+function resolveCommentKey(options) {
+  const requested = normalizeKey(options && options.commentKey);
+  if (!requested) return makeKey();
+  if (!isSelftestKey(requested)) throw selftestKeyError(requested);
+  return requested;
+}
 
 function clearModerationLogs(key) {
   let removed = 0;
@@ -40,6 +57,7 @@ function clearModerationLogs(key) {
 function resetKey(commentKey) {
   const key = normalizeKey(commentKey);
   if (!key) return { removedModerationLogs: 0 };
+  if (!isSelftestKey(key)) throw selftestKeyError(key);
   let removedModerationLogs = 0;
   try {
     if (store.comments && Object.prototype.hasOwnProperty.call(store.comments, key)) delete store.comments[key];
@@ -47,7 +65,9 @@ function resetKey(commentKey) {
     if (store.reactions && Object.prototype.hasOwnProperty.call(store.reactions, key)) delete store.reactions[key];
     removedModerationLogs = clearModerationLogs(key);
     saveStore(store);
-  } catch (_) {}
+  } catch (error) {
+    if (error && error.code === 'invalid_selftest_comment_key') throw error;
+  }
   return { removedModerationLogs };
 }
 
@@ -80,7 +100,7 @@ function summarizeBrowserProbeRequirements(probes) {
 async function runFullCommentsSelftest(options) {
   const startedAt = nowIso();
   const openStartedAt = uiTelemetry.now();
-  const commentKey = clean(options && options.commentKey) || makeKey();
+  const commentKey = resolveCommentKey(options);
   const tests = [];
   const probes = [];
   const warnings = [];
@@ -202,4 +222,4 @@ function getLatestReport() {
   return latestReport || { ok: false, runtimeVersion: RUNTIME, error: 'selftest_not_run_yet' };
 }
 
-module.exports = { RUNTIME, runFullCommentsSelftest, getLatestReport };
+module.exports = { RUNTIME, SELFTEST_KEY_PREFIX, isSelftestKey, runFullCommentsSelftest, getLatestReport };
