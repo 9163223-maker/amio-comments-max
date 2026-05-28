@@ -161,6 +161,7 @@ async function runFullCommentsSelftest(options) {
   const uiStatus = browserProbeRequirements.requiredCount > 0 ? 'needs_browser_probe' : (warnings.length ? 'warning' : 'pass');
   const shouldCleanup = cleanupMode === true || (cleanupMode === 'auto' && uiStatus === 'pass');
   const fixturesPreserved = !shouldCleanup;
+  const cleanupHint = fixturesPreserved ? `/debug/selftest/comments/full?cleanup=1&commentKey=${encodeURIComponent(commentKey)}` : '';
   const report = {
     ok: backend.ok,
     runtimeVersion: RUNTIME,
@@ -183,7 +184,8 @@ async function runFullCommentsSelftest(options) {
       preserved: fixturesPreserved,
       cleanupMode,
       cleanupRequired: fixturesPreserved,
-      cleanupHint: fixturesPreserved ? '/debug/selftest/comments/full?cleanup=1' : '',
+      cleanupHint,
+      commentKey,
       reason: fixturesPreserved ? 'Fixtures are preserved because browser UI probes are required.' : 'Fixtures cleaned because cleanup was explicit or UI stability passed.'
     },
     telemetry: { clientContract: '__adminkitCommentsPerf', requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
