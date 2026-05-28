@@ -175,6 +175,58 @@ async function enforceStickerModeration({ commentKey, userId, userName, avatarUr
   if (!result || result.allowed !== false) return result || { allowed: true, action: 'allow' };
   throw makeModerationError({ action: result.action || 'reject', mode: result.mode || 'moderation', reasons: result.reasons || [], source: result.mode || 'moderation' });
 }
+async function createLiveStickerComment(input = {}) {
+  const commentKey = normalizeKey(input.commentKey || '');
+  const packId = clean(input.packId || DEFAULT_PACK_ID);
+  const stickerId = clean(input.stickerId || '');
+  const userId = clean(input.userId || 'guest') || 'guest';
+  const userName = clean(input.userName || 'Гость') || 'Гость';
+  const avatarUrl = clean(input.avatarUrl || '');
+  const replyToId = clean(input.replyToId || '');
+  if (!commentKey) {
+    const err = new Error('commentKey_required');
+    err.status = 400;
+    err.code = 'commentKey_required';
+    throw err;
+  }
+  const dbPolicy = typeof commentService.readDbV3PolicySync === 'function' ? commentService.readDbV3PolicySync(commentKey) : null;
+  if (typeof commentService.checkCommentsEnabled === 'function') commentService.checkCommentsEnabled(commentKey, dbPolicy);
+  const check = stickerPackService.validateSticker(packId, stickerId);
+  if (!check.ok) {
+    const err = new Error(check.error || 'sticker_not_allowed');
+    err.status = 403;
+    err.code = check.error || 'sticker_not_allowed';
+    throw err;
+  }
+  if (!stickerAssetReady(check.sticker)) {
+    const err = new Error('sticker_asset_missing');
+    err.status = 503;
+    err.code = 'sticker_asset_missing';
+    err.data = { stickerId };
+    throw err;
+  }
+  await enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, sticker: check.sticker, dbPolicy });
+  const duplicate = findRecentDuplicateStickerComment({ commentKey, userId, packId: check.sticker.packId, stickerId: check.sticker.id, replyToId, windowMs: Number(input.windowMs || 8000) || 8000 });
+  if (duplicate) {
+    const patch = patchCountAsync(commentKey);
+    return { ok: true, runtimeVersion: RUNTIME, comment: duplicate, sticker: check.sticker, patch, deduped: true };
+  }
+  const comment = addComment(commentKey, {
+    type: 'sticker',
+    userId,
+    userName,
+    avatarUrl,
+    text: 'Стикер',
+    attachments: [],
+    replyToId,
+    packId: check.sticker.packId,
+    stickerId: check.sticker.id,
+    editedAt: 0,
+    runtimeVersion: RUNTIME
+  });
+  const patch = patchCountAsync(commentKey);
+  return { ok: true, runtimeVersion: RUNTIME, comment, sticker: check.sticker, patch };
+}
 function install(app) {
   if (!app || app.__adminkitStickersLiveRoutesPr87) return app;
   app.__adminkitStickersLiveRoutesPr87 = true;
@@ -220,47 +272,8 @@ function install(app) {
 
   app.post('/api/comments/sticker', express.json({ limit: '32kb' }), async (req, res) => {
     try {
-      const commentKey = normalizeKey(req.body?.commentKey || '');
-      const packId = clean(req.body?.packId || DEFAULT_PACK_ID);
-      const stickerId = clean(req.body?.stickerId || '');
-      const userId = clean(req.body?.userId || 'guest') || 'guest';
-      const userName = clean(req.body?.userName || 'Гость') || 'Гость';
-      const avatarUrl = clean(req.body?.avatarUrl || '');
-      const replyToId = clean(req.body?.replyToId || '');
-      if (!commentKey) return json(res, { ok: false, error: 'commentKey_required', runtimeVersion: RUNTIME }, 400);
-      const dbPolicy = typeof commentService.readDbV3PolicySync === 'function' ? commentService.readDbV3PolicySync(commentKey) : null;
-      if (typeof commentService.checkCommentsEnabled === 'function') commentService.checkCommentsEnabled(commentKey, dbPolicy);
-      const check = stickerPackService.validateSticker(packId, stickerId);
-      if (!check.ok) return json(res, { ok: false, error: check.error || 'sticker_not_allowed', runtimeVersion: RUNTIME }, 403);
-      if (!stickerAssetReady(check.sticker)) return json(res, { ok: false, error: 'sticker_asset_missing', runtimeVersion: RUNTIME, stickerId }, 503);
-      await enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, sticker: check.sticker, dbPolicy });
-      const duplicate = findRecentDuplicateStickerComment({
-        commentKey,
-        userId,
-        packId: check.sticker.packId,
-        stickerId: check.sticker.id,
-        replyToId,
-        windowMs: 8000
-      });
-      if (duplicate) {
-        const patch = patchCountAsync(commentKey);
-        return json(res, { ok: true, runtimeVersion: RUNTIME, comment: duplicate, sticker: check.sticker, patch, deduped: true });
-      }
-      const comment = addComment(commentKey, {
-        type: 'sticker',
-        userId,
-        userName,
-        avatarUrl,
-        text: 'Стикер',
-        attachments: [],
-        replyToId,
-        packId: check.sticker.packId,
-        stickerId: check.sticker.id,
-        editedAt: 0,
-        runtimeVersion: RUNTIME
-      });
-      const patch = patchCountAsync(commentKey);
-      return json(res, { ok: true, runtimeVersion: RUNTIME, comment, sticker: check.sticker, patch });
+      const result = await createLiveStickerComment(req.body || {});
+      return json(res, result);
     } catch (error) {
       const code = clean(error && (error.code || error.publicMessage || error.message) || error) || 'sticker_comment_create_failed';
       const status = Number(error && error.status) || (String(code).includes('comments_disabled') || String(code).includes('moderation') ? 403 : 400);
@@ -270,4 +283,4 @@ function install(app) {
   return app;
 }
 
-module.exports = { RUNTIME, install, listReadyStickers, stickerAssetReady };
+module.exports = { RUNTIME, install, listReadyStickers, stickerAssetReady, createLiveStickerComment };
