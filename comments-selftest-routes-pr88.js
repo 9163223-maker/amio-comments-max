@@ -1,6 +1,7 @@
 'use strict';
 
-const { runFullCommentsSelftest, getLatestReport, RUNTIME } = require('./services/commentsSelftestPr88V2');
+const express = require('express');
+const { runFullCommentsSelftest, getLatestReport, applyBrowserProbeResult, RUNTIME } = require('./services/commentsSelftestPr88V2');
 
 function noCache(res) {
   res.set({
@@ -55,6 +56,18 @@ function install(app) {
     } catch (error) {
       const status = Number(error && error.status) || 500;
       return res.status(status).json({ ok: false, runtimeVersion: RUNTIME, error: error?.code || error?.message || 'selftest_failed', data: error?.data });
+    }
+  });
+
+  app.post('/debug/selftest/comments/browser-result', express.json({ limit: '32kb' }), (req, res) => {
+    noCache(res);
+    if (!adminAllowed(req)) return res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME });
+    try {
+      const report = applyBrowserProbeResult(req.body || {});
+      return res.status(report.ok ? 200 : 202).json(report);
+    } catch (error) {
+      const status = Number(error && error.status) || 500;
+      return res.status(status).json({ ok: false, runtimeVersion: RUNTIME, error: error?.code || error?.message || 'browser_probe_result_failed', data: error?.data });
     }
   });
 
