@@ -4,6 +4,7 @@ const commentService = require('./commentService');
 const stickerPackService = require('./stickerPackService');
 const stickerRoutes = require('../stickers-live-routes-pr87');
 const uiTelemetry = require('./commentsUiTelemetryPr88');
+const pgState = require('../postgres-state-store');
 const { getComments, store, saveStore, normalizeKey } = require('../store');
 
 const RUNTIME = 'PR88-COMMENTS-FULL-SELFTEST-V2';
@@ -31,14 +32,15 @@ function selftestKeyError(commentKey) {
   err.data = { commentKey: clean(commentKey), requiredPrefix: SELFTEST_KEY_PREFIX };
   return err;
 }
-function cleanupPersistenceError(commentKey, removedModerationLogs, cause) {
+function cleanupPersistenceError(commentKey, removedModerationLogs, cause, details) {
   const err = new Error('selftest_cleanup_persistence_failed');
   err.status = 500;
   err.code = 'selftest_cleanup_persistence_failed';
   err.data = {
     commentKey: clean(commentKey),
     removedModerationLogs,
-    cause: cause && (cause.message || String(cause))
+    cause: cause && (cause.message || String(cause)),
+    ...(details || {})
   };
   err.cause = cause;
   return err;
@@ -63,7 +65,32 @@ function clearModerationLogs(key) {
   });
   return removed;
 }
-function resetKey(commentKey) {
+function postgresCleanupInfo(info) {
+  return {
+    ok: info && info.ok !== false,
+    configured: Boolean(info && info.configured),
+    table: clean(info && info.table),
+    key: clean(info && info.key),
+    lastSyncAt: clean(info && info.lastSyncAt),
+    lastError: clean(info && info.lastError),
+    pending: Boolean(info && info.pending)
+  };
+}
+async function flushPersistentMirror(commentKey, removedModerationLogs) {
+  if (!pgState.isConfigured()) return { postgresConfigured: false };
+  let info = null;
+  try {
+    info = await pgState.flush();
+  } catch (error) {
+    throw cleanupPersistenceError(commentKey, removedModerationLogs, error, { phase: 'postgres_flush' });
+  }
+  const pg = postgresCleanupInfo(info || pgState.info());
+  if (pg.ok === false || pg.lastError) {
+    throw cleanupPersistenceError(commentKey, removedModerationLogs, new Error(pg.lastError || 'postgres_flush_failed'), { phase: 'postgres_flush', postgres: pg });
+  }
+  return { postgresConfigured: true, postgres: pg };
+}
+async function resetKey(commentKey) {
   const key = normalizeKey(commentKey);
   if (!key) return { removedModerationLogs: 0 };
   if (!isSelftestKey(key)) throw selftestKeyError(key);
@@ -74,10 +101,12 @@ function resetKey(commentKey) {
     if (store.reactions && Object.prototype.hasOwnProperty.call(store.reactions, key)) delete store.reactions[key];
     removedModerationLogs = clearModerationLogs(key);
     saveStore(store);
-    return { removedModerationLogs };
+    const mirror = await flushPersistentMirror(key, removedModerationLogs);
+    return { removedModerationLogs, mirror };
   } catch (error) {
     if (error && error.code === 'invalid_selftest_comment_key') throw error;
-    throw cleanupPersistenceError(key, removedModerationLogs, error);
+    if (error && error.code === 'selftest_cleanup_persistence_failed') throw error;
+    throw cleanupPersistenceError(key, removedModerationLogs, error, { phase: 'local_store_save' });
   }
 }
 async function liveSticker(commentKey, opts) {
@@ -254,6 +283,19 @@ function validateBrowserProbe(id, value, requirement) {
   if (id === 'reopen_hydration_stability_probe') return validateHydrationProbe(value, requirement);
   return { ok: Boolean(value && typeof value === 'object' && (value.ok === true || value.status === 'pass' || value.status === 'passed' || value.status === 'ok')), reason: 'structured_pass_required' };
 }
+function markCleanupFailure(report, commentKey, error) {
+  if (!report || typeof report !== 'object') return report;
+  report.ok = false;
+  report.cleanup = { ok: false, error: error?.code || error?.message || 'selftest_cleanup_failed', data: error?.data || {}, failedAt: nowIso() };
+  report.cleanupError = report.cleanup;
+  if (report.fixtures) {
+    report.fixtures.preserved = true;
+    report.fixtures.cleanupRequired = true;
+    report.fixtures.cleanupHint = `/debug/selftest/comments/full?cleanup=1&commentKey=${encodeURIComponent(commentKey)}`;
+    report.fixtures.reason = 'Cleanup failed before durable persistence completed; fixtures may still exist or reappear after restart.';
+  }
+  return report;
+}
 function recalcReportAfterBrowserResults(report, browserResults) {
   const browserProbeRequirements = report?.uiStability?.browserProbeRequirements || {};
   const required = browserProbeRequirements.requiredProbeIds || [];
@@ -290,7 +332,7 @@ function recalcReportAfterBrowserResults(report, browserResults) {
   }
   return report;
 }
-function applyBrowserProbeResult(input = {}) {
+async function applyBrowserProbeResult(input = {}) {
   const commentKey = resolveCommentKey({ commentKey: input.commentKey || input.key });
   if (!latestReport || latestReport.commentKey !== commentKey) {
     const err = new Error('selftest_report_not_found_for_comment_key');
@@ -304,12 +346,17 @@ function applyBrowserProbeResult(input = {}) {
   if (input.telemetry && typeof input.telemetry === 'object') report.browserTelemetry = input.telemetry;
   const shouldCleanup = report.ok && (input.cleanup === true || report.fixtures?.cleanupMode === 'auto');
   if (shouldCleanup) {
-    report.cleanup = resetKey(commentKey);
-    if (report.fixtures) {
-      report.fixtures.preserved = false;
-      report.fixtures.cleanupRequired = false;
-      report.fixtures.cleanupHint = '';
-      report.fixtures.reason = input.cleanup === true ? 'Browser probes passed and cleanup was requested explicitly.' : 'Browser probes passed; auto cleanup removed preserved fixtures.';
+    try {
+      report.cleanup = await resetKey(commentKey);
+      if (report.fixtures) {
+        report.fixtures.preserved = false;
+        report.fixtures.cleanupRequired = false;
+        report.fixtures.cleanupHint = '';
+        report.fixtures.reason = input.cleanup === true ? 'Browser probes passed and cleanup was requested explicitly.' : 'Browser probes passed; auto cleanup removed preserved fixtures.';
+      }
+    } catch (error) {
+      latestReport = markCleanupFailure(report, commentKey, error);
+      throw error;
     }
   }
   latestReport = report;
@@ -323,7 +370,7 @@ async function runFullCommentsSelftest(options) {
   const probes = [];
   const warnings = [];
   const cleanupMode = options && Object.prototype.hasOwnProperty.call(options, 'cleanup') ? options.cleanup : 'auto';
-  resetKey(commentKey);
+  await resetKey(commentKey);
   try {
     const text = commentService.createComment({ commentKey, userId: TEST_USER, userName: 'Self Test Owner', text: 'Selftest text comment', attachments: [] });
     addAssert(tests, 'create_text_comment', Boolean(text && text.id), 'text comment created', text, { commentId: text && text.id });
@@ -402,8 +449,15 @@ async function runFullCommentsSelftest(options) {
     failures,
     tests
   };
+  if (shouldCleanup) {
+    try {
+      report.cleanup = await resetKey(commentKey);
+    } catch (error) {
+      latestReport = markCleanupFailure(report, commentKey, error);
+      throw error;
+    }
+  }
   latestReport = report;
-  if (shouldCleanup) report.cleanup = resetKey(commentKey);
   return report;
 }
 function getLatestReport() { return latestReport || { ok: false, backendOk: false, runtimeVersion: RUNTIME, error: 'selftest_not_run_yet' }; }
