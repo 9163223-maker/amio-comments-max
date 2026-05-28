@@ -401,7 +401,8 @@ async function applyBrowserProbeResult(input = {}) {
   const results = input.probes || input.results || {};
   const report = recalcReportAfterBrowserResults(latestReport, results);
   if (input.telemetry && typeof input.telemetry === 'object') report.browserTelemetry = input.telemetry;
-  const shouldCleanup = report.ok && (input.cleanup === true || report.fixtures?.cleanupMode === 'auto');
+  const requestedCleanup = input.cleanup === true || report.fixtures?.cleanupMode === true;
+  const shouldCleanup = report.ok && (requestedCleanup || report.fixtures?.cleanupMode === 'auto');
   if (shouldCleanup) {
     try {
       report.cleanup = await resetKey(commentKey);
@@ -409,7 +410,7 @@ async function applyBrowserProbeResult(input = {}) {
         report.fixtures.preserved = false;
         report.fixtures.cleanupRequired = false;
         report.fixtures.cleanupHint = '';
-        report.fixtures.reason = input.cleanup === true ? 'Browser probes passed and cleanup was requested explicitly.' : 'Browser probes passed; auto cleanup removed preserved fixtures.';
+        report.fixtures.reason = requestedCleanup ? 'Browser probes passed and cleanup was requested explicitly.' : 'Browser probes passed; auto cleanup removed preserved fixtures.';
       }
     } catch (error) {
       latestReport = markCleanupFailure(report, commentKey, error);
