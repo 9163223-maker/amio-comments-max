@@ -283,6 +283,9 @@ function validateBrowserProbe(id, value, requirement) {
   if (id === 'reopen_hydration_stability_probe') return validateHydrationProbe(value, requirement);
   return { ok: Boolean(value && typeof value === 'object' && (value.ok === true || value.status === 'pass' || value.status === 'passed' || value.status === 'ok')), reason: 'structured_pass_required' };
 }
+function cleanupHint(commentKey) {
+  return `/debug/selftest/comments/full?cleanup=1&commentKey=${encodeURIComponent(commentKey)}`;
+}
 function markCleanupFailure(report, commentKey, error) {
   if (!report || typeof report !== 'object') return report;
   report.ok = false;
@@ -291,10 +294,64 @@ function markCleanupFailure(report, commentKey, error) {
   if (report.fixtures) {
     report.fixtures.preserved = true;
     report.fixtures.cleanupRequired = true;
-    report.fixtures.cleanupHint = `/debug/selftest/comments/full?cleanup=1&commentKey=${encodeURIComponent(commentKey)}`;
+    report.fixtures.cleanupHint = cleanupHint(commentKey);
     report.fixtures.reason = 'Cleanup failed before durable persistence completed; fixtures may still exist or reappear after restart.';
   }
   return report;
+}
+function cleanupFailureReport(commentKey, cleanupMode, error, startedAt) {
+  const failure = fail('selftest_prerun_cleanup_failed', 'pre-run cleanup persists successfully', error?.data || error?.message || String(error || 'cleanup_failed'), { commentKey });
+  const report = {
+    ok: false,
+    backendOk: false,
+    runtimeVersion: RUNTIME,
+    suite: 'ADMINKIT_COMMENTS_FULL',
+    commentKey,
+    startedAt: startedAt || nowIso(),
+    finishedAt: nowIso(),
+    summary: { passed: 0, failed: 1, total: 1 },
+    backend: { ok: false, summary: { passed: 0, failed: 1, total: 1 }, failures: [failure], tests: [failure] },
+    uiStability: { ok: false, status: 'not_run', browserProbeRequired: false, browserProbeRequirements: { requiredCount: 0, requiredProbeIds: [], requiredProbes: [] }, warnings: [], probes: [], note: 'Self-test did not start because pre-run cleanup failed.' },
+    fixtures: { preserved: true, cleanupMode, cleanupRequired: true, cleanupHint: cleanupHint(commentKey), commentKey, reason: 'Pre-run cleanup failed before durable persistence completed.' },
+    telemetry: { clientContract: '__adminkitCommentsPerf', browserResultEndpoint: '/debug/selftest/comments/browser-result' },
+    warnings: [],
+    failures: [failure],
+    tests: [failure]
+  };
+  return markCleanupFailure(report, commentKey, error);
+}
+function cleanupOnlySuccessReport(commentKey, cleanup, startedAt) {
+  const test = pass('cleanup_selftest_fixtures', { commentKey, cleanup });
+  return {
+    ok: true,
+    backendOk: true,
+    runtimeVersion: RUNTIME,
+    suite: 'ADMINKIT_COMMENTS_CLEANUP',
+    commentKey,
+    startedAt: startedAt || nowIso(),
+    finishedAt: nowIso(),
+    summary: { passed: 1, failed: 0, total: 1 },
+    backend: { ok: true, summary: { passed: 1, failed: 0, total: 1 }, failures: [], tests: [test] },
+    uiStability: { ok: true, status: 'cleanup_only', browserProbeRequired: false, browserProbeRequirements: { requiredCount: 0, requiredProbeIds: [], requiredProbes: [] }, warnings: [], probes: [], note: 'Cleanup-only request does not run browser probes.' },
+    fixtures: { preserved: false, cleanupMode: true, cleanupRequired: false, cleanupHint: '', commentKey, reason: 'Cleanup-only removed preserved self-test fixtures.' },
+    telemetry: { clientContract: '__adminkitCommentsPerf', browserResultEndpoint: '/debug/selftest/comments/browser-result' },
+    cleanup,
+    warnings: [],
+    failures: [],
+    tests: [test]
+  };
+}
+async function cleanupSelftestFixtures(input = {}) {
+  const startedAt = nowIso();
+  const commentKey = resolveCommentKey({ commentKey: input.commentKey || input.key });
+  try {
+    const cleanup = await resetKey(commentKey);
+    latestReport = cleanupOnlySuccessReport(commentKey, cleanup, startedAt);
+    return latestReport;
+  } catch (error) {
+    latestReport = cleanupFailureReport(commentKey, true, error, startedAt);
+    throw error;
+  }
 }
 function recalcReportAfterBrowserResults(report, browserResults) {
   const browserProbeRequirements = report?.uiStability?.browserProbeRequirements || {};
@@ -370,7 +427,12 @@ async function runFullCommentsSelftest(options) {
   const probes = [];
   const warnings = [];
   const cleanupMode = options && Object.prototype.hasOwnProperty.call(options, 'cleanup') ? options.cleanup : 'auto';
-  await resetKey(commentKey);
+  try {
+    await resetKey(commentKey);
+  } catch (error) {
+    latestReport = cleanupFailureReport(commentKey, cleanupMode, error, startedAt);
+    throw error;
+  }
   try {
     const text = commentService.createComment({ commentKey, userId: TEST_USER, userName: 'Self Test Owner', text: 'Selftest text comment', attachments: [] });
     addAssert(tests, 'create_text_comment', Boolean(text && text.id), 'text comment created', text, { commentId: text && text.id });
@@ -429,9 +491,9 @@ async function runFullCommentsSelftest(options) {
   if (browserProbeRequirements.requiredCount > 0) warnings.push(uiWarning('browser_ui_probe_required', 'Browser-side UI probes are required before UI stability can pass.', browserProbeRequirements));
   const uiStatus = browserProbeRequirements.requiredCount > 0 ? 'needs_browser_probe' : (warnings.length ? 'warning' : 'pass');
   const fullOk = backend.ok && uiStatus === 'pass';
-  const shouldCleanup = cleanupMode === true || (cleanupMode === 'auto' && fullOk);
+  const shouldCleanup = fullOk && (cleanupMode === true || cleanupMode === 'auto');
   const fixturesPreserved = !shouldCleanup;
-  const cleanupHint = fixturesPreserved ? `/debug/selftest/comments/full?cleanup=1&commentKey=${encodeURIComponent(commentKey)}` : '';
+  const hint = fixturesPreserved ? cleanupHint(commentKey) : '';
   const report = {
     ok: fullOk,
     backendOk: backend.ok,
@@ -443,7 +505,7 @@ async function runFullCommentsSelftest(options) {
     summary: backend.summary,
     backend,
     uiStability: { ok: uiStatus === 'pass', status: uiStatus, browserProbeRequired: browserProbeRequirements.requiredCount > 0, browserProbeRequirements, warnings, probes, note: 'Full self-test is only ok when backend passes and UI stability is pass.' },
-    fixtures: { preserved: fixturesPreserved, cleanupMode, cleanupRequired: fixturesPreserved, cleanupHint, commentKey, reason: fixturesPreserved ? 'Fixtures are preserved because the full self-test is not green yet.' : 'Fixtures cleaned because cleanup was explicit or the full self-test passed.' },
+    fixtures: { preserved: fixturesPreserved, cleanupMode, cleanupRequired: fixturesPreserved, cleanupHint: hint, commentKey, reason: fixturesPreserved ? 'Fixtures are preserved until required browser probes pass or cleanup-only is requested.' : 'Fixtures cleaned because cleanup was explicit or the full self-test passed.' },
     telemetry: { clientContract: '__adminkitCommentsPerf', browserResultEndpoint: '/debug/selftest/comments/browser-result', browserResultSchema: { sticker_renderer_contract_probe: { commentId: '<expectedStickerCommentId>', checks: { standaloneStickerMedia: true, noRegularBubbleVisuals: true, timeDoesNotIntersectMediaBox: true, stableMediaBoxBeforeImageLoad: true } }, reopen_hydration_stability_probe: { counters: { listClearCount: 0, mediaRemountCountByCommentId: { '<expectedMediaCommentId>': 0 }, imageReloadCountByCommentId: { '<expectedMediaCommentId>': 0 } } } }, requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
     warnings,
     failures,
@@ -461,4 +523,4 @@ async function runFullCommentsSelftest(options) {
   return report;
 }
 function getLatestReport() { return latestReport || { ok: false, backendOk: false, runtimeVersion: RUNTIME, error: 'selftest_not_run_yet' }; }
-module.exports = { RUNTIME, SELFTEST_KEY_PREFIX, isSelftestKey, runFullCommentsSelftest, applyBrowserProbeResult, getLatestReport };
+module.exports = { RUNTIME, SELFTEST_KEY_PREFIX, isSelftestKey, runFullCommentsSelftest, applyBrowserProbeResult, cleanupSelftestFixtures, getLatestReport };
