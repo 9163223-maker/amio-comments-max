@@ -42,6 +42,9 @@ function cleanupMode(req) {
 function requestedCommentKey(req) {
   return clean(req.query?.commentKey || req.query?.key || '');
 }
+function runnerHtml() {
+  return '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><title>AdminKit comments browser selftest</title><link rel="stylesheet" href="/comments-selftest-runner-pr89.css"><main><h1>AdminKit comments one-click browser selftest</h1><section class="card"><div id="status"><span class="pill warn">Готов к запуску</span></div><p class="muted">Одна страница запускает backend self-test, выполняет browser DOM probes и отправляет результат в browser-result. Видео/файлы не проверяются и не возвращаются.</p><div class="actions"><button id="runBtn" type="button">Запустить полный browser self-test</button><a id="latestLink" class="button secondary" href="/debug/selftest/comments/latest">Latest JSON</a><a id="reportLink" class="button secondary" href="/debug/selftest/comments/report">HTML report</a><a id="cleanupLink" class="button danger" href="#" hidden>Очистить fixtures</a></div></section><section class="card"><h2>Итог</h2><div id="summary">Пока не запускали.</div></section><section class="card"><h2>Browser fixture</h2><div id="commentsFixture"><div id="commentsList"></div></div></section><section class="card"><h2>Шаги</h2><div id="log" class="log"></div></section><section class="card"><h2>Raw final report</h2><pre id="raw">{}</pre></section></main><script src="/comments-selftest-runner-pr89.js"></script>';
+}
 
 function install(app) {
   if (!app || app.__adminkitCommentsSelftestPr88) return app;
@@ -61,6 +64,12 @@ function install(app) {
       const status = Number(error && error.status) || 500;
       return res.status(status).json({ ok: false, runtimeVersion: RUNTIME, error: error?.code || error?.message || 'selftest_failed', data: error?.data });
     }
+  });
+
+  app.get('/debug/selftest/comments/runner', (req, res) => {
+    noCache(res);
+    if (!adminAllowed(req)) return res.status(403).send('admin_forbidden');
+    return res.type('html').send(runnerHtml());
   });
 
   app.post('/debug/selftest/comments/browser-result', express.json({ limit: '32kb' }), async (req, res) => {
@@ -93,10 +102,10 @@ function install(app) {
     const backendClass = report.ok ? 'ok' : 'bad';
     const backendText = report.ok ? 'PASS' : 'FAIL';
     const warningsClass = warnings.length ? 'warn' : 'ok';
-    return res.type('html').send(`<!doctype html><meta charset="utf-8"><title>AdminKit comments selftest</title><style>body{font-family:system-ui;margin:24px;background:#f7fafc;color:#102030}table{border-collapse:collapse;width:100%;background:white;margin-bottom:24px}td,th{border:1px solid #d8e2ea;padding:8px;vertical-align:top}pre{white-space:pre-wrap;max-width:640px}.ok{color:#137333}.bad{color:#b3261e}.warn{color:#9a6700}</style><h1>AdminKit comments selftest</h1><p>Runtime: <b>${runtime}</b></p><p class="${backendClass}">Full self-test: ${backendText}</p><p class="${warningsClass}">UI warnings: ${Number(warnings.length) || 0}</p><p>Passed: ${Number(report.summary?.passed) || 0}; Failed: ${Number(report.summary?.failed) || 0}; Total: ${Number(report.summary?.total) || 0}</p><p>CommentKey: <code>${escapeHtml(report.commentKey || '')}</code></p><p>Fixtures preserved: <b>${report.fixtures?.preserved ? 'yes' : 'no'}</b></p><h2>Backend tests</h2><table><thead><tr><th>Status</th><th>Test</th><th>Expected</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table><h2>UI stability warnings</h2><table><thead><tr><th>Status</th><th>Probe</th><th>Message</th><th>Details</th></tr></thead><tbody>${warningRows}</tbody></table><h2>Telemetry contract</h2><pre>${safeJson(report.telemetry || {})}</pre>`);
+    return res.type('html').send(`<!doctype html><meta charset="utf-8"><title>AdminKit comments selftest</title><style>body{font-family:system-ui;margin:24px;background:#f7fafc;color:#102030}table{border-collapse:collapse;width:100%;background:white;margin-bottom:24px}td,th{border:1px solid #d8e2ea;padding:8px;vertical-align:top}pre{white-space:pre-wrap;max-width:640px}.ok{color:#137333}.bad{color:#b3261e}.warn{color:#9a6700}</style><h1>AdminKit comments selftest</h1><p>Runtime: <b>${runtime}</b></p><p class="${backendClass}">Full self-test: ${backendText}</p><p class="${warningsClass}">UI warnings: ${Number(warnings.length) || 0}</p><p>Passed: ${Number(report.summary?.passed) || 0}; Failed: ${Number(report.summary?.failed) || 0}; Total: ${Number(report.summary?.total) || 0}</p><p>CommentKey: <code>${escapeHtml(report.commentKey || '')}</code></p><p>Fixtures preserved: <b>${report.fixtures?.preserved ? 'yes' : 'no'}</b></p><p><a href="/debug/selftest/comments/runner">Open one-click browser runner</a></p><h2>Backend tests</h2><table><thead><tr><th>Status</th><th>Test</th><th>Expected</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table><h2>UI stability warnings</h2><table><thead><tr><th>Status</th><th>Probe</th><th>Message</th><th>Details</th></tr></thead><tbody>${warningRows}</tbody></table><h2>Telemetry contract</h2><pre>${safeJson(report.telemetry || {})}</pre>`);
   });
 
   return app;
 }
 
-module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens, requestedCommentKey, escapeHtml };
+module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens, requestedCommentKey, escapeHtml, runnerHtml };
