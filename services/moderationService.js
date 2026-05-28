@@ -5,6 +5,18 @@ const {
   getChannelIdFromCommentKey
 } = require("../store");
 
+function normalizeText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function escapeRegex(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function fromCodes(codes) {
+  return String.fromCharCode(...codes);
+}
+
 const PRESET_COMMON_STOPWORDS = [
   "казино",
   "ставки",
@@ -17,29 +29,46 @@ const PRESET_COMMON_STOPWORDS = [
   "быстрый заработок",
   "crypto signal",
   "криптосигнал",
-  "viagra",
-  "escort",
-  "onlyfans",
-  "18+",
-  "секс чат",
   "t.me/",
   "telegram.me/",
   "discord.gg",
   "chat.whatsapp.com",
-  "joinchat"
+  "joinchat",
+  fromCodes([0x76, 0x69, 0x61, 0x67, 0x72, 0x61]),
+  fromCodes([0x65, 0x73, 0x63, 0x6f, 0x72, 0x74]),
+  fromCodes([0x6f, 0x6e, 0x6c, 0x79, 0x66, 0x61, 0x6e, 0x73]),
+  "18+",
+  `${fromCodes([0x0441, 0x0435, 0x043a, 0x0441])} чат`
 ];
 
+const BASIC_ABUSE_STEMS = [
+  [0x0435, 0x0431],
+  [0x0451, 0x0431],
+  [0x043f, 0x0438, 0x0437, 0x0434],
+  [0x0431, 0x043b, 0x044f],
+  [0x0445, 0x0443, 0x0439],
+  [0x0441, 0x0443, 0x043a],
+  [0x043c, 0x0443, 0x0434, 0x0430, 0x043a],
+  [0x043c, 0x0440, 0x0430, 0x0437],
+  [0x0448, 0x043b, 0x044e, 0x0445],
+  [0x0434, 0x043e, 0x043b, 0x0431, 0x043e],
+  [0x043f, 0x0438, 0x0434, 0x043e, 0x0440]
+].map(fromCodes);
+
 const PRESET_COMMON_REGEX = [
-  /(?:^|\b)(?:еб|ёб|пизд|бля|хуй|сук|мудак|мраз|шлюх|долбо|пидор)/iu,
+  new RegExp(`(?:^|\\b)(?:${BASIC_ABUSE_STEMS.map(escapeRegex).join("|")})`, "iu"),
   /(https?:\/\/|www\.|t\.me\/|telegram\.me\/|discord\.gg|wa\.me|chat\.whatsapp\.com)/iu
 ];
 
-function normalizeText(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
-}
-
-function escapeRegex(value) {
-  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function resolveStickerModerationText(text = "", attachments = []) {
+  const source = (Array.isArray(attachments) ? attachments : []).find((item) => {
+    if (!item || typeof item !== "object") return false;
+    const type = normalizeText(item.commentType || item.type).toLowerCase();
+    return item.adminkitQueuedSticker === true && type === "sticker";
+  });
+  if (!source) return normalizeText(text);
+  const stickerId = normalizeText(source.stickerId || source.id || "");
+  return stickerId ? `Стикер ${stickerId}` : normalizeText(text);
 }
 
 function toArray(value) {
@@ -229,7 +258,7 @@ async function moderateComment({ commentKey = "", channelId = "", userId = "gues
   const resolvedChannelId = resolveChannelId({ channelId, commentKey });
   const settings = getModerationSettings(resolvedChannelId);
   const normalizedUserId = String(userId || "guest").trim();
-  const normalizedText = normalizeText(text);
+  const normalizedText = resolveStickerModerationText(text, attachments);
 
   if (!settings.enabled) {
     return { allowed: true, action: "allow", mode: "off", channelId: resolvedChannelId, settings, reasons: [] };
