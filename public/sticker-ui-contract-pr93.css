@@ -1,0 +1,42 @@
+.comment-row[data-sticker-row="1"] .comment-bubble.has-sticker,
+.comment-bubble.has-sticker:has(.comment-sticker) {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 2px 0 0 !important;
+  overflow: visible !important;
+}
+
+.comment-row[data-sticker-row="1"] .comment-sticker,
+.comment-bubble.has-sticker .comment-sticker {
+  width: 148px !important;
+  min-width: 148px !important;
+  max-width: 148px !important;
+  height: 148px !important;
+  min-height: 148px !important;
+  max-height: 148px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.comment-row[data-sticker-row="1"] .comment-sticker img,
+.comment-bubble.has-sticker .comment-sticker img {
+  width: 148px !important;
+  max-width: 148px !important;
+  height: 148px !important;
+  max-height: 148px !important;
+  object-fit: contain !important;
+  display: block !important;
+  pointer-events: auto !important;
+}
+
+.comment-row[data-sticker-row="1"] .comment-time,
+.comment-bubble.has-sticker .comment-time {
+  display: block !important;
+  clear: both !important;
+  margin-top: 4px !important;
+  text-align: right !important;
+  line-height: 1.2 !important;
+}
