@@ -22,7 +22,7 @@ function escapeHtml(value) {
 }
 function safeJson(value) { return escapeHtml(JSON.stringify(value || {}, null, 2)); }
 function configuredAdminTokens() {
-  return [process.env.SELFTEST_ADMIN_TOKEN, process.env.DEBUG_EXPORT_TOKEN, process.env.GIFT_ADMIN_TOKEN]
+  return [process.env.SELFTEST_ADMIN_TOKEN, process.env.ADMIN_TOKEN, process.env.DEBUG_EXPORT_TOKEN, process.env.GIFT_ADMIN_TOKEN]
     .map(clean)
     .filter(Boolean);
 }
@@ -76,7 +76,7 @@ function install(app) {
     const backendClass = report.ok ? 'ok' : 'bad';
     const backendText = report.ok ? 'PASS' : 'FAIL';
     const warningsClass = warnings.length ? 'warn' : 'ok';
-    return res.type('html').send(`<!doctype html><meta charset="utf-8"><title>AdminKit comments selftest</title><style>body{font-family:system-ui;margin:24px;background:#f7fafc;color:#102030}table{border-collapse:collapse;width:100%;background:white;margin-bottom:24px}td,th{border:1px solid #d8e2ea;padding:8px;vertical-align:top}pre{white-space:pre-wrap;max-width:640px}.ok{color:#137333}.bad{color:#b3261e}.warn{color:#9a6700}</style><h1>AdminKit comments selftest</h1><p>Runtime: <b>${runtime}</b></p><p class="${backendClass}">Backend: ${backendText}</p><p class="${warningsClass}">UI warnings: ${Number(warnings.length) || 0}</p><p>Passed: ${Number(report.summary?.passed) || 0}; Failed: ${Number(report.summary?.failed) || 0}; Total: ${Number(report.summary?.total) || 0}</p><p>CommentKey: <code>${escapeHtml(report.commentKey || '')}</code></p><p>Fixtures preserved: <b>${report.fixtures?.preserved ? 'yes' : 'no'}</b></p><h2>Backend tests</h2><table><thead><tr><th>Status</th><th>Test</th><th>Expected</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table><h2>UI stability warnings</h2><table><thead><tr><th>Status</th><th>Probe</th><th>Message</th><th>Details</th></tr></thead><tbody>${warningRows}</tbody></table><h2>Telemetry contract</h2><pre>${safeJson(report.telemetry || {})}</pre>`);
+    return res.type('html').send(`<!doctype html><meta charset="utf-8"><title>AdminKit comments selftest</title><style>body{font-family:system-ui;margin:24px;background:#f7fafc;color:#102030}table{border-collapse:collapse;width:100%;background:white;margin-bottom:24px}td,th{border:1px solid #d8e2ea;padding:8px;vertical-align:top}pre{white-space:pre-wrap;max-width:640px}.ok{color:#137333}.bad{color:#b3261e}.warn{color:#9a6700}</style><h1>AdminKit comments selftest</h1><p>Runtime: <b>${runtime}</b></p><p class="${backendClass}">Full self-test: ${backendText}</p><p class="${warningsClass}">UI warnings: ${Number(warnings.length) || 0}</p><p>Passed: ${Number(report.summary?.passed) || 0}; Failed: ${Number(report.summary?.failed) || 0}; Total: ${Number(report.summary?.total) || 0}</p><p>CommentKey: <code>${escapeHtml(report.commentKey || '')}</code></p><p>Fixtures preserved: <b>${report.fixtures?.preserved ? 'yes' : 'no'}</b></p><h2>Backend tests</h2><table><thead><tr><th>Status</th><th>Test</th><th>Expected</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table><h2>UI stability warnings</h2><table><thead><tr><th>Status</th><th>Probe</th><th>Message</th><th>Details</th></tr></thead><tbody>${warningRows}</tbody></table><h2>Telemetry contract</h2><pre>${safeJson(report.telemetry || {})}</pre>`);
   });
 
   return app;
