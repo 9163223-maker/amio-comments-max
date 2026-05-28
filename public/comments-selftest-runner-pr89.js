@@ -95,6 +95,23 @@
     u.searchParams.set('t', String(Date.now()));
     return u.toString();
   }
+  function isTargetFrameDocument(doc) {
+    try {
+      if (!doc || !doc.location) return false;
+      if (doc.location.href === 'about:blank') return false;
+      return doc.location.pathname === '/mini-app' && doc.location.search.indexOf('commentKey=') !== -1;
+    } catch (_) {
+      return false;
+    }
+  }
+  function currentFrameDocument() {
+    try {
+      const doc = frame && (frame.contentDocument || (frame.contentWindow && frame.contentWindow.document));
+      return isTargetFrameDocument(doc) ? doc : null;
+    } catch (_) {
+      return null;
+    }
+  }
   function createFrame(commentKey) {
     fixtureHost.textContent = '';
     frameDoc = null;
@@ -103,22 +120,35 @@
     frame = document.createElement('iframe');
     frame.id = 'realCommentsUiFrame';
     frame.title = 'Real AdminKit comments UI self-test frame';
-    frame.src = iframeUrl(commentKey);
     frame.setAttribute('data-real-comments-ui', '1');
-    fixtureHost.appendChild(frame);
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('real_comments_iframe_timeout')), 9000);
-      frame.addEventListener('load', () => {
-        try {
-          frameDoc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
-          if (!frameDoc) throw new Error('real_comments_iframe_inaccessible');
-          clearTimeout(timer);
-          resolve(frameDoc);
-        } catch (error) {
-          clearTimeout(timer);
-          reject(error);
-        }
-      }, { once: true });
+      let done = false;
+      let timer = null;
+      function finish() {
+        if (done) return true;
+        const doc = currentFrameDocument();
+        if (!doc) return false;
+        frameDoc = doc;
+        done = true;
+        if (timer) clearTimeout(timer);
+        resolve(frameDoc);
+        return true;
+      }
+      function poll() {
+        if (done) return;
+        if (finish()) return;
+        setTimeout(poll, 120);
+      }
+      frame.addEventListener('load', () => { finish(); }, false);
+      timer = setTimeout(() => {
+        if (done) return;
+        if (finish()) return;
+        done = true;
+        reject(new Error('real_comments_iframe_timeout'));
+      }, 17000);
+      frame.src = iframeUrl(commentKey);
+      fixtureHost.appendChild(frame);
+      setTimeout(poll, 0);
     });
   }
   async function waitForRows(report, timeoutMs) {
@@ -128,7 +158,9 @@
     const started = Date.now();
     let lastMissing = ids.slice();
     while (Date.now() - started < timeoutMs) {
-      const doc = frameDoc || (frame && frame.contentDocument);
+      const currentDoc = currentFrameDocument();
+      if (currentDoc) frameDoc = currentDoc;
+      const doc = frameDoc;
       const win = frame && frame.contentWindow;
       const missing = ids.filter((id) => !rowById(doc, id));
       lastMissing = missing;
@@ -268,7 +300,7 @@
       const finalReport = await postJson('/debug/selftest/comments/browser-result', {
         commentKey: full.commentKey,
         probes: { sticker_renderer_contract_probe: sticker, reopen_hydration_stability_probe: hydration },
-        telemetry: { source: 'PR89_BROWSER_RUNNER_REAL_UI', browserMeasured: true, realCommentsIframe: true, userAgent: navigator.userAgent, viewport: { width: innerWidth, height: innerHeight }, at: new Date().toISOString() }
+        telemetry: { source: 'PR90_BROWSER_RUNNER_NAVIGATED_IFRAME_FIX', browserMeasured: true, realCommentsIframe: true, navigatedMiniAppOnly: true, userAgent: navigator.userAgent, viewport: { width: innerWidth, height: innerHeight }, at: new Date().toISOString() }
       });
       setLinks(finalReport.commentKey || full.commentKey);
       log('Browser result accepted: ' + Boolean(finalReport.browserProbeResult && finalReport.browserProbeResult.ok), finalReport.browserProbeResult && finalReport.browserProbeResult.ok ? 'ok' : 'bad');
