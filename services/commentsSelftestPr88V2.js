@@ -117,13 +117,15 @@ function normalizeHydrationExpectedCounters(requirement) {
 }
 function mapValuesAreZero(value, requiredKeys) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return { ok: false, missingKeys: Array.isArray(requiredKeys) ? requiredKeys : [], invalidKeys: [], nonZeroKeys: [], actualKeys: [] };
+    return { ok: false, missingKeys: Array.isArray(requiredKeys) ? requiredKeys : [], invalidKeys: [], nonZeroKeys: [], unexpectedKeys: [], actualKeys: [] };
   }
-  const keys = Array.isArray(requiredKeys) ? requiredKeys : Object.keys(value);
+  const actualKeys = Object.keys(value);
+  const keys = Array.isArray(requiredKeys) ? requiredKeys : actualKeys;
   const missingKeys = keys.filter((key) => !hasOwn(value, key));
-  const invalidKeys = keys.filter((key) => hasOwn(value, key) && !Number.isFinite(Number(value[key])));
-  const nonZeroKeys = keys.filter((key) => hasOwn(value, key) && Number.isFinite(Number(value[key])) && Number(value[key]) !== 0);
-  return { ok: missingKeys.length === 0 && invalidKeys.length === 0 && nonZeroKeys.length === 0, missingKeys, invalidKeys, nonZeroKeys, actualKeys: Object.keys(value) };
+  const unexpectedKeys = Array.isArray(requiredKeys) ? actualKeys.filter((key) => !requiredKeys.includes(key)) : [];
+  const invalidKeys = actualKeys.filter((key) => !Number.isFinite(Number(value[key])));
+  const nonZeroKeys = actualKeys.filter((key) => Number.isFinite(Number(value[key])) && Number(value[key]) !== 0);
+  return { ok: missingKeys.length === 0 && invalidKeys.length === 0 && nonZeroKeys.length === 0, missingKeys, invalidKeys, nonZeroKeys, unexpectedKeys, actualKeys };
 }
 function objectValuesAreZero(value) {
   return mapValuesAreZero(value).ok;
@@ -165,8 +167,8 @@ function validateHydrationProbe(value, requirement) {
   const photoImageReloadCount = hasOwn(counters, 'photoImageReloadCount') ? Number(counters.photoImageReloadCount) : 0;
   const mediaRemountById = mapValuesAreZero(counters.mediaRemountCountByCommentId, expectedMapKeys.mediaRemountCountByCommentId);
   const imageReloadById = mapValuesAreZero(counters.imageReloadCountByCommentId, expectedMapKeys.imageReloadCountByCommentId);
-  const stickerReloadById = hasOwn(counters, 'stickerImageReloadCountByCommentId') ? mapValuesAreZero(counters.stickerImageReloadCountByCommentId) : { ok: true, missingKeys: [], invalidKeys: [], nonZeroKeys: [], actualKeys: [] };
-  const photoReloadById = hasOwn(counters, 'photoImageReloadCountByCommentId') ? mapValuesAreZero(counters.photoImageReloadCountByCommentId) : { ok: true, missingKeys: [], invalidKeys: [], nonZeroKeys: [], actualKeys: [] };
+  const stickerReloadById = hasOwn(counters, 'stickerImageReloadCountByCommentId') ? mapValuesAreZero(counters.stickerImageReloadCountByCommentId) : { ok: true, missingKeys: [], invalidKeys: [], nonZeroKeys: [], unexpectedKeys: [], actualKeys: [] };
+  const photoReloadById = hasOwn(counters, 'photoImageReloadCountByCommentId') ? mapValuesAreZero(counters.photoImageReloadCountByCommentId) : { ok: true, missingKeys: [], invalidKeys: [], nonZeroKeys: [], unexpectedKeys: [], actualKeys: [] };
   const numericCounters = { listClearCount, mediaRemountCount, stickerImageReloadCount, photoImageReloadCount };
   const invalidNumericCounters = Object.entries(numericCounters).filter(([, item]) => !Number.isFinite(item)).map(([key]) => key);
   const nonZeroNumericCounters = Object.entries(numericCounters).filter(([, item]) => Number.isFinite(item) && item !== 0).map(([key]) => key);
