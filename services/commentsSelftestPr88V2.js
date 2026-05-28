@@ -12,6 +12,11 @@ const TEST_USER = 'selftest_owner';
 const OTHER_USER = 'selftest_other';
 const DEFAULT_PACK_ID = stickerPackService.DEFAULT_PACK_ID || 'adminkit_whales_v1';
 const SELFTEST_KEY_PREFIX = 'selftest_pr88_';
+const NON_BLOCKING_AFTER_BROWSER_PASS_WARNING_IDS = new Set([
+  'first_comment_render_slow',
+  'media_settled_slow',
+  'sticker_send_confirm_slow'
+]);
 
 let latestReport = null;
 
@@ -25,6 +30,9 @@ function findComment(commentKey, commentId) { return getComments(commentKey).fin
 function uiWarning(id, message, details) { return { id, severity: 'warning', message, details: details || {} }; }
 function hasOwn(obj, key) { return Boolean(obj && typeof obj === 'object' && Object.prototype.hasOwnProperty.call(obj, key)); }
 function isSelftestKey(commentKey) { return normalizeKey(commentKey).startsWith(SELFTEST_KEY_PREFIX); }
+function isNonBlockingAfterBrowserPassWarning(item) {
+  return Boolean(item && NON_BLOCKING_AFTER_BROWSER_PASS_WARNING_IDS.has(clean(item.id)));
+}
 function selftestKeyError(commentKey) {
   const err = new Error('invalid_selftest_comment_key');
   err.status = 400;
@@ -361,13 +369,17 @@ function recalcReportAfterBrowserResults(report, browserResults) {
   const validations = Object.fromEntries(required.map((id) => [id, validateBrowserProbe(id, probeValueFor(browserResults, id), requirementById[id])]));
   const missing = required.filter((id) => !(validations[id] && validations[id].ok));
   const browserPassed = required.length > 0 && missing.length === 0;
-  const warnings = (report.warnings || []).filter((item) => !(browserPassed && item && item.id === 'browser_ui_probe_required'));
+  const originalWarnings = report.warnings || [];
+  const warningsWithoutProbeRequired = originalWarnings.filter((item) => !(browserPassed && item && item.id === 'browser_ui_probe_required'));
+  const nonBlockingWarnings = browserPassed ? warningsWithoutProbeRequired.filter(isNonBlockingAfterBrowserPassWarning) : [];
+  const warnings = browserPassed ? warningsWithoutProbeRequired.filter((item) => !isNonBlockingAfterBrowserPassWarning(item)) : warningsWithoutProbeRequired;
   const uiStatus = browserPassed ? (warnings.length ? 'warning' : 'pass') : 'needs_browser_probe';
   const backendOk = report.backendOk !== undefined ? report.backendOk : Boolean(report.backend && report.backend.ok);
   const fullOk = Boolean(backendOk && uiStatus === 'pass');
   report.ok = fullOk;
   report.backendOk = backendOk;
   report.warnings = warnings;
+  report.nonBlockingWarnings = nonBlockingWarnings;
   if (report.uiStability) {
     report.uiStability.ok = uiStatus === 'pass';
     report.uiStability.status = uiStatus;
@@ -375,9 +387,12 @@ function recalcReportAfterBrowserResults(report, browserResults) {
     report.uiStability.browserProbeMissing = missing;
     report.uiStability.browserProbeValidations = validations;
     report.uiStability.warnings = warnings;
+    report.uiStability.nonBlockingWarnings = nonBlockingWarnings;
     report.uiStability.browserProbeResults = browserResults;
     report.uiStability.browserProbeReceivedAt = nowIso();
-    report.uiStability.note = 'Full self-test is only ok when backend passes and UI stability is pass.';
+    report.uiStability.note = browserPassed && nonBlockingWarnings.length
+      ? 'Browser probes passed; backend synthetic timing warnings are reported as non-blocking diagnostics.'
+      : 'Full self-test is only ok when backend passes and UI stability is pass.';
   }
   report.browserProbeResult = { ok: browserPassed, receivedAt: nowIso(), requiredProbeIds: required, missingProbeIds: missing, validations, results: browserResults };
   if (report.fixtures) {
