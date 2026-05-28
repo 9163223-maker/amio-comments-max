@@ -115,6 +115,9 @@ function normalizeHydrationExpectedCounters(requirement) {
   const counters = expected && (expected.counters || expected.expectedClientCounters || expected);
   return counters && typeof counters === 'object' && !Array.isArray(counters) ? counters : {};
 }
+function isStrictFiniteNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value);
+}
 function mapValuesAreZero(value, requiredKeys) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { ok: false, missingKeys: Array.isArray(requiredKeys) ? requiredKeys : [], invalidKeys: [], nonZeroKeys: [], unexpectedKeys: [], actualKeys: [] };
@@ -123,8 +126,8 @@ function mapValuesAreZero(value, requiredKeys) {
   const keys = Array.isArray(requiredKeys) ? requiredKeys : actualKeys;
   const missingKeys = keys.filter((key) => !hasOwn(value, key));
   const unexpectedKeys = Array.isArray(requiredKeys) ? actualKeys.filter((key) => !requiredKeys.includes(key)) : [];
-  const invalidKeys = actualKeys.filter((key) => !Number.isFinite(Number(value[key])));
-  const nonZeroKeys = actualKeys.filter((key) => Number.isFinite(Number(value[key])) && Number(value[key]) !== 0);
+  const invalidKeys = actualKeys.filter((key) => !isStrictFiniteNumber(value[key]));
+  const nonZeroKeys = actualKeys.filter((key) => isStrictFiniteNumber(value[key]) && value[key] !== 0);
   return { ok: missingKeys.length === 0 && invalidKeys.length === 0 && nonZeroKeys.length === 0, missingKeys, invalidKeys, nonZeroKeys, unexpectedKeys, actualKeys };
 }
 function objectValuesAreZero(value) {
@@ -161,17 +164,17 @@ function validateHydrationProbe(value, requirement) {
   if (missingExpectedMapCounters.length) {
     return { ok: false, reason: 'hydration_expected_counter_entries_required', missingExpectedMapCounters };
   }
-  const listClearCount = Number(counters.listClearCount);
-  const mediaRemountCount = hasOwn(counters, 'mediaRemountCount') ? Number(counters.mediaRemountCount) : 0;
-  const stickerImageReloadCount = hasOwn(counters, 'stickerImageReloadCount') ? Number(counters.stickerImageReloadCount) : 0;
-  const photoImageReloadCount = hasOwn(counters, 'photoImageReloadCount') ? Number(counters.photoImageReloadCount) : 0;
+  const listClearCount = counters.listClearCount;
+  const mediaRemountCount = hasOwn(counters, 'mediaRemountCount') ? counters.mediaRemountCount : 0;
+  const stickerImageReloadCount = hasOwn(counters, 'stickerImageReloadCount') ? counters.stickerImageReloadCount : 0;
+  const photoImageReloadCount = hasOwn(counters, 'photoImageReloadCount') ? counters.photoImageReloadCount : 0;
   const mediaRemountById = mapValuesAreZero(counters.mediaRemountCountByCommentId, expectedMapKeys.mediaRemountCountByCommentId);
   const imageReloadById = mapValuesAreZero(counters.imageReloadCountByCommentId, expectedMapKeys.imageReloadCountByCommentId);
   const stickerReloadById = hasOwn(counters, 'stickerImageReloadCountByCommentId') ? mapValuesAreZero(counters.stickerImageReloadCountByCommentId) : { ok: true, missingKeys: [], invalidKeys: [], nonZeroKeys: [], unexpectedKeys: [], actualKeys: [] };
   const photoReloadById = hasOwn(counters, 'photoImageReloadCountByCommentId') ? mapValuesAreZero(counters.photoImageReloadCountByCommentId) : { ok: true, missingKeys: [], invalidKeys: [], nonZeroKeys: [], unexpectedKeys: [], actualKeys: [] };
   const numericCounters = { listClearCount, mediaRemountCount, stickerImageReloadCount, photoImageReloadCount };
-  const invalidNumericCounters = Object.entries(numericCounters).filter(([, item]) => !Number.isFinite(item)).map(([key]) => key);
-  const nonZeroNumericCounters = Object.entries(numericCounters).filter(([, item]) => Number.isFinite(item) && item !== 0).map(([key]) => key);
+  const invalidNumericCounters = Object.entries(numericCounters).filter(([, item]) => !isStrictFiniteNumber(item)).map(([key]) => key);
+  const nonZeroNumericCounters = Object.entries(numericCounters).filter(([, item]) => isStrictFiniteNumber(item) && item !== 0).map(([key]) => key);
   const ok = invalidNumericCounters.length === 0 && nonZeroNumericCounters.length === 0 && mediaRemountById.ok && imageReloadById.ok && stickerReloadById.ok && photoReloadById.ok;
   return {
     ok,
