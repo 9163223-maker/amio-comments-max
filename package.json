@@ -1,9 +1,9 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.2.1-ADMINKIT-COMMENTS-SELFTEST-PR88",
-  "main": "clean-entrypoint-1.53.10-pr88.js",
+  "version": "CC8.2.2-ADMINKIT-COMMENTS-BROWSER-SELFTEST-PR89",
+  "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
-    "start": "node clean-entrypoint-1.53.10-pr88.js",
+    "start": "node clean-entrypoint-1.53.10-pr89.js",
     "test": "node scripts/smoke-test.js"
   },
   "dependencies": {
