@@ -53,6 +53,12 @@ function liveCommentRow(commentId, capturedRow) {
   if (capturedRow && capturedRow.isConnected && clean(capturedRow.getAttribute('data-comment-id')) === clean(commentId)) return capturedRow;
   return findCommentRowById(commentId);
 }
+function hasActiveCommentSearch(stateRef) {
+  const stateQuery = clean(stateRef && stateRef.searchQuery);
+  const input = byId('commentSearchInput');
+  const inputQuery = clean(input && input.value);
+  return Boolean(stateQuery || inputQuery);
+}
 function refreshReplyComposerAfterStickerSend(stateRef) {
   if (stateRef) stateRef.replyToId = '';
   const reply = byId('composerReply');
@@ -163,6 +169,7 @@ function decorateStickerRows() {
   const s = state();
   const list = getCommentsList();
   if (!s || !list) return;
+  const searchActive = hasActiveCommentSearch(s);
   const comments = Array.isArray(s.comments) ? s.comments : [];
   comments.filter((item) => item && item.type === 'sticker' && item.sendStatus !== 'error').forEach((comment) => {
     const id = clean(comment.id);
@@ -170,6 +177,7 @@ function decorateStickerRows() {
     if (!id || !sticker) return;
     let row = findCommentRowById(id);
     if (!row) {
+      if (searchActive) return;
       const tmp = document.createElement('div');
       tmp.innerHTML = rowHtml(comment, sticker, false);
       row = tmp.firstChild;
