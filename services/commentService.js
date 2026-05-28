@@ -1,4 +1,9 @@
 const { execFileSync } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const config = require("../config");
+const stickerPackService = require("./stickerPackService");
 const {
   getComments,
   addComment,
@@ -28,8 +33,41 @@ const pool = new Pool({ connectionString: url, ssl: /sslmode=disable/i.test(url)
 })().catch(async () => { try { await pool.end(); } catch {} console.log('null'); });
 `;
 
+const STICKER_STATIC_ROOT = path.join(__dirname, "..", "public", "stickers", "adminkit", "v1");
+const DEFAULT_STICKER_PACK_ID = stickerPackService.DEFAULT_PACK_ID || "adminkit_whales_v1";
+
 function sanitizeText(value) { return String(value || "").trim(); }
+function cleanStickerValue(value = "") { return String(value || "").replace(/\s+/g, " ").trim(); }
 function normalizeDuplicateText(value = "") { return String(value || "").replace(/\s+/g, " ").trim(); }
+function stickerApprovalSecret() {
+  return cleanStickerValue(config.moderationAdminToken || config.giftAdminToken || config.botToken || process.env.WEBHOOK_SECRET || process.env.GITHUB_DEBUG_TOKEN || "");
+}
+function signQueuedStickerApproval({ commentKey = "", userId = "", replyToId = "", packId = "", stickerId = "", moderationText = "" } = {}) {
+  const secret = stickerApprovalSecret();
+  if (!secret) return "";
+  const payload = [
+    "adminkitQueuedSticker:v1",
+    String(commentKey || "").trim(),
+    cleanStickerValue(userId || "guest") || "guest",
+    cleanStickerValue(replyToId || ""),
+    cleanStickerValue(packId || DEFAULT_STICKER_PACK_ID),
+    cleanStickerValue(stickerId || ""),
+    cleanStickerValue(moderationText || "")
+  ].join("\n");
+  return crypto.createHmac("sha256", secret).update(payload).digest("hex");
+}
+function safeCompareHex(a = "", b = "") {
+  const left = cleanStickerValue(a).toLowerCase();
+  const right = cleanStickerValue(b).toLowerCase();
+  if (!/^[a-f0-9]{64}$/i.test(left) || !/^[a-f0-9]{64}$/i.test(right)) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex"));
+  } catch { return false; }
+}
+function validateQueuedStickerApprovalToken({ token = "", commentKey = "", userId = "", replyToId = "", packId = "", stickerId = "", moderationText = "" } = {}) {
+  const expected = signQueuedStickerApproval({ commentKey, userId, replyToId, packId, stickerId, moderationText });
+  return Boolean(expected && safeCompareHex(token, expected));
+}
 function attachmentDuplicateFingerprint(attachments = []) {
   const list = Array.isArray(attachments) ? attachments : [];
   return JSON.stringify(list.map((item) => ({
@@ -53,6 +91,27 @@ function findRecentDuplicateComment({ commentKey = "", userId = "", text = "", a
     if (String(item.userId || "guest") !== normalizedUserId) continue;
     if (normalizeDuplicateText(item.text || "") !== normalizedText) continue;
     if (attachmentDuplicateFingerprint(item.attachments || []) !== attachmentFp) continue;
+    return { ...item, deduped: true };
+  }
+  return null;
+}
+function findRecentDuplicateSticker({ commentKey = "", userId = "", packId = "", stickerId = "", replyToId = "", windowMs = 8000 } = {}) {
+  const key = String(commentKey || "").trim();
+  if (!key || !stickerId) return null;
+  const normalizedUserId = String(userId || "guest").trim() || "guest";
+  const normalizedPackId = cleanStickerValue(packId || DEFAULT_STICKER_PACK_ID);
+  const normalizedStickerId = cleanStickerValue(stickerId);
+  const normalizedReplyToId = cleanStickerValue(replyToId || "");
+  const now = Date.now();
+  const comments = getComments(key);
+  for (let i = comments.length - 1; i >= 0; i -= 1) {
+    const item = comments[i] || {};
+    if (now - Number(item.createdAt || 0) > windowMs) break;
+    if (String(item.userId || "guest") !== normalizedUserId) continue;
+    if (String(item.type || "") !== "sticker") continue;
+    if (cleanStickerValue(item.packId || DEFAULT_STICKER_PACK_ID) !== normalizedPackId) continue;
+    if (cleanStickerValue(item.stickerId || "") !== normalizedStickerId) continue;
+    if (cleanStickerValue(item.replyToId || "") !== normalizedReplyToId) continue;
     return { ...item, deduped: true };
   }
   return null;
@@ -118,6 +177,49 @@ function sanitizeAttachments(value) {
     };
   }).filter(Boolean);
 }
+function isLocalStickerAssetUrl(value = "") {
+  const url = cleanStickerValue(value);
+  if (!url || /^(data|blob):/i.test(url)) return false;
+  if (!url.startsWith("/public/stickers/adminkit/v1/")) return false;
+  const file = url.split("/").pop();
+  if (!/^[a-z0-9_.-]+\.(webp|png)$/i.test(file)) return false;
+  return fs.existsSync(path.join(STICKER_STATIC_ROOT, file));
+}
+function resolveQueuedStickerMetadata(attachments = [], context = {}) {
+  const source = (Array.isArray(attachments) ? attachments : []).find((item) => {
+    if (!item || typeof item !== "object") return false;
+    const type = cleanStickerValue(item.commentType || item.type).toLowerCase();
+    return item.adminkitQueuedSticker === true && type === "sticker";
+  });
+  if (!source) return null;
+  const packId = cleanStickerValue(source.packId || DEFAULT_STICKER_PACK_ID);
+  const stickerId = cleanStickerValue(source.stickerId || source.id || "");
+  if (!packId || !stickerId) throw new Error("sticker_metadata_required");
+  const check = stickerPackService.validateSticker(packId, stickerId);
+  if (!check?.ok || !check.sticker) throw new Error(check?.error || "sticker_not_allowed");
+  const assetUrl = check.sticker.url || "";
+  const fallbackUrl = check.sticker.fallbackUrl || assetUrl;
+  if (!isLocalStickerAssetUrl(assetUrl) || !isLocalStickerAssetUrl(fallbackUrl)) throw new Error("sticker_asset_missing");
+  const effectivePackId = check.sticker.packId || packId;
+  const effectiveStickerId = check.sticker.id;
+  const moderationText = `Стикер ${effectiveStickerId}`;
+  const approvedByModerationQueue = validateQueuedStickerApprovalToken({
+    token: source.approvalToken,
+    commentKey: context.commentKey,
+    userId: context.userId,
+    replyToId: context.replyToId,
+    packId: effectivePackId,
+    stickerId: effectiveStickerId,
+    moderationText
+  });
+  return {
+    packId: effectivePackId,
+    stickerId: effectiveStickerId,
+    displayText: "Стикер",
+    moderationText,
+    approvedByModerationQueue
+  };
+}
 function toArray(value) { if (Array.isArray(value)) return value.map((x) => String(x || "").trim()).filter(Boolean); return String(value || "").split(/[\n,;]/g).map((x) => String(x || "").trim()).filter(Boolean); }
 function resolveChannelId(commentKey = "") { const post = getPost(commentKey); if (post?.channelId) return String(post.channelId).trim(); return getChannelIdFromCommentKey(commentKey); }
 function makePublicError(message, code, status = 403, data = null) { const error = new Error(message); error.status = status; error.code = code; error.publicMessage = message; if (data) error.data = data; return error; }
@@ -180,6 +282,30 @@ function enrichComments(commentKey, comments, currentUserId = "") {
 }
 function listComments(commentKey, currentUserId = "") { const comments = [...getComments(commentKey)].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); return enrichComments(commentKey, comments, currentUserId); }
 function createComment({ commentKey, userId, userName, text, avatarUrl, replyToId = "", attachments = [] }) {
+  const queuedSticker = resolveQueuedStickerMetadata(attachments, { commentKey, userId, replyToId });
+  if (queuedSticker) {
+    const displayText = sanitizeText(queuedSticker.displayText || "Стикер") || "Стикер";
+    const moderationText = sanitizeText(queuedSticker.moderationText || `Стикер ${queuedSticker.stickerId}`).trim();
+    const dbPolicy = readDbV3PolicySync(commentKey);
+    checkCommentsEnabled(commentKey, dbPolicy);
+    if (!queuedSticker.approvedByModerationQueue) checkModeration({ commentKey, userId, userName, text: moderationText, dbPolicy });
+    const duplicate = findRecentDuplicateSticker({ commentKey, userId, packId: queuedSticker.packId, stickerId: queuedSticker.stickerId, replyToId, windowMs: 8000 });
+    if (duplicate) return duplicate;
+    const created = addComment(commentKey, {
+      type: "sticker",
+      userId: String(userId || "guest"),
+      userName: String(userName || "Гость"),
+      avatarUrl: String(avatarUrl || ""),
+      text: displayText,
+      attachments: [],
+      replyToId: String(replyToId || "").trim(),
+      packId: queuedSticker.packId,
+      stickerId: queuedSticker.stickerId,
+      editedAt: 0
+    });
+    scheduleCommentButtonRefresh(commentKey);
+    return created;
+  }
   const cleanText = sanitizeText(text);
   const cleanAttachments = sanitizeAttachments(attachments);
   if (!cleanText && !cleanAttachments.length) throw new Error("text_or_attachment_required");
@@ -217,4 +343,4 @@ function updateComment({ commentKey, commentId, userId, text }) {
   return found;
 }
 function deleteComment({ commentKey, commentId, userId }) { const comments = getComments(commentKey); const target = comments.find((item) => item.id === commentId); if (!target) throw new Error("comment_not_found"); if (String(target.userId || "") !== String(userId || "")) throw new Error("forbidden"); setComments(commentKey, comments.filter((item) => item.id !== commentId)); scheduleCommentButtonRefresh(commentKey); return true; }
-module.exports = { listComments, createComment, toggleLike, toggleReaction, updateComment, deleteComment };
+module.exports = { listComments, createComment, toggleLike, toggleReaction, updateComment, deleteComment, checkCommentsEnabled, readDbV3PolicySync };
