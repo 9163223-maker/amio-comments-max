@@ -53,6 +53,15 @@ function liveCommentRow(commentId, capturedRow) {
   if (capturedRow && capturedRow.isConnected && clean(capturedRow.getAttribute('data-comment-id')) === clean(commentId)) return capturedRow;
   return findCommentRowById(commentId);
 }
+function refreshReplyComposerAfterStickerSend(stateRef) {
+  if (stateRef) stateRef.replyToId = '';
+  const reply = byId('composerReply');
+  if (reply) reply.classList.add('hidden');
+  const name = byId('composerReplyName');
+  if (name) name.textContent = '';
+  const text = byId('composerReplyText');
+  if (text) text.textContent = '';
+}
 function ensureStyles() {
   if (byId('adminkitStickerStylesPr87')) return;
   const style = document.createElement('style');
@@ -273,7 +282,7 @@ async function sendSticker(stickerId) {
       }
     }
     decorateStickerRows();
-    s.replyToId = '';
+    refreshReplyComposerAfterStickerSend(s);
   } catch (error) {
     markOptimisticStickerError(s, optimisticId, row, error);
   }
