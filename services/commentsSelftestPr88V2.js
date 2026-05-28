@@ -123,7 +123,7 @@ function recalcReportAfterBrowserResults(report, browserResults) {
   report.browserProbeResult = { ok: browserPassed, receivedAt: nowIso(), requiredProbeIds: required, missingProbeIds: missing, results: browserResults };
   if (report.fixtures) {
     report.fixtures.cleanupRequired = !fullOk;
-    report.fixtures.reason = fullOk ? 'Browser probes passed; full self-test is green. Cleanup may be run with cleanup=1.' : 'Fixtures are preserved because the full self-test is not green yet.';
+    report.fixtures.reason = fullOk ? 'Browser probes passed; full self-test is green.' : 'Fixtures are preserved because the full self-test is not green yet.';
   }
   return report;
 }
@@ -139,8 +139,19 @@ function applyBrowserProbeResult(input = {}) {
   const results = input.probes || input.results || {};
   const report = recalcReportAfterBrowserResults(latestReport, results);
   if (input.telemetry && typeof input.telemetry === 'object') report.browserTelemetry = input.telemetry;
+  const shouldCleanup = report.ok && (input.cleanup === true || report.fixtures?.cleanupMode === 'auto');
+  if (shouldCleanup) {
+    report.cleanup = resetKey(commentKey);
+    if (report.fixtures) {
+      report.fixtures.preserved = false;
+      report.fixtures.cleanupRequired = false;
+      report.fixtures.cleanupHint = '';
+      report.fixtures.reason = input.cleanup === true
+        ? 'Browser probes passed and cleanup was requested explicitly.'
+        : 'Browser probes passed; auto cleanup removed preserved fixtures.';
+    }
+  }
   latestReport = report;
-  if (input.cleanup === true && report.ok) report.cleanup = resetKey(commentKey);
   return report;
 }
 async function runFullCommentsSelftest(options) {
