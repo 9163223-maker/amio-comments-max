@@ -13,6 +13,7 @@ const { normalizeKey, addComment, getComments } = require('./store');
 const RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
 const DEFAULT_PACK_ID = stickerPackService.DEFAULT_PACK_ID || 'adminkit_whales_v1';
 const STATIC_ROOT = path.join(__dirname, 'public', 'stickers', 'adminkit', 'v1');
+const PUBLIC_DEDUPE_WINDOW_MS = 8000;
 
 function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
 function noCache(res) {
@@ -75,28 +76,12 @@ function buildQueuedStickerMetadata(sticker = {}, context = {}) {
   const stickerId = clean(sticker.id || sticker.stickerId || '');
   if (!packId || !stickerId) return null;
   const moderationText = `Стикер ${stickerId}`.trim();
-  const approvalToken = signQueuedStickerApproval({
-    commentKey: context.commentKey,
-    userId: context.userId,
-    replyToId: context.replyToId,
-    packId,
-    stickerId,
-    moderationText
-  });
-  const metadata = {
-    type: 'sticker',
-    commentType: 'sticker',
-    adminkitQueuedSticker: true,
-    approvalContext: 'moderation_queue_v1',
-    packId,
-    stickerId,
-    displayText: 'Стикер',
-    moderationText
-  };
+  const approvalToken = signQueuedStickerApproval({ commentKey: context.commentKey, userId: context.userId, replyToId: context.replyToId, packId, stickerId, moderationText });
+  const metadata = { type: 'sticker', commentType: 'sticker', adminkitQueuedSticker: true, approvalContext: 'moderation_queue_v1', packId, stickerId, displayText: 'Стикер', moderationText };
   if (approvalToken) metadata.approvalToken = approvalToken;
   return metadata;
 }
-function findRecentDuplicateStickerComment({ commentKey = '', userId = '', packId = '', stickerId = '', replyToId = '', windowMs = 8000 } = {}) {
+function findRecentDuplicateStickerComment({ commentKey = '', userId = '', packId = '', stickerId = '', replyToId = '', windowMs = PUBLIC_DEDUPE_WINDOW_MS } = {}) {
   const key = normalizeKey(commentKey || '');
   const normalizedStickerId = clean(stickerId);
   if (!key || !normalizedStickerId) return null;
@@ -123,9 +108,7 @@ function patchCountAsync(commentKey = '') {
   setImmediate(async () => {
     try {
       const dbV3PostPatcher = require('./db-v3-post-patcher');
-      if (typeof dbV3PostPatcher.patchCommentsButtonByCommentKey === 'function') {
-        await dbV3PostPatcher.patchCommentsButtonByCommentKey(key);
-      }
+      if (typeof dbV3PostPatcher.patchCommentsButtonByCommentKey === 'function') await dbV3PostPatcher.patchCommentsButtonByCommentKey(key);
     } catch (_) {}
   });
   return { ok: true, scheduled: true, reason: 'db_aware_sticker_comment_updates_channel_button_count' };
@@ -145,15 +128,7 @@ function enforceDbStickerModeration({ dbPolicy = null, userId, userName, text })
   if (dbPolicy.blockLinks && countLinks(normalizedText) > 0) reasons.push('links_blocked');
   if (dbPolicy.blockInvites !== false && /(t\.me\/|telegram\.me\/|discord\.gg|chat\.whatsapp\.com|joinchat|invite)/iu.test(normalizedText)) reasons.push('invite_link');
   if (!reasons.length) return { allowed: true, action: 'allow', mode: 'db_policy' };
-  throw makeModerationError({
-    action: 'reject',
-    mode: 'db_policy',
-    reasons: [...new Set(reasons)],
-    matchedWords: [...new Set(matchedWords)],
-    source: 'Postgres ak_moderation_rules',
-    userId,
-    userName
-  });
+  throw makeModerationError({ action: 'reject', mode: 'db_policy', reasons: [...new Set(reasons)], matchedWords: [...new Set(matchedWords)], source: 'Postgres ak_moderation_rules', userId, userName });
 }
 async function enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, sticker, stickerId, dbPolicy }) {
   const effectiveStickerId = clean(sticker?.id || stickerId || '');
@@ -161,19 +136,13 @@ async function enforceStickerModeration({ commentKey, userId, userName, avatarUr
   const queuedStickerMetadata = buildQueuedStickerMetadata(sticker || { stickerId: effectiveStickerId }, { commentKey, userId, replyToId });
   enforceDbStickerModeration({ dbPolicy, userId, userName, text: moderationText });
   if (!moderationService || typeof moderationService.moderateComment !== 'function') return { allowed: true, action: 'allow', mode: 'unavailable' };
-  const result = await moderationService.moderateComment({
-    commentKey,
-    userId,
-    userName,
-    avatarUrl,
-    replyToId,
-    text: moderationText,
-    attachments: queuedStickerMetadata ? [queuedStickerMetadata] : [],
-    sourceType: 'create',
-    config
-  });
+  const result = await moderationService.moderateComment({ commentKey, userId, userName, avatarUrl, replyToId, text: moderationText, attachments: queuedStickerMetadata ? [queuedStickerMetadata] : [], sourceType: 'create', config });
   if (!result || result.allowed !== false) return result || { allowed: true, action: 'allow' };
   throw makeModerationError({ action: result.action || 'reject', mode: result.mode || 'moderation', reasons: result.reasons || [], source: result.mode || 'moderation' });
+}
+function resolveDedupeWindowMs(input = {}) {
+  if (input && input.__trustedSelftest === true) return Number(input.windowMs || PUBLIC_DEDUPE_WINDOW_MS) || PUBLIC_DEDUPE_WINDOW_MS;
+  return PUBLIC_DEDUPE_WINDOW_MS;
 }
 async function createLiveStickerComment(input = {}) {
   const commentKey = normalizeKey(input.commentKey || '');
@@ -206,24 +175,12 @@ async function createLiveStickerComment(input = {}) {
     throw err;
   }
   await enforceStickerModeration({ commentKey, userId, userName, avatarUrl, replyToId, sticker: check.sticker, dbPolicy });
-  const duplicate = findRecentDuplicateStickerComment({ commentKey, userId, packId: check.sticker.packId, stickerId: check.sticker.id, replyToId, windowMs: Number(input.windowMs || 8000) || 8000 });
+  const duplicate = findRecentDuplicateStickerComment({ commentKey, userId, packId: check.sticker.packId, stickerId: check.sticker.id, replyToId, windowMs: resolveDedupeWindowMs(input) });
   if (duplicate) {
     const patch = patchCountAsync(commentKey);
     return { ok: true, runtimeVersion: RUNTIME, comment: duplicate, sticker: check.sticker, patch, deduped: true };
   }
-  const comment = addComment(commentKey, {
-    type: 'sticker',
-    userId,
-    userName,
-    avatarUrl,
-    text: 'Стикер',
-    attachments: [],
-    replyToId,
-    packId: check.sticker.packId,
-    stickerId: check.sticker.id,
-    editedAt: 0,
-    runtimeVersion: RUNTIME
-  });
+  const comment = addComment(commentKey, { type: 'sticker', userId, userName, avatarUrl, text: 'Стикер', attachments: [], replyToId, packId: check.sticker.packId, stickerId: check.sticker.id, editedAt: 0, runtimeVersion: RUNTIME });
   const patch = patchCountAsync(commentKey);
   return { ok: true, runtimeVersion: RUNTIME, comment, sticker: check.sticker, patch };
 }
@@ -234,45 +191,19 @@ function install(app) {
   app.get('/api/stickers', (req, res) => {
     const audit = stickerPackService.audit();
     const stickers = listReadyStickers();
-    return json(res, {
-      ok: true,
-      runtimeVersion: RUNTIME,
-      ...audit,
-      stickersLiveComments: true,
-      stickersNativeMaxProbe: false,
-      assetsReady: stickers.length > 0,
-      stickersTotal: stickers.length,
-      stickers,
-      safe: true,
-      noUserUploads: true,
-      noExternalUrls: true,
-      noSvg: true,
-      noDataUri: true
-    });
+    return json(res, { ok: true, runtimeVersion: RUNTIME, ...audit, stickersLiveComments: true, stickersNativeMaxProbe: false, assetsReady: stickers.length > 0, stickersTotal: stickers.length, stickers, safe: true, noUserUploads: true, noExternalUrls: true, noSvg: true, noDataUri: true });
   });
 
   app.get('/debug/stickers', (req, res) => {
     const audit = stickerPackService.audit();
     const stickers = listReadyStickers();
-    return json(res, {
-      ok: true,
-      runtimeVersion: RUNTIME,
-      ...audit,
-      stickersLiveComments: true,
-      assetsReady: stickers.length > 0,
-      stickersTotal: stickers.length,
-      stickerIds: stickers.map((item) => item.id),
-      expectedFiles: ['adminkit_angry.webp', 'adminkit_ok.webp', 'adminkit_party.webp', 'adminkit_sad.webp', 'adminkit_alert.webp', 'adminkit_idea.webp', 'adminkit_love.webp', 'adminkit_happy.webp'],
-      safe: true,
-      noDatabaseRead: true,
-      noMaxApiCall: true,
-      noDataUri: true
-    });
+    return json(res, { ok: true, runtimeVersion: RUNTIME, ...audit, stickersLiveComments: true, assetsReady: stickers.length > 0, stickersTotal: stickers.length, stickerIds: stickers.map((item) => item.id), expectedFiles: ['adminkit_angry.webp', 'adminkit_ok.webp', 'adminkit_party.webp', 'adminkit_sad.webp', 'adminkit_alert.webp', 'adminkit_idea.webp', 'adminkit_love.webp', 'adminkit_happy.webp'], safe: true, noDatabaseRead: true, noMaxApiCall: true, noDataUri: true });
   });
 
   app.post('/api/comments/sticker', express.json({ limit: '32kb' }), async (req, res) => {
     try {
-      const result = await createLiveStickerComment(req.body || {});
+      const body = req.body || {};
+      const result = await createLiveStickerComment({ commentKey: body.commentKey, packId: body.packId, stickerId: body.stickerId, userId: body.userId, userName: body.userName, avatarUrl: body.avatarUrl, replyToId: body.replyToId });
       return json(res, result);
     } catch (error) {
       const code = clean(error && (error.code || error.publicMessage || error.message) || error) || 'sticker_comment_create_failed';
@@ -283,4 +214,4 @@ function install(app) {
   return app;
 }
 
-module.exports = { RUNTIME, install, listReadyStickers, stickerAssetReady, createLiveStickerComment };
+module.exports = { RUNTIME, install, listReadyStickers, stickerAssetReady, createLiveStickerComment, PUBLIC_DEDUPE_WINDOW_MS };
