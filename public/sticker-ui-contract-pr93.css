@@ -1,4 +1,10 @@
-.comment-row[data-sticker-row="1"] .comment-bubble.has-sticker,
+.comment-row[data-sticker-row="1"] .comment-bubble.has-sticker {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 2px 0 0 !important;
+  overflow: visible !important;
+}
+
 .comment-bubble.has-sticker:has(.comment-sticker) {
   background: transparent !important;
   box-shadow: none !important;
