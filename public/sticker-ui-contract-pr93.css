@@ -1,4 +1,5 @@
-.comment-row[data-sticker-row="1"] .comment-bubble.has-sticker {
+.comment-row[data-sticker-row="1"] .comment-bubble.has-sticker,
+.comment-bubble.has-sticker {
   background: transparent !important;
   box-shadow: none !important;
   padding: 2px 0 0 !important;
@@ -7,7 +8,10 @@
 
 .comment-row[data-sticker-row="1"] .comment-bubble.has-sticker::before,
 .comment-row[data-sticker-row="1"] .comment-bubble.has-sticker.own::before,
-.comment-row[data-sticker-row="1"] .comment-bubble.own.has-sticker::before {
+.comment-row[data-sticker-row="1"] .comment-bubble.own.has-sticker::before,
+.comment-bubble.has-sticker::before,
+.comment-bubble.has-sticker.own::before,
+.comment-bubble.own.has-sticker::before {
   display: none !important;
   content: none !important;
   background: transparent !important;
