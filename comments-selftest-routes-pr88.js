@@ -12,12 +12,17 @@ function noCache(res) {
 }
 
 function clean(value) { return String(value || '').trim(); }
+function configuredAdminTokens() {
+  return [process.env.SELFTEST_ADMIN_TOKEN, process.env.DEBUG_EXPORT_TOKEN, process.env.GIFT_ADMIN_TOKEN]
+    .map(clean)
+    .filter(Boolean);
+}
 function adminAllowed(req) {
-  const configured = clean(process.env.SELFTEST_ADMIN_TOKEN || process.env.DEBUG_EXPORT_TOKEN || process.env.GIFT_ADMIN_TOKEN || '');
-  if (!configured) return true;
+  const allowedTokens = configuredAdminTokens();
+  if (!allowedTokens.length) return true;
   const bearer = clean(String(req.get('authorization') || '').replace(/^Bearer\s+/i, ''));
   const token = clean(req.query?.token || req.query?.adminToken || req.get('x-admin-token') || bearer || '');
-  return token === configured;
+  return Boolean(token && allowedTokens.includes(token));
 }
 
 function cleanupMode(req) {
@@ -60,4 +65,4 @@ function install(app) {
   return app;
 }
 
-module.exports = { RUNTIME, install };
+module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens };
