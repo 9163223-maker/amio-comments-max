@@ -106,9 +106,27 @@ function nested(value, path) {
 function boolCheck(value, keys) {
   return keys.some((key) => value && value[key] === true) || keys.some((key) => nested(value, ['checks', key]) === true) || keys.some((key) => nested(value, ['measurements', key]) === true);
 }
+function mapKeys(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return Object.keys(value).filter(Boolean);
+}
+function normalizeHydrationExpectedCounters(requirement) {
+  const expected = requirement && (requirement.expected || requirement.expectedClientCounters || requirement.counters || requirement);
+  const counters = expected && (expected.counters || expected.expectedClientCounters || expected);
+  return counters && typeof counters === 'object' && !Array.isArray(counters) ? counters : {};
+}
+function mapValuesAreZero(value, requiredKeys) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ok: false, missingKeys: Array.isArray(requiredKeys) ? requiredKeys : [], invalidKeys: [], nonZeroKeys: [], actualKeys: [] };
+  }
+  const keys = Array.isArray(requiredKeys) ? requiredKeys : Object.keys(value);
+  const missingKeys = keys.filter((key) => !hasOwn(value, key));
+  const invalidKeys = keys.filter((key) => hasOwn(value, key) && !Number.isFinite(Number(value[key])));
+  const nonZeroKeys = keys.filter((key) => hasOwn(value, key) && Number.isFinite(Number(value[key])) && Number(value[key]) !== 0);
+  return { ok: missingKeys.length === 0 && invalidKeys.length === 0 && nonZeroKeys.length === 0, missingKeys, invalidKeys, nonZeroKeys, actualKeys: Object.keys(value) };
+}
 function objectValuesAreZero(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  return Object.values(value).every((item) => Number(item || 0) === 0);
+  return mapValuesAreZero(value).ok;
 }
 function validateStickerRendererProbe(value) {
   if (!value || typeof value !== 'object') return { ok: false, reason: 'probe_result_object_required' };
@@ -121,7 +139,7 @@ function validateStickerRendererProbe(value) {
   const missing = Object.entries(required).filter(([, ok]) => !ok).map(([key]) => key);
   return { ok: missing.length === 0, missing };
 }
-function validateHydrationProbe(value) {
+function validateHydrationProbe(value, requirement) {
   if (!value || typeof value !== 'object') return { ok: false, reason: 'probe_result_object_required' };
   const counters = value.counters || value.telemetry || value;
   if (!counters || typeof counters !== 'object') return { ok: false, reason: 'hydration_counters_object_required' };
@@ -132,26 +150,61 @@ function validateHydrationProbe(value) {
   if (missingNumericCounters.length || missingMapCounters.length) {
     return { ok: false, reason: 'hydration_counters_required', missingNumericCounters, missingMapCounters };
   }
+  const expectedCounters = normalizeHydrationExpectedCounters(requirement);
+  const expectedMapKeys = {
+    mediaRemountCountByCommentId: mapKeys(expectedCounters.mediaRemountCountByCommentId),
+    imageReloadCountByCommentId: mapKeys(expectedCounters.imageReloadCountByCommentId)
+  };
+  const missingExpectedMapCounters = requiredMapCounters.filter((key) => !Array.isArray(expectedMapKeys[key]) || expectedMapKeys[key].length === 0);
+  if (missingExpectedMapCounters.length) {
+    return { ok: false, reason: 'hydration_expected_counter_entries_required', missingExpectedMapCounters };
+  }
   const listClearCount = Number(counters.listClearCount);
   const mediaRemountCount = hasOwn(counters, 'mediaRemountCount') ? Number(counters.mediaRemountCount) : 0;
   const stickerImageReloadCount = hasOwn(counters, 'stickerImageReloadCount') ? Number(counters.stickerImageReloadCount) : 0;
   const photoImageReloadCount = hasOwn(counters, 'photoImageReloadCount') ? Number(counters.photoImageReloadCount) : 0;
-  const mediaRemountByIdOk = objectValuesAreZero(counters.mediaRemountCountByCommentId);
-  const imageReloadByIdOk = objectValuesAreZero(counters.imageReloadCountByCommentId);
-  const stickerReloadByIdOk = hasOwn(counters, 'stickerImageReloadCountByCommentId') ? objectValuesAreZero(counters.stickerImageReloadCountByCommentId) : true;
-  const photoReloadByIdOk = hasOwn(counters, 'photoImageReloadCountByCommentId') ? objectValuesAreZero(counters.photoImageReloadCountByCommentId) : true;
-  const numbersOk = [listClearCount, mediaRemountCount, stickerImageReloadCount, photoImageReloadCount].every(Number.isFinite);
-  const ok = numbersOk && listClearCount === 0 && mediaRemountCount === 0 && stickerImageReloadCount === 0 && photoImageReloadCount === 0 && mediaRemountByIdOk && imageReloadByIdOk && stickerReloadByIdOk && photoReloadByIdOk;
-  return { ok, counters: { listClearCount, mediaRemountCount, stickerImageReloadCount, photoImageReloadCount, mediaRemountByIdOk, imageReloadByIdOk, stickerReloadByIdOk, photoReloadByIdOk } };
+  const mediaRemountById = mapValuesAreZero(counters.mediaRemountCountByCommentId, expectedMapKeys.mediaRemountCountByCommentId);
+  const imageReloadById = mapValuesAreZero(counters.imageReloadCountByCommentId, expectedMapKeys.imageReloadCountByCommentId);
+  const stickerReloadById = hasOwn(counters, 'stickerImageReloadCountByCommentId') ? mapValuesAreZero(counters.stickerImageReloadCountByCommentId) : { ok: true, missingKeys: [], invalidKeys: [], nonZeroKeys: [], actualKeys: [] };
+  const photoReloadById = hasOwn(counters, 'photoImageReloadCountByCommentId') ? mapValuesAreZero(counters.photoImageReloadCountByCommentId) : { ok: true, missingKeys: [], invalidKeys: [], nonZeroKeys: [], actualKeys: [] };
+  const numericCounters = { listClearCount, mediaRemountCount, stickerImageReloadCount, photoImageReloadCount };
+  const invalidNumericCounters = Object.entries(numericCounters).filter(([, item]) => !Number.isFinite(item)).map(([key]) => key);
+  const nonZeroNumericCounters = Object.entries(numericCounters).filter(([, item]) => Number.isFinite(item) && item !== 0).map(([key]) => key);
+  const ok = invalidNumericCounters.length === 0 && nonZeroNumericCounters.length === 0 && mediaRemountById.ok && imageReloadById.ok && stickerReloadById.ok && photoReloadById.ok;
+  return {
+    ok,
+    reason: ok ? undefined : 'hydration_counter_values_must_match_expected_zero_maps',
+    counters: {
+      listClearCount,
+      mediaRemountCount,
+      stickerImageReloadCount,
+      photoImageReloadCount,
+      invalidNumericCounters,
+      nonZeroNumericCounters,
+      expectedMediaRemountCommentIds: expectedMapKeys.mediaRemountCountByCommentId,
+      expectedImageReloadCommentIds: expectedMapKeys.imageReloadCountByCommentId,
+      mediaRemountByIdOk: mediaRemountById.ok,
+      imageReloadByIdOk: imageReloadById.ok,
+      stickerReloadByIdOk: stickerReloadById.ok,
+      photoReloadByIdOk: photoReloadById.ok,
+      mediaRemountById,
+      imageReloadById,
+      stickerReloadById,
+      photoReloadById
+    }
+  };
 }
-function validateBrowserProbe(id, value) {
+function validateBrowserProbe(id, value, requirement) {
   if (id === 'sticker_renderer_contract_probe') return validateStickerRendererProbe(value);
-  if (id === 'reopen_hydration_stability_probe') return validateHydrationProbe(value);
+  if (id === 'reopen_hydration_stability_probe') return validateHydrationProbe(value, requirement);
   return { ok: Boolean(value && typeof value === 'object' && (value.ok === true || value.status === 'pass' || value.status === 'passed' || value.status === 'ok')), reason: 'structured_pass_required' };
 }
 function recalcReportAfterBrowserResults(report, browserResults) {
-  const required = report?.uiStability?.browserProbeRequirements?.requiredProbeIds || [];
-  const validations = Object.fromEntries(required.map((id) => [id, validateBrowserProbe(id, probeValueFor(browserResults, id))]));
+  const browserProbeRequirements = report?.uiStability?.browserProbeRequirements || {};
+  const required = browserProbeRequirements.requiredProbeIds || [];
+  const requiredProbes = Array.isArray(browserProbeRequirements.requiredProbes) ? browserProbeRequirements.requiredProbes : [];
+  const requirementById = Object.fromEntries(requiredProbes.map((item) => [item && item.id, item]).filter(([id]) => Boolean(id)));
+  const validations = Object.fromEntries(required.map((id) => [id, validateBrowserProbe(id, probeValueFor(browserResults, id), requirementById[id])]));
   const missing = required.filter((id) => !(validations[id] && validations[id].ok));
   const browserPassed = required.length > 0 && missing.length === 0;
   const warnings = (report.warnings || []).filter((item) => !(browserPassed && item && item.id === 'browser_ui_probe_required'));
@@ -286,7 +339,7 @@ async function runFullCommentsSelftest(options) {
     backend,
     uiStability: { ok: uiStatus === 'pass', status: uiStatus, browserProbeRequired: browserProbeRequirements.requiredCount > 0, browserProbeRequirements, warnings, probes, note: 'Full self-test is only ok when backend passes and UI stability is pass.' },
     fixtures: { preserved: fixturesPreserved, cleanupMode, cleanupRequired: fixturesPreserved, cleanupHint, commentKey, reason: fixturesPreserved ? 'Fixtures are preserved because the full self-test is not green yet.' : 'Fixtures cleaned because cleanup was explicit or the full self-test passed.' },
-    telemetry: { clientContract: '__adminkitCommentsPerf', browserResultEndpoint: '/debug/selftest/comments/browser-result', browserResultSchema: { sticker_renderer_contract_probe: { checks: { standaloneStickerMedia: true, noRegularBubbleVisuals: true, timeDoesNotIntersectMediaBox: true, stableMediaBoxBeforeImageLoad: true } }, reopen_hydration_stability_probe: { counters: { listClearCount: 0, mediaRemountCountByCommentId: {}, imageReloadCountByCommentId: {} } } }, requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
+    telemetry: { clientContract: '__adminkitCommentsPerf', browserResultEndpoint: '/debug/selftest/comments/browser-result', browserResultSchema: { sticker_renderer_contract_probe: { checks: { standaloneStickerMedia: true, noRegularBubbleVisuals: true, timeDoesNotIntersectMediaBox: true, stableMediaBoxBeforeImageLoad: true } }, reopen_hydration_stability_probe: { counters: { listClearCount: 0, mediaRemountCountByCommentId: { '<expectedMediaCommentId>': 0 }, imageReloadCountByCommentId: { '<expectedMediaCommentId>': 0 } } } }, requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
     warnings,
     failures,
     tests
