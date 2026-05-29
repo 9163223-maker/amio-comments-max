@@ -1,12 +1,12 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC8.2.3-ADMINKIT-COMMENTS-PHOTO-TIMING-PR96';
+const RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
 const SKELETON_RUNTIME = 'CC8.1.19-MINIAPP-SKELETON-DEFAULT-PR84';
 const COMPOSER_INTENT_RUNTIME = 'CC8.1.13-COMPOSER-INTENT-UNLOCK';
 const PERFORMANCE_TRACE_RUNTIME = 'CC8.1.15-PATCH-COMPUTE-BREAKDOWN';
 const STICKERS_RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
-const PHOTO_FLOW_RUNTIME = 'PR96-PHOTO-FLOW-TIMING-DIAGNOSTICS';
+const PHOTO_FLOW_RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
 
 const LOADER_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE_LOADER__';
 const ONEPASS_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
@@ -15,7 +15,7 @@ const COMPOSER_INTENT_MARKER = '__ADMINKIT_CC8_1_13_COMPOSER_INTENT_UNLOCK__';
 const STICKERS_LOADER_MARKER = '__ADMINKIT_STICKERS_PR87_LOADER__';
 const PHOTO_FLOW_LOADER_MARKER = '__ADMINKIT_PHOTO_FLOW_PR95_LOADER__';
 
-const ASSET_VERSION = 'v823-pr96-photo-timing';
+const ASSET_VERSION = 'v824-compressed-final-photo-composer';
 const LOADER_STARTED_AT = Date.now();
 
 if (window[LOADER_MARKER]) return;
@@ -93,7 +93,7 @@ function loadPhotoFlowAddon() {
   window[PHOTO_FLOW_LOADER_MARKER] = true;
 
   const s = document.createElement('script');
-  s.src = '/public/app-photo-flow-pr95.js?v=pr96-photo-flow-timing-35a948d';
+  s.src = '/public/app-photo-flow-pr95.js?v=pr96-2-compressed-final-photo-composer';
   s.async = false;
   s.dataset.adminkitRuntime = PHOTO_FLOW_RUNTIME;
   s.onload = () => {

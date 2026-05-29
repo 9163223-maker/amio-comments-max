@@ -1,6 +1,6 @@
 ;(() => {
   'use strict';
-  const RUNTIME = 'PR96-PHOTO-FLOW-TIMING-DIAGNOSTICS';
+  const RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
   const MARKER = '__ADMINKIT_PR95_PHOTO_FLOW_EXPLICIT_UPLOAD__';
   if (window[MARKER]) return;
   window[MARKER] = true;
@@ -133,7 +133,7 @@
         runtimeVersion: RUNTIME,
         commentKey: clean(safe.commentKey || commentKey()),
         at: now(),
-        hasDataUrl: Boolean(safe.hasDataUrl),
+        hasDataUrl: false,
         hasRawBase64: false
       }
     };
@@ -147,65 +147,95 @@
       else fetch('/api/debug/comment-trace-event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json, keepalive: true });
     } catch (_) {}
   }
-  function bytesOfDataUrl(value) {
-    const raw = clean(value);
-    if (!/^data:/i.test(raw)) return 0;
-    const b64 = raw.includes(',') ? raw.split(',').slice(1).join(',') : raw;
-    return Math.floor((b64.replace(/\s+/g, '').length * 3) / 4);
-  }
-  function readFileAsDataUrl(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(clean(reader.result));
-      reader.onerror = () => reject(new Error('file_reader_failed'));
-      reader.readAsDataURL(file);
-    });
-  }
-  function loadImage(dataUrl) {
+  function loadImageFromObjectUrl(url) {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error('image_decode_failed'));
-      img.src = dataUrl;
+      img.src = url;
     });
   }
+  function canvasToBlob(canvas, mimeType, quality) {
+    return new Promise((resolve, reject) => {
+      if (typeof canvas.toBlob === 'function') {
+        canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('canvas_blob_failed')), mimeType, quality);
+        return;
+      }
+      try {
+        const dataUrl = canvas.toDataURL(mimeType, quality);
+        const parts = String(dataUrl || '').split(',');
+        const binary = atob(parts[1] || '');
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        resolve(new Blob([bytes], { type: mimeType }));
+      } catch (error) { reject(error); }
+    });
+  }
+  async function getDrawableImage(file) {
+    if (window.createImageBitmap) {
+      try {
+        const bitmap = await createImageBitmap(file);
+        if (bitmap && bitmap.width && bitmap.height) return { source: bitmap, width: bitmap.width, height: bitmap.height, close: () => { try { bitmap.close && bitmap.close(); } catch (_) {} } };
+      } catch (_) {}
+    }
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const img = await loadImageFromObjectUrl(objectUrl);
+      return { source: img, width: img.naturalWidth || img.width || 0, height: img.naturalHeight || img.height || 0, close: () => { try { URL.revokeObjectURL(objectUrl); } catch (_) {} } };
+    } catch (error) {
+      try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+      throw error;
+    }
+  }
   async function compressImage(file) {
-    const sourceDataUrl = await readFileAsDataUrl(file);
-    const img = await loadImage(sourceDataUrl);
-    const width = img.naturalWidth || img.width || 0;
-    const height = img.naturalHeight || img.height || 0;
+    const drawable = await getDrawableImage(file);
+    const width = Number(drawable.width || 0) || 0;
+    const height = Number(drawable.height || 0) || 0;
     if (!width || !height) throw new Error('image_size_unknown');
     const maxSideSteps = [1280, 960, 720, 640];
     const qualitySteps = [0.76, 0.68, 0.6, 0.54];
     const hardMax = 1024 * 1024;
     let best = null;
-    for (const maxSide of maxSideSteps) {
-      const ratio = Math.max(width, height) > maxSide ? maxSide / Math.max(width, height) : 1;
-      const w = Math.max(1, Math.round(width * ratio));
-      const h = Math.max(1, Math.round(height * ratio));
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d', { alpha: false });
-      if (!ctx) throw new Error('canvas_context_failed');
-      ctx.drawImage(img, 0, 0, w, h);
-      for (const quality of qualitySteps) {
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        const size = bytesOfDataUrl(dataUrl);
-        const packed = { dataUrl, mimeType: 'image/jpeg', fileName: (file.name || 'photo').replace(/\.[^/.]+$/, '') + '.jpg', size, width: w, height: h, quality, maxSide };
-        best = packed;
-        if (size <= hardMax) return packed;
+    try {
+      for (const maxSide of maxSideSteps) {
+        const ratio = Math.max(width, height) > maxSide ? maxSide / Math.max(width, height) : 1;
+        const w = Math.max(1, Math.round(width * ratio));
+        const h = Math.max(1, Math.round(height * ratio));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d', { alpha: false });
+        if (!ctx) throw new Error('canvas_context_failed');
+        ctx.drawImage(drawable.source, 0, 0, w, h);
+        for (const quality of qualitySteps) {
+          const blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+          const size = Number(blob && blob.size || 0) || 0;
+          const fileName = (file.name || 'photo').replace(/\.[^/.]+$/, '') + '.jpg';
+          const packed = { blob, mimeType: 'image/jpeg', fileName, size, width: w, height: h, quality, maxSide, compressed: true };
+          best = packed;
+          if (size > 0 && size <= hardMax) return packed;
+        }
       }
+      if (best) return best;
+      throw new Error('compress_failed');
+    } finally {
+      try { drawable.close && drawable.close(); } catch (_) {}
     }
-    if (best) return best;
-    throw new Error('compress_failed');
   }
-  function ensurePreviewOpen() {
-    const modal = byId('mediaPreviewModal');
-    if (!modal) return;
-    modal.classList.remove('hidden');
-    modal.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('media-preview-open');
+  function ensureInlinePreviewStyles() {
+    if (byId('adminkitCompressedPhotoComposerStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'adminkitCompressedPhotoComposerStyles';
+    style.textContent = '.composer-photo-preview{display:flex;align-items:center;gap:10px;margin:8px 0;padding:8px;border:1px solid rgba(148,163,184,.35);border-radius:14px;background:rgba(15,23,42,.04)}.composer-photo-preview img{width:72px;height:72px;object-fit:cover;border-radius:12px;display:block}.composer-photo-preview-meta{min-width:0;flex:1;font-size:12px;line-height:1.35;color:#64748b}.composer-photo-preview-name{font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.composer-photo-remove{border:0;border-radius:999px;width:32px;height:32px;font-size:22px;line-height:1;background:#e2e8f0;color:#0f172a}.composer-photo-remove:disabled{opacity:.55}.composer-photo-preview.is-busy{opacity:.7}';
+    document.head && document.head.appendChild(style);
+  }
+  function inlinePreviewHost() { return byId('attachmentPreview') || byId('mediaPreviewStage'); }
+  function setComposerBusy(isBusy) {
+    const sendBtn = byId('sendBtn') || byId('mediaPreviewSend');
+    if (sendBtn) {
+      sendBtn.disabled = Boolean(isBusy);
+      sendBtn.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+    }
   }
   function closePreview(clearFile, options) {
     const allowWhileUploading = Boolean(options && options.allowWhileUploading);
@@ -223,53 +253,76 @@
     document.body.classList.remove('media-preview-open');
     const status = byId('mediaPreviewStatus');
     if (status) { status.textContent = ''; status.classList.add('hidden'); status.classList.remove('error'); }
-    const stage = byId('mediaPreviewStage');
-    if (stage) stage.innerHTML = '';
+    const stage = inlinePreviewHost();
+    if (stage) { stage.innerHTML = ''; stage.classList.add('hidden'); }
     const caption = byId('mediaPreviewCaption');
     if (caption) caption.value = '';
     if (clearFile && flow.fileInput) flow.fileInput.value = '';
     if (flow.previewUrl) try { URL.revokeObjectURL(flow.previewUrl); } catch (_) {}
-    flow.file = null;
     flow.packed = null;
     flow.packedToken = 0;
     flow.previewUrl = '';
+    flow.compressing = false;
+    setComposerBusy(false);
     return true;
   }
   function previewStatus(message, isError) {
-    const el = byId('mediaPreviewStatus');
+    const el = byId('mediaPreviewStatus') || byId('commentInlineStatus');
     if (!el) return;
     el.textContent = message || '';
     el.classList.toggle('hidden', !message);
     el.classList.toggle('error', Boolean(isError && message));
   }
-  function renderPreview(file, previewUrl) {
-    const stage = byId('mediaPreviewStage');
-    if (stage) stage.innerHTML = '<img class="media-preview-image" src="' + escapeHtml(previewUrl) + '" alt="photo">';
-    ensurePreviewOpen();
+  function renderInlinePreview(packed, previewUrl) {
+    ensureInlinePreviewStyles();
+    const host = inlinePreviewHost();
+    if (host) {
+      host.classList.remove('hidden');
+      host.innerHTML = '<div class="composer-photo-preview' + (flow.compressing ? ' is-busy' : '') + '"><img src="' + escapeHtml(previewUrl) + '" alt="photo"><div class="composer-photo-preview-meta"><div class="composer-photo-preview-name">' + escapeHtml(packed.fileName || 'photo.jpg') + '</div><div>' + escapeHtml(Math.round((Number(packed.size || 0) || 0) / 1024) + ' KB · final compressed image') + '</div></div><button class="composer-photo-remove" type="button" aria-label="Убрать фото">×</button></div>';
+      const removeBtn = host.querySelector('.composer-photo-remove');
+      if (removeBtn) removeBtn.disabled = Boolean(flow.uploading);
+    }
+    const modal = byId('mediaPreviewModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+    document.body.classList.remove('media-preview-open');
     if (flow.timing) {
       flow.timing.previewAt = now();
-      flow.timing.status = 'preview_opened';
+      flow.timing.status = 'inline_preview_opened';
     }
-    previewStatus('Готовим фото…', false);
-    log('photo_preview_opened', timingPayload(flow.timing, { fileName: clean(file && file.name), originalSize: Number(file && file.size || 0) || 0, status: 'preview_opened', durationMs: flow.timing ? duration(flow.timing.selectedAt) : 0 }));
+    previewStatus('', false);
+    log('photo_inline_preview_opened', timingPayload(flow.timing, { fileName: clean(packed && packed.fileName), compressedSize: Number(packed && packed.size || 0) || 0, status: 'inline_preview_opened', durationMs: flow.timing ? duration(flow.timing.selectedAt) : 0 }));
+  }
+  function renderPreview(file, previewUrl) {
+    renderInlinePreview({ fileName: clean(file && file.name), size: Number(file && file.size || 0) || 0 }, previewUrl);
   }
   async function uploadPacked(packed) {
     const timing = flow.timing;
-    const clientUploadId = 'pr96_' + now() + '_' + Math.random().toString(36).slice(2, 8);
+    const clientUploadId = 'pr96_2_' + now() + '_' + Math.random().toString(36).slice(2, 8);
     if (timing) {
       timing.uploadStartedAt = now();
       timing.status = 'upload_started';
       timing.uploadSize = Number(packed.size || 0) || 0;
     }
-    log('photo_upload_started', timingPayload(timing, { clientUploadId, fileName: packed.fileName, mimeType: packed.mimeType, uploadSize: packed.size, width: packed.width, height: packed.height, quality: packed.quality, maxSide: packed.maxSide, hasDataUrl: true, status: 'upload_started', durationMs: 0 }));
+    log('photo_upload_started', timingPayload(timing, { clientUploadId, fileName: packed.fileName, mimeType: packed.mimeType, uploadSize: packed.size, width: packed.width, height: packed.height, quality: packed.quality, maxSide: packed.maxSide, status: 'upload_started', durationMs: 0 }));
+    const form = new FormData();
+    form.append('commentKey', commentKey());
+    form.append('clientUploadId', clientUploadId);
+    form.append('type', 'image');
+    form.append('fileName', packed.fileName || 'photo.jpg');
+    form.append('mimeType', packed.mimeType || 'image/jpeg');
+    form.append('size', String(Number(packed.size || 0) || 0));
+    form.append('photo', packed.blob, packed.fileName || 'photo.jpg');
     let response;
     let data;
     try {
       response = await fetch('/api/comments/attachments/upload', {
         method: 'POST',
         cache: 'no-store',
-        headers: { 'Content-Type': 'application/json', 'x-adminkit-photo-route': 'pr96-explicit-upload-timing' },
-        body: JSON.stringify({ commentKey: commentKey(), clientUploadId, type: 'image', fileName: packed.fileName, mimeType: packed.mimeType, size: packed.size, dataUrl: packed.dataUrl })
+        headers: { 'x-adminkit-photo-route': 'pr96-2-compressed-final-formdata' },
+        body: form
       });
       data = await response.json().catch(() => ({}));
     } catch (error) {
@@ -278,12 +331,7 @@
         timing.status = 'upload_network_failed';
         timing.error = clean(error && error.message) || 'network_failed';
       }
-      log('photo_upload_network_failed', timingPayload(timing, {
-        clientUploadId,
-        status: 'upload_network_failed',
-        error: clean(error && error.message) || 'network_failed',
-        durationMs: timing && timing.uploadStartedAt ? timing.uploadEndedAt - timing.uploadStartedAt : 0
-      }));
+      log('photo_upload_network_failed', timingPayload(timing, { clientUploadId, status: 'upload_network_failed', error: clean(error && error.message) || 'network_failed', durationMs: timing && timing.uploadStartedAt ? timing.uploadEndedAt - timing.uploadStartedAt : 0 }));
       const err = new Error('Не удалось загрузить фото. Проверьте соединение и попробуйте ещё раз.');
       err.cause = error;
       throw err;
@@ -317,7 +365,8 @@
       timing.uploadId = attachment.uploadId;
       timing.status = 'upload_ok';
     }
-    log('photo_upload_ok', timingPayload(timing, { clientUploadId, uploadId: attachment.uploadId, fileName: attachment.fileName, mimeType: attachment.mimeType, uploadSize: attachment.size || packed.size, hasUrl: Boolean(attachment.url), hasPreviewUrl: Boolean(attachment.previewUrl), status: 'upload_ok', durationMs: timing && timing.uploadStartedAt ? timing.uploadEndedAt - timing.uploadStartedAt : 0 }));
+    const diag = data.diagnostics || {};
+    log('photo_upload_ok', timingPayload(timing, { clientUploadId, uploadId: attachment.uploadId, fileName: attachment.fileName, mimeType: attachment.mimeType, uploadSize: attachment.size || packed.size, hasUrl: Boolean(attachment.url), hasPreviewUrl: Boolean(attachment.previewUrl), serverUploadReceivedAt: clean(diag.serverUploadReceivedAt), serverParsedAt: clean(diag.serverParsedAt), serverSavedAt: clean(diag.serverSavedAt), serverTotalMs: Number(diag.serverTotalMs || 0) || 0, status: 'upload_ok', durationMs: timing && timing.uploadStartedAt ? timing.uploadEndedAt - timing.uploadStartedAt : 0 }));
     return attachment;
   }
   function apiRender() {
@@ -459,56 +508,43 @@
     } catch (_) {}
     return data.comment;
   }
+  function clearReplyAfterSuccess() {
+    try { setReplyToId(''); } catch (_) {}
+    const api = window.__ADMINKIT_COMMENTS_API__;
+    try { if (api && typeof api.clearReply === 'function') api.clearReply(); } catch (_) {}
+    const panel = byId('composerReply');
+    if (panel) panel.classList.add('hidden');
+    log('reply_cleared_after_comment_create_ok', timingPayload(flow.timing, { status: 'reply_cleared' }));
+  }
   async function sendPreview() {
-    if (flow.uploading || !flow.file) return;
+    if (flow.uploading || flow.compressing) {
+      previewStatus(flow.compressing ? 'Дождитесь подготовки фото.' : 'Дождитесь отправки текущего фото.', true);
+      return;
+    }
+    if (!flow.packed || flow.packedToken !== flow.selectionToken) return;
     if (!commentKey()) { previewStatus('Не удалось определить обсуждение. Обновите экран.', true); return; }
     flow.uploading = true;
-    const sendBtn = byId('mediaPreviewSend');
+    setComposerBusy(true);
     const selectionToken = flow.selectionToken;
-    const currentFile = flow.file;
     const timing = flow.timing;
     if (timing) {
       timing.sendClickedAt = now();
       timing.status = 'send_clicked';
     }
-    if (sendBtn) sendBtn.disabled = true;
     try {
       previewStatus('Загружаем фото…', false);
-      let packed = flow.packedToken === selectionToken ? flow.packed : null;
-      if (!packed) {
-        const started = now();
-        if (timing) timing.compressStartedAt = started;
-        packed = await compressImage(currentFile);
-        if (flow.selectionToken !== selectionToken || flow.file !== currentFile || flow.timing !== timing) {
-          if (timing) {
-            timing.compressEndedAt = now();
-            timing.status = 'send_stale_selection_blocked';
-          }
-          log('photo_send_stale_selection_blocked', timingPayload(timing, { selectionToken, currentSelectionToken: flow.selectionToken, status: 'send_stale_selection_blocked' }));
-          throw new Error('Фото было заменено. Проверьте предпросмотр и отправьте ещё раз.');
-        }
-        if (timing) {
-          timing.compressEndedAt = now();
-          timing.compressedSize = Number(packed.size || 0) || 0;
-          timing.uploadSize = Number(packed.size || 0) || 0;
-          timing.width = Number(packed.width || 0) || 0;
-          timing.height = Number(packed.height || 0) || 0;
-          timing.quality = Number(packed.quality || 0) || 0;
-          timing.maxSide = Number(packed.maxSide || 0) || 0;
-          timing.status = 'compressed';
-        }
-        flow.packed = packed;
-        flow.packedToken = selectionToken;
-      }
+      const packed = flow.packed;
       const attachment = await uploadPacked(packed);
-      if (flow.selectionToken !== selectionToken || flow.file !== currentFile || flow.timing !== timing) {
+      if (flow.selectionToken !== selectionToken || flow.timing !== timing || flow.packed !== packed) {
         if (timing) timing.status = 'upload_stale_selection_blocked';
         log('photo_upload_stale_selection_blocked', timingPayload(timing, { selectionToken, currentSelectionToken: flow.selectionToken, status: 'upload_stale_selection_blocked' }));
         throw new Error('Фото было заменено во время загрузки. Проверьте предпросмотр и отправьте ещё раз.');
       }
       previewStatus('Публикуем комментарий…', false);
-      const caption = clean(byId('mediaPreviewCaption') && byId('mediaPreviewCaption').value);
+      const caption = clean((byId('commentInput') && byId('commentInput').value) || (byId('mediaPreviewCaption') && byId('mediaPreviewCaption').value));
       await createPhotoComment(attachment, caption);
+      clearReplyAfterSuccess();
+      if (byId('commentInput')) byId('commentInput').value = '';
       if (timing) {
         timing.totalEndedAt = now();
         timing.status = 'ok';
@@ -528,13 +564,13 @@
       setStatus(message, true);
     } finally {
       flow.uploading = false;
-      if (sendBtn) sendBtn.disabled = false;
+      setComposerBusy(false);
     }
   }
   async function handleFile(fileInput) {
     const file = fileInput && fileInput.files && fileInput.files[0];
     if (!file) return;
-    if (flow.uploading) {
+    if (flow.uploading || flow.compressing) {
       fileInput.value = '';
       previewStatus('Дождитесь отправки текущего фото.', true);
       setStatus('Дождитесь отправки текущего фото.', true);
@@ -548,23 +584,23 @@
       fileInput.value = '';
       return;
     }
-    if (flow.previewUrl) try { URL.revokeObjectURL(flow.previewUrl); } catch (_) {}
+    closePreview(false, { allowWhileUploading: true });
     const selectionToken = flow.selectionToken + 1;
     flow.selectionToken = selectionToken;
     flow.fileInput = fileInput;
-    flow.file = file;
     flow.packed = null;
     flow.packedToken = 0;
-    flow.previewUrl = URL.createObjectURL(file);
     flow.timing = makeTiming(file);
+    flow.compressing = true;
+    setComposerBusy(true);
     const timing = flow.timing;
     log('photo_selected', timingPayload(timing, { fileName: clean(file.name), mimeType: mime, originalSize: Number(file.size || 0) || 0, selectionToken, status: 'selected', durationMs: 0 }));
-    renderPreview(file, flow.previewUrl);
+    previewStatus('Готовим фото…', false);
     try {
       const started = now();
       if (timing) timing.compressStartedAt = started;
       const packed = await compressImage(file);
-      if (flow.selectionToken !== selectionToken || flow.file !== file || flow.timing !== timing) {
+      if (flow.selectionToken !== selectionToken || flow.timing !== timing) {
         if (timing) {
           timing.compressEndedAt = now();
           timing.status = 'compress_stale_ignored';
@@ -572,6 +608,8 @@
         log('photo_compress_stale_ignored', timingPayload(timing, { fileName: clean(file.name), selectionToken, currentSelectionToken: flow.selectionToken, status: 'compress_stale_ignored' }));
         return;
       }
+      if (flow.previewUrl) try { URL.revokeObjectURL(flow.previewUrl); } catch (_) {}
+      flow.previewUrl = URL.createObjectURL(packed.blob);
       if (timing) {
         timing.compressEndedAt = now();
         timing.compressedSize = Number(packed.size || 0) || 0;
@@ -584,10 +622,10 @@
       }
       flow.packed = packed;
       flow.packedToken = selectionToken;
-      previewStatus('', false);
       log('photo_compress_ok', timingPayload(timing, { fileName: packed.fileName, mimeType: packed.mimeType, compressedSize: packed.size, uploadSize: packed.size, width: packed.width, height: packed.height, quality: packed.quality, maxSide: packed.maxSide, durationMs: timing ? timing.compressEndedAt - started : now() - started, selectionToken, status: 'compress_ok' }));
+      renderInlinePreview(packed, flow.previewUrl);
     } catch (error) {
-      if (flow.selectionToken !== selectionToken || flow.file !== file || flow.timing !== timing) {
+      if (flow.selectionToken !== selectionToken || flow.timing !== timing) {
         if (timing) {
           timing.compressEndedAt = now();
           timing.status = 'compress_stale_error_ignored';
@@ -603,7 +641,21 @@
       }
       previewStatus('Не удалось обработать фото. Попробуйте другое изображение.', true);
       log('photo_compress_failed', timingPayload(timing, { fileName: clean(file.name), error: clean(error && error.message), selectionToken, status: 'compress_failed', durationMs: timing ? timing.compressEndedAt - timing.compressStartedAt : 0 }));
+    } finally {
+      if (flow.selectionToken === selectionToken) flow.compressing = false;
+      if (!flow.uploading) setComposerBusy(false);
     }
+  }
+  function hasActivePhotoSubmitFlow() {
+    const host = inlinePreviewHost();
+    const hasInlinePreview = Boolean(host && host.querySelector && host.querySelector('.composer-photo-preview'));
+    return Boolean(flow.packed || flow.compressing || flow.uploading || hasInlinePreview);
+  }
+  function shouldInterceptEnterSubmit(event) {
+    if (!event || event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return false;
+    const target = event.target;
+    const targetId = clean(target && target.id);
+    return targetId === 'commentInput' || targetId === 'mediaPreviewCaption';
   }
   function captureAttachFlow() {
     document.addEventListener('change', (event) => {
@@ -613,13 +665,27 @@
       event.preventDefault();
       handleFile(target);
     }, true);
+    document.addEventListener('keydown', (event) => {
+      if (!shouldInterceptEnterSubmit(event) || !hasActivePhotoSubmitFlow()) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      log('photo_submit_enter_intercepted', timingPayload(flow.timing, {
+        selectionToken: flow.selectionToken,
+        hasPacked: Boolean(flow.packed),
+        compressing: Boolean(flow.compressing),
+        uploading: Boolean(flow.uploading),
+        status: 'enter_intercepted'
+      }));
+      sendPreview();
+    }, true);
     document.addEventListener('click', (event) => {
       const target = event && event.target;
-      if (target && target.id === 'mediaPreviewSend') { event.preventDefault(); event.stopPropagation(); sendPreview(); }
-      if (target && (target.id === 'mediaPreviewClose' || target.id === 'mediaPreviewClear')) { event.preventDefault(); event.stopPropagation(); closePreview(true); }
+      const submitTarget = target && target.closest && target.closest('#sendBtn,#mediaPreviewSend');
+      if (submitTarget && hasActivePhotoSubmitFlow()) { event.preventDefault(); event.stopImmediatePropagation(); sendPreview(); }
+      if (target && (target.classList && target.classList.contains('composer-photo-remove') || target.id === 'mediaPreviewClose' || target.id === 'mediaPreviewClear')) { event.preventDefault(); event.stopPropagation(); closePreview(true); }
     }, true);
   }
-  const flow = { fileInput: null, file: null, packed: null, packedToken: 0, previewUrl: '', uploading: false, selectionToken: 0, timing: null };
+  const flow = { fileInput: null, packed: null, packedToken: 0, previewUrl: '', uploading: false, compressing: false, selectionToken: 0, timing: null };
   captureAttachFlow();
   window.__ADMINKIT_PR95_PHOTO_FLOW__ = { runtimeVersion: RUNTIME, handleFile, sendPreview, closePreview };
   log('photo_flow_installed', { href: location.href, userAgent: navigator.userAgent, status: 'installed' });

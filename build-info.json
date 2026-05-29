@@ -1,10 +1,10 @@
 {
-"runtimeVersion": "CC8.2.3-ADMINKIT-COMMENTS-PHOTO-TIMING-PR96",
-"buildVersion": "CC8.2.3-ADMINKIT-COMMENTS-PHOTO-TIMING-PR96",
-"displayVersion": "CC8.2.3-ADMINKIT-COMMENTS-PHOTO-TIMING-PR96",
-"packageVersion": "CC8.2.3-ADMINKIT-COMMENTS-PHOTO-TIMING-PR96",
-"sourceMarker": "adminkit-cc8-2-3-comments-photo-timing-pr96",
-"buildGeneratedAt": "2026-05-29T10:50:00Z",
+  "runtimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
+  "buildVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
+  "displayVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
+  "packageVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
+  "sourceMarker": "adminkit-cc8-2-4-compressed-final-photo-composer",
+  "buildGeneratedAt": "2026-05-29T12:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
     "version": "1.53.11",

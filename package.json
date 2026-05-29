@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.2.3-ADMINKIT-COMMENTS-PHOTO-TIMING-PR96",
+  "version": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node clean-entrypoint-1.53.10-pr89.js",

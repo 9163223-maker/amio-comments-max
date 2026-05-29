@@ -42,6 +42,9 @@ function sanitizeMiniPayload(payload = {}) {
     route: clean(safe.route || safe.path || ''),
     appRuntime: clean(safe.appRuntime || safe.runtime || ''),
     assetVersion: clean(safe.assetVersion || ''),
+    scriptSrc: clean(safe.scriptSrc || '', 320),
+    photoFlowRuntime: clean(safe.photoFlowRuntime || ''),
+    stickersRuntime: clean(safe.stickersRuntime || ''),
     commentKey: clean(safe.commentKey || ''),
     postId: clean(safe.postId || ''),
     channelId: clean(safe.channelId || ''),
@@ -62,6 +65,9 @@ function pushMiniEvent(payload = {}) {
     route: safe.route,
     appRuntime: safe.appRuntime,
     assetVersion: safe.assetVersion,
+    scriptSrc: safe.scriptSrc,
+    photoFlowRuntime: safe.photoFlowRuntime,
+    stickersRuntime: safe.stickersRuntime,
     commentKey: safe.commentKey,
     postId: safe.postId,
     channelId: safe.channelId,
@@ -69,12 +75,15 @@ function pushMiniEvent(payload = {}) {
     details: {
       navStartMs: safe.navStartMs,
       sinceLoaderStartMs: safe.sinceLoaderStartMs,
-      sinceScriptStartMs: safe.sinceScriptStartMs
+      sinceScriptStartMs: safe.sinceScriptStartMs,
+      scriptSrc: safe.scriptSrc,
+      photoFlowRuntime: safe.photoFlowRuntime,
+      stickersRuntime: safe.stickersRuntime
     }
   };
   miniEvents.push(item);
   if (miniEvents.length > MINI_LIMIT) miniEvents.splice(0, miniEvents.length - MINI_LIMIT);
-  timing.log('miniapp.' + safe.name, { durationMs: safe.durationMs, route: safe.route, appRuntime: safe.appRuntime, assetVersion: safe.assetVersion, commentKey: safe.commentKey, postId: safe.postId, channelId: safe.channelId, status: safe.status });
+  timing.log('miniapp.' + safe.name, { durationMs: safe.durationMs, route: safe.route, appRuntime: safe.appRuntime, assetVersion: safe.assetVersion, scriptSrc: safe.scriptSrc, photoFlowRuntime: safe.photoFlowRuntime, stickersRuntime: safe.stickersRuntime, commentKey: safe.commentKey, postId: safe.postId, channelId: safe.channelId, status: safe.status });
   return item;
 }
 function miniSummary() {
@@ -122,6 +131,20 @@ function miniappTimingInfo() {
     noMaxApiCall: true
   };
 }
+function parseMiniTimingBody(req) {
+  const body = req && req.body;
+  if (body && typeof body === 'object' && !Buffer.isBuffer(body)) return body;
+  if (Buffer.isBuffer(body)) {
+    try { return JSON.parse(body.toString('utf8') || '{}'); } catch (_) { return {}; }
+  }
+  if (typeof body === 'string') {
+    try { return JSON.parse(body || '{}'); } catch (_) { return {}; }
+  }
+  if (req && req.rawBody) {
+    try { return JSON.parse(Buffer.isBuffer(req.rawBody) ? req.rawBody.toString('utf8') : String(req.rawBody || '{}')); } catch (_) { return {}; }
+  }
+  return {};
+}
 function install(app) {
   if (!app || app.__adminkitPerformanceDebugRoutesPr73) return app;
   app.__adminkitPerformanceDebugRoutesPr73 = true;
@@ -143,7 +166,7 @@ function install(app) {
   app.get('/debug/miniapp-timing/clear', (req, res) => { miniEvents.splice(0, miniEvents.length); send(res, { ok: true, runtimeVersion: RUNTIME, mode: 'miniapp-timing-cleared', safe: true }); });
   app.post('/api/debug/miniapp-timing', (req, res) => {
     try {
-      const item = pushMiniEvent(req.body || {});
+      const item = pushMiniEvent(parseMiniTimingBody(req));
       send(res, { ok: true, runtimeVersion: RUNTIME, accepted: true, seq: item.seq, safe: true });
     } catch (error) {
       send(res, { ok: false, runtimeVersion: RUNTIME, error: clean(error && error.message || error), safe: true }, 500);

@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const SERVER_STARTED_AT = new Date().toISOString();
-const CURRENT_RUNTIME = 'CC8.2.3-ADMINKIT-COMMENTS-PHOTO-TIMING-PR96';
+const CURRENT_RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
 
 function clean(value) { return String(value || '').trim(); }
 function readJsonSafe(filePath) {
