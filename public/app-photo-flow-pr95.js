@@ -646,6 +646,17 @@
       if (!flow.uploading) setComposerBusy(false);
     }
   }
+  function hasActivePhotoSubmitFlow() {
+    const host = inlinePreviewHost();
+    const hasInlinePreview = Boolean(host && host.querySelector && host.querySelector('.composer-photo-preview'));
+    return Boolean(flow.packed || flow.compressing || flow.uploading || hasInlinePreview);
+  }
+  function shouldInterceptEnterSubmit(event) {
+    if (!event || event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return false;
+    const target = event.target;
+    const targetId = clean(target && target.id);
+    return targetId === 'commentInput' || targetId === 'mediaPreviewCaption';
+  }
   function captureAttachFlow() {
     document.addEventListener('change', (event) => {
       const target = event && event.target;
@@ -654,9 +665,23 @@
       event.preventDefault();
       handleFile(target);
     }, true);
+    document.addEventListener('keydown', (event) => {
+      if (!shouldInterceptEnterSubmit(event) || !hasActivePhotoSubmitFlow()) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      log('photo_submit_enter_intercepted', timingPayload(flow.timing, {
+        selectionToken: flow.selectionToken,
+        hasPacked: Boolean(flow.packed),
+        compressing: Boolean(flow.compressing),
+        uploading: Boolean(flow.uploading),
+        status: 'enter_intercepted'
+      }));
+      sendPreview();
+    }, true);
     document.addEventListener('click', (event) => {
       const target = event && event.target;
-      if (target && (target.id === 'sendBtn' || target.id === 'mediaPreviewSend') && (flow.packed || flow.compressing || flow.uploading)) { event.preventDefault(); event.stopImmediatePropagation(); sendPreview(); }
+      const submitTarget = target && target.closest && target.closest('#sendBtn,#mediaPreviewSend');
+      if (submitTarget && hasActivePhotoSubmitFlow()) { event.preventDefault(); event.stopImmediatePropagation(); sendPreview(); }
       if (target && (target.classList && target.classList.contains('composer-photo-remove') || target.id === 'mediaPreviewClose' || target.id === 'mediaPreviewClear')) { event.preventDefault(); event.stopPropagation(); closePreview(true); }
     }, true);
   }
