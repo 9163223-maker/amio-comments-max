@@ -5,11 +5,13 @@ const SKELETON_RUNTIME = 'CC8.1.19-MINIAPP-SKELETON-DEFAULT-PR84';
 const COMPOSER_INTENT_RUNTIME = 'CC8.1.13-COMPOSER-INTENT-UNLOCK';
 const PERFORMANCE_TRACE_RUNTIME = 'CC8.1.15-PATCH-COMPUTE-BREAKDOWN';
 const STICKERS_RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
+const PHOTO_FLOW_RUNTIME = 'PR95-PHOTO-FLOW-EXPLICIT-UPLOAD';
 const LOADER_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE_LOADER__';
 const ONEPASS_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
 const SKELETON_MARKER = '__ADMINKIT_CC8_1_19_MINIAPP_SKELETON_DEFAULT_PR84__';
 const COMPOSER_INTENT_MARKER = '__ADMINKIT_CC8_1_13_COMPOSER_INTENT_UNLOCK__';
 const STICKERS_LOADER_MARKER = '__ADMINKIT_STICKERS_PR87_LOADER__';
+const PHOTO_FLOW_LOADER_MARKER = '__ADMINKIT_PHOTO_FLOW_PR95_LOADER__';
 const ASSET_VERSION = 'v7564-pr87-stickers';
 const LOADER_STARTED_AT = Date.now();
 if (window[LOADER_MARKER]) return;
@@ -19,6 +21,7 @@ window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_RUNTIME__ = SKELETON_RUNTIME;
 window.__ADMINKIT_COMPOSER_INTENT_UNLOCK_RUNTIME__ = COMPOSER_INTENT_RUNTIME;
 window.__ADMINKIT_PERFORMANCE_TRACE_RUNTIME__ = PERFORMANCE_TRACE_RUNTIME;
 window.__ADMINKIT_STICKERS_RUNTIME__ = STICKERS_RUNTIME;
+window.__ADMINKIT_PHOTO_FLOW_RUNTIME__ = PHOTO_FLOW_RUNTIME;
 function postMiniTiming(name, extra) {
   try {
     const now = Date.now();
@@ -58,6 +61,18 @@ function loadStickerAddon() {
   s.onerror = () => postMiniTiming('loader.stickers_error', { status: 'stickers', scriptSrc: s.src, stickersRuntime: STICKERS_RUNTIME });
   (document.head || document.documentElement).appendChild(s);
   postMiniTiming('loader.stickers_appended', { status: 'stickers', scriptSrc: s.src, stickersRuntime: STICKERS_RUNTIME });
+}
+function loadPhotoFlowAddon() {
+  if (window[PHOTO_FLOW_LOADER_MARKER]) return loadStickerAddon();
+  window[PHOTO_FLOW_LOADER_MARKER] = true;
+  const s = document.createElement('script');
+  s.src = '/public/app-photo-flow-pr95.js?v=pr95-photo-flow';
+  s.async = false;
+  s.dataset.adminkitRuntime = PHOTO_FLOW_RUNTIME;
+  s.onload = () => { postMiniTiming('loader.photo_flow_loaded', { status: 'photo_flow', scriptSrc: s.src, photoFlowRuntime: PHOTO_FLOW_RUNTIME }); loadStickerAddon(); };
+  s.onerror = () => { postMiniTiming('loader.photo_flow_error', { status: 'photo_flow', scriptSrc: s.src, photoFlowRuntime: PHOTO_FLOW_RUNTIME }); loadStickerAddon(); };
+  (document.head || document.documentElement).appendChild(s);
+  postMiniTiming('loader.photo_flow_appended', { status: 'photo_flow', scriptSrc: s.src, photoFlowRuntime: PHOTO_FLOW_RUNTIME });
 }
 function hasCommentLaunchIdentity(query) {
   const raw = String(query || '');
@@ -111,7 +126,7 @@ function bootOnepass() {
   script.src = (guardedSkeleton ? '/public/app-skeleton-consumer-pr84.js?' : '/public/app-onepass.js?') + ASSET_VERSION.replace(/^v/, 'v=');
   script.async = false;
   script.dataset.adminkitRuntime = guardedSkeleton ? SKELETON_RUNTIME : RUNTIME;
-  script.onload = () => { postMiniTiming('loader.script_loaded', { status: guardedSkeleton ? 'skeleton' : 'onepass', scriptSrc: script.src }); loadStickerAddon(); };
+  script.onload = () => { postMiniTiming('loader.script_loaded', { status: guardedSkeleton ? 'skeleton' : 'onepass', scriptSrc: script.src }); loadPhotoFlowAddon(); };
   script.onerror = () => {
     postMiniTiming('loader.script_error', { status: guardedSkeleton ? 'skeleton' : 'onepass', scriptSrc: script.src });
     const card = document.getElementById('postError');
