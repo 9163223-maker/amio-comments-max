@@ -8,6 +8,14 @@
   function byId(id) { return document.getElementById(id); }
   function clean(v) { return String(v || '').replace(/\s+/g, ' ').trim(); }
   function now() { return Date.now(); }
+  function escapeHtml(v) {
+    return String(v || '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
   function state() {
     return window.__ADMINKIT_CC7_5_55_STATE__ || window.__ADMINKIT_CC7_5_53_STATE__ || window.__ADMINKIT_CC7_5_47_STATE__ || window.__ADMINKIT_CC7_5_6_STATE__ || window.__ADMINKIT_CC7_5_3_STATE__ || window.__ADMINKIT_CC7_2_STATE__ || null;
   }
@@ -139,6 +147,7 @@
     const caption = byId('mediaPreviewCaption');
     if (caption) caption.value = '';
     if (clearFile && flow.fileInput) flow.fileInput.value = '';
+    if (flow.previewUrl) try { URL.revokeObjectURL(flow.previewUrl); } catch (_) {}
     flow.file = null;
     flow.packed = null;
     flow.previewUrl = '';
@@ -153,7 +162,7 @@
   }
   function renderPreview(file, previewUrl) {
     const stage = byId('mediaPreviewStage');
-    if (stage) stage.innerHTML = '<img class="media-preview-image" src="' + previewUrl.replace(/"/g, '&quot;') + '" alt="photo">';
+    if (stage) stage.innerHTML = '<img class="media-preview-image" src="' + escapeHtml(previewUrl) + '" alt="photo">';
     ensurePreviewOpen();
     previewStatus('Готовим фото…', false);
     log('photo_preview_opened', { fileName: clean(file && file.name), originalSize: Number(file && file.size || 0) || 0 });
@@ -190,16 +199,83 @@
     log('photo_upload_ok', { clientUploadId, uploadId: attachment.uploadId, fileName: attachment.fileName, mimeType: attachment.mimeType, uploadSize: attachment.size || packed.size, hasUrl: Boolean(attachment.url), hasPreviewUrl: Boolean(attachment.previewUrl) });
     return attachment;
   }
+  function apiRender() {
+    const api = window.__ADMINKIT_COMMENTS_API__;
+    if (api && typeof api.render === 'function') { try { api.render(); return true; } catch (_) {} }
+    return false;
+  }
+  function apiRefresh() {
+    const api = window.__ADMINKIT_COMMENTS_API__;
+    if (api && typeof api.refresh === 'function') { try { api.refresh(); return true; } catch (_) {} }
+    return false;
+  }
+  function scrollToBottom() {
+    const wrap = byId('commentsWrap') || byId('commentsList');
+    if (!wrap) return;
+    try { wrap.scrollTop = wrap.scrollHeight; } catch (_) {}
+  }
+  function photoSrc(attachment) {
+    return clean(attachment && (attachment.previewUrl || attachment.url || attachment.posterUrl || ''));
+  }
+  function renderPhotoRowDom(comment) {
+    const list = byId('commentsList');
+    if (!list || !comment || !comment.id) return;
+    let row = list.querySelector('[data-comment-id="' + CSS.escape(String(comment.id)) + '"]');
+    const firstAttachment = Array.isArray(comment.attachments) ? comment.attachments[0] : null;
+    const src = photoSrc(firstAttachment);
+    const time = new Date(comment.createdAt || Date.now()).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const statusClass = comment.sendStatus === 'error' ? ' is-error' : (comment.sendStatus === 'sending' ? ' is-sending' : '');
+    const html = '<div class="comment-row own pr95-photo-row' + statusClass + '" data-comment-id="' + escapeHtml(comment.id) + '" data-pr95-photo-row="1">'
+      + '<div class="comment-bubble photo-bubble">'
+      + (src ? '<div class="comment-attachment comment-attachment-image"><img src="' + escapeHtml(src) + '" alt="' + escapeHtml(firstAttachment && (firstAttachment.fileName || firstAttachment.name) || 'photo') + '" loading="lazy"></div>' : '<div class="comment-attachment comment-attachment-missing">Фото недоступно</div>')
+      + (clean(comment.text) ? '<div class="comment-text">' + escapeHtml(comment.text) + '</div>' : '')
+      + '<div class="comment-time">' + escapeHtml(time) + (comment.sendStatus === 'error' ? ' · ошибка' : (comment.sendStatus === 'sending' ? ' · отправка' : '')) + '</div>'
+      + '</div></div>';
+    if (!row) {
+      const box = document.createElement('div');
+      box.innerHTML = html;
+      row = box.firstElementChild;
+      list.appendChild(row);
+    } else {
+      row.outerHTML = html;
+    }
+    scrollToBottom();
+  }
+  function renderClientComment(comment) {
+    if (!comment) return;
+    if (!apiRender()) renderPhotoRowDom(comment);
+  }
+  function updateStateComment(clientCommentId, updater) {
+    const s = state();
+    if (!s || !Array.isArray(s.comments)) return null;
+    let updated = null;
+    s.comments = s.comments.map((item) => {
+      if (!item || (item.clientCommentId !== clientCommentId && item.id !== clientCommentId)) return item;
+      updated = updater(item);
+      return updated;
+    });
+    return updated;
+  }
+  function markOptimisticError(clientCommentId, message) {
+    const updated = updateStateComment(clientCommentId, (item) => ({ ...item, sendStatus: 'error', error: clean(message || 'photo_comment_create_failed') }));
+    if (updated) renderClientComment(updated);
+    log('photo_optimistic_marked_error', { clientCommentId, error: clean(message || '') });
+  }
+  function replaceOptimisticWithServer(clientCommentId, serverComment) {
+    const updated = updateStateComment(clientCommentId, () => serverComment);
+    renderClientComment(updated || serverComment);
+  }
   function optimisticPhotoComment(text, attachment) {
     const s = state();
     if (!s || !Array.isArray(s.comments)) return '';
     const id = 'client_photo_' + now() + '_' + Math.random().toString(36).slice(2, 8);
     const previewUrl = clean(attachment.previewUrl || attachment.url || flow.previewUrl);
     const optimisticAttachment = { ...attachment, previewUrl, url: clean(attachment.url || previewUrl) };
-    s.comments = s.comments.concat([{ id, clientCommentId: id, userId: userId(), userName: userName(), avatarUrl: avatarUrl(), text, own: true, createdAt: new Date().toISOString(), sendStatus: 'sending', attachments: [optimisticAttachment], replyToId: replyToId() }]);
+    const comment = { id, clientCommentId: id, userId: userId(), userName: userName(), avatarUrl: avatarUrl(), text, own: true, createdAt: new Date().toISOString(), sendStatus: 'sending', attachments: [optimisticAttachment], replyToId: replyToId() };
+    s.comments = s.comments.concat([comment]);
     window.__ADMINKIT_PR95_PHOTO_OPTIMISTIC_ID__ = id;
     log('photo_optimistic_inserted', { clientCommentId: id, attachmentCount: 1 });
-    try { window.__ADMINKIT_COMMENTS_API__ && window.__ADMINKIT_COMMENTS_API__.render && window.__ADMINKIT_COMMENTS_API__.render(); } catch (_) {}
+    renderClientComment(comment);
     return id;
   }
   async function createPhotoComment(attachment, caption) {
@@ -213,17 +289,16 @@
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) {
-      log('photo_comment_create_failed', { clientCommentId, status: response.status, error: clean(data.error || data.message || 'comment_create_failed'), moderationMode: clean(data.moderation && data.moderation.mode) });
       const message = clean(data.userMessage || data.message || data.friendlyMessage) || (data.error === 'moderation_rejected' ? 'Комментарий не прошёл модерацию.' : 'Не удалось опубликовать фото-комментарий.');
+      log('photo_comment_create_failed', { clientCommentId, status: response.status, error: clean(data.error || data.message || 'comment_create_failed'), moderationMode: clean(data.moderation && data.moderation.mode) });
+      markOptimisticError(clientCommentId, message);
       throw new Error(message);
     }
     log('photo_comment_create_ok', { clientCommentId, serverCommentId: clean(data.comment && data.comment.id), attachmentCount: Array.isArray(data.comment && data.comment.attachments) ? data.comment.attachments.length : 0 });
     try {
-      const s = state();
-      if (s && Array.isArray(s.comments) && data.comment) s.comments = s.comments.map((item) => item && (item.clientCommentId === clientCommentId || item.id === clientCommentId) ? data.comment : item);
+      if (data.comment) replaceOptimisticWithServer(clientCommentId, data.comment);
       setReplyToId('');
-      window.__ADMINKIT_COMMENTS_API__ && window.__ADMINKIT_COMMENTS_API__.render && window.__ADMINKIT_COMMENTS_API__.render();
-      window.__ADMINKIT_COMMENTS_API__ && window.__ADMINKIT_COMMENTS_API__.refresh && window.__ADMINKIT_COMMENTS_API__.refresh();
+      apiRefresh();
     } catch (_) {}
     return data.comment;
   }
@@ -244,8 +319,9 @@
       closePreview(true);
       setStatus('', false);
     } catch (error) {
-      previewStatus(clean(error && error.message) || 'Не удалось отправить фото. Попробуйте ещё раз.', true);
-      setStatus(clean(error && error.message) || 'Не удалось отправить фото. Попробуйте ещё раз.', true);
+      const message = clean(error && error.message) || 'Не удалось отправить фото. Попробуйте ещё раз.';
+      previewStatus(message, true);
+      setStatus(message, true);
     } finally {
       flow.uploading = false;
       if (sendBtn) sendBtn.disabled = false;
