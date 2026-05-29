@@ -155,6 +155,7 @@
     if (flow.previewUrl) try { URL.revokeObjectURL(flow.previewUrl); } catch (_) {}
     flow.file = null;
     flow.packed = null;
+    flow.packedToken = 0;
     flow.previewUrl = '';
     flow.uploading = false;
   }
@@ -328,11 +329,21 @@
     if (!commentKey()) { previewStatus('Не удалось определить обсуждение. Обновите экран.', true); return; }
     flow.uploading = true;
     const sendBtn = byId('mediaPreviewSend');
+    const selectionToken = flow.selectionToken;
+    const currentFile = flow.file;
     if (sendBtn) sendBtn.disabled = true;
     try {
       previewStatus('Загружаем фото…', false);
-      let packed = flow.packed;
-      if (!packed) packed = flow.packed = await compressImage(flow.file);
+      let packed = flow.packedToken === selectionToken ? flow.packed : null;
+      if (!packed) {
+        packed = await compressImage(currentFile);
+        if (flow.selectionToken !== selectionToken || flow.file !== currentFile) {
+          log('photo_send_stale_selection_blocked', { selectionToken });
+          throw new Error('Фото было заменено. Проверьте предпросмотр и отправьте ещё раз.');
+        }
+        flow.packed = packed;
+        flow.packedToken = selectionToken;
+      }
       const attachment = await uploadPacked(packed);
       previewStatus('Публикуем комментарий…', false);
       const caption = clean(byId('mediaPreviewCaption') && byId('mediaPreviewCaption').value);
@@ -359,20 +370,33 @@
       return;
     }
     if (flow.previewUrl) try { URL.revokeObjectURL(flow.previewUrl); } catch (_) {}
+    const selectionToken = flow.selectionToken + 1;
+    flow.selectionToken = selectionToken;
     flow.fileInput = fileInput;
     flow.file = file;
     flow.packed = null;
+    flow.packedToken = 0;
     flow.previewUrl = URL.createObjectURL(file);
-    log('photo_selected', { fileName: clean(file.name), mimeType: mime, originalSize: Number(file.size || 0) || 0 });
+    log('photo_selected', { fileName: clean(file.name), mimeType: mime, originalSize: Number(file.size || 0) || 0, selectionToken });
     renderPreview(file, flow.previewUrl);
     try {
       const started = now();
-      flow.packed = await compressImage(file);
+      const packed = await compressImage(file);
+      if (flow.selectionToken !== selectionToken || flow.file !== file) {
+        log('photo_compress_stale_ignored', { fileName: clean(file.name), selectionToken, currentSelectionToken: flow.selectionToken });
+        return;
+      }
+      flow.packed = packed;
+      flow.packedToken = selectionToken;
       previewStatus('', false);
-      log('photo_compress_ok', { fileName: flow.packed.fileName, mimeType: flow.packed.mimeType, compressedSize: flow.packed.size, width: flow.packed.width, height: flow.packed.height, quality: flow.packed.quality, maxSide: flow.packed.maxSide, durationMs: now() - started });
+      log('photo_compress_ok', { fileName: packed.fileName, mimeType: packed.mimeType, compressedSize: packed.size, width: packed.width, height: packed.height, quality: packed.quality, maxSide: packed.maxSide, durationMs: now() - started, selectionToken });
     } catch (error) {
+      if (flow.selectionToken !== selectionToken || flow.file !== file) {
+        log('photo_compress_stale_error_ignored', { fileName: clean(file.name), selectionToken, error: clean(error && error.message) });
+        return;
+      }
       previewStatus('Не удалось обработать фото. Попробуйте другое изображение.', true);
-      log('photo_compress_failed', { fileName: clean(file.name), error: clean(error && error.message) });
+      log('photo_compress_failed', { fileName: clean(file.name), error: clean(error && error.message), selectionToken });
     }
   }
   function captureAttachFlow() {
@@ -389,7 +413,7 @@
       if (target && (target.id === 'mediaPreviewClose' || target.id === 'mediaPreviewClear')) { event.preventDefault(); event.stopPropagation(); closePreview(true); }
     }, true);
   }
-  const flow = { fileInput: null, file: null, packed: null, previewUrl: '', uploading: false };
+  const flow = { fileInput: null, file: null, packed: null, packedToken: 0, previewUrl: '', uploading: false, selectionToken: 0 };
   captureAttachFlow();
   window.__ADMINKIT_PR95_PHOTO_FLOW__ = { runtimeVersion: RUNTIME, handleFile, sendPreview, closePreview };
   log('photo_flow_installed', { href: location.href, userAgent: navigator.userAgent });
