@@ -345,6 +345,10 @@
         flow.packedToken = selectionToken;
       }
       const attachment = await uploadPacked(packed);
+      if (flow.selectionToken !== selectionToken || flow.file !== currentFile) {
+        log('photo_upload_stale_selection_blocked', { selectionToken, currentSelectionToken: flow.selectionToken });
+        throw new Error('Фото было заменено во время загрузки. Проверьте предпросмотр и отправьте ещё раз.');
+      }
       previewStatus('Публикуем комментарий…', false);
       const caption = clean(byId('mediaPreviewCaption') && byId('mediaPreviewCaption').value);
       await createPhotoComment(attachment, caption);
@@ -362,6 +366,13 @@
   async function handleFile(fileInput) {
     const file = fileInput && fileInput.files && fileInput.files[0];
     if (!file) return;
+    if (flow.uploading) {
+      fileInput.value = '';
+      previewStatus('Дождитесь отправки текущего фото.', true);
+      setStatus('Дождитесь отправки текущего фото.', true);
+      log('photo_selection_blocked_while_uploading', { selectionToken: flow.selectionToken });
+      return;
+    }
     const mime = clean(file.type || '');
     if (!/^image\//i.test(mime)) {
       setStatus('Пока в комментариях можно прикреплять только фото. Видео и файлы сейчас не поддерживаются.', true);
