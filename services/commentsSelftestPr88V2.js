@@ -350,6 +350,85 @@ function matrixScenarioList(value) {
   if (value.scenarios && typeof value.scenarios === 'object') return Object.keys(value.scenarios).map((id) => ({ id, ...(value.scenarios[id] || {}) }));
   return [];
 }
+function finite(value) { return typeof value === 'number' && Number.isFinite(value); }
+function nonEmpty(value) { return clean(value).length > 0; }
+function scenarioDetails(item) { return item && typeof item.details === 'object' && item.details ? item.details : {}; }
+function countIncrements(details) { return finite(details.countBefore) && finite(details.countAfter) && details.countAfter > details.countBefore; }
+function attachmentEvidence(details) {
+  const att = details.attachment && typeof details.attachment === 'object' ? details.attachment : {};
+  return Boolean(att.hasUrl === true && att.hasPreviewUrl === true);
+}
+function domImageEvidence(details) { return Boolean(details.rowHasImage === true || details.domRowImage === true || details.hasRenderedImage === true || details.hasImageRow === true); }
+function zeroMapEvidence(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.values(value).every((item) => finite(item) && item === 0);
+}
+function validateMatrixScenarioEvidence(id, item, trace) {
+  if (!item || typeof item !== 'object') return { ok: false, reason: 'scenario_result_object_required' };
+  if (!(item.status === 'pass' || item.ok === true)) return { ok: false, reason: 'scenario_not_passed' };
+  const d = scenarioDetails(item);
+  if (id === 'runtime_boot_validation') {
+    const missing = Array.isArray(d.missingLoaderEvents) ? d.missingLoaderEvents : [];
+    return { ok: d.runtimeVersion === 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER' && d.staleEndpointDetected === false && missing.length === 0 && d.timingPreservesRuntimeFields === true, reason: 'runtime_boot_evidence_required' };
+  }
+  if (id === 'text_comment') {
+    return { ok: nonEmpty(d.commentId) && nonEmpty(d.marker) && countIncrements(d), reason: 'text_comment_id_marker_count_increment_required' };
+  }
+  if (id === 'photo_without_caption') {
+    return { ok: nonEmpty(d.commentId) && attachmentEvidence(d) && domImageEvidence(d) && countIncrements(d) && d.existedBefore === false && d.textEmpty === true, reason: 'new_no_caption_photo_attachment_dom_count_evidence_required' };
+  }
+  if (id === 'photo_with_caption') {
+    return { ok: nonEmpty(d.commentId) && nonEmpty(d.caption) && attachmentEvidence(d) && domImageEvidence(d) && countIncrements(d), reason: 'caption_photo_attachment_dom_count_evidence_required' };
+  }
+  if (id === 'photo_submit_enter') {
+    const events = Array.isArray(trace && trace.presentEvents) ? trace.presentEvents : [];
+    return { ok: nonEmpty(d.commentId) && (Number(d.attachmentCount || 0) > 0 || attachmentEvidence(d)) && Number(d.textOnlyCreated || 0) === 0 && d.enterKeyDispatched === true && (d.enterTraceSeen === true || events.includes('photo_submit_enter_intercepted')), reason: 'enter_photo_attachment_no_text_only_trace_evidence_required' };
+  }
+  if (id === 'stale_selection_wrong_image_safety') {
+    return { ok: nonEmpty(d.commentId) && d.aPreviewSeen === true && d.bPreviewSeen === true && d.bPreviewReplacedA === true && d.selectionBlocked === false && d.provedFinalImageB === true && d.mayHaveUploadedA !== true && (d.finalTraceShowsB === true || d.finalAttachmentShowsB === true || d.finalDomShowsB === true), reason: 'stale_selection_must_prove_b_replaced_a_and_final_b' };
+  }
+  if (id === 'remove_inline_preview') {
+    return { ok: d.previewExisted === true && d.removeClicked === true && d.previewGone === true && d.noUpload === true && d.noCreate === true && finite(d.countBefore) && finite(d.countAfter) && d.countAfter === d.countBefore, reason: 'remove_preview_no_upload_no_create_evidence_required' };
+  }
+  if (id === 'reply_matrix') {
+    const required = ['text-reply-to-text', 'text-reply-to-photo', 'photo-reply-to-text', 'photo-reply-to-photo'];
+    const rows = Array.isArray(d.results) ? d.results : [];
+    const byLabel = Object.fromEntries(rows.map((row) => [clean(row && row.label), row]));
+    const missing = required.filter((label) => !byLabel[label]);
+    const invalid = required.filter((label) => {
+      const row = byLabel[label] || {};
+      return !(nonEmpty(row.parentId) && nonEmpty(row.commentId) && clean(row.replyToId) === clean(row.parentId) && row.panelCleared === true && row.ok === true);
+    });
+    return { ok: missing.length === 0 && invalid.length === 0 && d.stalePanelTextDetected !== true, reason: 'all_reply_subcases_parent_reply_panel_evidence_required', missing, invalid };
+  }
+  if (id === 'reactions') {
+    const add = d.afterAdd && typeof d.afterAdd === 'object' ? d.afterAdd : {};
+    const toggle = d.afterToggle && typeof d.afterToggle === 'object' ? d.afterToggle : {};
+    return { ok: nonEmpty(d.targetCommentId) && add['👍'] >= 1 && finite(Number(toggle['👍'] || 0)), reason: 'reaction_target_counter_state_evidence_required' };
+  }
+  if (id === 'preset_sticker') {
+    return { ok: nonEmpty(d.commentId) && nonEmpty(d.stickerRuntime) && d.hasStickerRow === true, reason: 'sticker_runtime_and_rendered_row_evidence_required' };
+  }
+  if (id === 'forbidden_video_file') {
+    const video = d.video && typeof d.video === 'object' ? d.video : {};
+    const pdf = d.pdf && typeof d.pdf === 'object' ? d.pdf : {};
+    return { ok: video.noCreate === true && pdf.noCreate === true && video.noUpload === true && pdf.noUpload === true && (video.userFacingError === true || pdf.userFacingError === true) && video.photoUploadStarted === false && pdf.photoUploadStarted === false, reason: 'video_pdf_rejection_no_upload_no_create_evidence_required' };
+  }
+  if (id === 'original_post_media_render') {
+    return { ok: d.hasPostImage === true && d.inTopPostBlock === true && d.imageInsideCommentRow === false && d.postTextPresent === true, reason: 'original_post_top_block_image_not_comment_attachment_evidence_required' };
+  }
+  if (id === 'hydration_reopen_flicker') {
+    const c = d.counters && typeof d.counters === 'object' ? d.counters : {};
+    return { ok: c.listClearCount === 0 && zeroMapEvidence(c.mediaRemountCountByCommentId) && zeroMapEvidence(c.imageReloadCountByCommentId), reason: 'hydration_zero_clear_remount_reload_counters_required' };
+  }
+  if (id === 'trace_timing_validation') {
+    const missingPhoto = Array.isArray(d.missingPhotoTraceEvents) ? d.missingPhotoTraceEvents : REQUIRED_PHOTO_TRACE_EVENTS;
+    const missingEnter = Array.isArray(d.missingEnterTraceEvents) ? d.missingEnterTraceEvents : ['photo_submit_enter_intercepted'];
+    const missingTiming = Array.isArray(d.missingTimingSummaryFields) ? d.missingTimingSummaryFields : REQUIRED_TIMING_SUMMARY_FIELDS;
+    return { ok: missingPhoto.length === 0 && missingEnter.length === 0 && missingTiming.length === 0 && d.rawDataUrlDetected === false && d.forbiddenUploadDetected === false, reason: 'trace_timing_required_events_fields_no_raw_data_required' };
+  }
+  return { ok: false, reason: 'unknown_matrix_scenario_validator' };
+}
 function validateProductionCommentsMatrixProbe(value, requirement) {
   if (!value || typeof value !== 'object') return { ok: false, reason: 'matrix_probe_result_object_required' };
   const expected = requirement && requirement.expected || {};
@@ -357,10 +436,12 @@ function validateProductionCommentsMatrixProbe(value, requirement) {
   const scenarios = matrixScenarioList(value);
   const byId = Object.fromEntries(scenarios.map((item) => [clean(item && item.id), item]).filter(([id]) => Boolean(id)));
   const missingScenarios = requiredScenarios.filter((id) => !byId[id]);
-  const failedScenarios = requiredScenarios.filter((id) => byId[id] && !(byId[id].status === 'pass' || byId[id].ok === true));
+  const trace = value.traceValidation && typeof value.traceValidation === 'object' ? value.traceValidation : {};
+  const scenarioEvidence = Object.fromEntries(requiredScenarios.filter((id) => byId[id]).map((id) => [id, validateMatrixScenarioEvidence(id, byId[id], trace)]));
+  const failedScenarios = requiredScenarios.filter((id) => byId[id] && !(scenarioEvidence[id] && scenarioEvidence[id].ok));
+  const scenarioEvidenceFailures = Object.fromEntries(Object.entries(scenarioEvidence).filter(([, row]) => !(row && row.ok)));
   const blockingFailures = Array.isArray(value.blockingFailures) ? value.blockingFailures : [];
   const requiredPhotoTraceEvents = Array.isArray(expected.requiredPhotoTraceEvents) && expected.requiredPhotoTraceEvents.length ? expected.requiredPhotoTraceEvents : REQUIRED_PHOTO_TRACE_EVENTS;
-  const trace = value.traceValidation && typeof value.traceValidation === 'object' ? value.traceValidation : {};
   const traceEvents = Array.isArray(trace.presentEvents) ? trace.presentEvents : [];
   const missingPhotoTraceEvents = Array.isArray(trace.missingPhotoTraceEvents) ? trace.missingPhotoTraceEvents : requiredPhotoTraceEvents.filter((name) => !traceEvents.includes(name));
   const missingEnterTraceEvents = Array.isArray(trace.missingEnterTraceEvents) ? trace.missingEnterTraceEvents : (!traceEvents.includes('photo_submit_enter_intercepted') ? ['photo_submit_enter_intercepted'] : []);
@@ -371,9 +452,10 @@ function validateProductionCommentsMatrixProbe(value, requirement) {
   const ok = missingScenarios.length === 0 && failedScenarios.length === 0 && blockingFailures.length === 0 && missingPhotoTraceEvents.length === 0 && missingEnterTraceEvents.length === 0 && missingTimingSummaryFields.length === 0 && !rawDataUrlDetected && photoBusinessPathExercised && !forbiddenUploadDetected;
   return {
     ok,
-    reason: ok ? undefined : 'production_comments_matrix_must_pass_all_blocking_paths',
+    reason: ok ? undefined : 'production_comments_matrix_must_pass_all_blocking_paths_with_evidence',
     missingScenarios,
     failedScenarios,
+    scenarioEvidenceFailures,
     blockingFailures,
     missingPhotoTraceEvents,
     missingEnterTraceEvents,
