@@ -385,7 +385,7 @@ function validateMatrixScenarioEvidence(id, item, trace) {
     return { ok: nonEmpty(d.commentId) && (Number(d.attachmentCount || 0) > 0 || attachmentEvidence(d)) && Number(d.textOnlyCreated || 0) === 0 && d.enterKeyDispatched === true && (d.enterTraceSeen === true || events.includes('photo_submit_enter_intercepted')), reason: 'enter_photo_attachment_no_text_only_trace_evidence_required' };
   }
   if (id === 'stale_selection_wrong_image_safety') {
-    return { ok: nonEmpty(d.commentId) && d.aPreviewSeen === true && d.bPreviewSeen === true && d.bPreviewReplacedA === true && d.selectionBlocked === false && d.provedFinalImageB === true && d.mayHaveUploadedA !== true && (d.finalTraceShowsB === true || d.finalAttachmentShowsB === true || d.finalDomShowsB === true), reason: 'stale_selection_must_prove_b_replaced_a_and_final_b' };
+    return { ok: nonEmpty(d.commentId) && d.aPreviewSeen === true && d.bPreviewSeen === true && d.bPreviewReplacedA === true && d.selectionBlocked === false && d.bUploadStarted === true && d.bUploadOk === true && d.bCreateStarted === true && d.bCreateOk === true && d.traceUploadCreateCorrelated === true && d.provedFinalImageB === true && d.mayHaveUploadedA !== true && d.finalTraceShowsB === true && (d.finalAttachmentShowsB === true || d.traceUploadCreateCorrelated === true) && d.finalDomShowsB === true, reason: 'stale_selection_requires_b_upload_create_final_identity_evidence' };
   }
   if (id === 'remove_inline_preview') {
     return { ok: d.previewExisted === true && d.removeClicked === true && d.previewGone === true && d.noUpload === true && d.noCreate === true && finite(d.countBefore) && finite(d.countAfter) && d.countAfter === d.countBefore, reason: 'remove_preview_no_upload_no_create_evidence_required' };
