@@ -16,6 +16,11 @@
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#039;');
   }
+  function escapeSelectorId(v) {
+    const raw = String(v || '');
+    if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(raw);
+    return raw.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+  }
   function state() {
     return window.__ADMINKIT_CC7_5_55_STATE__ || window.__ADMINKIT_CC7_5_53_STATE__ || window.__ADMINKIT_CC7_5_47_STATE__ || window.__ADMINKIT_CC7_5_6_STATE__ || window.__ADMINKIT_CC7_5_3_STATE__ || window.__ADMINKIT_CC7_2_STATE__ || null;
   }
@@ -217,15 +222,22 @@
   function photoSrc(attachment) {
     return clean(attachment && (attachment.previewUrl || attachment.url || attachment.posterUrl || ''));
   }
-  function renderPhotoRowDom(comment) {
+  function renderPhotoRowDom(comment, replaceCommentId) {
     const list = byId('commentsList');
     if (!list || !comment || !comment.id) return;
-    let row = list.querySelector('[data-comment-id="' + CSS.escape(String(comment.id)) + '"]');
+    const currentId = String(comment.id);
+    const replaceId = clean(replaceCommentId);
+    let row = list.querySelector('[data-comment-id="' + escapeSelectorId(currentId) + '"]');
+    if (!row && replaceId && replaceId !== currentId) row = list.querySelector('[data-comment-id="' + escapeSelectorId(replaceId) + '"]');
+    if (row && replaceId && replaceId !== currentId) {
+      const duplicate = list.querySelector('[data-comment-id="' + escapeSelectorId(currentId) + '"]');
+      if (duplicate && duplicate !== row) duplicate.remove();
+    }
     const firstAttachment = Array.isArray(comment.attachments) ? comment.attachments[0] : null;
     const src = photoSrc(firstAttachment);
     const time = new Date(comment.createdAt || Date.now()).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     const statusClass = comment.sendStatus === 'error' ? ' is-error' : (comment.sendStatus === 'sending' ? ' is-sending' : '');
-    const html = '<div class="comment-row own pr95-photo-row' + statusClass + '" data-comment-id="' + escapeHtml(comment.id) + '" data-pr95-photo-row="1">'
+    const html = '<div class="comment-row own pr95-photo-row' + statusClass + '" data-comment-id="' + escapeHtml(currentId) + '" data-pr95-photo-row="1">'
       + '<div class="comment-bubble photo-bubble">'
       + (src ? '<div class="comment-attachment comment-attachment-image"><img src="' + escapeHtml(src) + '" alt="' + escapeHtml(firstAttachment && (firstAttachment.fileName || firstAttachment.name) || 'photo') + '" loading="lazy"></div>' : '<div class="comment-attachment comment-attachment-missing">Фото недоступно</div>')
       + (clean(comment.text) ? '<div class="comment-text">' + escapeHtml(comment.text) + '</div>' : '')
@@ -241,9 +253,9 @@
     }
     scrollToBottom();
   }
-  function renderClientComment(comment) {
+  function renderClientComment(comment, replaceCommentId) {
     if (!comment) return;
-    if (!apiRender()) renderPhotoRowDom(comment);
+    if (!apiRender()) renderPhotoRowDom(comment, replaceCommentId);
   }
   function updateStateComment(clientCommentId, updater) {
     const s = state();
@@ -258,12 +270,12 @@
   }
   function markOptimisticError(clientCommentId, message) {
     const updated = updateStateComment(clientCommentId, (item) => ({ ...item, sendStatus: 'error', error: clean(message || 'photo_comment_create_failed') }));
-    if (updated) renderClientComment(updated);
+    if (updated) renderClientComment(updated, clientCommentId);
     log('photo_optimistic_marked_error', { clientCommentId, error: clean(message || '') });
   }
   function replaceOptimisticWithServer(clientCommentId, serverComment) {
     const updated = updateStateComment(clientCommentId, () => serverComment);
-    renderClientComment(updated || serverComment);
+    renderClientComment(updated || serverComment, clientCommentId);
   }
   function optimisticPhotoComment(text, attachment) {
     const s = state();
@@ -275,19 +287,28 @@
     s.comments = s.comments.concat([comment]);
     window.__ADMINKIT_PR95_PHOTO_OPTIMISTIC_ID__ = id;
     log('photo_optimistic_inserted', { clientCommentId: id, attachmentCount: 1 });
-    renderClientComment(comment);
+    renderClientComment(comment, id);
     return id;
   }
   async function createPhotoComment(attachment, caption) {
     const clientCommentId = optimisticPhotoComment(caption, attachment);
     log('photo_comment_create_started', { clientCommentId, attachmentCount: 1, replyToId: replyToId() });
-    const response = await fetch('/api/comments', {
-      method: 'POST',
-      cache: 'no-store',
-      headers: { 'Content-Type': 'application/json', 'x-adminkit-photo-route': 'pr95-explicit-create' },
-      body: JSON.stringify({ commentKey: commentKey(), userId: userId(), userName: userName(), avatarUrl: avatarUrl(), text: caption, replyToId: replyToId(), clientCommentId, attachments: [attachment] })
-    });
-    const data = await response.json().catch(() => ({}));
+    let response;
+    let data;
+    try {
+      response = await fetch('/api/comments', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'x-adminkit-photo-route': 'pr95-explicit-create' },
+        body: JSON.stringify({ commentKey: commentKey(), userId: userId(), userName: userName(), avatarUrl: avatarUrl(), text: caption, replyToId: replyToId(), clientCommentId, attachments: [attachment] })
+      });
+      data = await response.json().catch(() => ({}));
+    } catch (error) {
+      const message = 'Не удалось опубликовать фото-комментарий. Проверьте соединение и попробуйте ещё раз.';
+      log('photo_comment_create_network_failed', { clientCommentId, error: clean(error && error.message) || 'network_failed' });
+      markOptimisticError(clientCommentId, message);
+      throw new Error(message);
+    }
     if (!response.ok || data.ok === false) {
       const message = clean(data.userMessage || data.message || data.friendlyMessage) || (data.error === 'moderation_rejected' ? 'Комментарий не прошёл модерацию.' : 'Не удалось опубликовать фото-комментарий.');
       log('photo_comment_create_failed', { clientCommentId, status: response.status, error: clean(data.error || data.message || 'comment_create_failed'), moderationMode: clean(data.moderation && data.moderation.mode) });
