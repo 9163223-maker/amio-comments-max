@@ -1,18 +1,18 @@
 ;(() => {
 'use strict';
-const RUNTIME = 'CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE';
+const RUNTIME = 'CC8.2.3-ADMINKIT-COMMENTS-PHOTO-TIMING-PR96';
 const SKELETON_RUNTIME = 'CC8.1.19-MINIAPP-SKELETON-DEFAULT-PR84';
 const COMPOSER_INTENT_RUNTIME = 'CC8.1.13-COMPOSER-INTENT-UNLOCK';
 const PERFORMANCE_TRACE_RUNTIME = 'CC8.1.15-PATCH-COMPUTE-BREAKDOWN';
 const STICKERS_RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
-const PHOTO_FLOW_RUNTIME = 'PR95-PHOTO-FLOW-EXPLICIT-UPLOAD';
+const PHOTO_FLOW_RUNTIME = 'PR96-PHOTO-FLOW-TIMING-DIAGNOSTICS';
 const LOADER_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE_LOADER__';
 const ONEPASS_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
 const SKELETON_MARKER = '__ADMINKIT_CC8_1_19_MINIAPP_SKELETON_DEFAULT_PR84__';
 const COMPOSER_INTENT_MARKER = '__ADMINKIT_CC8_1_13_COMPOSER_INTENT_UNLOCK__';
 const STICKERS_LOADER_MARKER = '__ADMINKIT_STICKERS_PR87_LOADER__';
 const PHOTO_FLOW_LOADER_MARKER = '__ADMINKIT_PHOTO_FLOW_PR95_LOADER__';
-const ASSET_VERSION = 'v7564-pr87-stickers';
+const ASSET_VERSION = 'v823-pr96-photo-timing';
 const LOADER_STARTED_AT = Date.now();
 if (window[LOADER_MARKER]) return;
 window[LOADER_MARKER] = true;
@@ -54,7 +54,7 @@ function loadStickerAddon() {
   if (window[STICKERS_LOADER_MARKER]) return;
   window[STICKERS_LOADER_MARKER] = true;
   const s = document.createElement('script');
-  s.src = '/public/app-stickers-pr87.js?v=pr87-stickers';
+  s.src = '/public/app-photo-flow-pr95.js?v=pr96-photo-flow-timing-35a948d';
   s.async = true;
   s.dataset.adminkitRuntime = STICKERS_RUNTIME;
   s.onload = () => postMiniTiming('loader.stickers_loaded', { status: 'stickers', scriptSrc: s.src, stickersRuntime: STICKERS_RUNTIME });
