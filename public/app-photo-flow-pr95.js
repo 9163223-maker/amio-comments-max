@@ -138,7 +138,14 @@
     modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('media-preview-open');
   }
-  function closePreview(clearFile) {
+  function closePreview(clearFile, options) {
+    const allowWhileUploading = Boolean(options && options.allowWhileUploading);
+    if (flow.uploading && !allowWhileUploading) {
+      previewStatus('Дождитесь отправки текущего фото.', true);
+      setStatus('Дождитесь отправки текущего фото.', true);
+      log('photo_close_blocked_while_uploading', { selectionToken: flow.selectionToken });
+      return false;
+    }
     const modal = byId('mediaPreviewModal');
     if (modal) {
       modal.classList.add('hidden');
@@ -157,7 +164,7 @@
     flow.packed = null;
     flow.packedToken = 0;
     flow.previewUrl = '';
-    flow.uploading = false;
+    return true;
   }
   function previewStatus(message, isError) {
     const el = byId('mediaPreviewStatus');
@@ -352,7 +359,7 @@
       previewStatus('Публикуем комментарий…', false);
       const caption = clean(byId('mediaPreviewCaption') && byId('mediaPreviewCaption').value);
       await createPhotoComment(attachment, caption);
-      closePreview(true);
+      closePreview(true, { allowWhileUploading: true });
       setStatus('', false);
     } catch (error) {
       const message = clean(error && error.message) || 'Не удалось отправить фото. Попробуйте ещё раз.';
