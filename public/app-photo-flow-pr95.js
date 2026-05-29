@@ -98,7 +98,7 @@
     return {
       timingId: clean(t.id),
       status: clean((extra && extra.status) || t.status || ''),
-      durationMs: Math.max(0, Number((extra && extra.durationMs) || totalMs || 0) || 0),
+      durationMs: Math.max(0, Number(extra && extra.durationMs !== undefined && extra.durationMs !== null ? extra.durationMs : (totalMs || 0)) || 0),
       originalSize: Number(t.originalSize || 0) || 0,
       compressedSize: Number(t.compressedSize || 0) || 0,
       uploadSize: Number(t.uploadSize || t.compressedSize || 0) || 0,
