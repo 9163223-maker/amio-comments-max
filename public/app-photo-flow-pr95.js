@@ -1,6 +1,6 @@
 ;(() => {
   'use strict';
-  const RUNTIME = 'PR95-PHOTO-FLOW-EXPLICIT-UPLOAD';
+  const RUNTIME = 'PR96-PHOTO-FLOW-TIMING-DIAGNOSTICS';
   const MARKER = '__ADMINKIT_PR95_PHOTO_FLOW_EXPLICIT_UPLOAD__';
   if (window[MARKER]) return;
   window[MARKER] = true;
@@ -8,6 +8,7 @@
   function byId(id) { return document.getElementById(id); }
   function clean(v) { return String(v || '').replace(/\s+/g, ' ').trim(); }
   function now() { return Date.now(); }
+  function duration(startedAt) { return Math.max(0, now() - (Number(startedAt || 0) || now())); }
   function escapeHtml(v) {
     return String(v || '')
       .replaceAll('&', '&amp;')
@@ -53,6 +54,74 @@
     el.textContent = message || '';
     el.classList.toggle('hidden', !message);
     el.classList.toggle('error', Boolean(isError && message));
+  }
+  function makeTiming(file) {
+    const id = 'pt_' + now() + '_' + Math.random().toString(36).slice(2, 7);
+    return {
+      id,
+      fileName: clean(file && file.name),
+      originalSize: Number(file && file.size || 0) || 0,
+      mimeType: clean(file && file.type),
+      startedAt: now(),
+      selectedAt: now(),
+      previewAt: 0,
+      compressStartedAt: 0,
+      compressEndedAt: 0,
+      sendClickedAt: 0,
+      uploadStartedAt: 0,
+      uploadEndedAt: 0,
+      createStartedAt: 0,
+      createEndedAt: 0,
+      renderStartedAt: 0,
+      renderEndedAt: 0,
+      totalEndedAt: 0,
+      compressedSize: 0,
+      uploadSize: 0,
+      width: 0,
+      height: 0,
+      quality: 0,
+      maxSide: 0,
+      uploadId: '',
+      serverCommentId: '',
+      status: 'started',
+      error: ''
+    };
+  }
+  function timingPayload(timing, extra) {
+    const t = timing || flow.timing || {};
+    const compressMs = t.compressEndedAt && t.compressStartedAt ? t.compressEndedAt - t.compressStartedAt : 0;
+    const uploadMs = t.uploadEndedAt && t.uploadStartedAt ? t.uploadEndedAt - t.uploadStartedAt : 0;
+    const createMs = t.createEndedAt && t.createStartedAt ? t.createEndedAt - t.createStartedAt : 0;
+    const renderMs = t.renderEndedAt && t.renderStartedAt ? t.renderEndedAt - t.renderStartedAt : 0;
+    const totalMs = (t.totalEndedAt || now()) - (t.startedAt || now());
+    const previewMs = t.previewAt && t.selectedAt ? t.previewAt - t.selectedAt : 0;
+    return {
+      timingId: clean(t.id),
+      status: clean((extra && extra.status) || t.status || ''),
+      durationMs: Math.max(0, Number(extra && extra.durationMs !== undefined && extra.durationMs !== null ? extra.durationMs : (totalMs || 0)) || 0),
+      originalSize: Number(t.originalSize || 0) || 0,
+      compressedSize: Number(t.compressedSize || 0) || 0,
+      uploadSize: Number(t.uploadSize || t.compressedSize || 0) || 0,
+      width: Number(t.width || 0) || 0,
+      height: Number(t.height || 0) || 0,
+      quality: Number(t.quality || 0) || 0,
+      maxSide: Number(t.maxSide || 0) || 0,
+      fileName: clean(t.fileName),
+      mimeType: clean(t.mimeType),
+      uploadId: clean(t.uploadId),
+      serverCommentId: clean(t.serverCommentId),
+      previewMs,
+      compressMs,
+      uploadMs,
+      createMs,
+      renderMs,
+      totalMs,
+      ...(extra || {})
+    };
+  }
+  function timingStatus(timing, status) {
+    const p = timingPayload(timing, { status });
+    return 'preview=' + p.previewMs + 'ms compress=' + p.compressMs + 'ms upload=' + p.uploadMs + 'ms create=' + p.createMs + 'ms render=' + p.renderMs + 'ms total=' + p.totalMs + 'ms status=' + clean(status || p.status);
   }
   function log(event, payload) {
     const safe = payload && typeof payload === 'object' ? payload : {};
@@ -143,7 +212,7 @@
     if (flow.uploading && !allowWhileUploading) {
       previewStatus('Дождитесь отправки текущего фото.', true);
       setStatus('Дождитесь отправки текущего фото.', true);
-      log('photo_close_blocked_while_uploading', { selectionToken: flow.selectionToken });
+      log('photo_close_blocked_while_uploading', timingPayload(flow.timing, { selectionToken: flow.selectionToken, status: 'close_blocked' }));
       return false;
     }
     const modal = byId('mediaPreviewModal');
@@ -177,21 +246,55 @@
     const stage = byId('mediaPreviewStage');
     if (stage) stage.innerHTML = '<img class="media-preview-image" src="' + escapeHtml(previewUrl) + '" alt="photo">';
     ensurePreviewOpen();
+    if (flow.timing) {
+      flow.timing.previewAt = now();
+      flow.timing.status = 'preview_opened';
+    }
     previewStatus('Готовим фото…', false);
-    log('photo_preview_opened', { fileName: clean(file && file.name), originalSize: Number(file && file.size || 0) || 0 });
+    log('photo_preview_opened', timingPayload(flow.timing, { fileName: clean(file && file.name), originalSize: Number(file && file.size || 0) || 0, status: 'preview_opened', durationMs: flow.timing ? duration(flow.timing.selectedAt) : 0 }));
   }
   async function uploadPacked(packed) {
-    const clientUploadId = 'pr95_' + now() + '_' + Math.random().toString(36).slice(2, 8);
-    log('photo_upload_started', { clientUploadId, fileName: packed.fileName, mimeType: packed.mimeType, uploadSize: packed.size, width: packed.width, height: packed.height, quality: packed.quality, maxSide: packed.maxSide, hasDataUrl: true });
-    const response = await fetch('/api/comments/attachments/upload', {
-      method: 'POST',
-      cache: 'no-store',
-      headers: { 'Content-Type': 'application/json', 'x-adminkit-photo-route': 'pr95-explicit-upload' },
-      body: JSON.stringify({ commentKey: commentKey(), clientUploadId, type: 'image', fileName: packed.fileName, mimeType: packed.mimeType, size: packed.size, dataUrl: packed.dataUrl })
-    });
-    const data = await response.json().catch(() => ({}));
+    const timing = flow.timing;
+    const clientUploadId = 'pr96_' + now() + '_' + Math.random().toString(36).slice(2, 8);
+    if (timing) {
+      timing.uploadStartedAt = now();
+      timing.status = 'upload_started';
+      timing.uploadSize = Number(packed.size || 0) || 0;
+    }
+    log('photo_upload_started', timingPayload(timing, { clientUploadId, fileName: packed.fileName, mimeType: packed.mimeType, uploadSize: packed.size, width: packed.width, height: packed.height, quality: packed.quality, maxSide: packed.maxSide, hasDataUrl: true, status: 'upload_started', durationMs: 0 }));
+    let response;
+    let data;
+    try {
+      response = await fetch('/api/comments/attachments/upload', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'x-adminkit-photo-route': 'pr96-explicit-upload-timing' },
+        body: JSON.stringify({ commentKey: commentKey(), clientUploadId, type: 'image', fileName: packed.fileName, mimeType: packed.mimeType, size: packed.size, dataUrl: packed.dataUrl })
+      });
+      data = await response.json().catch(() => ({}));
+    } catch (error) {
+      if (timing) {
+        timing.uploadEndedAt = now();
+        timing.status = 'upload_network_failed';
+        timing.error = clean(error && error.message) || 'network_failed';
+      }
+      log('photo_upload_network_failed', timingPayload(timing, {
+        clientUploadId,
+        status: 'upload_network_failed',
+        error: clean(error && error.message) || 'network_failed',
+        durationMs: timing && timing.uploadStartedAt ? timing.uploadEndedAt - timing.uploadStartedAt : 0
+      }));
+      const err = new Error('Не удалось загрузить фото. Проверьте соединение и попробуйте ещё раз.');
+      err.cause = error;
+      throw err;
+    }
+    if (timing) timing.uploadEndedAt = now();
     if (!response.ok || data.ok === false || !data.attachment) {
-      log('photo_upload_failed', { clientUploadId, status: response.status, error: clean(data.error || data.message || 'photo_upload_failed') });
+      if (timing) {
+        timing.status = 'upload_failed';
+        timing.error = clean(data.error || data.message || 'photo_upload_failed');
+      }
+      log('photo_upload_failed', timingPayload(timing, { clientUploadId, status: 'upload_failed', durationMs: timing && timing.uploadStartedAt ? timing.uploadEndedAt - timing.uploadStartedAt : 0, error: clean(data.error || data.message || 'photo_upload_failed') }));
       const err = new Error(clean(data.userMessage || data.message || data.error || 'Не удалось загрузить фото. Попробуйте ещё раз.'));
       err.status = response.status || 400;
       throw err;
@@ -200,6 +303,7 @@
     delete attachment.dataUrl;
     delete attachment.thumbDataUrl;
     delete attachment.previewDataUrl;
+    delete attachment.base64;
     attachment.type = 'image';
     attachment.mimeType = clean(attachment.mimeType || attachment.mime || packed.mimeType || 'image/jpeg');
     attachment.fileName = clean(attachment.fileName || attachment.name || packed.fileName || 'photo.jpg');
@@ -209,7 +313,11 @@
     attachment.localOnly = false;
     attachment.inlineOnly = false;
     attachment.previewOnly = false;
-    log('photo_upload_ok', { clientUploadId, uploadId: attachment.uploadId, fileName: attachment.fileName, mimeType: attachment.mimeType, uploadSize: attachment.size || packed.size, hasUrl: Boolean(attachment.url), hasPreviewUrl: Boolean(attachment.previewUrl) });
+    if (timing) {
+      timing.uploadId = attachment.uploadId;
+      timing.status = 'upload_ok';
+    }
+    log('photo_upload_ok', timingPayload(timing, { clientUploadId, uploadId: attachment.uploadId, fileName: attachment.fileName, mimeType: attachment.mimeType, uploadSize: attachment.size || packed.size, hasUrl: Boolean(attachment.url), hasPreviewUrl: Boolean(attachment.previewUrl), status: 'upload_ok', durationMs: timing && timing.uploadStartedAt ? timing.uploadEndedAt - timing.uploadStartedAt : 0 }));
     return attachment;
   }
   function apiRender() {
@@ -279,11 +387,13 @@
   function markOptimisticError(clientCommentId, message) {
     const updated = updateStateComment(clientCommentId, (item) => ({ ...item, sendStatus: 'error', error: clean(message || 'photo_comment_create_failed') }));
     if (updated) renderClientComment(updated, clientCommentId);
-    log('photo_optimistic_marked_error', { clientCommentId, error: clean(message || '') });
+    log('photo_optimistic_marked_error', timingPayload(flow.timing, { clientCommentId, error: clean(message || ''), status: 'optimistic_error' }));
   }
   function replaceOptimisticWithServer(clientCommentId, serverComment) {
+    if (flow.timing) flow.timing.renderStartedAt = now();
     const updated = updateStateComment(clientCommentId, () => serverComment);
     renderClientComment(updated || serverComment, clientCommentId);
+    if (flow.timing) flow.timing.renderEndedAt = now();
   }
   function optimisticPhotoComment(text, attachment) {
     const s = state();
@@ -294,36 +404,54 @@
     const comment = { id, clientCommentId: id, userId: userId(), userName: userName(), avatarUrl: avatarUrl(), text, own: true, createdAt: new Date().toISOString(), sendStatus: 'sending', attachments: [optimisticAttachment], replyToId: replyToId() };
     s.comments = s.comments.concat([comment]);
     window.__ADMINKIT_PR95_PHOTO_OPTIMISTIC_ID__ = id;
-    log('photo_optimistic_inserted', { clientCommentId: id, attachmentCount: 1 });
+    log('photo_optimistic_inserted', timingPayload(flow.timing, { clientCommentId: id, attachmentCount: 1, status: 'optimistic_inserted' }));
     renderClientComment(comment, id);
     return id;
   }
   async function createPhotoComment(attachment, caption) {
     const clientCommentId = optimisticPhotoComment(caption, attachment);
-    log('photo_comment_create_started', { clientCommentId, attachmentCount: 1, replyToId: replyToId() });
+    if (flow.timing) {
+      flow.timing.createStartedAt = now();
+      flow.timing.status = 'create_started';
+    }
+    log('photo_comment_create_started', timingPayload(flow.timing, { clientCommentId, attachmentCount: 1, replyToId: replyToId(), status: 'create_started', durationMs: 0 }));
     let response;
     let data;
     try {
       response = await fetch('/api/comments', {
         method: 'POST',
         cache: 'no-store',
-        headers: { 'Content-Type': 'application/json', 'x-adminkit-photo-route': 'pr95-explicit-create' },
+        headers: { 'Content-Type': 'application/json', 'x-adminkit-photo-route': 'pr96-explicit-create-timing' },
         body: JSON.stringify({ commentKey: commentKey(), userId: userId(), userName: userName(), avatarUrl: avatarUrl(), text: caption, replyToId: replyToId(), clientCommentId, attachments: [attachment] })
       });
       data = await response.json().catch(() => ({}));
     } catch (error) {
+      if (flow.timing) {
+        flow.timing.createEndedAt = now();
+        flow.timing.status = 'create_network_failed';
+        flow.timing.error = clean(error && error.message) || 'network_failed';
+      }
       const message = 'Не удалось опубликовать фото-комментарий. Проверьте соединение и попробуйте ещё раз.';
-      log('photo_comment_create_network_failed', { clientCommentId, error: clean(error && error.message) || 'network_failed' });
+      log('photo_comment_create_network_failed', timingPayload(flow.timing, { clientCommentId, error: clean(error && error.message) || 'network_failed', status: 'create_network_failed', durationMs: flow.timing ? flow.timing.createEndedAt - flow.timing.createStartedAt : 0 }));
       markOptimisticError(clientCommentId, message);
       throw new Error(message);
     }
+    if (flow.timing) flow.timing.createEndedAt = now();
     if (!response.ok || data.ok === false) {
       const message = clean(data.userMessage || data.message || data.friendlyMessage) || (data.error === 'moderation_rejected' ? 'Комментарий не прошёл модерацию.' : 'Не удалось опубликовать фото-комментарий.');
-      log('photo_comment_create_failed', { clientCommentId, status: response.status, error: clean(data.error || data.message || 'comment_create_failed'), moderationMode: clean(data.moderation && data.moderation.mode) });
+      if (flow.timing) {
+        flow.timing.status = 'create_failed';
+        flow.timing.error = clean(data.error || data.message || 'comment_create_failed');
+      }
+      log('photo_comment_create_failed', timingPayload(flow.timing, { clientCommentId, statusCode: response.status, error: clean(data.error || data.message || 'comment_create_failed'), moderationMode: clean(data.moderation && data.moderation.mode), status: 'create_failed', durationMs: flow.timing ? flow.timing.createEndedAt - flow.timing.createStartedAt : 0 }));
       markOptimisticError(clientCommentId, message);
       throw new Error(message);
     }
-    log('photo_comment_create_ok', { clientCommentId, serverCommentId: clean(data.comment && data.comment.id), attachmentCount: Array.isArray(data.comment && data.comment.attachments) ? data.comment.attachments.length : 0 });
+    if (flow.timing) {
+      flow.timing.serverCommentId = clean(data.comment && data.comment.id);
+      flow.timing.status = 'create_ok';
+    }
+    log('photo_comment_create_ok', timingPayload(flow.timing, { clientCommentId, serverCommentId: clean(data.comment && data.comment.id), attachmentCount: Array.isArray(data.comment && data.comment.attachments) ? data.comment.attachments.length : 0, status: 'create_ok', durationMs: flow.timing ? flow.timing.createEndedAt - flow.timing.createStartedAt : 0 }));
     try {
       if (data.comment) replaceOptimisticWithServer(clientCommentId, data.comment);
       setReplyToId('');
@@ -338,31 +466,64 @@
     const sendBtn = byId('mediaPreviewSend');
     const selectionToken = flow.selectionToken;
     const currentFile = flow.file;
+    const timing = flow.timing;
+    if (timing) {
+      timing.sendClickedAt = now();
+      timing.status = 'send_clicked';
+    }
     if (sendBtn) sendBtn.disabled = true;
     try {
       previewStatus('Загружаем фото…', false);
       let packed = flow.packedToken === selectionToken ? flow.packed : null;
       if (!packed) {
+        const started = now();
+        if (timing) timing.compressStartedAt = started;
         packed = await compressImage(currentFile);
-        if (flow.selectionToken !== selectionToken || flow.file !== currentFile) {
-          log('photo_send_stale_selection_blocked', { selectionToken });
+        if (flow.selectionToken !== selectionToken || flow.file !== currentFile || flow.timing !== timing) {
+          if (timing) {
+            timing.compressEndedAt = now();
+            timing.status = 'send_stale_selection_blocked';
+          }
+          log('photo_send_stale_selection_blocked', timingPayload(timing, { selectionToken, currentSelectionToken: flow.selectionToken, status: 'send_stale_selection_blocked' }));
           throw new Error('Фото было заменено. Проверьте предпросмотр и отправьте ещё раз.');
+        }
+        if (timing) {
+          timing.compressEndedAt = now();
+          timing.compressedSize = Number(packed.size || 0) || 0;
+          timing.uploadSize = Number(packed.size || 0) || 0;
+          timing.width = Number(packed.width || 0) || 0;
+          timing.height = Number(packed.height || 0) || 0;
+          timing.quality = Number(packed.quality || 0) || 0;
+          timing.maxSide = Number(packed.maxSide || 0) || 0;
+          timing.status = 'compressed';
         }
         flow.packed = packed;
         flow.packedToken = selectionToken;
       }
       const attachment = await uploadPacked(packed);
-      if (flow.selectionToken !== selectionToken || flow.file !== currentFile) {
-        log('photo_upload_stale_selection_blocked', { selectionToken, currentSelectionToken: flow.selectionToken });
+      if (flow.selectionToken !== selectionToken || flow.file !== currentFile || flow.timing !== timing) {
+        if (timing) timing.status = 'upload_stale_selection_blocked';
+        log('photo_upload_stale_selection_blocked', timingPayload(timing, { selectionToken, currentSelectionToken: flow.selectionToken, status: 'upload_stale_selection_blocked' }));
         throw new Error('Фото было заменено во время загрузки. Проверьте предпросмотр и отправьте ещё раз.');
       }
       previewStatus('Публикуем комментарий…', false);
       const caption = clean(byId('mediaPreviewCaption') && byId('mediaPreviewCaption').value);
       await createPhotoComment(attachment, caption);
+      if (timing) {
+        timing.totalEndedAt = now();
+        timing.status = 'ok';
+      }
+      log('photo_timing_summary', timingPayload(timing, { status: timingStatus(timing, 'ok'), durationMs: timing ? timing.totalEndedAt - timing.startedAt : 0 }));
       closePreview(true, { allowWhileUploading: true });
       setStatus('', false);
     } catch (error) {
       const message = clean(error && error.message) || 'Не удалось отправить фото. Попробуйте ещё раз.';
+      if (timing) {
+        timing.totalEndedAt = now();
+        timing.status = 'failed';
+        timing.error = message;
+      }
+      log('photo_timing_summary', timingPayload(timing, { status: timingStatus(timing, 'failed'), error: message, durationMs: timing ? timing.totalEndedAt - timing.startedAt : 0 }));
       previewStatus(message, true);
       setStatus(message, true);
     } finally {
@@ -377,13 +538,13 @@
       fileInput.value = '';
       previewStatus('Дождитесь отправки текущего фото.', true);
       setStatus('Дождитесь отправки текущего фото.', true);
-      log('photo_selection_blocked_while_uploading', { selectionToken: flow.selectionToken });
+      log('photo_selection_blocked_while_uploading', timingPayload(flow.timing, { selectionToken: flow.selectionToken, status: 'selection_blocked_while_uploading' }));
       return;
     }
     const mime = clean(file.type || '');
     if (!/^image\//i.test(mime)) {
       setStatus('Пока в комментариях можно прикреплять только фото. Видео и файлы сейчас не поддерживаются.', true);
-      log('photo_rejected_non_image', { fileName: clean(file.name), mimeType: mime, originalSize: Number(file.size || 0) || 0 });
+      log('photo_rejected_non_image', { fileName: clean(file.name), mimeType: mime, originalSize: Number(file.size || 0) || 0, status: 'rejected_non_image' });
       fileInput.value = '';
       return;
     }
@@ -395,26 +556,53 @@
     flow.packed = null;
     flow.packedToken = 0;
     flow.previewUrl = URL.createObjectURL(file);
-    log('photo_selected', { fileName: clean(file.name), mimeType: mime, originalSize: Number(file.size || 0) || 0, selectionToken });
+    flow.timing = makeTiming(file);
+    const timing = flow.timing;
+    log('photo_selected', timingPayload(timing, { fileName: clean(file.name), mimeType: mime, originalSize: Number(file.size || 0) || 0, selectionToken, status: 'selected', durationMs: 0 }));
     renderPreview(file, flow.previewUrl);
     try {
       const started = now();
+      if (timing) timing.compressStartedAt = started;
       const packed = await compressImage(file);
-      if (flow.selectionToken !== selectionToken || flow.file !== file) {
-        log('photo_compress_stale_ignored', { fileName: clean(file.name), selectionToken, currentSelectionToken: flow.selectionToken });
+      if (flow.selectionToken !== selectionToken || flow.file !== file || flow.timing !== timing) {
+        if (timing) {
+          timing.compressEndedAt = now();
+          timing.status = 'compress_stale_ignored';
+        }
+        log('photo_compress_stale_ignored', timingPayload(timing, { fileName: clean(file.name), selectionToken, currentSelectionToken: flow.selectionToken, status: 'compress_stale_ignored' }));
         return;
+      }
+      if (timing) {
+        timing.compressEndedAt = now();
+        timing.compressedSize = Number(packed.size || 0) || 0;
+        timing.uploadSize = Number(packed.size || 0) || 0;
+        timing.width = Number(packed.width || 0) || 0;
+        timing.height = Number(packed.height || 0) || 0;
+        timing.quality = Number(packed.quality || 0) || 0;
+        timing.maxSide = Number(packed.maxSide || 0) || 0;
+        timing.status = 'compressed';
       }
       flow.packed = packed;
       flow.packedToken = selectionToken;
       previewStatus('', false);
-      log('photo_compress_ok', { fileName: packed.fileName, mimeType: packed.mimeType, compressedSize: packed.size, width: packed.width, height: packed.height, quality: packed.quality, maxSide: packed.maxSide, durationMs: now() - started, selectionToken });
+      log('photo_compress_ok', timingPayload(timing, { fileName: packed.fileName, mimeType: packed.mimeType, compressedSize: packed.size, uploadSize: packed.size, width: packed.width, height: packed.height, quality: packed.quality, maxSide: packed.maxSide, durationMs: timing ? timing.compressEndedAt - started : now() - started, selectionToken, status: 'compress_ok' }));
     } catch (error) {
-      if (flow.selectionToken !== selectionToken || flow.file !== file) {
-        log('photo_compress_stale_error_ignored', { fileName: clean(file.name), selectionToken, error: clean(error && error.message) });
+      if (flow.selectionToken !== selectionToken || flow.file !== file || flow.timing !== timing) {
+        if (timing) {
+          timing.compressEndedAt = now();
+          timing.status = 'compress_stale_error_ignored';
+          timing.error = clean(error && error.message);
+        }
+        log('photo_compress_stale_error_ignored', timingPayload(timing, { fileName: clean(file.name), selectionToken, error: clean(error && error.message), status: 'compress_stale_error_ignored' }));
         return;
       }
+      if (timing) {
+        timing.compressEndedAt = now();
+        timing.status = 'compress_failed';
+        timing.error = clean(error && error.message);
+      }
       previewStatus('Не удалось обработать фото. Попробуйте другое изображение.', true);
-      log('photo_compress_failed', { fileName: clean(file.name), error: clean(error && error.message), selectionToken });
+      log('photo_compress_failed', timingPayload(timing, { fileName: clean(file.name), error: clean(error && error.message), selectionToken, status: 'compress_failed', durationMs: timing ? timing.compressEndedAt - timing.compressStartedAt : 0 }));
     }
   }
   function captureAttachFlow() {
@@ -431,8 +619,8 @@
       if (target && (target.id === 'mediaPreviewClose' || target.id === 'mediaPreviewClear')) { event.preventDefault(); event.stopPropagation(); closePreview(true); }
     }, true);
   }
-  const flow = { fileInput: null, file: null, packed: null, packedToken: 0, previewUrl: '', uploading: false, selectionToken: 0 };
+  const flow = { fileInput: null, file: null, packed: null, packedToken: 0, previewUrl: '', uploading: false, selectionToken: 0, timing: null };
   captureAttachFlow();
   window.__ADMINKIT_PR95_PHOTO_FLOW__ = { runtimeVersion: RUNTIME, handleFile, sendPreview, closePreview };
-  log('photo_flow_installed', { href: location.href, userAgent: navigator.userAgent });
+  log('photo_flow_installed', { href: location.href, userAgent: navigator.userAgent, status: 'installed' });
 })();
