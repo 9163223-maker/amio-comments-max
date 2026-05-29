@@ -549,6 +549,7 @@ async function runFullCommentsSelftest(options) {
     throw error;
   }
   try {
+    const originalPostMedia = { type: 'image', kind: 'image', name: 'pr97-original-post-media.webp', fileName: 'pr97-original-post-media.webp', url: '/public/stickers/adminkit/v1/adminkit_ok.webp', previewUrl: '/public/stickers/adminkit/v1/adminkit_ok.webp', mimeType: 'image/webp' };
     const selftestPost = savePost(commentKey, {
       channelId: 'selftest_channel',
       postId: commentKey,
@@ -556,11 +557,23 @@ async function runFullCommentsSelftest(options) {
       title: 'PR97 Browser Matrix Selftest Post',
       text: 'PR97 original post text with media snapshot',
       postText: 'PR97 original post text with media snapshot',
+      originalText: 'PR97 original post text with media snapshot',
+      raw: {
+        originalText: 'PR97 original post text with media snapshot',
+        text: 'PR97 original post text with media snapshot',
+        title: 'PR97 Browser Matrix Selftest Post',
+        sourceAttachments: [originalPostMedia],
+        originalAttachments: [originalPostMedia],
+        attachments: [originalPostMedia]
+      },
+      sourceAttachments: [originalPostMedia],
+      originalAttachments: [originalPostMedia],
       postSnapshot: {
         text: 'PR97 original post text with media snapshot',
-        attachments: [{ type: 'image', name: 'pr97-original-post-media.webp', url: '/public/stickers/adminkit/v1/adminkit_ok.webp', previewUrl: '/public/stickers/adminkit/v1/adminkit_ok.webp', mimeType: 'image/webp' }]
+        title: 'PR97 Browser Matrix Selftest Post',
+        attachments: [originalPostMedia]
       },
-      mediaAttachments: [{ type: 'image', name: 'pr97-original-post-media.webp', url: '/public/stickers/adminkit/v1/adminkit_ok.webp', previewUrl: '/public/stickers/adminkit/v1/adminkit_ok.webp', mimeType: 'image/webp' }],
+      mediaAttachments: [originalPostMedia],
       commentCount: 0
     });
     addAssert(tests, 'selftest_post_snapshot_with_media', Boolean(selftestPost && selftestPost.commentKey === commentKey), 'post snapshot with original media created', selftestPost && { commentKey: selftestPost.commentKey, mediaAttachments: selftestPost.mediaAttachments });
