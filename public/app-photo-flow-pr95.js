@@ -110,6 +110,10 @@
       mimeType: clean(t.mimeType),
       uploadId: clean(t.uploadId),
       serverCommentId: clean(t.serverCommentId),
+      serverUploadReceivedAt: clean(t.serverUploadReceivedAt),
+      serverParsedAt: clean(t.serverParsedAt),
+      serverSavedAt: clean(t.serverSavedAt),
+      serverTotalMs: Number(t.serverTotalMs || 0) || 0,
       previewMs,
       compressMs,
       uploadMs,
@@ -361,11 +365,15 @@
     attachment.localOnly = false;
     attachment.inlineOnly = false;
     attachment.previewOnly = false;
+    const diag = data.diagnostics || {};
     if (timing) {
       timing.uploadId = attachment.uploadId;
+      timing.serverUploadReceivedAt = clean(diag.serverUploadReceivedAt);
+      timing.serverParsedAt = clean(diag.serverParsedAt);
+      timing.serverSavedAt = clean(diag.serverSavedAt);
+      timing.serverTotalMs = Number(diag.serverTotalMs || 0) || 0;
       timing.status = 'upload_ok';
     }
-    const diag = data.diagnostics || {};
     log('photo_upload_ok', timingPayload(timing, { clientUploadId, uploadId: attachment.uploadId, fileName: attachment.fileName, mimeType: attachment.mimeType, uploadSize: attachment.size || packed.size, hasUrl: Boolean(attachment.url), hasPreviewUrl: Boolean(attachment.previewUrl), serverUploadReceivedAt: clean(diag.serverUploadReceivedAt), serverParsedAt: clean(diag.serverParsedAt), serverSavedAt: clean(diag.serverSavedAt), serverTotalMs: Number(diag.serverTotalMs || 0) || 0, status: 'upload_ok', durationMs: timing && timing.uploadStartedAt ? timing.uploadEndedAt - timing.uploadStartedAt : 0 }));
     return attachment;
   }

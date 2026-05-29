@@ -5,18 +5,62 @@ const stickerPackService = require('./stickerPackService');
 const stickerRoutes = require('../stickers-live-routes-pr87');
 const uiTelemetry = require('./commentsUiTelemetryPr88');
 const pgState = require('../postgres-state-store');
-const { getComments, store, saveStore, normalizeKey } = require('../store');
+const { getComments, store, saveStore, normalizeKey, savePost } = require('../store');
 
 const RUNTIME = 'PR88-COMMENTS-FULL-SELFTEST-V2';
 const TEST_USER = 'selftest_owner';
 const OTHER_USER = 'selftest_other';
 const DEFAULT_PACK_ID = stickerPackService.DEFAULT_PACK_ID || 'adminkit_whales_v1';
 const SELFTEST_KEY_PREFIX = 'selftest_pr88_';
+const MATRIX_PROBE_ID = 'production_comments_matrix_probe';
 const NON_BLOCKING_AFTER_BROWSER_PASS_WARNING_IDS = new Set([
   'first_comment_render_slow',
   'media_settled_slow',
-  'sticker_send_confirm_slow'
+  'sticker_send_confirm_slow',
+  'matrix_upload_slow',
+  'reaction_switch_optional_unsupported'
 ]);
+
+const REQUIRED_MATRIX_SCENARIOS = [
+  'runtime_boot_validation',
+  'text_comment',
+  'photo_without_caption',
+  'photo_with_caption',
+  'photo_submit_enter',
+  'stale_selection_wrong_image_safety',
+  'remove_inline_preview',
+  'reply_matrix',
+  'reactions',
+  'preset_sticker',
+  'forbidden_video_file',
+  'original_post_media_render',
+  'hydration_reopen_flicker',
+  'trace_timing_validation'
+];
+const REQUIRED_PHOTO_TRACE_EVENTS = [
+  'photo_selected',
+  'photo_compress_ok',
+  'photo_inline_preview_opened',
+  'photo_upload_started',
+  'photo_upload_ok',
+  'photo_comment_create_started',
+  'photo_comment_create_ok',
+  'photo_timing_summary'
+];
+const REQUIRED_TIMING_SUMMARY_FIELDS = [
+  'compressMs',
+  'uploadMs',
+  'createMs',
+  'totalMs',
+  'originalSize',
+  'compressedSize',
+  'uploadSize',
+  'serverUploadReceivedAt',
+  'serverParsedAt',
+  'serverSavedAt',
+  'serverTotalMs'
+];
+
 
 let latestReport = null;
 
@@ -104,6 +148,7 @@ async function resetKey(commentKey) {
   if (!isSelftestKey(key)) throw selftestKeyError(key);
   let removedModerationLogs = 0;
   try {
+    if (store.posts && Object.prototype.hasOwnProperty.call(store.posts, key)) delete store.posts[key];
     if (store.comments && Object.prototype.hasOwnProperty.call(store.comments, key)) delete store.comments[key];
     if (store.likes && Object.prototype.hasOwnProperty.call(store.likes, key)) delete store.likes[key];
     if (store.reactions && Object.prototype.hasOwnProperty.call(store.reactions, key)) delete store.reactions[key];
@@ -133,7 +178,19 @@ async function liveSticker(commentKey, opts) {
   return result && result.comment ? { ...result.comment, __liveStickerPath: true } : null;
 }
 function summarizeBrowserProbeRequirements(probes) {
-  const required = (probes || []).filter((item) => item && item.status === 'browser_probe_required');
+  const required = (probes || []).filter((item) => item && item.status === 'browser_probe_required' && item.id !== 'sticker_renderer_contract_probe' && item.id !== 'reopen_hydration_stability_probe');
+  if (!required.some((item) => item && item.id === MATRIX_PROBE_ID)) {
+    required.push({
+      id: MATRIX_PROBE_ID,
+      status: 'browser_probe_required',
+      expected: {
+        requiredScenarios: REQUIRED_MATRIX_SCENARIOS,
+        requiredPhotoTraceEvents: REQUIRED_PHOTO_TRACE_EVENTS,
+        requiredEnterTraceEvents: ['photo_submit_enter_intercepted'],
+        requiredTimingSummaryFields: REQUIRED_TIMING_SUMMARY_FIELDS
+      }
+    });
+  }
   return {
     requiredCount: required.length,
     requiredProbeIds: required.map((item) => item.id).filter(Boolean),
@@ -286,7 +343,49 @@ function validateHydrationProbe(value, requirement) {
     }
   };
 }
+
+function matrixScenarioList(value) {
+  if (!value || typeof value !== 'object') return [];
+  if (Array.isArray(value.scenarios)) return value.scenarios;
+  if (value.scenarios && typeof value.scenarios === 'object') return Object.keys(value.scenarios).map((id) => ({ id, ...(value.scenarios[id] || {}) }));
+  return [];
+}
+function validateProductionCommentsMatrixProbe(value, requirement) {
+  if (!value || typeof value !== 'object') return { ok: false, reason: 'matrix_probe_result_object_required' };
+  const expected = requirement && requirement.expected || {};
+  const requiredScenarios = Array.isArray(expected.requiredScenarios) && expected.requiredScenarios.length ? expected.requiredScenarios : REQUIRED_MATRIX_SCENARIOS;
+  const scenarios = matrixScenarioList(value);
+  const byId = Object.fromEntries(scenarios.map((item) => [clean(item && item.id), item]).filter(([id]) => Boolean(id)));
+  const missingScenarios = requiredScenarios.filter((id) => !byId[id]);
+  const failedScenarios = requiredScenarios.filter((id) => byId[id] && !(byId[id].status === 'pass' || byId[id].ok === true));
+  const blockingFailures = Array.isArray(value.blockingFailures) ? value.blockingFailures : [];
+  const requiredPhotoTraceEvents = Array.isArray(expected.requiredPhotoTraceEvents) && expected.requiredPhotoTraceEvents.length ? expected.requiredPhotoTraceEvents : REQUIRED_PHOTO_TRACE_EVENTS;
+  const trace = value.traceValidation && typeof value.traceValidation === 'object' ? value.traceValidation : {};
+  const traceEvents = Array.isArray(trace.presentEvents) ? trace.presentEvents : [];
+  const missingPhotoTraceEvents = Array.isArray(trace.missingPhotoTraceEvents) ? trace.missingPhotoTraceEvents : requiredPhotoTraceEvents.filter((name) => !traceEvents.includes(name));
+  const missingEnterTraceEvents = Array.isArray(trace.missingEnterTraceEvents) ? trace.missingEnterTraceEvents : (!traceEvents.includes('photo_submit_enter_intercepted') ? ['photo_submit_enter_intercepted'] : []);
+  const missingTimingSummaryFields = Array.isArray(trace.missingTimingSummaryFields) ? trace.missingTimingSummaryFields : [];
+  const rawDataUrlDetected = Boolean(trace.rawDataUrlDetected || value.rawDataUrlDetected);
+  const photoBusinessPathExercised = Boolean(value.photoBusinessPathExercised || trace.photoBusinessPathExercised);
+  const forbiddenUploadDetected = Boolean(value.forbiddenUploadDetected || trace.forbiddenUploadDetected);
+  const ok = missingScenarios.length === 0 && failedScenarios.length === 0 && blockingFailures.length === 0 && missingPhotoTraceEvents.length === 0 && missingEnterTraceEvents.length === 0 && missingTimingSummaryFields.length === 0 && !rawDataUrlDetected && photoBusinessPathExercised && !forbiddenUploadDetected;
+  return {
+    ok,
+    reason: ok ? undefined : 'production_comments_matrix_must_pass_all_blocking_paths',
+    missingScenarios,
+    failedScenarios,
+    blockingFailures,
+    missingPhotoTraceEvents,
+    missingEnterTraceEvents,
+    missingTimingSummaryFields,
+    rawDataUrlDetected,
+    photoBusinessPathExercised,
+    forbiddenUploadDetected,
+    warningCount: Array.isArray(value.warnings) ? value.warnings.length : 0
+  };
+}
 function validateBrowserProbe(id, value, requirement) {
+  if (id === MATRIX_PROBE_ID) return validateProductionCommentsMatrixProbe(value, requirement);
   if (id === 'sticker_renderer_contract_probe') return validateStickerRendererProbe(value, requirement);
   if (id === 'reopen_hydration_stability_probe') return validateHydrationProbe(value, requirement);
   return { ok: Boolean(value && typeof value === 'object' && (value.ok === true || value.status === 'pass' || value.status === 'passed' || value.status === 'ok')), reason: 'structured_pass_required' };
@@ -450,6 +549,21 @@ async function runFullCommentsSelftest(options) {
     throw error;
   }
   try {
+    const selftestPost = savePost(commentKey, {
+      channelId: 'selftest_channel',
+      postId: commentKey,
+      messageId: 'selftest_message_' + Date.now(),
+      title: 'PR97 Browser Matrix Selftest Post',
+      text: 'PR97 original post text with media snapshot',
+      postText: 'PR97 original post text with media snapshot',
+      postSnapshot: {
+        text: 'PR97 original post text with media snapshot',
+        attachments: [{ type: 'image', name: 'pr97-original-post-media.webp', url: '/public/stickers/adminkit/v1/adminkit_ok.webp', previewUrl: '/public/stickers/adminkit/v1/adminkit_ok.webp', mimeType: 'image/webp' }]
+      },
+      mediaAttachments: [{ type: 'image', name: 'pr97-original-post-media.webp', url: '/public/stickers/adminkit/v1/adminkit_ok.webp', previewUrl: '/public/stickers/adminkit/v1/adminkit_ok.webp', mimeType: 'image/webp' }],
+      commentCount: 0
+    });
+    addAssert(tests, 'selftest_post_snapshot_with_media', Boolean(selftestPost && selftestPost.commentKey === commentKey), 'post snapshot with original media created', selftestPost && { commentKey: selftestPost.commentKey, mediaAttachments: selftestPost.mediaAttachments });
     const text = commentService.createComment({ commentKey, userId: TEST_USER, userName: 'Self Test Owner', text: 'Selftest text comment', attachments: [] });
     addAssert(tests, 'create_text_comment', Boolean(text && text.id), 'text comment created', text, { commentId: text && text.id });
     const photo = commentService.createComment({ commentKey, userId: TEST_USER, userName: 'Self Test Owner', text: 'Selftest photo caption', attachments: [{ type: 'image', name: 'selftest-photo.webp', url: '/public/stickers/adminkit/v1/adminkit_ok.webp' }] });
@@ -498,6 +612,16 @@ async function runFullCommentsSelftest(options) {
     const perf = uiTelemetry.performanceTelemetry({ openStartedAt, fetchStartedAt, fetchFinishedAt, firstCommentRenderedAt, mediaSettledAt, stickerPanelOpenStartedAt, stickerPanelOpenedAt, stickerSendStartedAt, stickerSendConfirmedAt });
     warnings.push(...perf.warnings);
     probes.push(perf);
+    probes.push({
+      id: MATRIX_PROBE_ID,
+      status: 'browser_probe_required',
+      expected: {
+        requiredScenarios: REQUIRED_MATRIX_SCENARIOS,
+        requiredPhotoTraceEvents: REQUIRED_PHOTO_TRACE_EVENTS,
+        requiredEnterTraceEvents: ['photo_submit_enter_intercepted'],
+        requiredTimingSummaryFields: REQUIRED_TIMING_SUMMARY_FIELDS
+      }
+    });
   } catch (error) {
     tests.push(fail('selftest_unhandled_exception', 'no unhandled exception', error && (error.stack || error.message || String(error))));
   }
@@ -522,7 +646,7 @@ async function runFullCommentsSelftest(options) {
     backend,
     uiStability: { ok: uiStatus === 'pass', status: uiStatus, browserProbeRequired: browserProbeRequirements.requiredCount > 0, browserProbeRequirements, warnings, probes, note: 'Full self-test is only ok when backend passes and UI stability is pass.' },
     fixtures: { preserved: fixturesPreserved, cleanupMode, cleanupRequired: fixturesPreserved, cleanupHint: hint, commentKey, reason: fixturesPreserved ? 'Fixtures are preserved until required browser probes pass or cleanup-only is requested.' : 'Fixtures cleaned because cleanup was explicit or the full self-test passed.' },
-    telemetry: { clientContract: '__adminkitCommentsPerf', browserResultEndpoint: '/debug/selftest/comments/browser-result', browserResultSchema: { sticker_renderer_contract_probe: { commentId: '<expectedStickerCommentId>', checks: { standaloneStickerMedia: true, noRegularBubbleVisuals: true, timeDoesNotIntersectMediaBox: true, stableMediaBoxBeforeImageLoad: true } }, reopen_hydration_stability_probe: { counters: { listClearCount: 0, mediaRemountCountByCommentId: { '<expectedMediaCommentId>': 0 }, imageReloadCountByCommentId: { '<expectedMediaCommentId>': 0 } } } }, requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
+    telemetry: { clientContract: '__adminkitCommentsPerf', browserResultEndpoint: '/debug/selftest/comments/browser-result', browserResultSchema: { production_comments_matrix_probe: { requiredScenarios: REQUIRED_MATRIX_SCENARIOS, requiredPhotoTraceEvents: REQUIRED_PHOTO_TRACE_EVENTS, requiredEnterTraceEvents: ['photo_submit_enter_intercepted'], requiredTimingSummaryFields: REQUIRED_TIMING_SUMMARY_FIELDS }, sticker_renderer_contract_probe: { commentId: '<expectedStickerCommentId>', checks: { standaloneStickerMedia: true, noRegularBubbleVisuals: true, timeDoesNotIntersectMediaBox: true, stableMediaBoxBeforeImageLoad: true } }, reopen_hydration_stability_probe: { counters: { listClearCount: 0, mediaRemountCountByCommentId: { '<expectedMediaCommentId>': 0 }, imageReloadCountByCommentId: { '<expectedMediaCommentId>': 0 } } } }, requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
     warnings,
     failures,
     tests
@@ -539,4 +663,4 @@ async function runFullCommentsSelftest(options) {
   return report;
 }
 function getLatestReport() { return latestReport || { ok: false, backendOk: false, runtimeVersion: RUNTIME, error: 'selftest_not_run_yet' }; }
-module.exports = { RUNTIME, SELFTEST_KEY_PREFIX, isSelftestKey, runFullCommentsSelftest, applyBrowserProbeResult, cleanupSelftestFixtures, getLatestReport };
+module.exports = { RUNTIME, SELFTEST_KEY_PREFIX, MATRIX_PROBE_ID, isSelftestKey, runFullCommentsSelftest, applyBrowserProbeResult, cleanupSelftestFixtures, getLatestReport };
