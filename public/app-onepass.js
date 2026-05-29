@@ -1,7 +1,7 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE';
+const RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
 const CORE_SEND_RUNTIME = 'CC8.1.12-CORE-FAST-TEXT-SEND';
 const MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
 if (window[MARKER]) return;
@@ -342,7 +342,7 @@ function pushCommentTrace(event, payload) {
     }
   };
   state.commentTrace.push(item);
-  if (state.commentTrace.length > 20) state.commentTrace = state.commentTrace.slice(-20);
+  if (state.commentTrace.length > 100) state.commentTrace = state.commentTrace.slice(-100);
 }
 function clearPendingPhoto() {
   if (state.pendingPhoto && state.pendingPhoto.previewUrl) {
@@ -378,24 +378,34 @@ function handleAttachmentChange() {
     pushCommentTrace('attachment_reject', { type: 'file', mimeType, fileName, originalSize, error: 'only_image_supported' });
     return;
   }
-  const previewUrl = URL.createObjectURL(file);
-  const pending = { file, mimeType: mimeType || 'image/jpeg', fileName, size: originalSize, originalSize, previewUrl, status: 'compressing', compressed: null, compressPromise: null };
+  clearPendingPhoto();
+  const token = Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+  const pending = { token, mimeType: 'image/jpeg', fileName, size: originalSize, originalSize, previewUrl: '', status: 'compressing', compressed: null, compressPromise: null };
   state.pendingPhoto = pending;
   renderAttachmentPreview();
   setInlineStatus('Готовим фото…', false);
+  setSendingUi(true);
   const startedAt = Date.now();
   pushCommentTrace('attachment_compress_start', { type: 'image', mimeType: pending.mimeType, fileName, originalSize });
   pending.compressPromise = compressImageForComment(file).then((packed) => {
     if (state.pendingPhoto !== pending) return packed;
     pending.compressed = packed;
     pending.status = 'compressed';
+    pending.mimeType = packed.mimeType || 'image/jpeg';
+    pending.fileName = packed.fileName || fileName;
+    pending.size = Number(packed.size || 0) || 0;
+    pending.previewUrl = URL.createObjectURL(packed.blob);
+    if (refs.attachmentInput) refs.attachmentInput.value = '';
     setInlineStatus('', false);
+    setSendingUi(false);
+    renderAttachmentPreview();
     pushCommentTrace('attachment_compress_ok', { type: 'image', mimeType: packed.mimeType, fileName: packed.fileName, originalSize, compressedSize: packed.size, width: packed.width, height: packed.height, quality: packed.quality, maxSide: packed.maxSide, durationMs: Date.now() - startedAt });
     emitTraceEvent('attachment_compress_ok', { originalSize, compressedSize: packed.size, width: packed.width, height: packed.height, quality: packed.quality, maxSide: packed.maxSide, durationMs: Date.now() - startedAt });
     return packed;
   }).catch((error) => {
     if (state.pendingPhoto === pending) {
       pending.status = 'error';
+      setSendingUi(false);
       setInlineStatus('Не удалось обработать фото. Попробуйте другое изображение.', true);
     }
     pushCommentTrace('attachment_compress_error', { type: 'image', mimeType: pending.mimeType, fileName: pending.fileName, originalSize, error: clean(error && error.message) || 'compress_failed', durationMs: Date.now() - startedAt });
@@ -403,25 +413,30 @@ function handleAttachmentChange() {
     throw error;
   });
 }
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(clean(reader.result));
-    reader.onerror = () => reject(new Error('file_reader_failed'));
-    reader.readAsDataURL(file);
-  });
-}
-
-function loadImageElementFromDataUrl(dataUrl) {
+function loadImageElementFromObjectUrl(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error('image_decode_failed'));
-    img.src = dataUrl;
+    img.src = url;
+  });
+}
+function canvasToBlob(canvas, mimeType, quality) {
+  return new Promise((resolve, reject) => {
+    if (typeof canvas.toBlob === 'function') {
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('canvas_blob_failed')), mimeType, quality);
+      return;
+    }
+    try {
+      const dataUrl = canvas.toDataURL(mimeType, quality);
+      const binary = atob((String(dataUrl).split(',')[1]) || '');
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      resolve(new Blob([bytes], { type: mimeType }));
+    } catch (error) { reject(error); }
   });
 }
 async function compressImageForComment(file) {
-  const sourceDataUrl = await readFileAsDataUrl(file);
   const qualitySteps = [0.62, 0.6, 0.58, 0.55];
   const maxSideSteps = [720, 680, 640, 600];
   const targetMin = 60 * 1024;
@@ -429,37 +444,44 @@ async function compressImageForComment(file) {
   const hardMax = 280 * 1024;
   let width = 0; let height = 0;
   let drawSource = null;
+  let objectUrl = '';
   if (window.createImageBitmap) {
     try { drawSource = await createImageBitmap(file); width = drawSource.width || 0; height = drawSource.height || 0; } catch (_) {}
   }
   if (!drawSource) {
-    const img = await loadImageElementFromDataUrl(sourceDataUrl);
+    objectUrl = URL.createObjectURL(file);
+    const img = await loadImageElementFromObjectUrl(objectUrl);
     drawSource = img; width = img.naturalWidth || img.width || 0; height = img.naturalHeight || img.height || 0;
   }
   if (!width || !height) throw new Error('image_size_unknown');
   let fallbackPacked = null;
-  for (const maxSide of maxSideSteps) {
-    const longSide = Math.max(width, height);
-    const ratio = longSide > maxSide ? (maxSide / longSide) : 1;
-    const targetW = Math.max(1, Math.round(width * ratio));
-    const targetH = Math.max(1, Math.round(height * ratio));
-    const canvas = document.createElement('canvas');
-    canvas.width = targetW; canvas.height = targetH;
-    const ctx = canvas.getContext('2d', { alpha: false });
-    if (!ctx) throw new Error('canvas_context_failed');
-    ctx.drawImage(drawSource, 0, 0, targetW, targetH);
-    for (const quality of qualitySteps) {
-      const outDataUrl = canvas.toDataURL('image/jpeg', quality);
-      const outSize = Math.floor(((outDataUrl.split(',')[1] || '').length * 3) / 4);
-      const packed = { dataUrl: outDataUrl, mimeType: 'image/jpeg', size: outSize, fileName: (file.name || 'photo').replace(/\.[^/.]+$/, '') + '.jpg', compressed: true, width: targetW, height: targetH, quality, maxSide };
-      if (outSize > hardMax) continue;
-      fallbackPacked = packed;
-      if (outSize >= targetMin && outSize <= targetMax) return packed;
-      if (outSize < targetMin) return packed;
+  try {
+    for (const maxSide of maxSideSteps) {
+      const longSide = Math.max(width, height);
+      const ratio = longSide > maxSide ? (maxSide / longSide) : 1;
+      const targetW = Math.max(1, Math.round(width * ratio));
+      const targetH = Math.max(1, Math.round(height * ratio));
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW; canvas.height = targetH;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) throw new Error('canvas_context_failed');
+      ctx.drawImage(drawSource, 0, 0, targetW, targetH);
+      for (const quality of qualitySteps) {
+        const blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+        const outSize = Number(blob && blob.size || 0) || 0;
+        const packed = { blob, mimeType: 'image/jpeg', size: outSize, fileName: (file.name || 'photo').replace(/\.[^/.]+$/, '') + '.jpg', compressed: true, width: targetW, height: targetH, quality, maxSide };
+        if (outSize > hardMax) continue;
+        fallbackPacked = packed;
+        if (outSize >= targetMin && outSize <= targetMax) return packed;
+        if (outSize < targetMin) return packed;
+      }
     }
+    if (fallbackPacked && fallbackPacked.size <= hardMax) return fallbackPacked;
+    throw new Error('compress_limit_exceeded');
+  } finally {
+    try { if (drawSource && drawSource.close) drawSource.close(); } catch (_) {}
+    if (objectUrl) try { URL.revokeObjectURL(objectUrl); } catch (_) {}
   }
-  if (fallbackPacked && fallbackPacked.size <= hardMax) return fallbackPacked;
-  throw new Error('compress_limit_exceeded');
 }
 function computeCommentsFingerprint(list) {
   const safe = Array.isArray(list) ? list : [];
@@ -504,6 +526,7 @@ function emitTraceEvent(event, payload) {
   } catch (_) {}
 }
 window.__ADMINKIT_COMMENT_PHOTO_EVENT__ = function(eventName, node) {
+  if (eventName === 'attachment_img_onload') return;
   const kind = clean(node && node.getAttribute && node.getAttribute('data-attachment-kind'));
   const src = clean(node && node.getAttribute && node.getAttribute('src'));
   if (eventName === 'attachment_img_onerror' && node && node.parentNode) {
@@ -513,26 +536,43 @@ window.__ADMINKIT_COMMENT_PHOTO_EVENT__ = function(eventName, node) {
   emitTraceEvent(eventName, { selectedSourceKind: kind, selectedSourceLength: src.length });
 };
 
+async function uploadCompressedFinalAttachment(packed) {
+  const clientUploadId = 'onepass_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  const form = new FormData();
+  form.append('commentKey', state.commentKey || '');
+  form.append('clientUploadId', clientUploadId);
+  form.append('type', 'image');
+  form.append('fileName', packed.fileName || 'photo.jpg');
+  form.append('mimeType', packed.mimeType || 'image/jpeg');
+  form.append('size', String(Number(packed.size || 0) || 0));
+  form.append('photo', packed.blob, packed.fileName || 'photo.jpg');
+  const startedAt = Date.now();
+  emitTraceEvent('photo_upload_started', { clientUploadId, uploadSize: packed.size, mimeType: packed.mimeType, fileName: packed.fileName });
+  const response = await fetch('/api/comments/attachments/upload', { method: 'POST', cache: 'no-store', headers: { 'x-adminkit-photo-route': 'onepass-compressed-final-formdata' }, body: form });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false || !data.attachment) throw new Error(clean(data.userMessage || data.message || data.error) || 'Не удалось отправить фото. Попробуйте ещё раз.');
+  const attachment = Object.assign({}, data.attachment || {});
+  delete attachment.dataUrl; delete attachment.thumbDataUrl; delete attachment.previewDataUrl; delete attachment.base64;
+  attachment.type = 'image';
+  attachment.mimeType = clean(attachment.mimeType || attachment.mime || packed.mimeType || 'image/jpeg');
+  attachment.fileName = clean(attachment.fileName || attachment.name || packed.fileName || 'photo.jpg');
+  attachment.name = clean(attachment.name || attachment.fileName);
+  attachment.clientUploadId = clean(attachment.clientUploadId || clientUploadId);
+  attachment.localOnly = false;
+  attachment.inlineOnly = false;
+  attachment.previewOnly = false;
+  emitTraceEvent('photo_upload_ok', { clientUploadId, uploadId: attachment.uploadId || attachment.id || '', uploadSize: attachment.size || packed.size, serverTotalMs: Number(data.diagnostics && data.diagnostics.serverTotalMs || 0) || 0, durationMs: Date.now() - startedAt });
+  return attachment;
+}
 async function buildPreviewOnlyAttachment() {
-  if (!state.pendingPhoto || !state.pendingPhoto.file) return [];
+  if (!state.pendingPhoto) return [];
   const pending = state.pendingPhoto;
   let packed = pending.compressed;
   if (!packed && pending.compressPromise) {
     try { packed = await pending.compressPromise; } catch (_) { throw new Error('Не удалось обработать фото. Попробуйте другое изображение.'); }
   }
-  if (!packed || !packed.dataUrl) throw new Error('Не удалось отправить фото. Попробуйте ещё раз.');
-  return [{
-    type: 'image',
-    inlineOnly: true,
-    previewOnly: true,
-    thumbDataUrl: packed.dataUrl,
-    previewDataUrl: packed.dataUrl,
-    mimeType: 'image/jpeg',
-    fileName: packed.fileName || pending.fileName || 'photo.jpg',
-    size: Number(packed.size || 0) || 0,
-    width: Number(packed.width || 0) || 0,
-    height: Number(packed.height || 0) || 0
-  }];
+  if (!packed || !packed.blob) throw new Error('Не удалось отправить фото. Попробуйте ещё раз.');
+  return [await uploadCompressedFinalAttachment(packed)];
 }
 function buildOpenStateUrl() {
   const q = new URLSearchParams();
@@ -585,6 +625,40 @@ function hideMiniStart() {
   if (wrap) wrap.style.display = 'flex';
   if (refs.composerCard) refs.composerCard.style.display = 'block';
 }
+function postMediaCandidates(source) {
+  const post = source || {};
+  const lists = [post.sourceAttachments, post.attachments, post.media, post.photos, post.images].filter(Array.isArray);
+  const out = [];
+  lists.forEach((list) => list.forEach((att) => {
+    const type = clean(att && (att.type || att.kind));
+    const mime = clean(att && (att.mimeType || att.mime));
+    const url = clean(att && (att.previewUrl || att.url || att.photoUrl || att.imageUrl || att.src));
+    if (!url) return;
+    if (type === 'image' || /^image\//i.test(mime) || /\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i.test(url)) out.push({ url, name: clean(att && (att.name || att.fileName)) || 'Фото поста' });
+  }));
+  ['photoUrl', 'imageUrl', 'mediaUrl', 'previewUrl'].forEach((key) => {
+    const url = clean(post[key]);
+    if (url && !out.some((x) => x.url === url)) out.push({ url, name: 'Фото поста' });
+  });
+  return out.slice(0, 4);
+}
+function renderOriginalPostMedia(meta) {
+  if (!refs.postMedia) return;
+  const snapshot = (meta && (meta.postSnapshot || meta.post || meta.snapshot)) || {};
+  const sources = [snapshot, meta && meta.post, meta].filter(Boolean);
+  let media = [];
+  for (const src of sources) {
+    media = postMediaCandidates(src);
+    if (media.length) break;
+  }
+  if (!media.length) {
+    refs.postMedia.innerHTML = '';
+    refs.postMedia.classList.add('hidden');
+    return;
+  }
+  refs.postMedia.classList.remove('hidden');
+  refs.postMedia.innerHTML = '<div class="post-original-media">' + media.map((item) => '<img class="post-original-media-img" src="' + escapeHtml(item.url) + '" alt="' + escapeHtml(item.name) + '" loading="lazy">').join('') + '</div>';
+}
 function applyMeta(meta) {
   meta = meta || {};
   state.meta = meta;
@@ -595,6 +669,7 @@ function applyMeta(meta) {
   const snapshot = meta.postSnapshot || {};
   const title = clean(meta.postTitle || snapshot.title || snapshot.text || state.title || (state.postId ? ('Post ' + state.postId) : ''));
   if (refs.postTitle) refs.postTitle.textContent = title;
+  renderOriginalPostMedia(meta);
   if (refs.discussionLabel) refs.discussionLabel.textContent = 'Начало обсуждения';
   const banner = (meta && meta.banner) || {};
   const ctaText = clean(banner.button || banner.text) || '🐋 АдминКИТ';
@@ -630,7 +705,7 @@ function renderAttachment(attachment) {
     return '<div class="comment-attachment comment-attachment-missing">Фото недоступно</div>';
   }
   if (!url) return '';
-  if (isImage) return '<div class="comment-attachment comment-attachment-image"><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(name) + '" loading="lazy" data-attachment-kind="' + escapeHtml(selectedSourceKind || 'unknown') + '" onload="window.__ADMINKIT_COMMENT_PHOTO_EVENT__&&window.__ADMINKIT_COMMENT_PHOTO_EVENT__(\'attachment_img_onload\',this)" onerror="window.__ADMINKIT_COMMENT_PHOTO_EVENT__&&window.__ADMINKIT_COMMENT_PHOTO_EVENT__(\'attachment_img_onerror\',this)"></div>';
+  if (isImage) return '<div class="comment-attachment comment-attachment-image"><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(name) + '" loading="lazy" data-attachment-kind="' + escapeHtml(selectedSourceKind || 'unknown') + '" onerror="window.__ADMINKIT_COMMENT_PHOTO_EVENT__&&window.__ADMINKIT_COMMENT_PHOTO_EVENT__(\'attachment_img_onerror\',this)"></div>';
   return '';
 }
 function searchableComment(comment) {
@@ -678,10 +753,14 @@ const MORE_REACTIONS = ['😀', '😍', '🤔', '🙏', '😡', '👎', '🎯', 
 function findCommentById(commentId) { return (state.comments || []).find((c) => String(c.id || '') === String(commentId || '')); }
 function renderReplyComposer() {
   const comment = findCommentById(state.replyToId);
-  if (!refs.composerReply || !comment) { if (refs.composerReply) refs.composerReply.classList.add('hidden'); return; }
+  if (!refs.composerReply || !comment) { if (refs.composerReply) refs.composerReply.classList.add('hidden'); if (refs.composerReplyName) refs.composerReplyName.textContent = ''; if (refs.composerReplyText) refs.composerReplyText.textContent = ''; return; }
   refs.composerReply.classList.remove('hidden');
   if (refs.composerReplyName) refs.composerReplyName.textContent = clean(comment.userName || 'Гость');
   if (refs.composerReplyText) refs.composerReplyText.textContent = clean(comment.text || '').slice(0, 120) || 'Фото';
+}
+function clearReplyComposer() {
+  state.replyToId = '';
+  renderReplyComposer();
 }
 function closeOverlay() { emitTraceEvent('reaction_overlay_close', { commentId: state.activeCommentId || '' }); state.activeCommentId = ''; if (refs.sheetOverlay) refs.sheetOverlay.classList.add('hidden'); if (refs.commentFocusModal) refs.commentFocusModal.classList.add('hidden'); }
 function openOverlay(commentId) {
@@ -758,7 +837,7 @@ function scrollToBottom(force) {
   const el = refs.commentsWrap;
   if (!el) return;
   if (!force && !isNearBottom()) return;
-  el.scrollTop = el.scrollHeight; emitTraceEvent('comments_scroll_to_bottom', { force: Boolean(force) });
+  el.scrollTop = el.scrollHeight;
 }
 function syncCommentsBottomInset() {
   const list = refs.commentsList; const composer = refs.composerCard;
@@ -787,7 +866,7 @@ function endTextSend(fingerprint) {
 }
 async function sendComment() {
   const text = clean(refs.commentInput && refs.commentInput.value);
-  const hasPhoto = Boolean(state.pendingPhoto && state.pendingPhoto.file);
+  const hasPhoto = Boolean(state.pendingPhoto && (state.pendingPhoto.compressed || state.pendingPhoto.compressPromise));
   const textOnly = !hasPhoto;
   if ((!text && !hasPhoto) || !state.commentKey) return;
   const fingerprint = makeSendFingerprint(text);
@@ -804,8 +883,8 @@ async function sendComment() {
   state.lastSendFingerprint = fingerprint;
   state.lastSendStartedAt = Date.now();
   const optimisticCommentId = 'client_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-  const preview = clean(state.pendingPhoto && ((state.pendingPhoto.compressed && state.pendingPhoto.compressed.dataUrl) || state.pendingPhoto.previewUrl));
-  const optimisticAttachments = hasPhoto ? [{ type: 'image', mimeType: clean(state.pendingPhoto && state.pendingPhoto.mimeType) || 'image/jpeg', fileName: clean(state.pendingPhoto && state.pendingPhoto.fileName) || 'photo.jpg', thumbDataUrl: preview }] : [];
+  const preview = clean(state.pendingPhoto && state.pendingPhoto.previewUrl);
+  const optimisticAttachments = hasPhoto ? [{ type: 'image', mimeType: clean(state.pendingPhoto && state.pendingPhoto.mimeType) || 'image/jpeg', fileName: clean(state.pendingPhoto && state.pendingPhoto.fileName) || 'photo.jpg', previewUrl: preview, url: preview }] : [];
   const optimisticComment = { id: optimisticCommentId, clientCommentId: optimisticCommentId, userId: outgoingUserId(), userName: outgoingUserName(), text, own: true, createdAt: new Date().toISOString(), sendStatus: 'sending', attachments: optimisticAttachments };
   state.comments = (state.comments || []).concat([optimisticComment]);
   pushCommentTrace('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
@@ -841,8 +920,7 @@ async function sendComment() {
       const localAtt = Array.isArray(localOptimistic && localOptimistic.attachments) ? localOptimistic.attachments : [];
       mergedComment.attachments = serverAtt.map((att, idx) => {
         const fallback = localAtt[idx] || {};
-        if (!hasRenderablePhotoSource(att)) return Object.assign({}, att, { thumbDataUrl: clean(fallback.thumbDataUrl), previewDataUrl: clean(fallback.previewDataUrl || fallback.thumbDataUrl), dataUrl: clean(fallback.dataUrl) });
-        if (clean(fallback.thumbDataUrl) && !clean(att.thumbDataUrl)) return Object.assign({}, att, { thumbDataUrl: clean(fallback.thumbDataUrl), previewDataUrl: clean(att.previewDataUrl || fallback.previewDataUrl || fallback.thumbDataUrl) });
+        if (!hasRenderablePhotoSource(att)) return Object.assign({}, att, { previewUrl: clean(fallback.previewUrl || fallback.url), url: clean(fallback.url || fallback.previewUrl) });
         return att;
       });
       state.comments = (state.comments || []).map((x) => (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId) ? mergedComment : x);
@@ -853,8 +931,7 @@ async function sendComment() {
       scrollToBottom(true);
     }
     if (hasPhoto) clearPendingPhoto();
-    state.replyToId = '';
-    renderReplyComposer();
+    clearReplyComposer();
     state.lastSendFingerprint = '';
     setInlineStatus('', false);
     refreshOpenState();
@@ -941,7 +1018,7 @@ function bindEvents() {
     }
     const emoji = clean(e.target && e.target.getAttribute && e.target.getAttribute('data-quick-reaction')); if (!emoji || !state.activeCommentId) return; toggleReaction(state.activeCommentId, emoji); closeOverlay();
   });
-  if (refs.composerReplyClose) refs.composerReplyClose.addEventListener('click', () => { state.replyToId = ''; renderReplyComposer(); emitTraceEvent('reply_cancel', {}); });
+  if (refs.composerReplyClose) refs.composerReplyClose.addEventListener('click', () => { clearReplyComposer(); emitTraceEvent('reply_cancel', {}); });
   if (window.ResizeObserver && refs.composerCard) { const ro = new ResizeObserver(() => { syncCommentsBottomInset(); scrollToBottom(false); }); ro.observe(refs.composerCard); }
   if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { emitTraceEvent('visual_viewport_resize', { height: window.visualViewport.height || 0 }); syncCommentsBottomInset(); scrollToBottom(true); });
   if (refs.miniAppStartWorkBtn) refs.miniAppStartWorkBtn.addEventListener('click', () => openMaxLink('https://max.ru/id781310320690_bot?start=menu'));
@@ -953,6 +1030,11 @@ function bindEvents() {
     emitTraceEvent('overscroll_guard_apply', { target: 'commentsWrap' });
   }
 }
+window.__ADMINKIT_COMMENTS_API__ = {
+  render: () => renderComments(),
+  refresh: () => refreshOpenState(),
+  clearReply: () => clearReplyComposer()
+};
 function showDiscussionError() {
   hideMiniStart();
   applyMeta({ postTitle: state.title || (state.postId ? ('Post ' + state.postId) : '') });

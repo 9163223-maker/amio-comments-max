@@ -47,7 +47,7 @@ const {
 } = require("./services/commentService");
 const { buildSetupHint } = require("./services/setupText");
 const { patchStoredPost } = require("./services/postPatcher");
-const RUNTIME = "CC7.5.64-DIRECT-MEDIA-POST-PATCH-TRACE";
+const RUNTIME = "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER";
 const { PRESET_COMMON_STOPWORDS, moderateComment } = require("./services/moderationService");
 const {
   listGiftCampaigns,
@@ -74,14 +74,16 @@ const { listAdminPosts, buildPostAdminCard, editPostText, savePostKeyboard, repl
 const app = express();
 const deferredVideoResults = new Map();
 
-const COMMENT_TRACE_LIMIT = 20;
+const COMMENT_TRACE_LIMIT = 100;
 const commentTraceEvents = [];
 function pushCommentTraceEvent(event = '', payload = {}) {
+  const eventName = String(event || '').trim();
+  if (eventName === 'attachment_img_onload' || eventName === 'comments_scroll_to_bottom') return;
   const safe = payload && typeof payload === 'object' ? payload : {};
   const attachment = safe.attachment && typeof safe.attachment === 'object' ? safe.attachment : {};
   const item = {
     at: Date.now(),
-    event: String(event || '').trim(),
+    event: eventName,
     runtimeVersion: RUNTIME,
     commentKey: String(safe.commentKey || '').trim(),
     clientCommentId: String(safe.clientCommentId || '').trim(),
@@ -94,9 +96,9 @@ function pushCommentTraceEvent(event = '', payload = {}) {
     maxSide: Number(safe.maxSide || 0) || 0,
     durationMs: Number(safe.durationMs || 0) || 0,
     thumbDataUrlBytes: Number(safe.thumbDataUrlBytes || attachment.thumbDataUrlBytes || 0) || 0,
-    hasThumbDataUrl: Boolean(safe.hasThumbDataUrl || attachment.hasThumbDataUrl),
-    hasPreviewDataUrl: Boolean(safe.hasPreviewDataUrl || attachment.hasPreviewDataUrl),
-    hasDataUrl: Boolean(safe.hasDataUrl || attachment.hasDataUrl),
+    hasThumbDataUrl: false,
+    hasPreviewDataUrl: false,
+    hasDataUrl: false,
     hasPreviewUrl: Boolean(safe.hasPreviewUrl || attachment.hasPreviewUrl),
     hasUrl: Boolean(safe.hasUrl || attachment.hasUrl),
     selectedSourceKind: String(safe.selectedSourceKind || attachment.selectedSourceKind || '').trim(),
@@ -105,10 +107,14 @@ function pushCommentTraceEvent(event = '', payload = {}) {
     mimeType: String(safe.mimeType || attachment.mimeType || '').trim(),
     status: String(safe.status || '').trim(),
     error: String(safe.error || '').trim(),
+    serverUploadReceivedAt: String(safe.serverUploadReceivedAt || '').trim(),
+    serverParsedAt: String(safe.serverParsedAt || '').trim(),
+    serverSavedAt: String(safe.serverSavedAt || '').trim(),
+    serverTotalMs: Number(safe.serverTotalMs || 0) || 0,
     attachment: {
       hasUrl: Boolean(attachment.hasUrl),
       hasPreviewUrl: Boolean(attachment.hasPreviewUrl),
-      hasDataUrl: Boolean(attachment.hasDataUrl),
+      hasDataUrl: false,
       mimeType: String(attachment.mimeType || safe.mimeType || '').trim(),
       fileName: String(attachment.fileName || safe.fileName || '').trim()
     }
@@ -407,7 +413,7 @@ function normalizeCommentAttachmentUploadRequest(req) {
   const diagnostics = buildUploadRequestDiagnostics(req, rawBody, parsed.diagnostics || {});
   const fields = parsed.fields || {};
   const files = parsed.files || {};
-  const file = files.file || Object.values(files)[0] || null;
+  const file = files.photo || files.image || files.file || Object.values(files)[0] || null;
   const poster = files.poster || null;
 
   if (!file?.buffer?.length) {
@@ -418,12 +424,9 @@ function normalizeCommentAttachmentUploadRequest(req) {
   const mimeType = String(fields.mimeType || fields.mime || file.mimeType || "application/octet-stream").trim() || "application/octet-stream";
   const uploadType = detectCommentAttachmentType({ explicitType: fields.type || fields.uploadType || "", mimeType, fileName });
 
-  const incomingThumb = String(fields.thumbDataUrl || fields.thumb_data_url || "").trim();
-  const incomingPreview = String(fields.previewDataUrl || fields.preview_data_url || "").trim();
-  const incomingData = String(fields.dataUrl || fields.data_url || "").trim();
-  const canonicalThumb = incomingThumb || incomingPreview || incomingData;
-  const canonicalPreview = incomingPreview && incomingPreview !== canonicalThumb ? incomingPreview : "";
-  const canonicalData = incomingData && incomingData !== canonicalThumb && incomingData !== canonicalPreview ? incomingData : "";
+  const canonicalThumb = "";
+  const canonicalPreview = "";
+  const canonicalData = "";
   return {
     commentKey: normalizeKey(fields.commentKey || req.get("x-comment-key") || ""),
     clientUploadId: String(fields.clientUploadId || fields.client_upload_id || req.get("x-client-upload-id") || "").trim().slice(0, 120),
@@ -1675,7 +1678,11 @@ app.post("/api/comments/attachments/upload", express.raw({
   limit: String(Math.max(1, Number(config.postEditorMediaBodyLimitMb || 60))) + "mb"
 }), async (req, res) => {
   let parsed = null;
-  let requestDiagnostics = buildUploadRequestDiagnostics(req, Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0));
+  const serverUploadReceivedAtMs = Date.now();
+  const serverUploadReceivedAt = new Date(serverUploadReceivedAtMs).toISOString();
+  let serverParsedAt = '';
+  let serverSavedAt = '';
+  let requestDiagnostics = { ...buildUploadRequestDiagnostics(req, Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0)), serverUploadReceivedAt };
   let previewUrl = "";
   let posterUrl = "";
 
@@ -1689,7 +1696,12 @@ app.post("/api/comments/attachments/upload", express.raw({
 
   try {
     parsed = normalizeCommentAttachmentUploadRequest(req);
-    requestDiagnostics = parsed.uploadDiagnostics || requestDiagnostics;
+    serverParsedAt = new Date().toISOString();
+    requestDiagnostics = { ...(parsed.uploadDiagnostics || requestDiagnostics), serverUploadReceivedAt, serverParsedAt };
+
+    if (parsed.uploadType !== 'image' || !/^image\//i.test(String(parsed.mimeType || ''))) {
+      return res.status(415).json({ ok: false, error: 'only_image_comments_supported', userMessage: 'Пока в комментариях можно прикреплять только фото. Видео и файлы сейчас не поддерживаются.', diagnostics: requestDiagnostics });
+    }
 
     logCommentUploadDiagnostic({
       stage: "request_parsed",
@@ -1818,15 +1830,16 @@ app.post("/api/comments/attachments/upload", express.raw({
       posterUrl
     });
 
+    if (parsed.uploadType === 'image' && previewUrl) serverAttachment.url = previewUrl;
     serverAttachment.clientUploadId = parsed.clientUploadId || "";
-    serverAttachment.thumbDataUrl = parsed.thumbDataUrl || parsed.previewDataUrl || parsed.dataUrl || "";
-    serverAttachment.previewDataUrl = parsed.previewDataUrl && parsed.previewDataUrl !== serverAttachment.thumbDataUrl ? parsed.previewDataUrl : "";
-    serverAttachment.dataUrl = parsed.dataUrl && parsed.dataUrl !== serverAttachment.thumbDataUrl && parsed.dataUrl !== serverAttachment.previewDataUrl ? parsed.dataUrl : "";
+    serverAttachment.thumbDataUrl = '';
+    serverAttachment.previewDataUrl = '';
+    serverAttachment.dataUrl = '';
     serverAttachment.native = false;
     serverAttachment.localOnly = false;
     serverAttachment.storage = isDeferredVideo ? "server_original_processing" : "server_public";
     serverAttachment.syncStatus = parsed.uploadType === "image"
-      ? ((serverAttachment.thumbDataUrl || serverAttachment.previewDataUrl) ? "server_preview_with_inline_thumb" : "inline_preview_saved")
+      ? "compressed_final_saved"
       : (config.botToken ? "server_saved_max_sync_deferred" : "server_saved_bot_token_missing");
 
     if (isDeferredVideo) {
@@ -1839,6 +1852,10 @@ app.post("/api/comments/attachments/upload", express.raw({
       serverAttachment.previewUrl = "";
       scheduleDeferredVideoTranscode({ parsed, uploadId: serverAttachment.id, rawUrl: previewUrl, posterUrl });
     }
+
+    serverSavedAt = new Date().toISOString();
+    requestDiagnostics = { ...requestDiagnostics, serverSavedAt, serverTotalMs: Date.now() - serverUploadReceivedAtMs };
+    pushCommentTraceEvent('attachment_upload_ok', { commentKey: parsed.commentKey, fileName: publicFileName, mimeType: publicMimeType, uploadSize: publicSize, hasUrl: Boolean(serverAttachment.url), hasPreviewUrl: Boolean(serverAttachment.previewUrl), serverUploadReceivedAt, serverParsedAt, serverSavedAt, serverTotalMs: requestDiagnostics.serverTotalMs, status: 'upload_ok' });
 
     logCommentUploadDiagnostic({
       stage: isDeferredVideo ? "server_video_processing_saved" : "server_preview_saved",
@@ -1940,6 +1957,18 @@ app.get("/api/comments", (req, res) => {
 });
 
 
+function validateCommentAttachmentScope(attachments = []) {
+  const list = Array.isArray(attachments) ? attachments : [];
+  for (const item of list) {
+    const type = String(item && (item.type || item.kind || item.uploadType) || '').trim().toLowerCase();
+    const mime = String(item && (item.mimeType || item.mime) || '').trim().toLowerCase();
+    if (!type && !mime) continue;
+    if (type === 'image' || type === 'sticker' || type === 'preset_sticker' || mime.startsWith('image/')) continue;
+    const err = new Error('only_photo_and_sticker_comments_supported');
+    err.status = 415;
+    throw err;
+  }
+}
 function validateInlinePreviewAttachments(attachments = []) {
   const list = Array.isArray(attachments) ? attachments : [];
   for (const item of list) {
@@ -2003,6 +2032,7 @@ app.post("/api/comments", async (req, res) => {
       });
     }
 
+    validateCommentAttachmentScope(req.body?.attachments || []);
     validateInlinePreviewAttachments(req.body?.attachments || []);
     const comment = createComment({
       commentKey,
