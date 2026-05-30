@@ -7,7 +7,7 @@ const COMPOSER_INTENT_RUNTIME = 'CC8.1.13-COMPOSER-INTENT-UNLOCK';
 const PERFORMANCE_TRACE_RUNTIME = 'CC8.1.15-PATCH-COMPUTE-BREAKDOWN';
 const STICKERS_RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
 const PHOTO_FLOW_RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
-const LOADER_OPTIMIZATION_RUNTIME = 'CC8.2.6-MINIAPP-PRELOAD-PARALLEL-ADDONS';
+const LOADER_OPTIMIZATION_RUNTIME = 'CC8.2.8-MINIAPP-RESOURCE-TIMING-CLIENT';
 
 const LOADER_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE_LOADER__';
 const ONEPASS_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
@@ -16,11 +16,13 @@ const COMPOSER_INTENT_MARKER = '__ADMINKIT_CC8_1_13_COMPOSER_INTENT_UNLOCK__';
 const STICKERS_LOADER_MARKER = '__ADMINKIT_STICKERS_PR87_LOADER__';
 const PHOTO_FLOW_LOADER_MARKER = '__ADMINKIT_PHOTO_FLOW_PR95_LOADER__';
 
-const ASSET_VERSION = 'v826-miniapp-preload-parallel-addons';
+const ASSET_VERSION = 'v828-miniapp-resource-timing-client';
+
 const SKELETON_SRC = '/public/app-skeleton-consumer-pr84.js?v=824-compressed-final-photo-composer';
 const ONEPASS_SRC = '/public/app-onepass.js?' + ASSET_VERSION.replace(/^v/, 'v=');
 const PHOTO_FLOW_SRC = '/public/app-photo-flow-pr95.js?v=pr96-2-compressed-final-photo-composer';
 const STICKERS_SRC = '/public/app-stickers-pr87.js?v=pr87-stickers';
+
 const LOADER_STARTED_AT = Date.now();
 
 if (window[LOADER_MARKER]) return;
@@ -34,37 +36,127 @@ window.__ADMINKIT_STICKERS_RUNTIME__ = STICKERS_RUNTIME;
 window.__ADMINKIT_PHOTO_FLOW_RUNTIME__ = PHOTO_FLOW_RUNTIME;
 window.__ADMINKIT_LOADER_OPTIMIZATION_RUNTIME__ = LOADER_OPTIMIZATION_RUNTIME;
 
+function absoluteUrl(src) {
+  try {
+    return new URL(String(src || ''), location.href).href;
+  } catch (_) {
+    return String(src || '');
+  }
+}
+
+function roundMs(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.round(n);
+}
+
+function getResourceTiming(src) {
+  const absolute = absoluteUrl(src);
+
+  try {
+    if (!performance || typeof performance.getEntriesByName !== 'function') {
+      return {};
+    }
+
+    const exact = performance.getEntriesByName(absolute);
+    let entry = exact && exact.length ? exact[exact.length - 1] : null;
+
+    if (!entry && typeof performance.getEntriesByType === 'function') {
+      const all = performance.getEntriesByType('resource') || [];
+      entry = all
+        .slice()
+        .reverse()
+        .find((row) => {
+          const name = String(row && row.name || '');
+          return name === absolute || name.indexOf(src) >= 0 || absolute.indexOf(name) >= 0;
+        });
+    }
+
+    if (!entry) {
+      return {
+        resourceCacheHint: 'resource_entry_missing'
+      };
+    }
+
+    const transferSize = Number(entry.transferSize || 0) || 0;
+    const encodedBodySize = Number(entry.encodedBodySize || 0) || 0;
+    const decodedBodySize = Number(entry.decodedBodySize || 0) || 0;
+
+    let cacheHint = 'network_or_unknown';
+    if (transferSize === 0 && (encodedBodySize > 0 || decodedBodySize > 0)) {
+      cacheHint = 'cache';
+    } else if (transferSize > 0) {
+      cacheHint = 'network';
+    } else if (transferSize === 0 && encodedBodySize === 0 && decodedBodySize === 0) {
+      cacheHint = 'zero_or_opaque';
+    }
+
+    return {
+      resourceStartMs: roundMs(entry.startTime),
+      resourceDurationMs: roundMs(entry.duration),
+      resourceFetchStartMs: roundMs(entry.fetchStart),
+      resourceRequestStartMs: roundMs(entry.requestStart),
+      resourceResponseStartMs: roundMs(entry.responseStart),
+      resourceResponseEndMs: roundMs(entry.responseEnd),
+      resourceTransferSize: Math.max(0, Math.round(transferSize)),
+      resourceEncodedBodySize: Math.max(0, Math.round(encodedBodySize)),
+      resourceDecodedBodySize: Math.max(0, Math.round(decodedBodySize)),
+      resourceCacheHint: cacheHint,
+      resourceInitiatorType: String(entry.initiatorType || '')
+    };
+  } catch (_) {
+    return {
+      resourceCacheHint: 'resource_timing_error'
+    };
+  }
+}
+
 function postMiniTiming(name, extra) {
   try {
     const now = Date.now();
+    const scriptSrc = extra && extra.scriptSrc ? String(extra.scriptSrc) : '';
+    const resourceTiming = scriptSrc ? getResourceTiming(scriptSrc) : {};
+
     const payload = {
       name,
       appRuntime: RUNTIME,
       assetVersion: ASSET_VERSION,
+      loaderRuntime: LOADER_OPTIMIZATION_RUNTIME,
       route: String((location && location.pathname) || ''),
       durationMs: now - LOADER_STARTED_AT,
       sinceLoaderStartMs: now - LOADER_STARTED_AT,
-      navStartMs: performance && performance.timeOrigin ? Math.round(LOADER_STARTED_AT - performance.timeOrigin) : 0,
-      loaderRuntime: LOADER_OPTIMIZATION_RUNTIME,
+      navStartMs: performance && performance.timeOrigin
+        ? Math.round(LOADER_STARTED_AT - performance.timeOrigin)
+        : 0,
+      ...resourceTiming,
       ...(extra || {})
     };
+
     const body = JSON.stringify(payload);
+
     const beacon = () => {
       try {
         if (navigator && typeof navigator.sendBeacon === 'function') {
-          navigator.sendBeacon('/api/debug/miniapp-timing', new Blob([body], { type: 'application/json' }));
+          navigator.sendBeacon(
+            '/api/debug/miniapp-timing',
+            new Blob([body], { type: 'application/json' })
+          );
         }
       } catch (_) {}
     };
+
     if (typeof fetch === 'function') {
       fetch('/api/debug/miniapp-timing', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body,
         keepalive: true
       }).catch(beacon);
       return;
     }
+
     beacon();
   } catch (_) {}
 }
@@ -72,16 +164,28 @@ function postMiniTiming(name, extra) {
 function addScriptPreload(src, status) {
   try {
     if (!src || !document || !document.createElement) return;
-    const selector = 'link[rel="preload"][as="script"][href="' + String(src).replace(/"/g, '\\"') + '"]';
+
+    const absolute = absoluteUrl(src);
+    const selector = 'link[rel="preload"][as="script"][href="' + absolute.replace(/"/g, '\\"') + '"]';
+
     if (document.querySelector && document.querySelector(selector)) return;
+
     const link = document.createElement('link');
     link.rel = 'preload';
     link.as = 'script';
     link.href = src;
     link.crossOrigin = 'anonymous';
-    if ('fetchPriority' in link) link.fetchPriority = status === 'app' ? 'high' : 'low';
+
+    if ('fetchPriority' in link) {
+      link.fetchPriority = status === 'app' ? 'high' : 'low';
+    }
+
     (document.head || document.documentElement).appendChild(link);
-    postMiniTiming('loader.preload_appended', { status, scriptSrc: link.href });
+
+    postMiniTiming('loader.preload_appended', {
+      status,
+      scriptSrc: link.href
+    });
   } catch (_) {}
 }
 
@@ -93,18 +197,29 @@ function loadStickerAddon() {
   s.src = STICKERS_SRC;
   s.async = true;
   s.dataset.adminkitRuntime = STICKERS_RUNTIME;
-  if ('fetchPriority' in s) s.fetchPriority = 'low';
-  s.onload = () => postMiniTiming('loader.stickers_loaded', {
-    status: 'stickers',
-    scriptSrc: s.src,
-    stickersRuntime: STICKERS_RUNTIME
-  });
-  s.onerror = () => postMiniTiming('loader.stickers_error', {
-    status: 'stickers',
-    scriptSrc: s.src,
-    stickersRuntime: STICKERS_RUNTIME
-  });
+
+  if ('fetchPriority' in s) {
+    s.fetchPriority = 'low';
+  }
+
+  s.onload = () => {
+    postMiniTiming('loader.stickers_loaded', {
+      status: 'stickers',
+      scriptSrc: s.src,
+      stickersRuntime: STICKERS_RUNTIME
+    });
+  };
+
+  s.onerror = () => {
+    postMiniTiming('loader.stickers_error', {
+      status: 'stickers',
+      scriptSrc: s.src,
+      stickersRuntime: STICKERS_RUNTIME
+    });
+  };
+
   (document.head || document.documentElement).appendChild(s);
+
   postMiniTiming('loader.stickers_appended', {
     status: 'stickers',
     scriptSrc: s.src,
@@ -120,7 +235,11 @@ function loadPhotoFlowAddon() {
   s.src = PHOTO_FLOW_SRC;
   s.async = true;
   s.dataset.adminkitRuntime = PHOTO_FLOW_RUNTIME;
-  if ('fetchPriority' in s) s.fetchPriority = 'high';
+
+  if ('fetchPriority' in s) {
+    s.fetchPriority = 'high';
+  }
+
   s.onload = () => {
     postMiniTiming('loader.photo_flow_loaded', {
       status: 'photo_flow',
@@ -128,6 +247,7 @@ function loadPhotoFlowAddon() {
       photoFlowRuntime: PHOTO_FLOW_RUNTIME
     });
   };
+
   s.onerror = () => {
     postMiniTiming('loader.photo_flow_error', {
       status: 'photo_flow',
@@ -135,7 +255,9 @@ function loadPhotoFlowAddon() {
       photoFlowRuntime: PHOTO_FLOW_RUNTIME
     });
   };
+
   (document.head || document.documentElement).appendChild(s);
+
   postMiniTiming('loader.photo_flow_appended', {
     status: 'photo_flow',
     scriptSrc: s.src,
@@ -151,17 +273,34 @@ function loadCommentAddons() {
 function hasCommentLaunchIdentity(query) {
   const raw = String(query || '');
   if (!raw) return false;
-  if (/(?:^|[?&#])(commentKey|handoff|startapp|start_param|WebAppStartParam|payload|channelId|channel_id|postId|post_id|messageId|message_id)=/i.test(raw)) return true;
-  if (/(?:cp|ck)_-?\d{3,}_-?\d{1,}/i.test(raw)) return true;
-  if (/-?\d{3,}:-?\d{1,}/.test(raw)) return true;
+
+  if (/(?:^|[?&#])(commentKey|handoff|startapp|start_param|WebAppStartParam|payload|channelId|channel_id|postId|post_id|messageId|message_id)=/i.test(raw)) {
+    return true;
+  }
+
+  if (/(?:cp|ck)_-?\d{3,}_-?\d{1,}/i.test(raw)) {
+    return true;
+  }
+
+  if (/-?\d{3,}:-?\d{1,}/.test(raw)) {
+    return true;
+  }
+
   return false;
 }
 
 function wantsGuardedSkeletonConsumer() {
   const query = String((location && location.search) || '');
   const hash = String((location && location.hash) || '');
-  if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=0(?:&|$)/.test(query)) return false;
-  if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=1(?:&|$)/.test(query)) return true;
+
+  if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=0(?:&|$)/.test(query)) {
+    return false;
+  }
+
+  if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=1(?:&|$)/.test(query)) {
+    return true;
+  }
+
   return hasCommentLaunchIdentity(query) || hasCommentLaunchIdentity(hash);
 }
 
@@ -186,13 +325,16 @@ function installComposerIntentUnlock() {
 
     const state = getCommentClientState();
     const locks = state && state.textSendInFlight;
+
     if (!locks || typeof locks !== 'object') return;
 
     const lockedCount = Object.keys(locks).length;
     if (!lockedCount) return;
 
     state.textSendInFlight = {};
-    window.__ADMINKIT_COMPOSER_INTENT_UNLOCK_COUNT__ = Number(window.__ADMINKIT_COMPOSER_INTENT_UNLOCK_COUNT__ || 0) + 1;
+    window.__ADMINKIT_COMPOSER_INTENT_UNLOCK_COUNT__ =
+      Number(window.__ADMINKIT_COMPOSER_INTENT_UNLOCK_COUNT__ || 0) + 1;
+
     window.__ADMINKIT_COMPOSER_INTENT_UNLOCK_LAST__ = {
       at: Date.now(),
       unlockedCount: lockedCount
@@ -215,6 +357,7 @@ function bootOnepass() {
   });
 
   const appSrc = guardedSkeleton ? SKELETON_SRC : ONEPASS_SRC;
+
   addScriptPreload(appSrc, 'app');
   addScriptPreload(PHOTO_FLOW_SRC, 'photo_flow');
   addScriptPreload(STICKERS_SRC, 'stickers');
@@ -223,13 +366,17 @@ function bootOnepass() {
   script.src = appSrc;
   script.async = false;
   script.dataset.adminkitRuntime = guardedSkeleton ? SKELETON_RUNTIME : RUNTIME;
-  if ('fetchPriority' in script) script.fetchPriority = 'high';
+
+  if ('fetchPriority' in script) {
+    script.fetchPriority = 'high';
+  }
 
   script.onload = () => {
     postMiniTiming('loader.script_loaded', {
       status: guardedSkeleton ? 'skeleton' : 'onepass',
       scriptSrc: script.src
     });
+
     loadCommentAddons();
   };
 
