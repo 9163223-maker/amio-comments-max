@@ -5,7 +5,7 @@ const channelService = require('./services/channelService');
 const giftService = require('./services/giftService');
 const growthService = require('./services/growthService');
 
-const RUNTIME = 'CC8.3.14-STATS-MONITORING-LIVE';
+const RUNTIME = 'CC8.3.15-AUDIENCE-ATTRIBUTION';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function clean(value) { return String(value || '').trim(); }
@@ -66,8 +66,17 @@ function clicksForChannels(ids) { const clicks = rawClicks(); return ids && ids.
 function votesForChannels(ids) { const votes = arr(storeApi.store && storeApi.store.growth && storeApi.store.growth.pollVotes); return ids && ids.size ? votes.filter((item) => ids.has(clean(item.channelId))) : votes; }
 function giftsForChannels(ids) { const campaigns = safe(() => arr(giftService.listGiftCampaigns()), []); return ids && ids.size ? campaigns.filter((item) => ids.has(clean(item.channelId || item.requiredChatId))) : campaigns; }
 function claimsForCampaigns(campaigns = []) { const ids = new Set(campaigns.map((item) => clean(item.id)).filter(Boolean)); return safe(() => arr(giftService.listGiftClaims()), []).filter((claim) => !ids.size || ids.has(clean(claim.campaignId))); }
-function snapshots(channelId = '') { return safe(() => arr(storeApi.listChannelMemberSnapshots(channelId)), []).sort((a, b) => n(b.capturedAt) - n(a.capturedAt)); }
-function closestSnapshot(channelId = '', targetTs = 0) { let best = null; let delta = Infinity; snapshots(channelId).forEach((item) => { const ts = n(item.capturedAt); if (!ts) return; const d = Math.abs(ts - targetTs); if (d < delta) { best = item; delta = d; } }); return best; }
+function channelById(channelId = '') { const id = clean(channelId); return visibleChannels('').find((item) => clean(item.channelId) === id) || safe(() => storeApi.getChannelsList().find((item) => clean(item.channelId) === id), null) || { channelId: id }; }
+function audienceSnapshots(channelId = '') { const ch = channelById(channelId); const rich = arr(ch.audienceSnapshots); if (rich.length) return rich.sort((a, b) => n(b.capturedAt) - n(a.capturedAt)); return safe(() => arr(storeApi.listChannelMemberSnapshots(channelId)), []).sort((a, b) => n(b.capturedAt) - n(a.capturedAt)); }
+function closestSnapshot(channelId = '', targetTs = 0) { let best = null; let delta = Infinity; audienceSnapshots(channelId).forEach((item) => { const ts = n(item.capturedAt); if (!ts) return; const d = Math.abs(ts - targetTs); if (d < delta) { best = item; delta = d; } }); return best; }
+function audienceEventsForChannels(ids, days = 30) {
+  const set = ids instanceof Set ? ids : new Set(arr(ids).map(clean).filter(Boolean));
+  const from = Date.now() - Math.max(1, days) * DAY_MS;
+  return safe(() => storeApi.getChannelsList(), []).flatMap((ch) => arr(ch.audienceEvents)).filter((event) => (!set.size || set.has(clean(event.channelId))) && n(event.createdAt) >= from).sort((a, b) => n(b.createdAt) - n(a.createdAt));
+}
+function displayEventName(event = {}) {
+  return clean(event.displayName || event.username || [event.firstName, event.lastName].filter(Boolean).join(' ') || event.name || event.userId || 'Пользователь');
+}
 function audienceDeltaForChannels(channelIds = [], days = 1) {
   const ts = Date.now();
   let currentTotal = 0, previousTotal = 0, withCurrent = 0, withPrevious = 0, exactChannels = 0, joinedExact = 0, leftExact = 0;
@@ -75,7 +84,7 @@ function audienceDeltaForChannels(channelIds = [], days = 1) {
   const previousIds = new Set();
   const currentIds = new Set();
   channelIds.forEach((channelId) => {
-    const current = snapshots(channelId)[0] || null;
+    const current = audienceSnapshots(channelId)[0] || null;
     const previous = closestSnapshot(channelId, ts - days * DAY_MS);
     if (current && current.memberCount !== undefined) { currentTotal += n(current.memberCount); withCurrent += 1; }
     if (previous && previous.memberCount !== undefined && String(previous.capturedAt) !== String(current && current.capturedAt)) { previousTotal += n(previous.memberCount); withPrevious += 1; }
@@ -100,15 +109,20 @@ function buildAttribution({ userId = '', days = 30 } = {}) {
   const d1 = audienceDeltaForChannels(channels, 1);
   const d7 = audienceDeltaForChannels(channels, 7);
   const d30 = audienceDeltaForChannels(channels, 30);
+  const events = audienceEventsForChannels(ids, days);
+  const joinedEvents = events.filter((event) => clean(event.type) === 'user_added');
+  const leftEvents = events.filter((event) => clean(event.type) === 'user_removed');
   const clicks = clicksForChannels(ids);
   const fromTs = Date.now() - Math.max(1, days) * DAY_MS;
   const recentClicks = clicks.filter((item) => n(item.createdAt) >= fromTs);
-  const exactJoined = d30.joinedIds;
-  const currentIds = d30.currentIds;
-  const hasExact = d30.exactChannels > 0;
   const bySource = new Map();
-  const seenConfirmed = new Set();
-  const seenCurrent = new Set();
+  joinedEvents.forEach((event) => {
+    const src = clean(event.attribution && event.attribution.source) || 'Источник неизвестен';
+    const item = bySource.get(src) || { source: src, clicks: 0, uniqueClickers: 0, confirmedSubscribers: 0, probableSubscribers: 0, lastAt: 0, examples: [] };
+    if (event.attribution && event.attribution.status === 'confirmed') item.confirmedSubscribers += 1;
+    item.lastAt = Math.max(item.lastAt, n(event.createdAt));
+    bySource.set(src, item);
+  });
   const seenClickers = new Set();
   recentClicks.forEach((click) => {
     const src = sourceLabel(click);
@@ -120,17 +134,14 @@ function buildAttribution({ userId = '', days = 30 } = {}) {
     if (uid) {
       const ck = `${src}|${uid}`;
       if (!seenClickers.has(ck)) { item.uniqueClickers += 1; seenClickers.add(ck); }
-      if (exactJoined.has(uid) && !seenConfirmed.has(ck)) { item.confirmedSubscribers += 1; seenConfirmed.add(ck); }
-      else if (!hasExact && currentIds.has(uid) && !seenCurrent.has(ck)) { item.probableSubscribers += 1; seenCurrent.add(ck); }
     }
     bySource.set(src, item);
   });
   const sources = Array.from(bySource.values()).sort((a, b) => (b.confirmedSubscribers + b.probableSubscribers) - (a.confirmedSubscribers + a.probableSubscribers) || b.clicks - a.clicks).slice(0, 8);
   const confirmedTotal = sources.reduce((sum, item) => sum + item.confirmedSubscribers, 0);
   const probableTotal = sources.reduce((sum, item) => sum + item.probableSubscribers, 0);
-  const positiveDelta = Math.max(0, n(d30.delta));
-  const unknown = positiveDelta ? Math.max(0, positiveDelta - confirmedTotal - probableTotal) : 0;
-  return { channels: ids.size, d1, d7, d30, clicks: recentClicks.length, sources, confirmedTotal, probableTotal, unknown, hasExact, hasCurrentMembers: currentIds.size > 0 };
+  const unknown = Math.max(0, joinedEvents.length - confirmedTotal - probableTotal);
+  return { channels: ids.size, d1, d7, d30, clicks: recentClicks.length, sources, confirmedTotal, probableTotal, unknown, joinedEvents, leftEvents, recentJoined: joinedEvents.slice(0, 8), recentLeft: leftEvents.slice(0, 8), hasExact: d30.exactChannels > 0 || joinedEvents.length > 0 || leftEvents.length > 0, hasCurrentMembers: d30.currentIds.size > 0 || channels.some((id) => arr(audienceSnapshots(id)[0]?.memberIds).length > 0) };
 }
 function buildMonitoringSnapshot({ userId = '' } = {}) {
   const ids = visibleChannelIds(userId);
@@ -163,10 +174,10 @@ function buildMonitoringSnapshot({ userId = '' } = {}) {
   const d1 = sourceStats.d1;
   const d7 = sourceStats.d7;
   const d30 = sourceStats.d30;
-  return { generatedAt: Date.now(), channels, channelIds, counts: { channels: channels.length || channelIds.length, subscribers: d1.withCurrent ? d1.currentTotal : null, subscriberDelta1d: d1.delta, subscriberDelta7d: d7.delta, subscriberDelta30d: d30.delta, posts: posts.length, comments: comments.length, comments24h: comments24h.length, comments7d: comments7d.length, participants: participants.size, reactions, views, buttons, clicks: clicks.length, clicks24h: clicks24h.length, clickers: clickers.size, votes: votes.length, gifts: gifts.length, giftClaims: claims.length }, posts, comments, clicks, votes, gifts, claims, topPosts, attribution: sourceStats, dataQuality: { subscriberSnapshots: channelIds.reduce((sum, id) => sum + snapshots(id).length, 0), hasExactMemberSets: sourceStats.hasExact, hasCurrentMembers: sourceStats.hasCurrentMembers, viewsReliable: views > 0, hasClicks: clicks.length > 0, hasGiftClaims: claims.length > 0 } };
+  return { generatedAt: Date.now(), channels, channelIds, counts: { channels: channels.length || channelIds.length, subscribers: d1.withCurrent ? d1.currentTotal : null, subscriberDelta1d: d1.delta, subscriberDelta7d: d7.delta, subscriberDelta30d: d30.delta, joined30d: sourceStats.joinedEvents.length, left30d: sourceStats.leftEvents.length, posts: posts.length, comments: comments.length, comments24h: comments24h.length, comments7d: comments7d.length, participants: participants.size, reactions, views, buttons, clicks: clicks.length, clicks24h: clicks24h.length, clickers: clickers.size, votes: votes.length, gifts: gifts.length, giftClaims: claims.length }, posts, comments, clicks, votes, gifts, claims, topPosts, attribution: sourceStats, dataQuality: { subscriberSnapshots: channelIds.reduce((sum, id) => sum + audienceSnapshots(id).length, 0), audienceEvents: sourceStats.joinedEvents.length + sourceStats.leftEvents.length, hasExactMemberSets: sourceStats.hasExact, hasCurrentMembers: sourceStats.hasCurrentMembers, viewsReliable: views > 0, hasClicks: clicks.length > 0, hasGiftClaims: claims.length > 0 } };
 }
 function selftest() {
   const snap = buildMonitoringSnapshot({ userId: '' });
-  return { ok: true, runtimeVersion: RUNTIME, generatedAt: Date.now(), checks: { snapshotBuilt: Boolean(snap && snap.counts), countsNumeric: Object.values(snap.counts).every((value) => value === null || Number.isFinite(Number(value))), attributionBuilt: Boolean(snap.attribution), noTechnicalIdsInChannels: snap.channels.every((item) => !looksTechnicalId(channelTitle(item))) }, counts: snap.counts, dataQuality: snap.dataQuality, attribution: { sources: snap.attribution.sources.length, confirmedTotal: snap.attribution.confirmedTotal, probableTotal: snap.attribution.probableTotal, unknown: snap.attribution.unknown } };
+  return { ok: true, runtimeVersion: RUNTIME, generatedAt: Date.now(), checks: { snapshotBuilt: Boolean(snap && snap.counts), countsNumeric: Object.values(snap.counts).every((value) => value === null || Number.isFinite(Number(value))), attributionBuilt: Boolean(snap.attribution), noTechnicalIdsInChannels: snap.channels.every((item) => !looksTechnicalId(channelTitle(item))), audienceEventsReadable: Array.isArray(snap.attribution.joinedEvents) && Array.isArray(snap.attribution.leftEvents) }, counts: snap.counts, dataQuality: snap.dataQuality, attribution: { sources: snap.attribution.sources.length, confirmedTotal: snap.attribution.confirmedTotal, probableTotal: snap.attribution.probableTotal, unknown: snap.attribution.unknown, joinedEvents: snap.attribution.joinedEvents.length, leftEvents: snap.attribution.leftEvents.length } };
 }
-module.exports = { RUNTIME, buildMonitoringSnapshot, buildAttribution, selftest, since, ruTime, pct, short };
+module.exports = { RUNTIME, buildMonitoringSnapshot, buildAttribution, selftest, since, ruTime, pct, short, displayEventName };
