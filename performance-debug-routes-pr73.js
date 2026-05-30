@@ -3,12 +3,24 @@
 const express = require('express');
 const timing = require('./v3-ui-timing-cc8');
 const postPatcher = require('./services/postPatcher');
+const config = require('./config');
 
-const RUNTIME = 'CC8.2.9-PUBLIC-ASSET-CACHE-HEADERS';
+const RUNTIME = 'CC8.3.0-MAX-NATIVE-COMMANDS-PROBE';
 const MINI_LIMIT = 100;
 const STRING_LIMIT = 160;
 const NAME_LIMIT = 80;
+const MAX_API_BASE_URL = 'https://platform-api.max.ru';
 const miniEvents = [];
+
+const ADMINKIT_MAX_COMMANDS = [
+  { name: 'start', description: '🚀 Запуск АдминКИТ' },
+  { name: 'menu', description: '📋 Главное меню' },
+  { name: 'channels', description: '📣 Мои каналы' },
+  { name: 'comments', description: '💬 Комментарии' },
+  { name: 'gifts', description: '🎁 Подарки и лид-магниты' },
+  { name: 'stats', description: '📊 Статистика' },
+  { name: 'help', description: '🆘 Помощь' }
+];
 
 function clean(value, maxLen = STRING_LIMIT) {
   const text = String(value || '').trim().replace(/\s+/g, ' ');
@@ -59,15 +71,12 @@ function isVersionedPublicJsCssRequest(req) {
 
 function protectCacheControlHeader(res, value) {
   const originalSetHeader = res.setHeader.bind(res);
-
   res.setHeader = function setHeaderWithAdminkitCacheGuard(name, headerValue) {
     if (String(name || '').toLowerCase() === 'cache-control') {
       return originalSetHeader(name, value);
     }
-
     return originalSetHeader(name, headerValue);
   };
-
   return originalSetHeader;
 }
 
@@ -75,14 +84,232 @@ function versionedPublicAssetCacheMiddleware(req, res, next) {
   if (!isVersionedPublicJsCssRequest(req)) return next();
 
   const cacheControl = 'public, max-age=31536000, immutable';
-
   protectCacheControlHeader(res, cacheControl);
-
   res.setHeader('Cache-Control', cacheControl);
   res.setHeader('X-Adminkit-Public-Asset-Cache', 'versioned-immutable');
   res.setHeader('Vary', 'Accept-Encoding');
-
   return next();
+}
+
+function requestToken(req) {
+  const bearer = String(req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  return String(req.get('x-admin-token') || '').trim() ||
+    bearer ||
+    String(req.query?.adminToken || '').trim() ||
+    String(req.body?.adminToken || '').trim();
+}
+
+function adminAllowed(req) {
+  if (!config.giftAdminToken) return false;
+  return requestToken(req) === config.giftAdminToken;
+}
+
+function normalizeCommands(commands) {
+  if (!Array.isArray(commands)) return [];
+  return commands
+    .map((cmd) => ({
+      name: clean(cmd?.name || cmd?.command || '', 64).replace(/^\//, ''),
+      description: clean(cmd?.description || cmd?.desc || '', 160)
+    }))
+    .filter((cmd) => cmd.name)
+    .slice(0, 32);
+}
+
+function commandPayloads() {
+  const commands = normalizeCommands(ADMINKIT_MAX_COMMANDS);
+  return {
+    canonical: { commands },
+    slashNameVariant: {
+      commands: commands.map((cmd) => ({ ...cmd, name: '/' + cmd.name }))
+    },
+    telegramStyleVariant: {
+      commands: commands.map((cmd) => ({ command: cmd.name, description: cmd.description }))
+    }
+  };
+}
+
+function sanitizeBotInfo(data) {
+  const bot = data && typeof data === 'object' ? data : {};
+  const commands = normalizeCommands(bot.commands || []);
+  return {
+    user_id: bot.user_id || bot.userId || null,
+    first_name: clean(bot.first_name || bot.firstName || ''),
+    username: clean(bot.username || ''),
+    is_bot: Boolean(bot.is_bot ?? bot.isBot),
+    description: clean(bot.description || '', 400),
+    commands,
+    commandsCount: commands.length,
+    hasNativeCommands: commands.length > 0
+  };
+}
+
+async function readMaxApiBody(response) {
+  const text = await response.text().catch(() => '');
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    return { raw: clean(text, 1200) };
+  }
+}
+
+async function maxBotApi(path, { method = 'GET', body, timeoutMs = 9000 } = {}) {
+  if (!config.botToken) {
+    return {
+      ok: false,
+      status: 0,
+      error: 'bot_token_missing',
+      data: null
+    };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Math.max(250, Number(timeoutMs || 9000)));
+  let response;
+
+  try {
+    response = await fetch(`${MAX_API_BASE_URL}${path}`, {
+      method,
+      signal: controller.signal,
+      headers: {
+        Authorization: config.botToken,
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {})
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined
+    });
+  } catch (error) {
+    clearTimeout(timeout);
+    return {
+      ok: false,
+      status: error?.name === 'AbortError' ? 408 : 0,
+      error: error?.name === 'AbortError' ? 'max_api_timeout' : clean(error && error.message || error),
+      data: null
+    };
+  }
+
+  clearTimeout(timeout);
+  const data = await readMaxApiBody(response);
+  return {
+    ok: Boolean(response.ok),
+    status: response.status,
+    statusText: clean(response.statusText || ''),
+    data
+  };
+}
+
+async function getMaxBotInfoPayload() {
+  const result = await maxBotApi('/me', { method: 'GET', timeoutMs: 9000 });
+  const bot = sanitizeBotInfo(result.data || {});
+  return {
+    ok: result.ok,
+    runtimeVersion: RUNTIME,
+    mode: 'max-bot-info',
+    maxApi: {
+      method: 'GET',
+      path: '/me',
+      status: result.status,
+      statusText: result.statusText || '',
+      error: result.error || ''
+    },
+    hasBotToken: Boolean(config.botToken),
+    bot,
+    commands: bot.commands,
+    commandsCount: bot.commandsCount,
+    hasNativeCommands: bot.hasNativeCommands,
+    safe: true,
+    noDatabaseRead: true,
+    noMaxApiCall: false
+  };
+}
+
+async function maxCommandsSyncPayload(req) {
+  const mode = clean(req.query?.mode || 'probe', 40).toLowerCase();
+  const desired = normalizeCommands(ADMINKIT_MAX_COMMANDS);
+  const before = await getMaxBotInfoPayload();
+  const payloads = commandPayloads();
+
+  const base = {
+    ok: true,
+    runtimeVersion: RUNTIME,
+    mode,
+    hypothesis: 'MAX native slash button should appear if BotInfo.commands is filled for the bot',
+    desiredCommands: desired,
+    desiredCommandsCount: desired.length,
+    currentCommands: before.commands || [],
+    currentCommandsCount: before.commandsCount || 0,
+    currentHasNativeCommands: Boolean(before.hasNativeCommands),
+    candidateWrite: {
+      method: 'PATCH',
+      path: '/me',
+      body: payloads.canonical,
+      note: 'Undocumented probe. Public docs expose GET /me and BotInfo.commands, but not a documented commands setter.'
+    },
+    alternativePayloads: {
+      slashNameVariant: payloads.slashNameVariant,
+      telegramStyleVariant: payloads.telegramStyleVariant
+    },
+    safety: {
+      probeModeDoesNotWrite: mode !== 'patch-me',
+      patchRequiresConfirm: true,
+      patchRequiresAdminToken: true,
+      hasAdminTokenConfigured: Boolean(config.giftAdminToken)
+    },
+    before,
+    safe: true,
+    noDatabaseRead: true,
+    noMaxApiCall: false
+  };
+
+  if (mode !== 'patch-me') return base;
+
+  if (String(req.query?.confirm || '') !== '1') {
+    return {
+      ...base,
+      ok: false,
+      error: 'confirm_required',
+      hint: 'Use mode=patch-me&confirm=1 and provide adminToken or X-Admin-Token. This write probe is intentionally guarded.'
+    };
+  }
+
+  if (!adminAllowed(req)) {
+    return {
+      ...base,
+      ok: false,
+      error: config.giftAdminToken ? 'admin_forbidden' : 'admin_token_not_configured_for_write_probe',
+      hint: config.giftAdminToken
+        ? 'Provide adminToken query parameter or X-Admin-Token header.'
+        : 'Set GIFT_ADMIN_TOKEN/ADMIN_TOKEN before allowing a MAX commands write probe.'
+    };
+  }
+
+  const patch = await maxBotApi('/me', {
+    method: 'PATCH',
+    body: payloads.canonical,
+    timeoutMs: 9000
+  });
+  const after = await getMaxBotInfoPayload();
+
+  return {
+    ...base,
+    ok: Boolean(patch.ok && after.hasNativeCommands),
+    patchAttempted: true,
+    patch: {
+      method: 'PATCH',
+      path: '/me',
+      status: patch.status,
+      statusText: patch.statusText || '',
+      ok: patch.ok,
+      error: patch.error || '',
+      data: patch.data || null
+    },
+    after,
+    afterCommands: after.commands || [],
+    afterCommandsCount: after.commandsCount || 0,
+    afterHasNativeCommands: Boolean(after.hasNativeCommands),
+    conclusion: patch.ok
+      ? 'PATCH /me accepted. Check MAX client slash button after reopening chat.'
+      : 'PATCH /me was not accepted by MAX API. Native commands likely require business.max.ru/support/internal tooling.'
+  };
 }
 
 function sanitizeMiniPayload(payload = {}) {
@@ -390,6 +617,35 @@ function install(app) {
     });
   });
 
+  app.get('/debug/max-bot-info', async (req, res) => {
+    try {
+      send(res, await getMaxBotInfoPayload());
+    } catch (error) {
+      send(res, {
+        ok: false,
+        runtimeVersion: RUNTIME,
+        mode: 'max-bot-info',
+        error: clean(error && error.message || error),
+        safe: true
+      }, 500);
+    }
+  });
+
+  app.get('/debug/max-commands-sync', async (req, res) => {
+    try {
+      const payload = await maxCommandsSyncPayload(req);
+      send(res, payload, payload.ok ? 200 : 400);
+    } catch (error) {
+      send(res, {
+        ok: false,
+        runtimeVersion: RUNTIME,
+        mode: 'max-commands-sync',
+        error: clean(error && error.message || error),
+        safe: true
+      }, 500);
+    }
+  });
+
   app.post('/api/debug/miniapp-timing', miniappTimingRawParser, (req, res) => {
     try {
       const item = pushMiniEvent(parseMiniTimingBody(req));
@@ -423,5 +679,9 @@ module.exports = {
   pushMiniEvent,
   sanitizeMiniPayload,
   versionedPublicAssetCacheMiddleware,
-  isVersionedPublicJsCssRequest
+  isVersionedPublicJsCssRequest,
+  normalizeCommands,
+  commandPayloads,
+  getMaxBotInfoPayload,
+  maxCommandsSyncPayload
 };
