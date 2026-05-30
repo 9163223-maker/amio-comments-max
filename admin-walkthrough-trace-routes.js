@@ -1,10 +1,22 @@
 'use strict';
 
+const path = require('path');
 const walkthroughTrace = require('./admin-walkthrough-trace');
 const uiTrace = require('./v3-ui-trace-1539');
 const timing = require('./v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.3.1-ADMIN-WALKTHROUGH-TRACE';
+const RUNTIME = 'CC8.3.2-CHANNEL-FIRST-POST-PICKER-PR90';
+const STARTED_AT = new Date().toISOString();
+
+function clean(value) { return String(value || '').trim(); }
+
+function liveRuntime() {
+  return clean(process.env.RUNTIME_VERSION || process.env.BUILD_VERSION || RUNTIME) || RUNTIME;
+}
+
+function liveSourceMarker() {
+  return clean(process.env.BUILD_SOURCE_MARKER) || 'adminkit-cc8-3-2-channel-first-post-picker-pr90';
+}
 
 function noCache(res) {
   try {
@@ -27,9 +39,41 @@ function take(list, limit) {
   return (Array.isArray(list) ? list : []).slice(0, limit);
 }
 
+function liveVersionPayload() {
+  const runtimeVersion = liveRuntime();
+  return {
+    ok: true,
+    runtimeVersion,
+    buildVersion: runtimeVersion,
+    displayVersion: runtimeVersion,
+    packageVersion: runtimeVersion,
+    sourceMarker: liveSourceMarker(),
+    activeEntrypoint: clean(process.argv?.[1] ? path.basename(process.argv[1]) : process.env.ADMINKIT_CLEAN_ENTRYPOINT || 'unknown'),
+    expectedRuntimeVersion: runtimeVersion,
+    routeRuntimeVersion: RUNTIME,
+    generatedAt: Date.now(),
+    serverStartedAt: process.env.ADMINKIT_SERVER_STARTED_AT || STARTED_AT,
+    staleEndpointDetected: false,
+    debugVersionSource: 'live-env-override-before-index-routes',
+    safe: true,
+    noDatabaseRead: true,
+    noMaxApiCall: true
+  };
+}
+
 function install(app) {
   if (!app || app.__adminkitWalkthroughTraceRoutes) return app;
   app.__adminkitWalkthroughTraceRoutes = true;
+
+  app.get('/debug/version', (req, res) => {
+    noCache(res);
+    return res.json(liveVersionPayload());
+  });
+
+  app.get('/debug/version-live', (req, res) => {
+    noCache(res);
+    return res.json(liveVersionPayload());
+  });
 
   app.get('/debug/admin-walkthrough-trace', (req, res) => {
     noCache(res);
@@ -40,6 +84,7 @@ function install(app) {
     return res.json({
       ok: true,
       runtimeVersion: RUNTIME,
+      appRuntimeVersion: liveRuntime(),
       mode: 'admin-walkthrough-trace-combined',
       generatedAt: Date.now(),
       limit,
@@ -71,6 +116,7 @@ function install(app) {
     return res.json({
       ok: true,
       runtimeVersion: RUNTIME,
+      appRuntimeVersion: liveRuntime(),
       mode: 'admin-walkthrough-trace-clear',
       cleared: ['walkthrough', 'uiTrace', 'timing'],
       generatedAt: Date.now(),
