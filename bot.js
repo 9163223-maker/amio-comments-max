@@ -5166,7 +5166,7 @@ async function handleWebhook(req, res, config) {
     const text = getMessageText(message).trim();
     const lowered = text.toLowerCase();
 
-    if (/^\/?start(?:\s|$)/i.test(lowered)) {
+        if (/^\/?start(?:\s|$)/i.test(lowered)) {
       await handleStart(message, config);
       return res.status(200).json({ ok: true });
     }
