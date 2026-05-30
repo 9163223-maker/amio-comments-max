@@ -4,36 +4,38 @@
 // Safe Core Freeze: this module does not touch Dockerfile, package.json, boot, express, app.post, Module._load, webhook bootstrap, debug/store, or debug/ping.
 // It is intentionally isolated and must be connected only by an existing safe router layer after self-test passes.
 
-const VERSION = 'menu-v3-feature-adapter-2';
-const SOURCE = 'adminkit-menu-v3-feature-adapter-data-aware-safe-isolated';
+const VERSION = 'menu-v3-feature-adapter-3-slash-sections';
+const SOURCE = 'adminkit-menu-v3-feature-adapter-full-slash-sections';
 
 const MAIN_ROUTES = [
   ['channels:home', '📺 Каналы'],
-  ['comments:home', '💬 Комменты'],
-  ['moderation:home', '🛡 Модерация'],
-  ['editor:home', '✏️ Редактор'],
-  ['buttons:home', '⚪ Кнопки'],
+  ['comments:home', '💬 Комментарии'],
   ['gifts:home', '🎁 Подарки'],
-  ['highlight:home', '📌 Выделение'],
+  ['buttons:home', '⚪ Кнопки'],
+  ['highlight:home', '⭐ Выделение'],
   ['polls:home', '🗳 Опросы'],
+  ['editor:home', '✏️ Редактор'],
+  ['archive:home', '🗄 Архив'],
+  ['moderation:home', '🛡 Модерация'],
   ['stats:home', '📊 Статистика'],
-  ['billing:home', '🧾 Тарифы'],
-  ['referrals:home', '🤝 Рефералы'],
+  ['account:home', '👤 Личный кабинет'],
+  ['debug:home', '🧪 Debug'],
   ['help:home', '❓ Помощь'],
 ];
 
 const SECTION_TITLES = {
-  channels: '📺 Каналы',
-  comments: '💬 Комменты',
+  channels: '📺 Подключение канала',
+  comments: '💬 Комментарии под постами',
+  gifts: '🎁 Подарки / лид-магниты',
+  buttons: '⚪ CTA / пользовательские кнопки',
+  highlight: '⭐ Выделение постов',
+  polls: '🗳 Голосовалки / опросы',
+  editor: '✏️ Редактирование постов',
+  archive: '🗄 Архив / восстановление',
   moderation: '🛡 Модерация',
-  editor: '✏️ Редактор',
-  buttons: '⚪ Кнопки',
-  gifts: '🎁 Подарки',
-  highlight: '📌 Выделение',
-  polls: '🗳 Опросы',
   stats: '📊 Статистика',
-  billing: '🧾 Тарифы',
-  referrals: '🤝 Рефералы',
+  account: '👤 Личный кабинет',
+  debug: '🧪 Debug / GitHub export',
   help: '❓ Помощь',
 };
 
@@ -74,14 +76,21 @@ function mainHome() {
     ok: true,
     route: 'main:home',
     owner: 'main',
-    text: '🐋 АдминКИТ\n\nПанель управления MAX-каналом.\nРежим теста: PRO открыт.',
+    text: '🐋 АдминКИТ\n\nПанель управления MAX-каналом.\nВыберите раздел.',
     attachments: keyboard([
-      [button('📺 Каналы', 'channels:home'), button('💬 Комменты', 'comments:home')],
-      [button('🛡 Модерация', 'moderation:home'), button('✏️ Редактор', 'editor:home')],
-      [button('⚪ Кнопки', 'buttons:home'), button('🎁 Подарки', 'gifts:home')],
-      [button('📌 Выделение', 'highlight:home'), button('🗳 Опросы', 'polls:home')],
-      [button('📊 Статистика', 'stats:home'), button('🧾 Тарифы', 'billing:home')],
-      [button('🤝 Рефералы', 'referrals:home'), button('❓ Помощь', 'help:home')],
+      [button('📺 Подключение канала', 'channels:home')],
+      [button('💬 Комментарии под постами', 'comments:home')],
+      [button('🎁 Подарки / лид-магниты', 'gifts:home')],
+      [button('⚪ CTA / пользовательские кнопки', 'buttons:home')],
+      [button('⭐ Выделение постов', 'highlight:home')],
+      [button('🗳 Голосовалки / опросы', 'polls:home')],
+      [button('✏️ Редактирование постов', 'editor:home')],
+      [button('🗄 Архив / восстановление', 'archive:home')],
+      [button('🛡 Модерация', 'moderation:home')],
+      [button('📊 Статистика', 'stats:home')],
+      [button('👤 Личный кабинет', 'account:home')],
+      [button('🧪 Debug / GitHub export', 'debug:home')],
+      [button('❓ Помощь', 'help:home')],
     ]),
   };
 }
@@ -94,25 +103,57 @@ function sectionHome(owner) {
       [button('➕ Подключить', 'channels:connect'), button('🔐 Доступы', 'channels:access')],
     ],
     comments: [
-      [button('⚡ Авто', 'comments:auto_new'), button('📌 Старый пост', 'comments:old_post')],
-      [button('📌 Выбрать пост', 'comments:choose_post'), button('👀 Вид', 'comments:preview')],
-      [button('⚙️ Настройки', 'comments:settings'), button('🖼 Баннер', 'comments_banner:home')],
+      [button('⚡ Авто для новых постов', 'comments:auto_new')],
+      [button('📌 Подключить старый пост', 'comments:old_post')],
+      [button('📌 Выбрать пост', 'comments:choose_post'), button('👀 Как выглядит', 'comments:preview')],
       [button('📷 Фото', 'comments_photo:home'), button('❤️ Реакции', 'comments_reactions:home')],
+    ],
+    gifts: [
+      [button('📌 Выбрать пост', 'gifts:choose_post'), button('🎁 Создать подарок', 'gifts:create')],
+      [button('🧾 Текущий подарок', 'gifts:current'), button('🧪 Тест выдачи', 'gifts:test_send')],
+    ],
+    buttons: [
+      [button('📌 Выбрать пост', 'buttons:choose_post'), button('➕ Добавить кнопку', 'buttons:add')],
+      [button('📋 Кнопки поста', 'buttons:list')],
+    ],
+    highlight: [
+      [button('📌 Выбрать пост', 'highlight:choose_post')],
+      [button('⭐ Включить выделение', 'highlight:enable'), button('🗑 Убрать выделение', 'highlight:disable')],
+      [button('👀 Предпросмотр', 'highlight:preview')],
+    ],
+    polls: [
+      [button('➕ Создать опрос', 'polls:create'), button('📌 Выбрать пост', 'polls:choose_post')],
+      [button('📊 Результаты', 'polls:results'), button('🗑 Закрыть опрос', 'polls:close')],
+    ],
+    editor: [
+      [button('📌 Выбрать пост', 'editor:choose_post')],
+      [button('✏️ Изменить текст', 'editor:edit_text'), button('👀 Предпросмотр', 'editor:preview')],
+    ],
+    archive: [
+      [button('📦 Архив постов', 'archive:posts'), button('🔘 Архив кнопок', 'archive:buttons')],
+      [button('🎁 Архив подарков', 'archive:gifts'), button('↩️ Восстановить', 'archive:restore')],
     ],
     moderation: [
       [button('🛡 Канал', 'moderation:channel'), button('🎯 Пост', 'moderation:choose_post')],
       [button('➕ Стоп-слово', 'moderation:add_word'), button('📋 Журнал', 'moderation:logs')],
       [button('🧪 Проверка', 'moderation:test_comment')],
     ],
-    editor: [[button('📌 Выбрать пост', 'editor:choose_post')]],
-    buttons: [[button('📌 Выбрать пост', 'buttons:choose_post'), button('➕ Добавить', 'buttons:add')]],
-    gifts: [[button('📌 Выбрать пост', 'gifts:choose_post'), button('🎁 Создать', 'gifts:create')]],
-    highlight: [[button('📌 Выбрать пост', 'highlight:choose_post')]],
-    polls: [[button('➕ Создать опрос', 'polls:create'), button('📌 Выбрать пост', 'polls:choose_post')]],
-    stats: [[button('📊 Канал', 'stats:channel'), button('📌 Пост', 'stats:choose_post')]],
-    billing: [[button('💳 Купить', 'billing:buy'), button('🎁 Пробный период', 'billing:trial')]],
-    referrals: [[button('🔗 Моя ссылка', 'referrals:my_link'), button('📊 Статистика', 'referrals:stats')]],
-    help: [[button('💬 Комменты', 'help:comments'), button('🛡 Модерация', 'help:moderation')]],
+    stats: [
+      [button('📊 Канал', 'stats:channel'), button('📌 Пост', 'stats:choose_post')],
+      [button('👥 Подписчики', 'stats:subscribers'), button('📤 Экспорт', 'stats:export')],
+    ],
+    account: [
+      [button('👤 Профиль', 'account:profile'), button('💳 Тариф', 'account:plan')],
+      [button('📺 Каналы', 'account:channels'), button('🔐 Доступы', 'account:access')],
+    ],
+    debug: [
+      [button('🧪 Debug status', 'debug:status'), button('📤 GitHub export', 'debug:github_export')],
+      [button('🧹 Clear timing', 'debug:clear_timing'), button('✅ Production checklist', 'debug:checklist')],
+    ],
+    help: [
+      [button('💬 Комментарии', 'help:comments'), button('🛡 Модерация', 'help:moderation')],
+      [button('🎁 Подарки', 'help:gifts'), button('📊 Статистика', 'help:stats')],
+    ],
   };
   return {
     ok: true,
@@ -183,6 +224,14 @@ function postScreen(owner, context = {}) {
       [button('🔐 Проверка подписки', 'gifts:check_subscription', payload)],
       [button('📌 К списку', 'gifts:choose_post')],
     ],
+    highlight: [
+      [button('⭐ Включить', 'highlight:enable', payload), button('🗑 Убрать', 'highlight:disable', payload)],
+      [button('📌 К списку', 'highlight:choose_post')],
+    ],
+    polls: [
+      [button('➕ Создать опрос', 'polls:create', payload), button('📊 Результаты', 'polls:results', payload)],
+      [button('📌 К списку', 'polls:choose_post')],
+    ],
     stats: [
       [button('📊 Статистика поста', 'stats:post', payload), button('📤 Экспорт', 'stats:export_post', payload)],
       [button('📌 К списку', 'stats:choose_post')],
@@ -225,7 +274,7 @@ function render(route, context = {}) {
 }
 
 function selfTest() {
-  const routes = ['main:home', ...MAIN_ROUTES.map(([route]) => route), 'comments:choose_post', 'moderation:choose_post', 'editor:choose_post', 'gifts:choose_post'];
+  const routes = ['main:home', ...MAIN_ROUTES.map(([route]) => route), 'comments:choose_post', 'moderation:choose_post', 'editor:choose_post', 'gifts:choose_post', 'highlight:choose_post', 'polls:choose_post'];
   const sampleContext = {
     dataContext: {
       ok: true,
