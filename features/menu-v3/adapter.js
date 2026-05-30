@@ -1,11 +1,7 @@
 'use strict';
 
-// AdminKIT V3 Feature Adapter
-// Safe Core Freeze: this module does not touch Dockerfile, package.json, boot, express, app.post, Module._load, webhook bootstrap, debug/store, or debug/ping.
-// It is intentionally isolated and must be connected only by an existing safe router layer after self-test passes.
-
-const VERSION = 'menu-v3-feature-adapter-4-doc-screens';
-const SOURCE = 'adminkit-menu-v3-feature-adapter-full-slash-sections-docs';
+const VERSION = 'menu-v3-feature-adapter-5-functional-actions';
+const SOURCE = 'adminkit-menu-v3-feature-adapter-functional-actions';
 
 const MAIN_ROUTES = [
   ['channels:home', '📺 Каналы'],
@@ -41,41 +37,21 @@ const SECTION_TITLES = {
   privacy: '🔐 Политика конфиденциальности',
 };
 
-function normalize(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
-
-function ownerOf(route) {
-  return normalize(route).split(':')[0] || 'main';
-}
+function normalize(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function ownerOf(route) { return normalize(route).split(':')[0] || 'main'; }
 
 function button(text, route, data) {
-  return {
-    type: 'callback',
-    text,
-    payload: JSON.stringify({ ...(data || {}), route, action: route }),
-  };
+  return { type: 'callback', text, payload: JSON.stringify({ ...(data || {}), route, action: route }) };
 }
 
-function keyboard(rows) {
-  return [{ type: 'inline_keyboard', payload: { buttons: rows.filter(Boolean).filter(row => row.length) } }];
+function actionButton(text, action, data) {
+  return { type: 'callback', text, payload: JSON.stringify({ ...(data || {}), action }) };
 }
 
-function nav(owner) {
-  return [
-    [button('❓ Помощь', `help:${owner}`), button('↩️ Раздел', `${owner}:home`)],
-    [button('🏠 Главное меню', 'main:home')],
-  ];
-}
-
-function docNav() {
-  return [[button('🏠 Главное меню', 'main:home')]];
-}
-
-function postTitle(post, index) {
-  const title = normalize(post && post.title) || normalize(post && post.postId) || `Пост ${index + 1}`;
-  return `${index + 1}. ${title}`;
-}
+function keyboard(rows) { return [{ type: 'inline_keyboard', payload: { buttons: rows.filter(Boolean).filter(row => row.length) } }]; }
+function nav(owner) { return [[button('❓ Помощь', `help:${owner}`), button('↩️ Раздел', `${owner}:home`)], [button('🏠 Главное меню', 'main:home')]]; }
+function docNav() { return [[button('🏠 Главное меню', 'main:home')]]; }
+function postTitle(post, index) { const title = normalize(post && post.title) || normalize(post && post.postId) || `Пост ${index + 1}`; return `${index + 1}. ${title}`; }
 
 function mainHome() {
   return {
@@ -106,17 +82,7 @@ function termsHome() {
     ok: true,
     route: 'terms:home',
     owner: 'terms',
-    text: [
-      '📄 Пользовательское соглашение АдминКИТ',
-      '',
-      'АдминКИТ — инструмент для администрирования MAX-каналов.',
-      '',
-      'Используя бота, администратор подтверждает право управлять подключаемым каналом и отвечает за публикуемые посты, ссылки, кнопки, подарки и настройки.',
-      '',
-      'Часть функций зависит от возможностей MAX API, прав бота в канале, сети и доступности mini-app.',
-      '',
-      'Основные команды: /menu, /channels, /comments, /gifts, /stats, /privacy, /clear.'
-    ].join('\n'),
+    text: ['📄 Пользовательское соглашение АдминКИТ', '', 'АдминКИТ — инструмент для администрирования MAX-каналов.', '', 'Используя бота, администратор подтверждает право управлять подключаемым каналом и отвечает за публикуемые посты, ссылки, кнопки, подарки и настройки.', '', 'Часть функций зависит от возможностей MAX API, прав бота в канале, сети и доступности mini-app.', '', 'Основные команды: /menu, /channels, /comments, /gifts, /stats, /privacy, /clear.'].join('\n'),
     attachments: keyboard(docNav()),
   };
 }
@@ -126,19 +92,7 @@ function privacyHome() {
     ok: true,
     route: 'privacy:home',
     owner: 'privacy',
-    text: [
-      '🔐 Политика конфиденциальности АдминКИТ',
-      '',
-      'АдминКИТ — бот для управления MAX-каналами.',
-      'Бот: @id781310320690_bot',
-      'Адрес бота: https://max.ru/id781310320690_bot',
-      '',
-      'Бот обрабатывает только данные, необходимые для работы функций: профиль MAX, подключённые каналы, посты, комментарии, кнопки, подарки, статистику и технические события.',
-      '',
-      'Данные используются для подключения каналов, комментариев под постами, подарков, кнопок, модерации, статистики и диагностики работы сервиса.',
-      '',
-      'АдминКИТ не передаёт данные для сторонней рекламы. Технические данные используются только для работы и поддержки сервиса.'
-    ].join('\n'),
+    text: ['🔐 Политика конфиденциальности АдминКИТ', '', 'АдминКИТ — бот для управления MAX-каналами.', 'Бот: @id781310320690_bot', 'Адрес бота: https://max.ru/id781310320690_bot', '', 'Бот обрабатывает только данные, необходимые для работы функций: профиль MAX, подключённые каналы, посты, комментарии, кнопки, подарки, статистику и технические события.', '', 'Данные используются для подключения каналов, комментариев под постами, подарков, кнопок, модерации, статистики и диагностики работы сервиса.', '', 'АдминКИТ не передаёт данные для сторонней рекламы. Технические данные используются только для работы и поддержки сервиса.'].join('\n'),
     attachments: keyboard(docNav()),
   };
 }
@@ -147,163 +101,89 @@ function sectionHome(owner) {
   const title = SECTION_TITLES[owner] || owner;
   const rowsByOwner = {
     channels: [
-      [button('📋 Мои каналы', 'channels:list'), button('✅ Проверить права', 'channels:verify_access')],
-      [button('➕ Подключить', 'channels:connect'), button('🔐 Доступы', 'channels:access')],
+      [actionButton('📋 Мои каналы', 'admin_section_channels'), actionButton('✅ Проверить права', 'admin_section_channels')],
+      [actionButton('➕ Подключить', 'admin_section_channels'), actionButton('🔐 Доступы', 'admin_section_channels')],
     ],
     comments: [
-      [button('⚡ Авто для новых постов', 'comments:auto_new')],
-      [button('📌 Подключить старый пост', 'comments:old_post')],
-      [button('📌 Выбрать пост', 'comments:choose_post'), button('👀 Как выглядит', 'comments:preview')],
+      [actionButton('📌 Выбрать пост', 'comments_select_post', { source: 'comments' }), button('👀 Как выглядит', 'comments:preview')],
       [button('📷 Фото', 'comments_photo:home'), button('❤️ Реакции', 'comments_reactions:home')],
     ],
     gifts: [
-      [button('📌 Выбрать пост', 'gifts:choose_post'), button('🎁 Создать подарок', 'gifts:create')],
-      [button('🧾 Текущий подарок', 'gifts:current'), button('🧪 Тест выдачи', 'gifts:test_send')],
+      [actionButton('📌 Выбрать пост', 'gift_admin_recent_posts', { page: 0 }), actionButton('🎁 Создать подарок', 'gift_admin_start_create')],
+      [actionButton('🧾 Текущий подарок', 'gift_admin_show_current')],
     ],
     buttons: [
-      [button('📌 Выбрать пост', 'buttons:choose_post'), button('➕ Добавить кнопку', 'buttons:add')],
-      [button('📋 Кнопки поста', 'buttons:list')],
+      [actionButton('📌 Выбрать пост', 'button_admin_recent_posts', { page: 0 }), actionButton('➕ Добавить кнопку', 'button_admin_start_add')],
+      [actionButton('📋 Кнопки поста', 'button_admin_show_current')],
     ],
     highlight: [
-      [button('📌 Выбрать пост', 'highlight:choose_post')],
+      [actionButton('📌 Выбрать пост', 'comments_select_post', { source: 'highlights' })],
       [button('⭐ Включить выделение', 'highlight:enable'), button('🗑 Убрать выделение', 'highlight:disable')],
-      [button('👀 Предпросмотр', 'highlight:preview')],
     ],
     polls: [
-      [button('➕ Создать опрос', 'polls:create'), button('📌 Выбрать пост', 'polls:choose_post')],
-      [button('📊 Результаты', 'polls:results'), button('🗑 Закрыть опрос', 'polls:close')],
+      [actionButton('📌 Выбрать пост', 'comments_select_post', { source: 'polls' }), actionButton('📊 Результаты', 'poll_status')],
+      [actionButton('➕ Создать опрос', 'comments_select_post', { source: 'polls' })],
     ],
     editor: [
-      [button('📌 Выбрать пост', 'editor:choose_post')],
-      [button('✏️ Изменить текст', 'editor:edit_text'), button('👀 Предпросмотр', 'editor:preview')],
+      [actionButton('📌 Выбрать пост', 'admin_posts_picker')],
+      [actionButton('📋 История редактора', 'admin_posts_history')],
     ],
     archive: [
-      [button('📦 Архив постов', 'archive:posts'), button('🔘 Архив кнопок', 'archive:buttons')],
-      [button('🎁 Архив подарков', 'archive:gifts'), button('↩️ Восстановить', 'archive:restore')],
+      [actionButton('📦 Архив постов', 'archive_list', { offset: 0 }), actionButton('🔄 Статус архива', 'archive_status')],
+      [actionButton('📏 Лимиты архива', 'archive_limits')],
     ],
     moderation: [
-      [button('🛡 Канал', 'moderation:channel'), button('🎯 Пост', 'moderation:choose_post')],
-      [button('➕ Стоп-слово', 'moderation:add_word'), button('📋 Журнал', 'moderation:logs')],
-      [button('🧪 Проверка', 'moderation:test_comment')],
+      [actionButton('🎯 Выбрать пост', 'comments_select_post', { source: 'moderation' }), actionButton('🛡 Раздел модерации', 'admin_section_moderation')],
     ],
     stats: [
-      [button('📊 Канал', 'stats:channel'), button('📌 Пост', 'stats:choose_post')],
-      [button('👥 Подписчики', 'stats:subscribers'), button('📤 Экспорт', 'stats:export')],
+      [actionButton('📊 Обзор', 'admin_section_stats'), actionButton('📌 Пост', 'admin_stats_post')],
+      [actionButton('👥 Подписчики', 'admin_stats_subscribers_day'), actionButton('🔄 Обновить', 'admin_stats_refresh')],
     ],
     account: [
-      [button('👤 Профиль', 'account:profile'), button('💳 Тариф', 'account:plan')],
-      [button('📺 Каналы', 'account:channels'), button('🔐 Доступы', 'account:access')],
+      [actionButton('👤 Профиль', 'admin_section_tariffs'), actionButton('💳 Тариф', 'billing_current_plan')],
+      [actionButton('📏 Лимиты', 'billing_limits'), actionButton('🤝 Рефералы', 'billing_referral')],
     ],
     debug: [
-      [button('🧪 Debug status', 'debug:status'), button('📤 GitHub export', 'debug:github_export')],
-      [button('🧹 Clear timing', 'debug:clear_timing'), button('✅ Production checklist', 'debug:checklist')],
+      [actionButton('🧪 Debug status', 'admin_section_debug'), actionButton('✅ Production checklist', 'admin_section_production_checklist')],
+      [button('🧹 Clear walkthrough trace', 'debug:clear_timing')],
     ],
     help: [
       [button('💬 Комментарии', 'help:comments'), button('🛡 Модерация', 'help:moderation')],
       [button('🎁 Подарки', 'help:gifts'), button('📊 Статистика', 'help:stats')],
     ],
   };
-  return {
-    ok: true,
-    route: `${owner}:home`,
-    owner,
-    text: `${title}\n\nВыберите действие.`,
-    attachments: keyboard([...(rowsByOwner[owner] || []), ...nav(owner)]),
-  };
+  return { ok: true, route: `${owner}:home`, owner, text: `${title}\n\nВыберите действие.`, attachments: keyboard([...(rowsByOwner[owner] || []), ...nav(owner)]) };
 }
 
 function choosePost(owner, context = {}) {
   const dataContext = context.dataContext || {};
   const posts = Array.isArray(dataContext.posts) ? dataContext.posts : [];
   if (dataContext.ok && posts.length) {
-    const rows = posts.map((post, index) => [button(postTitle(post, index), `${owner}:post`, {
-      owner,
-      postId: normalize(post.postId),
-      commentKey: normalize(post.commentKey),
-      channelId: normalize(dataContext.channelId),
-      channelTitle: normalize(dataContext.channelTitle),
-      postTitle: normalize(post.title),
-    })]);
-    return {
-      ok: true,
-      route: `${owner}:choose_post`,
-      owner,
-      dataBound: true,
-      text: `${SECTION_TITLES[owner] || owner} → выбор поста\n\n📺 ${normalize(dataContext.channelTitle) || 'Канал'}\nПостов найдено: ${posts.length}\n\nВыберите пост.`,
-      attachments: keyboard([...rows, ...nav(owner)]),
-    };
+    const rows = posts.map((post, index) => [button(postTitle(post, index), `${owner}:post`, { owner, postId: normalize(post.postId), commentKey: normalize(post.commentKey), channelId: normalize(dataContext.channelId), channelTitle: normalize(dataContext.channelTitle), postTitle: normalize(post.title) })]);
+    return { ok: true, route: `${owner}:choose_post`, owner, dataBound: true, text: `${SECTION_TITLES[owner] || owner} → выбор поста\n\n📺 ${normalize(dataContext.channelTitle) || 'Канал'}\nПостов найдено: ${posts.length}\n\nВыберите пост.`, attachments: keyboard([...rows, ...nav(owner)]) };
   }
-
-  return {
-    ok: true,
-    route: `${owner}:choose_post`,
-    owner,
-    needsData: 'posts',
-    text: `${SECTION_TITLES[owner] || owner} → выбор поста\n\nПосты пока не переданы в экран. Безопасный feature-adapter не читает базу сам и не трогает core.`,
-    attachments: keyboard(nav(owner)),
-  };
+  return { ok: true, route: `${owner}:choose_post`, owner, needsData: 'posts', text: `${SECTION_TITLES[owner] || owner} → выбор поста\n\nПосты пока не переданы в экран. Нажмите «Раздел» и используйте функциональную кнопку выбора поста.`, attachments: keyboard(nav(owner)) };
 }
 
 function postScreen(owner, context = {}) {
   const payload = context.payload || context.post || {};
   const title = normalize(payload.postTitle) || normalize(payload.title) || normalize(payload.postId) || 'выбранный пост';
   const rowsByOwner = {
-    comments: [
-      [button('✅/⏸ Комменты', 'comments:toggle', payload), button('🖼 Баннер', 'comments_banner:home', payload)],
-      [button('❤️ Реакции', 'comments_reactions:home', payload), button('📷 Фото', 'comments_photo:home', payload)],
-      [button('📌 К списку', 'comments:choose_post')],
-    ],
-    moderation: [
-      [button('🛡 Правила канала', 'moderation:channel', payload), button('🎯 Правила поста', 'moderation:post', payload)],
-      [button('➕ Стоп-слово', 'moderation:add_word', payload), button('📋 Журнал', 'moderation:logs', payload)],
-      [button('📌 К списку', 'moderation:choose_post')],
-    ],
-    editor: [
-      [button('✏️ Текст', 'editor:edit_text', payload), button('👀 Предпросмотр', 'editor:preview', payload)],
-      [button('💾 Сохранить', 'editor:save', payload), button('↩️ Оригинал', 'editor:restore_original', payload)],
-      [button('📌 К списку', 'editor:choose_post')],
-    ],
-    buttons: [
-      [button('➕ Добавить кнопку', 'buttons:add', payload), button('📋 Кнопки поста', 'buttons:list', payload)],
-      [button('📌 К списку', 'buttons:choose_post')],
-    ],
-    gifts: [
-      [button('🎁 Создать подарок', 'gifts:create', payload), button('🧪 Тест выдачи', 'gifts:test_send', payload)],
-      [button('🔐 Проверка подписки', 'gifts:check_subscription', payload)],
-      [button('📌 К списку', 'gifts:choose_post')],
-    ],
-    highlight: [
-      [button('⭐ Включить', 'highlight:enable', payload), button('🗑 Убрать', 'highlight:disable', payload)],
-      [button('📌 К списку', 'highlight:choose_post')],
-    ],
-    polls: [
-      [button('➕ Создать опрос', 'polls:create', payload), button('📊 Результаты', 'polls:results', payload)],
-      [button('📌 К списку', 'polls:choose_post')],
-    ],
-    stats: [
-      [button('📊 Статистика поста', 'stats:post', payload), button('📤 Экспорт', 'stats:export_post', payload)],
-      [button('📌 К списку', 'stats:choose_post')],
-    ],
+    comments: [[button('✅/⏸ Комменты', 'comments:toggle', payload)], [actionButton('📌 К списку', 'comments_select_post', { source: 'comments' })]],
+    moderation: [[actionButton('🛡 Правила поста', 'admin_section_moderation')], [actionButton('📌 К списку', 'comments_select_post', { source: 'moderation' })]],
+    editor: [[actionButton('✏️ Редактировать', 'admin_posts_edit_text', payload)], [actionButton('📌 К списку', 'admin_posts_picker')]],
+    buttons: [[actionButton('➕ Добавить кнопку', 'button_admin_start_add', payload), actionButton('📋 Кнопки поста', 'button_admin_show_current', payload)], [actionButton('📌 К списку', 'button_admin_recent_posts', { page: 0 })]],
+    gifts: [[actionButton('🎁 Создать подарок', 'gift_admin_start_create', payload), actionButton('🧾 Текущий подарок', 'gift_admin_show_current', payload)], [actionButton('📌 К списку', 'gift_admin_recent_posts', { page: 0 })]],
+    highlight: [[button('⭐ Включить', 'highlight:enable', payload)], [actionButton('📌 К списку', 'comments_select_post', { source: 'highlights' })]],
+    polls: [[actionButton('➕ Создать опрос', 'poll_create', payload), actionButton('📊 Результаты', 'poll_status', payload)], [actionButton('📌 К списку', 'comments_select_post', { source: 'polls' })]],
+    stats: [[actionButton('📊 Статистика поста', 'admin_stats_post', payload)], [actionButton('📌 К списку', 'admin_stats_post')]],
   };
-  return {
-    ok: true,
-    route: `${owner}:post`,
-    owner,
-    text: `${SECTION_TITLES[owner] || owner} → пост\n\n📝 ${title}\n\nВыберите действие.`,
-    attachments: keyboard([...(rowsByOwner[owner] || []), ...nav(owner)]),
-  };
+  return { ok: true, route: `${owner}:post`, owner, text: `${SECTION_TITLES[owner] || owner} → пост\n\n📝 ${title}\n\nВыберите действие.`, attachments: keyboard([...(rowsByOwner[owner] || []), ...nav(owner)]) };
 }
 
 function safeError(route, error) {
   const owner = ownerOf(route);
-  return {
-    ok: false,
-    route,
-    owner,
-    text: `⚠️ Не удалось открыть экран.\n\nРаздел: ${SECTION_TITLES[owner] || owner}\nМаршрут: ${route}\nОшибка записана в debug.`,
-    error: error && error.message ? error.message : String(error || 'unknown_error'),
-    attachments: keyboard(nav(owner)),
-  };
+  return { ok: false, route, owner, text: `⚠️ Не удалось открыть экран.\n\nРаздел: ${SECTION_TITLES[owner] || owner}\nМаршрут: ${route}\nОшибка записана в debug.`, error: error && error.message ? error.message : String(error || 'unknown_error'), attachments: keyboard(nav(owner)) };
 }
 
 function render(route, context = {}) {
@@ -318,41 +198,14 @@ function render(route, context = {}) {
     if (safeRoute.endsWith(':post')) return postScreen(owner, context);
     if (safeRoute.startsWith('help:')) return sectionHome('help');
     return sectionHome(owner);
-  } catch (error) {
-    return safeError(route, error);
-  }
+  } catch (error) { return safeError(route, error); }
 }
 
 function selfTest() {
   const routes = ['main:home', ...MAIN_ROUTES.map(([route]) => route), 'comments:choose_post', 'moderation:choose_post', 'editor:choose_post', 'gifts:choose_post', 'highlight:choose_post', 'polls:choose_post', 'terms:home', 'privacy:home'];
-  const sampleContext = {
-    dataContext: {
-      ok: true,
-      channelId: 'test-channel',
-      channelTitle: 'Тестовый канал',
-      posts: [{ postId: '1', commentKey: 'test-channel:1', title: 'Тестовый пост' }],
-    },
-  };
+  const sampleContext = { dataContext: { ok: true, channelId: 'test-channel', channelTitle: 'Тестовый канал', posts: [{ postId: '1', commentKey: 'test-channel:1', title: 'Тестовый пост' }] } };
   const results = routes.map(route => render(route, route.endsWith(':choose_post') ? sampleContext : {}));
-  return {
-    ok: results.every(result => result && result.text && Array.isArray(result.attachments)),
-    version: VERSION,
-    sourceMarker: SOURCE,
-    safeCoreFreeze: true,
-    touchesBoot: false,
-    patchesExpress: false,
-    patchesModuleLoad: false,
-    patchesAppPost: false,
-    touchesDebugStore: false,
-    touchesDebugPing: false,
-    routesChecked: routes.length,
-    failures: results.filter(result => !result || !result.text).map(result => result && result.route),
-  };
+  return { ok: results.every(result => result && result.text && Array.isArray(result.attachments)), version: VERSION, sourceMarker: SOURCE, safeCoreFreeze: true, touchesBoot: false, patchesExpress: false, patchesModuleLoad: false, patchesAppPost: false, touchesDebugStore: false, touchesDebugPing: false, routesChecked: routes.length, failures: results.filter(result => !result || !result.text).map(result => result && result.route) };
 }
 
-module.exports = {
-  VERSION,
-  SOURCE,
-  render,
-  selfTest,
-};
+module.exports = { VERSION, SOURCE, render, selfTest };
