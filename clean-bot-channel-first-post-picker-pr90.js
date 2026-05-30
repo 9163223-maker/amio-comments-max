@@ -13,7 +13,7 @@ const tenant = require('./tenant-scope');
 const trace = require('./v3-ui-trace-1539');
 const walkthroughTrace = require('./admin-walkthrough-trace');
 
-const RUNTIME = 'CC8.3.11-STATS-ARCHIVE-CLEAN-UX';
+const RUNTIME = 'CC8.3.12-STATS-ARCHIVE-TRACE';
 const MAX_POSTS = 8;
 
 function clean(v) { return String(v || '').trim(); }
@@ -81,7 +81,7 @@ function isPostCallbackAction(action = '', payload = {}) { const a = clean(actio
 function normalizePostPayload(payload = {}) { const action = clean(payload?.action || payload?.route || ''); if (action === 'editor:home') return { ...payload, action: 'admin_section_posts' }; return payload; }
 function isStatsAction(action = '') { return clean(action) === 'admin_section_stats' || /^admin_stats_/.test(clean(action)); }
 function isArchiveAction(action = '') { return archiveFlow.isArchiveAction ? archiveFlow.isArchiveAction(action) : clean(action) === 'admin_section_archive' || /^archive_/.test(clean(action)); }
-async function showFlowScreen(flow, config, update, cb, msg, screen, uid, action) { await ack(config, cbid(cb)); await show(config, update, msg, screen); return { ok: true, handledBy: RUNTIME, action, screenId: screen && screen.id, flow }; }
+async function showFlowScreen(flow, config, update, cb, msg, screen, uid, action) { const screenId = clean(screen && screen.id); trace.log('clean_flow_screen', { flow, action, screenId, userId: trace.mask(uid), updateType: updateType(update) }); walkthroughTrace.log(flow + '.screen', { userId: uid, action, screenId, runtimeVersion: RUNTIME }); await ack(config, cbid(cb)); await show(config, update, msg, screen); walkthroughTrace.log(flow + '.shown', { userId: uid, action, screenId, runtimeVersion: RUNTIME }); return { ok: true, handledBy: RUNTIME, action, screenId, flow }; }
 
 function createCleanBot(legacy) {
   const wrapped = base.createCleanBot(legacy);
