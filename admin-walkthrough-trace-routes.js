@@ -4,8 +4,9 @@ const path = require('path');
 const walkthroughTrace = require('./admin-walkthrough-trace');
 const uiTrace = require('./v3-ui-trace-1539');
 const timing = require('./v3-ui-timing-cc8');
+const botAudit = require('./admin-bot-audit-trace');
 
-const RUNTIME = 'CC8.3.2-CHANNEL-FIRST-POST-PICKER-PR90';
+const RUNTIME = 'CC8.3.13-BOT-AUDIT-TRACE';
 const STARTED_AT = new Date().toISOString();
 
 function clean(value) { return String(value || '').trim(); }
@@ -15,7 +16,7 @@ function liveRuntime() {
 }
 
 function liveSourceMarker() {
-  return clean(process.env.BUILD_SOURCE_MARKER) || 'adminkit-cc8-3-2-channel-first-post-picker-pr90';
+  return clean(process.env.BUILD_SOURCE_MARKER) || 'adminkit-cc8-3-13-bot-audit-trace';
 }
 
 function noCache(res) {
@@ -29,7 +30,7 @@ function noCache(res) {
   } catch {}
 }
 
-function safeInt(value, fallback = 100, min = 1, max = 300) {
+function safeInt(value, fallback = 100, min = 1, max = 1000) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(min, Math.min(Math.floor(n), max));
@@ -77,13 +78,14 @@ function install(app) {
 
   app.get('/debug/admin-walkthrough-trace', (req, res) => {
     noCache(res);
-    const limit = safeInt(req.query?.limit || 100, 100);
+    const limit = safeInt(req.query?.limit || 100, 100, 1, 1000);
     const wt = walkthroughTrace.info();
     const ui = uiTrace.info ? uiTrace.info() : { events: uiTrace.list ? uiTrace.list() : [] };
     const tm = timing.info ? timing.info() : { events: timing.list ? timing.list() : [] };
+    const audit = botAudit.info ? botAudit.info() : { events: [] };
     return res.json({
       ok: true,
-      runtimeVersion: RUNTIME,
+      runtimeVersion: liveRuntime(),
       appRuntimeVersion: liveRuntime(),
       mode: 'admin-walkthrough-trace-combined',
       generatedAt: Date.now(),
@@ -102,6 +104,11 @@ function install(app) {
         summary: tm.summary || [],
         events: take(timing.list ? timing.list() : [], limit)
       },
+      botAudit: {
+        info: audit,
+        summary: audit.summary || [],
+        events: take(audit.events || [], limit)
+      },
       safe: true,
       noDatabaseRead: true,
       noMaxApiCall: true
@@ -113,17 +120,31 @@ function install(app) {
     walkthroughTrace.clear();
     if (uiTrace.clear) uiTrace.clear();
     if (timing.clear) timing.clear();
+    if (botAudit.clear) botAudit.clear();
     return res.json({
       ok: true,
-      runtimeVersion: RUNTIME,
+      runtimeVersion: liveRuntime(),
       appRuntimeVersion: liveRuntime(),
       mode: 'admin-walkthrough-trace-clear',
-      cleared: ['walkthrough', 'uiTrace', 'timing'],
+      cleared: ['walkthrough', 'uiTrace', 'timing', 'botAudit'],
       generatedAt: Date.now(),
       safe: true,
       noDatabaseRead: true,
       noMaxApiCall: true
     });
+  });
+
+  app.get('/debug/bot-audit-trace', (req, res) => {
+    noCache(res);
+    const limit = safeInt(req.query?.limit || 500, 500, 1, 1000);
+    const audit = botAudit.info();
+    return res.json({ ok: true, runtimeVersion: liveRuntime(), generatedAt: Date.now(), limit, total: audit.total, summary: audit.summary, events: take(audit.events, limit), safe: true, noDatabaseRead: true, noMaxApiCall: true });
+  });
+
+  app.get('/debug/bot-audit-trace-clear', (req, res) => {
+    noCache(res);
+    botAudit.clear();
+    return res.json({ ok: true, runtimeVersion: liveRuntime(), mode: 'bot-audit-trace-clear', cleared: ['botAudit'], generatedAt: Date.now(), safe: true, noDatabaseRead: true, noMaxApiCall: true });
   });
 
   app.get('/debug/admin-walkthrough', (req, res) => {
