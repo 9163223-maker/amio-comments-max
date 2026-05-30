@@ -5,7 +5,7 @@ const timing = require('./v3-ui-timing-cc8');
 const postPatcher = require('./services/postPatcher');
 const config = require('./config');
 
-const RUNTIME = 'CC8.3.1-MAX-NATIVE-COMMANDS-SECTIONS';
+const RUNTIME = 'CC8.3.2-MAX-NATIVE-COMMANDS-FULL-MENU';
 const MINI_LIMIT = 100;
 const STRING_LIMIT = 160;
 const NAME_LIMIT = 80;
@@ -15,14 +15,21 @@ const miniEvents = [];
 const ADMINKIT_MAX_COMMANDS = [
   { name: 'start', description: '🚀 Запуск АдминКИТ' },
   { name: 'menu', description: '📋 Главное меню' },
-  { name: 'channels', description: '📣 Каналы и подключение' },
-  { name: 'comments', description: '💬 Комментарии' },
+  { name: 'channels', description: '📺 Подключение канала' },
+  { name: 'comments', description: '💬 Комментарии под постами' },
+  { name: 'gifts', description: '🎁 Подарки / лид-магниты' },
+  { name: 'buttons', description: '⚪ CTA / пользовательские кнопки' },
+  { name: 'highlight', description: '⭐ Выделение постов' },
+  { name: 'polls', description: '🗳️ Голосовалки / опросы' },
+  { name: 'posts', description: '✏️ Редактирование постов' },
+  { name: 'archive', description: '🗄️ Архив / восстановление' },
   { name: 'moderation', description: '🛡️ Модерация' },
-  { name: 'posts', description: '✏️ Редактор постов' },
-  { name: 'buttons', description: '🔘 Кнопки под постами' },
-  { name: 'gifts', description: '🎁 Подарки и лид-магниты' },
   { name: 'stats', description: '📊 Статистика' },
+  { name: 'account', description: '👤 Личный кабинет' },
+  { name: 'debug', description: '🧪 Debug / GitHub export' },
   { name: 'help', description: '🆘 Помощь' },
+  { name: 'terms', description: '📄 Пользовательское соглашение' },
+  { name: 'privacy', description: '🔐 Политика конфиденциальности' },
   { name: 'clear', description: '🧹 Очистить меню бота' }
 ];
 
