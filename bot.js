@@ -30,6 +30,10 @@ const {
 } = require("./store");
 const { listChannels, registerChannel } = require("./services/channelService");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
+const {
+  getNativeSlashCommand,
+  handleNativeSlashCommand
+} = require("./services/nativeSlashCommands");
 
 const GIFT_WIZARD_STEPS = [
   {
@@ -5162,9 +5166,35 @@ async function handleWebhook(req, res, config) {
     const text = getMessageText(message).trim();
     const lowered = text.toLowerCase();
 
-    if (/^\/?start(?:\s|$)/i.test(lowered)) {
+        if (/^\/?start(?:\s|$)/i.test(lowered)) {
       await handleStart(message, config);
       return res.status(200).json({ ok: true });
+    }
+
+    const nativeSlashCommand = getNativeSlashCommand(text);
+    if (nativeSlashCommand) {
+      const handled = await handleNativeSlashCommand({
+        config,
+        message,
+        command: nativeSlashCommand,
+        helpers: {
+          getSenderUserId,
+          replyToUser,
+          buildAdminMainMenuAttachments,
+          cleanupAdminWorkspaceOnMainMenu,
+          sendSectionMenu,
+          sendChannelsSection,
+          sendStatsMenuResponse
+        }
+      });
+
+      if (handled) {
+        return res.status(200).json({
+          ok: true,
+          action: 'native_slash_command',
+          command: nativeSlashCommand
+        });
+      }
     }
 
     const currentSection = getAdminUiState(senderUserId)?.section || '';
