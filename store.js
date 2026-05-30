@@ -66,10 +66,10 @@ function sanitizeStoredAttachment(input, stats) {
   const url = sanitizePayloadValue(source.url || source.download_url || source.link || payload.url || payload.download_url || payload.link || "", stats);
   const rawType = String(source.type || "file").trim().toLowerCase();
   const type = ["image", "video", "audio", "file"].includes(rawType) ? rawType : "file";
-  const fallbackId = String(Date.now()) + "_" + Math.random().toString(36).slice(2, 8);
-  const id = String(source.id || uploadId || payload.token || payload.file_id || payload.image_id || payload.photo_id || fallbackId).slice(0, 180);
   const rawUrl = sanitizePayloadValue(source.rawUrl || source.raw_url || "", stats);
   const uploadId = String(source.uploadId || source.clientUploadId || source.client_upload_id || "").slice(0, 180);
+  const fallbackId = String(Date.now()) + "_" + Math.random().toString(36).slice(2, 8);
+  const id = String(source.id || uploadId || payload.token || payload.file_id || payload.image_id || payload.photo_id || fallbackId).slice(0, 180);
   const status = String(source.status || "").slice(0, 40);
   const processing = Boolean(source.processing) || status === "processing";
   const isPendingVideo = type === "video" && processing && Boolean(uploadId || source.id || source.clientUploadId);
@@ -274,7 +274,7 @@ function saveStore(nextStore) {
 function normalizeKey(value) {
   return String(value || "")
     .replace(/^:+/, "")
-    .replace(/^['"]+|['"]+$/g, "")
+    .replace(/^[']+|[']+$/g, "")
     .trim();
 }
 
@@ -1020,7 +1020,11 @@ function sanitizeGrowthButton(input = {}, index = 0) {
     url,
     enabled: source.enabled !== false,
     postIds: [...new Set(postIds.map((item) => String(item || "").trim()).filter(Boolean))],
-    style: String(source.style || "primary").trim() || "primary"
+    style: String(source.style || "primary").trim() || "primary",
+    campaign: String(source.campaign || source.utmCampaign || "").trim().slice(0, 120),
+    ad: String(source.ad || source.utmContent || "").trim().slice(0, 120),
+    placement: String(source.placement || "").trim().slice(0, 120),
+    sourceRef: String(source.sourceRef || source.ref || "").trim().slice(0, 120)
   };
 }
 
@@ -1132,6 +1136,16 @@ function addGrowthClick(entry = {}) {
     commentKey: normalizeKey(entry.commentKey || ""),
     postId: String(entry.postId || "").trim(),
     source: String(entry.source || "button").trim() || "button",
+    campaign: String(entry.campaign || "").trim().slice(0, 160),
+    ad: String(entry.ad || "").trim().slice(0, 160),
+    placement: String(entry.placement || "").trim().slice(0, 160),
+    ref: String(entry.ref || "").trim().slice(0, 160),
+    sourceRef: String(entry.sourceRef || "").trim().slice(0, 160),
+    utmSource: String(entry.utmSource || entry.utm_source || "").trim().slice(0, 160),
+    utmMedium: String(entry.utmMedium || entry.utm_medium || "").trim().slice(0, 160),
+    utmCampaign: String(entry.utmCampaign || entry.utm_campaign || "").trim().slice(0, 160),
+    utmContent: String(entry.utmContent || entry.utm_content || "").trim().slice(0, 160),
+    utmTerm: String(entry.utmTerm || entry.utm_term || "").trim().slice(0, 160),
     createdAt: Date.now()
   };
   store.growth.clicks.unshift(item);
