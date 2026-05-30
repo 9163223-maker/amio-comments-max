@@ -1,9 +1,10 @@
 'use strict';
 
+const express = require('express');
 const timing = require('./v3-ui-timing-cc8');
 const postPatcher = require('./services/postPatcher');
 
-const RUNTIME = 'CC8.1.14-PERFORMANCE-TRACE-PR73';
+const RUNTIME = 'CC8.2.5-MINIAPP-TIMING-BODY-PARSER';
 const MINI_LIMIT = 100;
 const STRING_LIMIT = 160;
 const NAME_LIMIT = 80;
@@ -133,13 +134,13 @@ function miniappTimingInfo() {
 }
 function parseMiniTimingBody(req) {
   const body = req && req.body;
-  if (body && typeof body === 'object' && !Buffer.isBuffer(body)) return body;
   if (Buffer.isBuffer(body)) {
     try { return JSON.parse(body.toString('utf8') || '{}'); } catch (_) { return {}; }
   }
   if (typeof body === 'string') {
     try { return JSON.parse(body || '{}'); } catch (_) { return {}; }
   }
+  if (body && typeof body === 'object') return body;
   if (req && req.rawBody) {
     try { return JSON.parse(Buffer.isBuffer(req.rawBody) ? req.rawBody.toString('utf8') : String(req.rawBody || '{}')); } catch (_) { return {}; }
   }
@@ -148,6 +149,7 @@ function parseMiniTimingBody(req) {
 function install(app) {
   if (!app || app.__adminkitPerformanceDebugRoutesPr73) return app;
   app.__adminkitPerformanceDebugRoutesPr73 = true;
+  const miniappTimingRawParser = express.raw({ type: '*/*', limit: '256kb' });
   const timingHook = (name, payload = {}) => {
     const eventName = cleanName(name || 'patch.event');
     timing.log(eventName, { ...(payload || {}), source: 'postPatcher', durationMs: boundedNumber(payload.durationMs || 0) });
@@ -164,10 +166,10 @@ function install(app) {
   });
   app.get('/debug/miniapp-timing', (req, res) => send(res, miniappTimingInfo()));
   app.get('/debug/miniapp-timing/clear', (req, res) => { miniEvents.splice(0, miniEvents.length); send(res, { ok: true, runtimeVersion: RUNTIME, mode: 'miniapp-timing-cleared', safe: true }); });
-  app.post('/api/debug/miniapp-timing', (req, res) => {
+  app.post('/api/debug/miniapp-timing', miniappTimingRawParser, (req, res) => {
     try {
       const item = pushMiniEvent(parseMiniTimingBody(req));
-      send(res, { ok: true, runtimeVersion: RUNTIME, accepted: true, seq: item.seq, safe: true });
+      send(res, { ok: true, runtimeVersion: RUNTIME, accepted: true, seq: item.seq, name: item.name, safe: true });
     } catch (error) {
       send(res, { ok: false, runtimeVersion: RUNTIME, error: clean(error && error.message || error), safe: true }, 500);
     }
