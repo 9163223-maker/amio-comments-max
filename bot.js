@@ -5165,13 +5165,9 @@ async function handleWebhook(req, res, config) {
     if (senderUserId) rememberAdminUserMessageIds(senderUserId, getMessageIdCandidates(message));
     const text = getMessageText(message).trim();
     const lowered = text.toLowerCase();
+    const nativeSlashCommand = getNativeSlashCommand(text)
+      || (/^start(?:\s|$)/i.test(lowered) ? '/start' : '');
 
-        if (/^\/?start(?:\s|$)/i.test(lowered)) {
-      await handleStart(message, config);
-      return res.status(200).json({ ok: true });
-    }
-
-    const nativeSlashCommand = getNativeSlashCommand(text);
     if (nativeSlashCommand) {
       const handled = await handleNativeSlashCommand({
         config,
@@ -5180,6 +5176,7 @@ async function handleWebhook(req, res, config) {
         helpers: {
           getSenderUserId,
           replyToUser,
+          sendFreshAdminMessage,
           buildAdminMainMenuAttachments,
           cleanupAdminWorkspaceOnMainMenu,
           sendSectionMenu,
