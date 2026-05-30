@@ -4,11 +4,12 @@ const base = require('./clean-bot-channel-fast-pr84');
 const max = require('./services/maxApi');
 const store = require('./store');
 const menu = require('./v3-menu-core-1539');
+const buttonsFlow = require('./buttons-flow-cc8-clean');
 const tenant = require('./tenant-scope');
 const trace = require('./v3-ui-trace-1539');
 const walkthroughTrace = require('./admin-walkthrough-trace');
 
-const RUNTIME = 'CC8.3.3-CHANNEL-FIRST-HIDE-IDS-START-CLEANUP';
+const RUNTIME = 'CC8.3.4-CHANNEL-FIRST-ACTIVE-SCREEN-CLEANUP';
 const MAX_POSTS = 8;
 
 function clean(value) { return String(value || '').trim(); }
@@ -38,6 +39,7 @@ function isRealCallback(update = {}, cb = null) { const kind = updateType(update
 function body(msg = {}) { return msg?.body && typeof msg.body === 'object' ? msg.body : {}; }
 function text(msg = {}) { const b = body(msg); return clean(b.text || b.caption || msg.text || msg.caption || ''); }
 function isStartText(value = '') { return /^\/?start(?:\s|$)/i.test(clean(value)); }
+function isSlashCommand(value = '') { return /^\/[a-z_]+(?:\s|$)/i.test(clean(value)); }
 function messageId(msg = {}) { const b = body(msg); return clean(b.mid || b.message_id || b.messageId || msg.mid || msg.message_id || msg.messageId || msg.id); }
 function resultMessageId(result = {}, fallback = '') { return clean(result?.message?.body?.mid || result?.message?.id || result?.body?.mid || result?.message_id || result?.messageId || result?.id || fallback); }
 function chatId(msg = {}) { return clean(msg?.recipient?.chat_id || msg?.recipient?.id || msg?.chat_id || msg?.chat?.id); }
@@ -108,10 +110,7 @@ function channelsFromPosts(user = '') {
   });
   return Array.from(map.entries()).map(([channelId, title]) => ({ channelId, title })).slice(0, 12);
 }
-function postsForChannel(user = '', channelId = '') {
-  const ch = clean(channelId);
-  return allPosts(user).filter((post) => !ch || clean(post.channelId) === ch).slice(0, MAX_POSTS);
-}
+function postsForChannel(user = '', channelId = '') { const ch = clean(channelId); return allPosts(user).filter((post) => !ch || clean(post.channelId) === ch).slice(0, MAX_POSTS); }
 function button(text, action, extra = {}) { return menu.button(text, action, extra); }
 function keyboard(rows) { return menu.keyboard(rows); }
 function footer(source = 'comments') { return [[button(backLabel(source), sourceRoot(source))], [button('🏠 Главное меню', 'admin_section_main')]]; }
@@ -135,11 +134,7 @@ function channelPickerScreen(source = 'comments', user = '') {
   const rows = channels.map((channel, index) => [button(`${index + 1}. ${short(channel.title || 'Канал без названия', 52)}`, 'comments_channel_pick', { source, channelId: channel.channelId })]);
   if (!rows.length) rows.push([button('📺 Подключить канал', 'admin_section_channels')]);
   rows.push(...footer(source));
-  return {
-    id: `channel_first_${clean(source || 'comments')}_channels`,
-    text: [sourceLabel(source), '', channels.length ? 'Выберите канал. После этого бот покажет посты только этого канала.' : 'Посты каналов пока не найдены в памяти бота.'].join('\n'),
-    attachments: keyboard(rows)
-  };
+  return { id: `channel_first_${clean(source || 'comments')}_channels`, text: [sourceLabel(source), '', channels.length ? 'Выберите канал. После этого бот покажет посты только этого канала.' : 'Посты каналов пока не найдены в памяти бота.'].join('\n'), attachments: keyboard(rows) };
 }
 function postsScreen(source = 'comments', user = '', channelId = '') {
   const posts = postsForChannel(user, channelId);
@@ -149,10 +144,7 @@ function postsScreen(source = 'comments', user = '', channelId = '') {
   if (channelsFromPosts(user).length > 1) rows.push([button('📺 Выбрать другой канал', 'comments_select_post', { source })]);
   rows.push(...footer(source));
   const lines = [`Канал: ${title || 'Канал без названия'}`, '', posts.length ? 'Выберите пост.' : 'В этом канале пока нет сохранённых постов.'];
-  posts.forEach((post, index) => {
-    const meta = [postTime(post)].filter(Boolean).join(' · ');
-    lines.push(`${index + 1}. ${postTitle(post)}${meta ? '\n   ' + meta : ''}`);
-  });
+  posts.forEach((post, index) => { const meta = [postTime(post)].filter(Boolean).join(' · '); lines.push(`${index + 1}. ${postTitle(post)}${meta ? '\n   ' + meta : ''}`); });
   return { id: `channel_first_${clean(source || 'comments')}_posts`, text: [sourceLabel(source), '', ...lines].join('\n'), attachments: keyboard(rows) };
 }
 function sourceFromPayload(action = '', payload = {}) {
@@ -162,56 +154,53 @@ function sourceFromPayload(action = '', payload = {}) {
   if (action === 'admin_stats_post') return 'stats';
   return 'comments';
 }
-function shouldHandle(action = '', payload = {}) {
-  if (action === 'comments_select_post' || action === 'comments_channel_pick' || action === 'admin_posts_picker') return true;
-  if (action === 'admin_stats_post' && !clean(payload.commentKey || payload.key)) return true;
-  return false;
-}
+function shouldHandle(action = '', payload = {}) { if (action === 'comments_select_post' || action === 'comments_channel_pick' || action === 'admin_posts_picker') return true; if (action === 'admin_stats_post' && !clean(payload.commentKey || payload.key)) return true; return false; }
 function clearActiveFlows(uid = '') {
   const user = clean(uid);
   if (!user) return false;
   const adminUi = { section: 'main', backAction: 'admin_section_main', rootAction: 'admin_section_main', selectMode: '' };
-  try {
-    store.setSetupState(user, {
-      buttonFlow: null,
-      giftFlow: null,
-      commentAdminFlow: null,
-      postEditFlow: null,
-      activeAdminFlowKind: '',
-      adminUi,
-      activeAdminUi: adminUi
-    });
-    walkthroughTrace.log('start.active_flows_cleared', { userId: user, runtimeVersion: RUNTIME });
-    return true;
-  } catch { return false; }
+  try { store.setSetupState(user, { buttonFlow: null, giftFlow: null, commentAdminFlow: null, postEditFlow: null, activeAdminFlowKind: '', adminUi, activeAdminUi: adminUi }); walkthroughTrace.log('active_flows_cleared', { userId: user, runtimeVersion: RUNTIME }); return true; } catch { return false; }
 }
 function rememberAdminScreen(uid = '', mid = '') {
   const user = clean(uid);
   const message = clean(mid);
   if (!user || !message) return;
-  try {
-    const prev = store.getSetupState(user) || {};
-    const ids = [...arr(prev.adminMessageIds), prev.latestBotMessageId, message].map(clean).filter(Boolean);
-    const unique = [...new Set(ids)].slice(-20);
-    store.setSetupState(user, { latestBotMessageId: message, adminMessageIds: unique });
-  } catch {}
+  try { const prev = store.getSetupState(user) || {}; const ids = [...arr(prev.adminMessageIds), prev.latestBotMessageId, message].map(clean).filter(Boolean); const unique = [...new Set(ids)].slice(-20); store.setSetupState(user, { latestBotMessageId: message, adminMessageIds: unique }); } catch {}
+}
+async function deleteActiveAdminScreens(config, uid = '') {
+  const user = clean(uid);
+  if (!user) return { deleted: 0, failed: 0 };
+  const state = safe(() => store.getSetupState(user) || {}, {}) || {};
+  const ids = [...arr(state.adminMessageIds), state.latestBotMessageId, state.giftActiveScreenMessageId, state.commentActiveScreenMessageId, state.buttonActiveScreenMessageId].map(clean).filter(Boolean);
+  const unique = [...new Set(ids)];
+  let deleted = 0;
+  let failed = 0;
+  for (const id of unique) {
+    try { await max.deleteMessage({ botToken: config.botToken, messageId: id, timeoutMs: config.menuDeleteTimeoutMs || 1800 }); deleted += 1; } catch { failed += 1; }
+  }
+  try { store.setSetupState(user, { adminMessageIds: [], latestBotMessageId: '', pendingDeleteMessageIds: [] }); } catch {}
+  walkthroughTrace.log('active_screen_cleanup', { userId: user, deleted, failed, runtimeVersion: RUNTIME });
+  return { deleted, failed };
 }
 async function ack(config, id) { if (!id) return null; try { return await max.answerCallback({ botToken: config.botToken, callbackId: id }); } catch { return null; } }
+async function sendFreshScreen(config, update, msg, screen, uid = '') {
+  const cid = chatId(msg);
+  const user = clean(uid || userId(update, null, msg));
+  await deleteActiveAdminScreens(config, user);
+  const result = await max.sendMessage({ botToken: config.botToken, userId: cid ? '' : user, chatId: cid, text: screen.text, attachments: screen.attachments, notify: false });
+  rememberAdminScreen(user, resultMessageId(result));
+  return result;
+}
 async function show(config, update, msg, screen) {
   const mid = messageId(msg);
   const cid = chatId(msg);
   const uid = userId(update, null, msg);
-  if (mid) {
-    try {
-      const result = await max.editMessage({ botToken: config.botToken, messageId: mid, text: screen.text, attachments: screen.attachments, notify: false });
-      rememberAdminScreen(uid, mid);
-      return result;
-    } catch {}
-  }
+  if (mid) { try { const result = await max.editMessage({ botToken: config.botToken, messageId: mid, text: screen.text, attachments: screen.attachments, notify: false }); rememberAdminScreen(uid, mid); return result; } catch {} }
   const result = await max.sendMessage({ botToken: config.botToken, userId: cid ? '' : uid, chatId: cid, text: screen.text, attachments: screen.attachments, notify: false });
   rememberAdminScreen(uid, resultMessageId(result));
   return result;
 }
+function hasButtonFlowPriority(state = {}) { return clean(state.activeAdminFlowKind) === 'button' || Boolean(state.buttonFlow); }
 
 function createCleanBot(legacy) {
   const wrapped = base.createCleanBot(legacy);
@@ -221,18 +210,27 @@ function createCleanBot(legacy) {
       const msg = message(update);
       const cb = callback(update);
       const real = isRealCallback(update, cb);
-      if (!real && msg && !isChannelMessage(msg) && isStartText(text(msg))) {
-        clearActiveFlows(userId(update, null, msg));
+      const uid = userId(update, real ? cb : null, msg);
+      const incomingText = text(msg);
+      if (!real && msg && !isChannelMessage(msg) && isSlashCommand(incomingText)) {
+        clearActiveFlows(uid);
+      }
+      if (!real && msg && !isChannelMessage(msg) && incomingText && !isSlashCommand(incomingText)) {
+        const state = safe(() => store.getSetupState(clean(uid)) || {}, {}) || {};
+        if (hasButtonFlowPriority(state)) {
+          const screen = await buttonsFlow.handleTextInput(menu, { config, userId: uid, text: incomingText, update });
+          if (screen) {
+            await sendFreshScreen(config, update, msg, screen, uid);
+            return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'button_text_input_active_screen_cleanup', screenId: screen.id });
+          }
+        }
       }
       if (real && cb && msg && !isChannelMessage(msg)) {
         const payload = parsePayload(cb);
         const action = clean(payload.action || payload.raw);
         if (shouldHandle(action, payload)) {
-          const uid = userId(update, cb, msg);
           const source = sourceFromPayload(action, payload);
-          const screen = action === 'comments_channel_pick'
-            ? postsScreen(source, uid, payload.channelId)
-            : channelPickerScreen(source, uid);
+          const screen = action === 'comments_channel_pick' ? postsScreen(source, uid, payload.channelId) : channelPickerScreen(source, uid);
           trace.log('channel_first_post_picker', { action, source, userId: trace.mask(uid), screenId: screen.id, channelId: trace.mask(payload.channelId || '') });
           walkthroughTrace.log('channel_first.post_picker', { action, source, userId: uid, screenId: screen.id, channelId: payload.channelId || '' });
           await ack(config, cbid(cb));
