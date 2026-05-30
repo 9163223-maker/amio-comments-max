@@ -5,8 +5,9 @@ const store = require('./store');
 const config = require('./config');
 const { patchStoredPost } = require('./services/postPatcher');
 
-const RUNTIME = 'CC8.3.6-GIFTS-CLEAN-SCREENS-NO-IDS';
-const CLEAN_GIFT_ACTIONS = base.CLEAN_GIFT_ACTIONS || [];
+const RUNTIME = 'CC8.3.7-GIFTS-SKIP-CLEAN-NO-IDS';
+const EXTRA_ACTIONS = ['gift_admin_skip_message'];
+const CLEAN_GIFT_ACTIONS = Array.from(new Set([...(base.CLEAN_GIFT_ACTIONS || []), ...EXTRA_ACTIONS]));
 
 function clean(value) { return String(value || '').trim(); }
 function setup(userId = '') { try { return store.getSetupState(clean(userId)) || {}; } catch { return {}; } }
@@ -45,8 +46,8 @@ function rewriteScreen(screen = null, ctx = {}) { if (!screen) return screen; le
   next = cleanTechnicalText(next, ctx);
   return next;
 }
-async function screenForPayload(menu, payload = {}, ctx = {}) { const action = clean(payload.action || payload.raw); if (action === 'gift_admin_commit_save') { const target = targetFromState(ctx.userId); const screen = rewriteScreen(await base.screenForPayload(menu, payload, ctx), ctx); if (/Подарок сохран/i.test(clean(screen && screen.text))) { const patchResult = await patchGiftButton(ctx, target); return appendPatchResult(screen, patchResult); } return screen; } return rewriteScreen(await base.screenForPayload(menu, payload, ctx), ctx); }
+async function screenForPayload(menu, payload = {}, ctx = {}) { const action = clean(payload.action || payload.raw); const normalized = action === 'gift_admin_skip_message' ? { ...payload, action: 'gift_admin_message_default' } : payload; const normalizedAction = clean(normalized.action || normalized.raw); if (normalizedAction === 'gift_admin_commit_save') { const target = targetFromState(ctx.userId); const screen = rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); if (/Подарок сохран/i.test(clean(screen && screen.text))) { const patchResult = await patchGiftButton(ctx, target); return appendPatchResult(screen, patchResult); } return screen; } return rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); }
 async function handleTextInput(menu, ctx = {}) { clearActiveGiftScreen(ctx.userId); return rewriteScreen(await base.handleTextInput(menu, ctx), ctx); }
-function isCleanGiftAction(action = '') { return base.isCleanGiftAction ? base.isCleanGiftAction(action) : CLEAN_GIFT_ACTIONS.includes(clean(action)); }
+function isCleanGiftAction(action = '') { return CLEAN_GIFT_ACTIONS.includes(clean(action)) || (base.isCleanGiftAction ? base.isCleanGiftAction(action) : false); }
 
 module.exports = { ...base, RUNTIME, CLEAN_GIFT_ACTIONS, isCleanGiftAction, screenForPayload, handleTextInput, patchGiftButton };
