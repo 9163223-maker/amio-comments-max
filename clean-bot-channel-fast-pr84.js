@@ -107,7 +107,7 @@ async function handleUnifiedStart(update, msg, config) {
     }
   });
   walkthroughTrace.log('start.sent', { userId, sentMessageId: sentId, deletedCount: previousIds.length - failedIds.length, failedCount: failedIds.length, durationMs: Date.now() - startedAt });
-  return { ok: true, sentMessageId: sentId, deletedCount: previousIds.length - failedIds.length, failedCount: failedIds.length };
+  return { ok: true, sentMessageId: sentId, deletedCount: previousIds.length - failedIds.length, failedCount: failedCount };
 }
 function findFirstDeepValue(value, keys = [], seen = new Set()) {
   if (!value || typeof value !== 'object' || seen.has(value)) return '';
