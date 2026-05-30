@@ -7,6 +7,7 @@ const max = require('./services/maxApi');
 const store = require('./store');
 const unifiedMenu = require('./features/menu-v3/adapter');
 const { tryPatchChannelPost, FAST_PATCH_RUNTIME } = require('./services/postPatcherFastPr84');
+const growthService = require('./services/growthService');
 
 const RUNTIME = FAST_PATCH_RUNTIME || 'CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84';
 
@@ -124,6 +125,39 @@ function findFirstDeepValue(value, keys = [], seen = new Set()) {
   }
   return '';
 }
+function audienceChannelId(update = {}) {
+  return clean(findFirstDeepValue(update, ['chat_id', 'chatId', 'channel_id', 'channelId']));
+}
+function audienceMember(update = {}) {
+  const obj = find(update, (x) => x && typeof x === 'object' && (x.user_id || x.userId || x.user?.user_id || x.user?.userId || x.username || x.user?.username || x.first_name || x.firstName || x.user?.first_name || x.user?.firstName), 7) || {};
+  const user = obj.user && typeof obj.user === 'object' ? obj.user : obj;
+  return {
+    userId: clean(user.user_id || user.userId || user.id || ''),
+    username: clean(user.username || ''),
+    firstName: clean(user.first_name || user.firstName || ''),
+    lastName: clean(user.last_name || user.lastName || ''),
+    name: clean(user.name || '')
+  };
+}
+function isAudienceUpdateKind(kind = '') {
+  return ['user_added', 'user_removed', 'bot_added', 'bot_removed', 'chat_title_changed', 'dialog_cleared', 'dialog_removed', 'bot_stopped'].includes(clean(kind));
+}
+function recordAudienceWebhook(update = {}) {
+  const kind = updateType(update);
+  const channelId = audienceChannelId(update);
+  if (!channelId) return { ok: false, skipped: true, reason: 'channel_id_missing', updateType: kind };
+  const profile = audienceMember(update);
+  const title = clean(findFirstDeepValue(update, ['title', 'chat_title', 'chatTitle', 'channelTitle', 'name']));
+  if (title && !/^-?\d{6,}$/.test(title)) {
+    const existing = store.getChannelsList().find((item) => clean(item.channelId) === channelId) || {};
+    store.saveChannel(channelId, { ...existing, channelId, title, channelTitle: title });
+  }
+  if (kind === 'user_added' || kind === 'user_removed') {
+    const event = growthService.saveAudienceEvent(channelId, { type: kind, profile, userId: profile.userId, username: profile.username, firstName: profile.firstName, lastName: profile.lastName, name: profile.name, source: 'webhook', createdAt: Date.now() });
+    return { ok: true, updateType: kind, channelId, userId: event?.userId || profile.userId || '', eventId: event?.id || '' };
+  }
+  return { ok: true, updateType: kind, channelId, recorded: false };
+}
 function postId(msg = {}) {
   const b = body(msg);
   const direct = b.message || msg.message || b || msg || {};
@@ -215,6 +249,12 @@ function createCleanBot(legacy) {
   return {
     handleWebhook: async function handleWebhookWithPr84DirectChannelFastPatch(req, res, config) {
       const update = req.body || {};
+      const kind = updateType(update);
+      if (isAudienceUpdateKind(kind)) {
+        const result = recordAudienceWebhook(update);
+        walkthroughTrace.log('audience.webhook_recorded', { updateType: kind, ok: Boolean(result?.ok), skipped: Boolean(result?.skipped), channelId: result?.channelId || '', userId: result?.userId || '', reason: result?.reason || '' });
+        return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'audience_webhook_recorded', ...result });
+      }
       const msg = message(update);
       const rawCb = callback(update);
       const realCb = isRealCallbackUpdate(update, rawCb);
