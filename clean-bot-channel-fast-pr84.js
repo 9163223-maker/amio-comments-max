@@ -2,6 +2,7 @@
 
 const baseGuard = require('./clean-bot-flow-guard-1546');
 const timing = require('./v3-ui-timing-cc8');
+const walkthroughTrace = require('./admin-walkthrough-trace');
 const max = require('./services/maxApi');
 const store = require('./store');
 const unifiedMenu = require('./features/menu-v3/adapter');
@@ -58,14 +59,17 @@ async function deleteStoredAdminMessages(config, ids = []) {
   for (const id of uniqueIds(ids)) {
     try {
       await max.deleteMessage({ botToken: config.botToken, messageId: id, timeoutMs: config.menuDeleteTimeoutMs || 1800 });
+      walkthroughTrace.log('start.cleanup_delete_ok', { messageId: id });
     } catch (error) {
       failed.push(id);
       timing.log('start_menu_delete_failed', { durationMs: 0, messageId: timing.mask(id), error: clean(error?.message || error), status: clean(error?.status) });
+      walkthroughTrace.log('start.cleanup_delete_failed', { messageId: id, error: clean(error?.message || error), status: clean(error?.status) });
     }
   }
   return failed;
 }
 async function handleUnifiedStart(update, msg, config) {
+  const startedAt = Date.now();
   const userId = senderId(msg) || clean(findFirstDeepValue(update, ['user_id', 'userId', 'sender_id', 'senderId', 'from_id', 'fromId']));
   if (!userId) return { ok: false, skipped: true, reason: 'user_id_missing' };
   const state = store.getSetupState(userId) || {};
@@ -76,8 +80,10 @@ async function handleUnifiedStart(update, msg, config) {
     state?.commentAdminFlow?.anchorMessageId,
     ...(Array.isArray(state.pendingDeleteMessageIds) ? state.pendingDeleteMessageIds : [])
   ]);
+  walkthroughTrace.log('start.received', { userId, messageId: messageId(msg), previousIdsCount: previousIds.length });
   const failedIds = await deleteStoredAdminMessages(config, previousIds);
   const screen = unifiedMenu.render('main:home');
+  walkthroughTrace.log('start.rendered', { userId, route: 'main:home', attachmentsCount: Array.isArray(screen.attachments) ? screen.attachments.length : 0, textLength: String(screen.text || '').length });
   const result = await max.sendMessage({
     botToken: config.botToken,
     userId: chatId(msg) ? '' : userId,
@@ -99,6 +105,7 @@ async function handleUnifiedStart(update, msg, config) {
       selectMode: ''
     }
   });
+  walkthroughTrace.log('start.sent', { userId, sentMessageId: sentId, deletedCount: previousIds.length - failedIds.length, failedCount: failedIds.length, durationMs: Date.now() - startedAt });
   return { ok: true, sentMessageId: sentId, deletedCount: previousIds.length - failedIds.length, failedCount: failedIds.length };
 }
 function findFirstDeepValue(value, keys = [], seen = new Set()) {
@@ -170,6 +177,7 @@ async function patchDirectChannelPostFast(update, msg, config) {
   const mid = messageId(msg) || pid;
   if (!channelId || !pid) return { ok: false, skipped: true, reason: 'direct_channel_identity_missing' };
   if (hasCommentsKeyboard(msg)) return { ok: true, skipped: true, reason: 'already_patched' };
+  walkthroughTrace.log('post.patch_start', { channelId, postId: pid, messageId: mid, textLength: text(msg).length, attachmentsCount: messageAttachments(msg).length });
   const result = await tryPatchChannelPost({
     botToken: config.botToken,
     appBaseUrl: config.appBaseUrl,
@@ -198,6 +206,7 @@ async function patchDirectChannelPostFast(update, msg, config) {
     reason: clean(result?.reason || result?.patchError?.message || ''),
     fastPatchNoBootstrapDb: Boolean(result?.fastPatchNoBootstrapDb)
   });
+  walkthroughTrace.log('post.patch_result', { channelId, postId: pid, messageId: mid, commentKey: result?.commentKey || '', ok: Boolean(result?.patchResult || result?.patchError === null), skipped: Boolean(result?.skipped), reason: clean(result?.reason || result?.patchError?.message || ''), durationMs: Date.now() - started });
   return result;
 }
 
@@ -219,6 +228,7 @@ function createCleanBot(legacy) {
           return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'unified_start_menu', ...result });
         } catch (error) {
           timing.log('unified_start_menu_error', { durationMs: 0, error: clean(error?.message || error), userId: timing.mask(senderId(msg)) });
+          walkthroughTrace.log('start.error', { userId: senderId(msg), error: clean(error?.message || error), status: clean(error?.status) });
         }
       }
       if (!realCb && msg && isDirectPatchCandidate(msg)) {
@@ -241,6 +251,7 @@ function createCleanBot(legacy) {
           });
         } catch (error) {
           timing.log('direct_channel_pr84_error', { durationMs: 0, error: clean(error?.message || error), channelId: timing.mask(chatId(msg)), postId: timing.mask(postId(msg)) });
+          walkthroughTrace.log('post.patch_error', { channelId: chatId(msg), postId: postId(msg), messageId: messageId(msg) || postId(msg), error: clean(error?.message || error), status: clean(error?.status) });
         }
       }
       return wrapped.handleWebhook(req, res, config);
