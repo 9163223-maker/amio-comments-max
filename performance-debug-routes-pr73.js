@@ -4,7 +4,7 @@ const express = require('express');
 const timing = require('./v3-ui-timing-cc8');
 const postPatcher = require('./services/postPatcher');
 
-const RUNTIME = 'CC8.2.7-MINIAPP-RESOURCE-TIMING';
+const RUNTIME = 'CC8.2.9-PUBLIC-ASSET-CACHE-HEADERS';
 const MINI_LIMIT = 100;
 const STRING_LIMIT = 160;
 const NAME_LIMIT = 80;
@@ -47,6 +47,42 @@ function noCache(res) {
 function send(res, payload, status) {
   noCache(res);
   res.status(status || 200).type('application/json').send(JSON.stringify(payload, null, 2));
+}
+
+function isVersionedPublicJsCssRequest(req) {
+  const path = String((req && (req.path || req.url)) || '').split('?')[0];
+  const originalUrl = String((req && req.originalUrl) || '');
+  const isJsCss = /\.(?:js|css)$/i.test(path);
+  const hasVersionQuery = /[?&](?:v|ver|version|assetVersion)=/i.test(originalUrl);
+  return isJsCss && hasVersionQuery;
+}
+
+function protectCacheControlHeader(res, value) {
+  const originalSetHeader = res.setHeader.bind(res);
+
+  res.setHeader = function setHeaderWithAdminkitCacheGuard(name, headerValue) {
+    if (String(name || '').toLowerCase() === 'cache-control') {
+      return originalSetHeader(name, value);
+    }
+
+    return originalSetHeader(name, headerValue);
+  };
+
+  return originalSetHeader;
+}
+
+function versionedPublicAssetCacheMiddleware(req, res, next) {
+  if (!isVersionedPublicJsCssRequest(req)) return next();
+
+  const cacheControl = 'public, max-age=31536000, immutable';
+
+  protectCacheControlHeader(res, cacheControl);
+
+  res.setHeader('Cache-Control', cacheControl);
+  res.setHeader('X-Adminkit-Public-Asset-Cache', 'versioned-immutable');
+  res.setHeader('Vary', 'Accept-Encoding');
+
+  return next();
 }
 
 function sanitizeMiniPayload(payload = {}) {
@@ -301,6 +337,8 @@ function install(app) {
   if (!app || app.__adminkitPerformanceDebugRoutesPr73) return app;
   app.__adminkitPerformanceDebugRoutesPr73 = true;
 
+  app.use('/public', versionedPublicAssetCacheMiddleware);
+
   const miniappTimingRawParser = express.raw({
     type: '*/*',
     limit: '256kb'
@@ -383,5 +421,7 @@ module.exports = {
   patchTimingInfo,
   miniappTimingInfo,
   pushMiniEvent,
-  sanitizeMiniPayload
+  sanitizeMiniPayload,
+  versionedPublicAssetCacheMiddleware,
+  isVersionedPublicJsCssRequest
 };
