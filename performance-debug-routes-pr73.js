@@ -5,7 +5,7 @@ const timing = require('./v3-ui-timing-cc8');
 const postPatcher = require('./services/postPatcher');
 const config = require('./config');
 
-const RUNTIME = 'CC8.3.0-MAX-NATIVE-COMMANDS-PROBE';
+const RUNTIME = 'CC8.3.1-MAX-NATIVE-COMMANDS-SECTIONS';
 const MINI_LIMIT = 100;
 const STRING_LIMIT = 160;
 const NAME_LIMIT = 80;
@@ -15,11 +15,15 @@ const miniEvents = [];
 const ADMINKIT_MAX_COMMANDS = [
   { name: 'start', description: '🚀 Запуск АдминКИТ' },
   { name: 'menu', description: '📋 Главное меню' },
-  { name: 'channels', description: '📣 Мои каналы' },
+  { name: 'channels', description: '📣 Каналы и подключение' },
   { name: 'comments', description: '💬 Комментарии' },
+  { name: 'moderation', description: '🛡️ Модерация' },
+  { name: 'posts', description: '✏️ Редактор постов' },
+  { name: 'buttons', description: '🔘 Кнопки под постами' },
   { name: 'gifts', description: '🎁 Подарки и лид-магниты' },
   { name: 'stats', description: '📊 Статистика' },
-  { name: 'help', description: '🆘 Помощь' }
+  { name: 'help', description: '🆘 Помощь' },
+  { name: 'clear', description: '🧹 Очистить меню бота' }
 ];
 
 function clean(value, maxLen = STRING_LIMIT) {
