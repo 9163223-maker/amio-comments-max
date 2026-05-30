@@ -138,12 +138,15 @@ function getBrandingState(channelId = "", config = {}) {
   };
 }
 
-function buildTrackedUrl({ appBaseUrl, channelId, buttonId, postId, commentKey, source = "button" }) {
+function buildTrackedUrl({ appBaseUrl, channelId, buttonId, postId, commentKey, source = "button", campaign = "", ad = "", placement = "" }) {
   const base = String(appBaseUrl || "").trim().replace(/\/$/, "");
   const query = new URLSearchParams();
   if (postId) query.set("postId", String(postId || "").trim());
   if (commentKey) query.set("commentKey", String(commentKey || "").trim());
   if (source) query.set("source", String(source || "").trim());
+  if (campaign) query.set("campaign", String(campaign || "").trim());
+  if (ad) query.set("ad", String(ad || "").trim());
+  if (placement) query.set("placement", String(placement || "").trim());
   return `${base}/go/${encodeURIComponent(String(channelId || "").trim())}/${encodeURIComponent(String(buttonId || "").trim())}?${query.toString()}`;
 }
 
@@ -160,7 +163,10 @@ function buildGrowthKeyboardRows({ appBaseUrl, channelId, postId, commentKey, co
         buttonId: item.id,
         postId,
         commentKey,
-        source: "button"
+        source: "button",
+        campaign: item.campaign || "",
+        ad: item.ad || "",
+        placement: item.placement || ""
       })
     })),
     2
@@ -178,7 +184,9 @@ function buildGrowthKeyboardRows({ appBaseUrl, channelId, postId, commentKey, co
           buttonId: "__lead_magnet__",
           postId,
           commentKey,
-          source: "lead"
+          source: "lead",
+          campaign: "adminkit_branding",
+          placement: "post_keyboard"
         }) + `&target=${encodeURIComponent(branding.leadMagnetUrl)}`
       }
     ]);
@@ -195,7 +203,7 @@ function getPublicGrowthData({ channelId = "", postId = "", commentKey = "", cur
       id: item.id,
       text: item.text,
       style: item.style || "primary",
-      trackedUrl: buildTrackedUrl({ appBaseUrl: config.appBaseUrl, channelId, buttonId: item.id, postId, commentKey, source: "button" })
+      trackedUrl: buildTrackedUrl({ appBaseUrl: config.appBaseUrl, channelId, buttonId: item.id, postId, commentKey, source: "button", campaign: item.campaign || "", ad: item.ad || "", placement: item.placement || "" })
     }));
 
   const poll = settings.poll || {};
@@ -231,7 +239,9 @@ function getPublicGrowthData({ channelId = "", postId = "", commentKey = "", cur
         buttonId: "__lead_magnet__",
         postId,
         commentKey,
-        source: "lead"
+        source: "lead",
+        campaign: "adminkit_branding",
+        placement: "mini_app"
       }) + `&target=${encodeURIComponent(branding.leadMagnetUrl)}`
     : "";
 
@@ -254,7 +264,7 @@ function getPublicGrowthData({ channelId = "", postId = "", commentKey = "", cur
   };
 }
 
-function recordGrowthClick({ channelId = "", buttonId = "", postId = "", commentKey = "", userId = "", config = {}, source = "button", buttonTextOverride = "", targetUrlOverride = "" } = {}) {
+function recordGrowthClick({ channelId = "", buttonId = "", postId = "", commentKey = "", userId = "", config = {}, source = "button", buttonTextOverride = "", targetUrlOverride = "", campaign = "", ad = "", placement = "", ref = "", sourceRef = "", utmSource = "", utmMedium = "", utmCampaign = "", utmContent = "", utmTerm = "" } = {}) {
   const settings = getGrowthSettings(channelId);
   const branding = getBrandingState(channelId, config);
   let button = (settings.trackedButtons || []).find((item) => String(item.id || "") === String(buttonId || ""));
@@ -264,9 +274,13 @@ function recordGrowthClick({ channelId = "", buttonId = "", postId = "", comment
   if (button) {
     targetUrl = String(button.url || "").trim();
     buttonText = String(button.text || "").trim();
+    if (!campaign) campaign = String(button.campaign || "").trim();
+    if (!ad) ad = String(button.ad || "").trim();
+    if (!placement) placement = String(button.placement || "").trim();
   } else if (String(buttonId || "") === "__lead_magnet__") {
     targetUrl = branding.leadMagnetUrl;
     buttonText = branding.leadMagnetText;
+    if (!campaign) campaign = "adminkit_branding";
   }
 
   if (String(buttonTextOverride || "").trim()) buttonText = String(buttonTextOverride || "").trim();
@@ -280,7 +294,17 @@ function recordGrowthClick({ channelId = "", buttonId = "", postId = "", comment
     userId,
     commentKey,
     postId,
-    source
+    source,
+    campaign,
+    ad,
+    placement,
+    ref,
+    sourceRef,
+    utmSource,
+    utmMedium,
+    utmCampaign,
+    utmContent,
+    utmTerm
   });
 
   return { click, targetUrl, buttonText };
