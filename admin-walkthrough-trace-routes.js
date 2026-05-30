@@ -10,7 +10,7 @@ const growthService = require('./services/growthService');
 const store = require('./store');
 const config = require('./config');
 
-const RUNTIME = 'CC8.3.14-STATS-MONITORING-LIVE';
+const RUNTIME = 'CC8.3.15-AUDIENCE-ATTRIBUTION';
 const STARTED_AT = new Date().toISOString();
 
 function clean(value) { return String(value || '').trim(); }
@@ -20,7 +20,7 @@ function liveRuntime() {
 }
 
 function liveSourceMarker() {
-  return clean(process.env.BUILD_SOURCE_MARKER) || 'adminkit-cc8-3-14-stats-monitoring-live';
+  return clean(process.env.BUILD_SOURCE_MARKER) || 'adminkit-cc8-3-15-audience-attribution';
 }
 
 function noCache(res) {
@@ -76,6 +76,17 @@ function safeRedirectTarget(value = '') {
 }
 function resolveTrackingUserId(req) {
   return clean(req.query?.userId || req.query?.uid || req.query?.u || '');
+}
+function eventLite(event = {}) {
+  return {
+    type: clean(event.type),
+    channelId: clean(event.channelId),
+    userId: clean(event.userId),
+    displayName: clean(event.displayName || event.username || [event.firstName, event.lastName].filter(Boolean).join(' ') || event.userId || 'Пользователь'),
+    source: clean(event.source),
+    attribution: event.attribution || {},
+    createdAt: event.createdAt || 0
+  };
 }
 
 function install(app) {
@@ -171,7 +182,27 @@ function install(app) {
   app.get('/debug/stats-monitoring-live', (req, res) => {
     noCache(res);
     const snapshot = statsMonitoring.buildMonitoringSnapshot({ userId: clean(req.query?.userId || '') });
-    return res.json({ ok: true, runtimeVersion: liveRuntime(), generatedAt: Date.now(), counts: snapshot.counts, dataQuality: snapshot.dataQuality, attribution: { clicks: snapshot.attribution.clicks, confirmedTotal: snapshot.attribution.confirmedTotal, probableTotal: snapshot.attribution.probableTotal, unknown: snapshot.attribution.unknown, sources: snapshot.attribution.sources }, topPosts: snapshot.topPosts.map((item) => ({ title: item.title, comments: item.comments, clicks: item.clicks, votes: item.votes, reactions: item.reactions, score: item.score })).slice(0, 5), safe: true, noMaxApiCall: true });
+    return res.json({
+      ok: true,
+      runtimeVersion: liveRuntime(),
+      generatedAt: Date.now(),
+      counts: snapshot.counts,
+      dataQuality: snapshot.dataQuality,
+      attribution: {
+        clicks: snapshot.attribution.clicks,
+        confirmedTotal: snapshot.attribution.confirmedTotal,
+        probableTotal: snapshot.attribution.probableTotal,
+        unknown: snapshot.attribution.unknown,
+        sources: snapshot.attribution.sources,
+        joinedEvents: (snapshot.attribution.joinedEvents || []).length,
+        leftEvents: (snapshot.attribution.leftEvents || []).length,
+        recentJoined: (snapshot.attribution.recentJoined || []).map(eventLite),
+        recentLeft: (snapshot.attribution.recentLeft || []).map(eventLite)
+      },
+      topPosts: snapshot.topPosts.map((item) => ({ title: item.title, comments: item.comments, clicks: item.clicks, votes: item.votes, reactions: item.reactions, score: item.score })).slice(0, 5),
+      safe: true,
+      noMaxApiCall: true
+    });
   });
 
   app.get('/go/:channelId/:buttonId', (req, res, next) => {
