@@ -8,13 +8,14 @@ const tenant = require('./tenant-scope');
 const trace = require('./v3-ui-trace-1539');
 const walkthroughTrace = require('./admin-walkthrough-trace');
 
-const RUNTIME = 'CC8.3.2-CHANNEL-FIRST-POST-PICKER-PR90';
+const RUNTIME = 'CC8.3.3-CHANNEL-FIRST-HIDE-IDS-START-CLEANUP';
 const MAX_POSTS = 8;
 
 function clean(value) { return String(value || '').trim(); }
 function short(value, max = 64) { const s = clean(value).replace(/\s+/g, ' '); return s.length <= max ? s : s.slice(0, Math.max(1, max - 1)).trim() + '…'; }
 function arr(value) { return Array.isArray(value) ? value : []; }
 function safe(fn, fallback) { try { return fn(); } catch { return fallback; } }
+function looksTechnicalId(value = '') { const s = clean(value); return /^-?\d{6,}$/.test(s) || /^id\d{6,}$/i.test(s); }
 function find(value, predicate, depth = 6, seen = new Set()) {
   if (!value || depth < 0 || typeof value !== 'object' || seen.has(value)) return null;
   seen.add(value);
@@ -35,15 +36,35 @@ function updateType(update = {}) { return clean(update.update_type || update.typ
 function isMessageCreatedLikeUpdate(kind = '') { return kind === 'message_created' || kind === 'message_created_callback' || kind === 'bot_started'; }
 function isRealCallback(update = {}, cb = null) { const kind = updateType(update); if (isMessageCreatedLikeUpdate(kind)) return false; if (directCallback(update)) return true; if (!cb) return false; if (kind.includes('callback')) return true; return Boolean(cbid(cb)); }
 function body(msg = {}) { return msg?.body && typeof msg.body === 'object' ? msg.body : {}; }
+function text(msg = {}) { const b = body(msg); return clean(b.text || b.caption || msg.text || msg.caption || ''); }
+function isStartText(value = '') { return /^\/?start(?:\s|$)/i.test(clean(value)); }
 function messageId(msg = {}) { const b = body(msg); return clean(b.mid || b.message_id || b.messageId || msg.mid || msg.message_id || msg.messageId || msg.id); }
+function resultMessageId(result = {}, fallback = '') { return clean(result?.message?.body?.mid || result?.message?.id || result?.body?.mid || result?.message_id || result?.messageId || result?.id || fallback); }
 function chatId(msg = {}) { return clean(msg?.recipient?.chat_id || msg?.recipient?.id || msg?.chat_id || msg?.chat?.id); }
 function chatType(msg = {}) { return clean(msg?.recipient?.chat_type || msg?.recipient?.type || msg?.chat_type || msg?.chat?.type).toLowerCase(); }
 function isChannelMessage(msg = {}) { const id = chatId(msg); return chatType(msg) === 'channel' || /^-/.test(id); }
 function userFrom(obj) { if (!obj || typeof obj !== 'object') return ''; return clean(obj.user_id || obj.userId || obj.sender_id || obj.senderId || obj.from_id || obj.fromId || obj.id || userFrom(obj.user) || userFrom(obj.sender) || userFrom(obj.from) || userFrom(obj.author)); }
 function senderId(msg = {}) { return clean(msg?.sender?.user_id || msg?.sender?.id || msg?.user_id || ''); }
 function userId(update = {}, cb = null, msg = null) { return userFrom(cb) || userFrom(update) || senderId(msg) || userFrom(find(update, (x) => x && typeof x === 'object' && (x.user_id || x.userId || x.sender_id || x.senderId || x.from_id || x.fromId), 7)); }
-function channelTitleFromPost(post = {}) { return clean(post.channelTitle || post.channelName || post.chatTitle || post.title || post.name || post.channelId || 'Канал'); }
-function postTitle(post = {}) { return short(post.originalText || post.postText || post.text || post.caption || post.postId || post.messageId || post.commentKey || 'Пост без текста', 58); }
+function storedChannelTitle(channelId = '') {
+  const id = clean(channelId);
+  if (!id) return '';
+  const channel = safe(() => arr(store.getChannelsList()).find((item) => clean(item.channelId || item.id || item.chatId) === id), null);
+  const title = clean(channel?.title || channel?.channelTitle || channel?.channelName || channel?.chatTitle || channel?.name || '');
+  return title && !looksTechnicalId(title) ? title : '';
+}
+function channelTitleFromPost(post = {}) {
+  const explicit = clean(post.channelTitle || post.channelName || post.chatTitle || post.title || post.name || '');
+  if (explicit && !looksTechnicalId(explicit)) return explicit;
+  return storedChannelTitle(post.channelId || post.requiredChatId || '') || 'Канал без названия';
+}
+function postTitle(post = {}) {
+  const txt = clean(post.originalText || post.postText || post.text || post.caption || '');
+  if (txt) return short(txt, 58);
+  const attachments = arr(post.sourceAttachments || post.attachments);
+  if (attachments.length) return attachments.some((item) => /image|photo/i.test(clean(item.type))) ? 'Пост с фото' : 'Пост с вложением';
+  return 'Пост без текста';
+}
 function postTime(post = {}) { const ts = Number(post.updatedAt || post.createdAt || post.ts || 0); if (!Number.isFinite(ts) || !ts) return ''; try { return new Date(ts).toISOString().slice(0, 16).replace('T', ' '); } catch { return ''; } }
 function sourceRoot(source = 'comments') {
   const s = clean(source).toLowerCase();
@@ -60,7 +81,7 @@ function sourceLabel(source = 'comments') {
   const s = clean(source).toLowerCase();
   if (s === 'stats') return '📊 Статистика';
   if (s === 'posts') return '✏️ Редактирование постов';
-  if (s === 'buttons') return '⚪ CTA / пользовательские кнопки';
+  if (s === 'buttons') return '🔘 CTA / пользовательские кнопки';
   if (s === 'gifts') return '🎁 Подарки / лид-магниты';
   if (s === 'highlights') return '⭐ Выделение постов';
   if (s === 'polls') return '🗳 Голосовалки / опросы';
@@ -82,8 +103,8 @@ function channelsFromPosts(user = '') {
   allPosts(user).forEach((post) => {
     const id = clean(post.channelId);
     const title = channelTitleFromPost(post);
-    if (!id || !title || /^global$/i.test(title) || map.has(id)) return;
-    map.set(id, title);
+    if (!id || /^global$/i.test(title) || map.has(id)) return;
+    map.set(id, title || 'Канал без названия');
   });
   return Array.from(map.entries()).map(([channelId, title]) => ({ channelId, title })).slice(0, 12);
 }
@@ -111,12 +132,12 @@ function pickExtra(source = 'comments', post = {}, channelId = '') {
 function channelPickerScreen(source = 'comments', user = '') {
   const channels = channelsFromPosts(user);
   if (channels.length === 1) return postsScreen(source, user, channels[0].channelId);
-  const rows = channels.map((channel, index) => [button(`${index + 1}. ${short(channel.title, 52)}`, 'comments_channel_pick', { source, channelId: channel.channelId })]);
+  const rows = channels.map((channel, index) => [button(`${index + 1}. ${short(channel.title || 'Канал без названия', 52)}`, 'comments_channel_pick', { source, channelId: channel.channelId })]);
   if (!rows.length) rows.push([button('📺 Подключить канал', 'admin_section_channels')]);
   rows.push(...footer(source));
   return {
     id: `channel_first_${clean(source || 'comments')}_channels`,
-    text: [sourceLabel(source), '', channels.length ? 'Выберите канал. После этого бот покажет посты только этого канала.' : 'Посты каналов пока не найдены в памяти бота.', '', 'Каналы показываются названием. Технический channelId скрыт внутри payload.'].join('\n'),
+    text: [sourceLabel(source), '', channels.length ? 'Выберите канал. После этого бот покажет посты только этого канала.' : 'Посты каналов пока не найдены в памяти бота.'].join('\n'),
     attachments: keyboard(rows)
   };
 }
@@ -127,7 +148,7 @@ function postsScreen(source = 'comments', user = '', channelId = '') {
   if (!rows.length) rows.push([button('Пока нет постов в этом канале', sourceRoot(source))]);
   if (channelsFromPosts(user).length > 1) rows.push([button('📺 Выбрать другой канал', 'comments_select_post', { source })]);
   rows.push(...footer(source));
-  const lines = [`Канал: ${title || 'Канал'}`, '', posts.length ? 'Выберите пост.' : 'В этом канале пока нет сохранённых постов.'];
+  const lines = [`Канал: ${title || 'Канал без названия'}`, '', posts.length ? 'Выберите пост.' : 'В этом канале пока нет сохранённых постов.'];
   posts.forEach((post, index) => {
     const meta = [postTime(post)].filter(Boolean).join(' · ');
     lines.push(`${index + 1}. ${postTitle(post)}${meta ? '\n   ' + meta : ''}`);
@@ -146,15 +167,50 @@ function shouldHandle(action = '', payload = {}) {
   if (action === 'admin_stats_post' && !clean(payload.commentKey || payload.key)) return true;
   return false;
 }
+function clearActiveFlows(uid = '') {
+  const user = clean(uid);
+  if (!user) return false;
+  const adminUi = { section: 'main', backAction: 'admin_section_main', rootAction: 'admin_section_main', selectMode: '' };
+  try {
+    store.setSetupState(user, {
+      buttonFlow: null,
+      giftFlow: null,
+      commentAdminFlow: null,
+      postEditFlow: null,
+      activeAdminFlowKind: '',
+      adminUi,
+      activeAdminUi: adminUi
+    });
+    walkthroughTrace.log('start.active_flows_cleared', { userId: user, runtimeVersion: RUNTIME });
+    return true;
+  } catch { return false; }
+}
+function rememberAdminScreen(uid = '', mid = '') {
+  const user = clean(uid);
+  const message = clean(mid);
+  if (!user || !message) return;
+  try {
+    const prev = store.getSetupState(user) || {};
+    const ids = [...arr(prev.adminMessageIds), prev.latestBotMessageId, message].map(clean).filter(Boolean);
+    const unique = [...new Set(ids)].slice(-20);
+    store.setSetupState(user, { latestBotMessageId: message, adminMessageIds: unique });
+  } catch {}
+}
 async function ack(config, id) { if (!id) return null; try { return await max.answerCallback({ botToken: config.botToken, callbackId: id }); } catch { return null; } }
 async function show(config, update, msg, screen) {
   const mid = messageId(msg);
   const cid = chatId(msg);
   const uid = userId(update, null, msg);
   if (mid) {
-    try { return await max.editMessage({ botToken: config.botToken, messageId: mid, text: screen.text, attachments: screen.attachments, notify: false }); } catch {}
+    try {
+      const result = await max.editMessage({ botToken: config.botToken, messageId: mid, text: screen.text, attachments: screen.attachments, notify: false });
+      rememberAdminScreen(uid, mid);
+      return result;
+    } catch {}
   }
-  return max.sendMessage({ botToken: config.botToken, userId: cid ? '' : uid, chatId: cid, text: screen.text, attachments: screen.attachments, notify: false });
+  const result = await max.sendMessage({ botToken: config.botToken, userId: cid ? '' : uid, chatId: cid, text: screen.text, attachments: screen.attachments, notify: false });
+  rememberAdminScreen(uid, resultMessageId(result));
+  return result;
 }
 
 function createCleanBot(legacy) {
@@ -165,6 +221,9 @@ function createCleanBot(legacy) {
       const msg = message(update);
       const cb = callback(update);
       const real = isRealCallback(update, cb);
+      if (!real && msg && !isChannelMessage(msg) && isStartText(text(msg))) {
+        clearActiveFlows(userId(update, null, msg));
+      }
       if (real && cb && msg && !isChannelMessage(msg)) {
         const payload = parsePayload(cb);
         const action = clean(payload.action || payload.raw);
