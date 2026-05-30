@@ -6,11 +6,12 @@ const store = require('./store');
 const menu = require('./v3-menu-core-1539');
 const buttonsFlow = require('./buttons-flow-cc8-clean');
 const giftsFlow = require('./gifts-flow-cc812-bottom');
+const postsFlow = require('./posts-flow-cc8-clean-wrapper');
 const tenant = require('./tenant-scope');
 const trace = require('./v3-ui-trace-1539');
 const walkthroughTrace = require('./admin-walkthrough-trace');
 
-const RUNTIME = 'CC8.3.6-NATIVE-START-GIFTS-CLEANUP';
+const RUNTIME = 'CC8.3.7-FLOW-ISOLATION-POSTS-GIFTS-NO-IDS';
 const MAX_POSTS = 8;
 
 function clean(value) { return String(value || '').trim(); }
@@ -62,6 +63,7 @@ function postsScreen(source = 'comments', user = '', channelId = '') { const pos
 function sourceFromPayload(action = '', payload = {}) { const explicit = clean(payload.source).toLowerCase(); if (explicit) return explicit; if (action === 'admin_posts_picker') return 'posts'; if (action === 'admin_stats_post') return 'stats'; return 'comments'; }
 function shouldHandle(action = '', payload = {}) { if (action === 'comments_select_post' || action === 'comments_channel_pick' || action === 'admin_posts_picker') return true; if (action === 'admin_stats_post' && !clean(payload.commentKey || payload.key)) return true; return false; }
 function clearActiveFlows(uid = '') { const user = clean(uid); if (!user) return false; const adminUi = { section: 'main', backAction: 'admin_section_main', rootAction: 'admin_section_main', selectMode: '' }; try { store.setSetupState(user, { buttonFlow: null, giftFlow: null, commentAdminFlow: null, postEditFlow: null, activeAdminFlowKind: '', adminUi, activeAdminUi: adminUi }); walkthroughTrace.log('active_flows_cleared', { userId: user, runtimeVersion: RUNTIME }); return true; } catch { return false; } }
+function clearCompetingFlows(uid = '', reason = '') { const user = clean(uid); if (!user) return false; try { const prev = store.getSetupState(user) || {}; store.setSetupState(user, { giftFlow: null, buttonFlow: null, commentAdminFlow: null, giftActiveScreenMessageId: '', buttonActiveScreenMessageId: '', activeAdminFlowKind: clean(prev.activeAdminFlowKind) === 'post_edit_text' ? 'post_edit_text' : '', flowIsolationReason: reason || RUNTIME }); walkthroughTrace.log('post_flow.competing_flows_cleared', { userId: user, reason: reason || RUNTIME }); return true; } catch { return false; } }
 function rememberAdminScreen(uid = '', mid = '') { const user = clean(uid); const message = clean(mid); if (!user || !message) return; try { const prev = store.getSetupState(user) || {}; const ids = [...arr(prev.adminMessageIds), prev.latestBotMessageId, message].map(clean).filter(Boolean); const unique = [...new Set(ids)].slice(-20); store.setSetupState(user, { latestBotMessageId: message, adminMessageIds: unique }); } catch {} }
 async function deleteActiveAdminScreens(config, uid = '') { const user = clean(uid); if (!user) return { deleted: 0, failed: 0 }; const state = safe(() => store.getSetupState(user) || {}, {}) || {}; const ids = [...arr(state.adminMessageIds), state.latestBotMessageId, state.giftActiveScreenMessageId, state.commentActiveScreenMessageId, state.buttonActiveScreenMessageId].map(clean).filter(Boolean); const unique = [...new Set(ids)]; let deleted = 0; let failed = 0; for (const id of unique) { try { await max.deleteMessage({ botToken: config.botToken, messageId: id, timeoutMs: config.menuDeleteTimeoutMs || 1800 }); deleted += 1; } catch { failed += 1; } } try { store.setSetupState(user, { adminMessageIds: [], latestBotMessageId: '', pendingDeleteMessageIds: [] }); } catch {} walkthroughTrace.log('active_screen_cleanup', { userId: user, deleted, failed, runtimeVersion: RUNTIME }); return { deleted, failed }; }
 async function ack(config, id) { if (!id) return null; try { return await max.answerCallback({ botToken: config.botToken, callbackId: id }); } catch { return null; } }
@@ -70,7 +72,11 @@ async function sendNativeStartScreen(config, update, uid = '') { const user = cl
 async function show(config, update, msg, screen) { const mid = messageId(msg); const cid = chatId(msg); const uid = userId(update, null, msg); if (mid) { try { const result = await max.editMessage({ botToken: config.botToken, messageId: mid, text: screen.text, attachments: screen.attachments, notify: false }); rememberAdminScreen(uid, mid); return result; } catch {} } const result = await max.sendMessage({ botToken: config.botToken, userId: cid ? '' : uid, chatId: cid, text: screen.text, attachments: screen.attachments, notify: false }); rememberAdminScreen(uid, resultMessageId(result)); return result; }
 function hasButtonFlowPriority(state = {}) { return clean(state.activeAdminFlowKind) === 'button' || Boolean(state.buttonFlow); }
 function hasGiftFlowPriority(state = {}) { return clean(state.activeAdminFlowKind) === 'gift' || Boolean(state.giftFlow); }
+function hasPostEditFlowPriority(state = {}) { return clean(state.activeAdminFlowKind) === 'post_edit_text' || clean(state.postEditFlow?.mode) === 'edit_text'; }
 function resetStaleButtonUrlIfNeeded(uid = '', state = {}, incomingText = '') { if (!hasButtonFlowPriority(state)) return state; const flow = state.buttonFlow || {}; const step = Number(flow.stepIndex || 0); if (step > 0 || hasUrl(incomingText)) return state; const nextFlow = { ...flow, draft: { ...(flow.draft || {}), url: '' } }; try { store.setSetupState(uid, { buttonFlow: nextFlow }); walkthroughTrace.log('button_flow.stale_url_reset', { userId: uid, runtimeVersion: RUNTIME }); return { ...state, buttonFlow: nextFlow }; } catch { return state; } }
+function isPostCallbackAction(action = '', payload = {}) { const a = clean(action); const src = clean(payload.source).toLowerCase(); return a === 'editor:home' || a === 'admin_section_posts' || /^admin_posts_/.test(a) || (a === 'comments_pick_post' && src === 'posts'); }
+function normalizePostPayload(payload = {}) { const action = clean(payload.action || payload.route || ''); if (action === 'editor:home') return { ...payload, action: 'admin_section_posts' }; return payload; }
+async function showFlowScreen(flow, config, update, cb, msg, screen, uid, action) { await ack(config, cbid(cb)); await show(config, update, msg, screen); return { ok: true, handledBy: RUNTIME, action, screenId: screen && screen.id, flow }; }
 
 function createCleanBot(legacy) {
   const wrapped = base.createCleanBot(legacy);
@@ -80,10 +86,19 @@ function createCleanBot(legacy) {
     if (!real && msg && !isChannelMessage(msg) && (isSlashCommand(incomingText) || isStartText(incomingText))) clearActiveFlows(uid);
     if (!real && msg && !isChannelMessage(msg) && incomingText && !isSlashCommand(incomingText)) {
       let state = safe(() => store.getSetupState(clean(uid)) || {}, {}) || {};
+      if (hasPostEditFlowPriority(state)) { const screen = await postsFlow.handleTextInput(menu, { config, userId: uid, text: incomingText, update }); if (screen) { await sendFreshScreen(config, update, msg, screen, uid); return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'post_text_input_active_screen_cleanup', screenId: screen.id }); } }
+      state = safe(() => store.getSetupState(clean(uid)) || {}, {}) || {};
       if (hasButtonFlowPriority(state)) { state = resetStaleButtonUrlIfNeeded(uid, state, incomingText); const screen = await buttonsFlow.handleTextInput(menu, { config, userId: uid, text: incomingText, update }); if (screen) { await sendFreshScreen(config, update, msg, screen, uid); return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'button_text_input_active_screen_cleanup', screenId: screen.id }); } }
+      state = safe(() => store.getSetupState(clean(uid)) || {}, {}) || {};
       if (hasGiftFlowPriority(state)) { const screen = await giftsFlow.handleTextInput(menu, { config, userId: uid, text: incomingText, update }); if (screen) { await sendFreshScreen(config, update, msg, screen, uid); return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'gift_text_input_active_screen_cleanup', screenId: screen.id }); } }
     }
-    if (real && cb && msg && !isChannelMessage(msg)) { const payload = parsePayload(cb); const action = clean(payload.action || payload.raw); if (shouldHandle(action, payload)) { const source = sourceFromPayload(action, payload); const screen = action === 'comments_channel_pick' ? postsScreen(source, uid, payload.channelId) : channelPickerScreen(source, uid); trace.log('channel_first_post_picker', { action, source, userId: trace.mask(uid), screenId: screen.id, channelId: trace.mask(payload.channelId || '') }); walkthroughTrace.log('channel_first.post_picker', { action, source, userId: uid, screenId: screen.id, channelId: payload.channelId || '' }); await ack(config, cbid(cb)); await show(config, update, msg, screen); return res.status(200).json({ ok: true, handledBy: RUNTIME, action, source, screenId: screen.id }); } }
+    if (real && cb && msg && !isChannelMessage(msg)) {
+      const payload = parsePayload(cb); const action = clean(payload.action || payload.raw || payload.route);
+      if (shouldHandle(action, payload)) { const source = sourceFromPayload(action, payload); const screen = action === 'comments_channel_pick' ? postsScreen(source, uid, payload.channelId) : channelPickerScreen(source, uid); trace.log('channel_first_post_picker', { action, source, userId: trace.mask(uid), screenId: screen.id, channelId: trace.mask(payload.channelId || '') }); walkthroughTrace.log('channel_first.post_picker', { action, source, userId: uid, screenId: screen.id, channelId: payload.channelId || '' }); await ack(config, cbid(cb)); await show(config, update, msg, screen); return res.status(200).json({ ok: true, handledBy: RUNTIME, action, source, screenId: screen.id }); }
+      if (isPostCallbackAction(action, payload)) { clearCompetingFlows(uid, `post_callback:${action}`); const normalized = normalizePostPayload(payload); const screen = await postsFlow.screenForPayload(menu, normalized, { config, userId: uid, update }); if (screen) { const result = await showFlowScreen('posts', config, update, cb, msg, screen, uid, action); return res.status(200).json(result); } }
+      if (giftsFlow.isCleanGiftAction && giftsFlow.isCleanGiftAction(action)) { const screen = await giftsFlow.screenForPayload(menu, payload, { config, userId: uid, update }); if (screen) { const result = await showFlowScreen('gifts', config, update, cb, msg, screen, uid, action); return res.status(200).json(result); } }
+      if (buttonsFlow.isCleanButtonAction && buttonsFlow.isCleanButtonAction(action)) { const screen = await buttonsFlow.screenForPayload(menu, payload, { config, userId: uid, update }); if (screen) { const result = await showFlowScreen('buttons', config, update, cb, msg, screen, uid, action); return res.status(200).json(result); } }
+    }
     return wrapped.handleWebhook(req, res, config);
   }};
 }
