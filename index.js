@@ -177,7 +177,26 @@ function setNoCacheHeaders(res) {
 
 app.use(express.json({ limit: `${Math.max(1, Number(config.postEditorMediaBodyLimitMb || 60))}mb` }));
 app.use(express.urlencoded({ extended: true, limit: `${Math.max(1, Number(config.postEditorMediaBodyLimitMb || 60))}mb` }));
-app.use("/public", express.static(path.join(__dirname, "public")));
+function setPublicAssetCacheHeaders(res, filePath) {
+  const ext = String(path.extname(filePath || "") || "").toLowerCase();
+
+  if (ext === ".js" || ext === ".css") {
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("X-Adminkit-Public-Asset-Cache", "static-setheaders-immutable");
+    res.setHeader("Vary", "Accept-Encoding");
+    return;
+  }
+
+  res.setHeader("Cache-Control", "public, max-age=3600");
+}
+
+app.use("/public", express.static(path.join(__dirname, "public"), {
+  etag: true,
+  lastModified: true,
+  maxAge: "1y",
+  immutable: true,
+  setHeaders: setPublicAssetCacheHeaders
+}));
 
 function requireGiftAdmin(req, res, next) {
   if (!config.giftAdminToken) return next();
