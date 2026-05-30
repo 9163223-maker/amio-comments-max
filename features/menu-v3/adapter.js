@@ -4,8 +4,8 @@
 // Safe Core Freeze: this module does not touch Dockerfile, package.json, boot, express, app.post, Module._load, webhook bootstrap, debug/store, or debug/ping.
 // It is intentionally isolated and must be connected only by an existing safe router layer after self-test passes.
 
-const VERSION = 'menu-v3-feature-adapter-3-slash-sections';
-const SOURCE = 'adminkit-menu-v3-feature-adapter-full-slash-sections';
+const VERSION = 'menu-v3-feature-adapter-4-doc-screens';
+const SOURCE = 'adminkit-menu-v3-feature-adapter-full-slash-sections-docs';
 
 const MAIN_ROUTES = [
   ['channels:home', '📺 Каналы'],
@@ -37,6 +37,8 @@ const SECTION_TITLES = {
   account: '👤 Личный кабинет',
   debug: '🧪 Debug / GitHub export',
   help: '❓ Помощь',
+  terms: '📄 Пользовательское соглашение',
+  privacy: '🔐 Политика конфиденциальности',
 };
 
 function normalize(value) {
@@ -66,6 +68,10 @@ function nav(owner) {
   ];
 }
 
+function docNav() {
+  return [[button('🏠 Главное меню', 'main:home')]];
+}
+
 function postTitle(post, index) {
   const title = normalize(post && post.title) || normalize(post && post.postId) || `Пост ${index + 1}`;
   return `${index + 1}. ${title}`;
@@ -92,6 +98,48 @@ function mainHome() {
       [button('🧪 Debug / GitHub export', 'debug:home')],
       [button('❓ Помощь', 'help:home')],
     ]),
+  };
+}
+
+function termsHome() {
+  return {
+    ok: true,
+    route: 'terms:home',
+    owner: 'terms',
+    text: [
+      '📄 Пользовательское соглашение АдминКИТ',
+      '',
+      'АдминКИТ — инструмент для администрирования MAX-каналов.',
+      '',
+      'Используя бота, администратор подтверждает право управлять подключаемым каналом и отвечает за публикуемые посты, ссылки, кнопки, подарки и настройки.',
+      '',
+      'Часть функций зависит от возможностей MAX API, прав бота в канале, сети и доступности mini-app.',
+      '',
+      'Основные команды: /menu, /channels, /comments, /gifts, /stats, /privacy, /clear.'
+    ].join('\n'),
+    attachments: keyboard(docNav()),
+  };
+}
+
+function privacyHome() {
+  return {
+    ok: true,
+    route: 'privacy:home',
+    owner: 'privacy',
+    text: [
+      '🔐 Политика конфиденциальности АдминКИТ',
+      '',
+      'АдминКИТ — бот для управления MAX-каналами.',
+      'Бот: @id781310320690_bot',
+      'Адрес бота: https://max.ru/id781310320690_bot',
+      '',
+      'Бот обрабатывает только данные, необходимые для работы функций: профиль MAX, подключённые каналы, посты, комментарии, кнопки, подарки, статистику и технические события.',
+      '',
+      'Данные используются для подключения каналов, комментариев под постами, подарков, кнопок, модерации, статистики и диагностики работы сервиса.',
+      '',
+      'АдминКИТ не передаёт данные для сторонней рекламы. Технические данные используются только для работы и поддержки сервиса.'
+    ].join('\n'),
+    attachments: keyboard(docNav()),
   };
 }
 
@@ -262,6 +310,8 @@ function render(route, context = {}) {
   try {
     const safeRoute = normalize(route || 'main:home');
     if (safeRoute === 'main:home' || safeRoute === 'start' || safeRoute === '/start') return mainHome();
+    if (safeRoute === 'terms:home' || safeRoute === '/terms') return termsHome();
+    if (safeRoute === 'privacy:home' || safeRoute === '/privacy') return privacyHome();
     const owner = ownerOf(safeRoute);
     if (safeRoute.endsWith(':home')) return sectionHome(owner);
     if (safeRoute.endsWith(':choose_post')) return choosePost(owner, context);
@@ -274,7 +324,7 @@ function render(route, context = {}) {
 }
 
 function selfTest() {
-  const routes = ['main:home', ...MAIN_ROUTES.map(([route]) => route), 'comments:choose_post', 'moderation:choose_post', 'editor:choose_post', 'gifts:choose_post', 'highlight:choose_post', 'polls:choose_post'];
+  const routes = ['main:home', ...MAIN_ROUTES.map(([route]) => route), 'comments:choose_post', 'moderation:choose_post', 'editor:choose_post', 'gifts:choose_post', 'highlight:choose_post', 'polls:choose_post', 'terms:home', 'privacy:home'];
   const sampleContext = {
     dataContext: {
       ok: true,
