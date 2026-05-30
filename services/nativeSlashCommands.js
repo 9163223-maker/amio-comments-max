@@ -87,36 +87,61 @@ function buildNativeCommandInfoText(command = '') {
     '/highlight': [
       '⭐ Выделение постов',
       '',
-      'Раздел предназначен для выделения важных постов в канале.',
-      'Функция находится в дорожной карте АдминКИТ и будет подключаться через главное меню.'
+      'Раздел запланирован как отдельный экран АдминКИТ.',
+      'Здесь будет настройка визуального выделения важных постов в канале.',
+      '',
+      'Сейчас команда не открывает старое меню и не запускает legacy-сценарии.'
     ],
     '/polls': [
       '🗳️ Голосовалки / опросы',
       '',
-      'Раздел для голосований и опросов под постами.',
-      'Функция находится в дорожной карте АдминКИТ.'
+      'Раздел запланирован как отдельный экран АдминКИТ.',
+      'Здесь будут голосования и опросы под постами.',
+      '',
+      'Сейчас команда не открывает старое меню и не запускает legacy-сценарии.'
     ],
     '/archive': [
       '🗄️ Архив / восстановление',
       '',
-      'Раздел для восстановления и обслуживания сохранённых сущностей: постов, кнопок, подарков и настроек.',
-      'Пока используйте основное меню и Debug-раздел.'
+      'Раздел запланирован как отдельный экран АдминКИТ.',
+      'Здесь будет восстановление сохранённых сущностей: постов, кнопок, подарков и настроек.',
+      '',
+      'Сейчас команда не открывает старое меню и не запускает legacy-сценарии.'
     ],
     '/account': [
       '👤 Личный кабинет',
       '',
-      'Здесь будет информация о тарифе, подключённых каналах и доступных функциях.',
-      'Пока управление идёт через главное меню.'
+      'Раздел запланирован как отдельный экран АдминКИТ.',
+      'Здесь будет тариф, подключённые каналы и доступные функции.',
+      '',
+      'Сейчас команда не открывает старое меню и не запускает legacy-сценарии.'
     ],
     '/debug': [
       '🧪 Debug / GitHub export',
       '',
       'Технический раздел для диагностики.',
-      'Используйте его только при проверке сборок, debug и production checklist.'
+      'Используйте debug только при проверке сборок и production checklist.',
+      '',
+      'Сейчас команда не открывает старое меню и не запускает legacy-сценарии.'
     ]
   };
 
   return (map[command] || ['АдминКИТ', '', 'Раздел пока готовится.']).join('\n');
+}
+
+function withSlashMessageMode(message) {
+  return { ...(message || {}), __fromCallback: true };
+}
+
+async function cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu, options = {}) {
+  if (!cleanupAdminWorkspaceOnMainMenu || !userId) return [];
+  try {
+    return await cleanupAdminWorkspaceOnMainMenu(config, userId, {
+      includeUserMessages: Boolean(options.includeUserMessages)
+    });
+  } catch {
+    return [];
+  }
 }
 
 async function handleNativeSlashCommand({
@@ -128,7 +153,6 @@ async function handleNativeSlashCommand({
   const {
     getSenderUserId,
     replyToUser,
-    buildAdminMainMenuAttachments,
     cleanupAdminWorkspaceOnMainMenu,
     sendSectionMenu,
     sendChannelsSection,
@@ -136,107 +160,119 @@ async function handleNativeSlashCommand({
   } = helpers;
 
   const userId = getSenderUserId(message);
+  const slashMessage = withSlashMessageMode(message);
 
   if (command === '/menu') {
-    await cleanupAdminWorkspaceOnMainMenu(config, userId, { includeUserMessages: false });
+    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
     await sendSectionMenu({
       config,
-      message,
+      message: slashMessage,
       section: 'main',
-      note: 'Главное меню открыто.'
+      note: 'Главное меню открыто.',
+      editCurrent: true
     });
     return true;
   }
 
   if (command === '/clear') {
-    const failedIds = await cleanupAdminWorkspaceOnMainMenu(config, userId, { includeUserMessages: true });
+    const failedIds = await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu, { includeUserMessages: true });
     await sendSectionMenu({
       config,
-      message,
+      message: slashMessage,
       section: 'main',
       note: failedIds.length
-        ? `Очистил доступные сообщения. ${failedIds.length} сообщений MAX не разрешил удалить.`
-        : 'Чат очищен от активных меню бота. Открываю главное меню.'
+        ? `Очистил доступные сообщения. ${failedIds.length} сообщений MAX не разрешил удалить. Открываю одно актуальное меню.`
+        : 'Чат очищен от активных меню бота. Открываю одно актуальное меню.',
+      editCurrent: true
     });
     return true;
   }
 
   if (command === '/channels') {
+    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
     await sendChannelsSection({
       config,
-      message,
-      note: 'Раздел подключения канала.'
+      message: slashMessage,
+      note: 'Раздел подключения канала.',
+      editCurrent: true
     });
     return true;
   }
 
   if (command === '/comments') {
-    await sendSectionMenu({ config, message, section: 'comments' });
+    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
+    await sendSectionMenu({ config, message: slashMessage, section: 'comments', editCurrent: true });
     return true;
   }
 
   if (command === '/gifts') {
-    await sendSectionMenu({ config, message, section: 'gifts' });
+    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
+    await sendSectionMenu({ config, message: slashMessage, section: 'gifts', editCurrent: true });
     return true;
   }
 
   if (command === '/buttons') {
-    await sendSectionMenu({ config, message, section: 'buttons' });
+    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
+    await sendSectionMenu({ config, message: slashMessage, section: 'buttons', editCurrent: true });
     return true;
   }
 
   if (command === '/posts') {
-    await sendSectionMenu({ config, message, section: 'posts' });
+    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
+    await sendSectionMenu({ config, message: slashMessage, section: 'posts', editCurrent: true });
     return true;
   }
 
   if (command === '/moderation') {
-    await sendSectionMenu({ config, message, section: 'moderation' });
+    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
+    await sendSectionMenu({ config, message: slashMessage, section: 'moderation', editCurrent: true });
     return true;
   }
 
   if (command === '/stats') {
+    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
     await sendStatsMenuResponse({
       config,
-      message,
+      message: slashMessage,
       userId,
       mode: 'channel',
-      editCurrent: false
+      editCurrent: true
     });
     return true;
   }
 
   if (command === '/help') {
-    await sendSectionMenu({ config, message, section: 'help' });
+    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
+    await sendSectionMenu({ config, message: slashMessage, section: 'help', editCurrent: true });
     return true;
   }
 
   if (command === '/terms') {
+    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
     await replyToUser({
       config,
-      message,
-      text: buildTermsText(),
-      attachments: await buildAdminMainMenuAttachments(config)
+      message: slashMessage,
+      text: buildTermsText()
     });
     return true;
   }
 
   if (command === '/privacy') {
+    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
     await replyToUser({
       config,
-      message,
-      text: buildPrivacyPolicyText(),
-      attachments: await buildAdminMainMenuAttachments(config)
+      message: slashMessage,
+      text: buildPrivacyPolicyText()
     });
     return true;
   }
 
   if (['/highlight', '/polls', '/archive', '/account', '/debug'].includes(command)) {
+    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
     await replyToUser({
       config,
-      message,
-      text: buildNativeCommandInfoText(command),
-      attachments: await buildAdminMainMenuAttachments(config)
+      message: slashMessage,
+      text: buildNativeCommandInfoText(command)
     });
     return true;
   }
