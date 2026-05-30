@@ -1,4 +1,25 @@
 const API_BASE_URL = "https://platform-api.max.ru";
+let botAudit = null;
+function audit() {
+  if (botAudit !== null) return botAudit;
+  try { botAudit = require('../admin-bot-audit-trace'); } catch { botAudit = false; }
+  return botAudit;
+}
+function auditLog(type, payload) { try { const a = audit(); if (a && a.log) a.log(type, payload); } catch {} }
+function previewText(value = "", max = 140) { const s = String(value || "").trim().replace(/\s+/g, " "); return s.length <= max ? s : s.slice(0, max) + "…"; }
+function querySummary(query) { const out = {}; if (!query || typeof query !== "object") return out; Object.entries(query).forEach(([k, v]) => { if (v === undefined || v === null || v === "") return; out[k] = Array.isArray(v) ? `array:${v.length}` : String(v); }); return out; }
+function bodySummary(body) {
+  if (!body || typeof body !== "object") return {};
+  return {
+    hasText: body.text !== undefined,
+    textPreview: body.text !== undefined ? previewText(body.text) : undefined,
+    attachmentCount: Array.isArray(body.attachments) ? body.attachments.length : 0,
+    attachmentTypes: Array.isArray(body.attachments) ? body.attachments.map((item) => item && item.type).filter(Boolean).slice(0, 12) : [],
+    hasLink: body.link !== undefined,
+    hasFormat: body.format !== undefined,
+    notify: body.notify
+  };
+}
 
 // CC7.4.1
 // Product rule: comments button must never use a visible external code.run /app URL.
@@ -30,6 +51,8 @@ async function maxApi(path, { token, method = "GET", query = null, body, timeout
   if (!token) throw new Error("BOT_TOKEN is missing");
   const url = new URL(`${API_BASE_URL}${path}`);
   appendQueryParams(url, query);
+  const startedAt = Date.now();
+  auditLog('max_api.request', { method, path, query: querySummary(query), body: bodySummary(body) });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), Math.max(100, Number(timeoutMs || 9000)));
   let response;
@@ -45,15 +68,18 @@ async function maxApi(path, { token, method = "GET", query = null, body, timeout
     });
   } catch (error) {
     if (error?.name === "AbortError") {
+      auditLog('max_api.timeout', { method, path, ms: Date.now() - startedAt });
       const timeoutError = new Error(`MAX API timeout ${method} ${path}`);
       timeoutError.status = 408;
       throw timeoutError;
     }
+    auditLog('max_api.network_error', { method, path, ms: Date.now() - startedAt, error: error && error.message || String(error) });
     throw error;
   } finally {
     clearTimeout(timeout);
   }
   const data = await readJsonSafe(response);
+  auditLog(response.ok ? 'max_api.response' : 'max_api.error', { method, path, status: response.status, ok: response.ok, ms: Date.now() - startedAt, responseKeys: data && typeof data === 'object' ? Object.keys(data).slice(0, 20) : [] });
   if (!response.ok) {
     const error = new Error(`MAX API ${response.status} ${method} ${path}`);
     error.status = response.status;
@@ -81,6 +107,7 @@ async function registerWebhook({ botToken, webhookUrl, secret }) {
 
 async function editMessage({ botToken, messageId, text, attachments, notify = false, format, link }) {
   if (!messageId) throw new Error("messageId is required");
+  auditLog('bot_action.edit_message.intent', { messageId, textPreview: previewText(text), attachmentCount: Array.isArray(attachments) ? attachments.length : 0, attachmentTypes: Array.isArray(attachments) ? attachments.map((item) => item && item.type).filter(Boolean) : [], notify });
   const body = { notify };
   if (text !== undefined) body.text = text;
   if (attachments !== undefined) body.attachments = attachments;
@@ -91,6 +118,7 @@ async function editMessage({ botToken, messageId, text, attachments, notify = fa
 
 async function sendMessage({ botToken, userId, chatId, text, attachments, format, link, notify = false }) {
   if (!userId && !chatId) throw new Error("userId_or_chatId_required");
+  auditLog('bot_action.send_message.intent', { userId, chatId, textPreview: previewText(text), attachmentCount: Array.isArray(attachments) ? attachments.length : 0, attachmentTypes: Array.isArray(attachments) ? attachments.map((item) => item && item.type).filter(Boolean) : [], notify });
   const body = { notify };
   if (text !== undefined) body.text = text;
   if (attachments !== undefined) body.attachments = attachments;
@@ -106,6 +134,7 @@ async function sendMessage({ botToken, userId, chatId, text, attachments, format
 
 async function deleteMessage({ botToken, messageId, timeoutMs = 2500 }) {
   if (!messageId) throw new Error("messageId is required");
+  auditLog('bot_action.delete_message.intent', { messageId, timeoutMs });
   const data = await maxApi("/messages", { token: botToken, method: "DELETE", query: { message_id: messageId }, timeoutMs });
   if (data && Object.prototype.hasOwnProperty.call(data, "success") && data.success === false) {
     const error = new Error(data.message || `MAX API DELETE /messages returned success=false for ${messageId}`);
@@ -117,6 +146,7 @@ async function deleteMessage({ botToken, messageId, timeoutMs = 2500 }) {
 
 async function answerCallback({ botToken, callbackId, notification, message }) {
   if (!callbackId) return { success: false, skipped: true, reason: "callback_id_missing" };
+  auditLog('bot_action.answer_callback.intent', { callbackId, hasNotification: Boolean(notification), hasMessage: Boolean(message) });
   return maxApi("/answers", {
     token: botToken,
     method: "POST",
@@ -156,6 +186,8 @@ async function createUpload({ botToken, type }) {
 async function uploadBinaryToUrl({ uploadUrl, botToken, buffer, fileName, mimeType }) {
   if (!uploadUrl) throw new Error("upload_url_missing");
   if (!buffer || !buffer.length) throw new Error("upload_buffer_empty");
+  auditLog('max_upload.request', { uploadType: mimeType, fileName, size: buffer.length });
+  const startedAt = Date.now();
   const form = new FormData();
   const blob = new Blob([buffer], { type: mimeType || "application/octet-stream" });
   form.append("data", blob, fileName || "upload.bin");
@@ -165,6 +197,7 @@ async function uploadBinaryToUrl({ uploadUrl, botToken, buffer, fileName, mimeTy
     body: form
   });
   const data = await readJsonSafe(response);
+  auditLog(response.ok ? 'max_upload.response' : 'max_upload.error', { status: response.status, ok: response.ok, ms: Date.now() - startedAt, responseKeys: data && typeof data === 'object' ? Object.keys(data).slice(0, 20) : [] });
   if (!response.ok) {
     const error = new Error(`MAX UPLOAD ${response.status}`);
     error.status = response.status;
