@@ -99,7 +99,7 @@ async function registerWebhook({ botToken, webhookUrl, secret }) {
     method: "POST",
     body: {
       url: webhookUrl,
-      update_types: ["message_callback", "message_created", "bot_started"],
+      update_types: ["message_callback", "message_created", "bot_started", "bot_stopped", "bot_added", "bot_removed", "chat_title_changed", "user_added", "user_removed", "dialog_cleared", "dialog_removed"],
       ...(secret ? { secret } : {})
     }
   });
