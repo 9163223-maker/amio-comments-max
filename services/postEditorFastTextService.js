@@ -9,7 +9,7 @@ const { patchStoredPost } = require('./postPatcher');
 const postEditor = require('./postEditorService');
 const timing = require('../v3-ui-timing-cc8');
 
-const RUNTIME = 'CC8.0.16-POSTS-LEGACY-REPATCH';
+const RUNTIME = 'CC8.3.8-POSTS-TEXT-MEDIA-STAGED';
 
 function clean(value) {
   return String(value || '').trim();
@@ -25,6 +25,10 @@ function normalizeText(value) {
 
 function normalizeAttachments(value) {
   return Array.isArray(value) ? cloneDeep(value) : [];
+}
+
+function attachmentsFingerprint(value) {
+  try { return JSON.stringify(normalizeAttachments(value)); } catch { return '[]'; }
 }
 
 function getEditableMeta(post = {}, config = {}) {
@@ -124,7 +128,7 @@ function schedulePatch({ commentKey = '', config = {}, source = 'post_text_save'
   return { ok: true, scheduled: true, pending: true, async: true, legacyRepatch, runtimeVersion: RUNTIME };
 }
 
-async function editPostTextFast({ commentKey = '', text = '', link = undefined, format = undefined, actorId = '', actorName = '', config = {} }) {
+async function editPostTextFast({ commentKey = '', text = '', sourceAttachments = undefined, link = undefined, format = undefined, actorId = '', actorName = '', config = {} }) {
   const totalStarted = Date.now();
   const key = clean(commentKey);
   const meta = { commentKey: maskKey(key), userId: timing.mask(actorId) };
@@ -133,22 +137,26 @@ async function editPostTextFast({ commentKey = '', text = '', link = undefined, 
   const post = ensured.post;
   const source = ensured.expiredWindowFallback ? 'legacy_repatch_expired_window' : 'post_text_save';
 
-  const nextText = normalizeText(text);
+  const currentAttachments = normalizeAttachments(post.sourceAttachments || post.attachments || []);
+  const nextAttachments = sourceAttachments !== undefined ? normalizeAttachments(sourceAttachments) : currentAttachments;
+  const attachmentsChanged = attachmentsFingerprint(nextAttachments) !== attachmentsFingerprint(currentAttachments);
+  const nextText = normalizeText(text || (attachmentsChanged ? (post.originalText || post.postText || post.text || '') : ''));
   if (!nextText) throw new Error('text_required');
-  if (nextText === normalizeText(post.originalText || '')) throw new Error('text_not_changed');
+  if (nextText === normalizeText(post.originalText || '') && !attachmentsChanged) throw new Error('text_not_changed');
 
   const version = await timing.measure('posts_text_stage_version_save', meta, async () => savePostVersion(key, {
-    type: ensured.expiredWindowFallback ? 'legacy_repatch_text_edit' : 'edit',
+    type: attachmentsChanged ? (ensured.expiredWindowFallback ? 'legacy_repatch_text_media_edit' : 'edit_text_media') : (ensured.expiredWindowFallback ? 'legacy_repatch_text_edit' : 'edit'),
     snapshotText: String(post.originalText || ''),
     appliedText: nextText,
-    snapshotAttachments: normalizeAttachments(post.sourceAttachments || post.attachments || []),
-    appliedAttachments: normalizeAttachments(post.sourceAttachments || post.attachments || []),
+    snapshotAttachments: currentAttachments,
+    appliedAttachments: nextAttachments,
     actorId: clean(actorId),
     actorName: clean(actorName),
     sourceVersionId: '',
     runtimeVersion: RUNTIME,
     stagedPatch: true,
     asyncPatch: true,
+    mediaUpdated: attachmentsChanged,
     expiredWindowFallback: Boolean(ensured.expiredWindowFallback),
     legacyRepatch: Boolean(ensured.expiredWindowFallback)
   }));
@@ -158,6 +166,7 @@ async function editPostTextFast({ commentKey = '', text = '', link = undefined, 
 
   await timing.measure('posts_text_stage_store_save', meta, async () => savePost(key, {
     originalText: nextText,
+    ...(attachmentsChanged ? { sourceAttachments: nextAttachments, attachments: nextAttachments } : {}),
     ...(nextLink !== undefined ? { originalLink: cloneDeep(nextLink) } : {}),
     ...(nextFormat !== undefined ? { originalFormat: cloneDeep(nextFormat) } : {}),
     lastEditedAt: Date.now(),
@@ -168,6 +177,7 @@ async function editPostTextFast({ commentKey = '', text = '', link = undefined, 
     lastPatchPending: true,
     lastPatchPendingAt: Date.now(),
     lastPatchMode: ensured.expiredWindowFallback ? 'legacy_safe_repatch_expired_window' : 'async_full_post_patch',
+    lastMediaEditIncluded: attachmentsChanged,
     lastTextEditExpiredWindowFallback: Boolean(ensured.expiredWindowFallback),
     lastLegacyRepatchRequestedAt: ensured.expiredWindowFallback ? Date.now() : 0
   }));
@@ -180,6 +190,8 @@ async function editPostTextFast({ commentKey = '', text = '', link = undefined, 
     durationMs: Date.now() - totalStarted,
     asyncPatch: Boolean(patch?.pending),
     maxEditDeferred: true,
+    mediaUpdated: attachmentsChanged,
+    mediaCount: nextAttachments.length,
     expiredWindowFallback: Boolean(ensured.expiredWindowFallback),
     legacyRepatch: Boolean(patch?.legacyRepatch),
     runtimeVersion: RUNTIME
@@ -192,6 +204,8 @@ async function editPostTextFast({ commentKey = '', text = '', link = undefined, 
     post: getPost(key),
     runtimeVersion: RUNTIME,
     maxEditDeferred: true,
+    mediaUpdated: attachmentsChanged,
+    mediaCount: nextAttachments.length,
     expiredWindowFallback: Boolean(ensured.expiredWindowFallback),
     legacyRepatch: Boolean(patch?.legacyRepatch)
   };
