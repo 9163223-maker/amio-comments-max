@@ -2,6 +2,9 @@
 
 const baseGuard = require('./clean-bot-flow-guard-1546');
 const timing = require('./v3-ui-timing-cc8');
+const max = require('./services/maxApi');
+const store = require('./store');
+const unifiedMenu = require('./features/menu-v3/adapter');
 const { tryPatchChannelPost, FAST_PATCH_RUNTIME } = require('./services/postPatcherFastPr84');
 
 const RUNTIME = FAST_PATCH_RUNTIME || 'CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84';
@@ -40,6 +43,64 @@ function chatType(msg = {}) { return clean(msg?.recipient?.chat_type || msg?.rec
 function isChannelMessage(msg = {}) { const id = chatId(msg); return chatType(msg) === 'channel' || /^-/.test(id); }
 function senderId(msg = {}) { return clean(msg?.sender?.user_id || msg?.sender?.id || msg?.user_id || ''); }
 function messageId(msg = {}) { const b = body(msg); return clean(b.mid || b.message_id || b.messageId || msg.mid || msg.message_id || msg.messageId || msg.id); }
+function resultMessageId(result = {}) { return clean(result?.message?.body?.mid || result?.message?.id || result?.body?.mid || result?.message_id || result?.messageId || result?.id); }
+function isStartText(value = '') { return /^\/?start(?:\s|$)/i.test(clean(value)); }
+function uniqueIds(items = []) {
+  const seen = new Set();
+  return (Array.isArray(items) ? items : [items]).map(clean).filter(Boolean).filter((item) => {
+    if (seen.has(item)) return false;
+    seen.add(item);
+    return true;
+  });
+}
+async function deleteStoredAdminMessages(config, ids = []) {
+  const failed = [];
+  for (const id of uniqueIds(ids)) {
+    try {
+      await max.deleteMessage({ botToken: config.botToken, messageId: id, timeoutMs: config.menuDeleteTimeoutMs || 1800 });
+    } catch (error) {
+      failed.push(id);
+      timing.log('start_menu_delete_failed', { durationMs: 0, messageId: timing.mask(id), error: clean(error?.message || error), status: clean(error?.status) });
+    }
+  }
+  return failed;
+}
+async function handleUnifiedStart(update, msg, config) {
+  const userId = senderId(msg) || clean(findFirstDeepValue(update, ['user_id', 'userId', 'sender_id', 'senderId', 'from_id', 'fromId']));
+  if (!userId) return { ok: false, skipped: true, reason: 'user_id_missing' };
+  const state = store.getSetupState(userId) || {};
+  const previousIds = uniqueIds([
+    ...(Array.isArray(state.adminMessageIds) ? state.adminMessageIds : []),
+    state.latestBotMessageId,
+    state?.giftFlow?.anchorMessageId,
+    state?.commentAdminFlow?.anchorMessageId,
+    ...(Array.isArray(state.pendingDeleteMessageIds) ? state.pendingDeleteMessageIds : [])
+  ]);
+  const failedIds = await deleteStoredAdminMessages(config, previousIds);
+  const screen = unifiedMenu.render('main:home');
+  const result = await max.sendMessage({
+    botToken: config.botToken,
+    userId: chatId(msg) ? '' : userId,
+    chatId: chatId(msg),
+    text: screen.text,
+    attachments: screen.attachments,
+    notify: false
+  });
+  const sentId = resultMessageId(result);
+  store.setSetupState(userId, {
+    latestBotMessageId: sentId || state.latestBotMessageId || '',
+    adminMessageIds: sentId ? [sentId] : [],
+    pendingDeleteMessageIds: failedIds.slice(-50),
+    adminUi: {
+      ...(state.adminUi || {}),
+      section: 'main',
+      backAction: 'admin_section_main',
+      rootAction: 'admin_section_main',
+      selectMode: ''
+    }
+  });
+  return { ok: true, sentMessageId: sentId, deletedCount: previousIds.length - failedIds.length, failedCount: failedIds.length };
+}
 function findFirstDeepValue(value, keys = [], seen = new Set()) {
   if (!value || typeof value !== 'object' || seen.has(value)) return '';
   seen.add(value);
@@ -148,6 +209,18 @@ function createCleanBot(legacy) {
       const msg = message(update);
       const rawCb = callback(update);
       const realCb = isRealCallbackUpdate(update, rawCb);
+      if (!realCb && msg && !isChannelMessage(msg) && isStartText(text(msg))) {
+        try {
+          const result = await timing.measure('unified_start_menu', {
+            updateType: updateType(update),
+            userId: timing.mask(senderId(msg)),
+            messageId: timing.mask(messageId(msg))
+          }, () => handleUnifiedStart(update, msg, config));
+          return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'unified_start_menu', ...result });
+        } catch (error) {
+          timing.log('unified_start_menu_error', { durationMs: 0, error: clean(error?.message || error), userId: timing.mask(senderId(msg)) });
+        }
+      }
       if (!realCb && msg && isDirectPatchCandidate(msg)) {
         try {
           const result = await timing.measure('direct_channel_pr84_total', {
