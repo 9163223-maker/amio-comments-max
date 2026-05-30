@@ -3,6 +3,7 @@
 const menuV3Adapter = require('../features/menu-v3/adapter');
 
 const COMMANDS = new Set([
+  '/start',
   '/menu',
   '/channels',
   '/comments',
@@ -23,6 +24,7 @@ const COMMANDS = new Set([
 ]);
 
 const ROUTE_BY_COMMAND = {
+  '/start': 'main:home',
   '/menu': 'main:home',
   '/channels': 'channels:home',
   '/comments': 'comments:home',
@@ -69,6 +71,7 @@ async function sendUnifiedScreen({
   message,
   userId,
   cleanupAdminWorkspaceOnMainMenu,
+  sendFreshAdminMessage,
   replyToUser,
   route = 'main:home',
   note = '',
@@ -84,7 +87,8 @@ async function sendUnifiedScreen({
     screen.text || 'АдминКИТ'
   ].filter(Boolean).join('\n\n');
 
-  return replyToUser({
+  const sendScreen = sendFreshAdminMessage || replyToUser;
+  return sendScreen({
     config,
     message,
     text,
@@ -96,6 +100,7 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
   const {
     getSenderUserId,
     replyToUser,
+    sendFreshAdminMessage,
     cleanupAdminWorkspaceOnMainMenu
   } = helpers;
 
@@ -116,6 +121,7 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
       message,
       userId,
       cleanupAdminWorkspaceOnMainMenu,
+      sendFreshAdminMessage,
       replyToUser,
       route: 'main:home',
       skipCleanup: true,
@@ -133,9 +139,10 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
     message,
     userId,
     cleanupAdminWorkspaceOnMainMenu,
+    sendFreshAdminMessage,
     replyToUser,
     route,
-    note: command === '/menu' ? 'Главное меню открыто.' : ''
+    note: command === '/menu' || command === '/start' ? 'Главное меню открыто.' : ''
   });
 }
 
