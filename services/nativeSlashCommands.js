@@ -129,10 +129,6 @@ function buildNativeCommandInfoText(command = '') {
   return (map[command] || ['АдминКИТ', '', 'Раздел пока готовится.']).join('\n');
 }
 
-function withSlashMessageMode(message) {
-  return { ...(message || {}), __fromCallback: true };
-}
-
 async function cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu, options = {}) {
   if (!cleanupAdminWorkspaceOnMainMenu || !userId) return [];
   try {
@@ -142,6 +138,30 @@ async function cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMen
   } catch {
     return [];
   }
+}
+
+function normalizeFailedCleanupCount(failedIds) {
+  return Array.isArray(failedIds) ? failedIds.length : 0;
+}
+
+async function openFreshSection({
+  config,
+  message,
+  userId,
+  cleanupAdminWorkspaceOnMainMenu,
+  sendSectionMenu,
+  section,
+  note = ''
+}) {
+  await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
+  await sendSectionMenu({
+    config,
+    message,
+    section,
+    note,
+    editCurrent: false
+  });
+  return true;
 }
 
 async function handleNativeSlashCommand({
@@ -160,30 +180,30 @@ async function handleNativeSlashCommand({
   } = helpers;
 
   const userId = getSenderUserId(message);
-  const slashMessage = withSlashMessageMode(message);
 
   if (command === '/menu') {
-    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
-    await sendSectionMenu({
+    return openFreshSection({
       config,
-      message: slashMessage,
+      message,
+      userId,
+      cleanupAdminWorkspaceOnMainMenu,
+      sendSectionMenu,
       section: 'main',
-      note: 'Главное меню открыто.',
-      editCurrent: true
+      note: 'Главное меню открыто.'
     });
-    return true;
   }
 
   if (command === '/clear') {
     const failedIds = await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu, { includeUserMessages: true });
+    const failedCount = normalizeFailedCleanupCount(failedIds);
     await sendSectionMenu({
       config,
-      message: slashMessage,
+      message,
       section: 'main',
-      note: failedIds.length
-        ? `Очистил доступные сообщения. ${failedIds.length} сообщений MAX не разрешил удалить. Открываю одно актуальное меню.`
+      note: failedCount
+        ? `Очистил доступные сообщения. ${failedCount} сообщений MAX не разрешил удалить. Открываю одно актуальное меню.`
         : 'Чат очищен от активных меню бота. Открываю одно актуальное меню.',
-      editCurrent: true
+      editCurrent: false
     });
     return true;
   }
@@ -192,66 +212,54 @@ async function handleNativeSlashCommand({
     await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
     await sendChannelsSection({
       config,
-      message: slashMessage,
+      message,
       note: 'Раздел подключения канала.',
-      editCurrent: true
+      editCurrent: false
     });
     return true;
   }
 
   if (command === '/comments') {
-    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
-    await sendSectionMenu({ config, message: slashMessage, section: 'comments', editCurrent: true });
-    return true;
+    return openFreshSection({ config, message, userId, cleanupAdminWorkspaceOnMainMenu, sendSectionMenu, section: 'comments' });
   }
 
   if (command === '/gifts') {
-    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
-    await sendSectionMenu({ config, message: slashMessage, section: 'gifts', editCurrent: true });
-    return true;
+    return openFreshSection({ config, message, userId, cleanupAdminWorkspaceOnMainMenu, sendSectionMenu, section: 'gifts' });
   }
 
   if (command === '/buttons') {
-    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
-    await sendSectionMenu({ config, message: slashMessage, section: 'buttons', editCurrent: true });
-    return true;
+    return openFreshSection({ config, message, userId, cleanupAdminWorkspaceOnMainMenu, sendSectionMenu, section: 'buttons' });
   }
 
   if (command === '/posts') {
-    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
-    await sendSectionMenu({ config, message: slashMessage, section: 'posts', editCurrent: true });
-    return true;
+    return openFreshSection({ config, message, userId, cleanupAdminWorkspaceOnMainMenu, sendSectionMenu, section: 'posts' });
   }
 
   if (command === '/moderation') {
-    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
-    await sendSectionMenu({ config, message: slashMessage, section: 'moderation', editCurrent: true });
-    return true;
+    return openFreshSection({ config, message, userId, cleanupAdminWorkspaceOnMainMenu, sendSectionMenu, section: 'moderation' });
   }
 
   if (command === '/stats') {
     await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
     await sendStatsMenuResponse({
       config,
-      message: slashMessage,
+      message,
       userId,
       mode: 'channel',
-      editCurrent: true
+      editCurrent: false
     });
     return true;
   }
 
   if (command === '/help') {
-    await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
-    await sendSectionMenu({ config, message: slashMessage, section: 'help', editCurrent: true });
-    return true;
+    return openFreshSection({ config, message, userId, cleanupAdminWorkspaceOnMainMenu, sendSectionMenu, section: 'help' });
   }
 
   if (command === '/terms') {
     await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
     await replyToUser({
       config,
-      message: slashMessage,
+      message,
       text: buildTermsText()
     });
     return true;
@@ -261,7 +269,7 @@ async function handleNativeSlashCommand({
     await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
     await replyToUser({
       config,
-      message: slashMessage,
+      message,
       text: buildPrivacyPolicyText()
     });
     return true;
@@ -271,7 +279,7 @@ async function handleNativeSlashCommand({
     await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
     await replyToUser({
       config,
-      message: slashMessage,
+      message,
       text: buildNativeCommandInfoText(command)
     });
     return true;
