@@ -5,8 +5,12 @@ const walkthroughTrace = require('./admin-walkthrough-trace');
 const uiTrace = require('./v3-ui-trace-1539');
 const timing = require('./v3-ui-timing-cc8');
 const botAudit = require('./admin-bot-audit-trace');
+const statsMonitoring = require('./stats-monitoring-service');
+const growthService = require('./services/growthService');
+const store = require('./store');
+const config = require('./config');
 
-const RUNTIME = 'CC8.3.13-BOT-AUDIT-TRACE';
+const RUNTIME = 'CC8.3.14-STATS-MONITORING-LIVE';
 const STARTED_AT = new Date().toISOString();
 
 function clean(value) { return String(value || '').trim(); }
@@ -16,7 +20,7 @@ function liveRuntime() {
 }
 
 function liveSourceMarker() {
-  return clean(process.env.BUILD_SOURCE_MARKER) || 'adminkit-cc8-3-13-bot-audit-trace';
+  return clean(process.env.BUILD_SOURCE_MARKER) || 'adminkit-cc8-3-14-stats-monitoring-live';
 }
 
 function noCache(res) {
@@ -60,6 +64,18 @@ function liveVersionPayload() {
     noDatabaseRead: true,
     noMaxApiCall: true
   };
+}
+
+function publicBase() {
+  return clean(config.appBaseUrl || process.env.ADMINKIT_PUBLIC_BASE_URL || process.env.APP_BASE_URL || '');
+}
+function safeRedirectTarget(value = '') {
+  const raw = clean(value);
+  if (!/^https?:\/\//i.test(raw)) return '';
+  return raw;
+}
+function resolveTrackingUserId(req) {
+  return clean(req.query?.userId || req.query?.uid || req.query?.u || '');
 }
 
 function install(app) {
@@ -145,6 +161,50 @@ function install(app) {
     noCache(res);
     botAudit.clear();
     return res.json({ ok: true, runtimeVersion: liveRuntime(), mode: 'bot-audit-trace-clear', cleared: ['botAudit'], generatedAt: Date.now(), safe: true, noDatabaseRead: true, noMaxApiCall: true });
+  });
+
+  app.get('/debug/stats-monitoring-selftest', (req, res) => {
+    noCache(res);
+    return res.json({ ...statsMonitoring.selftest(), appRuntimeVersion: liveRuntime() });
+  });
+
+  app.get('/debug/stats-monitoring-live', (req, res) => {
+    noCache(res);
+    const snapshot = statsMonitoring.buildMonitoringSnapshot({ userId: clean(req.query?.userId || '') });
+    return res.json({ ok: true, runtimeVersion: liveRuntime(), generatedAt: Date.now(), counts: snapshot.counts, dataQuality: snapshot.dataQuality, attribution: { clicks: snapshot.attribution.clicks, confirmedTotal: snapshot.attribution.confirmedTotal, probableTotal: snapshot.attribution.probableTotal, unknown: snapshot.attribution.unknown, sources: snapshot.attribution.sources }, topPosts: snapshot.topPosts.map((item) => ({ title: item.title, comments: item.comments, clicks: item.clicks, votes: item.votes, reactions: item.reactions, score: item.score })).slice(0, 5), safe: true, noMaxApiCall: true });
+  });
+
+  app.get('/go/:channelId/:buttonId', (req, res, next) => {
+    const channelId = clean(req.params.channelId);
+    const buttonId = clean(req.params.buttonId);
+    if (!channelId || !buttonId) return next();
+    const targetOverride = safeRedirectTarget(req.query?.target || '');
+    const buttonTextOverride = clean(req.query?.buttonText || '');
+    const source = clean(req.query?.source || req.query?.utm_source || 'button') || 'button';
+    const result = growthService.recordGrowthClick({
+      channelId,
+      buttonId,
+      postId: clean(req.query?.postId || ''),
+      commentKey: store.normalizeKey(req.query?.commentKey || ''),
+      userId: resolveTrackingUserId(req),
+      config: { ...config, appBaseUrl: publicBase() || config.appBaseUrl },
+      source,
+      buttonTextOverride,
+      targetUrlOverride: targetOverride,
+      campaign: clean(req.query?.campaign || ''),
+      ad: clean(req.query?.ad || ''),
+      placement: clean(req.query?.placement || ''),
+      ref: clean(req.query?.ref || ''),
+      sourceRef: clean(req.query?.sourceRef || req.query?.ref || ''),
+      utmSource: clean(req.query?.utm_source || ''),
+      utmMedium: clean(req.query?.utm_medium || ''),
+      utmCampaign: clean(req.query?.utm_campaign || ''),
+      utmContent: clean(req.query?.utm_content || ''),
+      utmTerm: clean(req.query?.utm_term || '')
+    });
+    botAudit.log('growth.click_tracked', { channelId, buttonId, source, campaign: req.query?.campaign || req.query?.utm_campaign || '', ad: req.query?.ad || req.query?.utm_content || '', placement: req.query?.placement || '', userId: resolveTrackingUserId(req), target: targetOverride || result.targetUrl || '' });
+    const redirectUrl = targetOverride || result.targetUrl || config.maxDeepLinkBase || config.appBaseUrl || '/';
+    return res.redirect(302, redirectUrl);
   });
 
   app.get('/debug/admin-walkthrough', (req, res) => {
