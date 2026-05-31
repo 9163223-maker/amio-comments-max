@@ -39,6 +39,15 @@ try {
   const refererReq = makeReq({ query: { token: 'stale-token' }, headers: { referer: 'https://example.test/debug/selftest/comments/report?adminToken=valid-selftest' } });
   assert.strictEqual(routes.adminAllowed(refererReq), true, 'referer adminToken fallback must still authorize when query token is stale');
 
+  const repeatedRefererReq = makeReq({ headers: { referer: 'https://example.test/debug/selftest/comments/report?token=stale-token&token=valid-selftest' } });
+  assert.strictEqual(routes.adminAllowed(repeatedRefererReq), true, 'referer token fallback should inspect repeated token query values');
+
+  const repeatedQueryReq = makeReq({ query: { token: ['stale-token', 'valid-selftest'] } });
+  assert.deepStrictEqual(routes.tokenValues(repeatedQueryReq.query.token), ['stale-token', 'valid-selftest'], 'tokenValues should preserve repeated query token params');
+  assert.strictEqual(routes.adminAllowed(repeatedQueryReq), true, 'a valid repeated token query value must not be collapsed into an invalid comma-joined string');
+  assert.strictEqual(routes.matchingRequestToken(repeatedQueryReq), 'valid-selftest', 'matching token resolver should inspect every repeated token candidate');
+  assert.strictEqual(routes.runnerHref(repeatedQueryReq), '/debug/selftest/comments/runner?token=valid-selftest', 'runner link should carry the matching repeated token value');
+
   console.log('comments selftest routes PR88 token smoke ok');
 } finally {
   Object.entries(originalEnv).forEach(([key, value]) => {

@@ -32,20 +32,24 @@ function refererTokens(req) {
     const ref = clean(req.get('referer') || req.get('referrer') || '');
     if (!ref) return [];
     const parsed = new URL(ref, 'http://local');
-    return [parsed.searchParams.get('token'), parsed.searchParams.get('adminToken')].map(clean).filter(Boolean);
+    return ['token', 'adminToken'].flatMap((key) => parsed.searchParams.getAll(key)).map(clean).filter(Boolean);
   } catch (_) {
     return [];
   }
 }
+function tokenValues(value) {
+  if (Array.isArray(value)) return value.map(clean).filter(Boolean);
+  return [clean(value)].filter(Boolean);
+}
 function tokenCandidates(req) {
   const bearer = clean(String(req.get('authorization') || '').replace(/^Bearer\s+/i, ''));
   return [
-    req.query?.token,
-    req.query?.adminToken,
-    req.get('x-admin-token'),
-    bearer,
+    ...tokenValues(req.query?.token),
+    ...tokenValues(req.query?.adminToken),
+    ...tokenValues(req.get('x-admin-token')),
+    ...tokenValues(bearer),
     ...refererTokens(req)
-  ].map(clean).filter(Boolean);
+  ];
 }
 function requestToken(req) {
   return tokenCandidates(req)[0] || '';
@@ -72,7 +76,7 @@ function requestedCommentKey(req) {
 function runnerHref(req) {
   const token = matchingRequestToken(req) || requestToken(req);
   if (!token) return '/debug/selftest/comments/runner';
-  const key = clean(req.query?.adminToken) === token ? 'adminToken' : 'token';
+  const key = tokenValues(req.query?.adminToken).includes(token) ? 'adminToken' : 'token';
   return '/debug/selftest/comments/runner?' + key + '=' + encodeURIComponent(token);
 }
 function runnerPrebootPatch() {
@@ -157,4 +161,4 @@ function install(app) {
   return app;
 }
 
-module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens, requestedCommentKey, escapeHtml, runnerHtml, requestToken, tokenCandidates, matchingRequestToken, runnerHref };
+module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens, requestedCommentKey, escapeHtml, runnerHtml, requestToken, tokenValues, tokenCandidates, matchingRequestToken, runnerHref };

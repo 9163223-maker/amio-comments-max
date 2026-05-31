@@ -27,17 +27,19 @@
   function esc(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch])); }
   function clean(value) { return String(value == null ? '' : value).replace(/\s+/g, ' ').trim(); }
   const runnerParams = new URLSearchParams(location.search || '');
-  const tokenParam = clean(runnerParams.get('token'));
-  const adminTokenParam = clean(runnerParams.get('adminToken'));
-  const adminTokenKey = tokenParam ? 'token' : (adminTokenParam ? 'adminToken' : '');
-  const adminToken = tokenParam || adminTokenParam;
+  const runnerTokenPairs = [];
+  ['token', 'adminToken'].forEach((key) => {
+    runnerParams.getAll(key).map(clean).filter(Boolean).forEach((value) => runnerTokenPairs.push({ key, value }));
+  });
+  const primaryRunnerToken = runnerTokenPairs[0] || null;
+  const adminToken = primaryRunnerToken ? primaryRunnerToken.value : '';
   function mark(text, cls) { if (summaryEl) summaryEl.innerHTML = '<div class="pill ' + esc(cls || '') + '">' + esc(text) + '</div>'; }
   function log(text, cls) { if (!logEl) return; const row = document.createElement('div'); row.className = cls || ''; row.textContent = '[' + new Date().toLocaleTimeString() + '] ' + text; logEl.appendChild(row); logEl.scrollTop = logEl.scrollHeight; }
   function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms || 0) || 0))); }
   function toUrl(value) { return value instanceof URL ? value : new URL(value, location.origin); }
   function shouldCarryAdminToken(u) { return Boolean(u && u.origin === location.origin && /^\/debug\/selftest\/comments(?:\/|$)/.test(u.pathname || '')); }
   function shouldSendAdminHeader(value) { const u = toUrl(value || location.href); return Boolean(adminToken && u.origin === location.origin && (/^\/debug\//.test(u.pathname || '') || /^\/api\/debug\//.test(u.pathname || ''))); }
-  function withAdminToken(value) { const u = toUrl(value); if (adminToken && adminTokenKey && shouldCarryAdminToken(u)) { const otherKey = adminTokenKey === 'token' ? 'adminToken' : 'token'; u.searchParams.delete(otherKey); u.searchParams.set(adminTokenKey, adminToken); } return u; }
+  function withAdminToken(value) { const u = toUrl(value); if (shouldCarryAdminToken(u) && runnerTokenPairs.length) { u.searchParams.delete('token'); u.searchParams.delete('adminToken'); runnerTokenPairs.forEach((pair) => u.searchParams.append(pair.key, pair.value)); } return u; }
   function url(path) { return withAdminToken(new URL(path, location.origin)).toString(); }
   function fetchOptions(options, target) { const out = { ...(options || {}) }; const headers = new Headers(out.headers || {}); if (shouldSendAdminHeader(target) && !headers.has('x-admin-token')) headers.set('x-admin-token', adminToken); out.headers = headers; return out; }
   function setLinks(commentKey) {
