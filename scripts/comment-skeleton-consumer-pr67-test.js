@@ -27,6 +27,8 @@ assert.ok(skeletonConsumer.includes('skeletonOptInWorks === true'), 'consumer mu
 assert.ok(skeletonConsumer.includes('hydrateUrlStripsSkeleton === true'), 'consumer must require hydrateUrl skeleton stripping');
 assert.ok(skeletonConsumer.includes('noUserUiChange === true'), 'consumer must guard no user UI change contract');
 assert.ok(skeletonConsumer.includes('initialSkeletonParams'), 'consumer must merge launch params from search and hash before skeleton fetch');
+assert.ok(skeletonConsumer.includes('hashParamSource'), 'consumer must parse hash query strings after hash routes');
+assert.ok(skeletonConsumer.includes("raw.indexOf('?')"), 'consumer must support #/route?commentKey=... hash launch params');
 assert.ok(skeletonConsumer.includes('hashParams.forEach'), 'consumer must fill missing launch params from hash without overriding search');
 assert.ok(skeletonConsumer.includes("params.set('skeleton', '1')"), 'consumer must request skeleton only from the guarded path');
 assert.ok(skeletonConsumer.includes('prefetchHydrate'), 'consumer should start hydrate prefetch after skeleton');

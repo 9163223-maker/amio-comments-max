@@ -34,9 +34,14 @@ function addParam(params, key, value) {
   const text = clean(value);
   if (text && !params.has(key)) params.set(key, text);
 }
+function hashParamSource() {
+  const raw = String(location.hash || '').replace(/^#/, '');
+  const queryAt = raw.indexOf('?');
+  return (queryAt >= 0 ? raw.slice(queryAt + 1) : raw).replace(/^\?/, '');
+}
 function initialSkeletonParams() {
   const params = new URLSearchParams(String(location.search || '').replace(/^\?/, ''));
-  const hashParams = new URLSearchParams(String(location.hash || '').replace(/^#/, '').replace(/^\?/, ''));
+  const hashParams = new URLSearchParams(hashParamSource());
   hashParams.forEach((value, key) => addParam(params, key, value));
   return params;
 }
