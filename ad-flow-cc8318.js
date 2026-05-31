@@ -2,7 +2,7 @@
 
 const statsFlow = require('./stats-flow-cc8');
 
-const RUNTIME = 'CC8.3.18-ADS-TOP-LEVEL';
+const RUNTIME = 'CC8.3.20-ADS-CHANNEL-PICKER';
 
 function clean(value) { return String(value || '').trim(); }
 function rewrite(action = '') {
@@ -20,7 +20,7 @@ function isAdsAction(action = '') {
     a === 'admin_ads_create' || a === 'admin_ad_create' || a === 'admin_campaign_create' ||
     a === 'admin_ads_sources' || a === 'admin_ads_refresh' || a === 'admin_ads_campaign_view' ||
     a === 'admin_stats_campaigns' || a === 'admin_stats_campaign_create' || a === 'admin_stats_campaign_channel' ||
-    a === 'admin_stats_campaign_cancel' || a === 'admin_stats_campaign_view';
+    a === 'admin_stats_campaign_external' || a === 'admin_stats_campaign_cancel' || a === 'admin_stats_campaign_view';
 }
 async function screenForPayload(menu, payload = {}, ctx = {}) {
   const action = rewrite(payload.action);
