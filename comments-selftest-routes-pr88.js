@@ -47,12 +47,30 @@ function tokenValues(value) {
   if (Array.isArray(value)) return value.map(clean).filter(Boolean);
   return [clean(value)].filter(Boolean);
 }
-function tokenCandidates(req) {
-  const bearer = clean(String(req.get('authorization') || '').replace(/^Bearer\s+/i, ''));
+function queryTokenEntries(req) {
+  const rawUrl = clean(req && (req.originalUrl || req.url));
+  if (rawUrl && rawUrl.includes('?')) {
+    try {
+      const parsed = new URL(rawUrl, 'http://local');
+      const entries = [];
+      parsed.searchParams.forEach((value, key) => {
+        if (key !== 'token' && key !== 'adminToken') return;
+        const text = clean(value);
+        if (text) entries.push({ key, value: text });
+      });
+      return entries;
+    } catch (_) {}
+  }
   return [
-    ...tokenValues(req.query?.token),
-    ...tokenValues(req.query?.adminToken),
-    ...tokenValues(req.get('x-admin-token')),
+    ...tokenValues(req?.query?.token).map((value) => ({ key: 'token', value })),
+    ...tokenValues(req?.query?.adminToken).map((value) => ({ key: 'adminToken', value }))
+  ];
+}
+function tokenCandidates(req) {
+  const bearer = clean(String(req.get?.('authorization') || '').replace(/^Bearer\s+/i, ''));
+  return [
+    ...queryTokenEntries(req).map((entry) => entry.value),
+    ...tokenValues(req.get?.('x-admin-token')),
     ...tokenValues(bearer),
     ...refererTokens(req)
   ];
@@ -82,7 +100,8 @@ function requestedCommentKey(req) {
 function runnerHref(req) {
   const token = matchingRequestToken(req) || requestToken(req);
   if (!token) return '/debug/selftest/comments/runner';
-  const key = tokenValues(req.query?.adminToken).includes(token) ? 'adminToken' : 'token';
+  const queryEntry = queryTokenEntries(req).find((entry) => entry.value === token);
+  const key = queryEntry && queryEntry.key === 'adminToken' ? 'adminToken' : 'token';
   return '/debug/selftest/comments/runner?' + key + '=' + encodeURIComponent(token);
 }
 function runnerPrebootPatch() {
@@ -167,4 +186,4 @@ function install(app) {
   return app;
 }
 
-module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens, requestedCommentKey, escapeHtml, runnerHtml, requestToken, tokenValues, tokenCandidates, matchingRequestToken, runnerHref };
+module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens, requestedCommentKey, escapeHtml, runnerHtml, requestToken, tokenValues, queryTokenEntries, tokenCandidates, matchingRequestToken, runnerHref };

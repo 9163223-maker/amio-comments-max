@@ -6,10 +6,12 @@ const path = require('path');
 
 const routes = require('../comments-selftest-routes-pr88');
 
-function makeReq({ query = {}, headers = {} } = {}) {
+function makeReq({ query = {}, headers = {}, originalUrl = '' } = {}) {
   const normalizedHeaders = Object.fromEntries(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
   return {
     query,
+    originalUrl,
+    url: originalUrl,
     get(name) {
       return normalizedHeaders[String(name || '').toLowerCase()] || '';
     }
@@ -33,6 +35,11 @@ try {
   assert.strictEqual(routes.adminAllowed(mixedQueryReq), true, 'a valid adminToken must not be shadowed by a stale token query param');
   assert.strictEqual(routes.matchingRequestToken(mixedQueryReq), 'valid-selftest', 'matching token resolver should choose the valid candidate');
   assert.strictEqual(routes.runnerHref(mixedQueryReq), '/debug/selftest/comments/runner?adminToken=valid-selftest', 'runner link should carry the matching adminToken value');
+
+  const orderedQueryReq = makeReq({ query: { token: 'stale-token', adminToken: 'valid-selftest' }, originalUrl: '/debug/selftest/comments/report?adminToken=valid-selftest&token=stale-token' });
+  assert.deepStrictEqual(routes.queryTokenEntries(orderedQueryReq), [{ key: 'adminToken', value: 'valid-selftest' }, { key: 'token', value: 'stale-token' }], 'query token entries should preserve URL parameter order across token keys');
+  assert.strictEqual(routes.requestToken(orderedQueryReq), 'valid-selftest', 'requestToken fallback should use the first token-like query value in URL order');
+  assert.strictEqual(routes.runnerHref(orderedQueryReq), '/debug/selftest/comments/runner?adminToken=valid-selftest', 'runner link should preserve the matched query token key in URL order');
 
   const headerReq = makeReq({ query: { token: 'stale-token' }, headers: { 'x-admin-token': 'valid-selftest' } });
   assert.strictEqual(routes.adminAllowed(headerReq), true, 'x-admin-token must still authorize when a stale query token is present');
