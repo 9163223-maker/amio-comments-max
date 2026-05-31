@@ -28,8 +28,10 @@
   function clean(value) { return String(value == null ? '' : value).replace(/\s+/g, ' ').trim(); }
   const runnerParams = new URLSearchParams(location.search || '');
   const runnerTokenPairs = [];
-  ['token', 'adminToken'].forEach((key) => {
-    runnerParams.getAll(key).map(clean).filter(Boolean).forEach((value) => runnerTokenPairs.push({ key, value }));
+  runnerParams.forEach((value, key) => {
+    if (key !== 'token' && key !== 'adminToken') return;
+    const text = clean(value);
+    if (text) runnerTokenPairs.push({ key, value: text });
   });
   const primaryRunnerToken = runnerTokenPairs[0] || null;
   const adminToken = primaryRunnerToken ? primaryRunnerToken.value : '';

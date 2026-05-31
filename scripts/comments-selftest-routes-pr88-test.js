@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 
 const routes = require('../comments-selftest-routes-pr88');
 
@@ -47,6 +49,10 @@ try {
   assert.strictEqual(routes.adminAllowed(repeatedQueryReq), true, 'a valid repeated token query value must not be collapsed into an invalid comma-joined string');
   assert.strictEqual(routes.matchingRequestToken(repeatedQueryReq), 'valid-selftest', 'matching token resolver should inspect every repeated token candidate');
   assert.strictEqual(routes.runnerHref(repeatedQueryReq), '/debug/selftest/comments/runner?token=valid-selftest', 'runner link should carry the matching repeated token value');
+
+  const browserRunner = fs.readFileSync(path.join(__dirname, '..', 'public', 'comments-selftest-runner-pr89.js'), 'utf8');
+  assert.ok(browserRunner.includes('runnerParams.forEach((value, key)'), 'browser runner should preserve incoming token/adminToken URL order');
+  assert.ok(browserRunner.includes("runnerTokenPairs.push({ key, value: text })"), 'browser runner should preserve every non-empty token/adminToken pair for protected URLs');
 
   console.log('comments selftest routes PR88 token smoke ok');
 } finally {
