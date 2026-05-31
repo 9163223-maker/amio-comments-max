@@ -4,19 +4,31 @@ function clean(value) { return String(value || '').trim(); }
 function arr(value) { return Array.isArray(value) ? value : []; }
 function idOf(item = {}) { return clean(item.channelId || item.chatId || item.chat_id || item.id); }
 function looksTechnical(value = '') { return /^-?\d{6,}$/.test(clean(value)) || /^id\d{6,}$/i.test(clean(value)); }
+function adminNamesForChannel(channelId = '') {
+  const id = clean(channelId);
+  const names = new Set();
+  arr(getChannelsList()).filter((x) => idOf(x) === id).forEach((x) => {
+    [x.linkedByName, x.adminName, x.ownerName, x.senderName, x.name].map(clean).filter(Boolean).forEach((name) => names.add(name.toLowerCase()));
+  });
+  return names;
+}
 function titleFromStored(channelId = '') {
   const id = clean(channelId);
   if (!id) return '';
-  const item = arr(getChannelsList()).find((x) => idOf(x) === id) || {};
-  const title = clean(item.title || item.channelTitle || item.channelName || item.chatTitle || '');
-  const linked = clean(item.linkedByName || item.adminName || item.ownerName || item.senderName || '');
-  if (!title || looksTechnical(title)) return '';
-  if (linked && title.toLowerCase() === linked.toLowerCase()) return '';
-  return title;
+  const badNames = adminNamesForChannel(id);
+  const candidates = arr(getChannelsList())
+    .filter((x) => idOf(x) === id)
+    .flatMap((item) => [item.title, item.channelTitle, item.channelName, item.chatTitle])
+    .map(clean)
+    .filter(Boolean)
+    .filter((title) => !looksTechnical(title))
+    .filter((title) => !badNames.has(title.toLowerCase()));
+  return candidates[0] || '';
 }
 function titleFromPost(post = {}) {
+  const badNames = adminNamesForChannel(post.channelId);
   const direct = clean(post.channelTitle || post.channelName || post.chatTitle || post.title || '');
-  if (direct && !looksTechnical(direct)) return direct;
+  if (direct && !looksTechnical(direct) && !badNames.has(direct.toLowerCase())) return direct;
   return titleFromStored(post.channelId) || 'Канал без названия';
 }
 function listChannels() {
@@ -27,7 +39,8 @@ function listChannels() {
     .forEach((post) => {
       const id = clean(post.channelId);
       if (!id || map.has(id)) return;
-      map.set(id, { channelId: id, title: titleFromPost(post), channelTitle: titleFromPost(post), type: 'channel', chatType: 'channel', isMaxChannel: true, isChannel: true, linkedByUserId: clean(post.linkedByUserId || ''), ownerUserId: clean(post.ownerUserId || post.linkedByUserId || '') });
+      const title = titleFromPost(post);
+      map.set(id, { channelId: id, title, channelTitle: title, type: 'channel', chatType: 'channel', isMaxChannel: true, isChannel: true, linkedByUserId: clean(post.linkedByUserId || ''), ownerUserId: clean(post.ownerUserId || post.linkedByUserId || '') });
     });
   return Array.from(map.values()).slice(0, 20);
 }
@@ -42,7 +55,9 @@ function listChannelsForAdmin(userId = '') {
 function registerChannel(channelId, data = {}) {
   const id = clean(channelId);
   if (!id) return null;
-  const title = clean(data.title || data.channelTitle || '');
+  const badNames = adminNamesForChannel(id);
+  const rawTitle = clean(data.title || data.channelTitle || '');
+  const title = rawTitle && !looksTechnical(rawTitle) && !badNames.has(rawTitle.toLowerCase()) ? rawTitle : '';
   return saveChannel(id, { ...(data || {}), channelId: id, title, channelTitle: title, type: 'channel', chatType: 'channel', isMaxChannel: true, isChannel: true });
 }
 module.exports = { listChannels, listChannelsForAdmin, registerChannel };
