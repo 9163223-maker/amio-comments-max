@@ -61,6 +61,8 @@ try {
   assert.strictEqual(routes.matchingRequestToken(repeatedQueryReq), 'valid-selftest', 'matching token resolver should inspect every repeated token candidate');
   assert.strictEqual(routes.runnerHref(repeatedQueryReq), '/debug/selftest/comments/runner?token=valid-selftest', 'runner link should carry the matching repeated token value');
 
+  assert.deepStrictEqual(routes.tokenCandidates({ query: { adminToken: 'valid-selftest' } }), ['valid-selftest'], 'token candidate helpers should tolerate request-like objects without req.get');
+
   const staleRunnerReq = makeReq({ query: { token: 'stale-token', adminToken: 'valid-selftest' }, originalUrl: '/debug/selftest/comments/runner?token=stale-token&adminToken=valid-selftest' });
   assert.strictEqual(routes.runnerCanonicalRedirect(staleRunnerReq), '/debug/selftest/comments/runner?adminToken=valid-selftest', 'runner route should redirect mixed/stale token URLs to the canonical matched token URL');
   const canonicalRunnerReq = makeReq({ query: { adminToken: 'valid-selftest' }, originalUrl: '/debug/selftest/comments/runner?adminToken=valid-selftest' });

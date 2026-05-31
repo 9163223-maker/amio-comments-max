@@ -29,7 +29,7 @@ function configuredAdminTokens() {
 }
 function refererTokens(req) {
   try {
-    const ref = clean(req.get('referer') || req.get('referrer') || '');
+    const ref = clean(req && (req.get?.('referer') || req.get?.('referrer')) || '');
     if (!ref) return [];
     const parsed = new URL(ref, 'http://local');
     const values = [];
