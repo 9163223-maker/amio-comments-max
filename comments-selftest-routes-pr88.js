@@ -58,7 +58,7 @@ function queryTokenEntries(req) {
         const text = clean(value);
         if (text) entries.push({ key, value: text });
       });
-      return entries;
+      if (entries.length) return entries;
     } catch (_) {}
   }
   return [
