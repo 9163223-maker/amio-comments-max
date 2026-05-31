@@ -6,6 +6,12 @@ function idOf(item = {}) { return clean(item.channelId || item.chatId || item.ch
 function looksTechnical(value = '') { return /^-?\d{6,}$/.test(clean(value)) || /^id\d{6,}$/i.test(clean(value)); }
 function rawType(item = {}) { return clean(item.type || item.chatType || item.kind || item.recordType || item.sourceKind).toLowerCase(); }
 function rawTitle(item = {}) { return clean(item.title || item.channelTitle || item.channelName || item.chatTitle || item.name); }
+function looksLikePersonalName(value = '') {
+  const s = clean(value);
+  if (!s || s.includes(' ') || s.includes('-') || s.includes('_') || s.includes('.') || s.length > 24) return false;
+  if (/club|клуб|канал|style|стиль|admin|админ|kit|кит|blog|блог/i.test(s)) return false;
+  return /^[A-Za-zА-Яа-яЁё]+$/.test(s);
+}
 function globalLegacyAdminNames() {
   const names = new Set();
   arr(getChannelsList()).forEach((x) => {
@@ -27,24 +33,30 @@ function adminNamesForChannel(channelId = '') {
   });
   return names;
 }
+function isBadChannelTitle(title = '', channelId = '') {
+  const value = clean(title);
+  if (!value || looksTechnical(value)) return true;
+  const badNames = adminNamesForChannel(channelId);
+  if (badNames.has(value.toLowerCase())) return true;
+  if (looksLikePersonalName(value)) return true;
+  return false;
+}
 function titleFromStored(channelId = '') {
   const id = clean(channelId);
   if (!id) return '';
-  const badNames = adminNamesForChannel(id);
   const candidates = arr(getChannelsList())
     .filter((x) => idOf(x) === id)
     .flatMap((item) => [item.title, item.channelTitle, item.channelName, item.chatTitle])
     .map(clean)
     .filter(Boolean)
-    .filter((title) => !looksTechnical(title))
-    .filter((title) => !badNames.has(title.toLowerCase()));
+    .filter((title) => !isBadChannelTitle(title, id));
   return candidates[0] || '';
 }
 function titleFromPost(post = {}) {
-  const badNames = adminNamesForChannel(post.channelId);
+  const id = clean(post.channelId);
   const direct = clean(post.channelTitle || post.channelName || post.chatTitle || post.title || '');
-  if (direct && !looksTechnical(direct) && !badNames.has(direct.toLowerCase())) return direct;
-  return titleFromStored(post.channelId) || 'Канал без названия';
+  if (direct && !isBadChannelTitle(direct, id)) return direct;
+  return titleFromStored(id) || 'Канал без названия';
 }
 function listChannels() {
   const map = new Map();
@@ -70,9 +82,8 @@ function listChannelsForAdmin(userId = '') {
 function registerChannel(channelId, data = {}) {
   const id = clean(channelId);
   if (!id) return null;
-  const badNames = adminNamesForChannel(id);
   const raw = clean(data.title || data.channelTitle || '');
-  const title = raw && !looksTechnical(raw) && !badNames.has(raw.toLowerCase()) ? raw : '';
+  const title = raw && !isBadChannelTitle(raw, id) ? raw : '';
   return saveChannel(id, { ...(data || {}), channelId: id, title, channelTitle: title, type: 'channel', chatType: 'channel', isMaxChannel: true, isChannel: true });
 }
 module.exports = { listChannels, listChannelsForAdmin, registerChannel };
