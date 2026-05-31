@@ -133,6 +133,9 @@ function install(app) {
   app.get('/debug/selftest/comments/runner', (req, res) => {
     noCache(res);
     if (!adminAllowed(req)) return res.status(403).send('admin_forbidden');
+    const canonical = runnerHref(req);
+    const current = clean(req.originalUrl || req.url || '');
+    if (canonical && current && current !== canonical) return res.redirect(302, canonical);
     return res.type('html').send(runnerHtml());
   });
 

@@ -61,6 +61,9 @@ try {
   assert.strictEqual(routes.matchingRequestToken(repeatedQueryReq), 'valid-selftest', 'matching token resolver should inspect every repeated token candidate');
   assert.strictEqual(routes.runnerHref(repeatedQueryReq), '/debug/selftest/comments/runner?token=valid-selftest', 'runner link should carry the matching repeated token value');
 
+  const selftestRoutes = fs.readFileSync(path.join(__dirname, '..', 'comments-selftest-routes-pr88.js'), 'utf8');
+  assert.ok(selftestRoutes.includes('res.redirect(302, canonical)'), 'runner route should redirect mixed/stale token URLs to the canonical matched token URL');
+
   const browserRunner = fs.readFileSync(path.join(__dirname, '..', 'public', 'comments-selftest-runner-pr89.js'), 'utf8');
   assert.ok(browserRunner.includes('runnerParams.forEach((value, key)'), 'browser runner should preserve incoming token/adminToken URL order');
   assert.ok(browserRunner.includes("runnerTokenPairs.push({ key, value: text })"), 'browser runner should preserve every non-empty token/adminToken pair for protected URLs');
