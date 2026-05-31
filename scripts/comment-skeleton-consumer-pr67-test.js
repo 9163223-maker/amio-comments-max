@@ -6,6 +6,7 @@ const path = require('path');
 
 const appLoader = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
 const skeletonConsumer = fs.readFileSync(path.join(__dirname, '..', 'public', 'app-skeleton-consumer-pr67.js'), 'utf8');
+const skeletonConsumerPr84 = fs.readFileSync(path.join(__dirname, '..', 'public', 'app-skeleton-consumer-pr84.js'), 'utf8');
 const contract = fs.readFileSync(path.join(__dirname, '..', 'docs', 'COMMENT_UI_CONTRACT.md'), 'utf8');
 
 assert.ok(appLoader.includes('CC8.1.9-COMMENT-SKELETON-CONSUMER-GUARDED'), 'loader should expose PR67 skeleton consumer runtime');
@@ -31,6 +32,10 @@ assert.ok(skeletonConsumer.includes('hashParamSource'), 'consumer must parse has
 assert.ok(skeletonConsumer.includes("raw.indexOf('?')"), 'consumer must support #/route?commentKey=... hash launch params');
 assert.ok(skeletonConsumer.includes('hashParams.forEach'), 'consumer must fill missing launch params from hash without overriding search');
 assert.ok(skeletonConsumer.includes("params.set('skeleton', '1')"), 'consumer must request skeleton only from the guarded path');
+assert.ok(skeletonConsumerPr84.includes('initialSkeletonParams'), 'PR84 consumer must merge launch params from search and hash before skeleton fetch');
+assert.ok(skeletonConsumerPr84.includes('hashParamSource'), 'PR84 consumer must parse hash query strings after hash routes');
+assert.ok(skeletonConsumerPr84.includes("params.set('skeletonConsumer', 'pr84')"), 'PR84 consumer must preserve the PR84 skeleton marker in skeleton fetches');
+assert.ok(skeletonConsumerPr84.includes('hashParams.forEach'), 'PR84 consumer must fill missing launch params from hash without overriding search');
 assert.ok(skeletonConsumer.includes('prefetchHydrate'), 'consumer should start hydrate prefetch after skeleton');
 assert.ok(skeletonConsumer.includes('loadLegacy'), 'consumer must keep legacy fallback available');
 assert.ok(skeletonConsumer.includes('contract_guard_failed'), 'consumer must fail back if contract check fails');
