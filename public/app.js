@@ -5,6 +5,7 @@ const RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
 const SKELETON_RUNTIME = 'CC8.1.19-MINIAPP-SKELETON-DEFAULT-PR84';
 const LEGACY_SKELETON_CONSUMER_PR67_RUNTIME = 'CC8.1.9-COMMENT-SKELETON-CONSUMER-GUARDED';
 const LEGACY_SKELETON_CONSUMER_PR67_ASSET = '/public/app-skeleton-consumer-pr67.js?';
+const LEGACY_SKELETON_CONSUMER_PR67_MARKER = '__ADMINKIT_CC8_1_9_COMMENT_SKELETON_CONSUMER_GUARDED__';
 const LEGACY_PR75_ASSET_VERSION = 'v7564-pr75';
 const COMPOSER_INTENT_RUNTIME = 'CC8.1.13-COMPOSER-INTENT-UNLOCK';
 const PERFORMANCE_TRACE_RUNTIME = 'CC8.1.15-PATCH-COMPUTE-BREAKDOWN';
@@ -142,7 +143,16 @@ function wantsGuardedSkeletonConsumer() {
   const hash = String((location && location.hash) || '');
   if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=0(?:&|$)/.test(query)) return false;
   if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=1(?:&|$)/.test(query)) return true;
+  if (/(?:^|[?&])skeletonConsumer=pr67(?:&|$)/i.test(query)) return true;
   return hasCommentLaunchIdentity(query) || hasCommentLaunchIdentity(hash);
+}
+
+function skeletonConsumerConfig() {
+  const query = String((location && location.search) || '');
+  if (/(?:^|[?&])skeletonConsumer=pr67(?:&|$)/i.test(query)) {
+    return { runtime: LEGACY_SKELETON_CONSUMER_PR67_RUNTIME, asset: LEGACY_SKELETON_CONSUMER_PR67_ASSET, marker: LEGACY_SKELETON_CONSUMER_PR67_MARKER, version: 'pr67' };
+  }
+  return { runtime: SKELETON_RUNTIME, asset: '/public/app-skeleton-consumer-pr84.js?', marker: SKELETON_MARKER, version: 'pr84' };
 }
 
 function getCommentClientState() {
@@ -182,27 +192,31 @@ function installComposerIntentUnlock() {
 
 function bootOnepass() {
   const guardedSkeleton = wantsGuardedSkeletonConsumer();
+  const skeletonConfig = guardedSkeleton ? skeletonConsumerConfig() : null;
 
   if (!guardedSkeleton && window[ONEPASS_MARKER]) return;
-  if (guardedSkeleton && window[SKELETON_MARKER]) return;
+  if (guardedSkeleton && skeletonConfig && window[skeletonConfig.marker]) return;
 
   window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_ENABLED__ = Boolean(guardedSkeleton);
+  window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_ACTIVE_CONFIG__ = skeletonConfig || null;
 
   installComposerIntentUnlock();
 
   postMiniTiming('loader.boot', {
-    status: guardedSkeleton ? 'skeleton' : 'onepass'
+    status: guardedSkeleton ? 'skeleton' : 'onepass',
+    skeletonConsumer: skeletonConfig && skeletonConfig.version
   });
 
   const script = document.createElement('script');
-  script.src = (guardedSkeleton ? '/public/app-skeleton-consumer-pr84.js?' : '/public/app-onepass.js?') + ASSET_VERSION.replace(/^v/, 'v=');
+  script.src = (guardedSkeleton ? skeletonConfig.asset : '/public/app-onepass.js?') + ASSET_VERSION.replace(/^v/, 'v=');
   script.async = false;
-  script.dataset.adminkitRuntime = guardedSkeleton ? SKELETON_RUNTIME : RUNTIME;
+  script.dataset.adminkitRuntime = guardedSkeleton ? skeletonConfig.runtime : RUNTIME;
 
   script.onload = () => {
     postMiniTiming('loader.script_loaded', {
       status: guardedSkeleton ? 'skeleton' : 'onepass',
-      scriptSrc: script.src
+      scriptSrc: script.src,
+      skeletonConsumer: skeletonConfig && skeletonConfig.version
     });
     loadPhotoFlowAddon();
   };
@@ -210,7 +224,8 @@ function bootOnepass() {
   script.onerror = () => {
     postMiniTiming('loader.script_error', {
       status: guardedSkeleton ? 'skeleton' : 'onepass',
-      scriptSrc: script.src
+      scriptSrc: script.src,
+      skeletonConsumer: skeletonConfig && skeletonConfig.version
     });
 
     const card = document.getElementById('postError');
@@ -224,7 +239,8 @@ function bootOnepass() {
 
   postMiniTiming('loader.script_appended', {
     status: guardedSkeleton ? 'skeleton' : 'onepass',
-    scriptSrc: script.src
+    scriptSrc: script.src,
+    skeletonConsumer: skeletonConfig && skeletonConfig.version
   });
 }
 

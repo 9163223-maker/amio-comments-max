@@ -11,6 +11,8 @@ const contract = fs.readFileSync(path.join(__dirname, '..', 'docs', 'COMMENT_UI_
 assert.ok(appLoader.includes('CC8.1.9-COMMENT-SKELETON-CONSUMER-GUARDED'), 'loader should expose PR67 skeleton consumer runtime');
 assert.ok(appLoader.includes('/public/app-onepass.js?'), 'loader must keep legacy onepass as the default asset');
 assert.ok(appLoader.includes('/public/app-skeleton-consumer-pr67.js?'), 'loader should route to guarded skeleton consumer asset only when opted in');
+assert.ok(appLoader.includes('skeletonConsumer=pr67'), 'loader should preserve explicit PR67 skeleton consumer opt-in');
+assert.ok(appLoader.includes('skeletonConsumerConfig'), 'loader should choose the guarded skeleton consumer from the explicit opt-in config');
 assert.ok(/adminkitSkeleton\|commentSkeleton\|skeletonConsumer/.test(appLoader), 'loader must require an explicit URL opt-in flag');
 assert.ok(!appLoader.includes('skeleton=1') || appLoader.indexOf('/public/app-onepass.js?') < appLoader.indexOf('/public/app-skeleton-consumer-pr67.js?'), 'default legacy loader must not silently append skeleton=1');
 
