@@ -27,8 +27,10 @@
   function esc(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch])); }
   function clean(value) { return String(value == null ? '' : value).replace(/\s+/g, ' ').trim(); }
   const runnerParams = new URLSearchParams(location.search || '');
-  const adminTokenKey = runnerParams.has('adminToken') ? 'adminToken' : (runnerParams.has('token') ? 'token' : '');
-  const adminToken = adminTokenKey ? clean(runnerParams.get(adminTokenKey)) : '';
+  const tokenParam = clean(runnerParams.get('token'));
+  const adminTokenParam = clean(runnerParams.get('adminToken'));
+  const adminTokenKey = tokenParam ? 'token' : (adminTokenParam ? 'adminToken' : '');
+  const adminToken = tokenParam || adminTokenParam;
   function mark(text, cls) { if (summaryEl) summaryEl.innerHTML = '<div class="pill ' + esc(cls || '') + '">' + esc(text) + '</div>'; }
   function log(text, cls) { if (!logEl) return; const row = document.createElement('div'); row.className = cls || ''; row.textContent = '[' + new Date().toLocaleTimeString() + '] ' + text; logEl.appendChild(row); logEl.scrollTop = logEl.scrollHeight; }
   function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms || 0) || 0))); }
