@@ -142,15 +142,17 @@ function hasCommentLaunchIdentity(query) {
 function skeletonFlagSource() {
   const query = String((location && location.search) || '').replace(/^\?/, '');
   const hash = String((location && location.hash) || '').replace(/^#/, '').replace(/^\?/, '');
-  return [query, hash].filter(Boolean).join('&');
+  const hasQueryFlag = /(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=/i.test(query);
+  return hasQueryFlag ? query : hash;
 }
+function hasSkeletonFlagValue(source, value) { return new RegExp('(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=' + value + '(?:&|$)', 'i').test(source || ''); }
 
 function wantsGuardedSkeletonConsumer() {
   const query = String((location && location.search) || '');
   const hash = String((location && location.hash) || '');
   const flags = skeletonFlagSource();
-  if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=0(?:&|$)/.test(flags)) return false;
-  if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=1(?:&|$)/.test(flags)) return true;
+  if (hasSkeletonFlagValue(flags, '0')) return false;
+  if (hasSkeletonFlagValue(flags, '1')) return true;
   if (/(?:^|[?&])skeletonConsumer=pr67(?:&|$)/i.test(flags)) return true;
   return hasCommentLaunchIdentity(query) || hasCommentLaunchIdentity(hash);
 }
