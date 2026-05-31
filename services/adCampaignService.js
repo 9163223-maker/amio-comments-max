@@ -2,120 +2,30 @@
 
 const store = require('../store');
 
-const RUNTIME = 'CC8.3.17-CAMPAIGN-LINKS';
+const RUNTIME = 'CC8.3.19-DIRECT-AD-LINKS';
 const MAX_CAMPAIGNS_PER_CHANNEL = 100;
 
 function clean(value) { return String(value || '').trim(); }
 function arr(value) { return Array.isArray(value) ? value : []; }
 function short(value = '', max = 64) { const s = clean(value).replace(/\s+/g, ' '); return s.length <= max ? s : s.slice(0, Math.max(1, max - 1)).trim() + '…'; }
-function safe(fn, fallback) { try { return fn(); } catch { return fallback; } }
 
-const RU = {
-  а:'a', б:'b', в:'v', г:'g', д:'d', е:'e', ё:'e', ж:'zh', з:'z', и:'i', й:'y', к:'k', л:'l', м:'m', н:'n', о:'o', п:'p', р:'r', с:'s', т:'t', у:'u', ф:'f', х:'h', ц:'c', ч:'ch', ш:'sh', щ:'sch', ъ:'', ы:'y', ь:'', э:'e', ю:'yu', я:'ya'
-};
-function slugify(value = '') {
-  const source = clean(value).toLowerCase();
-  let out = '';
-  for (const ch of source) out += RU[ch] !== undefined ? RU[ch] : ch;
-  out = out.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/-+/g, '-').slice(0, 56);
-  return out || `camp-${Date.now().toString(36)}`;
-}
+const RU = { а:'a', б:'b', в:'v', г:'g', д:'d', е:'e', ё:'e', ж:'zh', з:'z', и:'i', й:'y', к:'k', л:'l', м:'m', н:'n', о:'o', п:'p', р:'r', с:'s', т:'t', у:'u', ф:'f', х:'h', ц:'c', ч:'ch', ш:'sh', щ:'sch', ъ:'', ы:'y', ь:'', э:'e', ю:'yu', я:'ya' };
+function slugify(value = '') { const source = clean(value).toLowerCase(); let out = ''; for (const ch of source) out += RU[ch] !== undefined ? RU[ch] : ch; out = out.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/-+/g, '-').slice(0, 56); return out || `camp-${Date.now().toString(36)}`; }
 function publicBase(config = {}) { return clean(config.appBaseUrl || process.env.ADMINKIT_PUBLIC_BASE_URL || process.env.APP_BASE_URL || '').replace(/\/$/, ''); }
+function isUrl(value = '') { return /^https?:\/\//i.test(clean(value)); }
+function normalizeDirectUrl(value = '') { const raw = clean(value); if (!raw) return ''; if (/^max\.ru\//i.test(raw)) return `https://${raw}`; if (/^https?:\/\//i.test(raw)) return raw; return ''; }
 function channelById(channelId = '') { const id = clean(channelId); return store.getChannelsList().find((item) => clean(item.channelId) === id) || { channelId: id }; }
 function channelTitle(channel = {}) { const title = clean(channel.title || channel.channelTitle || channel.name || channel.channelName || channel.chatTitle); return title && !/^-?\d{6,}$/.test(title) ? title : 'Канал без названия'; }
-function targetUrlForChannel(channel = {}, config = {}) {
-  return clean(channel.link || channel.url || channel.inviteLink || channel.joinUrl || channel.maxUrl || config.maxDeepLinkBase || config.appBaseUrl || publicBase(config) || '');
-}
+function targetUrlForChannel(channel = {}) { return normalizeDirectUrl(channel.link || channel.url || channel.inviteLink || channel.joinUrl || channel.maxUrl || channel.publicLink || channel.channelUrl || ''); }
 function getSettings(channelId = '') { return store.getGrowthSettings(channelId); }
-function listCampaigns(channelId = '') {
-  const id = clean(channelId);
-  const channels = id ? [channelById(id)] : store.getChannelsList();
-  return channels.flatMap((ch) => {
-    const settings = getSettings(ch.channelId);
-    return arr(settings.adCampaigns).map((item) => ({ ...item, channelTitle: channelTitle(ch) }));
-  }).sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
-}
-function getCampaignBySlug(slug = '') {
-  const s = clean(slug).toLowerCase();
-  if (!s) return null;
-  return listCampaigns('').find((item) => clean(item.slug).toLowerCase() === s) || null;
-}
-function uniqueSlug(baseSlug = '') {
-  const used = new Set(listCampaigns('').map((item) => clean(item.slug).toLowerCase()).filter(Boolean));
-  let slug = slugify(baseSlug);
-  if (!used.has(slug)) return slug;
-  for (let i = 2; i < 200; i += 1) {
-    const candidate = `${slug}-${i}`.slice(0, 64);
-    if (!used.has(candidate)) return candidate;
-  }
-  return `${slug}-${Date.now().toString(36)}`.slice(0, 64);
-}
-function createCampaign({ channelId = '', name = '', source = '', placement = '', ad = '', createdByUserId = '', targetUrl = '', config = {} } = {}) {
-  const id = clean(channelId);
-  if (!id) throw new Error('channel_id_required');
-  const ch = channelById(id);
-  const settings = getSettings(id);
-  const finalName = short(name || 'Рекламная кампания', 96);
-  const finalSource = short(source || 'Источник не указан', 96);
-  const slug = uniqueSlug(`${channelTitle(ch)} ${finalName} ${finalSource}`);
-  const item = {
-    id: `ad_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-    slug,
-    channelId: id,
-    channelTitle: channelTitle(ch),
-    name: finalName,
-    source: finalSource,
-    campaign: finalName,
-    placement: short(placement || '', 96),
-    ad: short(ad || '', 96),
-    targetUrl: targetUrlForChannel(ch, config) || clean(targetUrl),
-    createdByUserId: clean(createdByUserId),
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    enabled: true,
-    runtimeVersion: RUNTIME
-  };
-  const next = [item, ...arr(settings.adCampaigns).filter((old) => clean(old.id) !== item.id)].slice(0, MAX_CAMPAIGNS_PER_CHANNEL);
-  store.saveGrowthSettings(id, { ...settings, adCampaigns: next });
-  return item;
-}
-function campaignUrl(campaign = {}, config = {}) {
-  const base = publicBase(config);
-  if (!base || !campaign || !campaign.slug) return '';
-  return `${base}/r/${encodeURIComponent(clean(campaign.slug))}`;
-}
-function recordCampaignClick({ slug = '', userId = '', query = {}, config = {} } = {}) {
-  const campaign = getCampaignBySlug(slug);
-  if (!campaign || campaign.enabled === false) return { ok: false, reason: 'campaign_not_found' };
-  const targetUrl = clean(query.target || campaign.targetUrl || config.maxDeepLinkBase || config.appBaseUrl || '/');
-  const click = store.addGrowthClick({
-    channelId: campaign.channelId,
-    buttonId: campaign.id,
-    buttonText: campaign.name,
-    targetUrl,
-    userId: clean(userId || query.userId || query.uid || query.u || ''),
-    source: 'campaign',
-    campaign: campaign.name,
-    ad: clean(query.ad || campaign.ad || ''),
-    placement: clean(query.placement || campaign.placement || ''),
-    ref: clean(query.ref || campaign.slug || ''),
-    sourceRef: clean(query.sourceRef || campaign.source || ''),
-    utmSource: clean(query.utm_source || campaign.source || ''),
-    utmMedium: clean(query.utm_medium || 'campaign'),
-    utmCampaign: clean(query.utm_campaign || campaign.name || ''),
-    utmContent: clean(query.utm_content || campaign.ad || ''),
-    utmTerm: clean(query.utm_term || '')
-  });
-  return { ok: true, campaign, click, targetUrl };
-}
-function statsForCampaign(campaign = {}) {
-  const clicks = arr(store.store?.growth?.clicks).filter((click) => clean(click.buttonId) === clean(campaign.id) || clean(click.ref) === clean(campaign.slug));
-  const uniqueClickers = new Set(clicks.map((click) => clean(click.userId)).filter(Boolean));
-  return { clicks: clicks.length, uniqueClickers: uniqueClickers.size, lastClickAt: clicks[0]?.createdAt || 0 };
-}
-function selftest(config = {}) {
-  const campaigns = listCampaigns('');
-  return { ok: true, runtimeVersion: RUNTIME, campaigns: campaigns.length, canBuildUrl: Boolean(publicBase(config) || process.env.ADMINKIT_PUBLIC_BASE_URL) };
-}
+function listCampaigns(channelId = '') { const id = clean(channelId); const channels = id ? [channelById(id)] : store.getChannelsList(); return channels.flatMap((ch) => { const settings = getSettings(ch.channelId); return arr(settings.adCampaigns).map((item) => ({ ...item, channelTitle: item.channelTitle || channelTitle(ch) })); }).sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0)); }
+function getCampaignBySlug(slug = '') { const s = clean(slug).toLowerCase(); return s ? listCampaigns('').find((item) => clean(item.slug).toLowerCase() === s) || null : null; }
+function uniqueSlug(baseSlug = '') { const used = new Set(listCampaigns('').map((item) => clean(item.slug).toLowerCase()).filter(Boolean)); let slug = slugify(baseSlug); if (!used.has(slug)) return slug; for (let i = 2; i < 200; i += 1) { const candidate = `${slug}-${i}`.slice(0, 64); if (!used.has(candidate)) return candidate; } return `${slug}-${Date.now().toString(36)}`.slice(0, 64); }
+function createCampaign({ channelId = '', name = '', source = '', placement = '', ad = '', createdByUserId = '', targetUrl = '', config = {} } = {}) { const id = clean(channelId); if (!id) throw new Error('channel_id_required'); const ch = channelById(id); const settings = getSettings(id); const finalName = short(name || 'Рекламная кампания', 96); const finalSource = short(source || 'Источник не указан', 96); const directUrl = normalizeDirectUrl(targetUrl) || targetUrlForChannel(ch); if (!directUrl) throw new Error('direct_channel_url_required'); const slug = uniqueSlug(`${channelTitle(ch)} ${finalName} ${finalSource}`); const item = { id: `ad_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`, slug, channelId: id, channelTitle: channelTitle(ch), name: finalName, source: finalSource, campaign: finalName, placement: short(placement || '', 96), ad: short(ad || '', 96), targetUrl: directUrl, trackingUrl: publicBase(config) ? `${publicBase(config)}/r/${encodeURIComponent(slug)}` : '', linkMode: 'direct_channel_link', createdByUserId: clean(createdByUserId), createdAt: Date.now(), updatedAt: Date.now(), enabled: true, runtimeVersion: RUNTIME }; const next = [item, ...arr(settings.adCampaigns).filter((old) => clean(old.id) !== item.id)].slice(0, MAX_CAMPAIGNS_PER_CHANNEL); store.saveGrowthSettings(id, { ...settings, adCampaigns: next }); return item; }
+function campaignUrl(campaign = {}) { return normalizeDirectUrl(campaign.targetUrl || ''); }
+function trackingUrl(campaign = {}, config = {}) { const base = publicBase(config); if (!base || !campaign || !campaign.slug) return ''; return `${base}/r/${encodeURIComponent(clean(campaign.slug))}`; }
+function recordCampaignClick({ slug = '', userId = '', query = {}, config = {} } = {}) { const campaign = getCampaignBySlug(slug); if (!campaign || campaign.enabled === false) return { ok: false, reason: 'campaign_not_found' }; const targetUrl = normalizeDirectUrl(query.target || campaign.targetUrl || ''); if (!targetUrl) return { ok: false, reason: 'target_url_missing' }; const click = store.addGrowthClick({ channelId: campaign.channelId, buttonId: campaign.id, buttonText: campaign.name, targetUrl, userId: clean(userId || query.userId || query.uid || query.u || ''), source: 'campaign', campaign: campaign.name, ad: clean(query.ad || campaign.ad || ''), placement: clean(query.placement || campaign.placement || ''), ref: clean(query.ref || campaign.slug || ''), sourceRef: clean(query.sourceRef || campaign.source || ''), utmSource: clean(query.utm_source || campaign.source || ''), utmMedium: clean(query.utm_medium || 'campaign'), utmCampaign: clean(query.utm_campaign || campaign.name || ''), utmContent: clean(query.utm_content || campaign.ad || ''), utmTerm: clean(query.utm_term || '') }); return { ok: true, campaign, click, targetUrl }; }
+function statsForCampaign(campaign = {}) { const clicks = arr(store.store?.growth?.clicks).filter((click) => clean(click.buttonId) === clean(campaign.id) || clean(click.ref) === clean(campaign.slug)); const uniqueClickers = new Set(clicks.map((click) => clean(click.userId)).filter(Boolean)); return { clicks: clicks.length, uniqueClickers: uniqueClickers.size, lastClickAt: clicks[0]?.createdAt || 0 }; }
+function selftest(config = {}) { const campaigns = listCampaigns(''); return { ok: true, runtimeVersion: RUNTIME, campaigns: campaigns.length, canBuildUrl: campaigns.every((c) => isUrl(c.targetUrl || '')), linkMode: 'direct_channel_link', previewSuppressedByUi: true }; }
 
-module.exports = { RUNTIME, slugify, listCampaigns, getCampaignBySlug, createCampaign, campaignUrl, recordCampaignClick, statsForCampaign, channelTitle, targetUrlForChannel, selftest };
+module.exports = { RUNTIME, slugify, listCampaigns, getCampaignBySlug, createCampaign, campaignUrl, trackingUrl, recordCampaignClick, statsForCampaign, channelTitle, targetUrlForChannel, normalizeDirectUrl, selftest };
