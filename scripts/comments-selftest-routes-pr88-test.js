@@ -61,8 +61,10 @@ try {
   assert.strictEqual(routes.matchingRequestToken(repeatedQueryReq), 'valid-selftest', 'matching token resolver should inspect every repeated token candidate');
   assert.strictEqual(routes.runnerHref(repeatedQueryReq), '/debug/selftest/comments/runner?token=valid-selftest', 'runner link should carry the matching repeated token value');
 
-  const selftestRoutes = fs.readFileSync(path.join(__dirname, '..', 'comments-selftest-routes-pr88.js'), 'utf8');
-  assert.ok(selftestRoutes.includes('res.redirect(302, canonical)'), 'runner route should redirect mixed/stale token URLs to the canonical matched token URL');
+  const staleRunnerReq = makeReq({ query: { token: 'stale-token', adminToken: 'valid-selftest' }, originalUrl: '/debug/selftest/comments/runner?token=stale-token&adminToken=valid-selftest' });
+  assert.strictEqual(routes.runnerCanonicalRedirect(staleRunnerReq), '/debug/selftest/comments/runner?adminToken=valid-selftest', 'runner route should redirect mixed/stale token URLs to the canonical matched token URL');
+  const canonicalRunnerReq = makeReq({ query: { adminToken: 'valid-selftest' }, originalUrl: '/debug/selftest/comments/runner?adminToken=valid-selftest' });
+  assert.strictEqual(routes.runnerCanonicalRedirect(canonicalRunnerReq), '', 'runner route should not redirect an already-canonical token URL');
 
   const browserRunner = fs.readFileSync(path.join(__dirname, '..', 'public', 'comments-selftest-runner-pr89.js'), 'utf8');
   assert.ok(browserRunner.includes('runnerParams.forEach((value, key)'), 'browser runner should preserve incoming token/adminToken URL order');

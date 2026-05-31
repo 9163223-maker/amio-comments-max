@@ -104,6 +104,11 @@ function runnerHref(req) {
   const key = queryEntry && queryEntry.key === 'adminToken' ? 'adminToken' : 'token';
   return '/debug/selftest/comments/runner?' + key + '=' + encodeURIComponent(token);
 }
+function runnerCanonicalRedirect(req) {
+  const canonical = runnerHref(req);
+  const current = clean(req && (req.originalUrl || req.url));
+  return canonical && current && current !== canonical ? canonical : '';
+}
 function runnerPrebootPatch() {
   return '<script>(function(){window.__ADMINKIT_PR91_RUNNER_DIRECT_ONEPASS__=true;var original=URLSearchParams.prototype.set;URLSearchParams.prototype.set=function(k,v){if(window.__ADMINKIT_PR91_RUNNER_DIRECT_ONEPASS__&&(k===\'adminkitSkeleton\'||k===\'commentSkeleton\'||k===\'skeletonConsumer\'))v=\'0\';return original.call(this,k,v);};})();</script>';
 }
@@ -133,9 +138,8 @@ function install(app) {
   app.get('/debug/selftest/comments/runner', (req, res) => {
     noCache(res);
     if (!adminAllowed(req)) return res.status(403).send('admin_forbidden');
-    const canonical = runnerHref(req);
-    const current = clean(req.originalUrl || req.url || '');
-    if (canonical && current && current !== canonical) return res.redirect(302, canonical);
+    const canonicalRedirect = runnerCanonicalRedirect(req);
+    if (canonicalRedirect) return res.redirect(302, canonicalRedirect);
     return res.type('html').send(runnerHtml());
   });
 
@@ -189,4 +193,4 @@ function install(app) {
   return app;
 }
 
-module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens, requestedCommentKey, escapeHtml, runnerHtml, requestToken, tokenValues, queryTokenEntries, tokenCandidates, matchingRequestToken, runnerHref };
+module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens, requestedCommentKey, escapeHtml, runnerHtml, requestToken, tokenValues, queryTokenEntries, tokenCandidates, matchingRequestToken, runnerHref, runnerCanonicalRedirect };
