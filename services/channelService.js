@@ -46,7 +46,7 @@ function titleFromStored(channelId = '') {
   if (!id) return '';
   const candidates = arr(getChannelsList())
     .filter((x) => idOf(x) === id)
-    .flatMap((item) => [item.title, item.channelTitle, item.channelName, item.chatTitle])
+    .flatMap((item) => [item.resolvedChannelTitle, item.channelTitle, item.title, item.channelName, item.chatTitle])
     .map(clean)
     .filter(Boolean)
     .filter((title) => !isBadChannelTitle(title, id));
@@ -54,9 +54,11 @@ function titleFromStored(channelId = '') {
 }
 function titleFromPost(post = {}) {
   const id = clean(post.channelId);
+  const stored = titleFromStored(id);
+  if (stored) return stored;
   const direct = clean(post.channelTitle || post.channelName || post.chatTitle || post.title || '');
   if (direct && !isBadChannelTitle(direct, id)) return direct;
-  return titleFromStored(id) || 'Канал без названия';
+  return 'Канал без названия';
 }
 function listChannels() {
   const map = new Map();
@@ -82,8 +84,8 @@ function listChannelsForAdmin(userId = '') {
 function registerChannel(channelId, data = {}) {
   const id = clean(channelId);
   if (!id) return null;
-  const raw = clean(data.title || data.channelTitle || '');
+  const raw = clean(data.resolvedChannelTitle || data.title || data.channelTitle || '');
   const title = raw && !isBadChannelTitle(raw, id) ? raw : '';
-  return saveChannel(id, { ...(data || {}), channelId: id, title, channelTitle: title, type: 'channel', chatType: 'channel', isMaxChannel: true, isChannel: true });
+  return saveChannel(id, { ...(data || {}), channelId: id, title, channelTitle: title, resolvedChannelTitle: title || clean(data.resolvedChannelTitle || ''), type: 'channel', chatType: 'channel', isMaxChannel: true, isChannel: true });
 }
-module.exports = { listChannels, listChannelsForAdmin, registerChannel };
+module.exports = { listChannels, listChannelsForAdmin, registerChannel, titleFromStored };
