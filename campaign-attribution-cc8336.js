@@ -135,12 +135,40 @@ function campaignAudienceStats(store, campaign = {}) {
     lastSubscriberAt: matched.sort((a, b) => n(b.createdAt) - n(a.createdAt))[0]?.createdAt || 0
   };
 }
+function campaignByPayload(ads, payload = {}) {
+  const slug = clean(payload.slug);
+  const campaignId = clean(payload.campaignId);
+  if (slug && ads.getCampaignBySlug) return ads.getCampaignBySlug(slug);
+  return ads.listCampaigns('').find((item) => clean(item.id) === campaignId || clean(item.slug) === slug) || null;
+}
+function subscriberLines(stats = {}) {
+  const confirmed = n(stats.confirmedSubscribers);
+  const probable = n(stats.probableSubscribers);
+  const total = confirmed + probable;
+  const clicks = n(stats.clicks);
+  const conversion = clicks ? `${Math.round((total / clicks) * 100)}%` : '—';
+  return [
+    `Подписки подтверждённые: ${confirmed}`,
+    `Подписки вероятные: ${probable}`,
+    `Подписки всего: ${total}`,
+    `Конверсия подписки: ${conversion}`,
+    stats.lastSubscriberAt ? `Последняя подписка: ${new Date(stats.lastSubscriberAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''
+  ].filter(Boolean);
+}
+function addSubscriberStatsToScreen(screen, stats = {}) {
+  if (!screen || !screen.text || screen.text.includes('Подписки вероятные:')) return screen;
+  const extra = ['', 'Подписки по кампании:', ...subscriberLines(stats), '', 'Примечание: если MAX не отдаёт referrer/userId клика, подписка считается вероятной по последнему клику кампании в этом канале.'];
+  screen.text += '\n' + extra.join('\n');
+  return screen;
+}
 function install() {
   const ads = require('./services/adCampaignService');
+  const statsFlow = require('./stats-flow-cc8');
   const store = require('./store');
   if (ads.__adminkitCampaignAttributionInstalled) return { ok: true, already: true, runtimeVersion: RUNTIME };
   const oldStats = ads.statsForCampaign;
   const oldSelftest = ads.selftest;
+  const oldScreen = statsFlow.screenForPayload;
   ads.statsForCampaign = function statsForCampaignWithAudience(campaign = {}) {
     const base = oldStats ? oldStats(campaign) : { clicks: 0, uniqueClickers: 0, lastClickAt: 0 };
     return { ...base, ...campaignAudienceStats(store, campaign) };
@@ -149,8 +177,17 @@ function install() {
     const base = oldSelftest ? oldSelftest(config) : { ok: true };
     return { ...base, runtimeVersion: RUNTIME, campaignAttributionSupported: true, audienceEvents: arr(store.getChannelsList()).reduce((sum, ch) => sum + arr(ch.audienceEvents).length, 0), attributionModel: 'confirmed_by_same_user_click_or_probable_by_recent_channel_click' };
   };
+  statsFlow.screenForPayload = async function screenForPayloadWithCampaignAttribution(menu, payload = {}, ctx = {}) {
+    const screen = await oldScreen(menu, payload, ctx);
+    const action = clean(payload.action);
+    if (action === 'admin_stats_campaign_view' || action === 'admin_stats_campaign_copy') {
+      const campaign = campaignByPayload(ads, payload);
+      if (campaign) addSubscriberStatsToScreen(screen, ads.statsForCampaign(campaign));
+    }
+    return screen;
+  };
   ads.__adminkitCampaignAttributionInstalled = true;
-  return { ok: true, runtimeVersion: RUNTIME, campaignAttributionSupported: true };
+  return { ok: true, runtimeVersion: RUNTIME, campaignAttributionSupported: true, campaignScreensShowSubscribers: true };
 }
 
 module.exports = { RUNTIME, install, saveAudienceEventFromUpdate, campaignAudienceStats };
