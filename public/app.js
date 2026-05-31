@@ -153,7 +153,7 @@ function wantsGuardedSkeletonConsumer() {
   const flags = skeletonFlagSource();
   if (hasSkeletonFlagValue(flags, '0')) return false;
   if (hasSkeletonFlagValue(flags, '1')) return true;
-  if (/(?:^|[?&])skeletonConsumer=pr67(?:&|$)/i.test(flags)) return true;
+  if (/(?:^|[?&])skeletonConsumer=pr(?:67|84)(?:&|$)/i.test(flags)) return true;
   return hasCommentLaunchIdentity(query) || hasCommentLaunchIdentity(hash);
 }
 

@@ -11,7 +11,8 @@ const contract = fs.readFileSync(path.join(__dirname, '..', 'docs', 'COMMENT_UI_
 assert.ok(appLoader.includes('CC8.1.9-COMMENT-SKELETON-CONSUMER-GUARDED'), 'loader should expose PR67 skeleton consumer runtime');
 assert.ok(appLoader.includes('/public/app-onepass.js?'), 'loader must keep legacy onepass as the default asset');
 assert.ok(appLoader.includes('/public/app-skeleton-consumer-pr67.js?'), 'loader should route to guarded skeleton consumer asset only when opted in');
-assert.ok(appLoader.includes('skeletonConsumer=pr67'), 'loader should preserve explicit PR67 skeleton consumer opt-in');
+assert.ok(appLoader.includes('skeletonConsumer=pr(?:67|84)'), 'loader should preserve explicit PR67/PR84 skeleton consumer opt-in');
+assert.ok(appLoader.includes('skeletonConsumer=pr67'), 'loader should preserve explicit PR67 skeleton consumer config selection');
 assert.ok(appLoader.includes('skeletonFlagSource'), 'loader should read skeleton opt-in flags from both search and hash');
 assert.ok(appLoader.includes('hasQueryFlag ? query : hash'), 'loader should let explicit search flags take precedence over hash flags');
 assert.ok(appLoader.includes('hasSkeletonFlagValue'), 'loader should centralize skeleton opt-in and opt-out flag matching');
