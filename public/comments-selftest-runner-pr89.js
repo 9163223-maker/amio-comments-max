@@ -109,19 +109,25 @@
     const beforeStickerIds = beforeComments.filter((c) => c && c.type === 'sticker').map((c) => clean(c.id));
     await waitForSelector(handle.doc, '#adminkitStickerButtonPr87', 10000);
     clickEl(handle.doc.querySelector('#adminkitStickerButtonPr87'));
-    await waitForSelector(handle.doc, '#adminkitStickerPanelPr87.open .adminkit-sticker-option', 8000);
-    clickEl(handle.doc.querySelector('#adminkitStickerPanelPr87.open .adminkit-sticker-option'));
+    const stickerOption = await waitForSelector(handle.doc, '#adminkitStickerPanelPr87.open .adminkit-sticker-option[data-sticker-id]', 8000);
+    const selectedStickerId = clean(stickerOption && stickerOption.getAttribute('data-sticker-id'));
+    clickEl(stickerOption);
     const c = await waitFor(async () => {
       const data = await commentsApi(full.commentKey);
       const comments = data.comments || [];
       const total = Number(data.count == null ? comments.length : data.count) || 0;
-      const created = comments.find((x) => x && x.type === 'sticker' && !beforeIds.has(clean(x.id)));
-      return created && total > beforeTotal ? created : null;
+      const created = comments.find((x) => x && x.type === 'sticker' && !beforeIds.has(clean(x.id)) && (!selectedStickerId || clean(x.stickerId) === selectedStickerId));
+      return created && total >= beforeTotal + 1 ? created : null;
     }, 10000, 'new_sticker_comment_timeout');
-    await waitFor(() => rowById(handle.doc, c.id) && rowById(handle.doc, c.id).querySelector('.comment-sticker'), 10000, 'sticker_dom_timeout');
+    const stickerRow = await waitFor(() => {
+      const row = rowById(handle.doc, c.id);
+      const sticker = row && row.querySelector('.comment-sticker');
+      const stickerId = clean(sticker && sticker.getAttribute('data-sticker-id'));
+      return row && sticker && (!selectedStickerId || stickerId === selectedStickerId) ? row : null;
+    }, 10000, 'sticker_dom_timeout');
     const afterData = await commentsApi(full.commentKey);
-    const stickerRow = c && rowById(handle.doc, c.id);
-    return scenario('preset_sticker', Boolean(c && stickerRow), { commentId: c && c.id, stickerRuntime: handle.win.__ADMINKIT_STICKERS_RUNTIME__ || '', hasStickerRow: Boolean(stickerRow), countBefore: beforeTotal, countAfter: afterData.count, commentsBefore: beforeComments.length, commentsAfter: (afterData.comments || []).length, stickerIdsBefore: beforeStickerIds, existedBefore: beforeIds.has(clean(c && c.id)) });
+    const afterTotal = Number(afterData.count == null ? (afterData.comments || []).length : afterData.count) || 0;
+    return scenario('preset_sticker', Boolean(c && stickerRow), { commentId: c && c.id, selectedStickerId, createdStickerId: c && c.stickerId, stickerRuntime: handle.win.__ADMINKIT_STICKERS_RUNTIME__ || '', hasStickerRow: Boolean(stickerRow), countBefore: beforeTotal, countAfter: afterTotal, countIncreased: afterTotal >= beforeTotal + 1, commentsBefore: beforeComments.length, commentsAfter: (afterData.comments || []).length, stickerIdsBefore: beforeStickerIds, existedBefore: beforeIds.has(clean(c && c.id)), stickerMatchesSelection: !selectedStickerId || clean(c && c.stickerId) === selectedStickerId });
   }
   async function runForbidden(full, handle) { async function one(file) { const traceBaseline = await commentTraceBaseline(); const before = (await commentsApi(full.commentKey)).count; dispatchFile(handle.win, attachmentInput(handle.doc), file); await sleep(800); const after = (await commentsApi(full.commentKey)).count; const status = clean(handle.doc.querySelector('#commentInlineStatus') && handle.doc.querySelector('#commentInlineStatus').textContent); const events = await commentTraceEvents(full.commentKey, traceBaseline); const uploadEvents = events.filter((e) => e.event === 'photo_upload_started'); const matchingUploadEvents = uploadEvents.filter((e) => clean(e.fileName).indexOf(file.name) !== -1); return { fileName: file.name, mimeType: file.type, countBefore: before, countAfter: after, noCreate: before === after, noUpload: uploadEvents.length === 0, photoUploadStarted: uploadEvents.length > 0, matchingPhotoUploadStarted: matchingUploadEvents.length > 0, uploadEventCount: uploadEvents.length, uploadEventFileNames: uploadEvents.map((e) => clean(e.fileName)).slice(-5), userFacingError: /только фото|фото|не поддерж/i.test(status), status }; } const video = await one(makeFile(handle.win, 'pr97-forbidden.mp4', 'video/mp4')); const pdf = await one(makeFile(handle.win, 'pr97-forbidden.pdf', 'application/pdf', new TextEncoder().encode('%PDF-1.4 test'))); return scenario('forbidden_video_file', video.noCreate && pdf.noCreate && video.noUpload && pdf.noUpload && (video.userFacingError || pdf.userFacingError), { video, pdf }); }
   async function runOriginalPost(full, handle) { await waitForSelector(handle.doc, '#postMedia .post-original-media-img', 10000); const postImg = handle.doc.querySelector('#postMedia .post-original-media-img'); const inComment = Boolean(postImg && postImg.closest('[data-comment-id]')); const inTopPostBlock = Boolean(postImg && postImg.closest('#postMedia')); const text = clean(handle.doc.querySelector('#postCard') && handle.doc.querySelector('#postCard').textContent); return scenario('original_post_media_render', Boolean(postImg && inTopPostBlock && !inComment && text.indexOf('PR97 original post text') !== -1), { hasPostImage: Boolean(postImg), inTopPostBlock, imageInsideCommentRow: inComment, postTextPresent: text.indexOf('PR97 original post text') !== -1 }); }
