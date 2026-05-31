@@ -73,7 +73,20 @@
       ok: Boolean(snapshot && snapshot.ok),
       serverNowMs: Number(snapshot && snapshot.serverNowMs) || 0,
       totalSeen: Number(snapshot && (snapshot.totalSeen || snapshot.total)) || 0,
-      maxSeq: seqs.length ? Math.max.apply(Math, seqs) : 0
+      maxSeq: seqs.length ? Math.max.apply(Math, seqs) : 0,
+      events: events.map((item) => ({
+        seq: Number(item && item.seq) || 0,
+        event: String(item && item.event || ''),
+        timingId: String(item && item.timingId || ''),
+        clientUploadId: String(item && item.clientUploadId || ''),
+        uploadId: String(item && item.uploadId || ''),
+        compressMs: Number(item && item.compressMs) || 0,
+        uploadMs: Number(item && item.uploadMs) || 0,
+        createMs: Number(item && item.createMs) || 0,
+        renderMs: Number(item && item.renderMs) || 0,
+        totalMs: Number(item && item.totalMs) || 0,
+        durationMs: Number(item && item.durationMs) || 0
+      }))
     };
   }
   async function readTraceBaseline() {
@@ -94,19 +107,25 @@
     const tests = testsById(report);
     const traceStart = traceBefore || {};
     const traceEnd = traceAfter || {};
-    const serverTraceAdvanced = Number(traceEnd.totalSeen || 0) >= Number(traceStart.totalSeen || 0) && Number(traceEnd.serverNowMs || 0) >= Number(traceStart.serverNowMs || 0);
+    const totalSeenAdvanced = Number(traceEnd.totalSeen || 0) > Number(traceStart.totalSeen || 0);
+    const maxSeqAdvanced = Number(traceEnd.maxSeq || 0) > Number(traceStart.maxSeq || 0);
+    const serverTraceAdvanced = totalSeenAdvanced || maxSeqAdvanced;
+    const newTraceEvents = (Array.isArray(traceEnd.events) ? traceEnd.events : []).filter((item) => Number(item && item.seq) > Number(traceStart.maxSeq || 0));
+    const timingFields = ['compressMs', 'uploadMs', 'createMs', 'renderMs', 'totalMs', 'durationMs'];
+    const timingEvents = newTraceEvents.filter((item) => timingFields.some((field) => Number(item && item[field]) > 0));
+    const timingEvidence = timingEvents.length > 0;
     const scenarios = {
-      text: makeScenario(testPassed(tests, 'create_text_comment'), { source: 'backend_real_comment_service' }),
-      photo: makeScenario(testPassed(tests, 'create_photo_comment'), { source: 'backend_real_comment_service' }),
-      reply: makeScenario(testPassed(tests, 'reply_text_to_sticker'), { source: 'backend_real_comment_service' }),
-      reaction: makeScenario(testPassed(tests, 'reaction_on_sticker'), { source: 'backend_real_comment_service' }),
-      sticker: makeScenario(testPassed(tests, 'create_sticker_comment_via_live_route') && checksOk(sticker), { source: 'live_sticker_route_plus_real_dom' }),
-      'forbidden-file': { ok: true, status: 'pass', supported: false, rejected: true, negative: true, source: 'comments_policy_negative_probe' },
-      'forbidden-video': { ok: true, status: 'pass', supported: false, rejected: true, negative: true, source: 'comments_policy_negative_probe' },
-      'original-media': makeScenario(testPassed(tests, 'sample_post_snapshot_saved_for_original_media'), { source: 'selftest_raw_post_snapshot' }),
-      hydration: makeScenario(countersOk(hydration), { source: 'real_comments_iframe_counters' }),
-      trace: makeScenario(serverTraceAdvanced, { source: 'server_comment_trace_endpoint' }),
-      timing: makeScenario(true, { source: 'runner_timing_payload' })
+      text: makeScenario(testPassed(tests, 'create_text_comment'), { source: 'backend_service_contract' }),
+      photo: makeScenario(testPassed(tests, 'create_photo_comment'), { source: 'backend_service_contract' }),
+      reply: makeScenario(testPassed(tests, 'reply_text_to_sticker'), { source: 'backend_service_contract' }),
+      reaction: makeScenario(testPassed(tests, 'reaction_on_sticker'), { source: 'backend_service_contract' }),
+      sticker: makeScenario(testPassed(tests, 'create_sticker_comment_via_live_route') && checksOk(sticker), { source: 'real_iframe_dom_probe' }),
+      'forbidden-file': { ok: true, status: 'policy_negative_contract', supported: false, rejected: true, negative: true, realUiUploadFlow: false, source: 'policy_negative_contract' },
+      'forbidden-video': { ok: true, status: 'policy_negative_contract', supported: false, rejected: true, negative: true, realUiUploadFlow: false, source: 'policy_negative_contract' },
+      'original-media': makeScenario(testPassed(tests, 'sample_post_snapshot_saved_for_original_media'), { source: 'backend_service_contract' }),
+      hydration: makeScenario(countersOk(hydration), { source: 'real_iframe_dom_probe' }),
+      trace: makeScenario(serverTraceAdvanced, { source: 'server_trace_contract', totalSeenAdvanced, maxSeqAdvanced }),
+      timing: makeScenario(timingEvidence, { source: 'server_trace_contract', timingEventCount: timingEvents.length })
     };
     return {
       id: MATRIX_PROBE_ID,
@@ -123,17 +142,23 @@
         totalSeen: Number(traceEnd.totalSeen || 0),
         baselineTotalSeen: Number(traceStart.totalSeen || 0),
         baselineSeq: Number(traceStart.maxSeq || 0),
-        maxSeq: Number(traceEnd.maxSeq || 0)
+        maxSeq: Number(traceEnd.maxSeq || 0),
+        totalSeenAdvanced,
+        maxSeqAdvanced,
+        newTraceEventCount: newTraceEvents.length
       },
       timing: {
-        timingId: 'comments_matrix_' + Date.now(),
-        clientUploadId: 'matrix_browser_probe',
-        uploadId: 'matrix_browser_probe',
-        compressMs: 0,
-        uploadMs: 0,
-        createMs: 0,
-        renderMs: 0,
-        totalMs: 0
+        source: 'server_trace_contract',
+        fromTraceEvent: timingEvidence,
+        timingEventCount: timingEvents.length,
+        timingId: timingEvents[0] && timingEvents[0].timingId || '',
+        clientUploadId: timingEvents[0] && timingEvents[0].clientUploadId || '',
+        uploadId: timingEvents[0] && timingEvents[0].uploadId || '',
+        compressMs: timingEvents.reduce((max, item) => Math.max(max, Number(item.compressMs || 0)), 0),
+        uploadMs: timingEvents.reduce((max, item) => Math.max(max, Number(item.uploadMs || 0)), 0),
+        createMs: timingEvents.reduce((max, item) => Math.max(max, Number(item.createMs || 0)), 0),
+        renderMs: timingEvents.reduce((max, item) => Math.max(max, Number(item.renderMs || 0)), 0),
+        totalMs: timingEvents.reduce((max, item) => Math.max(max, Number(item.totalMs || item.durationMs || 0)), 0)
       }
     };
   }

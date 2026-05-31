@@ -344,9 +344,14 @@ function validateProductionCommentsMatrixProbe(value, requirement = {}) {
   const usesServerBaseline = trace.serverBaseline === true || trace.usesServerBaseline === true || trace.clientDateNowFiltering === false || Number.isFinite(Number(trace.serverNowMs)) || Number.isFinite(Number(trace.totalSeen)) || Number.isFinite(Number(trace.baselineSeq));
   const timings = value.timing || value.timings || value.telemetry || {};
   const timingFields = ['compressMs', 'uploadMs', 'createMs', 'renderMs', 'totalMs'];
-  const timingEvidence = timingFields.some((field) => Number.isFinite(Number(timings[field])) || Number.isFinite(Number(nested(timings, ['fields', field]))));
-  const ok = missing.length === 0 && failed.length === 0 && noForbiddenFeatures && usesServerBaseline && timingEvidence;
-  return { ok, reason: ok ? undefined : 'production_comments_matrix_contract_failed', missing, failed, noForbiddenFeatures, usesServerBaseline, timingEvidence, requiredScenarios: required };
+  const positiveTimingFields = timingFields.filter((field) => Number(timings[field]) > 0 || Number(nested(timings, ['fields', field])) > 0);
+  const timingSource = clean(timings.source || timings.timingSource || nested(timings, ['trace', 'source']));
+  const fromTraceEvent = timings.fromTraceEvent === true || Number(timings.timingEventCount || timings.traceEventCount || 0) > 0;
+  const nonDummyTimingSource = ['server_trace_event', 'client_trace_event', 'photo_upload_trace', 'runner_real_measurement'].includes(timingSource);
+  const timingEvidence = positiveTimingFields.length > 0 || fromTraceEvent || nonDummyTimingSource;
+  const dummyAllZeroTiming = timingFields.every((field) => Number(timings[field] || 0) === 0) && !fromTraceEvent && !nonDummyTimingSource;
+  const ok = missing.length === 0 && failed.length === 0 && noForbiddenFeatures && usesServerBaseline && timingEvidence && !dummyAllZeroTiming;
+  return { ok, reason: ok ? undefined : 'production_comments_matrix_contract_failed', missing, failed, noForbiddenFeatures, usesServerBaseline, timingEvidence, dummyAllZeroTiming, positiveTimingFields, timingSource, fromTraceEvent, requiredScenarios: required };
 }
 function validateBrowserProbe(id, value, requirement) {
   if (id === MATRIX_PROBE_ID) return validateProductionCommentsMatrixProbe(value, requirement);
