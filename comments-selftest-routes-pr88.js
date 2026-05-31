@@ -32,7 +32,13 @@ function refererTokens(req) {
     const ref = clean(req.get('referer') || req.get('referrer') || '');
     if (!ref) return [];
     const parsed = new URL(ref, 'http://local');
-    return ['token', 'adminToken'].flatMap((key) => parsed.searchParams.getAll(key)).map(clean).filter(Boolean);
+    const values = [];
+    parsed.searchParams.forEach((value, key) => {
+      if (key !== 'token' && key !== 'adminToken') return;
+      const text = clean(value);
+      if (text) values.push(text);
+    });
+    return values;
   } catch (_) {
     return [];
   }

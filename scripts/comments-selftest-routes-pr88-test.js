@@ -44,6 +44,10 @@ try {
   const repeatedRefererReq = makeReq({ headers: { referer: 'https://example.test/debug/selftest/comments/report?token=stale-token&token=valid-selftest' } });
   assert.strictEqual(routes.adminAllowed(repeatedRefererReq), true, 'referer token fallback should inspect repeated token query values');
 
+  const orderedRefererReq = makeReq({ headers: { referer: 'https://example.test/debug/selftest/comments/report?adminToken=valid-selftest&token=stale-token' } });
+  assert.deepStrictEqual(routes.tokenCandidates(orderedRefererReq), ['valid-selftest', 'stale-token'], 'referer token candidates should preserve URL parameter order across token keys');
+  assert.strictEqual(routes.requestToken(orderedRefererReq), 'valid-selftest', 'referer requestToken fallback should use the first token-like value in URL order');
+
   const repeatedQueryReq = makeReq({ query: { token: ['stale-token', 'valid-selftest'] } });
   assert.deepStrictEqual(routes.tokenValues(repeatedQueryReq.query.token), ['stale-token', 'valid-selftest'], 'tokenValues should preserve repeated query token params');
   assert.strictEqual(routes.adminAllowed(repeatedQueryReq), true, 'a valid repeated token query value must not be collapsed into an invalid comma-joined string');
