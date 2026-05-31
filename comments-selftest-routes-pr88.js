@@ -27,9 +27,16 @@ function configuredAdminTokens() {
     .map(clean)
     .filter(Boolean);
 }
+function headerValue(req, name) {
+  const key = String(name || '').toLowerCase();
+  const viaGetter = req && typeof req.get === 'function' ? req.get(name) : '';
+  if (clean(viaGetter)) return viaGetter;
+  const headers = req && req.headers || {};
+  return headers[key] || headers[name] || '';
+}
 function refererTokens(req) {
   try {
-    const ref = clean(req && (req.get?.('referer') || req.get?.('referrer')) || '');
+    const ref = clean(headerValue(req, 'referer') || headerValue(req, 'referrer'));
     if (!ref) return [];
     const parsed = new URL(ref, 'http://local');
     const values = [];
@@ -67,11 +74,11 @@ function queryTokenEntries(req) {
   ];
 }
 function tokenCandidates(req) {
-  const bearer = clean(String(req.get?.('authorization') || '').replace(/^Bearer\s+/i, ''));
+  const bearerTokens = tokenValues(headerValue(req, 'authorization')).map((value) => clean(String(value || '').replace(/^Bearer\s+/i, ''))).filter(Boolean);
   return [
     ...queryTokenEntries(req).map((entry) => entry.value),
-    ...tokenValues(req.get?.('x-admin-token')),
-    ...tokenValues(bearer),
+    ...tokenValues(headerValue(req, 'x-admin-token')),
+    ...bearerTokens,
     ...refererTokens(req)
   ];
 }
@@ -193,4 +200,4 @@ function install(app) {
   return app;
 }
 
-module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens, requestedCommentKey, escapeHtml, runnerHtml, requestToken, tokenValues, queryTokenEntries, tokenCandidates, matchingRequestToken, runnerHref, runnerCanonicalRedirect };
+module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens, requestedCommentKey, escapeHtml, runnerHtml, requestToken, headerValue, tokenValues, queryTokenEntries, tokenCandidates, matchingRequestToken, runnerHref, runnerCanonicalRedirect };
