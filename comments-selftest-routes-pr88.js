@@ -32,7 +32,9 @@ function headerValue(req, name) {
   const viaGetter = req && typeof req.get === 'function' ? req.get(name) : '';
   if (clean(viaGetter)) return viaGetter;
   const headers = req && req.headers || {};
-  return headers[key] || headers[name] || '';
+  if (headers[key] || headers[name]) return headers[key] || headers[name];
+  const actualKey = Object.keys(headers).find((item) => String(item || '').toLowerCase() === key);
+  return actualKey ? headers[actualKey] : '';
 }
 function refererTokens(req) {
   try {

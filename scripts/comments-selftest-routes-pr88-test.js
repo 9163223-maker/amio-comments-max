@@ -70,6 +70,9 @@ try {
   assert.deepStrictEqual(routes.tokenCandidates({ query: { token: 'stale-token' }, headers: { 'x-admin-token': 'valid-selftest' } }), ['stale-token', 'valid-selftest'], 'token candidate helpers should read plain headers objects when req.get is unavailable');
   assert.strictEqual(routes.adminAllowed({ query: { token: 'stale-token' }, headers: { 'x-admin-token': 'valid-selftest' } }), true, 'plain headers object x-admin-token must authorize when req.get is unavailable');
 
+  assert.strictEqual(routes.headerValue({ headers: { 'X-Admin-Token': 'valid-selftest' } }, 'x-admin-token'), 'valid-selftest', 'plain header lookup should be case-insensitive');
+  assert.strictEqual(routes.adminAllowed({ query: { token: 'stale-token' }, headers: { 'X-Admin-Token': 'valid-selftest' } }), true, 'plain mixed-case x-admin-token header must authorize when req.get is unavailable');
+
   const staleRunnerReq = makeReq({ query: { token: 'stale-token', adminToken: 'valid-selftest' }, originalUrl: '/debug/selftest/comments/runner?token=stale-token&adminToken=valid-selftest' });
   assert.strictEqual(routes.runnerCanonicalRedirect(staleRunnerReq), '/debug/selftest/comments/runner?adminToken=valid-selftest', 'runner route should redirect mixed/stale token URLs to the canonical matched token URL');
   const canonicalRunnerReq = makeReq({ query: { adminToken: 'valid-selftest' }, originalUrl: '/debug/selftest/comments/runner?adminToken=valid-selftest' });
