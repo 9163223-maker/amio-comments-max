@@ -23,8 +23,14 @@ function addParam(params, key, value) {
   const text = clean(value);
   if (text && !params.has(key)) params.set(key, text);
 }
-function buildSkeletonUrl() {
+function initialSkeletonParams() {
   const params = new URLSearchParams(String(location.search || '').replace(/^\?/, ''));
+  const hashParams = new URLSearchParams(String(location.hash || '').replace(/^#/, '').replace(/^\?/, ''));
+  hashParams.forEach((value, key) => addParam(params, key, value));
+  return params;
+}
+function buildSkeletonUrl() {
+  const params = initialSkeletonParams();
   getPossibleWebApps().forEach((app) => {
     try {
       const unsafe = (app && app.initDataUnsafe) || {};

@@ -26,6 +26,8 @@ assert.ok(skeletonConsumer.includes('legacyRuntimeStable === true'), 'consumer m
 assert.ok(skeletonConsumer.includes('skeletonOptInWorks === true'), 'consumer must require skeleton opt-in support');
 assert.ok(skeletonConsumer.includes('hydrateUrlStripsSkeleton === true'), 'consumer must require hydrateUrl skeleton stripping');
 assert.ok(skeletonConsumer.includes('noUserUiChange === true'), 'consumer must guard no user UI change contract');
+assert.ok(skeletonConsumer.includes('initialSkeletonParams'), 'consumer must merge launch params from search and hash before skeleton fetch');
+assert.ok(skeletonConsumer.includes('hashParams.forEach'), 'consumer must fill missing launch params from hash without overriding search');
 assert.ok(skeletonConsumer.includes("params.set('skeleton', '1')"), 'consumer must request skeleton only from the guarded path');
 assert.ok(skeletonConsumer.includes('prefetchHydrate'), 'consumer should start hydrate prefetch after skeleton');
 assert.ok(skeletonConsumer.includes('loadLegacy'), 'consumer must keep legacy fallback available');

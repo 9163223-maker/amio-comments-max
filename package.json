@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node clean-entrypoint-1.53.10-pr89.js",
     "test": "node scripts/smoke-test.js",
-    "lint": "node -c public/app.js && node -c public/comments-selftest-runner-pr89.js && node -c services/postPatcher.js && node -c scripts/comment-skeleton-consumer-pr67-test.js && node -c scripts/patch-compute-breakdown-pr75-test.js"
+    "lint": "node -c public/app.js && node -c public/comments-selftest-runner-pr89.js && node -c public/app-skeleton-consumer-pr67.js && node -c public/app-skeleton-consumer-pr84.js && node -c services/postPatcher.js && node -c scripts/comment-skeleton-consumer-pr67-test.js && node -c scripts/patch-compute-breakdown-pr75-test.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
