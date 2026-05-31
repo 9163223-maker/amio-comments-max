@@ -27,25 +27,39 @@ function configuredAdminTokens() {
     .map(clean)
     .filter(Boolean);
 }
-function refererToken(req) {
+function refererTokens(req) {
   try {
     const ref = clean(req.get('referer') || req.get('referrer') || '');
-    if (!ref) return '';
+    if (!ref) return [];
     const parsed = new URL(ref, 'http://local');
-    return clean(parsed.searchParams.get('token') || parsed.searchParams.get('adminToken') || '');
+    return [parsed.searchParams.get('token'), parsed.searchParams.get('adminToken')].map(clean).filter(Boolean);
   } catch (_) {
-    return '';
+    return [];
   }
 }
-function requestToken(req) {
+function tokenCandidates(req) {
   const bearer = clean(String(req.get('authorization') || '').replace(/^Bearer\s+/i, ''));
-  return clean(req.query?.token || req.query?.adminToken || req.get('x-admin-token') || bearer || refererToken(req) || '');
+  return [
+    req.query?.token,
+    req.query?.adminToken,
+    req.get('x-admin-token'),
+    bearer,
+    ...refererTokens(req)
+  ].map(clean).filter(Boolean);
+}
+function requestToken(req) {
+  return tokenCandidates(req)[0] || '';
+}
+function matchingRequestToken(req) {
+  const allowedTokens = configuredAdminTokens();
+  const candidates = tokenCandidates(req);
+  if (!allowedTokens.length) return candidates[0] || '';
+  return candidates.find((token) => allowedTokens.includes(token)) || '';
 }
 function adminAllowed(req) {
   const allowedTokens = configuredAdminTokens();
   if (!allowedTokens.length) return true;
-  const token = requestToken(req);
-  return Boolean(token && allowedTokens.includes(token));
+  return Boolean(matchingRequestToken(req));
 }
 
 function cleanupMode(req) {
@@ -56,9 +70,9 @@ function requestedCommentKey(req) {
   return clean(req.query?.commentKey || req.query?.key || '');
 }
 function runnerHref(req) {
-  const token = clean(req.query?.token || req.query?.adminToken || '');
+  const token = matchingRequestToken(req) || requestToken(req);
   if (!token) return '/debug/selftest/comments/runner';
-  const key = req.query?.adminToken ? 'adminToken' : 'token';
+  const key = clean(req.query?.adminToken) === token ? 'adminToken' : 'token';
   return '/debug/selftest/comments/runner?' + key + '=' + encodeURIComponent(token);
 }
 function runnerPrebootPatch() {
@@ -143,4 +157,4 @@ function install(app) {
   return app;
 }
 
-module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens, requestedCommentKey, escapeHtml, runnerHtml };
+module.exports = { RUNTIME, install, adminAllowed, configuredAdminTokens, requestedCommentKey, escapeHtml, runnerHtml, requestToken, tokenCandidates, matchingRequestToken, runnerHref };
