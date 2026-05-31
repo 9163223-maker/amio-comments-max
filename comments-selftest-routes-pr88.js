@@ -81,7 +81,8 @@ function install(app) {
       const report = cleanup === true && commentKey
         ? await cleanupSelftestFixtures({ commentKey })
         : await runFullCommentsSelftest({ cleanup, commentKey });
-      return res.status(report.ok ? 200 : 500).json(report);
+      const needsBrowserProbe = report && report.backendOk === true && report.uiStability && report.uiStability.status === 'needs_browser_probe';
+      return res.status(report.ok || needsBrowserProbe ? 200 : 500).json(report);
     } catch (error) {
       const status = Number(error && error.status) || 500;
       return res.status(status).json({ ok: false, runtimeVersion: RUNTIME, error: error?.code || error?.message || 'selftest_failed', data: error?.data });
