@@ -1,13 +1,14 @@
 'use strict';
 
-const VERSION = 'menu-v3-feature-adapter-5-functional-actions';
-const SOURCE = 'adminkit-menu-v3-feature-adapter-functional-actions';
+const VERSION = 'menu-v3-feature-adapter-6-ads-top-level';
+const SOURCE = 'adminkit-menu-v3-feature-adapter-ads-top-level';
 
 const MAIN_ROUTES = [
   ['channels:home', '📺 Каналы'],
   ['comments:home', '💬 Комментарии'],
   ['gifts:home', '🎁 Подарки'],
   ['buttons:home', '⚪ Кнопки'],
+  ['ads:home', '📣 Реклама'],
   ['highlight:home', '⭐ Выделение'],
   ['polls:home', '🗳 Опросы'],
   ['editor:home', '✏️ Редактор'],
@@ -24,6 +25,7 @@ const SECTION_TITLES = {
   comments: '💬 Комментарии под постами',
   gifts: '🎁 Подарки / лид-магниты',
   buttons: '⚪ CTA / пользовательские кнопки',
+  ads: '📣 Реклама / источники',
   highlight: '⭐ Выделение постов',
   polls: '🗳 Голосовалки / опросы',
   editor: '✏️ Редактирование постов',
@@ -64,6 +66,7 @@ function mainHome() {
       [button('💬 Комментарии под постами', 'comments:home')],
       [button('🎁 Подарки / лид-магниты', 'gifts:home')],
       [button('⚪ CTA / пользовательские кнопки', 'buttons:home')],
+      [button('📣 Реклама / источники', 'ads:home')],
       [button('⭐ Выделение постов', 'highlight:home')],
       [button('🗳 Голосовалки / опросы', 'polls:home')],
       [button('✏️ Редактирование постов', 'editor:home')],
@@ -116,6 +119,10 @@ function sectionHome(owner) {
       [actionButton('📌 Выбрать пост', 'button_admin_recent_posts', { page: 0 }), actionButton('➕ Добавить кнопку', 'button_admin_start_add')],
       [actionButton('📋 Кнопки поста', 'button_admin_show_current')],
     ],
+    ads: [
+      [actionButton('➕ Создать ссылку', 'admin_stats_campaign_create'), actionButton('🔗 Все ссылки', 'admin_stats_campaigns')],
+      [actionButton('🧭 Источники', 'admin_stats_sources_cache'), actionButton('🔄 Обновить', 'admin_stats_refresh')],
+    ],
     highlight: [
       [actionButton('📌 Выбрать пост', 'comments_select_post', { source: 'highlights' })],
       [button('⭐ Включить выделение', 'highlight:enable'), button('🗑 Убрать выделение', 'highlight:disable')],
@@ -149,7 +156,8 @@ function sectionHome(owner) {
     ],
     help: [
       [button('💬 Комментарии', 'help:comments'), button('🛡 Модерация', 'help:moderation')],
-      [button('🎁 Подарки', 'help:gifts'), button('📊 Статистика', 'help:stats')],
+      [button('🎁 Подарки', 'help:gifts'), button('📣 Реклама', 'ads:home')],
+      [button('📊 Статистика', 'help:stats')],
     ],
   };
   return { ok: true, route: `${owner}:home`, owner, text: `${title}\n\nВыберите действие.`, attachments: keyboard([...(rowsByOwner[owner] || []), ...nav(owner)]) };
@@ -202,7 +210,7 @@ function render(route, context = {}) {
 }
 
 function selfTest() {
-  const routes = ['main:home', ...MAIN_ROUTES.map(([route]) => route), 'comments:choose_post', 'moderation:choose_post', 'editor:choose_post', 'gifts:choose_post', 'highlight:choose_post', 'polls:choose_post', 'terms:home', 'privacy:home'];
+  const routes = ['main:home', ...MAIN_ROUTES.map(([route]) => route), 'comments:choose_post', 'moderation:choose_post', 'editor:choose_post', 'gifts:choose_post', 'highlight:choose_post', 'polls:choose_post', 'ads:home', 'terms:home', 'privacy:home'];
   const sampleContext = { dataContext: { ok: true, channelId: 'test-channel', channelTitle: 'Тестовый канал', posts: [{ postId: '1', commentKey: 'test-channel:1', title: 'Тестовый пост' }] } };
   const results = routes.map(route => render(route, route.endsWith(':choose_post') ? sampleContext : {}));
   return { ok: results.every(result => result && result.text && Array.isArray(result.attachments)), version: VERSION, sourceMarker: SOURCE, safeCoreFreeze: true, touchesBoot: false, patchesExpress: false, patchesModuleLoad: false, patchesAppPost: false, touchesDebugStore: false, touchesDebugPing: false, routesChecked: routes.length, failures: results.filter(result => !result || !result.text).map(result => result && result.route) };
