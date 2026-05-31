@@ -1,320 +1,194 @@
 ;(() => {
   'use strict';
+
+  const MATRIX_PROBE_ID = 'production_comments_matrix_probe';
+  const EXPECTED_RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
+  const REQUIRED_SCENARIOS = [
+    'runtime_boot_validation', 'text_comment', 'photo_without_caption', 'photo_with_caption', 'photo_submit_enter',
+    'stale_selection_wrong_image_safety', 'remove_inline_preview', 'reply_matrix', 'reactions', 'preset_sticker',
+    'forbidden_video_file', 'original_post_media_render', 'hydration_reopen_flicker', 'trace_timing_validation'
+  ];
+  const REQUIRED_PHOTO_TRACE_EVENTS = ['photo_selected', 'photo_compress_ok', 'photo_inline_preview_opened', 'photo_upload_started', 'photo_upload_ok', 'photo_comment_create_started', 'photo_comment_create_ok', 'photo_timing_summary'];
+  const REQUIRED_TIMING_SUMMARY_FIELDS = ['compressMs', 'uploadMs', 'createMs', 'totalMs', 'originalSize', 'compressedSize', 'uploadSize', 'serverUploadReceivedAt', 'serverParsedAt', 'serverSavedAt', 'serverTotalMs'];
   const $ = (id) => document.getElementById(id);
   const runBtn = $('runBtn');
-  const logEl = $('log');
   const summaryEl = $('summary');
+  const logEl = $('log');
   const rawEl = $('raw');
-  const statusEl = $('status');
-  const cleanupLink = $('cleanupLink');
+  const fixtureHost = $('commentsFixture');
   const latestLink = $('latestLink');
   const reportLink = $('reportLink');
-  const fixtureHost = $('commentsFixture');
-  const params = new URL(location.href).searchParams;
-  const token = params.get('token') || params.get('adminToken') || '';
+  const cleanupLink = $('cleanupLink');
   let frame = null;
   let frameDoc = null;
   let mediaNodeRefs = Object.create(null);
   let imageSrcRefs = Object.create(null);
 
-  function esc(value) {
-    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-  }
-  function mark(text, cls) {
-    statusEl.innerHTML = '<span class="pill ' + (cls || 'warn') + '">' + esc(text) + '</span>';
-  }
-  function log(text, cls) {
-    const row = document.createElement('div');
-    row.className = cls || '';
-    row.textContent = new Date().toLocaleTimeString() + ' · ' + text;
-    logEl.appendChild(row);
-  }
-  function url(path) {
-    const u = new URL(path, location.origin);
-    if (token) u.searchParams.set('token', token);
-    return u.toString();
-  }
-  function setLinks(commentKey) {
-    latestLink.href = url('/debug/selftest/comments/latest');
-    reportLink.href = url('/debug/selftest/comments/report');
-    if (commentKey) {
-      const u = new URL('/debug/selftest/comments/full', location.origin);
-      if (token) u.searchParams.set('token', token);
-      u.searchParams.set('cleanup', '1');
-      u.searchParams.set('commentKey', commentKey);
-      cleanupLink.href = u.toString();
-      cleanupLink.hidden = false;
-    }
-  }
-  async function readJson(path) {
-    const res = await fetch(url(path), { cache: 'no-store' });
-    const text = await res.text();
-    try { return JSON.parse(text); } catch (_) { throw new Error('Bad JSON from ' + path + ': ' + text.slice(0, 300)); }
-  }
-  async function postJson(path, body) {
-    const res = await fetch(url(path), { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const text = await res.text();
-    try { return JSON.parse(text); } catch (_) { throw new Error('Bad JSON from ' + path + ': ' + text.slice(0, 300)); }
-  }
-  function requiredProbe(report, id) {
-    const probes = (((report || {}).uiStability || {}).browserProbeRequirements || {}).requiredProbes || [];
-    return probes.find((item) => item && item.id === id) || null;
-  }
-  function stickerRequirement(report) { return requiredProbe(report, 'sticker_renderer_contract_probe') || {}; }
-  function hydrationExpected(report) {
-    const probe = requiredProbe(report, 'reopen_hydration_stability_probe');
-    return (probe && probe.expected) || { listClearCount: 0, mediaRemountCountByCommentId: {}, imageReloadCountByCommentId: {} };
-  }
-  function rectsIntersect(a, b) {
-    if (!a || !b) return true;
-    return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
-  }
-  function cssEscape(value, doc) {
-    const win = (doc && doc.defaultView) || window;
-    try { return win.CSS && win.CSS.escape ? win.CSS.escape(value) : String(value).replace(/"/g, '\\"'); } catch (_) { return String(value).replace(/"/g, '\\"'); }
-  }
+  function esc(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch])); }
+  function clean(value) { return String(value == null ? '' : value).replace(/\s+/g, ' ').trim(); }
+  const runnerParams = new URLSearchParams(location.search || '');
+  const tokenParam = clean(runnerParams.get('token'));
+  const adminTokenParam = clean(runnerParams.get('adminToken'));
+  const adminTokenKey = tokenParam ? 'token' : (adminTokenParam ? 'adminToken' : '');
+  const adminToken = tokenParam || adminTokenParam;
+  function mark(text, cls) { if (summaryEl) summaryEl.innerHTML = '<div class="pill ' + esc(cls || '') + '">' + esc(text) + '</div>'; }
+  function log(text, cls) { if (!logEl) return; const row = document.createElement('div'); row.className = cls || ''; row.textContent = '[' + new Date().toLocaleTimeString() + '] ' + text; logEl.appendChild(row); logEl.scrollTop = logEl.scrollHeight; }
   function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms || 0) || 0))); }
-  function rowById(doc, id) {
-    if (!doc || !id) return null;
-    return doc.querySelector('[data-comment-id="' + cssEscape(id, doc) + '"]');
+  function toUrl(value) { return value instanceof URL ? value : new URL(value, location.origin); }
+  function shouldCarryAdminToken(u) { return Boolean(u && u.origin === location.origin && /^\/debug\/selftest\/comments(?:\/|$)/.test(u.pathname || '')); }
+  function shouldSendAdminHeader(value) { const u = toUrl(value || location.href); return Boolean(adminToken && u.origin === location.origin && (/^\/debug\//.test(u.pathname || '') || /^\/api\/debug\//.test(u.pathname || ''))); }
+  function withAdminToken(value) { const u = toUrl(value); if (adminToken && adminTokenKey && shouldCarryAdminToken(u) && !clean(u.searchParams.get(adminTokenKey))) u.searchParams.set(adminTokenKey, adminToken); return u; }
+  function url(path) { return withAdminToken(new URL(path, location.origin)).toString(); }
+  function fetchOptions(options, target) { const out = { ...(options || {}) }; const headers = new Headers(out.headers || {}); if (shouldSendAdminHeader(target) && !headers.has('x-admin-token')) headers.set('x-admin-token', adminToken); out.headers = headers; return out; }
+  function setLinks(commentKey) {
+    if (latestLink) latestLink.href = url('/debug/selftest/comments/latest');
+    if (reportLink) reportLink.href = url('/debug/selftest/comments/report');
+    if (cleanupLink && commentKey) {
+      const u = withAdminToken(new URL('/debug/selftest/comments/full', location.origin)); u.searchParams.set('cleanup', '1'); u.searchParams.set('commentKey', commentKey);
+      cleanupLink.href = u.toString(); cleanupLink.hidden = false;
+    }
   }
-  function mediaInRow(row) {
-    if (!row) return null;
-    return row.querySelector('.comment-sticker') || row.querySelector('.comment-attachment-image') || row.querySelector('.comment-photo') || row.querySelector('img');
-  }
+  async function readJson(path) { const requestUrl = url(path); const r = await fetch(requestUrl, fetchOptions({ cache: 'no-store' }, requestUrl)); const d = await r.json().catch(() => ({})); if ((!r.ok || d.ok === false) && !(d && d.backendOk === true)) { const e = new Error(clean(d.error || d.message || ('http_' + r.status))); e.data = d; throw e; } return d; }
+  async function postJson(path, body) { const requestUrl = url(path); const r = await fetch(requestUrl, fetchOptions({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }, requestUrl)); const d = await r.json().catch(() => ({})); if (!r.ok && r.status !== 202) { const e = new Error(clean(d.error || d.message || ('http_' + r.status))); e.data = d; throw e; } return d; }
+  function cssEscape(value, doc) { try { const w = doc && doc.defaultView; return w && w.CSS && w.CSS.escape ? w.CSS.escape(String(value)) : String(value).replace(/["\\]/g, '\\$&'); } catch (_) { return String(value).replace(/["\\]/g, '\\$&'); } }
+  function rowById(doc, id) { try { return doc && id ? doc.querySelector('[data-comment-id="' + cssEscape(id, doc) + '"]') : null; } catch (_) { return null; } }
+  function rows(doc) { return Array.from(doc && doc.querySelectorAll ? doc.querySelectorAll('[data-comment-id]') : []); }
+  function mediaInRow(row) { return row && (row.querySelector('.comment-sticker') || row.querySelector('.comment-attachment-image') || row.querySelector('.comment-photo') || row.querySelector('img')); }
   function imgInRow(row) { return row && row.querySelector('img'); }
-  function zeroMap(keys) { return keys.reduce((acc, key) => { acc[key] = 0; return acc; }, {}); }
-  function mediaIds(expected) { return Object.keys((expected && expected.mediaRemountCountByCommentId) || {}); }
-  function iframeUrl(commentKey) {
-    const u = new URL('/mini-app', location.origin);
-    u.searchParams.set('commentKey', commentKey);
-    u.searchParams.set('adminkitSkeleton', '1');
-    u.searchParams.set('commentSkeleton', '1');
-    u.searchParams.set('skeletonConsumer', '1');
-    u.searchParams.set('title', 'PR89 Browser Selftest');
-    u.searchParams.set('t', String(Date.now()));
-    return u.toString();
-  }
-  function isTargetFrameDocument(doc) {
-    try {
-      if (!doc || !doc.location) return false;
-      if (doc.location.href === 'about:blank') return false;
-      return doc.location.pathname === '/mini-app' && doc.location.search.indexOf('commentKey=') !== -1;
-    } catch (_) {
-      return false;
-    }
-  }
-  function currentFrameDocument() {
-    try {
-      const doc = frame && (frame.contentDocument || (frame.contentWindow && frame.contentWindow.document));
-      return isTargetFrameDocument(doc) ? doc : null;
-    } catch (_) {
-      return null;
-    }
-  }
+  function commentCount(doc) { const text = clean(doc && doc.querySelector('#commentsCountPill') && doc.querySelector('#commentsCountPill').textContent); const m = text.match(/\d+/); return m ? Number(m[0]) : rows(doc).length; }
+  function currentFrameDocument() { try { const doc = frame && (frame.contentDocument || (frame.contentWindow && frame.contentWindow.document)); if (!doc || !doc.location || doc.location.href === 'about:blank') return null; return doc.location.pathname === '/mini-app' ? doc : null; } catch (_) { return null; } }
+  function iframeUrl(commentKey) { const u = new URL('/mini-app', location.origin); u.searchParams.set('commentKey', commentKey); u.searchParams.set('adminkitSkeleton', '1'); u.searchParams.set('commentSkeleton', '1'); u.searchParams.set('skeletonConsumer', '1'); u.searchParams.set('title', 'PR97 Browser Matrix Selftest'); u.searchParams.set('t', String(Date.now())); return u.toString(); }
   function createFrame(commentKey) {
-    fixtureHost.textContent = '';
-    frameDoc = null;
-    mediaNodeRefs = Object.create(null);
-    imageSrcRefs = Object.create(null);
-    frame = document.createElement('iframe');
-    frame.id = 'realCommentsUiFrame';
-    frame.title = 'Real AdminKit comments UI self-test frame';
-    frame.setAttribute('data-real-comments-ui', '1');
-    return new Promise((resolve, reject) => {
-      let done = false;
-      let timer = null;
-      function finish() {
-        if (done) return true;
-        const doc = currentFrameDocument();
-        if (!doc) return false;
-        frameDoc = doc;
-        done = true;
-        if (timer) clearTimeout(timer);
-        resolve(frameDoc);
-        return true;
-      }
-      function poll() {
-        if (done) return;
-        if (finish()) return;
-        setTimeout(poll, 120);
-      }
-      frame.addEventListener('load', () => { finish(); }, false);
-      timer = setTimeout(() => {
-        if (done) return;
-        if (finish()) return;
-        done = true;
-        reject(new Error('real_comments_iframe_timeout'));
-      }, 17000);
-      frame.src = iframeUrl(commentKey);
-      fixtureHost.appendChild(frame);
-      setTimeout(poll, 0);
-    });
-  }
-  async function waitForRows(report, timeoutMs) {
-    const expected = hydrationExpected(report);
-    const ids = mediaIds(expected);
-    const stickerId = stickerRequirement(report).commentId;
-    const started = Date.now();
-    let lastMissing = ids.slice();
-    while (Date.now() - started < timeoutMs) {
-      const currentDoc = currentFrameDocument();
-      if (currentDoc) frameDoc = currentDoc;
-      const doc = frameDoc;
-      const win = frame && frame.contentWindow;
-      const missing = ids.filter((id) => !rowById(doc, id));
-      lastMissing = missing;
-      const stickerRow = rowById(doc, stickerId);
-      const stickerReady = Boolean(stickerRow && stickerRow.querySelector('.comment-sticker'));
-      const appReady = Boolean(win && (win.__ADMINKIT_CC7_5_55_STATE__ || win.__ADMINKIT_CC7_5_53_STATE__ || win.__ADMINKIT_COMMENT_SKELETON_CONSUMER_ACTIVE__));
-      if (!missing.length && stickerReady && appReady) return { ok: true, ids, stickerId };
-      await sleep(160);
-    }
-    throw new Error('real_comments_ui_rows_missing: ' + lastMissing.join(','));
-  }
-  async function loadRealCommentsUi(report) {
-    if (!report || !report.commentKey) throw new Error('commentKey_missing_for_real_ui_probe');
-    await createFrame(report.commentKey);
-    const ready = await waitForRows(report, 12000);
-    const expected = hydrationExpected(report);
-    mediaIds(expected).forEach((id) => {
-      const row = rowById(frameDoc, id);
-      const media = mediaInRow(row);
-      const img = imgInRow(row);
-      mediaNodeRefs[id] = media;
-      imageSrcRefs[id] = img ? (img.currentSrc || img.src) : '';
-    });
-    return ready;
-  }
-  async function runStickerProbe(report) {
-    const id = stickerRequirement(report).commentId;
-    const row = rowById(frameDoc, id);
-    const sticker = row && row.querySelector('.comment-sticker');
-    const time = row && row.querySelector('.comment-time');
-    const bubble = row && row.querySelector('.comment-bubble');
-    const before = sticker && sticker.getBoundingClientRect();
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    const after = sticker && sticker.getBoundingClientRect();
-    const styles = bubble ? frame.contentWindow.getComputedStyle(bubble) : null;
-    const bg = styles ? styles.backgroundColor : '';
-    const bgTransparent = bg === 'transparent' || bg === 'rgba(0, 0, 0, 0)' || /rgba\([^)]*,\s*0\)/.test(bg);
-    const noShadow = !styles || styles.boxShadow === 'none';
-    const stable = Boolean(before && after && Math.abs(before.width - after.width) <= 1 && Math.abs(before.height - after.height) <= 1 && before.width > 0 && before.height > 0);
-    return {
-      commentId: id,
-      selector: '[data-comment-id="' + id + '"]',
-      checks: {
-        standaloneStickerMedia: Boolean(row && sticker && (row.getAttribute('data-sticker-row') === '1' || bubble && bubble.classList.contains('has-sticker'))),
-        noRegularBubbleVisuals: Boolean(bgTransparent && noShadow && bubble && bubble.classList.contains('has-sticker')),
-        timeDoesNotIntersectMediaBox: Boolean(sticker && time && !rectsIntersect(sticker.getBoundingClientRect(), time.getBoundingClientRect())),
-        stableMediaBoxBeforeImageLoad: stable
-      },
-      measurements: { source: 'real_comments_iframe', backgroundColor: bg, boxShadow: styles && styles.boxShadow, mediaRect: before ? { width: before.width, height: before.height } : null }
-    };
-  }
-  async function runHydrationProbe(report) {
-    const expected = hydrationExpected(report);
-    const remountIds = Object.keys(expected.mediaRemountCountByCommentId || {});
-    const reloadIds = Object.keys(expected.imageReloadCountByCommentId || {});
-    const remount = zeroMap(remountIds);
-    const reload = zeroMap(reloadIds);
-    const list = frameDoc && frameDoc.getElementById('commentsList');
-    let listClearCount = 0;
-    let observer = null;
-    const imageLoadHandlers = [];
-    if (list && frame.contentWindow && frame.contentWindow.MutationObserver) {
-      observer = new frame.contentWindow.MutationObserver(() => {
-        if (!list.children || list.children.length === 0) listClearCount += 1;
-        remountIds.forEach((id) => {
-          const row = rowById(frameDoc, id);
-          const media = mediaInRow(row);
-          if (media && media !== mediaNodeRefs[id]) remount[id] += 1;
-        });
-      });
-      observer.observe(list, { childList: true, subtree: true });
-    }
-    reloadIds.forEach((id) => {
-      const row = rowById(frameDoc, id);
-      const img = imgInRow(row);
-      if (!img) return;
-      const handler = () => { reload[id] += 1; };
-      img.addEventListener('load', handler);
-      imageLoadHandlers.push({ img, handler });
-    });
-    await sleep(5600);
-    if (observer) observer.disconnect();
-    imageLoadHandlers.forEach(({ img, handler }) => img.removeEventListener('load', handler));
-    remountIds.forEach((id) => {
-      const row = rowById(frameDoc, id);
-      const media = mediaInRow(row);
-      if (!media || media !== mediaNodeRefs[id]) remount[id] += 1;
-    });
-    reloadIds.forEach((id) => {
-      const row = rowById(frameDoc, id);
-      const img = imgInRow(row);
-      const src = img ? (img.currentSrc || img.src) : '';
-      if (src !== imageSrcRefs[id]) reload[id] += 1;
-    });
-    return { counters: { listClearCount, mediaRemountCountByCommentId: remount, imageReloadCountByCommentId: reload } };
-  }
-  function checksOk(probe) {
-    const c = (probe && probe.checks) || {};
-    return c.standaloneStickerMedia === true && c.noRegularBubbleVisuals === true && c.timeDoesNotIntersectMediaBox === true && c.stableMediaBoxBeforeImageLoad === true;
-  }
-  function countersOk(probe) {
-    const c = (probe && probe.counters) || {};
-    const zeroVals = (obj) => Object.keys(obj || {}).every((key) => obj[key] === 0);
-    return c.listClearCount === 0 && zeroVals(c.mediaRemountCountByCommentId) && zeroVals(c.imageReloadCountByCommentId);
-  }
-  function summarize(full, sticker, hydration, finalReport) {
-    const backendOk = Boolean(full && full.backendOk);
-    const browserOk = checksOk(sticker) && countersOk(hydration);
-    const apiAccepted = Boolean(finalReport && finalReport.browserProbeResult && finalReport.browserProbeResult.ok);
-    const finalOk = Boolean(finalReport && finalReport.ok);
-    const contractOk = backendOk && browserOk && apiAccepted;
-    mark(contractOk ? (finalOk ? 'PASS' : 'CONTRACT PASS / FINAL WARN') : 'FAIL', contractOk ? (finalOk ? 'ok' : 'warn') : 'bad');
-    summaryEl.innerHTML = '<div class="pill ' + (backendOk ? 'ok' : 'bad') + '">Backend ' + (backendOk ? 'PASS' : 'FAIL') + '</div><div class="pill ' + (browserOk ? 'ok' : 'bad') + '">Real UI browser probes ' + (browserOk ? 'PASS' : 'FAIL') + '</div><div class="pill ' + (apiAccepted ? 'ok' : 'bad') + '">API accepted ' + (apiAccepted ? 'YES' : 'NO') + '</div><div class="pill ' + (finalOk ? 'ok' : 'warn') + '">Final report ' + (finalOk ? 'PASS' : 'WARN/FAIL') + '</div><p class="muted">Browser probes are measured against the real /mini-app iframe for this selftest commentKey. If Final report is WARN/FAIL because performance warnings remain, do not treat that as a clean deploy PASS.</p>';
-    rawEl.textContent = JSON.stringify(finalReport || {}, null, 2);
-  }
-  async function run() {
-    runBtn.disabled = true;
-    logEl.textContent = '';
-    rawEl.textContent = '{}';
     if (fixtureHost) fixtureHost.textContent = '';
-    cleanupLink.hidden = true;
-    mark('RUNNING', 'warn');
+    frameDoc = null; mediaNodeRefs = Object.create(null); imageSrcRefs = Object.create(null);
+    frame = document.createElement('iframe'); frame.id = 'realCommentsUiFrame'; frame.title = 'Real AdminKit comments UI matrix self-test frame'; frame.setAttribute('data-real-comments-ui', '1');
+    return new Promise((resolve, reject) => {
+      let done = false; let timer = null;
+      function finish() { if (done) return true; const doc = currentFrameDocument(); if (!doc) return false; frameDoc = doc; done = true; if (timer) clearTimeout(timer); resolve({ frame, doc, win: frame.contentWindow }); return true; }
+      function poll() { if (done) return; if (finish()) return; setTimeout(poll, 120); }
+      frame.addEventListener('load', () => { finish(); }, false);
+      timer = setTimeout(() => { if (done) return; if (finish()) return; done = true; reject(new Error('real_comments_iframe_timeout')); }, 18000);
+      frame.src = iframeUrl(commentKey); if (fixtureHost) fixtureHost.appendChild(frame); setTimeout(poll, 0);
+    });
+  }
+  async function reloadFrame(commentKey) { return createFrame(commentKey); }
+  async function waitFor(check, timeoutMs, label) { const started = Date.now(); let last = null; while (Date.now() - started < (timeoutMs || 8000)) { try { const value = await check(); if (value) return value; } catch (e) { last = e; } await sleep(120); } throw new Error(label || (last && last.message) || 'wait_timeout'); }
+  async function waitForSelector(doc, selector, timeoutMs) { return waitFor(() => doc.querySelector(selector), timeoutMs, 'selector_timeout:' + selector); }
+  async function commentsApi(commentKey) { return readJson('/api/comments?commentKey=' + encodeURIComponent(commentKey) + '&userId=' + encodeURIComponent('guest')); }
+  async function waitForComment(commentKey, pred, timeoutMs) { return waitFor(async () => { const data = await commentsApi(commentKey); return (data.comments || []).find(pred) || null; }, timeoutMs || 10000, 'comment_api_timeout'); }
+  async function waitForRowText(doc, text, timeoutMs) { return waitFor(() => rows(doc).find((row) => clean(row.textContent).indexOf(text) !== -1), timeoutMs || 10000, 'row_text_timeout:' + text); }
+  function scenario(id, ok, details, warnings) { return { id, status: ok ? 'pass' : 'fail', ok: Boolean(ok), details: details || {}, warnings: warnings || [] }; }
+  function warn(id, message, details) { return { id, status: 'warn', message, details: details || {} }; }
+  function stateObj(doc) { const w = doc && doc.defaultView; return w && (w.__ADMINKIT_CC7_5_55_STATE__ || w.__ADMINKIT_CC7_5_53_STATE__ || w.__ADMINKIT_CC7_5_47_STATE__ || w.__ADMINKIT_CC7_5_6_STATE__ || w.__ADMINKIT_CC7_5_3_STATE__ || w.__ADMINKIT_CC7_2_STATE__) || null; }
+  function input(doc) { return doc.querySelector('#commentInput'); }
+  function setValue(el, value) { if (!el) return; const win = el.ownerDocument && el.ownerDocument.defaultView || window; el.focus(); el.value = value; el.dispatchEvent(new win.Event('input', { bubbles: true })); }
+  function clickEl(el) { if (el) el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: el.ownerDocument.defaultView })); }
+  async function sendText(doc, text) { setValue(input(doc), text); clickEl(doc.querySelector('#sendBtn')); return waitForRowText(doc, text, 12000); }
+  function attachmentInput(doc) { return doc.querySelector('#attachmentInput'); }
+  async function makeImageFile(win, name, color) { const canvas = win.document.createElement('canvas'); canvas.width = 32; canvas.height = 32; const ctx = canvas.getContext('2d'); ctx.fillStyle = color || '#239bd8'; ctx.fillRect(0, 0, 32, 32); ctx.fillStyle = '#fff'; ctx.fillRect(4, 4, 8, 8); const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png')); return new win.File([blob], name, { type: 'image/png', lastModified: Date.now() }); }
+  function makeFile(win, name, type, content) { return new win.File([content || new Uint8Array([1, 2, 3, 4])], name, { type, lastModified: Date.now() }); }
+  function setInputFiles(win, inputEl, files) { try { const dt = new win.DataTransfer(); files.forEach((file) => dt.items.add(file)); inputEl.files = dt.files; return 'data_transfer'; } catch (_) { Object.defineProperty(inputEl, 'files', { configurable: true, get: () => files }); return 'define_property'; } }
+  function dispatchFile(win, inputEl, file) { const mode = setInputFiles(win, inputEl, [file]); inputEl.dispatchEvent(new win.Event('change', { bubbles: true, cancelable: true })); return mode; }
+  async function selectPhoto(handle, name, color) { const file = await makeImageFile(handle.win, name, color); const mode = dispatchFile(handle.win, attachmentInput(handle.doc), file); const preview = await waitForSelector(handle.doc, '.composer-photo-preview', 12000); await waitFor(() => clean(preview.textContent).indexOf(name) !== -1 && !preview.classList.contains('is-busy'), 12000, 'photo_preview_settled:' + name); return { file, mode, preview: true, previewText: clean(preview.textContent), previewHasName: clean(preview.textContent).indexOf(name) !== -1 }; }
+  async function sendPendingPhoto(handle, caption) { if (caption !== undefined) setValue(input(handle.doc), caption); clickEl(handle.doc.querySelector('#sendBtn')); }
+  function hasAttachment(c) { return Array.isArray(c && c.attachments) && c.attachments.length > 0; }
+  function traceEventKey(e) { return [e && e.seq, e && e.at, e && e.event, e && e.commentKey, e && e.fileName, e && e.timingId, e && e.clientUploadId, e && e.uploadId, e && e.serverCommentId].map(clean).join('|'); }
+  async function commentTraceBaseline() { const trace = await readJson('/api/debug/comment-trace'); const events = trace.events || []; return { serverAt: Number(trace.serverNowMs || Date.parse(trace.generatedAt || '')) || 0, seq: Number(trace.totalSeen || 0) || Math.max(0, ...events.map((e) => Number(e.seq || 0) || 0)), seen: new Set(events.map(traceEventKey)) }; }
+  async function commentTraceEvents(commentKey, baseline) { const trace = await readJson('/api/debug/comment-trace'); const base = baseline && typeof baseline === 'object' ? baseline : { serverAt: Number(baseline || 0) || 0, seq: 0, seen: new Set() }; return (trace.events || []).filter((e) => { if (e.commentKey && e.commentKey !== commentKey) return false; const seq = Number(e.seq || 0) || 0; if (base.seq && seq) return seq > base.seq; const at = Number(e.at || 0) || 0; return (!base.serverAt || at >= base.serverAt) && !(base.seen && base.seen.has(traceEventKey(e))); }); }
+  async function sendPhotoAndWait(handle, commentKey, name, color, caption) { const beforeData = await commentsApi(commentKey); const before = beforeData.count; const beforeIds = new Set((beforeData.comments || []).map((c) => clean(c.id))); const selected = await selectPhoto(handle, name, color); await sendPendingPhoto(handle, caption || ''); const comment = await waitForComment(commentKey, (c) => hasAttachment(c) && !beforeIds.has(clean(c.id)) && (caption ? clean(c.text).indexOf(caption) !== -1 : clean(c.text) === ''), 18000); const row = await waitFor(() => rowById(handle.doc, comment.id), 10000, 'photo_dom_row_timeout'); const rowHasImage = Boolean(row && row.querySelector('.comment-attachment-image img,.comment-attachment-image')); const afterData = await commentsApi(commentKey); return { before, after: afterData.count, beforeIds: Array.from(beforeIds), existedBefore: beforeIds.has(clean(comment.id)), selected, comment, rowHasImage, textEmpty: clean(comment.text) === '', attachment: comment.attachments && comment.attachments[0] }; }
+  async function openReply(doc, commentId) { const row = rowById(doc, commentId); clickEl(row); await sleep(100); clickEl(doc.querySelector('[data-action="reply"]')); return waitFor(() => { const p = doc.querySelector('#composerReply'); return p && !p.classList.contains('hidden') ? p : null; }, 5000, 'reply_panel_timeout'); }
+  function replyPanelClear(doc) { const p = doc.querySelector('#composerReply'); const text = clean(p && p.textContent); return !p || p.classList.contains('hidden') || !text; }
+  async function runRuntimeBoot(full, handle) { const version = await readJson('/debug/version'); const timing = await readJson('/debug/miniapp-timing'); const names = (timing.recent || []).map((e) => e.name); const required = ['loader.boot', 'loader.script_loaded', 'loader.photo_flow_appended', 'loader.photo_flow_loaded', 'loader.stickers_loaded']; const missing = required.filter((x) => !names.includes(x)); const preserves = (timing.recent || []).some((e) => e.photoFlowRuntime && e.scriptSrc && e.appRuntime && e.assetVersion); return scenario('runtime_boot_validation', version.runtimeVersion === EXPECTED_RUNTIME && version.staleEndpointDetected === false && missing.length === 0 && preserves, { runtimeVersion: version.runtimeVersion, staleEndpointDetected: version.staleEndpointDetected, missingLoaderEvents: missing, timingPreservesRuntimeFields: preserves }); }
+  async function runText(full, handle) { const marker = 'PR97 text ' + Date.now(); const before = commentCount(handle.doc); await sendText(handle.doc, marker); const c = await waitForComment(full.commentKey, (x) => clean(x.text).indexOf(marker) !== -1, 10000); const after = commentCount(handle.doc); return scenario('text_comment', Boolean(c && rowById(handle.doc, c.id) && after >= before + 1), { commentId: c && c.id, countBefore: before, countAfter: after, marker }); }
+  async function runPhotoNoCaption(full, handle) { const out = await sendPhotoAndWait(handle, full.commentKey, 'pr97-no-caption.png', '#0b87d1', ''); const att = out.attachment || {}; return scenario('photo_without_caption', Boolean(out.comment && rowById(handle.doc, out.comment.id) && att.url && att.previewUrl && out.rowHasImage && out.after > out.before && out.textEmpty && !out.existedBefore), { commentId: out.comment && out.comment.id, countBefore: out.before, countAfter: out.after, existedBefore: out.existedBefore, textEmpty: out.textEmpty, rowHasImage: out.rowHasImage, attachment: { hasUrl: Boolean(att.url), hasPreviewUrl: Boolean(att.previewUrl), mimeType: att.mimeType, fileName: att.fileName }, fileSelectionMode: out.selected.mode }); }
+  async function runPhotoCaption(full, handle) { const cap = 'PR97 photo caption ' + Date.now(); const out = await sendPhotoAndWait(handle, full.commentKey, 'pr97-caption.png', '#27a844', cap); const row = rowById(handle.doc, out.comment.id); const att = out.attachment || {}; return scenario('photo_with_caption', Boolean(row && row.querySelector('.comment-attachment-image') && clean(row.textContent).indexOf(cap) !== -1 && out.after > out.before), { commentId: out.comment.id, caption: cap, countBefore: out.before, countAfter: out.after, rowHasImage: out.rowHasImage, attachment: { hasUrl: Boolean(att.url), hasPreviewUrl: Boolean(att.previewUrl), mimeType: att.mimeType, fileName: att.fileName }, attachmentCount: (out.comment.attachments || []).length }); }
+  async function runPhotoEnter(full, handle) { const traceBaseline = await commentTraceBaseline(); const cap = 'PR97 enter caption ' + Date.now(); const before = (await commentsApi(full.commentKey)).comments; await selectPhoto(handle, 'pr97-enter.png', '#8e44ad'); setValue(input(handle.doc), cap); const evt = new handle.win.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }); input(handle.doc).dispatchEvent(evt); const c = await waitForComment(full.commentKey, (x) => clean(x.text).indexOf(cap) !== -1, 18000); const textOnly = (await commentsApi(full.commentKey)).comments.filter((x) => clean(x.text).indexOf(cap) !== -1 && !hasAttachment(x)); const events = await commentTraceEvents(full.commentKey, traceBaseline); const enterTraceSeen = events.some((e) => e.event === 'photo_submit_enter_intercepted'); const att = c && c.attachments && c.attachments[0] || {}; return scenario('photo_submit_enter', Boolean(c && hasAttachment(c) && !textOnly.length && enterTraceSeen), { commentId: c && c.id, caption: cap, enterKeyDispatched: true, enterTraceSeen, attachment: { hasUrl: Boolean(att.url), hasPreviewUrl: Boolean(att.previewUrl) }, attachmentCount: c && c.attachments && c.attachments.length, textOnlyCreated: textOnly.length, commentsBefore: before.length }); }
+  async function runStale(full, handle) { const traceBaseline = await commentTraceBaseline(); const cap = 'PR97 stale B marker ' + Date.now(); const aName = 'pr97-stale-a.png'; const bName = 'pr97-stale-b.png'; const aStem = 'pr97-stale-a'; const bStem = 'pr97-stale-b'; const a = await makeImageFile(handle.win, aName, '#ff0000'); const b = await makeImageFile(handle.win, bName, '#00aa00'); const inp = attachmentInput(handle.doc); dispatchFile(handle.win, inp, a); const aPreview = await waitFor(() => { const el = handle.doc.querySelector('.composer-photo-preview'); return el && clean(el.textContent).indexOf(aName) !== -1 && !el.classList.contains('is-busy') ? el : null; }, 12000, 'stale_a_preview_settled'); const aPreviewText = clean(aPreview.textContent); dispatchFile(handle.win, inp, b); const bPreview = await waitFor(() => { const el = handle.doc.querySelector('.composer-photo-preview'); return el && clean(el.textContent).indexOf(bStem) !== -1 && clean(el.textContent).indexOf(aStem) === -1 && !el.classList.contains('is-busy') ? el : null; }, 12000, 'stale_b_preview_replaced_a'); const bPreviewText = clean(bPreview.textContent); const statusText = clean(handle.doc.querySelector('#commentInlineStatus') && handle.doc.querySelector('#commentInlineStatus').textContent); const selectionBlocked = /Дождитесь|подождите|blocked/i.test(statusText); await sendPendingPhoto(handle, cap); const c = await waitForComment(full.commentKey, (x) => clean(x.text).indexOf(cap) !== -1, 18000); const row = await waitFor(() => rowById(handle.doc, c.id), 10000, 'stale_row_timeout'); const attachment = c && c.attachments && c.attachments[0] || {}; const events = await waitFor(async () => { const es = await commentTraceEvents(full.commentKey, traceBaseline); const hasUploadStarted = es.some((e) => e.event === 'photo_upload_started' && clean(e.fileName).indexOf(bStem) !== -1); const hasUploadOk = es.some((e) => e.event === 'photo_upload_ok' && clean(e.fileName).indexOf(bStem) !== -1); return hasUploadStarted && hasUploadOk ? es : null; }, 7000, 'stale_b_upload_trace_timeout').catch(() => commentTraceEvents(full.commentKey, traceBaseline)); const eventNames = events.map((e) => e.event + ':' + clean(e.fileName) + ':' + clean(e.timingId) + ':' + clean(e.clientUploadId || e.uploadId)); const bUploadStarted = events.find((e) => e.event === 'photo_upload_started' && clean(e.fileName).indexOf(bStem) !== -1) || null; const bUploadOk = events.find((e) => e.event === 'photo_upload_ok' && clean(e.fileName).indexOf(bStem) !== -1) || null; const createStarted = events.find((e) => e.event === 'photo_comment_create_started' && ((bUploadOk && clean(e.timingId) && clean(e.timingId) === clean(bUploadOk.timingId)) || (bUploadOk && clean(e.uploadId) && clean(e.uploadId) === clean(bUploadOk.uploadId)))) || null; const createOk = events.find((e) => e.event === 'photo_comment_create_ok' && ((bUploadOk && clean(e.timingId) && clean(e.timingId) === clean(bUploadOk.timingId)) || (bUploadOk && clean(e.uploadId) && clean(e.uploadId) === clean(bUploadOk.uploadId)) || (clean(e.serverCommentId) && clean(e.serverCommentId) === clean(c.id)))) || null; const traceUploadCreateCorrelated = Boolean(bUploadStarted && bUploadOk && createStarted && createOk && ((clean(bUploadStarted.clientUploadId) && clean(bUploadStarted.clientUploadId) === clean(bUploadOk.clientUploadId)) || (clean(bUploadStarted.timingId) && clean(bUploadStarted.timingId) === clean(bUploadOk.timingId)))); const finalTraceShowsB = Boolean(bUploadStarted && bUploadOk && createStarted && createOk && traceUploadCreateCorrelated); const traceShowsUploadA = events.some((e) => e.event === 'photo_upload_started' && clean(e.fileName).indexOf(aStem) !== -1); const traceSelectionBlocked = events.some((e) => /selection_blocked/.test(e.event)); const finalAttachmentShowsB = clean(attachment.fileName || attachment.name).indexOf(bStem) !== -1; const finalDomShowsB = clean(row && row.textContent).indexOf(cap) !== -1 && Boolean(row.querySelector('.comment-attachment-image')); const finalArtifactShowsB = Boolean(finalAttachmentShowsB || traceUploadCreateCorrelated); const mayHaveUploadedA = traceShowsUploadA || clean(attachment.fileName || attachment.name).indexOf(aStem) !== -1; const provedFinalImageB = Boolean(finalTraceShowsB && finalArtifactShowsB && finalDomShowsB && !mayHaveUploadedA && !selectionBlocked && !traceSelectionBlocked); return scenario('stale_selection_wrong_image_safety', Boolean(c && hasAttachment(c) && provedFinalImageB), { commentId: c && c.id, caption: cap, aPreviewSeen: aPreviewText.indexOf(aStem) !== -1, bPreviewSeen: bPreviewText.indexOf(bStem) !== -1, bPreviewReplacedA: bPreviewText.indexOf(bStem) !== -1 && bPreviewText.indexOf(aStem) === -1, selectionBlocked: Boolean(selectionBlocked || traceSelectionBlocked), bUploadStarted: Boolean(bUploadStarted), bUploadOk: Boolean(bUploadOk), bCreateStarted: Boolean(createStarted), bCreateOk: Boolean(createOk), traceUploadCreateCorrelated, finalTraceShowsB, finalAttachmentShowsB, finalArtifactShowsB, finalDomShowsB, provedFinalImageB, mayHaveUploadedA, attachmentFileName: attachment.fileName || attachment.name || '', uploadTimingId: bUploadOk && bUploadOk.timingId || '', uploadId: bUploadOk && bUploadOk.uploadId || '', serverCommentId: createOk && createOk.serverCommentId || '', traceEvents: eventNames.slice(-16) }); }
+  async function runRemovePreview(full, handle) { const traceBaseline = await commentTraceBaseline(); const before = (await commentsApi(full.commentKey)).count; await selectPhoto(handle, 'pr97-remove.png', '#e67e22'); const previewExisted = Boolean(handle.doc.querySelector('.composer-photo-preview')); clickEl(handle.doc.querySelector('.composer-photo-remove')); const removeClicked = true; await waitFor(() => !handle.doc.querySelector('.composer-photo-preview'), 5000, 'preview_remove_timeout'); clickEl(handle.doc.querySelector('#sendBtn')); await sleep(1200); const after = (await commentsApi(full.commentKey)).count; const events = await commentTraceEvents(full.commentKey, traceBaseline); const noUpload = !events.some((e) => e.event === 'photo_upload_started' && clean(e.fileName).indexOf('remove') !== -1); const noCreate = after === before && !events.some((e) => e.event === 'photo_comment_create_started' && clean(e.fileName).indexOf('remove') !== -1); return scenario('remove_inline_preview', noCreate && noUpload && previewExisted && removeClicked, { countBefore: before, countAfter: after, previewExisted, removeClicked, previewGone: !handle.doc.querySelector('.composer-photo-preview'), noUpload, noCreate, previewVisible: Boolean(handle.doc.querySelector('.composer-photo-preview')) }); }
+  async function runReplyMatrix(full, handle, textComment, photoComment) { const results = []; async function textReply(parent, label) { const marker = 'PR97 ' + label + ' ' + Date.now(); await openReply(handle.doc, parent.id); await sendText(handle.doc, marker); const c = await waitForComment(full.commentKey, (x) => clean(x.text).indexOf(marker) !== -1, 10000); results.push({ label, parentId: parent.id, commentId: c && c.id, replyToId: c && c.replyToId, panelCleared: replyPanelClear(handle.doc), ok: Boolean(c && c.replyToId === parent.id && replyPanelClear(handle.doc)) }); return c; }
+    async function photoReply(parent, label) { const marker = 'PR97 ' + label + ' ' + Date.now(); await openReply(handle.doc, parent.id); const out = await sendPhotoAndWait(handle, full.commentKey, label + '.png', '#34495e', marker); results.push({ label, parentId: parent.id, commentId: out.comment.id, replyToId: out.comment.replyToId, panelCleared: replyPanelClear(handle.doc), ok: Boolean(out.comment.replyToId === parent.id && replyPanelClear(handle.doc) && hasAttachment(out.comment)) }); return out.comment; }
+    await textReply(textComment, 'text-reply-to-text'); await textReply(photoComment, 'text-reply-to-photo'); await photoReply(textComment, 'photo-reply-to-text'); await photoReply(photoComment, 'photo-reply-to-photo');
+    const stuck = clean(handle.doc.querySelector('#composerReply') && handle.doc.querySelector('#composerReply').textContent || '').match(/Alex P|Текст|Отмена/);
+    return scenario('reply_matrix', results.every((x) => x.ok) && !stuck, { results, stalePanelTextDetected: Boolean(stuck) }); }
+  async function runReaction(full, handle, targetComment) { const before = await commentsApi(full.commentKey); clickEl(rowById(handle.doc, targetComment.id)); await sleep(150); clickEl(handle.doc.querySelector('[data-quick-reaction="👍"]')); await waitFor(async () => { const c = (await commentsApi(full.commentKey)).comments.find((x) => x.id === targetComment.id); return c && c.reactionCounts && c.reactionCounts['👍'] >= 1 ? c : null; }, 7000, 'reaction_add_timeout'); const afterAdd = (await commentsApi(full.commentKey)).comments.find((x) => x.id === targetComment.id); clickEl(rowById(handle.doc, targetComment.id)); await sleep(150); clickEl(handle.doc.querySelector('[data-quick-reaction="👍"]')); await sleep(700); const afterToggle = (await commentsApi(full.commentKey)).comments.find((x) => x.id === targetComment.id); const addOk = afterAdd && afterAdd.reactionCounts && afterAdd.reactionCounts['👍'] >= 1; const consistent = afterToggle && afterToggle.reactionCounts && Number(afterToggle.reactionCounts['👍'] || 0) >= 0; return scenario('reactions', Boolean(addOk && consistent), { beforeCount: before.count, targetCommentId: targetComment.id, afterAdd: afterAdd && afterAdd.reactionCounts, afterToggle: afterToggle && afterToggle.reactionCounts }); }
+  async function runSticker(full, handle) {
+    const beforeData = await commentsApi(full.commentKey);
+    const beforeComments = beforeData.comments || [];
+    const beforeIds = new Set(beforeComments.map((c) => clean(c.id)));
+    const beforeTotal = Number(beforeData.count == null ? beforeComments.length : beforeData.count) || 0;
+    const beforeStickerCommentIds = beforeComments.filter((c) => c && c.type === 'sticker').map((c) => clean(c.id));
+    const beforeStickerIds = new Set(beforeComments.filter((c) => c && c.type === 'sticker').map((c) => clean(c.stickerId)).filter(Boolean));
+    await waitForSelector(handle.doc, '#adminkitStickerButtonPr87', 10000);
+    clickEl(handle.doc.querySelector('#adminkitStickerButtonPr87'));
+    const stickerOption = await waitFor(() => {
+      const options = Array.from(handle.doc.querySelectorAll('#adminkitStickerPanelPr87.open .adminkit-sticker-option[data-sticker-id]'));
+      return options.find((option) => {
+        const id = clean(option && option.getAttribute('data-sticker-id'));
+        return id && !beforeStickerIds.has(id);
+      }) || options.find((option) => clean(option && option.getAttribute('data-sticker-id'))) || null;
+    }, 8000, 'sticker_option_timeout');
+    const selectedStickerId = clean(stickerOption && stickerOption.getAttribute('data-sticker-id'));
+    if (!selectedStickerId) throw new Error('sticker_option_missing_id');
+    clickEl(stickerOption);
+    const c = await waitFor(async () => {
+      const data = await commentsApi(full.commentKey);
+      const comments = data.comments || [];
+      const total = Number(data.count == null ? comments.length : data.count) || 0;
+      const created = comments.find((x) => x && x.type === 'sticker' && !beforeIds.has(clean(x.id)) && clean(x.stickerId) === selectedStickerId);
+      return created && total >= beforeTotal + 1 ? created : null;
+    }, 10000, 'new_sticker_comment_timeout');
+    const stickerRow = await waitFor(() => {
+      const row = rowById(handle.doc, c.id);
+      const sticker = row && row.querySelector('.comment-sticker');
+      const stickerId = clean(sticker && sticker.getAttribute('data-sticker-id'));
+      return row && sticker && stickerId === selectedStickerId ? row : null;
+    }, 10000, 'sticker_dom_timeout');
+    const afterData = await commentsApi(full.commentKey);
+    const afterTotal = Number(afterData.count == null ? (afterData.comments || []).length : afterData.count) || 0;
+    return scenario('preset_sticker', Boolean(c && stickerRow && selectedStickerId && clean(c && c.stickerId) === selectedStickerId), { commentId: c && c.id, selectedStickerId, createdStickerId: c && c.stickerId, stickerRuntime: handle.win.__ADMINKIT_STICKERS_RUNTIME__ || '', hasStickerRow: Boolean(stickerRow), countBefore: beforeTotal, countAfter: afterTotal, countIncreased: afterTotal >= beforeTotal + 1, commentsBefore: beforeComments.length, commentsAfter: (afterData.comments || []).length, stickerCommentIdsBefore: beforeStickerCommentIds, stickerIdsBefore: Array.from(beforeStickerIds), existedBefore: beforeIds.has(clean(c && c.id)), stickerMatchesSelection: clean(c && c.stickerId) === selectedStickerId, selectedStickerWasPreexisting: beforeStickerIds.has(selectedStickerId) });
+  }
+  async function runForbidden(full, handle) { async function one(file) { const traceBaseline = await commentTraceBaseline(); const before = (await commentsApi(full.commentKey)).count; dispatchFile(handle.win, attachmentInput(handle.doc), file); await sleep(800); const after = (await commentsApi(full.commentKey)).count; const status = clean(handle.doc.querySelector('#commentInlineStatus') && handle.doc.querySelector('#commentInlineStatus').textContent); const events = await commentTraceEvents(full.commentKey, traceBaseline); const uploadEvents = events.filter((e) => e.event === 'photo_upload_started'); const matchingUploadEvents = uploadEvents.filter((e) => clean(e.fileName).indexOf(file.name) !== -1); return { fileName: file.name, mimeType: file.type, countBefore: before, countAfter: after, noCreate: before === after, noUpload: uploadEvents.length === 0, photoUploadStarted: uploadEvents.length > 0, matchingPhotoUploadStarted: matchingUploadEvents.length > 0, uploadEventCount: uploadEvents.length, uploadEventFileNames: uploadEvents.map((e) => clean(e.fileName)).slice(-5), userFacingError: /только фото|фото|не поддерж/i.test(status), status }; } const video = await one(makeFile(handle.win, 'pr97-forbidden.mp4', 'video/mp4')); const pdf = await one(makeFile(handle.win, 'pr97-forbidden.pdf', 'application/pdf', new TextEncoder().encode('%PDF-1.4 test'))); return scenario('forbidden_video_file', video.noCreate && pdf.noCreate && video.noUpload && pdf.noUpload && (video.userFacingError || pdf.userFacingError), { video, pdf }); }
+  async function runOriginalPost(full, handle) { await waitForSelector(handle.doc, '#postMedia .post-original-media-img', 10000); const postImg = handle.doc.querySelector('#postMedia .post-original-media-img'); const inComment = Boolean(postImg && postImg.closest('[data-comment-id]')); const inTopPostBlock = Boolean(postImg && postImg.closest('#postMedia')); const text = clean(handle.doc.querySelector('#postCard') && handle.doc.querySelector('#postCard').textContent); return scenario('original_post_media_render', Boolean(postImg && inTopPostBlock && !inComment && text.indexOf('PR97 original post text') !== -1), { hasPostImage: Boolean(postImg), inTopPostBlock, imageInsideCommentRow: inComment, postTextPresent: text.indexOf('PR97 original post text') !== -1 }); }
+  async function runHydration(full, handle) { const ids = rows(handle.doc).map((r) => clean(r.getAttribute('data-comment-id'))).filter(Boolean); ids.forEach((id) => { const row = rowById(handle.doc, id); const media = mediaInRow(row); if (media) mediaNodeRefs[id] = media; const img = imgInRow(row); if (img) imageSrcRefs[id] = img.currentSrc || img.src || ''; }); const list = handle.doc.querySelector('#commentsList'); let listClearCount = 0; const remount = {}; const reload = {}; Object.keys(mediaNodeRefs).forEach((id) => { remount[id] = 0; reload[id] = 0; }); let observer = null; if (list && handle.win.MutationObserver) { observer = new handle.win.MutationObserver(() => { if (!list.children || list.children.length === 0) listClearCount += 1; Object.keys(mediaNodeRefs).forEach((id) => { const media = mediaInRow(rowById(handle.doc, id)); if (media && media !== mediaNodeRefs[id]) remount[id] += 1; }); }); observer.observe(list, { childList: true, subtree: true }); } await sleep(5600); if (observer) observer.disconnect(); Object.keys(imageSrcRefs).forEach((id) => { const img = imgInRow(rowById(handle.doc, id)); if (img && (img.currentSrc || img.src || '') !== imageSrcRefs[id]) reload[id] += 1; }); const zero = (obj) => Object.keys(obj).every((id) => obj[id] === 0); return scenario('hydration_reopen_flicker', listClearCount === 0 && zero(remount) && zero(reload), { counters: { listClearCount, mediaRemountCountByCommentId: remount, imageReloadCountByCommentId: reload } }); }
+  function rawDataUrlInObject(value) { const rawKeys = new Set(['dataUrl', 'thumbDataUrl', 'previewDataUrl', 'base64', 'rawBase64']); const seen = new Set(); function walk(v) { if (!v || typeof v !== 'object') { return typeof v === 'string' && (/data:image\//i.test(v) || /;base64,/i.test(v)); } if (seen.has(v)) return false; seen.add(v); return Object.keys(v).some((k) => rawKeys.has(k) || walk(v[k])); } return walk(value); }
+  async function runTraceTiming(full) { const timing = await readJson('/debug/miniapp-timing'); const trace = await readJson('/api/debug/comment-trace'); const events = (trace.events || []).filter((e) => !e.commentKey || e.commentKey === full.commentKey); const names = events.map((e) => e.event); const missingPhotoTraceEvents = REQUIRED_PHOTO_TRACE_EVENTS.filter((name) => !names.includes(name)); const missingEnterTraceEvents = names.includes('photo_submit_enter_intercepted') ? [] : ['photo_submit_enter_intercepted']; const summaries = events.filter((e) => e.event === 'photo_timing_summary'); const summary = summaries[summaries.length - 1] || {}; const missingTimingSummaryFields = REQUIRED_TIMING_SUMMARY_FIELDS.filter((field) => summary[field] === undefined || summary[field] === null || summary[field] === '' || (typeof summary[field] === 'number' && summary[field] < 0)); const rawDataUrlDetected = rawDataUrlInObject(trace); const forbiddenUploadDetected = events.some((e) => e.event === 'photo_upload_started' && /forbidden|\.mp4|\.pdf/i.test(clean(e.fileName))); const uploadMs = Number(summary.uploadMs || 0) || 0; const warnings = uploadMs > 12000 ? [warn('matrix_upload_slow', 'Photo upload path passed but uploadMs is materially high.', { uploadMs })] : []; const ok = missingPhotoTraceEvents.length === 0 && missingEnterTraceEvents.length === 0 && missingTimingSummaryFields.length === 0 && !rawDataUrlDetected && !forbiddenUploadDetected; return { scenario: scenario('trace_timing_validation', ok, { presentEvents: Array.from(new Set(names)), missingPhotoTraceEvents, missingEnterTraceEvents, missingTimingSummaryFields, rawDataUrlDetected, forbiddenUploadDetected, timingRecent: (timing.recent || []).slice(0, 8), summary }, warnings), traceValidation: { ok, presentEvents: Array.from(new Set(names)), missingPhotoTraceEvents, missingEnterTraceEvents, missingTimingSummaryFields, rawDataUrlDetected, forbiddenUploadDetected, photoBusinessPathExercised: REQUIRED_PHOTO_TRACE_EVENTS.every((name) => names.includes(name)), summary } }; }
+  function requiredProbe(report, id) { const probes = (((report || {}).uiStability || {}).browserProbeRequirements || {}).requiredProbes || []; return probes.find((item) => item && item.id === id) || {}; }
+  function hydrationExpected(report) { const probe = requiredProbe(report, 'reopen_hydration_stability_probe'); return (probe && probe.expected) || { counters: { listClearCount: 0, mediaRemountCountByCommentId: {}, imageReloadCountByCommentId: {} } }; }
+  function matrixSummary(full, scenarios, traceValidation, warnings) { const map = Object.fromEntries(scenarios.map((s) => [s.id, s])); const missing = REQUIRED_SCENARIOS.filter((id) => !map[id]); const failed = scenarios.filter((s) => s.status !== 'pass'); const blockingFailures = missing.concat(failed.map((s) => s.id)); return { id: MATRIX_PROBE_ID, ok: blockingFailures.length === 0, status: blockingFailures.length ? 'fail' : 'pass', scenarios, requiredScenarios: REQUIRED_SCENARIOS, missingScenarios: missing, blockingFailures, warnings: warnings || [], traceValidation, photoBusinessPathExercised: Boolean(traceValidation && traceValidation.photoBusinessPathExercised), forbiddenUploadDetected: Boolean(traceValidation && traceValidation.forbiddenUploadDetected), commentKey: full.commentKey, browserMeasured: true, realCommentsIframe: true, at: new Date().toISOString() }; }
+  function renderSummary(full, matrix, finalReport) { const finalOk = Boolean(finalReport && finalReport.ok); const accepted = Boolean(finalReport && finalReport.browserProbeResult && finalReport.browserProbeResult.ok); const cls = finalOk ? 'ok' : 'bad'; mark(finalOk ? 'PASS' : 'FAIL', cls); const rowsHtml = (matrix.scenarios || []).map((s) => '<tr><td>' + (s.status === 'pass' ? '✅' : '❌') + '</td><td>' + esc(s.id) + '</td><td><pre>' + esc(JSON.stringify(s.details || {}, null, 2)) + '</pre></td></tr>').join(''); summaryEl.innerHTML = '<div class="pill ' + cls + '">Final report ' + (finalOk ? 'PASS' : 'FAIL') + '</div><div class="pill ' + (accepted ? 'ok' : 'bad') + '">Matrix probe accepted ' + (accepted ? 'YES' : 'NO') + '</div><p class="muted">PASS is only possible when every blocking PR97 comments matrix path passed.</p><table><tbody>' + rowsHtml + '</tbody></table>'; if (rawEl) rawEl.textContent = JSON.stringify({ matrix, finalReport }, null, 2); }
+  async function run() {
+    runBtn.disabled = true; if (logEl) logEl.textContent = ''; if (rawEl) rawEl.textContent = '{}'; if (fixtureHost) fixtureHost.textContent = ''; if (cleanupLink) cleanupLink.hidden = true; mark('RUNNING', 'warn');
     try {
-      log('Запускаю backend self-test /full');
-      const full = await readJson('/debug/selftest/comments/full');
-      setLinks(full.commentKey);
-      log('Backend: ' + (full.backendOk ? 'PASS' : 'FAIL') + ', key=' + full.commentKey, full.backendOk ? 'ok' : 'bad');
-      log('Открываю настоящий comments UI в iframe /mini-app');
-      await loadRealCommentsUi(full);
-      log('Проверяю sticker renderer contract на реальном DOM');
-      const sticker = await runStickerProbe(full);
-      log('Sticker probe: ' + (checksOk(sticker) ? 'PASS' : 'FAIL'), checksOk(sticker) ? 'ok' : 'bad');
-      log('Проверяю hydration/reopen stability на реальном DOM во время poll-refresh');
-      const hydration = await runHydrationProbe(full);
-      log('Hydration probe: ' + (countersOk(hydration) ? 'PASS' : 'FAIL'), countersOk(hydration) ? 'ok' : 'bad');
-      log('Отправляю /browser-result');
-      const finalReport = await postJson('/debug/selftest/comments/browser-result', {
-        commentKey: full.commentKey,
-        probes: { sticker_renderer_contract_probe: sticker, reopen_hydration_stability_probe: hydration },
-        telemetry: { source: 'PR90_BROWSER_RUNNER_NAVIGATED_IFRAME_FIX', browserMeasured: true, realCommentsIframe: true, navigatedMiniAppOnly: true, userAgent: navigator.userAgent, viewport: { width: innerWidth, height: innerHeight }, at: new Date().toISOString() }
-      });
-      setLinks(finalReport.commentKey || full.commentKey);
-      log('Browser result accepted: ' + Boolean(finalReport.browserProbeResult && finalReport.browserProbeResult.ok), finalReport.browserProbeResult && finalReport.browserProbeResult.ok ? 'ok' : 'bad');
-      summarize(full, sticker, hydration, finalReport);
-    } catch (error) {
-      mark('ERROR', 'bad');
-      summaryEl.innerHTML = '<p class="bad">' + esc(error && error.message || error) + '</p>';
-      log('Ошибка: ' + (error && (error.stack || error.message) || error), 'bad');
-    } finally {
-      runBtn.disabled = false;
-    }
+      log('Clearing miniapp timing diagnostics'); await fetch(url('/debug/miniapp-timing/clear'), fetchOptions({ cache: 'no-store' }, '/debug/miniapp-timing/clear')).catch(() => null);
+      log('Запускаю backend self-test /full'); const full = await readJson('/debug/selftest/comments/full'); setLinks(full.commentKey); log('Backend: ' + (full.backendOk ? 'PASS' : 'FAIL') + ', key=' + full.commentKey, full.backendOk ? 'ok' : 'bad');
+      log('Открываю настоящий comments UI в iframe /mini-app'); const handle = await createFrame(full.commentKey); await waitForSelector(handle.doc, '#commentsList', 18000); await sleep(1200);
+      const scenarios = []; const warnings = [];
+      async function runOne(label, fn) { log('Matrix: ' + label); try { const s = await fn(); scenarios.push(s); (s.warnings || []).forEach((w) => warnings.push(w)); log(label + ': ' + (s.status === 'pass' ? 'PASS' : 'FAIL'), s.status === 'pass' ? 'ok' : 'bad'); return s; } catch (error) { const s = scenario(label, false, { error: error && (error.stack || error.message || String(error)) }); scenarios.push(s); log(label + ': FAIL ' + clean(error && error.message || error), 'bad'); return s; } }
+      await runOne('runtime_boot_validation', () => runRuntimeBoot(full, handle));
+      await runOne('original_post_media_render', () => runOriginalPost(full, handle));
+      const textS = await runOne('text_comment', () => runText(full, handle)); const textComment = await waitForComment(full.commentKey, (x) => clean(x.text).indexOf(textS.details.marker || '') !== -1, 3000).catch(() => null);
+      const noCap = await runOne('photo_without_caption', () => runPhotoNoCaption(full, handle)); const noCapComment = noCap.details && noCap.details.commentId ? (await commentsApi(full.commentKey)).comments.find((x) => x.id === noCap.details.commentId) : null;
+      await runOne('photo_with_caption', () => runPhotoCaption(full, handle));
+      await runOne('photo_submit_enter', () => runPhotoEnter(full, handle));
+      await runOne('stale_selection_wrong_image_safety', () => runStale(full, handle));
+      await runOne('remove_inline_preview', () => runRemovePreview(full, handle));
+      const commentsForReply = (await commentsApi(full.commentKey)).comments || [];
+      const replyTextParent = textComment || commentsForReply.find((x) => !hasAttachment(x));
+      const replyPhotoParent = noCapComment || commentsForReply.find((x) => hasAttachment(x));
+      await runOne('reply_matrix', () => runReplyMatrix(full, handle, replyTextParent, replyPhotoParent));
+      const commentsForReaction = (await commentsApi(full.commentKey)).comments || [];
+      await runOne('reactions', () => runReaction(full, handle, textComment || commentsForReaction[0]));
+      await runOne('preset_sticker', () => runSticker(full, handle));
+      await runOne('forbidden_video_file', () => runForbidden(full, handle));
+      await runOne('hydration_reopen_flicker', () => runHydration(full, handle));
+      const traceOut = await runTraceTiming(full); scenarios.push(traceOut.scenario); (traceOut.scenario.warnings || []).forEach((w) => warnings.push(w)); log('trace_timing_validation: ' + (traceOut.scenario.status === 'pass' ? 'PASS' : 'FAIL'), traceOut.scenario.status === 'pass' ? 'ok' : 'bad');
+      const matrix = matrixSummary(full, scenarios, traceOut.traceValidation, warnings);
+      const finalReport = await postJson('/debug/selftest/comments/browser-result', { commentKey: full.commentKey, probes: { [MATRIX_PROBE_ID]: matrix }, telemetry: { source: 'PR97_PRODUCTION_COMMENTS_MATRIX', browserMeasured: true, realCommentsIframe: true, userAgent: navigator.userAgent, viewport: { width: innerWidth, height: innerHeight }, at: new Date().toISOString() } });
+      setLinks(finalReport.commentKey || full.commentKey); renderSummary(full, matrix, finalReport);
+    } catch (error) { mark('ERROR', 'bad'); if (summaryEl) summaryEl.innerHTML = '<p class="bad">' + esc(error && error.message || error) + '</p>'; if (rawEl) rawEl.textContent = JSON.stringify({ error: error && (error.stack || error.message || String(error)), data: error && error.data }, null, 2); log('ERROR: ' + clean(error && error.message || error), 'bad'); }
+    finally { runBtn.disabled = false; }
   }
   if (runBtn) runBtn.addEventListener('click', run);
   if (latestLink) latestLink.href = url('/debug/selftest/comments/latest');
   if (reportLink) reportLink.href = url('/debug/selftest/comments/report');
-  window.addEventListener('load', () => setTimeout(run, 150));
 })();

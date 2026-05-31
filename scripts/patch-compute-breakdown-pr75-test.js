@@ -7,7 +7,7 @@ const path = require('path');
 const postPatcher = fs.readFileSync(path.join(__dirname, '..', 'services', 'postPatcher.js'), 'utf8');
 const appLoader = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
 
-assert.ok(postPatcher.includes('PATCH_COMPUTE_BREAKDOWN_RUNTIME = "CC8.1.15-PATCH-COMPUTE-BREAKDOWN"'), 'postPatcher must expose PR75 breakdown runtime');
+assert.ok(/PATCH_COMPUTE_BREAKDOWN_RUNTIME\s*=\s*['\"]CC8\.1\.15-PATCH-COMPUTE-BREAKDOWN['\"]/.test(postPatcher), 'postPatcher must expose PR75 breakdown runtime');
 assert.ok(postPatcher.includes('function emitPatchStep'), 'postPatcher must include emitPatchStep helper');
 [
   'patch.compute.resolve_post.end',
@@ -27,7 +27,7 @@ assert.ok(postPatcher.includes('addPostPatchTraceHook'), 'PR75 must keep additiv
 assert.ok(postPatcher.includes('setPostPatchTraceHook'), 'PR75 must keep legacy set trace hook API');
 
 assert.ok(appLoader.includes('CC8.1.15-PATCH-COMPUTE-BREAKDOWN'), 'app loader must expose PR75 performance runtime');
-assert.ok(appLoader.includes("ASSET_VERSION = 'v7564-pr75'"), 'app loader must bust cache for PR75');
+assert.ok(appLoader.includes("LEGACY_PR75_ASSET_VERSION = 'v7564-pr75'") || appLoader.includes("ASSET_VERSION = 'v7564-pr75'"), 'app loader must expose PR75 asset version compatibility');
 assert.ok(appLoader.includes("postMiniTiming('loader.boot'"), 'app loader must keep loader.boot timing');
 assert.ok(appLoader.includes("postMiniTiming('loader.script_appended'"), 'app loader must keep script appended timing');
 assert.ok(appLoader.includes("postMiniTiming('loader.script_loaded'"), 'app loader must keep script loaded timing');

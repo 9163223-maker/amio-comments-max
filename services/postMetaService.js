@@ -504,6 +504,22 @@ function postToMeta(post = {}, params = {}, source = 'store fallback') {
   if (!commentKey) return null;
 
   const raw = post.raw && typeof post.raw === 'object' ? post.raw : {};
+  const postSnapshot = post.postSnapshot && typeof post.postSnapshot === 'object' ? post.postSnapshot : {};
+  const rawAttachments = raw.sourceAttachments || raw.source_attachments || raw.originalAttachments || raw.original_attachments || raw.attachments;
+  const fallbackAttachments = Array.isArray(rawAttachments) && rawAttachments.length ? rawAttachments : [
+    post.sourceAttachments,
+    post.originalAttachments,
+    post.mediaAttachments,
+    postSnapshot.attachments,
+    postSnapshot.mediaAttachments
+  ].find((items) => Array.isArray(items) && items.length) || [];
+  const normalizedRaw = {
+    ...raw,
+    originalText: raw.originalText || post.originalText || post.text || post.caption || postSnapshot.text || '',
+    sourceAttachments: raw.sourceAttachments || fallbackAttachments,
+    originalAttachments: raw.originalAttachments || fallbackAttachments,
+    attachments: raw.attachments || fallbackAttachments
+  };
   const channelId = clean(post.channelId || post.channel_id || raw.channelId || params.channelId || (commentKey.includes(':') ? commentKey.split(':')[0] : ''));
   const postId = clean(post.postId || post.post_id || post.messageId || raw.postId || raw.messageId || params.postId || (commentKey.includes(':') ? commentKey.split(':')[1] : ''));
   const channel = safeGetChannel(channelId);
@@ -513,8 +529,8 @@ function postToMeta(post = {}, params = {}, source = 'store fallback') {
     postId,
     messageId: clean(post.messageId || post.message_id || raw.messageId || params.messageId || ''),
     commentKey,
-    title: clean(post.title || post.postTitle || raw.title || raw.originalText || params.title || (params.displayPostNumber ? `Post ${params.displayPostNumber}` : '')),
-    raw: { ...raw, originalText: raw.originalText || post.originalText || post.text || post.caption || '' },
+    title: clean(post.title || post.postTitle || raw.title || raw.originalText || postSnapshot.title || params.title || (params.displayPostNumber ? `Post ${params.displayPostNumber}` : '')),
+    raw: normalizedRaw,
     channelTitle: clean(post.channelTitle || raw.channelTitle || channel?.title || 'Подключённый канал'),
     commentsEnabled: post.commentsEnabled !== false && post.commentsDisabled !== true,
     commentsPhoto: post.commentsPhoto !== false,
