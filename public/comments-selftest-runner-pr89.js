@@ -34,10 +34,12 @@
   function mark(text, cls) { if (summaryEl) summaryEl.innerHTML = '<div class="pill ' + esc(cls || '') + '">' + esc(text) + '</div>'; }
   function log(text, cls) { if (!logEl) return; const row = document.createElement('div'); row.className = cls || ''; row.textContent = '[' + new Date().toLocaleTimeString() + '] ' + text; logEl.appendChild(row); logEl.scrollTop = logEl.scrollHeight; }
   function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms || 0) || 0))); }
+  function toUrl(value) { return value instanceof URL ? value : new URL(value, location.origin); }
   function shouldCarryAdminToken(u) { return Boolean(u && u.origin === location.origin && /^\/debug\/selftest\/comments(?:\/|$)/.test(u.pathname || '')); }
-  function withAdminToken(value) { const u = value instanceof URL ? value : new URL(value, location.origin); if (adminToken && adminTokenKey && shouldCarryAdminToken(u) && !u.searchParams.has(adminTokenKey)) u.searchParams.set(adminTokenKey, adminToken); return u; }
+  function shouldSendAdminHeader(value) { const u = toUrl(value || location.href); return Boolean(adminToken && u.origin === location.origin && (/^\/debug\//.test(u.pathname || '') || /^\/api\/debug\//.test(u.pathname || ''))); }
+  function withAdminToken(value) { const u = toUrl(value); if (adminToken && adminTokenKey && shouldCarryAdminToken(u) && !clean(u.searchParams.get(adminTokenKey))) u.searchParams.set(adminTokenKey, adminToken); return u; }
   function url(path) { return withAdminToken(new URL(path, location.origin)).toString(); }
-  function fetchOptions(options) { const out = { ...(options || {}) }; const headers = new Headers(out.headers || {}); if (adminToken && !headers.has('x-admin-token')) headers.set('x-admin-token', adminToken); out.headers = headers; return out; }
+  function fetchOptions(options, target) { const out = { ...(options || {}) }; const headers = new Headers(out.headers || {}); if (shouldSendAdminHeader(target) && !headers.has('x-admin-token')) headers.set('x-admin-token', adminToken); out.headers = headers; return out; }
   function setLinks(commentKey) {
     if (latestLink) latestLink.href = url('/debug/selftest/comments/latest');
     if (reportLink) reportLink.href = url('/debug/selftest/comments/report');
@@ -46,8 +48,8 @@
       cleanupLink.href = u.toString(); cleanupLink.hidden = false;
     }
   }
-  async function readJson(path) { const r = await fetch(url(path), fetchOptions({ cache: 'no-store' })); const d = await r.json().catch(() => ({})); if ((!r.ok || d.ok === false) && !(d && d.backendOk === true)) { const e = new Error(clean(d.error || d.message || ('http_' + r.status))); e.data = d; throw e; } return d; }
-  async function postJson(path, body) { const r = await fetch(url(path), fetchOptions({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })); const d = await r.json().catch(() => ({})); if (!r.ok && r.status !== 202) { const e = new Error(clean(d.error || d.message || ('http_' + r.status))); e.data = d; throw e; } return d; }
+  async function readJson(path) { const requestUrl = url(path); const r = await fetch(requestUrl, fetchOptions({ cache: 'no-store' }, requestUrl)); const d = await r.json().catch(() => ({})); if ((!r.ok || d.ok === false) && !(d && d.backendOk === true)) { const e = new Error(clean(d.error || d.message || ('http_' + r.status))); e.data = d; throw e; } return d; }
+  async function postJson(path, body) { const requestUrl = url(path); const r = await fetch(requestUrl, fetchOptions({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }, requestUrl)); const d = await r.json().catch(() => ({})); if (!r.ok && r.status !== 202) { const e = new Error(clean(d.error || d.message || ('http_' + r.status))); e.data = d; throw e; } return d; }
   function cssEscape(value, doc) { try { const w = doc && doc.defaultView; return w && w.CSS && w.CSS.escape ? w.CSS.escape(String(value)) : String(value).replace(/["\\]/g, '\\$&'); } catch (_) { return String(value).replace(/["\\]/g, '\\$&'); } }
   function rowById(doc, id) { try { return doc && id ? doc.querySelector('[data-comment-id="' + cssEscape(id, doc) + '"]') : null; } catch (_) { return null; } }
   function rows(doc) { return Array.from(doc && doc.querySelectorAll ? doc.querySelectorAll('[data-comment-id]') : []); }
@@ -157,7 +159,7 @@
   async function run() {
     runBtn.disabled = true; if (logEl) logEl.textContent = ''; if (rawEl) rawEl.textContent = '{}'; if (fixtureHost) fixtureHost.textContent = ''; if (cleanupLink) cleanupLink.hidden = true; mark('RUNNING', 'warn');
     try {
-      log('Clearing miniapp timing diagnostics'); await fetch(url('/debug/miniapp-timing/clear'), fetchOptions({ cache: 'no-store' })).catch(() => null);
+      log('Clearing miniapp timing diagnostics'); await fetch(url('/debug/miniapp-timing/clear'), fetchOptions({ cache: 'no-store' }, '/debug/miniapp-timing/clear')).catch(() => null);
       log('Запускаю backend self-test /full'); const full = await readJson('/debug/selftest/comments/full'); setLinks(full.commentKey); log('Backend: ' + (full.backendOk ? 'PASS' : 'FAIL') + ', key=' + full.commentKey, full.backendOk ? 'ok' : 'bad');
       log('Открываю настоящий comments UI в iframe /mini-app'); const handle = await createFrame(full.commentKey); await waitForSelector(handle.doc, '#commentsList', 18000); await sleep(1200);
       const scenarios = []; const warnings = [];
