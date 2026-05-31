@@ -29,7 +29,8 @@ window.__ADMINKIT_PUBLIC_APP_RUNTIME__ = RUNTIME;
 window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_RUNTIME__ = SKELETON_RUNTIME;
 window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_PR67_COMPAT__ = {
   runtime: LEGACY_SKELETON_CONSUMER_PR67_RUNTIME,
-  asset: LEGACY_SKELETON_CONSUMER_PR67_ASSET
+  asset: LEGACY_SKELETON_CONSUMER_PR67_ASSET,
+  marker: LEGACY_SKELETON_CONSUMER_PR67_MARKER
 };
 window.__ADMINKIT_PR75_ASSET_VERSION_COMPAT__ = { legacyAssetVersion: LEGACY_PR75_ASSET_VERSION, currentAssetVersion: ASSET_VERSION };
 window.__ADMINKIT_COMPOSER_INTENT_UNLOCK_RUNTIME__ = COMPOSER_INTENT_RUNTIME;
@@ -197,6 +198,7 @@ function bootOnepass() {
   if (!guardedSkeleton && window[ONEPASS_MARKER]) return;
   if (guardedSkeleton && skeletonConfig && window[skeletonConfig.marker]) return;
 
+  if (guardedSkeleton && skeletonConfig) window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_RUNTIME__ = skeletonConfig.runtime;
   window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_ENABLED__ = Boolean(guardedSkeleton);
   window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_ACTIVE_CONFIG__ = skeletonConfig || null;
 
