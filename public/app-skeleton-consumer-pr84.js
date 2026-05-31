@@ -40,7 +40,7 @@ function buildSkeletonUrl() {
     try {
       const unsafe = (app && app.initDataUnsafe) || {};
       addParam(params, 'commentKey', unsafe.commentKey);
-      addParam(params, 'handoff', unsafe.start_param || unsafe.startapp || unsafe.WebAppStartParam || unsafe.payload || unsafe.startPayload || unsafe.start_payload);
+      addParam(params, 'handoff', unsafe.start_param || unsafe.startapp || unsafe.WebAppStartParam || unsafe.payload || unsafe.startPayload || unsafe.start_payload || unsafe.button_payload || unsafe.launch_payload || unsafe.web_app_payload);
       addParam(params, 'channelId', unsafe.channelId || unsafe.channel_id);
       addParam(params, 'postId', unsafe.postId || unsafe.post_id || unsafe.messageId || unsafe.message_id);
       addParam(params, 'title', unsafe.title || unsafe.postTitle);

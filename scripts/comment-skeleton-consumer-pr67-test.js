@@ -40,6 +40,8 @@ assert.ok(skeletonConsumerPr84.includes("params.set('skeletonConsumer', 'pr84')"
 assert.ok(skeletonConsumerPr84.includes('hashParams.forEach'), 'PR84 consumer must fill missing launch params from hash without overriding search');
 assert.ok(skeletonConsumer.includes("'payload', 'startPayload', 'start_payload', 'button_payload', 'launch_payload', 'web_app_payload'"), 'PR67 consumer must treat URL payload aliases as launch identity for hash-only starts');
 assert.ok(skeletonConsumerPr84.includes("'payload', 'startPayload', 'start_payload', 'button_payload', 'launch_payload', 'web_app_payload'"), 'PR84 consumer must treat URL payload aliases as launch identity for hash-only starts');
+assert.ok(skeletonConsumer.includes('unsafe.button_payload || unsafe.launch_payload || unsafe.web_app_payload'), 'PR67 consumer must merge WebApp unsafe payload aliases into handoff identity');
+assert.ok(skeletonConsumerPr84.includes('unsafe.button_payload || unsafe.launch_payload || unsafe.web_app_payload'), 'PR84 consumer must merge WebApp unsafe payload aliases into handoff identity');
 assert.ok(skeletonConsumer.includes('prefetchHydrate'), 'consumer should start hydrate prefetch after skeleton');
 assert.ok(skeletonConsumer.includes('loadLegacy'), 'consumer must keep legacy fallback available');
 assert.ok(skeletonConsumer.includes('contract_guard_failed'), 'consumer must fail back if contract check fails');
