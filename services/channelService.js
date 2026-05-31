@@ -4,11 +4,26 @@ function clean(value) { return String(value || '').trim(); }
 function arr(value) { return Array.isArray(value) ? value : []; }
 function idOf(item = {}) { return clean(item.channelId || item.chatId || item.chat_id || item.id); }
 function looksTechnical(value = '') { return /^-?\d{6,}$/.test(clean(value)) || /^id\d{6,}$/i.test(clean(value)); }
+function rawType(item = {}) { return clean(item.type || item.chatType || item.kind || item.recordType || item.sourceKind).toLowerCase(); }
+function rawTitle(item = {}) { return clean(item.title || item.channelTitle || item.channelName || item.chatTitle || item.name); }
+function globalLegacyAdminNames() {
+  const names = new Set();
+  arr(getChannelsList()).forEach((x) => {
+    const id = idOf(x);
+    const type = rawType(x);
+    const explicitNameFields = [x.linkedByName, x.adminName, x.ownerName, x.senderName, x.userName, x.username, x.name].map(clean).filter(Boolean);
+    explicitNameFields.forEach((name) => names.add(name.toLowerCase()));
+    const title = rawTitle(x);
+    const looksLikeProfile = !id || !/^-/.test(id) || ['user', 'dialog', 'dm', 'direct', 'private', 'admin'].includes(type);
+    if (looksLikeProfile && title && !looksTechnical(title)) names.add(title.toLowerCase());
+  });
+  return names;
+}
 function adminNamesForChannel(channelId = '') {
   const id = clean(channelId);
-  const names = new Set();
+  const names = globalLegacyAdminNames();
   arr(getChannelsList()).filter((x) => idOf(x) === id).forEach((x) => {
-    [x.linkedByName, x.adminName, x.ownerName, x.senderName, x.name].map(clean).filter(Boolean).forEach((name) => names.add(name.toLowerCase()));
+    [x.linkedByName, x.adminName, x.ownerName, x.senderName, x.userName, x.username, x.name].map(clean).filter(Boolean).forEach((name) => names.add(name.toLowerCase()));
   });
   return names;
 }
@@ -56,8 +71,8 @@ function registerChannel(channelId, data = {}) {
   const id = clean(channelId);
   if (!id) return null;
   const badNames = adminNamesForChannel(id);
-  const rawTitle = clean(data.title || data.channelTitle || '');
-  const title = rawTitle && !looksTechnical(rawTitle) && !badNames.has(rawTitle.toLowerCase()) ? rawTitle : '';
+  const raw = clean(data.title || data.channelTitle || '');
+  const title = raw && !looksTechnical(raw) && !badNames.has(raw.toLowerCase()) ? raw : '';
   return saveChannel(id, { ...(data || {}), channelId: id, title, channelTitle: title, type: 'channel', chatType: 'channel', isMaxChannel: true, isChannel: true });
 }
 module.exports = { listChannels, listChannelsForAdmin, registerChannel };
