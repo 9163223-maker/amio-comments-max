@@ -79,9 +79,19 @@ function queryTokenEntries(req) {
       if (entries.length) return entries;
     } catch (_) {}
   }
+  const query = req && req.query;
+  if (query && typeof query.forEach === 'function') {
+    const entries = [];
+    query.forEach((value, key) => {
+      if (key !== 'token' && key !== 'adminToken') return;
+      const text = clean(value);
+      if (text) entries.push({ key, value: text });
+    });
+    if (entries.length) return entries;
+  }
   return [
-    ...tokenValues(req?.query?.token).map((value) => ({ key: 'token', value })),
-    ...tokenValues(req?.query?.adminToken).map((value) => ({ key: 'adminToken', value }))
+    ...tokenValues(query?.token).map((value) => ({ key: 'token', value })),
+    ...tokenValues(query?.adminToken).map((value) => ({ key: 'adminToken', value }))
   ];
 }
 function tokenCandidates(req) {

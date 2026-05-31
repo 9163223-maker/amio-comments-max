@@ -45,6 +45,10 @@ try {
   assert.deepStrictEqual(routes.queryTokenEntries(queryFallbackReq), [{ key: 'adminToken', value: 'valid-selftest' }], 'query token entries should fall back to req.query when originalUrl has no token params');
   assert.strictEqual(routes.adminAllowed(queryFallbackReq), true, 'req.query token fallback must still authorize when originalUrl contains unrelated params');
 
+  const urlSearchQueryReq = makeReq({ query: new URLSearchParams('adminToken=valid-selftest&token=stale-token'), originalUrl: '/debug/selftest/comments/report?unrelated=1' });
+  assert.deepStrictEqual(routes.queryTokenEntries(urlSearchQueryReq), [{ key: 'adminToken', value: 'valid-selftest' }, { key: 'token', value: 'stale-token' }], 'query token entries should preserve URLSearchParams query order when originalUrl has no token params');
+  assert.strictEqual(routes.requestToken(urlSearchQueryReq), 'valid-selftest', 'URLSearchParams query fallback should preserve first token-like value order');
+
   const headerReq = makeReq({ query: { token: 'stale-token' }, headers: { 'x-admin-token': 'valid-selftest' } });
   assert.strictEqual(routes.adminAllowed(headerReq), true, 'x-admin-token must still authorize when a stale query token is present');
   assert.strictEqual(routes.runnerHref(headerReq), '/debug/selftest/comments/runner?token=valid-selftest', 'runner link should preserve the matching header token for browser navigation');
