@@ -139,18 +139,25 @@ function hasCommentLaunchIdentity(query) {
   return false;
 }
 
+function skeletonFlagSource() {
+  const query = String((location && location.search) || '').replace(/^\?/, '');
+  const hash = String((location && location.hash) || '').replace(/^#/, '').replace(/^\?/, '');
+  return [query, hash].filter(Boolean).join('&');
+}
+
 function wantsGuardedSkeletonConsumer() {
   const query = String((location && location.search) || '');
   const hash = String((location && location.hash) || '');
-  if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=0(?:&|$)/.test(query)) return false;
-  if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=1(?:&|$)/.test(query)) return true;
-  if (/(?:^|[?&])skeletonConsumer=pr67(?:&|$)/i.test(query)) return true;
+  const flags = skeletonFlagSource();
+  if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=0(?:&|$)/.test(flags)) return false;
+  if (/(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=1(?:&|$)/.test(flags)) return true;
+  if (/(?:^|[?&])skeletonConsumer=pr67(?:&|$)/i.test(flags)) return true;
   return hasCommentLaunchIdentity(query) || hasCommentLaunchIdentity(hash);
 }
 
 function skeletonConsumerConfig() {
-  const query = String((location && location.search) || '');
-  if (/(?:^|[?&])skeletonConsumer=pr67(?:&|$)/i.test(query)) {
+  const flags = skeletonFlagSource();
+  if (/(?:^|[?&])skeletonConsumer=pr67(?:&|$)/i.test(flags)) {
     return { runtime: LEGACY_SKELETON_CONSUMER_PR67_RUNTIME, asset: LEGACY_SKELETON_CONSUMER_PR67_ASSET, marker: LEGACY_SKELETON_CONSUMER_PR67_MARKER, version: 'pr67' };
   }
   return { runtime: SKELETON_RUNTIME, asset: '/public/app-skeleton-consumer-pr84.js?', marker: SKELETON_MARKER, version: 'pr84' };

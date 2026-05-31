@@ -12,6 +12,7 @@ assert.ok(appLoader.includes('CC8.1.9-COMMENT-SKELETON-CONSUMER-GUARDED'), 'load
 assert.ok(appLoader.includes('/public/app-onepass.js?'), 'loader must keep legacy onepass as the default asset');
 assert.ok(appLoader.includes('/public/app-skeleton-consumer-pr67.js?'), 'loader should route to guarded skeleton consumer asset only when opted in');
 assert.ok(appLoader.includes('skeletonConsumer=pr67'), 'loader should preserve explicit PR67 skeleton consumer opt-in');
+assert.ok(appLoader.includes('skeletonFlagSource'), 'loader should read skeleton opt-in flags from both search and hash');
 assert.ok(appLoader.includes('skeletonConsumerConfig'), 'loader should choose the guarded skeleton consumer from the explicit opt-in config');
 assert.ok(appLoader.includes('__ADMINKIT_COMMENT_SKELETON_CONSUMER_RUNTIME__ = skeletonConfig.runtime'), 'loader should expose the selected skeleton runtime before loading the consumer');
 assert.ok(/adminkitSkeleton\|commentSkeleton\|skeletonConsumer/.test(appLoader), 'loader must require an explicit URL opt-in flag');
