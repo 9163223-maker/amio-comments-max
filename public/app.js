@@ -133,7 +133,7 @@ function loadPhotoFlowAddon() {
 function hasCommentLaunchIdentity(query) {
   const raw = String(query || '');
   if (!raw) return false;
-  if (/(?:^|[?&#])(commentKey|handoff|startapp|start_param|WebAppStartParam|payload|channelId|channel_id|postId|post_id|messageId|message_id)=/i.test(raw)) return true;
+  if (/(?:^|[?&#])(commentKey|handoff|startapp|start_param|WebAppStartParam|payload|startPayload|start_payload|button_payload|launch_payload|web_app_payload|channelId|channel_id|postId|post_id|messageId|message_id)=/i.test(raw)) return true;
   if (/(?:cp|ck)_-?\d{3,}_-?\d{1,}/i.test(raw)) return true;
   if (/-?\d{3,}:-?\d{1,}/.test(raw)) return true;
   return false;

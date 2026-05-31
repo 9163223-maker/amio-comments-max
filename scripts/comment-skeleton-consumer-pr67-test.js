@@ -21,6 +21,7 @@ assert.ok(appLoader.includes('hasSkeletonFlagValue'), 'loader should centralize 
 assert.ok(appLoader.includes('skeletonConsumerConfig'), 'loader should choose the guarded skeleton consumer from the explicit opt-in config');
 assert.ok(appLoader.includes('__ADMINKIT_COMMENT_SKELETON_CONSUMER_RUNTIME__ = skeletonConfig.runtime'), 'loader should expose the selected skeleton runtime before loading the consumer');
 assert.ok(/adminkitSkeleton\|commentSkeleton\|skeletonConsumer/.test(appLoader), 'loader must require an explicit URL opt-in flag');
+assert.ok(appLoader.includes('payload|startPayload|start_payload|button_payload|launch_payload|web_app_payload'), 'loader must recognize payload aliases as launch identity for hash-only skeleton starts');
 assert.ok(!appLoader.includes('skeleton=1') || appLoader.indexOf('/public/app-onepass.js?') < appLoader.indexOf('/public/app-skeleton-consumer-pr67.js?'), 'default legacy loader must not silently append skeleton=1');
 
 assert.ok(skeletonConsumer.includes('/debug/comment-ui/contract'), 'consumer must verify deployed contract endpoint before skeleton use');
