@@ -8,7 +8,7 @@ const statsFlow = require('./stats-flow-cc8');
 const botAudit = require('./admin-bot-audit-trace');
 const walkthroughTrace = require('./admin-walkthrough-trace');
 
-const RUNTIME = 'CC8.3.31-CHANNEL-REGISTRY-CLEAN';
+const RUNTIME = 'CC8.3.33-CHANNEL-TITLE-NO-USER-NAME';
 
 function clean(value) { return String(value || '').trim(); }
 function safe(fn, fallback) { try { return fn(); } catch { return fallback; } }
@@ -76,7 +76,7 @@ async function sendNativeStart(config, update = {}) {
   walkthroughTrace.log('native_start.force_menu_sent', { userId: uid, updateId, runtimeVersion: RUNTIME });
   return { ok: true, action: 'native_start_force_menu', updateId };
 }
-function channelTitleFromUpdate(update = {}) { return clean(firstValue(update, ['chat_title', 'chatTitle', 'channelTitle', 'title', 'name'])); }
+function channelTitleFromUpdate(update = {}) { return clean(firstValue(update, ['chat_title', 'chatTitle', 'channelTitle', 'title'])); }
 async function rememberChannelFromUpdate(update = {}, config = {}) {
   const kind = updateType(update);
   if (!['bot_added', 'chat_title_changed'].includes(kind)) return null;
@@ -86,8 +86,9 @@ async function rememberChannelFromUpdate(update = {}, config = {}) {
   if ((!title || /^-?\d{6,}$/.test(title)) && config.botToken) {
     try { const chat = await max.getChat({ botToken: config.botToken, chatId: channelId, timeoutMs: 1200 }); title = clean(chat?.title || chat?.name || title); } catch {}
   }
+  if (/^-?\d{6,}$/.test(title)) title = '';
   const uid = userId(update, null, null);
-  const saved = store.saveChannel(channelId, { channelId, title, channelTitle: title, type: 'channel', chatType: 'channel', isMaxChannel: true, isChannel: true, linkedByUserId: uid, ownerUserId: uid, linkedByName: clean(firstValue(update, ['first_name', 'firstName', 'username'])), channelRegistryRuntime: RUNTIME, botAddedAt: Date.now() });
+  const saved = store.saveChannel(channelId, { channelId, title, channelTitle: title, type: 'channel', chatType: 'channel', isMaxChannel: true, isChannel: true, linkedByUserId: uid, ownerUserId: uid, linkedByName: clean(firstValue(update, ['first_name', 'firstName', 'username', 'name'])), channelRegistryRuntime: RUNTIME, botAddedAt: Date.now() });
   audit('channel_registry.saved', { updateType: kind, channelId, title: clean(saved && (saved.title || saved.channelTitle)), userId: uid, runtimeVersion: RUNTIME });
   return saved;
 }
