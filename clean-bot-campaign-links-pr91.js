@@ -8,7 +8,7 @@ const statsFlow = require('./stats-flow-cc8');
 const botAudit = require('./admin-bot-audit-trace');
 const walkthroughTrace = require('./admin-walkthrough-trace');
 
-const RUNTIME = 'CC8.3.17-CAMPAIGN-LINKS';
+const RUNTIME = 'CC8.3.30-SAFE-ADS-LINK-ONLY-NATIVE-START';
 
 function clean(value) { return String(value || '').trim(); }
 function safe(fn, fallback) { try { return fn(); } catch { return fallback; } }
@@ -40,17 +40,25 @@ function userId(update = {}, cb = null, msg = null) { return userFrom(cb) || use
 function isSlash(value = '') { return /^\/[a-z_]+(?:\s|$)/i.test(clean(value)); }
 function resultMessageId(result = {}) { return clean(result?.message?.body?.mid || result?.message?.id || result?.body?.mid || result?.message_id || result?.messageId || result?.id); }
 function rememberAdminScreen(uid = '', mid = '') { const user = clean(uid); const messageId = clean(mid); if (!user || !messageId) return; const prev = safe(() => store.getSetupState(user) || {}, {}) || {}; const ids = [...(Array.isArray(prev.adminMessageIds) ? prev.adminMessageIds : []), prev.latestBotMessageId, messageId].map(clean).filter(Boolean); store.setSetupState(user, { latestBotMessageId: messageId, adminMessageIds: [...new Set(ids)].slice(-20) }); }
+async function deleteStoredScreens(config, uid = '') { const user = clean(uid); if (!user) return; const state = safe(() => store.getSetupState(user) || {}, {}) || {}; const ids = [...(Array.isArray(state.adminMessageIds) ? state.adminMessageIds : []), state.latestBotMessageId].map(clean).filter(Boolean); for (const id of [...new Set(ids)]) { try { await max.deleteMessage({ botToken: config.botToken, messageId: id, timeoutMs: config.menuDeleteTimeoutMs || 1800 }); } catch {} } }
 async function sendFreshScreen(config, update, msg = {}, screen, uid = '') {
   const cid = chatId(msg);
   const user = clean(uid || userId(update, null, msg));
-  const state = safe(() => store.getSetupState(user) || {}, {}) || {};
-  const ids = [...(Array.isArray(state.adminMessageIds) ? state.adminMessageIds : []), state.latestBotMessageId].map(clean).filter(Boolean);
-  for (const id of [...new Set(ids)]) {
-    try { await max.deleteMessage({ botToken: config.botToken, messageId: id, timeoutMs: config.menuDeleteTimeoutMs || 1800 }); } catch {}
-  }
+  await deleteStoredScreens(config, user);
   const result = await max.sendMessage({ botToken: config.botToken, userId: cid ? '' : user, chatId: cid, text: screen.text, attachments: screen.attachments, notify: false });
   rememberAdminScreen(user, resultMessageId(result));
   return result;
+}
+async function sendNativeStart(config, update = {}) {
+  const uid = userId(update, null, null);
+  if (!uid) return { ok: false, skipped: true, reason: 'user_id_missing' };
+  const updateId = clean(update.update_id || update.updateId || update.timestamp || update.started_at || '');
+  const screen = menu.mainScreen ? menu.mainScreen() : { text: '🐋 АдминКИТ\n\nПанель управления MAX-каналом.\nВыберите раздел.', attachments: [] };
+  await sendFreshScreen(config, update, {}, screen, uid);
+  store.setSetupState(uid, { nativeStartLastUpdateId: updateId, nativeStartMenuSentAt: Date.now(), activeAdminFlowKind: '' });
+  audit('native_start.force_menu_sent', { userId: uid, updateId, runtimeVersion: RUNTIME });
+  walkthroughTrace.log('native_start.force_menu_sent', { userId: uid, updateId, runtimeVersion: RUNTIME });
+  return { ok: true, action: 'native_start_force_menu', updateId };
 }
 
 function createCleanBot(legacy) {
@@ -58,6 +66,11 @@ function createCleanBot(legacy) {
   return {
     handleWebhook: async function handleWebhookWithCampaignLinkTextFlow(req, res, config) {
       const update = req.body || {};
+      const kind = updateType(update);
+      if (kind === 'bot_started') {
+        const result = await sendNativeStart(config, update);
+        return res.status(200).json({ ok: true, handledBy: RUNTIME, ...result });
+      }
       const msg = message(update);
       const cb = callback(update);
       const real = isRealCallback(update, cb);
