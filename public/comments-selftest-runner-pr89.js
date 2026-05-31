@@ -37,7 +37,7 @@
   function toUrl(value) { return value instanceof URL ? value : new URL(value, location.origin); }
   function shouldCarryAdminToken(u) { return Boolean(u && u.origin === location.origin && /^\/debug\/selftest\/comments(?:\/|$)/.test(u.pathname || '')); }
   function shouldSendAdminHeader(value) { const u = toUrl(value || location.href); return Boolean(adminToken && u.origin === location.origin && (/^\/debug\//.test(u.pathname || '') || /^\/api\/debug\//.test(u.pathname || ''))); }
-  function withAdminToken(value) { const u = toUrl(value); if (adminToken && adminTokenKey && shouldCarryAdminToken(u) && !clean(u.searchParams.get(adminTokenKey))) u.searchParams.set(adminTokenKey, adminToken); return u; }
+  function withAdminToken(value) { const u = toUrl(value); if (adminToken && adminTokenKey && shouldCarryAdminToken(u)) { const otherKey = adminTokenKey === 'token' ? 'adminToken' : 'token'; u.searchParams.delete(otherKey); u.searchParams.set(adminTokenKey, adminToken); } return u; }
   function url(path) { return withAdminToken(new URL(path, location.origin)).toString(); }
   function fetchOptions(options, target) { const out = { ...(options || {}) }; const headers = new Headers(out.headers || {}); if (shouldSendAdminHeader(target) && !headers.has('x-admin-token')) headers.set('x-admin-token', adminToken); out.headers = headers; return out; }
   function setLinks(commentKey) {
