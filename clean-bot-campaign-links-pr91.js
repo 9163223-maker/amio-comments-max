@@ -8,7 +8,7 @@ const statsFlow = require('./stats-flow-cc8');
 const botAudit = require('./admin-bot-audit-trace');
 const walkthroughTrace = require('./admin-walkthrough-trace');
 
-const RUNTIME = 'CC8.3.30-SAFE-ADS-LINK-ONLY-NATIVE-START';
+const RUNTIME = 'CC8.3.31-CHANNEL-REGISTRY-CLEAN';
 
 function clean(value) { return String(value || '').trim(); }
 function safe(fn, fallback) { try { return fn(); } catch { return fallback; } }
@@ -22,6 +22,22 @@ function find(value, predicate, depth = 6, seen = new Set()) {
     if (found) return found;
   }
   return null;
+}
+function firstValue(value, keys = [], seen = new Set()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) return '';
+  seen.add(value);
+  const wanted = new Set((Array.isArray(keys) ? keys : [keys]).map((key) => String(key || '').toLowerCase()));
+  for (const [key, raw] of Object.entries(value)) {
+    if (wanted.has(String(key || '').toLowerCase())) {
+      const normalized = clean(raw);
+      if (normalized && normalized !== '[object Object]') return normalized;
+    }
+  }
+  for (const raw of Object.values(value)) {
+    const found = firstValue(raw, keys, seen);
+    if (found) return found;
+  }
+  return '';
 }
 function updateType(update = {}) { return clean(update.update_type || update.type || update?.data?.update_type || update?.data?.type).toLowerCase(); }
 function message(update = {}) { return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || find(update, (x) => x && typeof x === 'object' && (x.body?.text || x.text || x.body?.caption || x.caption) && (x.recipient || x.sender || x.message_id || x.id), 6) || null; }
@@ -60,6 +76,21 @@ async function sendNativeStart(config, update = {}) {
   walkthroughTrace.log('native_start.force_menu_sent', { userId: uid, updateId, runtimeVersion: RUNTIME });
   return { ok: true, action: 'native_start_force_menu', updateId };
 }
+function channelTitleFromUpdate(update = {}) { return clean(firstValue(update, ['chat_title', 'chatTitle', 'channelTitle', 'title', 'name'])); }
+async function rememberChannelFromUpdate(update = {}, config = {}) {
+  const kind = updateType(update);
+  if (!['bot_added', 'chat_title_changed'].includes(kind)) return null;
+  const channelId = clean(firstValue(update, ['chat_id', 'chatId', 'channel_id', 'channelId']));
+  if (!channelId) return null;
+  let title = channelTitleFromUpdate(update);
+  if ((!title || /^-?\d{6,}$/.test(title)) && config.botToken) {
+    try { const chat = await max.getChat({ botToken: config.botToken, chatId: channelId, timeoutMs: 1200 }); title = clean(chat?.title || chat?.name || title); } catch {}
+  }
+  const uid = userId(update, null, null);
+  const saved = store.saveChannel(channelId, { channelId, title, channelTitle: title, type: 'channel', chatType: 'channel', isMaxChannel: true, isChannel: true, linkedByUserId: uid, ownerUserId: uid, linkedByName: clean(firstValue(update, ['first_name', 'firstName', 'username'])), channelRegistryRuntime: RUNTIME, botAddedAt: Date.now() });
+  audit('channel_registry.saved', { updateType: kind, channelId, title: clean(saved && (saved.title || saved.channelTitle)), userId: uid, runtimeVersion: RUNTIME });
+  return saved;
+}
 
 function createCleanBot(legacy) {
   const wrapped = base.createCleanBot(legacy);
@@ -71,6 +102,7 @@ function createCleanBot(legacy) {
         const result = await sendNativeStart(config, update);
         return res.status(200).json({ ok: true, handledBy: RUNTIME, ...result });
       }
+      await rememberChannelFromUpdate(update, config);
       const msg = message(update);
       const cb = callback(update);
       const real = isRealCallback(update, cb);
