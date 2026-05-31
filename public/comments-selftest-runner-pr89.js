@@ -32,7 +32,8 @@
   function mark(text, cls) { if (summaryEl) summaryEl.innerHTML = '<div class="pill ' + esc(cls || '') + '">' + esc(text) + '</div>'; }
   function log(text, cls) { if (!logEl) return; const row = document.createElement('div'); row.className = cls || ''; row.textContent = '[' + new Date().toLocaleTimeString() + '] ' + text; logEl.appendChild(row); logEl.scrollTop = logEl.scrollHeight; }
   function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms || 0) || 0))); }
-  function withAdminToken(value) { const u = value instanceof URL ? value : new URL(value, location.origin); if (adminToken && adminTokenKey && u.origin === location.origin && !u.searchParams.has(adminTokenKey)) u.searchParams.set(adminTokenKey, adminToken); return u; }
+  function shouldCarryAdminToken(u) { return Boolean(u && u.origin === location.origin && /^\/debug\/selftest\/comments(?:\/|$)/.test(u.pathname || '')); }
+  function withAdminToken(value) { const u = value instanceof URL ? value : new URL(value, location.origin); if (adminToken && adminTokenKey && shouldCarryAdminToken(u) && !u.searchParams.has(adminTokenKey)) u.searchParams.set(adminTokenKey, adminToken); return u; }
   function url(path) { return withAdminToken(new URL(path, location.origin)).toString(); }
   function fetchOptions(options) { const out = { ...(options || {}) }; const headers = new Headers(out.headers || {}); if (adminToken && !headers.has('x-admin-token')) headers.set('x-admin-token', adminToken); out.headers = headers; return out; }
   function setLinks(commentKey) {
