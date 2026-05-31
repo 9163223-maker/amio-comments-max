@@ -76,6 +76,9 @@ try {
   const headersLike = new Map([['x-admin-token', 'valid-selftest']]);
   assert.strictEqual(routes.headerValue({ headers: headersLike }, 'x-admin-token'), 'valid-selftest', 'headers.get lookup should be supported for Headers-like objects');
   assert.strictEqual(routes.adminAllowed({ query: { token: 'stale-token' }, headers: headersLike }), true, 'Headers-like x-admin-token must authorize when req.get is unavailable');
+  const mixedCaseHeadersLike = new Map([['X-Admin-Token', 'valid-selftest']]);
+  assert.strictEqual(routes.headerValue({ headers: mixedCaseHeadersLike }, 'x-admin-token'), 'valid-selftest', 'Headers-like lookup should fall back to case-insensitive iteration');
+  assert.strictEqual(routes.adminAllowed({ query: { token: 'stale-token' }, headers: mixedCaseHeadersLike }), true, 'mixed-case Headers-like x-admin-token must authorize when req.get is unavailable');
 
   const staleRunnerReq = makeReq({ query: { token: 'stale-token', adminToken: 'valid-selftest' }, originalUrl: '/debug/selftest/comments/runner?token=stale-token&adminToken=valid-selftest' });
   assert.strictEqual(routes.runnerCanonicalRedirect(staleRunnerReq), '/debug/selftest/comments/runner?adminToken=valid-selftest', 'runner route should redirect mixed/stale token URLs to the canonical matched token URL');

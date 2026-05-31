@@ -32,7 +32,15 @@ function headerValue(req, name) {
   const viaGetter = req && typeof req.get === 'function' ? req.get(name) : '';
   if (clean(viaGetter)) return viaGetter;
   const headers = req && req.headers || {};
-  if (headers && typeof headers.get === 'function') return headers.get(name) || headers.get(key) || '';
+  if (headers && typeof headers.get === 'function') {
+    const direct = headers.get(name) || headers.get(key) || '';
+    if (clean(direct)) return direct;
+  }
+  if (headers && typeof headers.forEach === 'function') {
+    let found = '';
+    headers.forEach((value, item) => { if (!found && String(item || '').toLowerCase() === key) found = value; });
+    if (clean(found)) return found;
+  }
   if (headers[key] || headers[name]) return headers[key] || headers[name];
   const actualKey = Object.keys(headers).find((item) => String(item || '').toLowerCase() === key);
   return actualKey ? headers[actualKey] : '';
