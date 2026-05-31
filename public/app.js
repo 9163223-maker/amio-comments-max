@@ -139,13 +139,13 @@ function hasCommentLaunchIdentity(query) {
   return false;
 }
 
+function hasSkeletonFlagValue(source, value) { return new RegExp('(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=' + value + '(?:&|$)', 'i').test(source || ''); }
+function hasRecognizedSkeletonFlag(source) { return hasSkeletonFlagValue(source, '0') || hasSkeletonFlagValue(source, '1') || /(?:^|[?&])skeletonConsumer=pr(?:67|84)(?:&|$)/i.test(source || ''); }
 function skeletonFlagSource() {
   const query = String((location && location.search) || '').replace(/^\?/, '');
   const hash = String((location && location.hash) || '').replace(/^#/, '').replace(/^\?/, '');
-  const hasQueryFlag = /(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=/i.test(query);
-  return hasQueryFlag ? query : hash;
+  return hasRecognizedSkeletonFlag(query) ? query : hash;
 }
-function hasSkeletonFlagValue(source, value) { return new RegExp('(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=' + value + '(?:&|$)', 'i').test(source || ''); }
 
 function wantsGuardedSkeletonConsumer() {
   const query = String((location && location.search) || '');

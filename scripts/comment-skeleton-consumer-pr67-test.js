@@ -15,7 +15,8 @@ assert.ok(appLoader.includes('/public/app-skeleton-consumer-pr67.js?'), 'loader 
 assert.ok(appLoader.includes('skeletonConsumer=pr(?:67|84)'), 'loader should preserve explicit PR67/PR84 skeleton consumer opt-in');
 assert.ok(appLoader.includes('skeletonConsumer=pr67'), 'loader should preserve explicit PR67 skeleton consumer config selection');
 assert.ok(appLoader.includes('skeletonFlagSource'), 'loader should read skeleton opt-in flags from both search and hash');
-assert.ok(appLoader.includes('hasQueryFlag ? query : hash'), 'loader should let explicit search flags take precedence over hash flags');
+assert.ok(appLoader.includes('hasRecognizedSkeletonFlag(query) ? query : hash'), 'loader should let recognized search flags take precedence over hash flags');
+assert.ok(appLoader.includes('hasRecognizedSkeletonFlag'), 'loader should ignore empty or unknown search skeleton flags before falling back to hash flags');
 assert.ok(appLoader.includes('hasSkeletonFlagValue'), 'loader should centralize skeleton opt-in and opt-out flag matching');
 assert.ok(appLoader.includes('skeletonConsumerConfig'), 'loader should choose the guarded skeleton consumer from the explicit opt-in config');
 assert.ok(appLoader.includes('__ADMINKIT_COMMENT_SKELETON_CONSUMER_RUNTIME__ = skeletonConfig.runtime'), 'loader should expose the selected skeleton runtime before loading the consumer');
