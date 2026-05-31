@@ -26,20 +26,25 @@
 
   function esc(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch])); }
   function clean(value) { return String(value == null ? '' : value).replace(/\s+/g, ' ').trim(); }
+  const runnerParams = new URLSearchParams(location.search || '');
+  const adminTokenKey = runnerParams.has('adminToken') ? 'adminToken' : (runnerParams.has('token') ? 'token' : '');
+  const adminToken = adminTokenKey ? clean(runnerParams.get(adminTokenKey)) : '';
   function mark(text, cls) { if (summaryEl) summaryEl.innerHTML = '<div class="pill ' + esc(cls || '') + '">' + esc(text) + '</div>'; }
   function log(text, cls) { if (!logEl) return; const row = document.createElement('div'); row.className = cls || ''; row.textContent = '[' + new Date().toLocaleTimeString() + '] ' + text; logEl.appendChild(row); logEl.scrollTop = logEl.scrollHeight; }
   function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms || 0) || 0))); }
-  function url(path) { return new URL(path, location.origin).toString(); }
+  function withAdminToken(value) { const u = value instanceof URL ? value : new URL(value, location.origin); if (adminToken && adminTokenKey && u.origin === location.origin && !u.searchParams.has(adminTokenKey)) u.searchParams.set(adminTokenKey, adminToken); return u; }
+  function url(path) { return withAdminToken(new URL(path, location.origin)).toString(); }
+  function fetchOptions(options) { const out = { ...(options || {}) }; const headers = new Headers(out.headers || {}); if (adminToken && !headers.has('x-admin-token')) headers.set('x-admin-token', adminToken); out.headers = headers; return out; }
   function setLinks(commentKey) {
     if (latestLink) latestLink.href = url('/debug/selftest/comments/latest');
     if (reportLink) reportLink.href = url('/debug/selftest/comments/report');
     if (cleanupLink && commentKey) {
-      const u = new URL('/debug/selftest/comments/full', location.origin); u.searchParams.set('cleanup', '1'); u.searchParams.set('commentKey', commentKey);
+      const u = withAdminToken(new URL('/debug/selftest/comments/full', location.origin)); u.searchParams.set('cleanup', '1'); u.searchParams.set('commentKey', commentKey);
       cleanupLink.href = u.toString(); cleanupLink.hidden = false;
     }
   }
-  async function readJson(path) { const r = await fetch(path, { cache: 'no-store' }); const d = await r.json().catch(() => ({})); if ((!r.ok || d.ok === false) && !(d && d.backendOk === true)) { const e = new Error(clean(d.error || d.message || ('http_' + r.status))); e.data = d; throw e; } return d; }
-  async function postJson(path, body) { const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }); const d = await r.json().catch(() => ({})); if (!r.ok && r.status !== 202) { const e = new Error(clean(d.error || d.message || ('http_' + r.status))); e.data = d; throw e; } return d; }
+  async function readJson(path) { const r = await fetch(url(path), fetchOptions({ cache: 'no-store' })); const d = await r.json().catch(() => ({})); if ((!r.ok || d.ok === false) && !(d && d.backendOk === true)) { const e = new Error(clean(d.error || d.message || ('http_' + r.status))); e.data = d; throw e; } return d; }
+  async function postJson(path, body) { const r = await fetch(url(path), fetchOptions({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })); const d = await r.json().catch(() => ({})); if (!r.ok && r.status !== 202) { const e = new Error(clean(d.error || d.message || ('http_' + r.status))); e.data = d; throw e; } return d; }
   function cssEscape(value, doc) { try { const w = doc && doc.defaultView; return w && w.CSS && w.CSS.escape ? w.CSS.escape(String(value)) : String(value).replace(/["\\]/g, '\\$&'); } catch (_) { return String(value).replace(/["\\]/g, '\\$&'); } }
   function rowById(doc, id) { try { return doc && id ? doc.querySelector('[data-comment-id="' + cssEscape(id, doc) + '"]') : null; } catch (_) { return null; } }
   function rows(doc) { return Array.from(doc && doc.querySelectorAll ? doc.querySelectorAll('[data-comment-id]') : []); }
@@ -149,7 +154,7 @@
   async function run() {
     runBtn.disabled = true; if (logEl) logEl.textContent = ''; if (rawEl) rawEl.textContent = '{}'; if (fixtureHost) fixtureHost.textContent = ''; if (cleanupLink) cleanupLink.hidden = true; mark('RUNNING', 'warn');
     try {
-      log('Clearing miniapp timing diagnostics'); await fetch('/debug/miniapp-timing/clear', { cache: 'no-store' }).catch(() => null);
+      log('Clearing miniapp timing diagnostics'); await fetch(url('/debug/miniapp-timing/clear'), fetchOptions({ cache: 'no-store' })).catch(() => null);
       log('Запускаю backend self-test /full'); const full = await readJson('/debug/selftest/comments/full'); setLinks(full.commentKey); log('Backend: ' + (full.backendOk ? 'PASS' : 'FAIL') + ', key=' + full.commentKey, full.backendOk ? 'ok' : 'bad');
       log('Открываю настоящий comments UI в iframe /mini-app'); const handle = await createFrame(full.commentKey); await waitForSelector(handle.doc, '#commentsList', 18000); await sleep(1200);
       const scenarios = []; const warnings = [];
