@@ -76,12 +76,14 @@ const deferredVideoResults = new Map();
 
 const COMMENT_TRACE_LIMIT = 100;
 const commentTraceEvents = [];
+let commentTraceSeq = 0;
 function pushCommentTraceEvent(event = '', payload = {}) {
   const eventName = String(event || '').trim();
   if (eventName === 'attachment_img_onload' || eventName === 'comments_scroll_to_bottom') return;
   const safe = payload && typeof payload === 'object' ? payload : {};
   const attachment = safe.attachment && typeof safe.attachment === 'object' ? safe.attachment : {};
   const item = {
+    seq: ++commentTraceSeq,
     at: Date.now(),
     event: eventName,
     runtimeVersion: RUNTIME,
@@ -1620,7 +1622,9 @@ app.get(['/debug/comment-trace','/api/debug/comment-trace'], (req, res) => {
     ok: true,
     runtimeVersion: RUNTIME,
     generatedAt: new Date().toISOString(),
+    serverNowMs: Date.now(),
     total: commentTraceEvents.length,
+    totalSeen: commentTraceSeq,
     noDatabaseRead: true,
     noMaxApiCall: true,
     events: commentTraceEvents.slice(-COMMENT_TRACE_LIMIT),
