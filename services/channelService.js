@@ -3,30 +3,33 @@ const { getChannelsList, getPostsList, saveChannel } = require('../store');
 function clean(value) { return String(value || '').trim(); }
 function arr(value) { return Array.isArray(value) ? value : []; }
 function idOf(item = {}) { return clean(item.channelId || item.chatId || item.chat_id || item.id); }
-function titleOf(item = {}) { return clean(item.title || item.channelTitle || item.channelName || item.chatTitle || item.name); }
-function typeOf(item = {}) { return clean(item.type || item.chatType || item.kind).toLowerCase(); }
-function postChannelIds() { return new Set(arr(getPostsList()).map((post) => clean(post && post.channelId)).filter(Boolean)); }
-function isRealChannel(item = {}, known = postChannelIds()) {
-  const id = idOf(item);
-  if (!id || /^external_/i.test(id)) return false;
-  const type = typeOf(item);
-  if (['user', 'dialog', 'dm', 'direct', 'private', 'admin'].includes(type)) return false;
-  if (item.isMaxChannel === true || item.isChannel === true || type === 'channel') return true;
-  if (/^-/.test(id)) return true;
-  if (known.has(id)) return true;
-  return false;
+function looksTechnical(value = '') { return /^-?\d{6,}$/.test(clean(value)) || /^id\d{6,}$/i.test(clean(value)); }
+function titleFromStored(channelId = '') {
+  const id = clean(channelId);
+  if (!id) return '';
+  const item = arr(getChannelsList()).find((x) => idOf(x) === id) || {};
+  const title = clean(item.title || item.channelTitle || item.channelName || item.chatTitle || '');
+  const linked = clean(item.linkedByName || item.adminName || item.ownerName || item.senderName || '');
+  if (!title || looksTechnical(title)) return '';
+  if (linked && title.toLowerCase() === linked.toLowerCase()) return '';
+  return title;
+}
+function titleFromPost(post = {}) {
+  const direct = clean(post.channelTitle || post.channelName || post.chatTitle || post.title || '');
+  if (direct && !looksTechnical(direct)) return direct;
+  return titleFromStored(post.channelId) || 'Канал без названия';
 }
 function listChannels() {
-  const known = postChannelIds();
-  const seen = new Set();
-  return getChannelsList()
-    .filter((item) => isRealChannel(item, known))
-    .filter((item) => {
-      const id = idOf(item);
-      if (!id || seen.has(id)) return false;
-      seen.add(id);
-      return true;
+  const map = new Map();
+  arr(getPostsList())
+    .filter((post) => clean(post && post.channelId))
+    .sort((a, b) => Number(b.updatedAt || b.createdAt || b.ts || 0) - Number(a.updatedAt || a.createdAt || a.ts || 0))
+    .forEach((post) => {
+      const id = clean(post.channelId);
+      if (!id || map.has(id)) return;
+      map.set(id, { channelId: id, title: titleFromPost(post), channelTitle: titleFromPost(post), type: 'channel', chatType: 'channel', isMaxChannel: true, isChannel: true, linkedByUserId: clean(post.linkedByUserId || ''), ownerUserId: clean(post.ownerUserId || post.linkedByUserId || '') });
     });
+  return Array.from(map.values()).slice(0, 20);
 }
 function listChannelsForAdmin(userId = '') {
   const uid = clean(userId);
@@ -39,15 +42,7 @@ function listChannelsForAdmin(userId = '') {
 function registerChannel(channelId, data = {}) {
   const id = clean(channelId);
   if (!id) return null;
-  return saveChannel(id, {
-    ...(data || {}),
-    channelId: id,
-    title: titleOf(data),
-    channelTitle: titleOf(data),
-    type: 'channel',
-    chatType: 'channel',
-    isMaxChannel: true,
-    isChannel: true
-  });
+  const title = clean(data.title || data.channelTitle || '');
+  return saveChannel(id, { ...(data || {}), channelId: id, title, channelTitle: title, type: 'channel', chatType: 'channel', isMaxChannel: true, isChannel: true });
 }
-module.exports = { listChannels, listChannelsForAdmin, registerChannel, isRealChannel };
+module.exports = { listChannels, listChannelsForAdmin, registerChannel };
