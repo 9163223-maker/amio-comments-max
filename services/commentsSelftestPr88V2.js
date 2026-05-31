@@ -5,13 +5,15 @@ const stickerPackService = require('./stickerPackService');
 const stickerRoutes = require('../stickers-live-routes-pr87');
 const uiTelemetry = require('./commentsUiTelemetryPr88');
 const pgState = require('../postgres-state-store');
-const { getComments, store, saveStore, normalizeKey } = require('../store');
+const { getComments, store, saveStore, normalizeKey, savePost } = require('../store');
 
 const RUNTIME = 'PR88-COMMENTS-FULL-SELFTEST-V2';
 const TEST_USER = 'selftest_owner';
 const OTHER_USER = 'selftest_other';
 const DEFAULT_PACK_ID = stickerPackService.DEFAULT_PACK_ID || 'adminkit_whales_v1';
 const SELFTEST_KEY_PREFIX = 'selftest_pr88_';
+const MATRIX_PROBE_ID = 'production_comments_matrix_probe';
+const MATRIX_REQUIRED_SCENARIOS = ['text', 'photo', 'reply', 'reaction', 'sticker', 'forbidden-file', 'forbidden-video', 'original-media', 'hydration', 'trace', 'timing'];
 const NON_BLOCKING_AFTER_BROWSER_PASS_WARNING_IDS = new Set([
   'first_comment_render_slow',
   'media_settled_slow',
@@ -107,10 +109,25 @@ async function resetKey(commentKey) {
     if (store.comments && Object.prototype.hasOwnProperty.call(store.comments, key)) delete store.comments[key];
     if (store.likes && Object.prototype.hasOwnProperty.call(store.likes, key)) delete store.likes[key];
     if (store.reactions && Object.prototype.hasOwnProperty.call(store.reactions, key)) delete store.reactions[key];
+    let removedPosts = 0;
+    if (store.posts && Object.prototype.hasOwnProperty.call(store.posts, key)) {
+      delete store.posts[key];
+      removedPosts += 1;
+    }
+    let removedHandoffs = 0;
+    if (store.handoffs && typeof store.handoffs === 'object') {
+      Object.keys(store.handoffs).forEach((handoffKey) => {
+        const handoff = store.handoffs[handoffKey];
+        if (normalizeKey(handoff && handoff.commentKey) === key) {
+          delete store.handoffs[handoffKey];
+          removedHandoffs += 1;
+        }
+      });
+    }
     removedModerationLogs = clearModerationLogs(key);
     saveStore(store);
     const mirror = await flushPersistentMirror(key, removedModerationLogs);
-    return { removedModerationLogs, mirror };
+    return { removedModerationLogs, removedPosts, removedHandoffs, mirror };
   } catch (error) {
     if (error && error.code === 'invalid_selftest_comment_key') throw error;
     if (error && error.code === 'selftest_cleanup_persistence_failed') throw error;
@@ -286,7 +303,53 @@ function validateHydrationProbe(value, requirement) {
     }
   };
 }
+
+function normalizeScenarioMap(value) {
+  if (!value || typeof value !== 'object') return {};
+  const source = value.scenarios || value.results || value.checks || value;
+  if (Array.isArray(source)) {
+    return Object.fromEntries(source.map((item) => [clean(item && (item.id || item.name || item.scenario)), item]).filter(([id]) => Boolean(id)));
+  }
+  if (source && typeof source === 'object') return source;
+  return {};
+}
+function scenarioPassed(item) {
+  if (item === true) return true;
+  if (!item || typeof item !== 'object') return false;
+  return item.ok === true || item.pass === true || ['pass', 'passed', 'ok'].includes(clean(item.status).toLowerCase());
+}
+function negativeScenarioPassed(item) {
+  if (!item || typeof item !== 'object') return false;
+  const explicitlyRejected = item.rejected === true || item.blocked === true || item.supported === false || item.allowed === false;
+  return explicitlyRejected && item.ok !== false && !['fail', 'failed'].includes(clean(item.status).toLowerCase());
+}
+function validateProductionCommentsMatrixProbe(value, requirement = {}) {
+  if (!value || typeof value !== 'object') return { ok: false, reason: 'matrix_probe_result_object_required' };
+  const probeId = clean(value.id || value.probeId || value.name || MATRIX_PROBE_ID);
+  if (probeId && probeId !== MATRIX_PROBE_ID) return { ok: false, reason: 'matrix_probe_id_mismatch', expected: MATRIX_PROBE_ID, actual: probeId };
+  const scenarios = normalizeScenarioMap(value);
+  const required = Array.isArray(requirement.requiredScenarios) && requirement.requiredScenarios.length ? requirement.requiredScenarios : MATRIX_REQUIRED_SCENARIOS;
+  const missing = [];
+  const failed = [];
+  required.forEach((id) => {
+    const item = scenarios[id] || scenarios[id.replace('-', '_')];
+    if (!item) { missing.push(id); return; }
+    const ok = id === 'forbidden-file' || id === 'forbidden-video' ? negativeScenarioPassed(item) : scenarioPassed(item);
+    if (!ok) failed.push(id);
+  });
+  const featureList = value.featureList || value.supportedFeatures || value.features || [];
+  const featureText = Array.isArray(featureList) ? featureList.join(' ') : JSON.stringify(featureList || {});
+  const noForbiddenFeatures = !/\b(video|file|document|attachment-file|attachment-video)\b/i.test(featureText);
+  const trace = value.trace || value.traceContract || value.serverTrace || {};
+  const usesServerBaseline = trace.serverBaseline === true || trace.usesServerBaseline === true || trace.clientDateNowFiltering === false || Number.isFinite(Number(trace.serverNowMs)) || Number.isFinite(Number(trace.totalSeen)) || Number.isFinite(Number(trace.baselineSeq));
+  const timings = value.timing || value.timings || value.telemetry || {};
+  const timingFields = ['compressMs', 'uploadMs', 'createMs', 'renderMs', 'totalMs'];
+  const timingEvidence = timingFields.some((field) => Number.isFinite(Number(timings[field])) || Number.isFinite(Number(nested(timings, ['fields', field]))));
+  const ok = missing.length === 0 && failed.length === 0 && noForbiddenFeatures && usesServerBaseline && timingEvidence;
+  return { ok, reason: ok ? undefined : 'production_comments_matrix_contract_failed', missing, failed, noForbiddenFeatures, usesServerBaseline, timingEvidence, requiredScenarios: required };
+}
 function validateBrowserProbe(id, value, requirement) {
+  if (id === MATRIX_PROBE_ID) return validateProductionCommentsMatrixProbe(value, requirement);
   if (id === 'sticker_renderer_contract_probe') return validateStickerRendererProbe(value, requirement);
   if (id === 'reopen_hydration_stability_probe') return validateHydrationProbe(value, requirement);
   return { ok: Boolean(value && typeof value === 'object' && (value.ok === true || value.status === 'pass' || value.status === 'passed' || value.status === 'ok')), reason: 'structured_pass_required' };
@@ -435,6 +498,44 @@ async function applyBrowserProbeResult(input = {}) {
   latestReport = report;
   return report;
 }
+
+function saveSelftestPostSnapshot(commentKey) {
+  const attachment = {
+    type: 'image',
+    fileName: 'selftest-original-media.webp',
+    name: 'selftest-original-media.webp',
+    url: '/public/stickers/adminkit/v1/adminkit_ok.webp',
+    previewUrl: '/public/stickers/adminkit/v1/adminkit_ok.webp',
+    source: 'production_comments_matrix_selftest'
+  };
+  const raw = {
+    originalText: 'Production comments matrix selftest post',
+    title: 'Production comments matrix selftest post',
+    sourceAttachments: [attachment],
+    originalAttachments: [attachment],
+    mediaAttachments: [attachment],
+    attachments: [attachment],
+    postSnapshot: { text: 'Production comments matrix selftest post', title: 'Production comments matrix selftest post', attachments: [attachment] }
+  };
+  return savePost(commentKey, {
+    commentKey,
+    channelId: 'selftest_comments_matrix_channel',
+    postId: commentKey,
+    messageId: commentKey,
+    title: 'Production comments matrix selftest post',
+    postTitle: 'Production comments matrix selftest post',
+    commentsEnabled: true,
+    commentsPhoto: true,
+    commentsReactions: true,
+    raw,
+    postSnapshot: raw.postSnapshot,
+    sourceAttachments: [attachment],
+    originalAttachments: [attachment],
+    mediaAttachments: [attachment],
+    runtimeVersion: RUNTIME,
+    selftest: true
+  });
+}
 async function runFullCommentsSelftest(options) {
   const startedAt = nowIso();
   const openStartedAt = uiTelemetry.now();
@@ -449,7 +550,9 @@ async function runFullCommentsSelftest(options) {
     latestReport = cleanupFailureReport(commentKey, cleanupMode, error, startedAt);
     throw error;
   }
+  const samplePost = saveSelftestPostSnapshot(commentKey);
   try {
+    addAssert(tests, 'sample_post_snapshot_saved_for_original_media', Boolean(samplePost && samplePost.raw && Array.isArray(samplePost.raw.sourceAttachments) && samplePost.raw.sourceAttachments.length), 'selftest post snapshot with raw original media saved', samplePost && { commentKey: samplePost.commentKey, attachments: samplePost.raw && samplePost.raw.sourceAttachments && samplePost.raw.sourceAttachments.length });
     const text = commentService.createComment({ commentKey, userId: TEST_USER, userName: 'Self Test Owner', text: 'Selftest text comment', attachments: [] });
     addAssert(tests, 'create_text_comment', Boolean(text && text.id), 'text comment created', text, { commentId: text && text.id });
     const photo = commentService.createComment({ commentKey, userId: TEST_USER, userName: 'Self Test Owner', text: 'Selftest photo caption', attachments: [{ type: 'image', name: 'selftest-photo.webp', url: '/public/stickers/adminkit/v1/adminkit_ok.webp' }] });
@@ -498,6 +601,16 @@ async function runFullCommentsSelftest(options) {
     const perf = uiTelemetry.performanceTelemetry({ openStartedAt, fetchStartedAt, fetchFinishedAt, firstCommentRenderedAt, mediaSettledAt, stickerPanelOpenStartedAt, stickerPanelOpenedAt, stickerSendStartedAt, stickerSendConfirmedAt });
     warnings.push(...perf.warnings);
     probes.push(perf);
+    probes.push({
+      id: MATRIX_PROBE_ID,
+      status: 'browser_probe_required',
+      expected: {
+        requiredScenarios: MATRIX_REQUIRED_SCENARIOS,
+        forbiddenMediaPolicy: 'video_file_negative_only',
+        traceContract: { serverBaselineRequired: true, clientDateNowFilteringAllowed: false },
+        timingFields: ['timingId', 'clientUploadId', 'uploadId', 'compressMs', 'uploadMs', 'createMs', 'renderMs', 'totalMs']
+      }
+    });
   } catch (error) {
     tests.push(fail('selftest_unhandled_exception', 'no unhandled exception', error && (error.stack || error.message || String(error))));
   }
@@ -522,7 +635,7 @@ async function runFullCommentsSelftest(options) {
     backend,
     uiStability: { ok: uiStatus === 'pass', status: uiStatus, browserProbeRequired: browserProbeRequirements.requiredCount > 0, browserProbeRequirements, warnings, probes, note: 'Full self-test is only ok when backend passes and UI stability is pass.' },
     fixtures: { preserved: fixturesPreserved, cleanupMode, cleanupRequired: fixturesPreserved, cleanupHint: hint, commentKey, reason: fixturesPreserved ? 'Fixtures are preserved until required browser probes pass or cleanup-only is requested.' : 'Fixtures cleaned because cleanup was explicit or the full self-test passed.' },
-    telemetry: { clientContract: '__adminkitCommentsPerf', browserResultEndpoint: '/debug/selftest/comments/browser-result', browserResultSchema: { sticker_renderer_contract_probe: { commentId: '<expectedStickerCommentId>', checks: { standaloneStickerMedia: true, noRegularBubbleVisuals: true, timeDoesNotIntersectMediaBox: true, stableMediaBoxBeforeImageLoad: true } }, reopen_hydration_stability_probe: { counters: { listClearCount: 0, mediaRemountCountByCommentId: { '<expectedMediaCommentId>': 0 }, imageReloadCountByCommentId: { '<expectedMediaCommentId>': 0 } } } }, requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
+    telemetry: { clientContract: '__adminkitCommentsPerf', browserResultEndpoint: '/debug/selftest/comments/browser-result', matrixProbeId: MATRIX_PROBE_ID, matrixRequiredScenarios: MATRIX_REQUIRED_SCENARIOS, browserResultSchema: { production_comments_matrix_probe: { requiredScenarios: MATRIX_REQUIRED_SCENARIOS, forbiddenMediaPolicy: 'negative_only', traceContract: 'server_baseline_required', timingFields: ['timingId', 'clientUploadId', 'uploadId', 'compressMs', 'uploadMs', 'createMs', 'renderMs', 'totalMs'] }, sticker_renderer_contract_probe: { commentId: '<expectedStickerCommentId>', checks: { standaloneStickerMedia: true, noRegularBubbleVisuals: true, timeDoesNotIntersectMediaBox: true, stableMediaBoxBeforeImageLoad: true } }, reopen_hydration_stability_probe: { counters: { listClearCount: 0, mediaRemountCountByCommentId: { '<expectedMediaCommentId>': 0 }, imageReloadCountByCommentId: { '<expectedMediaCommentId>': 0 } } } }, requiredCounters: ['listClearCount', 'mediaRemountCountByCommentId', 'imageReloadCountByCommentId'], requiredTimings: ['openStartedAt', 'fetchStartedAt', 'fetchFinishedAt', 'firstCommentRenderedAt', 'mediaSettledAt', 'stickerPanelOpenStartedAt', 'stickerPanelOpenedAt', 'stickerSendStartedAt', 'stickerSendConfirmedAt'] },
     warnings,
     failures,
     tests
@@ -539,4 +652,4 @@ async function runFullCommentsSelftest(options) {
   return report;
 }
 function getLatestReport() { return latestReport || { ok: false, backendOk: false, runtimeVersion: RUNTIME, error: 'selftest_not_run_yet' }; }
-module.exports = { RUNTIME, SELFTEST_KEY_PREFIX, isSelftestKey, runFullCommentsSelftest, applyBrowserProbeResult, cleanupSelftestFixtures, getLatestReport };
+module.exports = { RUNTIME, SELFTEST_KEY_PREFIX, MATRIX_PROBE_ID, MATRIX_REQUIRED_SCENARIOS, isSelftestKey, validateProductionCommentsMatrixProbe, runFullCommentsSelftest, applyBrowserProbeResult, cleanupSelftestFixtures, getLatestReport };

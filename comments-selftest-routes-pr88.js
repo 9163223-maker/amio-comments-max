@@ -104,7 +104,7 @@ function install(app) {
     return res.redirect(302, '/public/comments-selftest-runner-pr89.js');
   });
 
-  app.post('/debug/selftest/comments/browser-result', express.json({ limit: '32kb' }), async (req, res) => {
+  app.post('/debug/selftest/comments/browser-result', express.json({ limit: '256kb' }), async (req, res) => {
     noCache(res);
     if (!adminAllowed(req)) return res.status(403).json({ ok: false, error: 'admin_forbidden', runtimeVersion: RUNTIME });
     try {

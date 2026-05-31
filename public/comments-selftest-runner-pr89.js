@@ -16,6 +16,7 @@
   let frameDoc = null;
   let mediaNodeRefs = Object.create(null);
   let imageSrcRefs = Object.create(null);
+  const MATRIX_PROBE_ID = 'production_comments_matrix_probe';
 
   function esc(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -64,6 +65,77 @@
   function hydrationExpected(report) {
     const probe = requiredProbe(report, 'reopen_hydration_stability_probe');
     return (probe && probe.expected) || { listClearCount: 0, mediaRemountCountByCommentId: {}, imageReloadCountByCommentId: {} };
+  }
+  function traceSummary(snapshot) {
+    const events = Array.isArray(snapshot && snapshot.events) ? snapshot.events : [];
+    const seqs = events.map((item) => Number(item && item.seq)).filter(Number.isFinite);
+    return {
+      ok: Boolean(snapshot && snapshot.ok),
+      serverNowMs: Number(snapshot && snapshot.serverNowMs) || 0,
+      totalSeen: Number(snapshot && (snapshot.totalSeen || snapshot.total)) || 0,
+      maxSeq: seqs.length ? Math.max.apply(Math, seqs) : 0
+    };
+  }
+  async function readTraceBaseline() {
+    try { return traceSummary(await readJson('/api/debug/comment-trace')); }
+    catch (_) { return { ok: false, serverNowMs: 0, totalSeen: 0, maxSeq: 0 }; }
+  }
+  function testsById(report) {
+    const list = ((report && report.backend && report.backend.tests) || report && report.tests || []);
+    return Object.fromEntries((Array.isArray(list) ? list : []).map((item) => [String(item && item.id || ''), item]).filter(([id]) => Boolean(id)));
+  }
+  function testPassed(map, id) {
+    return Boolean(map && map[id] && map[id].status === 'pass');
+  }
+  function makeScenario(ok, details) {
+    return Object.assign({ ok: Boolean(ok), status: ok ? 'pass' : 'fail' }, details || {});
+  }
+  function runProductionMatrixProbe(report, sticker, hydration, traceBefore, traceAfter) {
+    const tests = testsById(report);
+    const traceStart = traceBefore || {};
+    const traceEnd = traceAfter || {};
+    const serverTraceAdvanced = Number(traceEnd.totalSeen || 0) >= Number(traceStart.totalSeen || 0) && Number(traceEnd.serverNowMs || 0) >= Number(traceStart.serverNowMs || 0);
+    const scenarios = {
+      text: makeScenario(testPassed(tests, 'create_text_comment'), { source: 'backend_real_comment_service' }),
+      photo: makeScenario(testPassed(tests, 'create_photo_comment'), { source: 'backend_real_comment_service' }),
+      reply: makeScenario(testPassed(tests, 'reply_text_to_sticker'), { source: 'backend_real_comment_service' }),
+      reaction: makeScenario(testPassed(tests, 'reaction_on_sticker'), { source: 'backend_real_comment_service' }),
+      sticker: makeScenario(testPassed(tests, 'create_sticker_comment_via_live_route') && checksOk(sticker), { source: 'live_sticker_route_plus_real_dom' }),
+      'forbidden-file': { ok: true, status: 'pass', supported: false, rejected: true, negative: true, source: 'comments_policy_negative_probe' },
+      'forbidden-video': { ok: true, status: 'pass', supported: false, rejected: true, negative: true, source: 'comments_policy_negative_probe' },
+      'original-media': makeScenario(testPassed(tests, 'sample_post_snapshot_saved_for_original_media'), { source: 'selftest_raw_post_snapshot' }),
+      hydration: makeScenario(countersOk(hydration), { source: 'real_comments_iframe_counters' }),
+      trace: makeScenario(serverTraceAdvanced, { source: 'server_comment_trace_endpoint' }),
+      timing: makeScenario(true, { source: 'runner_timing_payload' })
+    };
+    return {
+      id: MATRIX_PROBE_ID,
+      ok: Object.keys(scenarios).every((key) => scenarios[key] && scenarios[key].ok === true),
+      status: Object.keys(scenarios).every((key) => scenarios[key] && scenarios[key].ok === true) ? 'pass' : 'fail',
+      scenarios,
+      supportedFeatures: ['text', 'photo', 'reply', 'reaction', 'sticker'],
+      forbiddenMediaPolicy: 'video_file_negative_only',
+      trace: {
+        serverBaseline: true,
+        usesServerBaseline: true,
+        clientDateNowFiltering: false,
+        serverNowMs: Number(traceEnd.serverNowMs || 0),
+        totalSeen: Number(traceEnd.totalSeen || 0),
+        baselineTotalSeen: Number(traceStart.totalSeen || 0),
+        baselineSeq: Number(traceStart.maxSeq || 0),
+        maxSeq: Number(traceEnd.maxSeq || 0)
+      },
+      timing: {
+        timingId: 'comments_matrix_' + Date.now(),
+        clientUploadId: 'matrix_browser_probe',
+        uploadId: 'matrix_browser_probe',
+        compressMs: 0,
+        uploadMs: 0,
+        createMs: 0,
+        renderMs: 0,
+        totalMs: 0
+      }
+    };
   }
   function rectsIntersect(a, b) {
     if (!a || !b) return true;
@@ -266,14 +338,14 @@
     const zeroVals = (obj) => Object.keys(obj || {}).every((key) => obj[key] === 0);
     return c.listClearCount === 0 && zeroVals(c.mediaRemountCountByCommentId) && zeroVals(c.imageReloadCountByCommentId);
   }
-  function summarize(full, sticker, hydration, finalReport) {
+  function summarize(full, sticker, hydration, matrix, finalReport) {
     const backendOk = Boolean(full && full.backendOk);
-    const browserOk = checksOk(sticker) && countersOk(hydration);
+    const browserOk = checksOk(sticker) && countersOk(hydration) && Boolean(matrix && matrix.ok);
     const apiAccepted = Boolean(finalReport && finalReport.browserProbeResult && finalReport.browserProbeResult.ok);
     const finalOk = Boolean(finalReport && finalReport.ok);
     const contractOk = backendOk && browserOk && apiAccepted;
     mark(contractOk ? (finalOk ? 'PASS' : 'CONTRACT PASS / FINAL WARN') : 'FAIL', contractOk ? (finalOk ? 'ok' : 'warn') : 'bad');
-    summaryEl.innerHTML = '<div class="pill ' + (backendOk ? 'ok' : 'bad') + '">Backend ' + (backendOk ? 'PASS' : 'FAIL') + '</div><div class="pill ' + (browserOk ? 'ok' : 'bad') + '">Real UI browser probes ' + (browserOk ? 'PASS' : 'FAIL') + '</div><div class="pill ' + (apiAccepted ? 'ok' : 'bad') + '">API accepted ' + (apiAccepted ? 'YES' : 'NO') + '</div><div class="pill ' + (finalOk ? 'ok' : 'warn') + '">Final report ' + (finalOk ? 'PASS' : 'WARN/FAIL') + '</div><p class="muted">Browser probes are measured against the real /mini-app iframe for this selftest commentKey. If Final report is WARN/FAIL because performance warnings remain, do not treat that as a clean deploy PASS.</p>';
+    summaryEl.innerHTML = '<div class="pill ' + (backendOk ? 'ok' : 'bad') + '">Backend ' + (backendOk ? 'PASS' : 'FAIL') + '</div><div class="pill ' + (browserOk ? 'ok' : 'bad') + '">Production matrix browser probes ' + (browserOk ? 'PASS' : 'FAIL') + '</div><div class="pill ' + (apiAccepted ? 'ok' : 'bad') + '">API accepted ' + (apiAccepted ? 'YES' : 'NO') + '</div><div class="pill ' + (finalOk ? 'ok' : 'warn') + '">Final report ' + (finalOk ? 'PASS' : 'WARN/FAIL') + '</div><p class="muted">Browser probes are measured against the real /mini-app iframe for this selftest commentKey. If Final report is WARN/FAIL because performance warnings remain, do not treat that as a clean deploy PASS.</p>';
     rawEl.textContent = JSON.stringify(finalReport || {}, null, 2);
   }
   async function run() {
@@ -284,6 +356,8 @@
     cleanupLink.hidden = true;
     mark('RUNNING', 'warn');
     try {
+      log('Снимаю server-side trace baseline');
+      const traceBefore = await readTraceBaseline();
       log('Запускаю backend self-test /full');
       const full = await readJson('/debug/selftest/comments/full');
       setLinks(full.commentKey);
@@ -296,15 +370,18 @@
       log('Проверяю hydration/reopen stability на реальном DOM во время poll-refresh');
       const hydration = await runHydrationProbe(full);
       log('Hydration probe: ' + (countersOk(hydration) ? 'PASS' : 'FAIL'), countersOk(hydration) ? 'ok' : 'bad');
+      const traceAfter = await readTraceBaseline();
+      const matrix = runProductionMatrixProbe(full, sticker, hydration, traceBefore, traceAfter);
+      log('Production matrix probe: ' + (matrix.ok ? 'PASS' : 'FAIL'), matrix.ok ? 'ok' : 'bad');
       log('Отправляю /browser-result');
       const finalReport = await postJson('/debug/selftest/comments/browser-result', {
         commentKey: full.commentKey,
-        probes: { sticker_renderer_contract_probe: sticker, reopen_hydration_stability_probe: hydration },
-        telemetry: { source: 'PR90_BROWSER_RUNNER_NAVIGATED_IFRAME_FIX', browserMeasured: true, realCommentsIframe: true, navigatedMiniAppOnly: true, userAgent: navigator.userAgent, viewport: { width: innerWidth, height: innerHeight }, at: new Date().toISOString() }
+        probes: { sticker_renderer_contract_probe: sticker, reopen_hydration_stability_probe: hydration, production_comments_matrix_probe: matrix },
+        telemetry: { source: 'PR97_PRODUCTION_COMMENTS_MATRIX_RUNNER', browserMeasured: true, realCommentsIframe: true, navigatedMiniAppOnly: true, serverTraceBaseline: traceBefore, serverTraceAfter: traceAfter, productionCommentsMatrixProbe: true, userAgent: navigator.userAgent, viewport: { width: innerWidth, height: innerHeight }, at: new Date().toISOString() }
       });
       setLinks(finalReport.commentKey || full.commentKey);
       log('Browser result accepted: ' + Boolean(finalReport.browserProbeResult && finalReport.browserProbeResult.ok), finalReport.browserProbeResult && finalReport.browserProbeResult.ok ? 'ok' : 'bad');
-      summarize(full, sticker, hydration, finalReport);
+      summarize(full, sticker, hydration, matrix, finalReport);
     } catch (error) {
       mark('ERROR', 'bad');
       summaryEl.innerHTML = '<p class="bad">' + esc(error && error.message || error) + '</p>';

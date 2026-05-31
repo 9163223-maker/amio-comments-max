@@ -85,12 +85,47 @@ function pickPostTitle(row = {}) {
   return clean(row.title) || clean(row.post_id || row.postId) || 'Пост';
 }
 
+function attachmentList(value) {
+  return Array.isArray(value) ? value.filter((item) => item && typeof item === 'object' && clean(item.type) !== 'inline_keyboard') : [];
+}
+
+function normalizeOriginalMediaRaw(raw = {}, row = {}) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const snapshot = source.postSnapshot && typeof source.postSnapshot === 'object' ? source.postSnapshot : (row.postSnapshot && typeof row.postSnapshot === 'object' ? row.postSnapshot : {});
+  const candidates = [
+    source.sourceAttachments,
+    source.source_attachments,
+    source.originalAttachments,
+    source.original_attachments,
+    source.mediaAttachments,
+    source.media_attachments,
+    source.attachments,
+    snapshot.attachments,
+    row.sourceAttachments,
+    row.originalAttachments,
+    row.mediaAttachments,
+    row.attachments
+  ];
+  let attachments = [];
+  for (const candidate of candidates) {
+    attachments = attachmentList(candidate);
+    if (attachments.length) break;
+  }
+  if (!attachments.length) return { ...source };
+  return {
+    ...source,
+    postSnapshot: { ...snapshot, attachments: attachmentList(snapshot.attachments).length ? attachmentList(snapshot.attachments) : attachments },
+    sourceAttachments: attachmentList(source.sourceAttachments).length ? attachmentList(source.sourceAttachments) : attachments,
+    originalAttachments: attachmentList(source.originalAttachments).length ? attachmentList(source.originalAttachments) : attachments,
+    mediaAttachments: attachmentList(source.mediaAttachments).length ? attachmentList(source.mediaAttachments) : attachments,
+    attachments: attachmentList(source.attachments).length ? attachmentList(source.attachments) : attachments
+  };
+}
+
 function buildPostSnapshot(row = {}) {
-  const raw = row.raw && typeof row.raw === 'object' ? row.raw : {};
-  const attachments = raw.sourceAttachments || raw.source_attachments || raw.originalAttachments || raw.original_attachments || raw.attachments || [];
-  const filteredAttachments = Array.isArray(attachments)
-    ? attachments.filter((item) => clean(item && item.type) !== 'inline_keyboard')
-    : [];
+  const raw = normalizeOriginalMediaRaw(row.raw && typeof row.raw === 'object' ? row.raw : {}, row);
+  const attachments = raw.sourceAttachments || raw.source_attachments || raw.originalAttachments || raw.original_attachments || raw.mediaAttachments || raw.media_attachments || raw.attachments || [];
+  const filteredAttachments = attachmentList(attachments);
   return {
     text: pickRawText(raw, row) || pickPostTitle(row),
     title: pickPostTitle(row),
@@ -503,7 +538,7 @@ function postToMeta(post = {}, params = {}, source = 'store fallback') {
   const commentKey = clean(post.commentKey || params.commentKey || params.handoffResolvedCommentKey || (post.channelId && post.postId ? `${post.channelId}:${post.postId}` : ''));
   if (!commentKey) return null;
 
-  const raw = post.raw && typeof post.raw === 'object' ? post.raw : {};
+  const raw = normalizeOriginalMediaRaw(post.raw && typeof post.raw === 'object' ? post.raw : {}, post);
   const channelId = clean(post.channelId || post.channel_id || raw.channelId || params.channelId || (commentKey.includes(':') ? commentKey.split(':')[0] : ''));
   const postId = clean(post.postId || post.post_id || post.messageId || raw.postId || raw.messageId || params.postId || (commentKey.includes(':') ? commentKey.split(':')[1] : ''));
   const channel = safeGetChannel(channelId);
@@ -514,7 +549,7 @@ function postToMeta(post = {}, params = {}, source = 'store fallback') {
     messageId: clean(post.messageId || post.message_id || raw.messageId || params.messageId || ''),
     commentKey,
     title: clean(post.title || post.postTitle || raw.title || raw.originalText || params.title || (params.displayPostNumber ? `Post ${params.displayPostNumber}` : '')),
-    raw: { ...raw, originalText: raw.originalText || post.originalText || post.text || post.caption || '' },
+    raw: normalizeOriginalMediaRaw({ ...raw, originalText: raw.originalText || post.originalText || post.text || post.caption || '' }, post),
     channelTitle: clean(post.channelTitle || raw.channelTitle || channel?.title || 'Подключённый канал'),
     commentsEnabled: post.commentsEnabled !== false && post.commentsDisabled !== true,
     commentsPhoto: post.commentsPhoto !== false,
