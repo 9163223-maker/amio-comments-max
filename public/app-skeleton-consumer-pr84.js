@@ -46,7 +46,7 @@ function buildSkeletonUrl() {
       addParam(params, 'title', unsafe.title || unsafe.postTitle);
     } catch (_) {}
   });
-  const hasIdentity = ['commentKey', 'handoff', 'channelId', 'postId', 'title', 'raw', 'startapp', 'start_param', 'WebAppStartParam', 'payload'].some((key) => clean(params.get(key)));
+  const hasIdentity = ['commentKey', 'handoff', 'channelId', 'postId', 'title', 'raw', 'startapp', 'start_param', 'WebAppStartParam', 'payload', 'startPayload', 'start_payload', 'button_payload', 'launch_payload', 'web_app_payload'].some((key) => clean(params.get(key)));
   if (!hasIdentity) return '';
   params.set('skeleton', '1');
   params.set('skeletonConsumer', 'pr84');
