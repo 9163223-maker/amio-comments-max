@@ -62,10 +62,10 @@ function runnerHref(req) {
   return '/debug/selftest/comments/runner?' + key + '=' + encodeURIComponent(token);
 }
 function runnerPrebootPatch() {
-  return '<script>(function(){window.__ADMINKIT_PR91_RUNNER_DIRECT_ONEPASS__=true;var original=URLSearchParams.prototype.set;URLSearchParams.prototype.set=function(k,v){if(window.__ADMINKIT_PR91_RUNNER_DIRECT_ONEPASS__&&(k===\'adminkitSkeleton\'||k===\'commentSkeleton\'||k===\'skeletonConsumer\'))v=\'0\';return original.call(this,k,v);};})();</script>';
+  return '<script>(function(){window.__ADMINKIT_PR97_RUNNER_REAL_TIMING__=true;var original=URLSearchParams.prototype.set;URLSearchParams.prototype.set=function(k,v){if(window.__ADMINKIT_PR97_RUNNER_REAL_TIMING__&&(k===\'adminkitSkeleton\'||k===\'commentSkeleton\'||k===\'skeletonConsumer\'))v=\'0\';return original.call(this,k,v);};})();</script>';
 }
 function runnerHtml() {
-  return '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><title>AdminKit comments browser selftest</title><link rel="stylesheet" href="/comments-selftest-runner-pr89.css"><main><h1>AdminKit comments one-click browser selftest</h1><section class="card"><div id="status"><span class="pill warn">Готов к запуску</span></div><p class="muted">Одна страница запускает backend self-test, выполняет browser DOM probes и отправляет результат в browser-result. Видео/файлы не проверяются и не возвращаются.</p><div class="actions"><button id="runBtn" type="button">Запустить полный browser self-test</button><a id="latestLink" class="button secondary" href="/debug/selftest/comments/latest">Latest JSON</a><a id="reportLink" class="button secondary" href="/debug/selftest/comments/report">HTML report</a><a id="cleanupLink" class="button danger" href="#" hidden>Очистить fixtures</a></div></section><section class="card"><h2>Итог</h2><div id="summary">Пока не запускали.</div></section><section class="card"><h2>Browser fixture</h2><div id="commentsFixture"><div id="commentsList"></div></div></section><section class="card"><h2>Шаги</h2><div id="log" class="log"></div></section><section class="card"><h2>Raw final report</h2><pre id="raw">{}</pre></section></main>' + runnerPrebootPatch() + '<script src="/comments-selftest-runner-pr89.js"></script>';
+  return '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><title>AdminKit comments browser selftest</title><link rel="stylesheet" href="/comments-selftest-runner-pr89.css"><main><h1>AdminKit comments one-click browser selftest</h1><section class="card"><div id="status"><span class="pill warn">Готов к запуску</span></div><p class="muted">Одна страница запускает backend self-test, выполняет browser DOM probes и отправляет результат в browser-result. Видео/файлы не проверяются и не возвращаются.</p><div class="actions"><button id="runBtn" type="button">Запустить полный browser self-test</button><a id="latestLink" class="button secondary" href="/debug/selftest/comments/latest">Latest JSON</a><a id="reportLink" class="button secondary" href="/debug/selftest/comments/report">HTML report</a><a id="cleanupLink" class="button danger" href="#" hidden>Очистить fixtures</a></div></section><section class="card"><h2>Итог</h2><div id="summary">Пока не запускали.</div></section><section class="card"><h2>Browser fixture</h2><div id="commentsFixture"><div id="commentsList"></div></div></section><section class="card"><h2>Шаги</h2><div id="log" class="log"></div></section><section class="card"><h2>Raw final report</h2><pre id="raw">{}</pre></section></main>' + runnerPrebootPatch() + '<script src="/comments-selftest-runner-cc8346.js"></script>';
 }
 
 function install(app) {
@@ -103,6 +103,11 @@ function install(app) {
   app.get('/comments-selftest-runner-pr89.js', (req, res) => {
     noCache(res);
     return res.redirect(302, '/public/comments-selftest-runner-pr89.js');
+  });
+
+  app.get('/comments-selftest-runner-cc8346.js', (req, res) => {
+    noCache(res);
+    return res.redirect(302, '/public/comments-selftest-runner-cc8346.js');
   });
 
   app.post('/debug/selftest/comments/browser-result', express.json({ limit: '256kb' }), async (req, res) => {
