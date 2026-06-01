@@ -1,8 +1,6 @@
-/* CC7.5.50 — Telegram-style photo comments layout
-   Root fix: the CC7.5.48 renderer outputs attachments as
-   .comment-attachment.comment-attachment-image > img. Older styles expected
-   .comment-media-shell > img.comment-attachment-image, so image comments could
-   break the bubble layout and render as an oversized/cropped black block. */
+/* CC8.3.47 — Telegram-style preview-only photo comments layout.
+   Photo comments are not a gallery. They must render as fast thumbnails,
+   not as full-size images, and must not reserve a giant blank box while loading. */
 
 .comment-avatar {
   width: 42px;
@@ -96,11 +94,11 @@
   justify-content: center !important;
   width: auto !important;
   height: auto !important;
-  max-width: min(78vw, 360px) !important;
-  max-height: 430px !important;
+  max-width: min(58vw, 220px) !important;
+  max-height: 240px !important;
   margin: 0 !important;
   padding: 0 !important;
-  background: transparent !important;
+  background: rgba(205,226,246,0.26) !important;
   border: 0 !important;
   box-shadow: none !important;
   overflow: hidden !important;
@@ -113,27 +111,15 @@
   display: block !important;
   width: auto !important;
   height: auto !important;
-  max-width: min(78vw, 360px) !important;
-  max-height: 430px !important;
-  object-fit: contain !important;
+  max-width: min(58vw, 220px) !important;
+  max-height: 240px !important;
+  object-fit: cover !important;
   border-radius: 17px !important;
-  background: rgba(205,226,246,0.42) !important;
+  background: rgba(205,226,246,0.26) !important;
 }
 
 .comment-attachment.comment-attachment-video {
-  display: block !important;
-  max-width: min(78vw, 360px) !important;
-  overflow: hidden !important;
-  border-radius: 17px !important;
-  background: rgba(205,226,246,0.62) !important;
-}
-
-.comment-attachment.comment-attachment-video > video {
-  display: block !important;
-  width: 100% !important;
-  max-height: 430px !important;
-  object-fit: contain !important;
-  border-radius: 17px !important;
+  display: none !important;
 }
 
 .composer-photo-preview {
@@ -183,9 +169,8 @@
   .comment-row.other .comment-bubble { max-width: calc(100vw - 62px); }
   .comment-row.own .comment-bubble { max-width: calc(100vw - 58px); }
   .comment-attachment.comment-attachment-image,
-  .comment-attachment.comment-attachment-image > img,
-  .comment-attachment.comment-attachment-video {
-    max-width: min(76vw, 340px) !important;
-    max-height: 400px !important;
+  .comment-attachment.comment-attachment-image > img {
+    max-width: min(58vw, 220px) !important;
+    max-height: 240px !important;
   }
 }
