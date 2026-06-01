@@ -128,24 +128,35 @@ function sanitizeSmallImageDataUrl(value = "") {
   if (!approxBytes || approxBytes > INLINE_IMAGE_MAX_BYTES) return "";
   return `data:${m[1].toLowerCase()};base64,${base64}`;
 }
-function publicCommentUploadDataUrl(publicUrl = "", mime = "image/jpeg") {
+function isRuntimeCommentUploadUrl(value = "") {
+  const raw = String(value || "").trim();
+  return Boolean(raw && raw.startsWith("/public/comment-uploads/"));
+}
+function inspectPublicCommentUpload(publicUrl = "", mime = "image/jpeg") {
   const raw = String(publicUrl || "").trim();
-  if (!raw || !raw.startsWith("/public/comment-uploads/")) return "";
+  const result = { dataUrl: "", runtimeFileExists: false, inlinePreviewUnavailable: false, brokenRuntimeOnly: false };
+  if (!raw || !raw.startsWith("/public/comment-uploads/")) return result;
   const fileName = path.basename(decodeURIComponent(raw.split(/[?#]/)[0] || ""));
-  if (!fileName || !/^[a-zA-Z0-9._-]+$/.test(fileName)) return "";
+  if (!fileName || !/^[a-zA-Z0-9._-]+$/.test(fileName)) return { ...result, brokenRuntimeOnly: true };
   const target = path.join(COMMENT_UPLOAD_DIR, fileName);
   const base = path.resolve(COMMENT_UPLOAD_DIR);
   const resolved = path.resolve(target);
-  if (!resolved.startsWith(base + path.sep)) return "";
+  if (!resolved.startsWith(base + path.sep)) return { ...result, brokenRuntimeOnly: true };
   try {
-    if (!fs.existsSync(resolved)) return "";
+    if (!fs.existsSync(resolved)) return { ...result, brokenRuntimeOnly: true };
     const stat = fs.statSync(resolved);
-    if (!stat.isFile() || !stat.size || stat.size > INLINE_IMAGE_MAX_BYTES) return "";
+    if (!stat.isFile() || !stat.size) return { ...result, brokenRuntimeOnly: true };
+    if (stat.size > INLINE_IMAGE_MAX_BYTES) return { ...result, runtimeFileExists: true, inlinePreviewUnavailable: true };
     const ext = path.extname(fileName).toLowerCase();
     const detectedMime = /\.png$/i.test(ext) ? "image/png" : (/\.webp$/i.test(ext) ? "image/webp" : "image/jpeg");
     const effectiveMime = /^image\//i.test(String(mime || "")) ? String(mime || "").toLowerCase() : detectedMime;
-    return `data:${effectiveMime};base64,${fs.readFileSync(resolved).toString("base64")}`;
-  } catch { return ""; }
+    return { ...result, runtimeFileExists: true, dataUrl: `data:${effectiveMime};base64,${fs.readFileSync(resolved).toString("base64")}` };
+  } catch {
+    return { ...result, brokenRuntimeOnly: true };
+  }
+}
+function publicCommentUploadDataUrl(publicUrl = "", mime = "image/jpeg") {
+  return inspectPublicCommentUpload(publicUrl, mime).dataUrl || "";
 }
 function sanitizeAttachmentPayload(source = {}) {
   const payload = source.payload && typeof source.payload === "object" ? source.payload : null;
@@ -170,16 +181,19 @@ function sanitizeAttachments(value) {
   const list = Array.isArray(value) ? value : [];
   return list.slice(0, 5).map((item) => {
     const source = item && typeof item === "object" ? item : {};
-    const type = String(source.type || "file").trim().toLowerCase();
+    const mime = String(source.mime || source.mimeType || "").slice(0, 120);
+    const type = String(source.type || source.kind || (/^image\//i.test(mime) ? "image" : "file")).trim().toLowerCase();
     const allowedType = ["image", "video", "audio", "file"].includes(type) ? type : "file";
+    if (allowedType !== "image") return null;
     const payload = sanitizeAttachmentPayload(source);
     const url = stripLargeInlinePayload(source.url || payload.url || payload.download_url || payload.link || "");
     const previewUrl = stripLargeInlinePayload(source.previewUrl || source.preview_url || source.localPreviewUrl || "");
-    const mime = String(source.mime || source.mimeType || "").slice(0, 120);
     const incomingThumb = sanitizeSmallImageDataUrl(source.thumbDataUrl || source.thumb_data_url || "");
     const incomingPreview = sanitizeSmallImageDataUrl(source.previewDataUrl || source.preview_data_url || "");
     const incomingData = sanitizeSmallImageDataUrl(source.dataUrl || source.data_url || "");
-    const localInlinePreview = allowedType === "image" ? publicCommentUploadDataUrl(url || previewUrl, mime || "image/jpeg") : "";
+    const runtimeStatus = inspectPublicCommentUpload(isRuntimeCommentUploadUrl(url) ? url : (isRuntimeCommentUploadUrl(previewUrl) ? previewUrl : ""), mime || "image/jpeg");
+    const localInlinePreview = runtimeStatus.dataUrl || "";
+    const runtimeOnly = !incomingThumb && !incomingPreview && !incomingData && !localInlinePreview && (isRuntimeCommentUploadUrl(url) || isRuntimeCommentUploadUrl(previewUrl));
     const thumbDataUrl = incomingThumb || incomingPreview || incomingData || localInlinePreview;
     const previewDataUrl = incomingPreview && incomingPreview !== thumbDataUrl ? incomingPreview : "";
     const dataUrl = incomingData && incomingData !== thumbDataUrl && incomingData !== previewDataUrl ? incomingData : "";
@@ -189,14 +203,15 @@ function sanitizeAttachments(value) {
     const uploadId = String(source.uploadId || source.clientUploadId || source.client_upload_id || "").slice(0, 180);
     const status = String(source.status || "").slice(0, 40);
     const processing = Boolean(source.processing) || status === "processing";
-    const isPendingVideo = allowedType === "video" && processing && Boolean(uploadId || source.id || source.clientUploadId);
-    const hasStableStoredSource = Boolean(url || previewUrl || posterUrl || rawUrl || dataUrl || previewDataUrl || thumbDataUrl || Object.keys(payload).length || isPendingVideo);
+    const hasStableStoredSource = Boolean(url || previewUrl || posterUrl || rawUrl || dataUrl || previewDataUrl || thumbDataUrl || Object.keys(payload).length);
     if (!hasStableStoredSource) return null;
     const stableId = String(source.id || uploadId || payload.token || payload.file_id || payload.image_id || payload.photo_id || fallbackId);
     return {
-      id: stableId, type: allowedType, name: String(source.name || "Вложение").slice(0, 180), mime, size: Number(source.size || 0) || 0,
+      id: stableId, type: allowedType, name: String(source.name || source.fileName || "Вложение").slice(0, 180), fileName: String(source.fileName || source.name || "Вложение").slice(0, 180), mime, mimeType: mime, size: Number(source.size || 0) || 0,
       url, previewUrl, posterUrl, dataUrl, previewDataUrl, thumbDataUrl, payload, native: Boolean(source.native || Object.keys(payload).length), storage: String(source.storage || "").slice(0, 60), uploadId,
-      clientUploadId: String(source.clientUploadId || source.client_upload_id || uploadId || "").slice(0, 180), rawUrl, processing, status, transcodeError: String(source.transcodeError || "").slice(0, 220)
+      clientUploadId: String(source.clientUploadId || source.client_upload_id || uploadId || "").slice(0, 180), rawUrl, processing, status,
+      runtimeOnly: Boolean(source.runtimeOnly || runtimeOnly), runtimeFileExists: Boolean(source.runtimeFileExists || runtimeStatus.runtimeFileExists), inlinePreviewUnavailable: Boolean(source.inlinePreviewUnavailable || runtimeStatus.inlinePreviewUnavailable),
+      brokenRuntimeOnly: Boolean(source.brokenRuntimeOnly || source.runtimeOnlyBroken || runtimeStatus.brokenRuntimeOnly), transcodeError: String(source.transcodeError || "").slice(0, 220)
     };
   }).filter(Boolean);
 }
@@ -300,11 +315,12 @@ function enrichComments(commentKey, comments, currentUserId = "") {
       const users = Object.entries(byUser || {}).filter(([, isOn]) => Boolean(isOn)).map(([userId]) => String(userId));
       if (users.length) { reactionCounts[normalizedEmoji] = users.length; if (normalizedUserId && users.includes(normalizedUserId)) ownReactions.push(normalizedEmoji); reactionDetails.push({ emoji: normalizedEmoji, count: users.length, active: normalizedUserId ? users.includes(normalizedUserId) : false, users: users.slice(0, 3).map((userId) => usersById.get(userId) || { userId, userName: "", avatarUrl: "" }) }); }
     });
-    return { ...item, likedByMe: normalizedUserId ? Boolean(likesMap?.[item.id]?.[normalizedUserId]) : false, reactionCounts, reactionDetails, ownReactions, replyTo: buildReplyPreview(comments, item.replyToId) };
+    return { ...item, attachments: sanitizeAttachments(item.attachments || []), likedByMe: normalizedUserId ? Boolean(likesMap?.[item.id]?.[normalizedUserId]) : false, reactionCounts, reactionDetails, ownReactions, replyTo: buildReplyPreview(comments, item.replyToId) };
   });
 }
 function listComments(commentKey, currentUserId = "") { const comments = [...getComments(commentKey)].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); return enrichComments(commentKey, comments, currentUserId); }
-function createComment({ commentKey, userId, userName, text, avatarUrl, replyToId = "", attachments = [] }) {
+function sanitizeClientCommentId(value = "") { return String(value || "").replace(/[^a-zA-Z0-9_.:-]/g, "").slice(0, 160); }
+function createComment({ commentKey, userId, userName, text, avatarUrl, replyToId = "", attachments = [], clientCommentId = "" }) {
   const queuedSticker = resolveQueuedStickerMetadata(attachments, { commentKey, userId, replyToId });
   if (queuedSticker) {
     const displayText = sanitizeText(queuedSticker.displayText || "Стикер") || "Стикер";
@@ -330,6 +346,7 @@ function createComment({ commentKey, userId, userName, text, avatarUrl, replyToI
     return created;
   }
   const cleanText = sanitizeText(text);
+  const cleanClientCommentId = sanitizeClientCommentId(clientCommentId);
   const cleanAttachments = sanitizeAttachments(attachments);
   if (!cleanText && !cleanAttachments.length) throw new Error("text_or_attachment_required");
   const duplicate = findRecentDuplicateComment({ commentKey, userId, text: cleanText, attachments: cleanAttachments, windowMs: 8000 });
@@ -337,7 +354,7 @@ function createComment({ commentKey, userId, userName, text, avatarUrl, replyToI
   const dbPolicy = readDbV3PolicySync(commentKey);
   checkCommentsEnabled(commentKey, dbPolicy);
   checkModeration({ commentKey, userId, userName, text: cleanText, dbPolicy });
-  const created = addComment(commentKey, { userId: String(userId || "guest"), userName: String(userName || "Гость"), avatarUrl: String(avatarUrl || ""), text: cleanText, attachments: cleanAttachments, replyToId: String(replyToId || "").trim(), editedAt: 0 });
+  const created = addComment(commentKey, { clientCommentId: cleanClientCommentId, userId: String(userId || "guest"), userName: String(userName || "Гость"), avatarUrl: String(avatarUrl || ""), text: cleanText, attachments: cleanAttachments, replyToId: String(replyToId || "").trim(), editedAt: 0 });
   scheduleCommentButtonRefresh(commentKey);
   return created;
 }

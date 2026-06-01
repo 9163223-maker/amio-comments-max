@@ -141,6 +141,26 @@ function resolvePost(query = {}) {
 
   return { post: null, commentKey: fallbackKey, reason: 'not_found' };
 }
+
+function isRuntimeCommentUploadUrl(value = '') { const raw = clean(value); return Boolean(raw && raw.startsWith('/public/comment-uploads/')); }
+function mediaSourceValue(item = {}) {
+  return clean(item.thumbDataUrl || item.thumb_data_url || item.previewDataUrl || item.preview_data_url || item.dataUrl || item.data_url || item.previewUrl || item.preview_url || item.url || item.photoUrl || item.imageUrl || item.src || '');
+}
+function buildPostMediaPreview(post = {}) {
+  const out = [];
+  const lists = [post.previewAttachments, post.sourceAttachments, post.attachments, post.media, post.photos, post.images].filter(Array.isArray);
+  function add(item = {}) {
+    const url = mediaSourceValue(item);
+    if (!url || isRuntimeCommentUploadUrl(url)) return;
+    const type = clean(item.type || item.kind);
+    const mime = clean(item.mimeType || item.mime);
+    if (type && type !== 'image' && !/^image\//i.test(mime)) return;
+    if (!out.some((x) => x.url === url)) out.push({ type: 'image', name: clean(item.name || item.fileName) || 'Фото поста', thumbDataUrl: clean(item.thumbDataUrl || item.thumb_data_url || ''), previewDataUrl: clean(item.previewDataUrl || item.preview_data_url || ''), dataUrl: clean(item.dataUrl || item.data_url || ''), previewUrl: clean(item.previewUrl || item.preview_url || ''), url: clean(item.url || item.photoUrl || item.imageUrl || item.src || '') });
+  }
+  lists.forEach((list) => list.forEach(add));
+  ['thumbDataUrl','previewDataUrl','dataUrl','photoUrl','imageUrl','mediaUrl','previewUrl'].forEach((key) => { if (post[key]) add({ type: 'image', name: 'Фото поста', [key]: post[key] }); });
+  return out.slice(0, 4);
+}
 function postTitle(post = {}, fallback = '') {
   return clean(post.originalText || post.postText || post.title || post.postTitle || post.text || fallback || post.postId || 'Пост');
 }
@@ -161,7 +181,8 @@ function buildMeta(post, commentKey, query, reason) {
       originalText: post && post.originalText || '',
       messageId: post && post.messageId || '',
       stablePayload: post && post.stablePayload || '',
-      handoffToken: post && post.handoffToken || ''
+      handoffToken: post && post.handoffToken || '',
+      previewAttachments: buildPostMediaPreview(post || {})
     },
     banner: {
       text: '🐋 АдминКИТ',

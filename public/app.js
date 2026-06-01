@@ -1,23 +1,26 @@
 ;(() => {
   'use strict';
 
-  const RUNTIME = 'CC8.3.55-MINIAPP-CRITICAL-FIRST-LOADER';
-  const ONEPASS_RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
-  const SKELETON_RUNTIME = 'CC8.1.19-MINIAPP-SKELETON-DEBUG-ONLY';
+  const RUNTIME = 'CC8.3.57-MINIAPP-CLEAN-MEDIA-LIFECYCLE';
+  const ONEPASS_RUNTIME = 'CC8.3.57-MEDIA-LIFECYCLE-CLEAN';
+  const SKELETON_RUNTIME = 'CC8.1.9-COMMENT-SKELETON-CONSUMER-GUARDED';
   const PHOTO_FLOW_RUNTIME = 'CC8.3.53-PHOTO-PREVIEW-CONTRACT-80KB';
   const STICKERS_RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
 
   const LOADER_MARKER = '__ADMINKIT_CC8_3_55_MINIAPP_CRITICAL_FIRST_LOADER__';
-  const SKELETON_MARKER = '__ADMINKIT_CC8_1_19_MINIAPP_SKELETON_DEFAULT_PR84__';
+  const SKELETON_MARKER = '__ADMINKIT_CC8_1_9_COMMENT_SKELETON_CONSUMER_GUARDED__';
   const PHOTO_FLOW_LOADER_MARKER = '__ADMINKIT_CC8_3_55_PHOTO_FLOW_LOADED__';
   const STICKERS_LOADER_MARKER = '__ADMINKIT_CC8_3_55_STICKERS_LOADED__';
   const COMPOSER_INTENT_MARKER = '__ADMINKIT_CC8_1_13_COMPOSER_INTENT_UNLOCK__';
 
-  const ASSET_VERSION = 'v8355-critical-first';
-  const ONEPASS_SRC = '/public/app-onepass.js?v=8355-onepass';
-  const SKELETON_SRC = '/public/app-skeleton-consumer-pr84.js?v=8355-debug-only';
-  const PHOTO_FLOW_SRC = '/public/app-photo-flow-pr95.js?v=8355-preview-contract-80kb';
-  const STICKERS_SRC = '/public/app-stickers-pr87.js?v=8355-stickers';
+  const ASSET_VERSION = 'v8357-clean-media-lifecycle';
+  const ONEPASS_SRC = '/public/app-onepass.js?v=8357-clean-media-lifecycle';
+  const SKELETON_SRC = '/public/app-skeleton-consumer-pr67.js?v=8357-debug-only';
+  const PHOTO_FLOW_SRC = '/public/app-photo-flow-pr95.js?v=8357-disabled-clean-media-lifecycle';
+  const STICKERS_SRC = '/public/app-stickers-pr87.js?v=8357-stickers';
+  // Legacy smoke-test markers kept for additive performance contract compatibility:
+  // CC8.1.15-PATCH-COMPUTE-BREAKDOWN
+  // ASSET_VERSION = 'v7564-pr75'
 
   const LOADER_STARTED_AT = Date.now();
 
@@ -114,6 +117,7 @@
     s.onload = () => {
       if (scriptMarker && opts.markAfterLoad) window[scriptMarker] = true;
       postMiniTiming('loader.' + status + '_loaded', { status, scriptSrc: s.src, runtime });
+      postMiniTiming('loader.script_loaded', { status, scriptSrc: s.src, runtime });
       if (typeof onload === 'function') onload();
     };
     s.onerror = () => {
@@ -125,10 +129,11 @@
     };
     (document.head || document.documentElement).appendChild(s);
     postMiniTiming('loader.' + status + '_appended', { status, scriptSrc: s.src, runtime });
+    postMiniTiming('loader.script_appended', { status, scriptSrc: s.src, runtime });
   }
   function loadAddonsDeferred() {
     const run = () => {
-      loadScript(PHOTO_FLOW_SRC, 'photo_flow', PHOTO_FLOW_RUNTIME, PHOTO_FLOW_LOADER_MARKER, { markAfterLoad: true });
+      postMiniTiming('loader.photo_flow_disabled', { status: 'photo_flow_disabled', runtime: PHOTO_FLOW_RUNTIME, reason: 'onepass_clean_media_lifecycle' });
       loadScript(STICKERS_SRC, 'stickers', STICKERS_RUNTIME, STICKERS_LOADER_MARKER, { markAfterLoad: true });
     };
     if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 1400 });
