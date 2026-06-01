@@ -42,5 +42,6 @@ runSmoke('core-fast-text-send-pr70-test.js', 'core fast text send PR70 smoke tes
 runSmoke('wire-pr73-active-entrypoint-test.js', 'wire PR73 active entrypoint smoke test');
 runSmoke('patch-compute-breakdown-pr75-test.js', 'patch compute breakdown PR75 smoke test');
 runSmoke('comment-runtime-media-contract-test.js', 'comment runtime media contract smoke test');
+runSmoke('media-lifecycle-clean-test.js', 'media lifecycle clean contract smoke test');
 
 console.log('smoke ok');

@@ -143,8 +143,14 @@ function resolvePost(query = {}) {
 }
 
 function isRuntimeCommentUploadUrl(value = '') { const raw = clean(value); return Boolean(raw && raw.startsWith('/public/comment-uploads/')); }
+function payloadMediaValue(item = {}) {
+  const payload = item && typeof item.payload === 'object' ? item.payload : {};
+  return clean(
+    payload.url || payload.download_url || payload.downloadUrl || payload.link || payload.photo_url || payload.photoUrl || payload.image_url || payload.imageUrl || ''
+  );
+}
 function mediaSourceValue(item = {}) {
-  return clean(item.thumbDataUrl || item.thumb_data_url || item.previewDataUrl || item.preview_data_url || item.dataUrl || item.data_url || item.previewUrl || item.preview_url || item.url || item.photoUrl || item.imageUrl || item.src || '');
+  return clean(item.thumbDataUrl || item.thumb_data_url || item.previewDataUrl || item.preview_data_url || item.dataUrl || item.data_url || item.previewUrl || item.preview_url || item.url || item.download_url || item.downloadUrl || item.link || item.photoUrl || item.photo_url || item.imageUrl || item.image_url || item.src || payloadMediaValue(item) || '');
 }
 function buildPostMediaPreview(post = {}) {
   const out = [];
@@ -155,10 +161,10 @@ function buildPostMediaPreview(post = {}) {
     const type = clean(item.type || item.kind);
     const mime = clean(item.mimeType || item.mime);
     if (type && type !== 'image' && !/^image\//i.test(mime)) return;
-    if (!out.some((x) => x.url === url)) out.push({ type: 'image', name: clean(item.name || item.fileName) || 'Фото поста', thumbDataUrl: clean(item.thumbDataUrl || item.thumb_data_url || ''), previewDataUrl: clean(item.previewDataUrl || item.preview_data_url || ''), dataUrl: clean(item.dataUrl || item.data_url || ''), previewUrl: clean(item.previewUrl || item.preview_url || ''), url: clean(item.url || item.photoUrl || item.imageUrl || item.src || '') });
+    if (!out.some((x) => x.url === url)) out.push({ type: 'image', name: clean(item.name || item.fileName) || 'Фото поста', thumbDataUrl: clean(item.thumbDataUrl || item.thumb_data_url || ''), previewDataUrl: clean(item.previewDataUrl || item.preview_data_url || ''), dataUrl: clean(item.dataUrl || item.data_url || ''), previewUrl: clean(item.previewUrl || item.preview_url || ''), url });
   }
   lists.forEach((list) => list.forEach(add));
-  ['thumbDataUrl','previewDataUrl','dataUrl','photoUrl','imageUrl','mediaUrl','previewUrl'].forEach((key) => { if (post[key]) add({ type: 'image', name: 'Фото поста', [key]: post[key] }); });
+  ['thumbDataUrl','previewDataUrl','dataUrl','photoUrl','photo_url','imageUrl','image_url','mediaUrl','previewUrl','download_url','downloadUrl','link','url'].forEach((key) => { if (post[key]) add({ type: 'image', name: 'Фото поста', [key]: post[key] }); });
   return out.slice(0, 4);
 }
 function postTitle(post = {}, fallback = '') {
@@ -246,4 +252,4 @@ function install(app) {
   });
   return app;
 }
-module.exports = { RUNTIME, INSTRUMENTATION_VERSION, SKELETON_VERSION, install, resolvePost, buildMeta, buildSkeletonPayload, collectCandidates, compactToCommentKey, hydrateUrl, wantsSkeleton };
+module.exports = { RUNTIME, INSTRUMENTATION_VERSION, SKELETON_VERSION, install, resolvePost, buildMeta, buildSkeletonPayload, buildPostMediaPreview, mediaSourceValue, collectCandidates, compactToCommentKey, hydrateUrl, wantsSkeleton };
