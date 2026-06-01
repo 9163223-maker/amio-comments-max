@@ -1,7 +1,7 @@
 ;(() => {
   'use strict';
 
-  const RUNTIME = 'CC8.3.47-PR97-COMMENTS-MOBILE-UX-HARDENED';
+  const RUNTIME = 'CC8.3.48-PR97-COMMENTS-MOBILE-SCROLL-LOCK';
   const CACHE_TTL_MS = 60 * 60 * 1000;
   const FIRST_EMPTY_GRACE_MS = 15000;
   const MARKER = '__ADMINKIT_PR97_COMMENTS_MOBILE_UX_PREVIEW__';
@@ -11,6 +11,7 @@
 
   const bootAt = Date.now();
   let lastNonEmptySnapshot = null;
+  let userScrollUntil = 0;
 
   const clean = (v) => String(v || '').replace(/\s+/g, ' ').trim();
   const esc = (v) => String(v || '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch]));
@@ -100,11 +101,7 @@
             clientPatchedBy: RUNTIME
           });
           trace('open_state_transient_empty_patched', { commentKey: key, cachedCount: cached.comments.length });
-          return new Response(JSON.stringify(patched), {
-            status: response.status,
-            statusText: response.statusText,
-            headers: response.headers
-          });
+          return new Response(JSON.stringify(patched), { status: response.status, statusText: response.statusText, headers: response.headers });
         }).catch(() => response);
       });
     };
@@ -125,58 +122,84 @@
     };
   }
 
+  function viewportBottom() {
+    try {
+      const vv = window.visualViewport;
+      if (vv) return Math.max(0, Number(vv.offsetTop || 0) + Number(vv.height || 0));
+    } catch (_) {}
+    return Math.max(0, Number(window.innerHeight || document.documentElement.clientHeight || 0));
+  }
+  function hostNearBottom(host) {
+    if (!host) return true;
+    return (host.scrollHeight - host.scrollTop - host.clientHeight) < 180;
+  }
+  function markUserScroll() { userScrollUntil = Date.now() + 900; }
+  function bottomAlignShortList(commentsWrap, commentsList) {
+    if (!commentsWrap || !commentsList) return;
+    commentsList.style.paddingTop = '0px';
+    requestAnimationFrame(() => {
+      try {
+        const free = Math.floor(commentsWrap.clientHeight - commentsList.scrollHeight - 4);
+        commentsList.style.paddingTop = free > 0 ? free + 'px' : '0px';
+      } catch (_) {}
+    });
+  }
   function measureComposer() {
     const { composer, page, commentsList, commentsWrap } = getEls();
-    const h = Math.max(84, Math.ceil((composer && composer.getBoundingClientRect().height) || 0));
+    const h = Math.max(76, Math.ceil((composer && composer.getBoundingClientRect().height) || 0));
     document.documentElement.style.setProperty('--ak-composer-h', h + 'px');
     document.body.style.setProperty('--ak-composer-h', h + 'px');
-    if (page) page.style.paddingBottom = 'calc(' + h + 'px + 62px + env(safe-area-inset-bottom, 0px))';
-    if (commentsList) commentsList.style.paddingBottom = 'calc(' + h + 'px + 44px + env(safe-area-inset-bottom, 0px))';
-    if (commentsWrap) commentsWrap.style.scrollPaddingBottom = 'calc(' + h + 'px + 54px + env(safe-area-inset-bottom, 0px))';
+    if (page) {
+      page.style.paddingBottom = '0px';
+      page.style.overflow = 'hidden';
+    }
+    if (commentsWrap) {
+      const rect = commentsWrap.getBoundingClientRect();
+      const bottom = viewportBottom();
+      const available = Math.max(170, Math.floor(bottom - rect.top - h - 12));
+      commentsWrap.style.height = available + 'px';
+      commentsWrap.style.maxHeight = available + 'px';
+      commentsWrap.style.overflowY = 'auto';
+      commentsWrap.style.overscrollBehavior = 'contain';
+      commentsWrap.style.webkitOverflowScrolling = 'touch';
+      commentsWrap.style.scrollPaddingBottom = '18px';
+      document.documentElement.style.setProperty('--ak-comments-wrap-h', available + 'px');
+      document.body.style.setProperty('--ak-comments-wrap-h', available + 'px');
+    }
+    if (commentsList) commentsList.style.paddingBottom = '14px';
+    bottomAlignShortList(commentsWrap, commentsList);
     return h;
   }
   function scrollToBottomSoon(force) {
     const run = () => {
       try {
         measureComposer();
-        const doc = document.scrollingElement || document.documentElement || document.body;
-        if (!doc) return;
-        if (!force) {
-          const dist = doc.scrollHeight - doc.scrollTop - window.innerHeight;
-          if (dist > 420) return;
-        }
-        doc.scrollTop = doc.scrollHeight;
-        window.scrollTo(0, document.body.scrollHeight || doc.scrollHeight);
         const { commentsWrap } = getEls();
-        if (commentsWrap) commentsWrap.scrollTop = commentsWrap.scrollHeight;
+        if (!commentsWrap) return;
+        if (!force) {
+          if (Date.now() < userScrollUntil) return;
+          if (!hostNearBottom(commentsWrap)) return;
+        }
+        commentsWrap.scrollTop = Math.max(0, commentsWrap.scrollHeight - commentsWrap.clientHeight);
       } catch (_) {}
     };
     requestAnimationFrame(run);
     setTimeout(run, 80);
-    setTimeout(run, 260);
+    setTimeout(run, 240);
   }
 
   function rememberNonEmptyHtml() {
     const key = currentCommentKey();
     const { commentsList, count } = getEls();
     if (!commentsList || !commentsList.children.length) return;
-    lastNonEmptySnapshot = {
-      key,
-      at: Date.now(),
-      html: commentsList.innerHTML,
-      count: clean(count && count.textContent)
-    };
+    lastNonEmptySnapshot = { key, at: Date.now(), html: commentsList.innerHTML, count: clean(count && count.textContent) };
   }
   function cacheCurrentHtml() {
     const key = currentCommentKey();
     const { commentsList, count } = getEls();
     if (!key || !commentsList || !commentsList.children.length) return;
     try {
-      const item = {
-        at: Date.now(),
-        html: commentsList.innerHTML,
-        count: clean(count && count.textContent)
-      };
+      const item = { at: Date.now(), html: commentsList.innerHTML, count: clean(count && count.textContent) };
       lastNonEmptySnapshot = Object.assign({ key }, item);
       sessionStorage.setItem(htmlCacheKey(key), JSON.stringify(item));
     } catch (_) {}
@@ -205,6 +228,7 @@
     document.body.classList.remove('ak-comments-loading-not-empty');
     trace('comments_dom_transient_empty_restored', { commentKey: currentCommentKey(), count: cached.count || '' });
     enhanceImages();
+    scrollToBottomSoon(true);
     return true;
   }
   function suppressEarlyEmpty(reason) {
@@ -309,29 +333,28 @@
       }, 0);
     }, false);
   }
+  function installScrollHostGuards() {
+    const { commentsWrap } = getEls();
+    if (!commentsWrap || commentsWrap.__adminkitScrollHostGuard) return;
+    commentsWrap.__adminkitScrollHostGuard = true;
+    ['touchstart', 'touchmove', 'wheel'].forEach((eventName) => commentsWrap.addEventListener(eventName, markUserScroll, { passive: true }));
+  }
 
   function install() {
     document.body.classList.add('ak-comments-mobile-ux-pr97');
     measureComposer();
+    installScrollHostGuards();
     installImmediatePhotoPreview();
     protectEmptyState();
     enhanceImages();
-    setTimeout(() => {
-      document.body.classList.add('ak-comments-first-load-done');
-      protectEmptyState();
-      scrollToBottomSoon(true);
-    }, 1200);
-    setTimeout(() => protectEmptyState(), 3200);
-    setTimeout(() => protectEmptyState(), 7600);
-    setTimeout(() => protectEmptyState(), FIRST_EMPTY_GRACE_MS + 300);
+    setTimeout(() => { document.body.classList.add('ak-comments-first-load-done'); protectEmptyState(); scrollToBottomSoon(true); }, 1200);
+    setTimeout(() => { measureComposer(); protectEmptyState(); }, 3200);
+    setTimeout(() => { measureComposer(); protectEmptyState(); }, 7600);
+    setTimeout(() => { measureComposer(); protectEmptyState(); }, FIRST_EMPTY_GRACE_MS + 300);
     const { commentsList, composer, commentInput, composerReply, attachmentPreview } = getEls();
     if (commentsList && !commentsList.__adminkitUxObserver) {
       commentsList.__adminkitUxObserver = true;
-      new MutationObserver(() => {
-        protectEmptyState();
-        enhanceImages();
-        scrollToBottomSoon(false);
-      }).observe(commentsList, { childList: true, subtree: true });
+      new MutationObserver(() => { protectEmptyState(); enhanceImages(); scrollToBottomSoon(false); }).observe(commentsList, { childList: true, subtree: true });
     }
     [composer, composerReply, attachmentPreview].forEach((node) => {
       if (node && window.ResizeObserver && !node.__adminkitResizeObserved) {
@@ -346,9 +369,10 @@
     if (window.visualViewport && !window.__adminkitVisualViewportPin) {
       window.__adminkitVisualViewportPin = true;
       window.visualViewport.addEventListener('resize', () => { measureComposer(); scrollToBottomSoon(true); });
-      window.visualViewport.addEventListener('scroll', () => { measureComposer(); scrollToBottomSoon(false); });
+      window.visualViewport.addEventListener('scroll', () => { measureComposer(); });
     }
-    trace('comments_mobile_ux_patch_installed', { runtimeVersion: RUNTIME, firstEmptyGraceMs: FIRST_EMPTY_GRACE_MS });
+    window.addEventListener('orientationchange', () => setTimeout(() => { measureComposer(); scrollToBottomSoon(true); }, 220));
+    trace('comments_mobile_ux_patch_installed', { runtimeVersion: RUNTIME, scrollHost: 'commentsWrap', firstEmptyGraceMs: FIRST_EMPTY_GRACE_MS });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });
