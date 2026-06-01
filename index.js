@@ -2072,6 +2072,7 @@ app.post("/api/comments", async (req, res) => {
       avatarUrl: req.body?.avatarUrl || "",
       text: req.body?.text || "",
       replyToId: req.body?.replyToId || "",
+      clientCommentId: req.body?.clientCommentId || "",
       attachments: req.body?.attachments || []
     });
 

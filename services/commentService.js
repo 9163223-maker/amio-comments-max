@@ -128,6 +128,10 @@ function sanitizeSmallImageDataUrl(value = "") {
   if (!approxBytes || approxBytes > INLINE_IMAGE_MAX_BYTES) return "";
   return `data:${m[1].toLowerCase()};base64,${base64}`;
 }
+function isRuntimeCommentUploadUrl(value = "") {
+  const raw = String(value || "").trim();
+  return Boolean(raw && raw.startsWith("/public/comment-uploads/"));
+}
 function publicCommentUploadDataUrl(publicUrl = "", mime = "image/jpeg") {
   const raw = String(publicUrl || "").trim();
   if (!raw || !raw.startsWith("/public/comment-uploads/")) return "";
@@ -170,16 +174,17 @@ function sanitizeAttachments(value) {
   const list = Array.isArray(value) ? value : [];
   return list.slice(0, 5).map((item) => {
     const source = item && typeof item === "object" ? item : {};
-    const type = String(source.type || "file").trim().toLowerCase();
+    const mime = String(source.mime || source.mimeType || "").slice(0, 120);
+    const type = String(source.type || source.kind || (/^image\//i.test(mime) ? "image" : "file")).trim().toLowerCase();
     const allowedType = ["image", "video", "audio", "file"].includes(type) ? type : "file";
     const payload = sanitizeAttachmentPayload(source);
     const url = stripLargeInlinePayload(source.url || payload.url || payload.download_url || payload.link || "");
     const previewUrl = stripLargeInlinePayload(source.previewUrl || source.preview_url || source.localPreviewUrl || "");
-    const mime = String(source.mime || source.mimeType || "").slice(0, 120);
     const incomingThumb = sanitizeSmallImageDataUrl(source.thumbDataUrl || source.thumb_data_url || "");
     const incomingPreview = sanitizeSmallImageDataUrl(source.previewDataUrl || source.preview_data_url || "");
     const incomingData = sanitizeSmallImageDataUrl(source.dataUrl || source.data_url || "");
     const localInlinePreview = allowedType === "image" ? publicCommentUploadDataUrl(url || previewUrl, mime || "image/jpeg") : "";
+    const runtimeOnly = allowedType === "image" && !incomingThumb && !incomingPreview && !incomingData && !localInlinePreview && (isRuntimeCommentUploadUrl(url) || isRuntimeCommentUploadUrl(previewUrl));
     const thumbDataUrl = incomingThumb || incomingPreview || incomingData || localInlinePreview;
     const previewDataUrl = incomingPreview && incomingPreview !== thumbDataUrl ? incomingPreview : "";
     const dataUrl = incomingData && incomingData !== thumbDataUrl && incomingData !== previewDataUrl ? incomingData : "";
@@ -194,9 +199,9 @@ function sanitizeAttachments(value) {
     if (!hasStableStoredSource) return null;
     const stableId = String(source.id || uploadId || payload.token || payload.file_id || payload.image_id || payload.photo_id || fallbackId);
     return {
-      id: stableId, type: allowedType, name: String(source.name || "Вложение").slice(0, 180), mime, size: Number(source.size || 0) || 0,
+      id: stableId, type: allowedType, name: String(source.name || source.fileName || "Вложение").slice(0, 180), fileName: String(source.fileName || source.name || "Вложение").slice(0, 180), mime, mimeType: mime, size: Number(source.size || 0) || 0,
       url, previewUrl, posterUrl, dataUrl, previewDataUrl, thumbDataUrl, payload, native: Boolean(source.native || Object.keys(payload).length), storage: String(source.storage || "").slice(0, 60), uploadId,
-      clientUploadId: String(source.clientUploadId || source.client_upload_id || uploadId || "").slice(0, 180), rawUrl, processing, status, transcodeError: String(source.transcodeError || "").slice(0, 220)
+      clientUploadId: String(source.clientUploadId || source.client_upload_id || uploadId || "").slice(0, 180), rawUrl, processing, status, brokenRuntimeOnly: Boolean(source.brokenRuntimeOnly || source.runtimeOnlyBroken || runtimeOnly), runtimeOnly: Boolean(source.runtimeOnly || runtimeOnly), transcodeError: String(source.transcodeError || "").slice(0, 220)
     };
   }).filter(Boolean);
 }
@@ -300,11 +305,12 @@ function enrichComments(commentKey, comments, currentUserId = "") {
       const users = Object.entries(byUser || {}).filter(([, isOn]) => Boolean(isOn)).map(([userId]) => String(userId));
       if (users.length) { reactionCounts[normalizedEmoji] = users.length; if (normalizedUserId && users.includes(normalizedUserId)) ownReactions.push(normalizedEmoji); reactionDetails.push({ emoji: normalizedEmoji, count: users.length, active: normalizedUserId ? users.includes(normalizedUserId) : false, users: users.slice(0, 3).map((userId) => usersById.get(userId) || { userId, userName: "", avatarUrl: "" }) }); }
     });
-    return { ...item, likedByMe: normalizedUserId ? Boolean(likesMap?.[item.id]?.[normalizedUserId]) : false, reactionCounts, reactionDetails, ownReactions, replyTo: buildReplyPreview(comments, item.replyToId) };
+    return { ...item, attachments: sanitizeAttachments(item.attachments || []), likedByMe: normalizedUserId ? Boolean(likesMap?.[item.id]?.[normalizedUserId]) : false, reactionCounts, reactionDetails, ownReactions, replyTo: buildReplyPreview(comments, item.replyToId) };
   });
 }
 function listComments(commentKey, currentUserId = "") { const comments = [...getComments(commentKey)].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); return enrichComments(commentKey, comments, currentUserId); }
-function createComment({ commentKey, userId, userName, text, avatarUrl, replyToId = "", attachments = [] }) {
+function sanitizeClientCommentId(value = "") { return String(value || "").replace(/[^a-zA-Z0-9_.:-]/g, "").slice(0, 160); }
+function createComment({ commentKey, userId, userName, text, avatarUrl, replyToId = "", attachments = [], clientCommentId = "" }) {
   const queuedSticker = resolveQueuedStickerMetadata(attachments, { commentKey, userId, replyToId });
   if (queuedSticker) {
     const displayText = sanitizeText(queuedSticker.displayText || "Стикер") || "Стикер";
@@ -330,6 +336,7 @@ function createComment({ commentKey, userId, userName, text, avatarUrl, replyToI
     return created;
   }
   const cleanText = sanitizeText(text);
+  const cleanClientCommentId = sanitizeClientCommentId(clientCommentId);
   const cleanAttachments = sanitizeAttachments(attachments);
   if (!cleanText && !cleanAttachments.length) throw new Error("text_or_attachment_required");
   const duplicate = findRecentDuplicateComment({ commentKey, userId, text: cleanText, attachments: cleanAttachments, windowMs: 8000 });
@@ -337,7 +344,7 @@ function createComment({ commentKey, userId, userName, text, avatarUrl, replyToI
   const dbPolicy = readDbV3PolicySync(commentKey);
   checkCommentsEnabled(commentKey, dbPolicy);
   checkModeration({ commentKey, userId, userName, text: cleanText, dbPolicy });
-  const created = addComment(commentKey, { userId: String(userId || "guest"), userName: String(userName || "Гость"), avatarUrl: String(avatarUrl || ""), text: cleanText, attachments: cleanAttachments, replyToId: String(replyToId || "").trim(), editedAt: 0 });
+  const created = addComment(commentKey, { clientCommentId: cleanClientCommentId, userId: String(userId || "guest"), userName: String(userName || "Гость"), avatarUrl: String(avatarUrl || ""), text: cleanText, attachments: cleanAttachments, replyToId: String(replyToId || "").trim(), editedAt: 0 });
   scheduleCommentButtonRefresh(commentKey);
   return created;
 }
