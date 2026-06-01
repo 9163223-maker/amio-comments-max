@@ -1,24 +1,23 @@
 ;(() => {
   'use strict';
 
-  const RUNTIME = 'CC8.3.54-MINIAPP-CLEAN-LOADER-NO-MARKER-COLLISION';
+  const RUNTIME = 'CC8.3.55-MINIAPP-CRITICAL-FIRST-LOADER';
   const ONEPASS_RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
   const SKELETON_RUNTIME = 'CC8.1.19-MINIAPP-SKELETON-DEBUG-ONLY';
   const PHOTO_FLOW_RUNTIME = 'CC8.3.53-PHOTO-PREVIEW-CONTRACT-80KB';
   const STICKERS_RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
 
-  const LOADER_MARKER = '__ADMINKIT_CC8_3_54_MINIAPP_CLEAN_LOADER__';
-  const ONEPASS_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
+  const LOADER_MARKER = '__ADMINKIT_CC8_3_55_MINIAPP_CRITICAL_FIRST_LOADER__';
   const SKELETON_MARKER = '__ADMINKIT_CC8_1_19_MINIAPP_SKELETON_DEFAULT_PR84__';
-  const PHOTO_FLOW_LOADER_MARKER = '__ADMINKIT_CC8_3_54_PHOTO_FLOW_LOADED__';
-  const STICKERS_LOADER_MARKER = '__ADMINKIT_CC8_3_54_STICKERS_LOADED__';
+  const PHOTO_FLOW_LOADER_MARKER = '__ADMINKIT_CC8_3_55_PHOTO_FLOW_LOADED__';
+  const STICKERS_LOADER_MARKER = '__ADMINKIT_CC8_3_55_STICKERS_LOADED__';
   const COMPOSER_INTENT_MARKER = '__ADMINKIT_CC8_1_13_COMPOSER_INTENT_UNLOCK__';
 
-  const ASSET_VERSION = 'v8354-clean-loader';
-  const ONEPASS_SRC = '/public/app-onepass.js?v=8354-onepass';
-  const SKELETON_SRC = '/public/app-skeleton-consumer-pr84.js?v=8354-debug-only';
-  const PHOTO_FLOW_SRC = '/public/app-photo-flow-pr95.js?v=8354-preview-contract-80kb';
-  const STICKERS_SRC = '/public/app-stickers-pr87.js?v=8354-stickers';
+  const ASSET_VERSION = 'v8355-critical-first';
+  const ONEPASS_SRC = '/public/app-onepass.js?v=8355-onepass';
+  const SKELETON_SRC = '/public/app-skeleton-consumer-pr84.js?v=8355-debug-only';
+  const PHOTO_FLOW_SRC = '/public/app-photo-flow-pr95.js?v=8355-preview-contract-80kb';
+  const STICKERS_SRC = '/public/app-stickers-pr87.js?v=8355-stickers';
 
   const LOADER_STARTED_AT = Date.now();
 
@@ -29,13 +28,8 @@
   window.__ADMINKIT_PHOTO_FLOW_RUNTIME__ = PHOTO_FLOW_RUNTIME;
   window.__ADMINKIT_STICKERS_RUNTIME__ = STICKERS_RUNTIME;
 
-  function absoluteUrl(src) {
-    try { return new URL(String(src || ''), location.href).href; } catch (_) { return String(src || ''); }
-  }
-  function roundMs(value) {
-    const n = Number(value || 0);
-    return Number.isFinite(n) && n >= 0 ? Math.round(n) : 0;
-  }
+  function absoluteUrl(src) { try { return new URL(String(src || ''), location.href).href; } catch (_) { return String(src || ''); } }
+  function roundMs(value) { const n = Number(value || 0); return Number.isFinite(n) && n >= 0 ? Math.round(n) : 0; }
   function getResourceTiming(src) {
     try {
       const absolute = absoluteUrl(src);
@@ -85,31 +79,12 @@
       if (navigator && typeof navigator.sendBeacon === 'function') navigator.sendBeacon('/api/debug/miniapp-timing', new Blob([body], { type: 'application/json' }));
     } catch (_) {}
   }
-  function addScriptPreload(src, status) {
-    try {
-      if (!src || !document || !document.createElement) return;
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'script';
-      link.href = src;
-      link.crossOrigin = 'anonymous';
-      if ('fetchPriority' in link) link.fetchPriority = status === 'app' ? 'high' : 'low';
-      (document.head || document.documentElement).appendChild(link);
-      postMiniTiming('loader.preload_appended', { status, scriptSrc: link.href });
-    } catch (_) {}
-  }
   function explicitSkeletonRequested() {
     const query = String((location && location.search) || '');
     return /(?:^|[?&])(adminkitSkeleton|commentSkeleton|skeletonConsumer)=1(?:&|$)/.test(query);
   }
   function getCommentClientState() {
-    return window.__ADMINKIT_CC7_5_55_STATE__ ||
-      window.__ADMINKIT_CC7_5_53_STATE__ ||
-      window.__ADMINKIT_CC7_5_47_STATE__ ||
-      window.__ADMINKIT_CC7_5_6_STATE__ ||
-      window.__ADMINKIT_CC7_5_3_STATE__ ||
-      window.__ADMINKIT_CC7_2_STATE__ ||
-      null;
+    return window.__ADMINKIT_CC7_5_55_STATE__ || window.__ADMINKIT_CC7_5_53_STATE__ || window.__ADMINKIT_CC7_5_47_STATE__ || window.__ADMINKIT_CC7_5_6_STATE__ || window.__ADMINKIT_CC7_5_3_STATE__ || window.__ADMINKIT_CC7_2_STATE__ || null;
   }
   function installComposerIntentUnlock() {
     if (window[COMPOSER_INTENT_MARKER]) return;
@@ -131,12 +106,11 @@
       if (typeof onload === 'function') onload();
       return;
     }
-    if (scriptMarker && opts.markBeforeLoad) window[scriptMarker] = true;
     const s = document.createElement('script');
     s.src = src;
     s.async = status !== 'app';
     s.dataset.adminkitRuntime = runtime;
-    if ('fetchPriority' in s) s.fetchPriority = status === 'app' || status === 'photo_flow' ? 'high' : 'low';
+    if ('fetchPriority' in s) s.fetchPriority = status === 'app' ? 'high' : 'low';
     s.onload = () => {
       if (scriptMarker && opts.markAfterLoad) window[scriptMarker] = true;
       postMiniTiming('loader.' + status + '_loaded', { status, scriptSrc: s.src, runtime });
@@ -152,27 +126,22 @@
     (document.head || document.documentElement).appendChild(s);
     postMiniTiming('loader.' + status + '_appended', { status, scriptSrc: s.src, runtime });
   }
-  function loadAddons() {
-    loadScript(PHOTO_FLOW_SRC, 'photo_flow', PHOTO_FLOW_RUNTIME, PHOTO_FLOW_LOADER_MARKER, { markAfterLoad: true });
-    loadScript(STICKERS_SRC, 'stickers', STICKERS_RUNTIME, STICKERS_LOADER_MARKER, { markAfterLoad: true });
+  function loadAddonsDeferred() {
+    const run = () => {
+      loadScript(PHOTO_FLOW_SRC, 'photo_flow', PHOTO_FLOW_RUNTIME, PHOTO_FLOW_LOADER_MARKER, { markAfterLoad: true });
+      loadScript(STICKERS_SRC, 'stickers', STICKERS_RUNTIME, STICKERS_LOADER_MARKER, { markAfterLoad: true });
+    };
+    if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 1400 });
+    else setTimeout(run, 900);
+    postMiniTiming('loader.addons_deferred', { status: 'addons_deferred' });
   }
   function boot() {
     installComposerIntentUnlock();
     const skeleton = explicitSkeletonRequested();
     window.__ADMINKIT_COMMENT_SKELETON_CONSUMER_ENABLED__ = skeleton;
-    postMiniTiming('loader.boot', { status: skeleton ? 'skeleton' : 'onepass', skeletonPolicy: 'explicit_debug_only' });
+    postMiniTiming('loader.boot', { status: skeleton ? 'skeleton' : 'onepass', skeletonPolicy: 'explicit_debug_only', loadPolicy: 'critical_app_first_addons_deferred' });
     const appSrc = skeleton ? SKELETON_SRC : ONEPASS_SRC;
-    addScriptPreload(appSrc, 'app');
-    addScriptPreload(PHOTO_FLOW_SRC, 'photo_flow');
-    addScriptPreload(STICKERS_SRC, 'stickers');
-    loadScript(
-      appSrc,
-      'app',
-      skeleton ? SKELETON_RUNTIME : ONEPASS_RUNTIME,
-      skeleton ? SKELETON_MARKER : null,
-      { markAfterLoad: Boolean(skeleton) },
-      loadAddons
-    );
+    loadScript(appSrc, 'app', skeleton ? SKELETON_RUNTIME : ONEPASS_RUNTIME, skeleton ? SKELETON_MARKER : null, { markAfterLoad: Boolean(skeleton) }, loadAddonsDeferred);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
