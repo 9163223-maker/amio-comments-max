@@ -1,176 +1,20 @@
-/* CC8.3.47 — Telegram-style preview-only photo comments layout.
-   Photo comments are not a gallery. They must render as fast thumbnails,
-   not as full-size images, and must not reserve a giant blank box while loading. */
+/* CC8.3.48 — normal-size preview photo comments layout */
 
-.comment-avatar {
-  width: 42px;
-  height: 42px;
-  flex: 0 0 42px;
-  margin-bottom: 2px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: rgba(239,246,255,0.96);
-  color: var(--accent-dark, #2f78d7);
-  font-size: 14px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 2px rgba(37,67,100,0.06);
-}
-
-.comment-author {
-  color: #5a73ba;
-  font-size: 14px;
-  font-weight: 650;
-  line-height: 1.18;
-  margin-bottom: 3px;
-}
-
-.comment-row.own .comment-author,
-.comment-row.own .comment-avatar {
-  display: none !important;
-}
-
-.comment-row.other {
-  justify-content: flex-start !important;
-  align-items: flex-end !important;
-}
-
-.comment-row.own {
-  justify-content: flex-end !important;
-  align-items: flex-end !important;
-  padding-left: 54px;
-}
-
-.comment-row.other .comment-bubble {
-  max-width: min(86vw, 610px);
-}
-
-.comment-row.own .comment-bubble {
-  max-width: min(82vw, 560px);
-  background: rgba(226,241,255,0.98) !important;
-  border-radius: 19px 19px 7px 19px !important;
-}
-
-.comment-row.own .comment-bubble::before {
-  left: auto !important;
-  right: -4px !important;
-  background: rgba(226,241,255,0.98) !important;
-  clip-path: polygon(0 0, 100% 76%, 0 100%) !important;
-}
-
-.comment-time {
-  display: block;
-  text-align: right;
-  margin-top: 4px;
-  font-size: 12px;
-  line-height: 1.1;
-  color: rgba(105,128,159,0.92);
-  white-space: nowrap;
-}
-
-.comment-bubble:has(.comment-attachment-image):not(:has(.comment-text)) {
-  padding: 4px 4px 5px !important;
-  background: rgba(226,241,255,0.86) !important;
-  box-shadow: none !important;
-  line-height: 0;
-}
-
-.comment-bubble:has(.comment-attachment-image):not(:has(.comment-text))::before {
-  display: none !important;
-  content: none !important;
-}
-
-.comment-bubble:has(.comment-attachment-image):not(:has(.comment-text)) .comment-time {
-  padding: 0 6px 2px;
-  margin-top: 3px;
-  line-height: 1.1;
-}
-
-.comment-attachment.comment-attachment-image {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: auto !important;
-  height: auto !important;
-  max-width: min(58vw, 220px) !important;
-  max-height: 240px !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  background: rgba(205,226,246,0.26) !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  overflow: hidden !important;
-  border-radius: 17px !important;
-  line-height: 0 !important;
-  -webkit-tap-highlight-color: transparent !important;
-}
-
-.comment-attachment.comment-attachment-image > img {
-  display: block !important;
-  width: auto !important;
-  height: auto !important;
-  max-width: min(58vw, 220px) !important;
-  max-height: 240px !important;
-  object-fit: cover !important;
-  border-radius: 17px !important;
-  background: rgba(205,226,246,0.26) !important;
-}
-
-.comment-attachment.comment-attachment-video {
-  display: none !important;
-}
-
-.composer-photo-preview {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 76px;
-  height: 76px;
-  border-radius: 16px;
-  overflow: hidden;
-  background: rgba(205,226,246,0.50);
-  box-shadow: 0 4px 12px rgba(44,80,120,0.08);
-}
-
-.composer-photo-preview > img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.composer-photo-remove {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 24px;
-  height: 24px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(20,30,42,0.58);
-  color: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  line-height: 1;
-}
-
-@media (max-width: 420px) {
-  .comment-avatar {
-    width: 40px;
-    height: 40px;
-    flex-basis: 40px;
-  }
-  .comment-row.own { padding-left: 46px; }
-  .comment-row.other .comment-bubble { max-width: calc(100vw - 62px); }
-  .comment-row.own .comment-bubble { max-width: calc(100vw - 58px); }
-  .comment-attachment.comment-attachment-image,
-  .comment-attachment.comment-attachment-image > img {
-    max-width: min(58vw, 220px) !important;
-    max-height: 240px !important;
-  }
-}
+.comment-avatar { width: 42px; height: 42px; flex: 0 0 42px; margin-bottom: 2px; border-radius: 999px; overflow: hidden; background: rgba(239,246,255,0.96); color: var(--accent-dark, #2f78d7); font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(37,67,100,0.06); }
+.comment-author { color: #5a73ba; font-size: 14px; font-weight: 650; line-height: 1.18; margin-bottom: 3px; }
+.comment-row.own .comment-author, .comment-row.own .comment-avatar { display: none !important; }
+.comment-row.other { justify-content: flex-start !important; align-items: flex-end !important; }
+.comment-row.own { justify-content: flex-end !important; align-items: flex-end !important; padding-left: 54px; }
+.comment-row.other .comment-bubble { max-width: min(86vw, 610px); }
+.comment-row.own .comment-bubble { max-width: min(82vw, 560px); background: rgba(226,241,255,0.98) !important; border-radius: 19px 19px 7px 19px !important; }
+.comment-row.own .comment-bubble::before { left: auto !important; right: -4px !important; background: rgba(226,241,255,0.98) !important; clip-path: polygon(0 0, 100% 76%, 0 100%) !important; }
+.comment-time { display: block; text-align: right; margin-top: 4px; font-size: 12px; line-height: 1.1; color: rgba(105,128,159,0.92); white-space: nowrap; }
+.comment-bubble:has(.comment-attachment-image):not(:has(.comment-text)) { padding: 4px 4px 5px !important; background: rgba(226,241,255,0.86) !important; box-shadow: none !important; line-height: 0; }
+.comment-bubble:has(.comment-attachment-image):not(:has(.comment-text))::before { display: none !important; content: none !important; }
+.comment-bubble:has(.comment-attachment-image):not(:has(.comment-text)) .comment-time { padding: 0 6px 2px; margin-top: 3px; line-height: 1.1; }
+.comment-attachment.comment-attachment-image { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: auto !important; height: auto !important; max-width: min(78vw, 360px) !important; max-height: 430px !important; margin: 0 !important; padding: 0 !important; background: rgba(205,226,246,0.26) !important; border: 0 !important; box-shadow: none !important; overflow: hidden !important; border-radius: 17px !important; line-height: 0 !important; -webkit-tap-highlight-color: transparent !important; }
+.comment-attachment.comment-attachment-image > img { display: block !important; width: auto !important; height: auto !important; max-width: min(78vw, 360px) !important; max-height: 430px !important; object-fit: cover !important; border-radius: 17px !important; background: rgba(205,226,246,0.26) !important; }
+.composer-photo-preview { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 76px; height: 76px; border-radius: 16px; overflow: hidden; background: rgba(205,226,246,0.50); box-shadow: 0 4px 12px rgba(44,80,120,0.08); }
+.composer-photo-preview > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.composer-photo-remove { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border: 0; border-radius: 999px; background: rgba(20,30,42,0.58); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1; }
+@media (max-width: 420px) { .comment-avatar { width: 40px; height: 40px; flex-basis: 40px; } .comment-row.own { padding-left: 46px; } .comment-row.other .comment-bubble { max-width: calc(100vw - 62px); } .comment-row.own .comment-bubble { max-width: calc(100vw - 58px); } .comment-attachment.comment-attachment-image, .comment-attachment.comment-attachment-image > img { max-width: min(76vw, 340px) !important; max-height: 400px !important; } }
