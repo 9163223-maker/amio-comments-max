@@ -1,14 +1,17 @@
 ;(() => {
   'use strict';
 
-  const RUNTIME = 'CC8.3.52-PHOTO-PREVIEW-FIRST-NO-BLOCKING-UPLOAD';
-  const MARKER = '__ADMINKIT_CC8_3_52_PHOTO_PREVIEW_FIRST__';
+  const RUNTIME = 'CC8.3.53-PHOTO-PREVIEW-CONTRACT-80KB';
+  const MARKER = '__ADMINKIT_CC8_3_53_PHOTO_PREVIEW_CONTRACT_80KB__';
   if (window[MARKER]) return;
   window[MARKER] = true;
 
-  const INLINE_TARGET_BYTES = 280 * 1024;
-  const PREVIEW_MAX_SIDE_STEPS = [960, 840, 720, 640, 560];
-  const QUALITY_STEPS = [0.68, 0.6, 0.54, 0.48];
+  // Server /api/comments currently accepts inline previews up to 80 KB.
+  // Keep client below that limit with margin. The visual bubble size is CSS-only;
+  // the stored source is intentionally a lightweight preview, not a full photo.
+  const INLINE_TARGET_BYTES = 72 * 1024;
+  const PREVIEW_MAX_SIDE_STEPS = [720, 640, 560, 480, 420, 360, 320];
+  const QUALITY_STEPS = [0.62, 0.56, 0.5, 0.44, 0.38, 0.32];
 
   let pending = null;
   let sending = false;
@@ -120,13 +123,18 @@
           bestMeta = { width: w, height: h, quality, maxSide, bytes };
         }
         if (bytes > 0 && bytes <= INLINE_TARGET_BYTES) {
-          trace('photo_preview_dataurl_ready', { durationMs: now() - startedAt, width: w, height: h, quality, maxSide, bytes });
+          trace('photo_preview_dataurl_ready', { durationMs: now() - startedAt, width: w, height: h, quality, maxSide, bytes, serverLimitBytes: 80 * 1024 });
           return { dataUrl, width: w, height: h, quality, maxSide, bytes };
         }
       }
     }
     if (!best) throw new Error('preview_dataurl_failed');
-    trace('photo_preview_dataurl_ready_over_target', { durationMs: now() - startedAt, ...(bestMeta || {}) });
+    const bytes = approxBytesFromDataUrl(best);
+    if (bytes > 80 * 1024) {
+      trace('photo_preview_dataurl_over_server_limit', { durationMs: now() - startedAt, ...(bestMeta || {}), serverLimitBytes: 80 * 1024 });
+      throw new Error('preview_too_large_after_compression');
+    }
+    trace('photo_preview_dataurl_ready_over_target', { durationMs: now() - startedAt, ...(bestMeta || {}), serverLimitBytes: 80 * 1024 });
     return { dataUrl: best, ...(bestMeta || {}) };
   }
   function renderComposerPreview() {
@@ -184,7 +192,7 @@
       previewOnly: true,
       inlineOnly: true,
       localOnly: false,
-      storage: 'inline-preview'
+      storage: 'inline-preview-80kb-contract'
     };
   }
   function addOrReplaceStateComment(comment, replaceId) {
@@ -233,18 +241,18 @@
       attachments: [attachment]
     };
     const startedAt = now();
-    trace('photo_comment_create_preview_started', { clientCommentId: source.clientCommentId, bytes: attachment.size, status: 'create_preview_started' });
+    trace('photo_comment_create_preview_started', { clientCommentId: source.clientCommentId, bytes: attachment.size, status: 'create_preview_started', serverLimitBytes: 80 * 1024 });
     const response = await fetch('/api/comments', {
       method: 'POST',
       cache: 'no-store',
-      headers: { 'Content-Type': 'application/json', 'x-adminkit-photo-route': 'cc8352-preview-first-json' },
+      headers: { 'Content-Type': 'application/json', 'x-adminkit-photo-route': 'cc8353-preview-80kb-contract' },
       body: JSON.stringify(body)
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false || !data.comment) {
       throw new Error(clean(data.userMessage || data.message || data.error) || 'Не удалось опубликовать фото-комментарий.');
     }
-    trace('photo_comment_create_preview_ok', { clientCommentId: source.clientCommentId, serverCommentId: clean(data.comment && data.comment.id), durationMs: now() - startedAt, attachmentCount: Array.isArray(data.comment.attachments) ? data.comment.attachments.length : 0, status: 'create_preview_ok' });
+    trace('photo_comment_create_preview_ok', { clientCommentId: source.clientCommentId, serverCommentId: clean(data.comment && data.comment.id), durationMs: now() - startedAt, attachmentCount: Array.isArray(data.comment.attachments) ? data.comment.attachments.length : 0, status: 'create_preview_ok', bytes: attachment.size });
     return data.comment;
   }
   function markError(source, message) {
@@ -329,7 +337,7 @@
     if (commentInput) commentInput.addEventListener('keydown', (event) => {
       if (pending && event.key === 'Enter' && !event.shiftKey) sendPending(event);
     }, true);
-    trace('photo_flow_preview_first_installed', { status: 'installed' });
+    trace('photo_flow_preview_contract_installed', { status: 'installed', targetBytes: INLINE_TARGET_BYTES, serverLimitBytes: 80 * 1024 });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true });
