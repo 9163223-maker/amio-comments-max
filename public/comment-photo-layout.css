@@ -1,4 +1,9 @@
-/* CC8.3.48 — normal-size preview photo comments layout */
+/* CC8.3.56 — normal-size preview photo comments layout + fixed composer clearance */
+
+:root { --adminkit-composer-clearance: calc(150px + env(safe-area-inset-bottom, 0px)); }
+#commentsWrap { padding-bottom: var(--adminkit-composer-clearance) !important; scroll-padding-bottom: var(--adminkit-composer-clearance) !important; }
+.comments-list { padding-bottom: var(--adminkit-composer-clearance) !important; }
+.comment-row:last-child { scroll-margin-bottom: var(--adminkit-composer-clearance) !important; }
 
 .comment-avatar { width: 42px; height: 42px; flex: 0 0 42px; margin-bottom: 2px; border-radius: 999px; overflow: hidden; background: rgba(239,246,255,0.96); color: var(--accent-dark, #2f78d7); font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(37,67,100,0.06); }
 .comment-author { color: #5a73ba; font-size: 14px; font-weight: 650; line-height: 1.18; margin-bottom: 3px; }
