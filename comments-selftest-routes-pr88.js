@@ -3,6 +3,8 @@
 const express = require('express');
 const { runFullCommentsSelftest, getLatestReport, applyBrowserProbeResult, cleanupSelftestFixtures, RUNTIME } = require('./services/commentsSelftestPr88V2');
 
+const RUNNER_ASSET_VERSION = '8347';
+
 function noCache(res) {
   res.set({
     'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
@@ -57,15 +59,17 @@ function requestedCommentKey(req) {
 }
 function runnerHref(req) {
   const token = clean(req.query?.token || req.query?.adminToken || '');
-  if (!token) return '/debug/selftest/comments/runner';
-  const key = req.query?.adminToken ? 'adminToken' : 'token';
-  return '/debug/selftest/comments/runner?' + key + '=' + encodeURIComponent(token);
+  const q = new URLSearchParams();
+  if (token) q.set(req.query?.adminToken ? 'adminToken' : 'token', token);
+  q.set('rv', RUNNER_ASSET_VERSION);
+  const suffix = q.toString();
+  return '/debug/selftest/comments/runner' + (suffix ? '?' + suffix : '');
 }
 function runnerPrebootPatch() {
   return '<script>(function(){window.__ADMINKIT_PR97_RUNNER_REAL_TIMING__=true;var original=URLSearchParams.prototype.set;URLSearchParams.prototype.set=function(k,v){if(window.__ADMINKIT_PR97_RUNNER_REAL_TIMING__&&(k===\'adminkitSkeleton\'||k===\'commentSkeleton\'||k===\'skeletonConsumer\'))v=\'0\';return original.call(this,k,v);};})();</script>';
 }
 function runnerHtml() {
-  return '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><title>AdminKit comments browser selftest</title><link rel="stylesheet" href="/comments-selftest-runner-pr89.css"><main><h1>AdminKit comments one-click browser selftest</h1><section class="card"><div id="status"><span class="pill warn">Готов к запуску</span></div><p class="muted">Одна страница запускает backend self-test, выполняет browser DOM probes и отправляет результат в browser-result. Видео/файлы не проверяются и не возвращаются.</p><div class="actions"><button id="runBtn" type="button">Запустить полный browser self-test</button><a id="latestLink" class="button secondary" href="/debug/selftest/comments/latest">Latest JSON</a><a id="reportLink" class="button secondary" href="/debug/selftest/comments/report">HTML report</a><a id="cleanupLink" class="button danger" href="#" hidden>Очистить fixtures</a></div></section><section class="card"><h2>Итог</h2><div id="summary">Пока не запускали.</div></section><section class="card"><h2>Browser fixture</h2><div id="commentsFixture"><div id="commentsList"></div></div></section><section class="card"><h2>Шаги</h2><div id="log" class="log"></div></section><section class="card"><h2>Raw final report</h2><pre id="raw">{}</pre></section></main>' + runnerPrebootPatch() + '<script src="/comments-selftest-runner-cc8346.js"></script>';
+  return '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><title>AdminKit comments browser selftest</title><link rel="stylesheet" href="/comments-selftest-runner-pr89.css?v=' + RUNNER_ASSET_VERSION + '"><main><h1>AdminKit comments one-click browser selftest</h1><section class="card"><div id="status"><span class="pill warn">Готов к запуску</span></div><p class="muted">Одна страница запускает backend self-test, выполняет browser DOM probes и отправляет результат в browser-result. Видео/файлы не проверяются и не возвращаются.</p><div class="actions"><button id="runBtn" type="button">Запустить полный browser self-test</button><a id="latestLink" class="button secondary" href="/debug/selftest/comments/latest">Latest JSON</a><a id="reportLink" class="button secondary" href="/debug/selftest/comments/report">HTML report</a><a id="cleanupLink" class="button danger" href="#" hidden>Очистить fixtures</a></div></section><section class="card"><h2>Итог</h2><div id="summary">Пока не запускали.</div></section><section class="card"><h2>Browser fixture</h2><div id="commentsFixture"><div id="commentsList"></div></div></section><section class="card"><h2>Шаги</h2><div id="log" class="log"></div></section><section class="card"><h2>Raw final report</h2><pre id="raw">{}</pre></section></main>' + runnerPrebootPatch() + '<script src="/comments-selftest-runner-cc8346.js?v=' + RUNNER_ASSET_VERSION + '"></script>';
 }
 
 function install(app) {
@@ -97,17 +101,20 @@ function install(app) {
 
   app.get('/comments-selftest-runner-pr89.css', (req, res) => {
     noCache(res);
-    return res.redirect(302, '/public/comments-selftest-runner-pr89.css');
+    const version = clean(req.query?.v || RUNNER_ASSET_VERSION);
+    return res.redirect(302, '/public/comments-selftest-runner-pr89.css?v=' + encodeURIComponent(version));
   });
 
   app.get('/comments-selftest-runner-pr89.js', (req, res) => {
     noCache(res);
-    return res.redirect(302, '/public/comments-selftest-runner-pr89.js');
+    const version = clean(req.query?.v || RUNNER_ASSET_VERSION);
+    return res.redirect(302, '/public/comments-selftest-runner-pr89.js?v=' + encodeURIComponent(version));
   });
 
   app.get('/comments-selftest-runner-cc8346.js', (req, res) => {
     noCache(res);
-    return res.redirect(302, '/public/comments-selftest-runner-cc8346.js');
+    const version = clean(req.query?.v || RUNNER_ASSET_VERSION);
+    return res.redirect(302, '/public/comments-selftest-runner-cc8346.js?v=' + encodeURIComponent(version));
   });
 
   app.post('/debug/selftest/comments/browser-result', express.json({ limit: '256kb' }), async (req, res) => {
