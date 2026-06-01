@@ -81,8 +81,13 @@
       height: 0,
       quality: 0,
       maxSide: 0,
+      clientUploadId: '',
       uploadId: '',
       serverCommentId: '',
+      serverUploadReceivedAt: '',
+      serverParsedAt: '',
+      serverSavedAt: '',
+      serverTotalMs: 0,
       status: 'started',
       error: ''
     };
@@ -108,8 +113,13 @@
       maxSide: Number(t.maxSide || 0) || 0,
       fileName: clean(t.fileName),
       mimeType: clean(t.mimeType),
+      clientUploadId: clean(t.clientUploadId),
       uploadId: clean(t.uploadId),
       serverCommentId: clean(t.serverCommentId),
+      serverUploadReceivedAt: clean(t.serverUploadReceivedAt),
+      serverParsedAt: clean(t.serverParsedAt),
+      serverSavedAt: clean(t.serverSavedAt),
+      serverTotalMs: Number(t.serverTotalMs || 0) || 0,
       previewMs,
       compressMs,
       uploadMs,
@@ -303,6 +313,7 @@
     const clientUploadId = 'pr96_2_' + now() + '_' + Math.random().toString(36).slice(2, 8);
     if (timing) {
       timing.uploadStartedAt = now();
+      timing.clientUploadId = clientUploadId;
       timing.status = 'upload_started';
       timing.uploadSize = Number(packed.size || 0) || 0;
     }
@@ -366,6 +377,12 @@
       timing.status = 'upload_ok';
     }
     const diag = data.diagnostics || {};
+    if (timing) {
+      timing.serverUploadReceivedAt = clean(diag.serverUploadReceivedAt);
+      timing.serverParsedAt = clean(diag.serverParsedAt);
+      timing.serverSavedAt = clean(diag.serverSavedAt);
+      timing.serverTotalMs = Number(diag.serverTotalMs || 0) || 0;
+    }
     log('photo_upload_ok', timingPayload(timing, { clientUploadId, uploadId: attachment.uploadId, fileName: attachment.fileName, mimeType: attachment.mimeType, uploadSize: attachment.size || packed.size, hasUrl: Boolean(attachment.url), hasPreviewUrl: Boolean(attachment.previewUrl), serverUploadReceivedAt: clean(diag.serverUploadReceivedAt), serverParsedAt: clean(diag.serverParsedAt), serverSavedAt: clean(diag.serverSavedAt), serverTotalMs: Number(diag.serverTotalMs || 0) || 0, status: 'upload_ok', durationMs: timing && timing.uploadStartedAt ? timing.uploadEndedAt - timing.uploadStartedAt : 0 }));
     return attachment;
   }

@@ -75,6 +75,7 @@ const app = express();
 const deferredVideoResults = new Map();
 
 const COMMENT_TRACE_LIMIT = 100;
+let commentTraceSeq = 0;
 const commentTraceEvents = [];
 function pushCommentTraceEvent(event = '', payload = {}) {
   const eventName = String(event || '').trim();
@@ -83,10 +84,14 @@ function pushCommentTraceEvent(event = '', payload = {}) {
   const attachment = safe.attachment && typeof safe.attachment === 'object' ? safe.attachment : {};
   const item = {
     at: Date.now(),
+    seq: ++commentTraceSeq,
     event: eventName,
     runtimeVersion: RUNTIME,
     commentKey: String(safe.commentKey || '').trim(),
     clientCommentId: String(safe.clientCommentId || '').trim(),
+    timingId: String(safe.timingId || safe.traceId || '').trim(),
+    clientUploadId: String(safe.clientUploadId || attachment.clientUploadId || '').trim(),
+    uploadId: String(safe.uploadId || attachment.uploadId || attachment.id || '').trim(),
     originalSize: Number(safe.originalSize || 0) || 0,
     compressedSize: Number(safe.compressedSize || 0) || 0,
     uploadSize: Number(safe.uploadSize || safe.size || 0) || 0,
@@ -95,6 +100,11 @@ function pushCommentTraceEvent(event = '', payload = {}) {
     quality: Number(safe.quality || 0) || 0,
     maxSide: Number(safe.maxSide || 0) || 0,
     durationMs: Number(safe.durationMs || 0) || 0,
+    compressMs: Number(safe.compressMs || 0) || 0,
+    uploadMs: Number(safe.uploadMs || 0) || 0,
+    createMs: Number(safe.createMs || 0) || 0,
+    renderMs: Number(safe.renderMs || 0) || 0,
+    totalMs: Number(safe.totalMs || 0) || 0,
     thumbDataUrlBytes: Number(safe.thumbDataUrlBytes || attachment.thumbDataUrlBytes || 0) || 0,
     hasThumbDataUrl: false,
     hasPreviewDataUrl: false,
@@ -1631,7 +1641,9 @@ app.get(['/debug/comment-trace','/api/debug/comment-trace'], (req, res) => {
     ok: true,
     runtimeVersion: RUNTIME,
     generatedAt: new Date().toISOString(),
+    serverNowMs: Date.now(),
     total: commentTraceEvents.length,
+    totalSeen: commentTraceSeq,
     noDatabaseRead: true,
     noMaxApiCall: true,
     events: commentTraceEvents.slice(-COMMENT_TRACE_LIMIT),
