@@ -1,7 +1,7 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
+const RUNTIME = 'CC8.3.57-MEDIA-LIFECYCLE-CLEAN';
 const CORE_SEND_RUNTIME = 'CC8.1.12-CORE-FAST-TEXT-SEND';
 const MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
 if (window[MARKER]) return;
@@ -273,7 +273,7 @@ const state = {
   commentKey: params.commentKey, handoff: params.handoff, channelId: params.channelId, postId: params.postId,
   title: params.title, raw: params.raw, launchMode: params.launchMode, hasCommentIdentity: params.hasCommentIdentity,
   currentUserId: getBridgeUserId(), currentUserName: getBridgeUserName(), currentUserAvatarUrl: getBridgeAvatarUrl(),
-  comments: [], meta: {}, commentsCount: 0, pollTimer: null, requestInFlight: false,
+  comments: [], meta: {}, commentsCount: 0, pollTimer: null, requestInFlight: false, openStateResolved: false, openStateStarted: false,
   sendInFlight: false, textSendInFlight: {}, lastSendFingerprint: '', lastSendStartedAt: 0,
   pendingPhoto: null,
   commentTrace: [],
@@ -302,7 +302,7 @@ function setSendingUi(isSending) {
   if (refs.commentInput) refs.commentInput.readOnly = Boolean(isSending);
 }
 function pushCommentTrace(event, payload) {
-  const allowed = { attachment_pick: 1, attachment_compress_start: 1, attachment_compress_ok: 1, comment_create_start: 1, comment_create_ok: 1, comment_create_error: 1, optimistic_comment_inserted: 1, optimistic_comment_replaced: 1, text_comment_send_queued: 1, text_comment_send_released: 1 };
+  const allowed = { attachment_pick: 1, attachment_compress_start: 1, attachment_compress_ok: 1, attachment_compress_error: 1, comment_create_start: 1, comment_create_ok: 1, comment_create_error: 1, optimistic_comment_inserted: 1, optimistic_comment_replaced: 1, text_comment_send_queued: 1, text_comment_send_released: 1, media_source_selected: 1, optimistic_media_inserted: 1, server_confirm_metadata_merged: 1, media_dom_preserved: 1, media_dom_replaced: 1, broken_runtime_media_skipped: 1, open_state_started: 1, open_state_resolved: 1, open_state_failed: 1, attachment_img_onerror: 1 };
   if (!allowed[String(event || '')]) return;
   const safe = payload && typeof payload === 'object' ? payload : {};
   const attachment = safe.attachment && typeof safe.attachment === 'object' ? safe.attachment : {};
@@ -344,8 +344,8 @@ function pushCommentTrace(event, payload) {
   state.commentTrace.push(item);
   if (state.commentTrace.length > 100) state.commentTrace = state.commentTrace.slice(-100);
 }
-function clearPendingPhoto() {
-  if (state.pendingPhoto && state.pendingPhoto.previewUrl) {
+function clearPendingPhoto(revokeObjectUrl = true) {
+  if (state.pendingPhoto && state.pendingPhoto.previewUrl && revokeObjectUrl) {
     try { URL.revokeObjectURL(state.pendingPhoto.previewUrl); } catch (_) {}
   }
   state.pendingPhoto = null;
@@ -536,33 +536,53 @@ window.__ADMINKIT_COMMENT_PHOTO_EVENT__ = function(eventName, node) {
   emitTraceEvent(eventName, { selectedSourceKind: kind, selectedSourceLength: src.length });
 };
 
-async function uploadCompressedFinalAttachment(packed) {
-  const clientUploadId = 'onepass_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-  const form = new FormData();
-  form.append('commentKey', state.commentKey || '');
-  form.append('clientUploadId', clientUploadId);
-  form.append('type', 'image');
-  form.append('fileName', packed.fileName || 'photo.jpg');
-  form.append('mimeType', packed.mimeType || 'image/jpeg');
-  form.append('size', String(Number(packed.size || 0) || 0));
-  form.append('photo', packed.blob, packed.fileName || 'photo.jpg');
-  const startedAt = Date.now();
-  emitTraceEvent('photo_upload_started', { clientUploadId, uploadSize: packed.size, mimeType: packed.mimeType, fileName: packed.fileName });
-  const response = await fetch('/api/comments/attachments/upload', { method: 'POST', cache: 'no-store', headers: { 'x-adminkit-photo-route': 'onepass-compressed-final-formdata' }, body: form });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok === false || !data.attachment) throw new Error(clean(data.userMessage || data.message || data.error) || 'Не удалось отправить фото. Попробуйте ещё раз.');
-  const attachment = Object.assign({}, data.attachment || {});
-  delete attachment.dataUrl; delete attachment.thumbDataUrl; delete attachment.previewDataUrl; delete attachment.base64;
-  attachment.type = 'image';
-  attachment.mimeType = clean(attachment.mimeType || attachment.mime || packed.mimeType || 'image/jpeg');
-  attachment.fileName = clean(attachment.fileName || attachment.name || packed.fileName || 'photo.jpg');
-  attachment.name = clean(attachment.name || attachment.fileName);
-  attachment.clientUploadId = clean(attachment.clientUploadId || clientUploadId);
-  attachment.localOnly = false;
-  attachment.inlineOnly = false;
-  attachment.previewOnly = false;
-  emitTraceEvent('photo_upload_ok', { clientUploadId, uploadId: attachment.uploadId || attachment.id || '', uploadSize: attachment.size || packed.size, serverTotalMs: Number(data.diagnostics && data.diagnostics.serverTotalMs || 0) || 0, durationMs: Date.now() - startedAt });
-  return attachment;
+function approxBytesFromDataUrl(dataUrl) {
+  const b64 = String(dataUrl || '').split(',')[1] || '';
+  return Math.floor((b64.length * 3) / 4);
+}
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('preview_dataurl_failed'));
+    reader.readAsDataURL(blob);
+  });
+}
+async function buildInlinePreviewDataUrlFromPacked(packed) {
+  const targetBytes = 72 * 1024;
+  if (!packed || !packed.blob) throw new Error('preview_blob_missing');
+  const direct = await blobToDataUrl(packed.blob);
+  if (approxBytesFromDataUrl(direct) <= targetBytes) return { dataUrl: direct, bytes: approxBytesFromDataUrl(direct), width: packed.width || 0, height: packed.height || 0, quality: packed.quality || 0, maxSide: packed.maxSide || 0 };
+  const objectUrl = URL.createObjectURL(packed.blob);
+  try {
+    const img = await loadImageElementFromObjectUrl(objectUrl);
+    const sourceW = Number(img.naturalWidth || img.width || packed.width || 0) || 0;
+    const sourceH = Number(img.naturalHeight || img.height || packed.height || 0) || 0;
+    if (!sourceW || !sourceH) throw new Error('preview_size_unknown');
+    let best = direct;
+    let bestMeta = { width: sourceW, height: sourceH, quality: packed.quality || 0, maxSide: packed.maxSide || 0 };
+    const maxSides = [640, 560, 480, 420, 360, 320, 280];
+    const qualities = [0.58, 0.52, 0.46, 0.4, 0.34, 0.28];
+    for (const maxSide of maxSides) {
+      const ratio = Math.max(sourceW, sourceH) > maxSide ? maxSide / Math.max(sourceW, sourceH) : 1;
+      const w = Math.max(1, Math.round(sourceW * ratio));
+      const h = Math.max(1, Math.round(sourceH * ratio));
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) continue;
+      ctx.drawImage(img, 0, 0, w, h);
+      for (const quality of qualities) {
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        const bytes = approxBytesFromDataUrl(dataUrl);
+        best = dataUrl; bestMeta = { width: w, height: h, quality, maxSide };
+        if (bytes && bytes <= targetBytes) return { dataUrl, bytes, ...bestMeta };
+      }
+    }
+    return { dataUrl: best, bytes: approxBytesFromDataUrl(best), ...bestMeta };
+  } finally {
+    try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+  }
 }
 async function buildPreviewOnlyAttachment() {
   if (!state.pendingPhoto) return [];
@@ -572,7 +592,29 @@ async function buildPreviewOnlyAttachment() {
     try { packed = await pending.compressPromise; } catch (_) { throw new Error('Не удалось обработать фото. Попробуйте другое изображение.'); }
   }
   if (!packed || !packed.blob) throw new Error('Не удалось отправить фото. Попробуйте ещё раз.');
-  return [await uploadCompressedFinalAttachment(packed)];
+  const preview = await buildInlinePreviewDataUrlFromPacked(packed);
+  if (!preview.dataUrl || preview.bytes > 80 * 1024) throw new Error('Не удалось отправить фото. Попробуйте ещё раз.');
+  const clientUploadId = 'inline_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  return [{
+    id: clientUploadId,
+    clientUploadId,
+    type: 'image',
+    kind: 'image',
+    mimeType: 'image/jpeg',
+    mime: 'image/jpeg',
+    fileName: clean(pending.fileName || packed.fileName || 'photo.jpg'),
+    name: clean(pending.fileName || packed.fileName || 'photo.jpg'),
+    size: Number(preview.bytes || packed.size || 0) || 0,
+    width: Number(preview.width || packed.width || 0) || 0,
+    height: Number(preview.height || packed.height || 0) || 0,
+    thumbDataUrl: preview.dataUrl,
+    previewDataUrl: preview.dataUrl,
+    dataUrl: preview.dataUrl,
+    previewOnly: true,
+    inlineOnly: true,
+    localOnly: false,
+    storage: 'inline-preview-clean-contract'
+  }];
 }
 function buildOpenStateUrl() {
   const q = new URLSearchParams();
@@ -625,20 +667,53 @@ function hideMiniStart() {
   if (wrap) wrap.style.display = 'flex';
   if (refs.composerCard) refs.composerCard.style.display = 'block';
 }
+function isRuntimeCommentUploadUrl(value) {
+  const raw = clean(value);
+  return Boolean(raw && raw.startsWith('/public/comment-uploads/'));
+}
+function isInlinePreviewSource(value) { return /^data:image\//i.test(String(value || '')) || /^blob:/i.test(String(value || '')); }
+function selectMediaSource(attachment) {
+  const att = attachment || {};
+  const inline = [
+    ['thumbDataUrl', clean(att.thumbDataUrl)],
+    ['previewDataUrl', clean(att.previewDataUrl)],
+    ['dataUrl', clean(att.dataUrl)]
+  ].find((x) => Boolean(x[1]));
+  if (inline) return { kind: inline[0], url: inline[1], broken: false, runtimeOnly: false };
+  const fallback = [
+    ['previewUrl', clean(att.previewUrl)],
+    ['url', clean(att.url)],
+    ['posterUrl', clean(att.posterUrl)]
+  ].find((x) => Boolean(x[1]));
+  if (!fallback) return { kind: '', url: '', broken: false, runtimeOnly: false };
+  const runtimeOnly = isRuntimeCommentUploadUrl(fallback[1]);
+  const broken = Boolean(att.brokenRuntimeOnly || att.runtimeOnlyBroken);
+  if (broken) return { kind: fallback[0], url: '', broken: true, runtimeOnly };
+  return { kind: fallback[0], url: fallback[1], broken: false, runtimeOnly };
+}
+function isImageAttachment(attachment, selectedUrl) {
+  const type = clean(attachment && (attachment.type || attachment.kind));
+  const mimeType = clean(attachment && (attachment.mimeType || attachment.mime));
+  const url = clean(selectedUrl || (attachment && (attachment.thumbDataUrl || attachment.previewDataUrl || attachment.dataUrl || attachment.previewUrl || attachment.url || attachment.posterUrl)));
+  return type === 'image' || /^image\//i.test(mimeType) || /\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i.test(url) || /^data:image\//i.test(url) || /^blob:/i.test(url);
+}
 function postMediaCandidates(source) {
   const post = source || {};
-  const lists = [post.sourceAttachments, post.attachments, post.media, post.photos, post.images].filter(Array.isArray);
+  const lists = [post.previewAttachments, post.sourceAttachments, post.attachments, post.media, post.photos, post.images].filter(Array.isArray);
   const out = [];
-  lists.forEach((list) => list.forEach((att) => {
-    const type = clean(att && (att.type || att.kind));
-    const mime = clean(att && (att.mimeType || att.mime));
-    const url = clean(att && (att.previewUrl || att.url || att.photoUrl || att.imageUrl || att.src));
-    if (!url) return;
-    if (type === 'image' || /^image\//i.test(mime) || /\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i.test(url)) out.push({ url, name: clean(att && (att.name || att.fileName)) || 'Фото поста' });
-  }));
-  ['photoUrl', 'imageUrl', 'mediaUrl', 'previewUrl'].forEach((key) => {
-    const url = clean(post[key]);
-    if (url && !out.some((x) => x.url === url)) out.push({ url, name: 'Фото поста' });
+  function addCandidate(att, defaultName) {
+    const selected = selectMediaSource(att || {});
+    if (selected.broken) { emitTraceEvent('broken_runtime_media_skipped', { scope: 'post', selectedSourceKind: selected.kind }); return; }
+    if (!selected.url) return;
+    if (isRuntimeCommentUploadUrl(selected.url) && selected.broken) return;
+    if (!isImageAttachment(att || {}, selected.url)) return;
+    if (!out.some((x) => x.url === selected.url)) out.push({ url: selected.url, name: clean(att && (att.name || att.fileName)) || defaultName || 'Фото поста' });
+  }
+  lists.forEach((list) => list.forEach((att) => addCandidate(att, 'Фото поста')));
+  ['thumbDataUrl', 'previewDataUrl', 'dataUrl', 'photoUrl', 'imageUrl', 'mediaUrl', 'previewUrl'].forEach((key) => {
+    const value = clean(post[key]);
+    if (!value) return;
+    addCandidate({ type: 'image', name: 'Фото поста', [key]: value, runtimeOnly: isRuntimeCommentUploadUrl(value) }, 'Фото поста');
   });
   return out.slice(0, 4);
 }
@@ -684,26 +759,21 @@ function applyMeta(meta) {
 }
 function renderAttachment(attachment) {
   const type = clean(attachment && (attachment.type || attachment.kind));
-  const mimeType = clean(attachment && attachment.mimeType);
+  const mimeType = clean(attachment && (attachment.mimeType || attachment.mime));
   const name = clean(attachment && (attachment.name || attachment.fileName)) || 'фото';
-  const candidates = [
-    ['thumbDataUrl', clean(attachment && attachment.thumbDataUrl)],
-    ['previewDataUrl', clean(attachment && attachment.previewDataUrl)],
-    ['dataUrl', clean(attachment && attachment.dataUrl)],
-    ['url', clean(attachment && attachment.url)],
-    ['previewUrl', clean(attachment && attachment.previewUrl)],
-    ['posterUrl', clean(attachment && attachment.posterUrl)]
-  ];
-  const selected = candidates.find((x) => Boolean(x[1])) || ['', ''];
-  const selectedSourceKind = selected[0] || '';
-  const url = selected[1] || '';
-  const isImage = type === 'image' || /^image\//i.test(mimeType) || /\.(jpg|jpeg|png|webp|gif)$/i.test(url);
-  pushCommentTrace('attachment_render_source_selected', { fileName: name, mimeType, selectedSourceKind, selectedSourceLength: url.length, hasThumbDataUrl: Boolean(clean(attachment && attachment.thumbDataUrl)), hasPreviewDataUrl: Boolean(clean(attachment && attachment.previewDataUrl)), hasDataUrl: Boolean(clean(attachment && attachment.dataUrl)), hasPreviewUrl: Boolean(clean(attachment && attachment.previewUrl)), hasUrl: Boolean(clean(attachment && attachment.url)) });
-  if (isImage && !url) {
-    pushCommentTrace('attachment_render_missing_url', { attachment: { hasUrl: Boolean(clean(attachment && attachment.url)), hasPreviewUrl: Boolean(clean(attachment && attachment.previewUrl)), hasDataUrl: Boolean(clean(attachment && (attachment.dataUrl || attachment.previewDataUrl || attachment.thumbDataUrl))), mimeType, fileName: name, selectedSourceKind } });
-    emitTraceEvent('attachment_render_missing_url', { attachment: { hasUrl: Boolean(clean(attachment && attachment.url)), hasPreviewUrl: Boolean(clean(attachment && attachment.previewUrl)), hasDataUrl: Boolean(clean(attachment && (attachment.dataUrl || attachment.previewDataUrl || attachment.thumbDataUrl))), mimeType, fileName: name, selectedSourceKind } });
-    return '<div class="comment-attachment comment-attachment-missing">Фото недоступно</div>';
+  const selected = selectMediaSource(attachment || {});
+  const selectedSourceKind = selected.kind || '';
+  const url = selected.url || '';
+  const isImage = isImageAttachment(attachment || {}, url);
+  const tracePayload = { fileName: name, mimeType, selectedSourceKind, selectedSourceLength: url.length, hasThumbDataUrl: Boolean(clean(attachment && attachment.thumbDataUrl)), hasPreviewDataUrl: Boolean(clean(attachment && attachment.previewDataUrl)), hasDataUrl: Boolean(clean(attachment && attachment.dataUrl)), hasPreviewUrl: Boolean(clean(attachment && attachment.previewUrl)), hasUrl: Boolean(clean(attachment && attachment.url)), brokenRuntimeOnly: Boolean(selected.broken), runtimeOnly: Boolean(selected.runtimeOnly), runtimeFileExists: Boolean(attachment && attachment.runtimeFileExists), inlinePreviewUnavailable: Boolean(attachment && attachment.inlinePreviewUnavailable) };
+  pushCommentTrace('media_source_selected', tracePayload);
+  emitTraceEvent('media_source_selected', tracePayload);
+  if (selected.broken) {
+    pushCommentTrace('broken_runtime_media_skipped', tracePayload);
+    emitTraceEvent('broken_runtime_media_skipped', tracePayload);
+    return '';
   }
+  if (isImage && !url) return '<div class="comment-attachment comment-attachment-missing">Фото недоступно</div>';
   if (!url) return '';
   if (isImage) return '<div class="comment-attachment comment-attachment-image"><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(name) + '" loading="lazy" data-attachment-kind="' + escapeHtml(selectedSourceKind || 'unknown') + '" onerror="window.__ADMINKIT_COMMENT_PHOTO_EVENT__&&window.__ADMINKIT_COMMENT_PHOTO_EVENT__(\'attachment_img_onerror\',this)"></div>';
   return '';
@@ -720,33 +790,123 @@ function visibleComments() {
   if (!query) return state.comments;
   return state.comments.filter((comment) => searchableComment(comment).includes(query));
 }
+function commentDomKey(comment) { return clean(comment && (comment.clientCommentId || comment.id)); }
+function cssEscapeValue(value) { try { return window.CSS && CSS.escape ? CSS.escape(String(value || '')) : String(value || '').replace(/[^a-zA-Z0-9_-]/g, '\\$&'); } catch (_) { return String(value || ''); } }
+function findCommentRow(comment) {
+  if (!refs.commentsList || !comment) return null;
+  const key = commentDomKey(comment);
+  const id = clean(comment.id);
+  const clientId = clean(comment.clientCommentId);
+  const selectors = [];
+  if (key) selectors.push('[data-comment-key="' + cssEscapeValue(key) + '"]');
+  if (clientId) selectors.push('[data-client-comment-id="' + cssEscapeValue(clientId) + '"]');
+  if (id) selectors.push('[data-comment-id="' + cssEscapeValue(id) + '"]');
+  for (const selector of selectors) {
+    try { const row = refs.commentsList.querySelector(selector); if (row) return row; } catch (_) {}
+  }
+  return null;
+}
+function renderedAttachmentsHtml(comment) {
+  return (Array.isArray(comment.attachments) ? comment.attachments : []).map(renderAttachment).join('');
+}
+function commentHasRenderableContent(comment, renderedAttachments) {
+  const text = clean(comment && (comment.text || comment.body || ''));
+  const reactions = Array.isArray(comment && comment.reactionDetails) && comment.reactionDetails.length;
+  const sticker = clean(comment && comment.type) === 'sticker';
+  const reply = Boolean(comment && comment.replyTo);
+  const attachments = renderedAttachments !== undefined ? renderedAttachments : renderedAttachmentsHtml(comment || {});
+  return Boolean(text || attachments || reactions || sticker || reply);
+}
+function commentRowHtml(comment, renderedAttachments) {
+  const userId = clean(comment.userId || comment.user_id || '');
+  const userName = clean(comment.userName || comment.user_name || comment.name || 'Гость');
+  const own = Boolean(state.currentUserId && userId && String(state.currentUserId) === String(userId));
+  const text = clean(comment.text || comment.body || '');
+  const time = formatTime(comment.createdAt || comment.created_at || comment.updatedAt || comment.updated_at);
+  const attachments = renderedAttachments !== undefined ? renderedAttachments : renderedAttachmentsHtml(comment);
+  const reply = comment.replyTo ? ('<div class="comment-reply-inline"><div class="reply-author">' + escapeHtml(clean(comment.replyTo.userName || 'автора')) + '</div><div class="reply-text">' + escapeHtml(clean(comment.replyTo.text).slice(0, 80) || 'Фото') + '</div></div>') : '';
+  const reactionDetails = Array.isArray(comment.reactionDetails) ? comment.reactionDetails : [];
+  const reactions = reactionDetails.length ? ('<div class="comment-reactions">' + reactionDetails.map((r) => '<button type="button" class="reaction-pill' + (r.active ? ' active' : '') + '" data-reaction-emoji="' + escapeHtml(r.emoji || '') + '">' + escapeHtml(r.emoji || '') + ' ' + escapeHtml(String(r.count || 0)) + '</button>').join('') + '</div>') : '';
+  const avatarUrl = clean(comment.avatarUrl || comment.avatar_url || '');
+  const avatar = own ? '' : '<div class="comment-avatar">' + (avatarUrl ? ('<img src="' + escapeHtml(avatarUrl) + '" alt="' + escapeHtml(userName) + '" loading="lazy">') : ('<span>' + escapeHtml(userName.charAt(0).toUpperCase() || 'Г') + '</span>')) + '</div>';
+  const author = own ? '' : '<div class="comment-author">' + escapeHtml(userName) + '</div>';
+  const ownClass = own ? ' own' : '';
+  const key = commentDomKey(comment);
+  const id = clean(comment.id || '');
+  const clientId = clean(comment.clientCommentId || '');
+  const hasLocalImage = Array.isArray(comment.attachments) && comment.attachments.some((a) => /^blob:/i.test(clean(a && (a.thumbDataUrl || a.previewDataUrl || a.dataUrl || a.previewUrl || a.url))));
+  return '<div class="comment-row ' + (own ? 'own' : 'other') + '" data-comment-key="' + escapeHtml(key) + '" data-comment-id="' + escapeHtml(id) + '" data-client-comment-id="' + escapeHtml(clientId) + '"' + (hasLocalImage ? ' data-media-src-locked="1"' : '') + '>' + avatar + '<div class="comment-bubble' + ownClass + '">' + author + reply + (text ? '<div class="comment-text">' + escapeHtml(text) + '</div>' : '') + attachments + reactions + '<div class="comment-time">' + escapeHtml(time) + '</div></div></div>';
+}
+function applyRowMetadata(row, comment) {
+  if (!row || !comment) return;
+  const key = commentDomKey(comment);
+  const id = clean(comment.id || '');
+  const clientId = clean(comment.clientCommentId || '');
+  if (key) row.setAttribute('data-comment-key', key);
+  row.setAttribute('data-comment-id', id);
+  if (clientId) row.setAttribute('data-client-comment-id', clientId);
+  if (clean(comment.sendStatus) !== 'sending') row.removeAttribute('data-send-status');
+  const time = row.querySelector('.comment-time');
+  if (time) time.textContent = formatTime(comment.createdAt || comment.created_at || comment.updatedAt || comment.updated_at);
+}
+function updateExistingRow(row, comment, renderedAttachments) {
+  const oldImg = row.querySelector('.comment-attachment-image img');
+  const oldSrc = clean(oldImg && oldImg.getAttribute('src'));
+  const locked = clean(row.getAttribute('data-media-src-locked')) === '1' || /^blob:/i.test(oldSrc);
+  const tmp = document.createElement('div');
+  tmp.innerHTML = commentRowHtml(comment, renderedAttachments);
+  const next = tmp.firstElementChild;
+  if (!next) return row;
+  const newImg = next.querySelector('.comment-attachment-image img');
+  if (oldImg && newImg && (locked || clean(comment.clientCommentId))) {
+    try { newImg.parentNode.replaceChild(oldImg, newImg); pushCommentTrace('media_dom_preserved', { clientCommentId: clean(comment.clientCommentId), selectedSourceLength: oldSrc.length }); emitTraceEvent('media_dom_preserved', { clientCommentId: clean(comment.clientCommentId), selectedSourceLength: oldSrc.length }); } catch (_) { pushCommentTrace('media_dom_replaced', { clientCommentId: clean(comment.clientCommentId) }); emitTraceEvent('media_dom_replaced', { clientCommentId: clean(comment.clientCommentId) }); }
+  } else if (oldImg || newImg) {
+    pushCommentTrace('media_dom_replaced', { clientCommentId: clean(comment.clientCommentId) });
+    emitTraceEvent('media_dom_replaced', { clientCommentId: clean(comment.clientCommentId) });
+  }
+  row.className = next.className;
+  Array.from(row.attributes).forEach((attr) => row.removeAttribute(attr.name));
+  Array.from(next.attributes).forEach((attr) => row.setAttribute(attr.name, attr.value));
+  row.replaceChildren(...Array.from(next.childNodes));
+  if (locked || /^blob:/i.test(oldSrc)) row.setAttribute('data-media-src-locked', '1');
+  return row;
+}
 function renderComments(list) {
   if (Array.isArray(list)) state.comments = list;
   const all = Array.isArray(state.comments) ? state.comments : [];
   const visible = visibleComments();
   const query = normalizeSearch(state.searchQuery || '');
+  const prepared = [];
+  visible.forEach((comment) => {
+    const attachments = renderedAttachmentsHtml(comment || {});
+    if (!commentHasRenderableContent(comment || {}, attachments)) return;
+    prepared.push({ comment, attachments });
+  });
   if (refs.emptyState) {
-    refs.emptyState.textContent = visible.length ? '' : (query ? 'Ничего не найдено' : 'Комментариев пока нет');
-    refs.emptyState.style.display = visible.length ? 'none' : 'block';
+    if (!state.openStateResolved && !query) {
+      refs.emptyState.textContent = 'Загрузка комментариев…';
+      refs.emptyState.style.display = 'block';
+    } else {
+      refs.emptyState.textContent = prepared.length ? '' : (query ? 'Ничего не найдено' : 'Комментариев пока нет');
+      refs.emptyState.style.display = prepared.length ? 'none' : 'block';
+    }
   }
   if (!refs.commentsList) return;
-  refs.commentsList.innerHTML = visible.map((comment) => {
-    const userId = clean(comment.userId || comment.user_id || '');
-    const userName = clean(comment.userName || comment.user_name || comment.name || 'Гость');
-    const own = Boolean(state.currentUserId && userId && String(state.currentUserId) === String(userId));
-    const text = clean(comment.text || comment.body || '');
-    const time = formatTime(comment.createdAt || comment.created_at || comment.updatedAt || comment.updated_at);
-    const attachments = (Array.isArray(comment.attachments) ? comment.attachments : []).map(renderAttachment).join('');
-    const reply = comment.replyTo ? ('<div class="comment-reply-inline"><div class="reply-author">' + escapeHtml(clean(comment.replyTo.userName || 'автора')) + '</div><div class="reply-text">' + escapeHtml(clean(comment.replyTo.text).slice(0, 80) || 'Фото') + '</div></div>') : '';
-    const reactionDetails = Array.isArray(comment.reactionDetails) ? comment.reactionDetails : [];
-    const reactions = reactionDetails.length ? ('<div class="comment-reactions">' + reactionDetails.map((r) => '<button type="button" class="reaction-pill' + (r.active ? ' active' : '') + '" data-reaction-emoji="' + escapeHtml(r.emoji || '') + '">' + escapeHtml(r.emoji || '') + ' ' + escapeHtml(String(r.count || 0)) + '</button>').join('') + '</div>') : '';
-    const avatarUrl = clean(comment.avatarUrl || comment.avatar_url || '');
-    const avatar = own ? '' : '<div class="comment-avatar">' + (avatarUrl ? ('<img src="' + escapeHtml(avatarUrl) + '" alt="' + escapeHtml(userName) + '" loading="lazy">') : ('<span>' + escapeHtml(userName.charAt(0).toUpperCase() || 'Г') + '</span>')) + '</div>';
-    const author = own ? '' : '<div class="comment-author">' + escapeHtml(userName) + '</div>';
-    const ownClass = own ? ' own' : '';
-    return '<div class="comment-row ' + (own ? 'own' : 'other') + '" data-comment-id="' + escapeHtml(comment.id || '') + '">' + avatar + '<div class="comment-bubble' + ownClass + '">' + author + reply + (text ? '<div class="comment-text">' + escapeHtml(text) + '</div>' : '') + attachments + reactions + '<div class="comment-time">' + escapeHtml(time) + '</div></div></div>';
-  }).join('');
-  if (refs.commentsCountPill) refs.commentsCountPill.textContent = query ? (visible.length + ' из ' + pluralComments(all.length)) : pluralComments(all.length);
+  const keep = new Set();
+  prepared.forEach(({ comment, attachments }) => {
+    const key = commentDomKey(comment);
+    let row = findCommentRow(comment);
+    if (row) updateExistingRow(row, comment, attachments);
+    else {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = commentRowHtml(comment, attachments);
+      row = tmp.firstElementChild;
+      if (row) refs.commentsList.appendChild(row);
+    }
+    if (row) { applyRowMetadata(row, comment); keep.add(row); }
+  });
+  Array.from(refs.commentsList.children || []).forEach((row) => { if (!keep.has(row)) row.remove(); });
+  if (refs.commentsCountPill) refs.commentsCountPill.textContent = query ? (prepared.length + ' из ' + pluralComments(all.length)) : pluralComments(all.length);
 }
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🔥', '😮', '😢', '👏'];
 const MORE_REACTIONS = ['😀', '😍', '🤔', '🙏', '😡', '👎', '🎯', '💯', '🤝', '🤣'];
@@ -782,33 +942,51 @@ async function toggleReaction(commentId, emoji) {
     await refreshOpenState();
   } catch (error) { emitTraceEvent('reaction_select_error', { commentId, emoji, error: clean(error && error.message) || 'reaction_toggle_failed' }); }
 }
+function mergeOpenStateComments(serverList) {
+  const list = Array.isArray(serverList) ? serverList : [];
+  const serverKeys = new Set();
+  list.forEach((srv) => {
+    const id = clean(srv && srv.id);
+    const clientId = clean(srv && srv.clientCommentId);
+    if (id) serverKeys.add(id);
+    if (clientId) serverKeys.add(clientId);
+  });
+  const optimistic = (Array.isArray(state.comments) ? state.comments : []).filter((c) => {
+    if (!c || !c.clientCommentId || c.sendStatus === 'error') return false;
+    const id = clean(c.id);
+    const clientId = clean(c.clientCommentId);
+    return !serverKeys.has(id) && !serverKeys.has(clientId);
+  });
+  return list.concat(optimistic);
+}
 function renderOpenState(data) {
   data = data || {};
   state.launchMode = 'comments';
   state.hasCommentIdentity = true;
+  state.openStateResolved = true;
   hideMiniStart();
   applyMeta(data.meta || {});
-  const list = Array.isArray(data.comments) ? data.comments : [];
-  const optimistic = (Array.isArray(state.comments) ? state.comments : []).filter((c) => c && c.clientCommentId && c.sendStatus !== 'error' && !list.some((srv) => String(srv.id||'')===String(c.id||'')));
-  const mergedList = list.concat(optimistic);
+  const mergedList = mergeOpenStateComments(data.comments || []);
   const count = Number(data.commentsCount || mergedList.length || 0) || 0;
   state.commentsCount = count;
   const fingerprint = computeCommentsFingerprint(mergedList);
-  if (fingerprint === state.lastRenderFingerprint) {
-    pushCommentTrace('comment_render_skip_unchanged', { status: 'unchanged', uploadSize: mergedList.length });
-    emitTraceEvent('comment_render_skip_unchanged', { size: mergedList.length });
-  } else {
+  if (fingerprint !== state.lastRenderFingerprint) {
     state.lastRenderFingerprint = fingerprint;
     renderComments(mergedList);
-    pushCommentTrace('comment_render_apply', { status: 'applied', uploadSize: mergedList.length });
     emitTraceEvent('comment_render_apply', { size: mergedList.length });
+  } else {
+    renderComments(mergedList);
+    emitTraceEvent('comment_render_skip_unchanged', { size: mergedList.length });
   }
+  pushCommentTrace('open_state_resolved', { status: 'ok', uploadSize: mergedList.length });
+  emitTraceEvent('open_state_resolved', { status: 'ok', commentsCount: count });
   if (refs.commentsCountPill && !state.searchQuery) refs.commentsCountPill.textContent = pluralComments(count);
 }
 async function refreshOpenState() {
   if (state.launchMode !== 'comments' || state.requestInFlight) return;
   state.requestInFlight = true;
-  try { renderOpenState(await loadOpenStateAsync()); } catch (_) {}
+  try { renderOpenState(await loadOpenStateAsync()); }
+  catch (error) { pushCommentTrace('open_state_failed', { status: 'failed', error: clean(error && error.message) }); emitTraceEvent('open_state_failed', { status: 'failed', error: clean(error && error.message) }); }
   finally { state.requestInFlight = false; }
 }
 function outgoingUserName() { return clean(state.currentUserName || (refs.nameInput && refs.nameInput.value) || 'Гость'); }
@@ -884,12 +1062,13 @@ async function sendComment() {
   state.lastSendStartedAt = Date.now();
   const optimisticCommentId = 'client_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
   const preview = clean(state.pendingPhoto && state.pendingPhoto.previewUrl);
-  const optimisticAttachments = hasPhoto ? [{ type: 'image', mimeType: clean(state.pendingPhoto && state.pendingPhoto.mimeType) || 'image/jpeg', fileName: clean(state.pendingPhoto && state.pendingPhoto.fileName) || 'photo.jpg', previewUrl: preview, url: preview }] : [];
+  const optimisticAttachments = hasPhoto ? [{ type: 'image', kind: 'image', mimeType: clean(state.pendingPhoto && state.pendingPhoto.mimeType) || 'image/jpeg', fileName: clean(state.pendingPhoto && state.pendingPhoto.fileName) || 'photo.jpg', thumbDataUrl: preview, previewDataUrl: preview, previewOnly: true, inlineOnly: true, localOnly: true }] : [];
   const optimisticComment = { id: optimisticCommentId, clientCommentId: optimisticCommentId, userId: outgoingUserId(), userName: outgoingUserName(), text, own: true, createdAt: new Date().toISOString(), sendStatus: 'sending', attachments: optimisticAttachments };
   state.comments = (state.comments || []).concat([optimisticComment]);
   pushCommentTrace('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
   if (textOnly) pushCommentTrace('text_comment_send_queued', { clientCommentId: optimisticCommentId, status: 'queued' });
   emitTraceEvent('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
+  if (hasPhoto) { pushCommentTrace('optimistic_media_inserted', { clientCommentId: optimisticCommentId, status: 'sending', selectedSourceKind: 'objectUrl', selectedSourceLength: preview.length }); emitTraceEvent('optimistic_media_inserted', { clientCommentId: optimisticCommentId, status: 'sending', selectedSourceKind: 'objectUrl', selectedSourceLength: preview.length }); }
   if (refs.commentInput) refs.commentInput.value = '';
   autoResizeComposerInput();
   renderComments();
@@ -900,7 +1079,7 @@ async function sendComment() {
     pushCommentTrace('comment_create_start', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length });
     const response = await fetch('/api/comments', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commentKey: state.commentKey, userId: outgoingUserId(), userName: outgoingUserName(), avatarUrl: state.currentUserAvatarUrl || '', text, replyToId: state.replyToId || '', attachments })
+      body: JSON.stringify({ commentKey: state.commentKey, clientCommentId: optimisticCommentId, userId: outgoingUserId(), userName: outgoingUserName(), avatarUrl: state.currentUserAvatarUrl || '', text, replyToId: state.replyToId || '', attachments })
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) {
@@ -923,14 +1102,17 @@ async function sendComment() {
         if (!hasRenderablePhotoSource(att)) return Object.assign({}, att, { previewUrl: clean(fallback.previewUrl || fallback.url), url: clean(fallback.url || fallback.previewUrl) });
         return att;
       });
+      mergedComment.clientCommentId = clean(mergedComment.clientCommentId || optimisticCommentId);
       state.comments = (state.comments || []).map((x) => (x.clientCommentId === optimisticCommentId || x.id === optimisticCommentId) ? mergedComment : x);
       pushCommentTrace('optimistic_comment_replaced', { clientCommentId: optimisticCommentId, status: 'ok' });
+      pushCommentTrace('server_confirm_metadata_merged', { clientCommentId: optimisticCommentId, status: 'ok' });
       if (textOnly) pushCommentTrace('text_comment_send_released', { clientCommentId: optimisticCommentId, status: 'ok' });
       emitTraceEvent('optimistic_comment_replaced', { clientCommentId: optimisticCommentId, status: 'ok' });
-      renderComments();
-      scrollToBottom(true);
+      emitTraceEvent('server_confirm_metadata_merged', { clientCommentId: optimisticCommentId, serverCommentId: clean(mergedComment.id), status: 'ok' });
+      if (hasPhoto) { const row = findCommentRow({ id: optimisticCommentId, clientCommentId: optimisticCommentId }); if (row) { applyRowMetadata(row, mergedComment); const img = row.querySelector('.comment-attachment-image img'); const src = clean(img && img.getAttribute('src')); pushCommentTrace('media_dom_preserved', { clientCommentId: optimisticCommentId, selectedSourceLength: src.length }); emitTraceEvent('media_dom_preserved', { clientCommentId: optimisticCommentId, selectedSourceLength: src.length }); } else renderComments(); }
+      else renderComments();
     }
-    if (hasPhoto) clearPendingPhoto();
+    if (hasPhoto) clearPendingPhoto(false);
     clearReplyComposer();
     state.lastSendFingerprint = '';
     setInlineStatus('', false);
@@ -1035,7 +1217,16 @@ window.__ADMINKIT_COMMENTS_API__ = {
   refresh: () => refreshOpenState(),
   clearReply: () => clearReplyComposer()
 };
-function showDiscussionError() {
+function showDiscussionLoading() {
+  hideMiniStart();
+  state.launchMode = 'comments';
+  applyMeta({ postTitle: state.title || (state.postId ? ('Post ' + state.postId) : 'Загрузка…') });
+  if (refs.emptyState) { refs.emptyState.textContent = 'Загрузка комментариев…'; refs.emptyState.style.display = 'block'; }
+  if (refs.postError) { refs.postError.textContent = ''; refs.postError.style.display = 'none'; }
+  if (refs.commentsCountPill) refs.commentsCountPill.textContent = '';
+}
+function showDiscussionError(error) {
+  state.openStateResolved = true;
   hideMiniStart();
   applyMeta({ postTitle: state.title || (state.postId ? ('Post ' + state.postId) : '') });
   renderComments([]);
@@ -1044,30 +1235,35 @@ function showDiscussionError() {
     refs.postError.textContent = 'Не удалось определить пост. Обновите экран.';
     refs.postError.style.display = 'block';
   }
+  pushCommentTrace('open_state_failed', { status: 'failed', error: clean(error && error.message || error) });
+  emitTraceEvent('open_state_failed', { status: 'failed', error: clean(error && error.message || error) });
 }
-function boot() {
+async function boot() {
   initBridgeUi();
   bindEvents();
   if (state.currentUserName && refs.nameInput) { refs.nameInput.value = state.currentUserName; refs.nameInput.readOnly = true; refs.nameInput.style.display = 'none'; }
   if (state.currentUserAvatarUrl && refs.composerAvatar) { refs.composerAvatar.src = state.currentUserAvatarUrl; refs.composerAvatar.style.display = 'block'; if (refs.composerAvatarFallback) refs.composerAvatarFallback.style.display = 'none'; }
-
-  const initial = loadOpenStateSync();
-  window.__ADMINKIT_CC7_5_55_INITIAL__ = initial;
-  window.__ADMINKIT_CC7_5_53_INITIAL__ = initial;
-  window.__ADMINKIT_CC7_5_47_INITIAL__ = initial;
-  window.__ADMINKIT_CC7_5_6_INITIAL__ = initial;
-  window.__ADMINKIT_CC7_5_3_INITIAL__ = initial;
-  window.__ADMINKIT_CC7_2_INITIAL__ = initial;
   syncCommentsBottomInset();
-  if (initial && initial.ok && initial.meta) {
-    renderOpenState(initial);
-    state.pollTimer = setInterval(refreshOpenState, 5000);
-    return;
-  }
 
   if (state.hasCommentIdentity || state.commentKey || state.handoff || state.channelId || state.postId || state.title) {
-    showDiscussionError();
-    state.pollTimer = setInterval(refreshOpenState, 5000);
+    showDiscussionLoading();
+    state.openStateStarted = true;
+    pushCommentTrace('open_state_started', { status: 'started' });
+    emitTraceEvent('open_state_started', { status: 'started' });
+    try {
+      const initial = await loadOpenStateAsync();
+      window.__ADMINKIT_CC7_5_55_INITIAL__ = initial;
+      window.__ADMINKIT_CC7_5_53_INITIAL__ = initial;
+      window.__ADMINKIT_CC7_5_47_INITIAL__ = initial;
+      window.__ADMINKIT_CC7_5_6_INITIAL__ = initial;
+      window.__ADMINKIT_CC7_5_3_INITIAL__ = initial;
+      window.__ADMINKIT_CC7_2_INITIAL__ = initial;
+      renderOpenState(initial);
+      state.pollTimer = setInterval(refreshOpenState, 5000);
+    } catch (error) {
+      showDiscussionError(error);
+      state.pollTimer = setInterval(refreshOpenState, 5000);
+    }
     return;
   }
 
