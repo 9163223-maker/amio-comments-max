@@ -1,16 +1,63 @@
 :root { --ak-composer-h: 112px; }
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden !important;
+}
 body.ak-comments-mobile-ux-pr97 {
-  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden !important;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+}
+body.ak-comments-mobile-ux-pr97 .page,
+body.ak-comments-mobile-ux-pr97 #commentsWrap,
+body.ak-comments-mobile-ux-pr97 #commentsList,
+body.ak-comments-mobile-ux-pr97 .topbar,
+body.ak-comments-mobile-ux-pr97 .post-card,
+body.ak-comments-mobile-ux-pr97 .discussion-label-wrap,
+body.ak-comments-mobile-ux-pr97 .composer,
+body.ak-comments-mobile-ux-pr97 .composer-shell,
+body.ak-comments-mobile-ux-pr97 .composer-row,
+body.ak-comments-mobile-ux-pr97 .composer-input-shell {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
 }
 body.ak-comments-mobile-ux-pr97 .page {
-  padding-bottom: calc(var(--ak-composer-h, 112px) + 62px + env(safe-area-inset-bottom, 0px)) !important;
+  width: 100% !important;
+  padding-bottom: 0 !important;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
 }
 body.ak-comments-mobile-ux-pr97 #commentsWrap {
-  scroll-padding-bottom: calc(var(--ak-composer-h, 112px) + 54px + env(safe-area-inset-bottom, 0px));
-  min-height: calc(100vh - 190px);
+  scroll-padding-bottom: 18px;
+  min-height: 0;
+  overscroll-behavior: contain;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 body.ak-comments-mobile-ux-pr97 #commentsList {
-  padding-bottom: calc(var(--ak-composer-h, 112px) + 44px + env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: 14px !important;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+}
+body.ak-comments-mobile-ux-pr97 .comment-row,
+body.ak-comments-mobile-ux-pr97 .comment-bubble,
+body.ak-comments-mobile-ux-pr97 .bubble-wrap,
+body.ak-comments-mobile-ux-pr97 .comment-attachment,
+body.ak-comments-mobile-ux-pr97 .comment-attachment-image,
+body.ak-comments-mobile-ux-pr97 .post-original-media,
+body.ak-comments-mobile-ux-pr97 .post-original-media-img {
+  max-width: 100% !important;
+}
+body.ak-comments-mobile-ux-pr97 .comment-attachment-image img,
+body.ak-comments-mobile-ux-pr97 .post-original-media-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
 }
 body.ak-comments-mobile-ux-pr97 .composer {
   position: fixed !important;
@@ -19,9 +66,12 @@ body.ak-comments-mobile-ux-pr97 .composer {
   bottom: max(10px, calc(env(safe-area-inset-bottom, 0px) + 10px)) !important;
   z-index: 80 !important;
   transform: none !important;
-  max-width: none !important;
   width: auto !important;
+  max-width: calc(100vw - 20px) !important;
+  margin: 0 !important;
   pointer-events: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
 }
 body.ak-comments-mobile-ux-pr97 .composer-shell {
   border-radius: 24px;
@@ -55,7 +105,7 @@ body.ak-comments-mobile-ux-pr97 .comment-attachment-image img {
   image-rendering: auto;
 }
 body.ak-comments-mobile-ux-pr97 .comment-row:last-child {
-  scroll-margin-bottom: calc(var(--ak-composer-h, 112px) + 56px + env(safe-area-inset-bottom, 0px));
+  scroll-margin-bottom: 18px;
 }
 @media (min-width: 781px) {
   body.ak-comments-mobile-ux-pr97 .composer {
