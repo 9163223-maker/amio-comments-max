@@ -1,12 +1,16 @@
 ;(() => {
   'use strict';
 
-  const RUNTIME = 'CC8.3.46-PR97-COMMENTS-MOBILE-UX-PREVIEW';
+  const RUNTIME = 'CC8.3.47-PR97-COMMENTS-MOBILE-UX-HARDENED';
   const CACHE_TTL_MS = 60 * 60 * 1000;
+  const FIRST_EMPTY_GRACE_MS = 15000;
   const MARKER = '__ADMINKIT_PR97_COMMENTS_MOBILE_UX_PREVIEW__';
   if (window[MARKER]) return;
   window[MARKER] = true;
   window.__ADMINKIT_COMMENTS_MOBILE_UX_RUNTIME__ = RUNTIME;
+
+  const bootAt = Date.now();
+  let lastNonEmptySnapshot = null;
 
   const clean = (v) => String(v || '').replace(/\s+/g, ' ').trim();
   const esc = (v) => String(v || '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch]));
@@ -54,6 +58,16 @@
     } catch (_) {}
     try { return clean(new URL(location.href).searchParams.get('commentKey') || ''); } catch (_) { return ''; }
   }
+  function inCommentsMode() {
+    try {
+      const state = window.__ADMINKIT_CC7_5_55_STATE__ || window.__ADMINKIT_CC7_5_53_STATE__ || window.__ADMINKIT_CC7_2_STATE__ || {};
+      if (state.launchMode === 'comments' || state.hasCommentIdentity || state.commentKey || state.handoff || state.channelId || state.postId) return true;
+    } catch (_) {}
+    try {
+      const s = String(location.href || '');
+      return /(?:commentKey|handoff|startapp|start_param|WebAppStartParam|payload|channelId|postId|messageId)=/i.test(s) || /(?:cp|ck)_-?\d{3,}_-?\d{1,}/i.test(s);
+    } catch (_) { return false; }
+  }
 
   const originalFetch = window.fetch;
   if (typeof originalFetch === 'function' && !window.__ADMINKIT_PR97_OPEN_STATE_FETCH_GUARD__) {
@@ -71,16 +85,8 @@
           }
           const cached = readJsonCache(key);
           if (!cached || !Array.isArray(cached.comments) || !cached.comments.length) return;
-          const patched = Object.assign({}, data, {
-            comments: cached.comments,
-            commentsCount: Math.max(Number(data.commentsCount || 0) || 0, cached.comments.length),
-            clientPatchedTransientEmpty: true,
-            clientPatchedBy: RUNTIME
-          });
-          trace('open_state_transient_empty_patched', { commentKey: key, cachedCount: cached.comments.length });
-          return patched;
+          trace('open_state_transient_empty_seen', { commentKey: key, cachedCount: cached.comments.length });
         }).catch(() => {});
-        // The async clone above is for cache warming. To actually patch the response we need a second clone synchronously in the promise chain.
         return response.clone().json().then((data) => {
           if (!data || data.ok === false) return response;
           const list = Array.isArray(data.comments) ? data.comments : [];
@@ -93,6 +99,7 @@
             clientPatchedTransientEmpty: true,
             clientPatchedBy: RUNTIME
           });
+          trace('open_state_transient_empty_patched', { commentKey: key, cachedCount: cached.comments.length });
           return new Response(JSON.stringify(patched), {
             status: response.status,
             statusText: response.statusText,
@@ -140,6 +147,8 @@
         }
         doc.scrollTop = doc.scrollHeight;
         window.scrollTo(0, document.body.scrollHeight || doc.scrollHeight);
+        const { commentsWrap } = getEls();
+        if (commentsWrap) commentsWrap.scrollTop = commentsWrap.scrollHeight;
       } catch (_) {}
     };
     requestAnimationFrame(run);
@@ -147,20 +156,34 @@
     setTimeout(run, 260);
   }
 
+  function rememberNonEmptyHtml() {
+    const key = currentCommentKey();
+    const { commentsList, count } = getEls();
+    if (!commentsList || !commentsList.children.length) return;
+    lastNonEmptySnapshot = {
+      key,
+      at: Date.now(),
+      html: commentsList.innerHTML,
+      count: clean(count && count.textContent)
+    };
+  }
   function cacheCurrentHtml() {
     const key = currentCommentKey();
     const { commentsList, count } = getEls();
     if (!key || !commentsList || !commentsList.children.length) return;
     try {
-      sessionStorage.setItem(htmlCacheKey(key), JSON.stringify({
+      const item = {
         at: Date.now(),
         html: commentsList.innerHTML,
         count: clean(count && count.textContent)
-      }));
+      };
+      lastNonEmptySnapshot = Object.assign({ key }, item);
+      sessionStorage.setItem(htmlCacheKey(key), JSON.stringify(item));
     } catch (_) {}
   }
   function readHtmlCache() {
     const key = currentCommentKey();
+    if (lastNonEmptySnapshot && (!key || lastNonEmptySnapshot.key === key) && Date.now() - Number(lastNonEmptySnapshot.at || 0) <= CACHE_TTL_MS) return lastNonEmptySnapshot;
     if (!key) return null;
     try {
       const raw = sessionStorage.getItem(htmlCacheKey(key));
@@ -179,8 +202,22 @@
     if (emptyState) emptyState.style.display = 'none';
     if (count && cached.count) count.textContent = cached.count;
     document.body.classList.add('ak-comments-hydrated-from-cache');
+    document.body.classList.remove('ak-comments-loading-not-empty');
     trace('comments_dom_transient_empty_restored', { commentKey: currentCommentKey(), count: cached.count || '' });
     enhanceImages();
+    return true;
+  }
+  function suppressEarlyEmpty(reason) {
+    const { emptyState, count } = getEls();
+    if (!emptyState) return false;
+    const elapsed = Date.now() - bootAt;
+    const shouldSuppress = inCommentsMode() && elapsed < FIRST_EMPTY_GRACE_MS;
+    if (!shouldSuppress) return false;
+    emptyState.textContent = 'Загружаем комментарии…';
+    emptyState.style.display = 'block';
+    if (count && /^0\s+комментар/i.test(clean(count.textContent))) count.textContent = 'Комментарии';
+    document.body.classList.add('ak-comments-loading-not-empty');
+    trace('comments_early_empty_suppressed', { reason: reason || '', elapsedMs: elapsed, commentKey: currentCommentKey() });
     return true;
   }
   function protectEmptyState() {
@@ -189,15 +226,19 @@
     if (commentsList.children.length) {
       emptyState.style.display = 'none';
       document.body.classList.add('ak-comments-has-content');
+      document.body.classList.remove('ak-comments-loading-not-empty');
+      rememberNonEmptyHtml();
       cacheCurrentHtml();
       return;
     }
     if (restoreCachedHtmlIfTransientEmpty()) return;
     document.body.classList.remove('ak-comments-has-content');
+    if (suppressEarlyEmpty('protect_empty_state')) return;
     if (!document.body.classList.contains('ak-comments-first-load-done')) {
       emptyState.textContent = 'Загружаем комментарии…';
       emptyState.style.display = 'block';
     }
+    document.body.classList.remove('ak-comments-loading-not-empty');
   }
 
   const imgCache = new Map();
@@ -280,6 +321,9 @@
       protectEmptyState();
       scrollToBottomSoon(true);
     }, 1200);
+    setTimeout(() => protectEmptyState(), 3200);
+    setTimeout(() => protectEmptyState(), 7600);
+    setTimeout(() => protectEmptyState(), FIRST_EMPTY_GRACE_MS + 300);
     const { commentsList, composer, commentInput, composerReply, attachmentPreview } = getEls();
     if (commentsList && !commentsList.__adminkitUxObserver) {
       commentsList.__adminkitUxObserver = true;
@@ -304,7 +348,7 @@
       window.visualViewport.addEventListener('resize', () => { measureComposer(); scrollToBottomSoon(true); });
       window.visualViewport.addEventListener('scroll', () => { measureComposer(); scrollToBottomSoon(false); });
     }
-    trace('comments_mobile_ux_patch_installed', { runtimeVersion: RUNTIME });
+    trace('comments_mobile_ux_patch_installed', { runtimeVersion: RUNTIME, firstEmptyGraceMs: FIRST_EMPTY_GRACE_MS });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });
