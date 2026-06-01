@@ -1,0 +1,67 @@
+:root { --ak-composer-h: 112px; }
+body.ak-comments-mobile-ux-pr97 {
+  overflow-x: hidden;
+}
+body.ak-comments-mobile-ux-pr97 .page {
+  padding-bottom: calc(var(--ak-composer-h, 112px) + 62px + env(safe-area-inset-bottom, 0px)) !important;
+}
+body.ak-comments-mobile-ux-pr97 #commentsWrap {
+  scroll-padding-bottom: calc(var(--ak-composer-h, 112px) + 54px + env(safe-area-inset-bottom, 0px));
+  min-height: calc(100vh - 190px);
+}
+body.ak-comments-mobile-ux-pr97 #commentsList {
+  padding-bottom: calc(var(--ak-composer-h, 112px) + 44px + env(safe-area-inset-bottom, 0px)) !important;
+}
+body.ak-comments-mobile-ux-pr97 .composer {
+  position: fixed !important;
+  left: max(10px, env(safe-area-inset-left, 0px) + 10px) !important;
+  right: max(10px, env(safe-area-inset-right, 0px) + 10px) !important;
+  bottom: max(10px, calc(env(safe-area-inset-bottom, 0px) + 10px)) !important;
+  z-index: 80 !important;
+  transform: none !important;
+  max-width: none !important;
+  width: auto !important;
+  pointer-events: auto;
+}
+body.ak-comments-mobile-ux-pr97 .composer-shell {
+  border-radius: 24px;
+  box-shadow: 0 8px 28px rgba(37, 67, 100, 0.16);
+}
+body.ak-comments-mobile-ux-pr97 .composer-reply {
+  max-height: 92px;
+  overflow: hidden;
+}
+body.ak-comments-mobile-ux-pr97 .composer-attachments-preview {
+  max-height: 78px;
+  overflow: visible;
+}
+body.ak-comments-mobile-ux-pr97 .composer-photo-preview img,
+body.ak-comments-mobile-ux-pr97 .ak-fast-local-preview img {
+  width: 58px;
+  height: 58px;
+  object-fit: cover;
+  border-radius: 14px;
+}
+body.ak-comments-mobile-ux-pr97 #emptyState {
+  min-height: 48px;
+  transition: opacity .16s ease;
+}
+body.ak-comments-mobile-ux-pr97.ak-comments-has-content #emptyState,
+body.ak-comments-mobile-ux-pr97.ak-comments-hydrated-from-cache #emptyState {
+  display: none !important;
+}
+body.ak-comments-mobile-ux-pr97 .comment-attachment-image img {
+  background: rgba(219, 234, 255, 0.45);
+  image-rendering: auto;
+}
+body.ak-comments-mobile-ux-pr97 .comment-row:last-child {
+  scroll-margin-bottom: calc(var(--ak-composer-h, 112px) + 56px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 781px) {
+  body.ak-comments-mobile-ux-pr97 .composer {
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: min(756px, calc(100vw - 20px)) !important;
+  }
+}
