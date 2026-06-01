@@ -35,6 +35,8 @@ const pool = new Pool({ connectionString: url, ssl: /sslmode=disable/i.test(url)
 
 const STICKER_STATIC_ROOT = path.join(__dirname, "..", "public", "stickers", "adminkit", "v1");
 const DEFAULT_STICKER_PACK_ID = stickerPackService.DEFAULT_PACK_ID || "adminkit_whales_v1";
+const COMMENT_UPLOAD_DIR = path.join(__dirname, "..", "public", "comment-uploads");
+const INLINE_IMAGE_MAX_BYTES = 320 * 1024;
 
 function sanitizeText(value) { return String(value || "").trim(); }
 function cleanStickerValue(value = "") { return String(value || "").replace(/\s+/g, " ").trim(); }
@@ -123,8 +125,27 @@ function sanitizeSmallImageDataUrl(value = "") {
   if (!m) return "";
   const base64 = String(m[2] || "").replace(/\s+/g, "");
   const approxBytes = Math.floor((base64.length * 3) / 4);
-  if (!approxBytes || approxBytes > 80 * 1024) return "";
+  if (!approxBytes || approxBytes > INLINE_IMAGE_MAX_BYTES) return "";
   return `data:${m[1].toLowerCase()};base64,${base64}`;
+}
+function publicCommentUploadDataUrl(publicUrl = "", mime = "image/jpeg") {
+  const raw = String(publicUrl || "").trim();
+  if (!raw || !raw.startsWith("/public/comment-uploads/")) return "";
+  const fileName = path.basename(decodeURIComponent(raw.split(/[?#]/)[0] || ""));
+  if (!fileName || !/^[a-zA-Z0-9._-]+$/.test(fileName)) return "";
+  const target = path.join(COMMENT_UPLOAD_DIR, fileName);
+  const base = path.resolve(COMMENT_UPLOAD_DIR);
+  const resolved = path.resolve(target);
+  if (!resolved.startsWith(base + path.sep)) return "";
+  try {
+    if (!fs.existsSync(resolved)) return "";
+    const stat = fs.statSync(resolved);
+    if (!stat.isFile() || !stat.size || stat.size > INLINE_IMAGE_MAX_BYTES) return "";
+    const ext = path.extname(fileName).toLowerCase();
+    const detectedMime = /\.png$/i.test(ext) ? "image/png" : (/\.webp$/i.test(ext) ? "image/webp" : "image/jpeg");
+    const effectiveMime = /^image\//i.test(String(mime || "")) ? String(mime || "").toLowerCase() : detectedMime;
+    return `data:${effectiveMime};base64,${fs.readFileSync(resolved).toString("base64")}`;
+  } catch { return ""; }
 }
 function sanitizeAttachmentPayload(source = {}) {
   const payload = source.payload && typeof source.payload === "object" ? source.payload : null;
@@ -154,10 +175,12 @@ function sanitizeAttachments(value) {
     const payload = sanitizeAttachmentPayload(source);
     const url = stripLargeInlinePayload(source.url || payload.url || payload.download_url || payload.link || "");
     const previewUrl = stripLargeInlinePayload(source.previewUrl || source.preview_url || source.localPreviewUrl || "");
+    const mime = String(source.mime || source.mimeType || "").slice(0, 120);
     const incomingThumb = sanitizeSmallImageDataUrl(source.thumbDataUrl || source.thumb_data_url || "");
     const incomingPreview = sanitizeSmallImageDataUrl(source.previewDataUrl || source.preview_data_url || "");
     const incomingData = sanitizeSmallImageDataUrl(source.dataUrl || source.data_url || "");
-    const thumbDataUrl = incomingThumb || incomingPreview || incomingData;
+    const localInlinePreview = allowedType === "image" ? publicCommentUploadDataUrl(url || previewUrl, mime || "image/jpeg") : "";
+    const thumbDataUrl = incomingThumb || incomingPreview || incomingData || localInlinePreview;
     const previewDataUrl = incomingPreview && incomingPreview !== thumbDataUrl ? incomingPreview : "";
     const dataUrl = incomingData && incomingData !== thumbDataUrl && incomingData !== previewDataUrl ? incomingData : "";
     const posterUrl = stripLargeInlinePayload(source.posterUrl || source.poster_url || "");
@@ -171,7 +194,7 @@ function sanitizeAttachments(value) {
     if (!hasStableStoredSource) return null;
     const stableId = String(source.id || uploadId || payload.token || payload.file_id || payload.image_id || payload.photo_id || fallbackId);
     return {
-      id: stableId, type: allowedType, name: String(source.name || "Вложение").slice(0, 180), mime: String(source.mime || source.mimeType || "").slice(0, 120), size: Number(source.size || 0) || 0,
+      id: stableId, type: allowedType, name: String(source.name || "Вложение").slice(0, 180), mime, size: Number(source.size || 0) || 0,
       url, previewUrl, posterUrl, dataUrl, previewDataUrl, thumbDataUrl, payload, native: Boolean(source.native || Object.keys(payload).length), storage: String(source.storage || "").slice(0, 60), uploadId,
       clientUploadId: String(source.clientUploadId || source.client_upload_id || uploadId || "").slice(0, 180), rawUrl, processing, status, transcodeError: String(source.transcodeError || "").slice(0, 220)
     };
@@ -240,7 +263,7 @@ function checkCommentsEnabled(commentKey = "", dbPolicy = null) {
   const post = getPost(commentKey);
   if (post?.commentsDisabled === true || post?.commentsEnabled === false) throw makePublicError("Комментарии к этому посту выключены.", "comments_disabled", 403);
 }
-function countLinks(text) { return (String(text || "").match(/(?:https?:\/\/|www\.|t\.me\/|telegram\.me\/|discord\.gg|wa\.me|chat\.whatsapp\.com)/giu) || []).length; }
+function countLinks(text) { return (String(text || "").match(/(?:https?:\/\/|www\.|t\.me\/|telegram\.me\/|discord\.gg|wa\.me\/|chat\.whatsapp\.com)/giu) || []).length; }
 function checkModeration({ commentKey, userId, userName, text, dbPolicy = null }) {
   const channelId = resolveChannelId(commentKey);
   const policy = dbPolicy || readDbV3PolicySync(commentKey);
