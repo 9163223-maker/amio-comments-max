@@ -1,24 +1,24 @@
 ;(() => {
   'use strict';
 
-  const RUNTIME = 'CC8.3.50-MINIAPP-LOADER-ONEPASS-ONLY';
+  const RUNTIME = 'CC8.3.54-MINIAPP-CLEAN-LOADER-NO-MARKER-COLLISION';
   const ONEPASS_RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
   const SKELETON_RUNTIME = 'CC8.1.19-MINIAPP-SKELETON-DEBUG-ONLY';
-  const PHOTO_FLOW_RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
+  const PHOTO_FLOW_RUNTIME = 'CC8.3.53-PHOTO-PREVIEW-CONTRACT-80KB';
   const STICKERS_RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
 
-  const LOADER_MARKER = '__ADMINKIT_CC8_3_50_MINIAPP_LOADER_ONEPASS_ONLY__';
+  const LOADER_MARKER = '__ADMINKIT_CC8_3_54_MINIAPP_CLEAN_LOADER__';
   const ONEPASS_MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
   const SKELETON_MARKER = '__ADMINKIT_CC8_1_19_MINIAPP_SKELETON_DEFAULT_PR84__';
-  const PHOTO_FLOW_LOADER_MARKER = '__ADMINKIT_PHOTO_FLOW_PR95_LOADER__';
-  const STICKERS_LOADER_MARKER = '__ADMINKIT_STICKERS_PR87_LOADER__';
+  const PHOTO_FLOW_LOADER_MARKER = '__ADMINKIT_CC8_3_54_PHOTO_FLOW_LOADED__';
+  const STICKERS_LOADER_MARKER = '__ADMINKIT_CC8_3_54_STICKERS_LOADED__';
   const COMPOSER_INTENT_MARKER = '__ADMINKIT_CC8_1_13_COMPOSER_INTENT_UNLOCK__';
 
-  const ASSET_VERSION = 'v8350-loader-onepass-only';
-  const ONEPASS_SRC = '/public/app-onepass.js?v=8350-onepass';
-  const SKELETON_SRC = '/public/app-skeleton-consumer-pr84.js?v=8350-debug-only';
-  const PHOTO_FLOW_SRC = '/public/app-photo-flow-pr95.js?v=8350-photo-flow';
-  const STICKERS_SRC = '/public/app-stickers-pr87.js?v=8350-stickers';
+  const ASSET_VERSION = 'v8354-clean-loader';
+  const ONEPASS_SRC = '/public/app-onepass.js?v=8354-onepass';
+  const SKELETON_SRC = '/public/app-skeleton-consumer-pr84.js?v=8354-debug-only';
+  const PHOTO_FLOW_SRC = '/public/app-photo-flow-pr95.js?v=8354-preview-contract-80kb';
+  const STICKERS_SRC = '/public/app-stickers-pr87.js?v=8354-stickers';
 
   const LOADER_STARTED_AT = Date.now();
 
@@ -29,7 +29,6 @@
   window.__ADMINKIT_PHOTO_FLOW_RUNTIME__ = PHOTO_FLOW_RUNTIME;
   window.__ADMINKIT_STICKERS_RUNTIME__ = STICKERS_RUNTIME;
 
-  function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
   function absoluteUrl(src) {
     try { return new URL(String(src || ''), location.href).href; } catch (_) { return String(src || ''); }
   }
@@ -125,15 +124,21 @@
       window.__ADMINKIT_COMPOSER_INTENT_UNLOCK_LAST__ = { at: Date.now(), unlockedCount: Object.keys(locks).length };
     }, true);
   }
-  function loadScript(src, status, runtime, marker, onload) {
-    if (marker && window[marker]) return;
-    if (marker) window[marker] = true;
+  function loadScript(src, status, runtime, scriptMarker, options, onload) {
+    const opts = options && typeof options === 'object' ? options : {};
+    if (scriptMarker && window[scriptMarker]) {
+      postMiniTiming('loader.' + status + '_skipped_existing', { status, scriptSrc: src, runtime });
+      if (typeof onload === 'function') onload();
+      return;
+    }
+    if (scriptMarker && opts.markBeforeLoad) window[scriptMarker] = true;
     const s = document.createElement('script');
     s.src = src;
     s.async = status !== 'app';
     s.dataset.adminkitRuntime = runtime;
     if ('fetchPriority' in s) s.fetchPriority = status === 'app' || status === 'photo_flow' ? 'high' : 'low';
     s.onload = () => {
+      if (scriptMarker && opts.markAfterLoad) window[scriptMarker] = true;
       postMiniTiming('loader.' + status + '_loaded', { status, scriptSrc: s.src, runtime });
       if (typeof onload === 'function') onload();
     };
@@ -148,8 +153,8 @@
     postMiniTiming('loader.' + status + '_appended', { status, scriptSrc: s.src, runtime });
   }
   function loadAddons() {
-    loadScript(PHOTO_FLOW_SRC, 'photo_flow', PHOTO_FLOW_RUNTIME, PHOTO_FLOW_LOADER_MARKER);
-    loadScript(STICKERS_SRC, 'stickers', STICKERS_RUNTIME, STICKERS_LOADER_MARKER);
+    loadScript(PHOTO_FLOW_SRC, 'photo_flow', PHOTO_FLOW_RUNTIME, PHOTO_FLOW_LOADER_MARKER, { markAfterLoad: true });
+    loadScript(STICKERS_SRC, 'stickers', STICKERS_RUNTIME, STICKERS_LOADER_MARKER, { markAfterLoad: true });
   }
   function boot() {
     installComposerIntentUnlock();
@@ -160,7 +165,14 @@
     addScriptPreload(appSrc, 'app');
     addScriptPreload(PHOTO_FLOW_SRC, 'photo_flow');
     addScriptPreload(STICKERS_SRC, 'stickers');
-    loadScript(appSrc, 'app', skeleton ? SKELETON_RUNTIME : ONEPASS_RUNTIME, skeleton ? SKELETON_MARKER : ONEPASS_MARKER, loadAddons);
+    loadScript(
+      appSrc,
+      'app',
+      skeleton ? SKELETON_RUNTIME : ONEPASS_RUNTIME,
+      skeleton ? SKELETON_MARKER : null,
+      { markAfterLoad: Boolean(skeleton) },
+      loadAddons
+    );
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
