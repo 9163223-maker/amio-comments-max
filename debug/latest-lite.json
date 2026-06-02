@@ -7,11 +7,44 @@
   "sourceMarker": "adminkit-cc8-2-4-compressed-final-photo-composer",
   "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
   "expectedRuntimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-  "generatedAt": 1780382621973,
-  "serverStartedAt": "2026-06-02T06:42:30.051Z",
+  "generatedAt": 1780383060406,
+  "serverStartedAt": "2026-06-02T06:44:24.895Z",
   "staleEndpointDetected": false,
   "mediaDiagnostics": {
     "uploads": [
+      {
+        "id": "1780382935507_09jzc0",
+        "createdAt": 1780382935507,
+        "stage": "comment_create_saved",
+        "commentKey": "-75357047862702:116674049272472060",
+        "type": "comment_with_attachments",
+        "fileName": "",
+        "mime": "",
+        "size": 1,
+        "ok": true,
+        "mode": "comment_create",
+        "attachmentCount": 0,
+        "previewUrl": "",
+        "posterUrl": "",
+        "error": "",
+        "data": "{\"commentId\":\"1780382935014_6s0blu\",\"attachmentCount\":1}"
+      },
+      {
+        "id": "1780382933360_0cwm8d",
+        "createdAt": 1780382933360,
+        "stage": "comment_create_received",
+        "commentKey": "-75357047862702:116674049272472060",
+        "type": "comment_with_attachments",
+        "fileName": "",
+        "mime": "",
+        "size": 1,
+        "mode": "comment_create",
+        "attachmentCount": 0,
+        "previewUrl": "",
+        "posterUrl": "",
+        "error": "",
+        "data": "{\"attachmentCount\":1,\"clientUploadIds\":[]}"
+      },
       {
         "id": "1780343827619_ew4oe5",
         "ok": true,
@@ -308,39 +341,6 @@
         "commentKey": "-75357047862702:116674049272472060",
         "previewUrl": "",
         "attachmentCount": 0
-      },
-      {
-        "id": "1780321791951_03ntsr",
-        "ok": true,
-        "data": "{\"commentId\":\"1780321791665_xpkivt\",\"attachmentCount\":1}",
-        "mime": "",
-        "mode": "comment_create",
-        "size": 1,
-        "type": "comment_with_attachments",
-        "error": "",
-        "stage": "comment_create_saved",
-        "fileName": "",
-        "createdAt": 1780321791951,
-        "posterUrl": "",
-        "commentKey": "-75357047862702:116674049272472060",
-        "previewUrl": "",
-        "attachmentCount": 0
-      },
-      {
-        "id": "1780321790333_y51efp",
-        "data": "{\"attachmentCount\":1,\"clientUploadIds\":[]}",
-        "mime": "",
-        "mode": "comment_create",
-        "size": 1,
-        "type": "comment_with_attachments",
-        "error": "",
-        "stage": "comment_create_received",
-        "fileName": "",
-        "createdAt": 1780321790333,
-        "posterUrl": "",
-        "commentKey": "-75357047862702:116674049272472060",
-        "previewUrl": "",
-        "attachmentCount": 0
       }
     ],
     "lastErrors": [
@@ -610,5 +610,5 @@
     }
   },
   "postsCount": 58,
-  "commentsCount": 182
+  "commentsCount": 183
 }
