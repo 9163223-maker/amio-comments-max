@@ -6,6 +6,7 @@ const path = require('path');
 const vm = require('vm');
 const openStateModule = require('../routes/commentOpenState');
 const activeCommentOpenStateModule = require('../comment-open-state-route-1546');
+const activeMenuRoutesModule = require('../v3-menu-routes-1539');
 
 const root = path.join(__dirname, '..');
 const appOnepass = fs.readFileSync(path.join(root, 'public', 'app-onepass.js'), 'utf8');
@@ -43,6 +44,8 @@ has(appOnepass, '/api/adminkit/post-media-preview?src=', 'external post media sh
 has(openStateRoute, '/api/adminkit/post-media-preview', 'post media preview proxy endpoint should be registered');
 has(packageJson, 'clean-entrypoint-1.53.10-pr89.js', 'package start should use active production entrypoint');
 has(activeEntrypoint, "require('./v3-menu-routes-1539')", 'active entrypoint should install v3-menu-routes-1539');
+has(activeRoutes, 'clean-entrypoint-1.53.10-pr89.js', 'active route diagnostics should report current pr89 entrypoint');
+assert.strictEqual(activeMenuRoutesModule.version().activeEntrypoint, 'clean-entrypoint-1.53.10-pr89.js', 'active menu route version should report current production entrypoint');
 has(activeRoutes, "require('./comment-open-state-route-1546')", 'active menu routes should load comment-open-state-route-1546');
 has(activeRoutes, 'commentOpenState.install(app)', 'active menu routes should install comment open-state module');
 has(activeRoutes, '/api/adminkit/post-media-preview', 'active menu route listing should include post-media preview endpoint');

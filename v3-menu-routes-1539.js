@@ -16,7 +16,7 @@ const SOURCE=menu.SOURCE;
 const STARTED_AT=new Date().toISOString();
 const BASE=menu.BASE||'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run';
 function activeRuntime(){return process.env.RUNTIME_VERSION||process.env.BUILD_VERSION||RUNTIME;}
-function activeEntrypoint(){return process.env.ADMINKIT_CLEAN_ENTRYPOINT==='1.53.10-pr88-selftest'?'clean-entrypoint-1.53.10-pr88.js':'clean-entrypoint-1.53.9.js';}
+function activeEntrypoint(){const marker=String(process.env.ADMINKIT_CLEAN_ENTRYPOINT||'');if(marker==='1.53.10-pr88-selftest')return'clean-entrypoint-1.53.10-pr88.js';if(marker.includes('1.53.10-pr89'))return'clean-entrypoint-1.53.10-pr89.js';return'clean-entrypoint-1.53.10-pr89.js';}
 function noCache(res){res.set({'Cache-Control':'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0','Pragma':'no-cache','Expires':'0','Surrogate-Control':'no-store'});}
 function send(res,payload,status){noCache(res);res.status(status||200).type('application/json').send(JSON.stringify(payload,null,2));}
 function storePersistence(){return{backend:process.env.ADMINKIT_STORE_BACKEND||'',mode:process.env.ADMINKIT_STORE_MODE||'',persistent:process.env.ADMINKIT_STORE_PERSISTENT==='1',bootstrapOk:process.env.ADMINKIT_STORE_BOOTSTRAP_OK==='1',postgresConfigured:process.env.ADMINKIT_STORE_POSTGRES_CONFIGURED==='1',table:process.env.ADMINKIT_STORE_TABLE||'',key:process.env.ADMINKIT_STORE_KEY||'',file:process.env.ADMINKIT_STORE_FILE||'',dir:process.env.ADMINKIT_STORE_DIR||'',postArchiveEnabled:process.env.ADMINKIT_POST_ARCHIVE_ENABLED==='1',postArchiveOk:process.env.ADMINKIT_POST_ARCHIVE_OK==='1',postArchiveLastError:process.env.ADMINKIT_POST_ARCHIVE_LAST_ERROR||'',lastMirrorError:process.env.ADMINKIT_STORE_LAST_MIRROR_ERROR||''};}
