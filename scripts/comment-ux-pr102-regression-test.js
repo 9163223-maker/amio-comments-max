@@ -48,6 +48,7 @@ assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://[fd00::1]/priv
 assert.strictEqual(openStateModule.isSafeExternalImageAddress('169.254.10.20'), false, 'link-local resolved address should be unsafe');
 assert.strictEqual(openStateModule.isSafeExternalImageAddress('10.1.2.3'), false, 'private resolved address should be unsafe');
 assert.strictEqual(openStateModule.isSafeExternalImageAddress('93.184.216.34'), true, 'public resolved address should be allowed');
+assert.strictEqual(openStateModule.normalizeAttachmentForMiniApp({ type: 'video', mimeType: 'video/mp4', posterUrl: 'https://cdn.example/video-poster.jpg' }).type, 'video', 'video poster should not be normalized into image comments');
 for (const field of ['serverCount', 'renderableCount', 'hiddenBrokenCount', 'postMediaCount', 'mediaThumbCount', 'runtimeBrokenCount', 'renderMs']) {
   has(timingRoutes, `${field}: safe.${field}`, `miniapp timing details should persist ${field}`);
 }
@@ -98,6 +99,8 @@ async function verifyBuildPreviewFromSnapshotAfterOptimisticClear() {
   const pending = { fileName: 'photo.jpg', mimeType: 'image/jpeg', previewUrl: 'blob:optimistic', compressed: { blob: {}, fileName: 'photo.jpg', size: 4, width: 2, height: 2 } };
   const snapshot = hooks.snapshotPendingPhotoForUpload(pending);
   hooks.clearComposerPhotoPreviewAfterOptimisticInsert('client_test', pending.previewUrl);
+  assert.strictEqual(hooks.hasDisplayableMedia({ type: 'video', mimeType: 'video/mp4', posterUrl: 'https://cdn.example/video-poster.jpg' }), false, 'video poster should not render as comment image');
+  assert.strictEqual(hooks.hasDisplayableMedia({ type: 'file', mimeType: 'application/pdf', url: 'https://cdn.example/file.jpg' }), false, 'file URL ending with jpg should not render as comment image');
   const attachments = await hooks.buildPreviewOnlyAttachment(snapshot);
   assert.strictEqual(attachments.length, 1, 'buildPreviewOnlyAttachment should return one image attachment after optimistic clear');
   assert.strictEqual(attachments[0].type, 'image', 'snapshot-built attachment should be image');

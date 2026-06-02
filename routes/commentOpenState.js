@@ -60,6 +60,15 @@ function payloadImageUrl(payload = {}) {
   return '';
 }
 
+function isExplicitNonImageAttachment(source = {}) {
+  const type = clean(source.type || source.kind || source.uploadType || source.commentType).toLowerCase();
+  const mime = clean(source.mimeType || source.mime || source.contentType).toLowerCase();
+  if (['image', 'photo', 'picture'].includes(type) || mime.startsWith('image/')) return false;
+  if (['video', 'file', 'document', 'audio', 'voice', 'archive'].includes(type)) return true;
+  if (mime && !mime.startsWith('image/')) return true;
+  return false;
+}
+
 function looksLikeImageAttachment(source = {}, url = '') {
   const type = clean(source.type || source.kind || source.uploadType || source.commentType).toLowerCase();
   const mime = clean(source.mimeType || source.mime || source.contentType).toLowerCase();
@@ -67,6 +76,7 @@ function looksLikeImageAttachment(source = {}, url = '') {
   const rawUrl = clean(url || source.url || source.previewUrl || source.photoUrl || source.imageUrl || source.src || source.dataUrl || source.previewDataUrl || source.thumbDataUrl).toLowerCase();
   if (['image', 'photo', 'picture'].includes(type)) return true;
   if (mime.startsWith('image/')) return true;
+  if (isExplicitNonImageAttachment(source)) return false;
   if (/^data:image\//i.test(rawUrl)) return true;
   if (/\.(jpg|jpeg|png|webp|gif|heic|heif)(?:[?#]|$)/i.test(rawUrl)) return true;
   if (/\.(jpg|jpeg|png|webp|gif|heic|heif)$/i.test(name)) return true;
@@ -459,6 +469,7 @@ module.exports = {
   buildStateFromRequest,
   normalizeOpenStateMediaContract,
   normalizeAttachmentForMiniApp,
+  isExplicitNonImageAttachment,
   isSafeExternalImageUrl,
   isSafeExternalImageAddress,
   selfTest

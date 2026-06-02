@@ -784,11 +784,21 @@ function selectMediaSource(attachment) {
   if (broken) return { kind: fallback[0], url: '', broken: true, runtimeOnly };
   return { kind: fallback[0], url: fallback[1], broken: false, runtimeOnly };
 }
+function isExplicitNonImageAttachment(attachment) {
+  const type = clean(attachment && (attachment.type || attachment.kind)).toLowerCase();
+  const mimeType = clean(attachment && (attachment.mimeType || attachment.mime)).toLowerCase();
+  if (type === 'image' || type === 'photo' || type === 'picture' || /^image\//i.test(mimeType)) return false;
+  if (['video', 'file', 'document', 'audio', 'voice', 'archive'].includes(type)) return true;
+  if (mimeType && !/^image\//i.test(mimeType)) return true;
+  return false;
+}
 function isImageAttachment(attachment, selectedUrl) {
   const type = clean(attachment && (attachment.type || attachment.kind));
   const mimeType = clean(attachment && (attachment.mimeType || attachment.mime));
   const url = clean(selectedUrl || (attachment && (attachment.thumbDataUrl || attachment.previewDataUrl || attachment.dataUrl || attachment.previewUrl || attachment.url || attachment.download_url || attachment.downloadUrl || attachment.link || attachment.photo_url || attachment.photoUrl || attachment.image_url || attachment.imageUrl || payloadMediaSource(attachment) || attachment.posterUrl)));
-  return type === 'image' || /^image\//i.test(mimeType) || /\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i.test(url) || /^data:image\//i.test(url) || /^blob:/i.test(url);
+  if (type === 'image' || type === 'photo' || type === 'picture' || /^image\//i.test(mimeType)) return true;
+  if (isExplicitNonImageAttachment(attachment)) return false;
+  return /\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i.test(url) || /^data:image\//i.test(url) || /^blob:/i.test(url);
 }
 function isExternalPostMediaUrl(url) {
   const value = clean(url);
@@ -1060,7 +1070,7 @@ function renderComments(list) {
   }
   if (refs.commentsCountPill) refs.commentsCountPill.textContent = query ? (prepared.length + ' из ' + pluralComments(renderableAll.length)) : pluralComments(renderableAll.length);
 }
-window.__ADMINKIT_ONEPASS_TEST_HOOKS__ = { isRenderableComment, getRenderableComments, selectMediaSource, hasDisplayableMedia, computeCommentsFingerprint, reactionFingerprint, renderOpenState, clearComposerPhotoPreviewAfterOptimisticInsert, optimisticImageUsesSrc, postMediaCandidates, snapshotPendingPhotoForUpload, buildPreviewOnlyAttachment };
+window.__ADMINKIT_ONEPASS_TEST_HOOKS__ = { isRenderableComment, getRenderableComments, selectMediaSource, isExplicitNonImageAttachment, hasDisplayableMedia, computeCommentsFingerprint, reactionFingerprint, renderOpenState, clearComposerPhotoPreviewAfterOptimisticInsert, optimisticImageUsesSrc, postMediaCandidates, snapshotPendingPhotoForUpload, buildPreviewOnlyAttachment };
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🔥', '😮', '😢', '👏'];
 const MORE_REACTIONS = ['😀', '😍', '🤔', '🙏', '😡', '👎', '🎯', '💯', '🤝', '🤣'];
 function findCommentById(commentId) { return (state.comments || []).find((c) => String(c.id || '') === String(commentId || '')); }
