@@ -10,6 +10,7 @@ const max = require('./services/maxApi');
 const menu = require('./v3-menu-core-1539');
 const access = require('./services/clientAccessService');
 const accountScreens = require('./features/account-screens-pr106');
+const adminScreens = require('./features/admin-activation-screens-pr108');
 const accessGate = require('./services/accessGateService');
 
 const RUNTIME = access.RUNTIME;
@@ -87,6 +88,12 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
         await sendOrEditScreen({ update, callback, message, config, screen, edit: true });
         return res.status(200).json({ ok: true, handledBy: RUNTIME, action, screenId: screen.id, accessGate: true });
       }
+      const adminScreen = adminScreens.screenForAction(action, uid, payload);
+      if (adminScreen) {
+        if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
+        await sendOrEditScreen({ update, callback, message, config, screen: adminScreen, edit: true });
+        return res.status(200).json({ ok: true, handledBy: access.ADMIN_ACCESS_RUNTIME, action, screenId: adminScreen.id, adminRuntime: true });
+      }
       const accountScreen = accountScreens.screenForAction(action, uid);
       if (accountScreen) {
         if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
@@ -113,6 +120,11 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
   if (message) {
     const uid = senderId(update, callback, message);
     const text = messageText(message);
+    if (/^\/?admin(?:\s|$)/i.test(text)) {
+      const screen = adminScreens.adminPanel(uid);
+      await sendOrEditScreen({ update, callback, message, config, screen, edit: false });
+      return res.status(200).json({ ok: true, handledBy: access.ADMIN_ACCESS_RUNTIME, action: 'admin_command', screenId: screen.id, adminRuntime: true });
+    }
     if (/^\/?(?:start|menu)(?:\s|$)/i.test(text)) {
       const isMenu = /^\/?menu(?:\s|$)/i.test(text);
       const state = access.getAccessState(uid);
