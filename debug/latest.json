@@ -7,8 +7,8 @@
   "sourceMarker": "adminkit-cc8-2-4-compressed-final-photo-composer",
   "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
   "expectedRuntimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-  "generatedAt": 1780382620975,
-  "serverStartedAt": "2026-06-02T06:42:30.051Z",
+  "generatedAt": 1780383059409,
+  "serverStartedAt": "2026-06-02T06:44:24.895Z",
   "staleEndpointDetected": false,
   "meta": {
     "runtimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
@@ -18,7 +18,7 @@
     "packageName": "amio-comments-max",
     "sourceMarker": "adminkit-cc8-2-4-compressed-final-photo-composer",
     "buildGeneratedAt": "2026-05-29T12:00:00Z",
-    "serverStartedAt": "2026-06-02T06:42:30.051Z",
+    "serverStartedAt": "2026-06-02T06:44:24.895Z",
     "buildInfoSource": "build-info.json/package.json/env-fresh-only",
     "staleEnvIgnored": {
       "BUILD_VERSION": false,
@@ -28,10 +28,43 @@
     "staleEndpointDetected": false,
     "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
     "expectedRuntimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-    "generatedAt": 1780382620976
+    "generatedAt": 1780383059409
   },
   "mediaDiagnostics": {
     "uploads": [
+      {
+        "id": "1780382935507_09jzc0",
+        "createdAt": 1780382935507,
+        "stage": "comment_create_saved",
+        "commentKey": "-75357047862702:116674049272472060",
+        "type": "comment_with_attachments",
+        "fileName": "",
+        "mime": "",
+        "size": 1,
+        "ok": true,
+        "mode": "comment_create",
+        "attachmentCount": 0,
+        "previewUrl": "",
+        "posterUrl": "",
+        "error": "",
+        "data": "{\"commentId\":\"1780382935014_6s0blu\",\"attachmentCount\":1}"
+      },
+      {
+        "id": "1780382933360_0cwm8d",
+        "createdAt": 1780382933360,
+        "stage": "comment_create_received",
+        "commentKey": "-75357047862702:116674049272472060",
+        "type": "comment_with_attachments",
+        "fileName": "",
+        "mime": "",
+        "size": 1,
+        "mode": "comment_create",
+        "attachmentCount": 0,
+        "previewUrl": "",
+        "posterUrl": "",
+        "error": "",
+        "data": "{\"attachmentCount\":1,\"clientUploadIds\":[]}"
+      },
       {
         "id": "1780343827619_ew4oe5",
         "ok": true,
@@ -328,39 +361,6 @@
         "commentKey": "-75357047862702:116674049272472060",
         "previewUrl": "",
         "attachmentCount": 0
-      },
-      {
-        "id": "1780321791951_03ntsr",
-        "ok": true,
-        "data": "{\"commentId\":\"1780321791665_xpkivt\",\"attachmentCount\":1}",
-        "mime": "",
-        "mode": "comment_create",
-        "size": 1,
-        "type": "comment_with_attachments",
-        "error": "",
-        "stage": "comment_create_saved",
-        "fileName": "",
-        "createdAt": 1780321791951,
-        "posterUrl": "",
-        "commentKey": "-75357047862702:116674049272472060",
-        "previewUrl": "",
-        "attachmentCount": 0
-      },
-      {
-        "id": "1780321790333_y51efp",
-        "data": "{\"attachmentCount\":1,\"clientUploadIds\":[]}",
-        "mime": "",
-        "mode": "comment_create",
-        "size": 1,
-        "type": "comment_with_attachments",
-        "error": "",
-        "stage": "comment_create_received",
-        "fileName": "",
-        "createdAt": 1780321790333,
-        "posterUrl": "",
-        "commentKey": "-75357047862702:116674049272472060",
-        "previewUrl": "",
-        "attachmentCount": 0
       }
     ],
     "lastErrors": [
@@ -393,7 +393,7 @@
       "packageName": "amio-comments-max",
       "sourceMarker": "adminkit-cc8-2-4-compressed-final-photo-composer",
       "buildGeneratedAt": "2026-05-29T12:00:00Z",
-      "serverStartedAt": "2026-06-02T06:42:30.051Z",
+      "serverStartedAt": "2026-06-02T06:44:24.895Z",
       "buildInfoSource": "build-info.json/package.json/env-fresh-only",
       "staleEnvIgnored": {
         "BUILD_VERSION": false,
@@ -403,7 +403,7 @@
       "staleEndpointDetected": false,
       "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
       "expectedRuntimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-      "generatedAt": 1780382620472
+      "generatedAt": 1780383059214
     },
     "posts": {
       "-73175958664622:116602483154115540": {
@@ -4181,14 +4181,14 @@
         "channelId": "-75357047862702",
         "createdAt": 1780304723173,
         "messageId": "mid.ffffbb7691ee4a52019e826dfd646203",
-        "updatedAt": 1780343829140,
+        "updatedAt": 1780382936905,
         "commentKey": "-75357047862702:116674049272472060",
         "channelTitle": "-75357047862702",
         "handoffToken": "h_049272472060mpuzgry30ekxqa55",
         "linkedByName": "",
         "originalLink": null,
         "originalText": "Тест текст медиа",
-        "lastPatchedAt": 1780343829140,
+        "lastPatchedAt": 1780382936905,
         "stablePayload": "cp_-75357047862702_116674049272472060",
         "customKeyboard": {},
         "giftCampaignId": "",
@@ -4227,10 +4227,10 @@
               "buttons": [
                 [
                   {
-                    "text": "💬 12 комментариев",
                     "type": "open_app",
-                    "payload": "cp_-75357047862702_116674049272472060",
-                    "web_app": "id781310320690_bot"
+                    "text": "💬 13 комментариев",
+                    "web_app": "id781310320690_bot",
+                    "payload": "cp_-75357047862702_116674049272472060"
                   }
                 ]
               ]
@@ -6377,6 +6377,46 @@
           "replyToId": "",
           "attachments": [],
           "clientCommentId": "client_1780343823898_hiacr9"
+        },
+        {
+          "id": "1780382935014_6s0blu",
+          "likes": 0,
+          "createdAt": 1780382935015,
+          "clientCommentId": "client_1780382931984_bdjfo0",
+          "userId": "17507246",
+          "userName": "Alex P",
+          "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
+          "text": "",
+          "attachments": [
+            {
+              "id": "inline_1780382932051_8b0xfx",
+              "type": "image",
+              "name": "IMG_8556.jpg",
+              "fileName": "IMG_8556.jpg",
+              "mime": "image/jpeg",
+              "mimeType": "image/jpeg",
+              "size": 70437,
+              "url": "",
+              "previewUrl": "",
+              "posterUrl": "",
+              "thumbDataUrl": "[removed]",
+              "payload": {},
+              "native": false,
+              "storage": "inline-preview-clean-contract",
+              "uploadId": "inline_1780382932051_8b0xfx",
+              "clientUploadId": "inline_1780382932051_8b0xfx",
+              "rawUrl": "",
+              "processing": false,
+              "status": "",
+              "runtimeOnly": false,
+              "runtimeFileExists": false,
+              "inlinePreviewUnavailable": false,
+              "brokenRuntimeOnly": false,
+              "transcodeError": ""
+            }
+          ],
+          "replyToId": "",
+          "editedAt": 0
         }
       ],
       "-75357088691630:116674051715174640": [],
@@ -8396,7 +8436,8 @@
             "selftest_owner": true
           }
         }
-      }
+      },
+      "-75357047862702:116674049272472060": {}
     },
     "handoffs": {
       "h_001681993680mpf2ov2n3nk29mlx": {
@@ -8431,7 +8472,7 @@
         "postId": "116674049272472060",
         "channelId": "-75357047862702",
         "messageId": "mid.ffffbb7691ee4a52019e826dfd646203",
-        "updatedAt": 1780343829140,
+        "updatedAt": 1780382936906,
         "commentKey": "-75357047862702:116674049272472060",
         "stablePayload": "cp_-75357047862702_116674049272472060"
       },
@@ -8896,6 +8937,39 @@
       }
     },
     "uploadDiagnostics": [
+      {
+        "id": "1780382935507_09jzc0",
+        "createdAt": 1780382935507,
+        "stage": "comment_create_saved",
+        "commentKey": "-75357047862702:116674049272472060",
+        "type": "comment_with_attachments",
+        "fileName": "",
+        "mime": "",
+        "size": 1,
+        "ok": true,
+        "mode": "comment_create",
+        "attachmentCount": 0,
+        "previewUrl": "",
+        "posterUrl": "",
+        "error": "",
+        "data": "{\"commentId\":\"1780382935014_6s0blu\",\"attachmentCount\":1}"
+      },
+      {
+        "id": "1780382933360_0cwm8d",
+        "createdAt": 1780382933360,
+        "stage": "comment_create_received",
+        "commentKey": "-75357047862702:116674049272472060",
+        "type": "comment_with_attachments",
+        "fileName": "",
+        "mime": "",
+        "size": 1,
+        "mode": "comment_create",
+        "attachmentCount": 0,
+        "previewUrl": "",
+        "posterUrl": "",
+        "error": "",
+        "data": "{\"attachmentCount\":1,\"clientUploadIds\":[]}"
+      },
       {
         "id": "1780343827619_ew4oe5",
         "ok": true,
@@ -9692,39 +9766,6 @@
         "commentKey": "-75357088691630:116674053614348450",
         "previewUrl": "",
         "attachmentCount": 0
-      },
-      {
-        "id": "1780304904073_1av46h",
-        "ok": true,
-        "data": "{\"contentType\":\"multipart/form-data; boundary=----WebKitFormBoundaryvunvgGxlbYNSftv4\",\"contentLength\":\"530481\",\"rawBodyLength\":530481,\"isMultipart\":true,\"hasBoundary\":true,\"boundaryLength\":38,\"fieldNames\":[\"commentKey\",\"type\",\"mimeType\"],\"fileFieldNames\":[\"photo\"],\"fileCount\":1,\"partCount\":4,\"serverUploadReceivedAt\":\"2026-06-01T09:08:24.033Z\",\"serverParsedAt\":\"2026-06-01T09:08:24.073Z\"}",
-        "mime": "image/jpeg",
-        "mode": "multipart_formdata",
-        "size": 529630,
-        "type": "image",
-        "error": "",
-        "stage": "request_parsed",
-        "fileName": "IMG_8474.jpg",
-        "createdAt": 1780304904073,
-        "posterUrl": "",
-        "commentKey": "-75357088691630:116674053614348450",
-        "previewUrl": "",
-        "attachmentCount": 0
-      },
-      {
-        "id": "1780304904034_kw55pl",
-        "data": "{\"contentType\":\"multipart/form-data; boundary=----WebKitFormBoundaryvunvgGxlbYNSftv4\",\"contentLength\":\"530481\",\"rawBodyLength\":530481,\"isMultipart\":true,\"hasBoundary\":true,\"boundaryLength\":38,\"fieldNames\":[],\"fileFieldNames\":[],\"fileCount\":0,\"partCount\":0,\"serverUploadReceivedAt\":\"2026-06-01T09:08:24.033Z\"}",
-        "mime": "",
-        "mode": "multipart_or_json",
-        "size": 0,
-        "type": "",
-        "error": "",
-        "stage": "request_received",
-        "fileName": "",
-        "createdAt": 1780304904034,
-        "posterUrl": "",
-        "commentKey": "",
-        "previewUrl": "",
-        "attachmentCount": 0
       }
     ],
     "moderation": {
@@ -9752,6 +9793,45 @@
         }
       },
       "logs": [
+        {
+          "id": "1780382933506_hpidj1",
+          "createdAt": 1780382933506,
+          "channelId": "-75357047862702",
+          "commentKey": "-75357047862702:116674049272472060",
+          "userId": "17507246",
+          "userName": "Alex P",
+          "text": "",
+          "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
+          "attachments": [
+            {
+              "id": "inline_1780382932051_8b0xfx",
+              "type": "image",
+              "name": "IMG_8556.jpg",
+              "mime": "image/jpeg",
+              "size": 70437,
+              "native": false,
+              "storage": "inline-preview-clean-contract",
+              "uploadId": "inline_1780382932051_8b0xfx",
+              "clientUploadId": "inline_1780382932051_8b0xfx",
+              "processing": false,
+              "inlineOnly": true,
+              "inlinePayloadStripped": true
+            }
+          ],
+          "replyToId": "",
+          "sourceType": "create",
+          "commentId": "",
+          "decision": "allowed",
+          "mode": "basic",
+          "action": "allow",
+          "reasons": [],
+          "labels": [],
+          "confidence": 0,
+          "matchedWords": [],
+          "matchedRegex": [],
+          "attachmentCount": 1,
+          "hasInlinePayloadStripped": true
+        },
         {
           "id": "1780343825812_wjzncq",
           "mode": "basic",
@@ -11362,40 +11442,6 @@
           "matchedRegex": [],
           "matchedWords": [],
           "attachmentCount": 0,
-          "hasInlinePayloadStripped": true
-        },
-        {
-          "id": "1780118998872_q6x9qz",
-          "mode": "basic",
-          "text": "Стикер adminkit_party",
-          "action": "allow",
-          "labels": [],
-          "userId": "17507246",
-          "reasons": [],
-          "decision": "allowed",
-          "userName": "Alex P",
-          "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
-          "channelId": "-73175958664622",
-          "commentId": "",
-          "createdAt": 1780118998872,
-          "replyToId": "",
-          "commentKey": "-73175958664622:116657663670426180",
-          "confidence": 0,
-          "sourceType": "create",
-          "attachments": [
-            {
-              "type": "file",
-              "name": "Вложение",
-              "size": 0,
-              "native": false,
-              "processing": false,
-              "inlineOnly": false,
-              "inlinePayloadStripped": false
-            }
-          ],
-          "matchedRegex": [],
-          "matchedWords": [],
-          "attachmentCount": 1,
           "hasInlinePayloadStripped": true
         }
       ],
@@ -13600,7 +13646,7 @@
     "counts": {
       "posts": 58,
       "commentThreads": 66,
-      "comments": 182,
+      "comments": 183,
       "handoffs": 55,
       "likes": 58,
       "channels": 5,
@@ -13612,7 +13658,7 @@
       "counts": {
         "posts": 58,
         "commentThreads": 66,
-        "comments": 182,
+        "comments": 183,
         "handoffs": 55,
         "likes": 58,
         "channels": 5,
