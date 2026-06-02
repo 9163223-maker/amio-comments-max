@@ -77,6 +77,11 @@ async function sendBot(bot, sent, update) { const res = createJsonRes(); await b
   assert.strictEqual(staleInvalidChannels.res.body.screenId, 'pr108_admin_manual_deferred', 'invalid channel callback must not default to 1 channel');
   const staleDirectCreate = await sendBot(bot, sent, callbackUpdate('pr108-admin', { action: 'admin_code_confirm_create', planId: 'start' }));
   assert.strictEqual(staleDirectCreate.res.body.screenId, 'pr108_admin_manual_deferred', 'malformed direct create callback must not create default code');
+  const staleBoundConfirm = await sendBot(bot, sent, callbackUpdate('pr108-admin', { action: 'admin_code_bind_none', planId: 'start', durationDays: 30, maxChannels: 3, boundChannelId: 'stale-channel' }));
+  assert.strictEqual(staleBoundConfirm.res.body.screenId, 'pr108_admin_code_confirm', 'bind none must sanitize stale boundChannelId before confirm');
+  assert.ok(!/stale-channel/.test(staleBoundConfirm.text), 'bind none confirm must not preserve stale boundChannelId');
+  const staleBoundCreate = await sendBot(bot, sent, callbackUpdate('pr108-admin', { action: 'admin_code_confirm_create', planId: 'start', durationDays: 30, maxChannels: 3, boundChannelId: 'stale-channel' }));
+  assert.strictEqual(staleBoundCreate.res.body.screenId, 'pr108_admin_manual_deferred', 'direct create with boundChannelId must not create a bound code');
   assert.strictEqual(access.listActivationCodes({ limit: 100 }).length, beforeStaleManualCodes, 'invalid stale callbacks must not create codes');
 
   const created = access.createActivationCode({ planId: 'start', durationDays: 30, maxChannels: 3, createdByMaxUserId: 'pr108-admin' });

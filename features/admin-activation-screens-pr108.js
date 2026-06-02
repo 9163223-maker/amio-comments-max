@@ -61,10 +61,10 @@ function confirmScreen(maxUserId = '', opts = {}) {
   const fixedPlanId = fixedPlan(opts.planId || 'start');
   const durationDays = fixedDuration(opts.durationDays);
   const maxChannels = fixedChannelLimit(opts.maxChannels);
-  if (!fixedPlanId || !durationDays || !maxChannels) return manualDeferredScreen(maxUserId);
+  const boundChannelId = clean(opts.boundChannelId || '');
+  if (!fixedPlanId || !durationDays || !maxChannels || boundChannelId) return manualDeferredScreen(maxUserId);
   const plan = tariffs.getTariff(fixedPlanId);
   const expiresAt = new Date(Date.now() + durationDays * 86400000).toISOString();
-  const boundChannelId = clean(opts.boundChannelId || '');
   return { id: 'pr108_admin_code_confirm', text: ['Создать код', '', `Тариф: ${plan.name}`, `Срок: ${durationDays} дней`, `Лимит каналов: ${maxChannels}`, `Действует до: ${dateRu(expiresAt)}`, 'singleUse: да', boundChannelId ? `channelId: ${boundChannelId}` : 'Привязка к каналу: нет', '', 'Создать код?'].join('\n'), attachments: keyboard([[button('Создать код', 'admin_code_confirm_create', { planId: plan.id, durationDays, maxChannels, boundChannelId })], [button('Назад', 'admin_code_create'), button('Отмена', 'admin_panel')]]) };
 }
 function createdScreen(maxUserId = '', opts = {}) {
@@ -72,8 +72,8 @@ function createdScreen(maxUserId = '', opts = {}) {
   const fixedPlanId = fixedPlan(opts.planId || 'start');
   const durationDays = fixedDuration(opts.durationDays);
   const maxChannels = fixedChannelLimit(opts.maxChannels);
-  if (!fixedPlanId || !durationDays || !maxChannels) return manualDeferredScreen(maxUserId);
-  const created = access.createActivationCode({ planId: fixedPlanId, durationDays, maxChannels, boundChannelId: opts.boundChannelId || '', createdByMaxUserId: maxUserId });
+  if (!fixedPlanId || !durationDays || !maxChannels || clean(opts.boundChannelId || '')) return manualDeferredScreen(maxUserId);
+  const created = access.createActivationCode({ planId: fixedPlanId, durationDays, maxChannels, boundChannelId: '', createdByMaxUserId: maxUserId });
   return { id: 'pr108_admin_code_created', text: ['✅ Код создан', '', `Код создан: ${created.code}`, '', `Тариф: ${tariffs.getTariff(created.planId).name}`, `Действует до: ${dateRu(created.expiresAt)}`, `Лимит каналов: ${created.maxChannels}`, '', 'Передайте код клиенту. Клиент должен открыть бота и нажать «Активировать код».', '', 'Этот полный код больше не будет показан в списке или истории.'].join('\n'), attachments: keyboard([[button('Коды доступа', 'admin_codes_list')], [button('Создать ещё', 'admin_code_create')], [button('Главное меню', 'admin_section_main')]]) };
 }
 function codesListScreen(maxUserId = '') {
