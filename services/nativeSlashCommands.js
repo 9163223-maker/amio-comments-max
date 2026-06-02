@@ -2,6 +2,9 @@
 
 const menuCore = require('../v3-menu-core-1539');
 const walkthroughTrace = require('../admin-walkthrough-trace');
+const access = require('./clientAccessService');
+const accessGate = require('./accessGateService');
+const accountScreens = require('../features/account-screens-pr106');
 
 const COMMANDS = new Set([
   '/start',
@@ -87,7 +90,8 @@ async function sendUnifiedScreen({
   route = 'main:home',
   note = '',
   skipCleanup = false,
-  command = ''
+  command = '',
+  screen: providedScreen = null
 }) {
   const startedAt = Date.now();
   walkthroughTrace.log('slash.screen_start', { command, route, userId, skipCleanup });
@@ -96,7 +100,7 @@ async function sendUnifiedScreen({
     await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
   }
 
-  const screen = menuCore.screenForPayload({ action: route || 'main:home', route: route || 'main:home' }) || menuCore.mainScreen();
+  const screen = providedScreen || menuCore.screenForPayload({ action: route || 'main:home', route: route || 'main:home' }) || menuCore.mainScreen();
   const text = [
     note ? String(note).trim() : '',
     screen.text || 'АдминКИТ'
@@ -160,6 +164,7 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
     );
 
     const failedCount = cleanupFailedCount(failedIds);
+    const screen = accountScreens.gateMenuForUser(userId);
 
     return sendUnifiedScreen({
       config,
@@ -171,9 +176,10 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
       route: 'main:home',
       skipCleanup: true,
       command,
+      screen,
       note: failedCount
-        ? `Очистил доступные сообщения. ${failedCount} сообщений MAX не разрешил удалить. Открываю одно актуальное меню.`
-        : 'Чат очищен от активных меню бота. Открываю одно актуальное меню.'
+        ? `Очистил доступные сообщения. ${failedCount} сообщений MAX не разрешил удалить. Открываю актуальный экран.`
+        : 'Чат очищен от активных меню бота. Открываю актуальный экран.'
     });
   }
 
@@ -181,6 +187,18 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
   if (!route) {
     walkthroughTrace.log('slash.unknown_route', { command, userId });
     return false;
+  }
+
+  let screen = null;
+  let note = command === '/menu' || command === '/start' ? 'Главное меню открыто.' : '';
+  if (command === '/account') {
+    screen = accountScreens.accountHome(userId);
+  } else if (command === '/start' || command === '/menu') {
+    screen = accountScreens.gateMenuForUser(userId);
+  } else {
+    const decision = accessGate.checkCommand(userId, command);
+    if (!decision.allow) screen = accountScreens.screenForGateDecision(decision, userId);
+    else if (command === '/debug' && access.isAdmin(userId)) screen = menuCore.screenForPayload({ action: 'admin_section_debug' });
   }
 
   return sendUnifiedScreen({
@@ -192,7 +210,8 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
     replyToUser,
     route,
     command,
-    note: command === '/menu' || command === '/start' ? 'Главное меню открыто.' : ''
+    screen,
+    note
   });
 }
 

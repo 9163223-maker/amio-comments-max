@@ -109,6 +109,7 @@ function buildSnapshot(options = {}) {
   const payload = {
     ok: !storeError,
     runtimeVersion: RUNTIME,
+    ...clientAccess.info(),
     accessRuntimeVersion: clientAccess.RUNTIME,
     menuCanonicalVersion: canonicalMenu.VERSION,
     menuSourceMarker: canonicalMenu.SOURCE,
@@ -144,6 +145,7 @@ function buildStoreLive() {
   return {
     ...snapshot,
     runtimeVersion: RUNTIME,
+    ...clientAccess.info(),
     accessRuntimeVersion: clientAccess.RUNTIME,
     menuCanonicalVersion: canonicalMenu.VERSION,
     menuSourceMarker: canonicalMenu.SOURCE,

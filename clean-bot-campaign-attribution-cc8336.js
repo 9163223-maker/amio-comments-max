@@ -10,6 +10,7 @@ const max = require('./services/maxApi');
 const menu = require('./v3-menu-core-1539');
 const access = require('./services/clientAccessService');
 const accountScreens = require('./features/account-screens-pr106');
+const accessGate = require('./services/accessGateService');
 
 const RUNTIME = access.RUNTIME;
 
@@ -53,6 +54,8 @@ function callbackFromUpdate(update = {}) { return update?.callback || update?.da
 function messageText(message = {}) { return clean(message?.body?.text || message?.text || ''); }
 function messageId(message = {}) { return clean(message?.body?.mid || message?.body?.message_id || message?.message_id || message?.messageId || message?.id); }
 function chatId(message = {}) { return clean(message?.recipient?.chat_id || message?.recipient?.id || message?.chat_id || message?.chat?.id); }
+function chatType(message = {}) { return clean(message?.recipient?.chat_type || message?.recipient?.type || message?.chat_type || message?.chat?.type).toLowerCase(); }
+function isChannelMessage(message = {}) { const id = chatId(message); return chatType(message) === 'channel' || /^-/.test(id); }
 function callbackId(callback = {}) { return clean(callback?.callback_id || callback?.callbackId || callback?.id); }
 function callbackPayload(callback = {}) { const raw = callback?.payload ?? callback?.data ?? callback?.value ?? callback?.callback_data ?? callback?.callbackData ?? ''; if (raw && typeof raw === 'object') return raw; const text = clean(raw); if (!text) return {}; try { return JSON.parse(text); } catch { return { action: text, raw: text }; } }
 function senderId(update = {}, callback = null, message = null) { return clean(callback?.user?.user_id || callback?.user?.id || callback?.sender?.user_id || callback?.sender?.id || update?.user?.user_id || update?.user?.id || message?.sender?.user_id || message?.sender?.id || userIdFromUpdate(update)); }
@@ -75,18 +78,27 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
     const payload = callbackPayload(callback);
     const action = clean(payload.action || payload.raw);
     const uid = senderId(update, callback, message);
-    if (action === 'admin_section_main') {
-      const state = access.getAccessState(uid);
-      const screen = state.active || state.admin ? menu.mainScreen() : accountScreens.gateMenuForUser(uid);
-      if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
-      await sendOrEditScreen({ update, callback, message, config, screen, edit: true });
-      return res.status(200).json({ ok: true, handledBy: RUNTIME, action, screenId: screen.id, accessGate: true });
-    }
-    const accountScreen = accountScreens.screenForAction(action, uid);
-    if (accountScreen) {
-      if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
-      await sendOrEditScreen({ update, callback, message, config, screen: accountScreen, edit: true });
-      return res.status(200).json({ ok: true, handledBy: RUNTIME, action, screenId: accountScreen.id, accountRuntime: true });
+    if (!isChannelMessage(message)) {
+      if (action === 'admin_section_main') {
+        const state = access.getAccessState(uid);
+        const screen = state.active || state.admin ? menu.mainScreen() : accountScreens.gateMenuForUser(uid);
+        if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
+        await sendOrEditScreen({ update, callback, message, config, screen, edit: true });
+        return res.status(200).json({ ok: true, handledBy: RUNTIME, action, screenId: screen.id, accessGate: true });
+      }
+      const accountScreen = accountScreens.screenForAction(action, uid);
+      if (accountScreen) {
+        if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
+        await sendOrEditScreen({ update, callback, message, config, screen: accountScreen, edit: true });
+        return res.status(200).json({ ok: true, handledBy: RUNTIME, action, screenId: accountScreen.id, accountRuntime: true });
+      }
+      const decision = accessGate.checkAction(uid, payload);
+      if (!decision.allow) {
+        const screen = accountScreens.screenForGateDecision(decision, uid);
+        if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
+        await sendOrEditScreen({ update, callback, message, config, screen, edit: true });
+        return res.status(200).json({ ok: true, handledBy: RUNTIME, action, screenId: screen.id, accessGate: true, reason: decision.reason, featureKey: decision.featureKey });
+      }
     }
   }
   if (type === 'bot_started') {

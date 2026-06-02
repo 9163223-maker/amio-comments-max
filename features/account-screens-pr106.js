@@ -3,6 +3,7 @@
 const access = require('../services/clientAccessService');
 const tariffs = require('../services/tariffConfig');
 const menu = require('../v3-menu-core-1539');
+const gate = require('../services/accessGateService');
 
 function clean(value) { return String(value || '').trim(); }
 function button(text, action, extra = {}) { return menu.button(text, action, extra); }
@@ -170,10 +171,11 @@ function channelsScreen(maxUserId = '') {
 }
 
 function supportScreen() {
-  const contact = clean(process.env.ADMINKIT_SUPPORT_CONTACT || process.env.SUPPORT_CONTACT || '@support');
+  const contact = clean(process.env.ADMINKIT_SUPPORT_CONTACT || process.env.SUPPORT_CONTACT || '');
+  const line = contact ? `Напишите в поддержку: ${contact}` : 'Напишите менеджеру, у которого получили код доступа.';
   return {
     id: 'account_support',
-    text: ['🧑‍💻 Поддержка', '', `Напишите в поддержку: ${contact}`, 'Сообщите, что вам нужен доступ, продление или помощь с подключением канала.'].join('\n'),
+    text: ['🧑‍💻 Поддержка', '', line, 'Сообщите, что вам нужен доступ, продление или помощь с подключением канала.'].join('\n'),
     attachments: keyboard([
       [button('Активировать код', 'account_activate_code')],
       [button('Оплата / продление', 'account_payment')]
@@ -190,6 +192,36 @@ function capabilitiesScreen() {
       [button('Поддержка', 'account_support')]
     ])
   };
+}
+
+
+function deniedFeatureScreen(decision = {}, maxUserId = '') {
+  const state = decision.state || access.getAccessState(maxUserId);
+  if (state.status === 'expired') return expiredScreen(maxUserId);
+  if (!state.active && !state.admin) return activationScreen();
+  const label = tariffs.featureLabel(decision.featureKey || '');
+  return {
+    id: 'account_feature_denied',
+    text: [
+      '🔒 Функция недоступна',
+      '',
+      label ? `Функция: ${label}` : '',
+      decision.message || 'Доступно на другом тарифе или скоро будет доступно.',
+      '',
+      `Текущий тариф: ${state.tariff?.name || state.planId || 'Trial / Free'}`
+    ].filter(Boolean).join('\n'),
+    attachments: keyboard([
+      [button('Лимиты и функции', 'account_limits')],
+      [button('Оплата / продление', 'account_payment')],
+      [button('Поддержка', 'account_support')]
+    ])
+  };
+}
+
+function screenForGateDecision(decision = {}, maxUserId = '') {
+  if (decision.allow) return null;
+  if (decision.reason === 'debug_admin_only') return activationScreen();
+  return deniedFeatureScreen(decision, maxUserId);
 }
 
 function accountHome(maxUserId = '') {
@@ -226,4 +258,4 @@ function screenForAction(action = '', maxUserId = '') {
   return null;
 }
 
-module.exports = { activationScreen, expiredScreen, accessGateScreen, gateMenuForUser, accountHome, myAccessScreen, activationPrompt, activationResultScreen, paymentScreen, limitsScreen, channelsScreen, supportScreen, capabilitiesScreen, screenForAction };
+module.exports = { activationScreen, expiredScreen, deniedFeatureScreen, screenForGateDecision, accessGateScreen, gateMenuForUser, accountHome, myAccessScreen, activationPrompt, activationResultScreen, paymentScreen, limitsScreen, channelsScreen, supportScreen, capabilitiesScreen, screenForAction };
