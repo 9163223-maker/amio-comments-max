@@ -32,6 +32,11 @@ function createJsonRes() {
   return res;
 }
 async function verifyActiveRuntimePath() {
+  const coreCalls = { mainScreen: 0, screenForPayload: 0 };
+  const originalMainScreen = menuCore.mainScreen;
+  const originalScreenForPayload = menuCore.screenForPayload;
+  menuCore.mainScreen = function countedMainScreen(...args) { coreCalls.mainScreen += 1; return originalMainScreen.apply(this, args); };
+  menuCore.screenForPayload = function countedScreenForPayload(...args) { coreCalls.screenForPayload += 1; return originalScreenForPayload.apply(this, args); };
   const expectedMain = expectedSections;
   const maxApi = require('../services/maxApi');
   const sent = [];
@@ -55,16 +60,19 @@ async function verifyActiveRuntimePath() {
   await activeBot.handleWebhook({ body: { update_type: 'message_created', message: { id: 'm-start-pr105', body: { text: '/start' }, sender: { user_id: 'pr105-start-user' }, recipient: { chat_id: 'pr105-start-chat', chat_type: 'user' } } } }, startRes, { botToken: 'test-token', menuDeleteTimeoutMs: 1 });
   assert.strictEqual(startRes.statusCode, 200, '/start active webhook must return 200');
   assert.deepStrictEqual(payloadLabelsFromSend(sent.at(-1)), expectedMain, '/start active runtime must send canonical main menu');
+  assert.ok(coreCalls.mainScreen >= 1, '/start must render through v3-menu-core-1539.mainScreen');
 
   const menuRes = createJsonRes();
   await activeBot.handleWebhook({ body: { update_type: 'message_created', message: { id: 'm-menu-pr105', body: { text: '/menu' }, sender: { user_id: 'pr105-menu-user' }, recipient: { chat_id: 'pr105-menu-chat', chat_type: 'user' } } } }, menuRes, { botToken: 'test-token', menuDeleteTimeoutMs: 1 });
   assert.strictEqual(menuRes.statusCode, 200, '/menu active webhook must return 200');
   assert.deepStrictEqual(payloadLabelsFromSend(sent.at(-1)), expectedMain, '/menu active runtime must send canonical main menu');
+  assert.ok(coreCalls.screenForPayload >= 1, '/menu must render through v3-menu-core-1539.screenForPayload');
 
   const botStartedRes = createJsonRes();
   await activeBot.handleWebhook({ body: { update_type: 'bot_started', update_id: 'bot-started-pr105', user: { user_id: 'pr105-bot-started-user', first_name: 'PR105' } } }, botStartedRes, { botToken: 'test-token', menuDeleteTimeoutMs: 1 });
   assert.strictEqual(botStartedRes.statusCode, 200, 'bot_started active webhook must return 200');
   assert.deepStrictEqual(payloadLabelsFromSend(sent.at(-1)), expectedMain, 'bot_started active runtime must send canonical main menu');
+  assert.ok(coreCalls.mainScreen >= 2, 'bot_started must render through v3-menu-core-1539.mainScreen');
 
   const legacyMapPath = require.resolve('../production-menu-map-v3-fixed');
   const legacyRendererPath = require.resolve('../production-menu-v3-renderer');
