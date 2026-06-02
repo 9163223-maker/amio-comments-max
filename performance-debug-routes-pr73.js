@@ -54,6 +54,12 @@ function boundedBytes(value) {
   return Math.min(Math.round(n), 100 * 1024 * 1024);
 }
 
+function boundedCount(value, max = 100000) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(Math.round(n), max);
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -360,7 +366,15 @@ function sanitizeMiniPayload(payload = {}) {
     resourceDecodedBodySize: boundedBytes(safe.resourceDecodedBodySize || 0),
 
     resourceCacheHint: clean(safe.resourceCacheHint || ''),
-    resourceInitiatorType: clean(safe.resourceInitiatorType || '')
+    resourceInitiatorType: clean(safe.resourceInitiatorType || ''),
+
+    serverCount: boundedCount(safe.serverCount || 0),
+    renderableCount: boundedCount(safe.renderableCount || 0),
+    hiddenBrokenCount: boundedCount(safe.hiddenBrokenCount || 0),
+    postMediaCount: boundedCount(safe.postMediaCount || 0),
+    mediaThumbCount: boundedCount(safe.mediaThumbCount || 0),
+    runtimeBrokenCount: boundedCount(safe.runtimeBrokenCount || 0),
+    renderMs: boundedNumber(safe.renderMs || 0)
   };
 }
 
@@ -425,7 +439,15 @@ function pushMiniEvent(payload = {}) {
       resourceDecodedBodySize: safe.resourceDecodedBodySize,
 
       resourceCacheHint: safe.resourceCacheHint,
-      resourceInitiatorType: safe.resourceInitiatorType
+      resourceInitiatorType: safe.resourceInitiatorType,
+
+      serverCount: safe.serverCount,
+      renderableCount: safe.renderableCount,
+      hiddenBrokenCount: safe.hiddenBrokenCount,
+      postMediaCount: safe.postMediaCount,
+      mediaThumbCount: safe.mediaThumbCount,
+      runtimeBrokenCount: safe.runtimeBrokenCount,
+      renderMs: safe.renderMs
     }
   };
 
@@ -451,7 +473,14 @@ function pushMiniEvent(payload = {}) {
     resourceTransferSize: safe.resourceTransferSize,
     resourceEncodedBodySize: safe.resourceEncodedBodySize,
     resourceDecodedBodySize: safe.resourceDecodedBodySize,
-    resourceCacheHint: safe.resourceCacheHint
+    resourceCacheHint: safe.resourceCacheHint,
+    serverCount: safe.serverCount,
+    renderableCount: safe.renderableCount,
+    hiddenBrokenCount: safe.hiddenBrokenCount,
+    postMediaCount: safe.postMediaCount,
+    mediaThumbCount: safe.mediaThumbCount,
+    runtimeBrokenCount: safe.runtimeBrokenCount,
+    renderMs: safe.renderMs
   });
 
   return item;
