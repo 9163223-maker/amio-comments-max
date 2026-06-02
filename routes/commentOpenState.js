@@ -195,10 +195,16 @@ async function postMediaPreviewHandler(req, res) {
   try {
     const upstream = await fetch(src, {
       method: 'GET',
-      redirect: 'follow',
+      redirect: 'manual',
       timeout: 8000,
       headers: { 'User-Agent': 'AdminkitPostMediaPreview/1.0' }
     });
+    if (upstream.status >= 300 && upstream.status < 400) {
+      const location = clean(upstream.headers && upstream.headers.get('location'), 4096);
+      let redirectTarget = '';
+      try { redirectTarget = location ? new URL(location, src).href : ''; } catch {}
+      return res.status(400).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_redirect_blocked', redirectSafe: Boolean(redirectTarget && isSafeExternalImageUrl(redirectTarget)) });
+    }
     const contentType = clean(upstream.headers && upstream.headers.get('content-type')).toLowerCase();
     if (!upstream.ok || !contentType.startsWith('image/')) {
       return res.status(502).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_fetch_failed', status: upstream.status || 0 });
@@ -339,6 +345,7 @@ function selfTest() {
     serviceRuntimeVersion: postMetaService.RUNTIME || '',
     endpoints: [
       '/api/adminkit/comment-open-state',
+      '/api/adminkit/post-media-preview',
       '/debug/comment-open-state',
       '/debug/post-meta-clean'
     ],
@@ -352,5 +359,6 @@ module.exports = {
   buildStateFromRequest,
   normalizeOpenStateMediaContract,
   normalizeAttachmentForMiniApp,
+  isSafeExternalImageUrl,
   selfTest
 };

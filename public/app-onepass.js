@@ -664,9 +664,13 @@ async function buildInlinePreviewDataUrlFromPacked(packed) {
     try { URL.revokeObjectURL(objectUrl); } catch (_) {}
   }
 }
-async function buildPreviewOnlyAttachment() {
-  if (!state.pendingPhoto) return [];
-  const pending = state.pendingPhoto;
+function snapshotPendingPhotoForUpload(pending) {
+  if (!pending) return null;
+  return Object.assign({}, pending);
+}
+async function buildPreviewOnlyAttachment(pendingSnapshot) {
+  const pending = pendingSnapshot || state.pendingPhoto;
+  if (!pending) return [];
   let packed = pending.compressed;
   if (!packed && pending.compressPromise) {
     try { packed = await pending.compressPromise; } catch (_) { throw new Error('Не удалось обработать фото. Попробуйте другое изображение.'); }
@@ -1056,7 +1060,7 @@ function renderComments(list) {
   }
   if (refs.commentsCountPill) refs.commentsCountPill.textContent = query ? (prepared.length + ' из ' + pluralComments(renderableAll.length)) : pluralComments(renderableAll.length);
 }
-window.__ADMINKIT_ONEPASS_TEST_HOOKS__ = { isRenderableComment, getRenderableComments, selectMediaSource, hasDisplayableMedia, computeCommentsFingerprint, reactionFingerprint, renderOpenState, clearComposerPhotoPreviewAfterOptimisticInsert, optimisticImageUsesSrc, postMediaCandidates };
+window.__ADMINKIT_ONEPASS_TEST_HOOKS__ = { isRenderableComment, getRenderableComments, selectMediaSource, hasDisplayableMedia, computeCommentsFingerprint, reactionFingerprint, renderOpenState, clearComposerPhotoPreviewAfterOptimisticInsert, optimisticImageUsesSrc, postMediaCandidates, snapshotPendingPhotoForUpload, buildPreviewOnlyAttachment };
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🔥', '😮', '😢', '👏'];
 const MORE_REACTIONS = ['😀', '😍', '🤔', '🙏', '😡', '👎', '🎯', '💯', '🤝', '🤣'];
 function findCommentById(commentId) { return (state.comments || []).find((c) => String(c.id || '') === String(commentId || '')); }
@@ -1231,9 +1235,10 @@ async function sendComment() {
   }
   state.lastSendFingerprint = fingerprint;
   state.lastSendStartedAt = Date.now();
+  const pendingPhotoForUpload = hasPhoto ? snapshotPendingPhotoForUpload(state.pendingPhoto) : null;
   const optimisticCommentId = 'client_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-  const preview = clean(state.pendingPhoto && state.pendingPhoto.previewUrl);
-  const optimisticAttachments = hasPhoto ? [{ type: 'image', kind: 'image', mimeType: clean(state.pendingPhoto && state.pendingPhoto.mimeType) || 'image/jpeg', fileName: clean(state.pendingPhoto && state.pendingPhoto.fileName) || 'photo.jpg', thumbDataUrl: preview, previewDataUrl: preview, previewOnly: true, inlineOnly: true, localOnly: true }] : [];
+  const preview = clean(pendingPhotoForUpload && pendingPhotoForUpload.previewUrl);
+  const optimisticAttachments = hasPhoto ? [{ type: 'image', kind: 'image', mimeType: clean(pendingPhotoForUpload && pendingPhotoForUpload.mimeType) || 'image/jpeg', fileName: clean(pendingPhotoForUpload && pendingPhotoForUpload.fileName) || 'photo.jpg', thumbDataUrl: preview, previewDataUrl: preview, previewOnly: true, inlineOnly: true, localOnly: true }] : [];
   const optimisticComment = { id: optimisticCommentId, clientCommentId: optimisticCommentId, userId: outgoingUserId(), userName: outgoingUserName(), text, own: true, createdAt: new Date().toISOString(), sendStatus: 'sending', attachments: optimisticAttachments };
   state.comments = (state.comments || []).concat([optimisticComment]);
   pushCommentTrace('optimistic_comment_inserted', { clientCommentId: optimisticCommentId, status: 'sending' });
@@ -1246,7 +1251,7 @@ async function sendComment() {
   scrollToBottom(true);
   if (hasPhoto) clearComposerPhotoPreviewAfterOptimisticInsert(optimisticCommentId, preview);
   try {
-    const attachments = hasPhoto ? await buildPreviewOnlyAttachment() : [];
+    const attachments = hasPhoto ? await buildPreviewOnlyAttachment(pendingPhotoForUpload) : [];
     emitTraceEvent('comment_create_start', { size: attachments.length, replyToId: state.replyToId || '' });
     pushCommentTrace('comment_create_start', { type: attachments.length ? 'comment_with_photo' : 'comment_text', commentKey: state.commentKey, size: attachments.length });
     const response = await fetch('/api/comments', {
