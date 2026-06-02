@@ -1,8 +1,8 @@
 ;(() => {
   'use strict';
 
-  const RUNTIME = 'CC8.3.57-MINIAPP-CLEAN-MEDIA-LIFECYCLE';
-  const ONEPASS_RUNTIME = 'CC8.3.57-MEDIA-LIFECYCLE-CLEAN';
+  const RUNTIME = 'CC8.3.58-MINIAPP-MEDIA-HEALTH-FINGERPRINT';
+  const ONEPASS_RUNTIME = 'CC8.3.58-MEDIA-HEALTH-FINGERPRINT';
   const SKELETON_RUNTIME = 'CC8.1.9-COMMENT-SKELETON-CONSUMER-GUARDED';
   const PHOTO_FLOW_RUNTIME = 'CC8.3.53-PHOTO-PREVIEW-CONTRACT-80KB';
   const STICKERS_RUNTIME = 'CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87';
@@ -13,8 +13,8 @@
   const STICKERS_LOADER_MARKER = '__ADMINKIT_CC8_3_55_STICKERS_LOADED__';
   const COMPOSER_INTENT_MARKER = '__ADMINKIT_CC8_1_13_COMPOSER_INTENT_UNLOCK__';
 
-  const ASSET_VERSION = 'v8358-onepass-cache-bump';
-  const ONEPASS_SRC = '/public/app-onepass.js?v=8358-onepass-cache-bump';
+  const ASSET_VERSION = 'v8359-media-health-fingerprint';
+  const ONEPASS_SRC = '/public/app-onepass.js?v=8359-media-health-fingerprint';
   const SKELETON_SRC = '/public/app-skeleton-consumer-pr67.js?v=8357-debug-only';
   const PHOTO_FLOW_SRC = '/public/app-photo-flow-pr95.js?v=8357-disabled-clean-media-lifecycle';
   const STICKERS_SRC = '/public/app-stickers-pr87.js?v=8357-stickers';
