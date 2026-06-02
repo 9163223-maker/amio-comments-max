@@ -1,6 +1,6 @@
 'use strict';
 
-const menuV3Adapter = require('../features/menu-v3/adapter');
+const menuCore = require('../v3-menu-core-1539');
 const walkthroughTrace = require('../admin-walkthrough-trace');
 
 const COMMANDS = new Set([
@@ -96,7 +96,7 @@ async function sendUnifiedScreen({
     await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
   }
 
-  const screen = menuV3Adapter.render(route || 'main:home');
+  const screen = menuCore.screenForPayload({ action: route || 'main:home', route: route || 'main:home' }) || menuCore.mainScreen();
   const text = [
     note ? String(note).trim() : '',
     screen.text || 'АдминКИТ'

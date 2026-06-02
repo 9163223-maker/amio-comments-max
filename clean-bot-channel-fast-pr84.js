@@ -5,7 +5,7 @@ const timing = require('./v3-ui-timing-cc8');
 const walkthroughTrace = require('./admin-walkthrough-trace');
 const max = require('./services/maxApi');
 const store = require('./store');
-const unifiedMenu = require('./features/menu-v3/adapter');
+const menuCore = require('./v3-menu-core-1539');
 const { tryPatchChannelPost, FAST_PATCH_RUNTIME } = require('./services/postPatcherFastPr84');
 const growthService = require('./services/growthService');
 
@@ -83,7 +83,7 @@ async function handleUnifiedStart(update, msg, config) {
   ]);
   walkthroughTrace.log('start.received', { userId, messageId: messageId(msg), previousIdsCount: previousIds.length });
   const failedIds = await deleteStoredAdminMessages(config, previousIds);
-  const screen = unifiedMenu.render('main:home');
+  const screen = menuCore.mainScreen();
   walkthroughTrace.log('start.rendered', { userId, route: 'main:home', attachmentsCount: Array.isArray(screen.attachments) ? screen.attachments.length : 0, textLength: String(screen.text || '').length });
   const result = await max.sendMessage({
     botToken: config.botToken,
