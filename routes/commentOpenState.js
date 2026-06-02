@@ -6,8 +6,9 @@
 // No public JS patching and no wrapper layer: backend route returns stable image fields for comments and post snapshot.
 
 const postMetaService = require('../services/postMetaService');
+const fetch = require('node-fetch');
 
-const RUNTIME = 'CC8.3.49-COMMENT-OPEN-STATE-MEDIA-CONTRACT';
+const RUNTIME = 'CC8.3.60-COMMENT-OPEN-STATE-POST-MEDIA-PROXY';
 
 function setNoCache(res) {
   try {
@@ -24,8 +25,9 @@ function safeError(error) {
   return error && error.message ? error.message : String(error || 'unknown_error');
 }
 
-function clean(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
+function clean(value, maxLen = 4096) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text.length > maxLen ? text.slice(0, maxLen) : text;
 }
 
 function firstString(...values) {
@@ -170,6 +172,53 @@ async function buildStateFromRequest(req, options = {}) {
   return normalizeOpenStateMediaContract(state);
 }
 
+
+function isSafeExternalImageUrl(value) {
+  const raw = clean(value);
+  if (!raw) return false;
+  let parsed;
+  try { parsed = new URL(raw); } catch { return false; }
+  if (!/^https?:$/i.test(parsed.protocol)) return false;
+  const host = String(parsed.hostname || '').toLowerCase();
+  if (!host || host === 'localhost' || host === '127.0.0.1' || host === '::1') return false;
+  if (/^(10|127|169\.254|192\.168)\./.test(host)) return false;
+  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return false;
+  return true;
+}
+
+async function postMediaPreviewHandler(req, res) {
+  setNoCache(res);
+  const src = clean(req && req.query && req.query.src, 4096);
+  if (!isSafeExternalImageUrl(src)) {
+    return res.status(400).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'invalid_post_media_url' });
+  }
+  try {
+    const upstream = await fetch(src, {
+      method: 'GET',
+      redirect: 'follow',
+      timeout: 8000,
+      headers: { 'User-Agent': 'AdminkitPostMediaPreview/1.0' }
+    });
+    const contentType = clean(upstream.headers && upstream.headers.get('content-type')).toLowerCase();
+    if (!upstream.ok || !contentType.startsWith('image/')) {
+      return res.status(502).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_fetch_failed', status: upstream.status || 0 });
+    }
+    const maxBytes = 3 * 1024 * 1024;
+    const buf = await upstream.buffer();
+    if (!buf.length || buf.length > maxBytes) {
+      return res.status(502).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_too_large', size: buf.length });
+    }
+    res.set({
+      'Content-Type': contentType || 'image/jpeg',
+      'Cache-Control': 'public, max-age=300, stale-while-revalidate=300',
+      'X-Adminkit-Post-Media-Preview': RUNTIME
+    });
+    return res.send(buf);
+  } catch (error) {
+    return res.status(502).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_proxy_error', message: safeError(error) });
+  }
+}
+
 function requestSnapshot(req) {
   return {
     method: req.method,
@@ -245,6 +294,7 @@ function registerCommentOpenStateRoutes(app) {
   app.__adminkitCommentOpenStateRoutes = true;
 
   app.get('/api/adminkit/comment-open-state', commentOpenStateHandler);
+  app.get('/api/adminkit/post-media-preview', postMediaPreviewHandler);
   app.get('/debug/comment-open-state', debugCommentOpenStateHandler);
 
   // Compatibility endpoint while old debug links still exist.

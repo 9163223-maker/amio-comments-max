@@ -302,7 +302,7 @@ function setSendingUi(isSending) {
   if (refs.commentInput) refs.commentInput.readOnly = Boolean(isSending);
 }
 function pushCommentTrace(event, payload) {
-  const allowed = { attachment_pick: 1, attachment_compress_start: 1, attachment_compress_ok: 1, attachment_compress_error: 1, comment_create_start: 1, comment_create_ok: 1, comment_create_error: 1, optimistic_comment_inserted: 1, optimistic_comment_replaced: 1, text_comment_send_queued: 1, text_comment_send_released: 1, media_source_selected: 1, optimistic_media_inserted: 1, server_confirm_metadata_merged: 1, media_dom_preserved: 1, media_dom_replaced: 1, broken_runtime_media_skipped: 1, open_state_started: 1, open_state_resolved: 1, open_state_failed: 1, attachment_img_onerror: 1 };
+  const allowed = { attachment_pick: 1, attachment_compress_start: 1, attachment_compress_ok: 1, attachment_compress_error: 1, comment_create_start: 1, comment_create_ok: 1, comment_create_error: 1, optimistic_comment_inserted: 1, optimistic_comment_replaced: 1, text_comment_send_queued: 1, text_comment_send_released: 1, media_source_selected: 1, optimistic_media_inserted: 1, server_confirm_metadata_merged: 1, media_dom_preserved: 1, media_dom_replaced: 1, broken_runtime_media_skipped: 1, open_state_started: 1, open_state_resolved: 1, open_state_failed: 1, attachment_img_onerror: 1, composer_preview_cleared_after_optimistic: 1, post_media_source_selected: 1, post_media_img_onerror: 1 };
   if (!allowed[String(event || '')]) return;
   const safe = payload && typeof payload === 'object' ? payload : {};
   const attachment = safe.attachment && typeof safe.attachment === 'object' ? safe.attachment : {};
@@ -344,13 +344,34 @@ function pushCommentTrace(event, payload) {
   state.commentTrace.push(item);
   if (state.commentTrace.length > 100) state.commentTrace = state.commentTrace.slice(-100);
 }
+function optimisticImageUsesSrc(src) {
+  const value = clean(src);
+  if (!value || !refs.commentsList) return false;
+  try {
+    const imgs = Array.from(refs.commentsList.querySelectorAll('.comment-row[data-media-src-locked="1"] .comment-attachment-image img'));
+    return imgs.some((img) => clean(img && img.getAttribute('src')) === value);
+  } catch (_) { return false; }
+}
 function clearPendingPhoto(revokeObjectUrl = true) {
-  if (state.pendingPhoto && state.pendingPhoto.previewUrl && revokeObjectUrl) {
-    try { URL.revokeObjectURL(state.pendingPhoto.previewUrl); } catch (_) {}
+  const previewUrl = clean(state.pendingPhoto && state.pendingPhoto.previewUrl);
+  if (previewUrl && revokeObjectUrl && !optimisticImageUsesSrc(previewUrl)) {
+    try { URL.revokeObjectURL(previewUrl); } catch (_) {}
   }
   state.pendingPhoto = null;
   if (refs.attachmentInput) refs.attachmentInput.value = '';
   renderAttachmentPreview();
+}
+function clearComposerPhotoPreviewAfterOptimisticInsert(clientCommentId, previewUrl) {
+  const src = clean(previewUrl || (state.pendingPhoto && state.pendingPhoto.previewUrl));
+  if (!state.pendingPhoto && !refs.attachmentPreview) return;
+  state.pendingPhoto = null;
+  if (refs.attachmentInput) refs.attachmentInput.value = '';
+  if (refs.attachmentPreview) {
+    refs.attachmentPreview.innerHTML = '';
+    refs.attachmentPreview.classList.add('hidden');
+  }
+  pushCommentTrace('composer_preview_cleared_after_optimistic', { clientCommentId: clean(clientCommentId), selectedSourceKind: /^blob:/i.test(src) ? 'objectUrl' : 'preview', selectedSourceLength: src.length, status: 'cleared' });
+  emitTraceEvent('composer_preview_cleared_after_optimistic', { clientCommentId: clean(clientCommentId), selectedSourceKind: /^blob:/i.test(src) ? 'objectUrl' : 'preview', selectedSourceLength: src.length, objectUrlPreserved: Boolean(src && optimisticImageUsesSrc(src)) });
 }
 function renderAttachmentPreview() {
   if (!refs.attachmentPreview) return;
@@ -585,6 +606,15 @@ window.__ADMINKIT_COMMENT_PHOTO_EVENT__ = function(eventName, node) {
   pushCommentTrace(eventName, { selectedSourceKind: kind, selectedSourceLength: src.length });
   emitTraceEvent(eventName, { selectedSourceKind: kind, selectedSourceLength: src.length });
 };
+window.__ADMINKIT_POST_MEDIA_EVENT__ = function(eventName, node) {
+  const kind = clean(node && node.getAttribute && node.getAttribute('data-post-media-kind'));
+  const src = clean(node && node.getAttribute && node.getAttribute('data-original-src') || node && node.getAttribute && node.getAttribute('src'));
+  if (eventName === 'post_media_img_onerror' && node && node.parentNode) {
+    node.parentNode.innerHTML = '<div class="post-original-media-unavailable" role="status">Фото поста недоступно</div>';
+  }
+  pushCommentTrace('post_media_img_onerror', { selectedSourceKind: kind, selectedSourceLength: src.length, status: 'hidden' });
+  emitTraceEvent('post_media_img_onerror', { selectedSourceKind: kind, selectedSourceLength: src.length, status: 'hidden' });
+};
 
 function approxBytesFromDataUrl(dataUrl) {
   const b64 = String(dataUrl || '').split(',')[1] || '';
@@ -756,9 +786,27 @@ function isImageAttachment(attachment, selectedUrl) {
   const url = clean(selectedUrl || (attachment && (attachment.thumbDataUrl || attachment.previewDataUrl || attachment.dataUrl || attachment.previewUrl || attachment.url || attachment.download_url || attachment.downloadUrl || attachment.link || attachment.photo_url || attachment.photoUrl || attachment.image_url || attachment.imageUrl || payloadMediaSource(attachment) || attachment.posterUrl)));
   return type === 'image' || /^image\//i.test(mimeType) || /\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i.test(url) || /^data:image\//i.test(url) || /^blob:/i.test(url);
 }
+function isExternalPostMediaUrl(url) {
+  const value = clean(url);
+  if (!value || /^(data:image\/|blob:|\/)/i.test(value)) return false;
+  try { const u = new URL(value, location.href); return Boolean(u.origin && u.origin !== location.origin); } catch (_) { return /^https?:\/\//i.test(value); }
+}
+function proxiedPostMediaUrl(url) {
+  const value = clean(url);
+  if (!value || !isExternalPostMediaUrl(value)) return value;
+  return '/api/adminkit/post-media-preview?src=' + encodeURIComponent(value);
+}
+function tracePostMediaSourceOnce(item) {
+  const safe = item || {};
+  const traceKey = 'post_media_source|' + clean(safe.sourceKind) + '|' + clean(safe.url).slice(0, 140);
+  if (state.mediaSourceTraceKeys[traceKey]) return;
+  state.mediaSourceTraceKeys[traceKey] = 1;
+  pushCommentTrace('post_media_source_selected', { selectedSourceKind: clean(safe.sourceKind), selectedSourceLength: clean(safe.url).length, status: safe.external ? 'external' : 'local' });
+  emitTraceEvent('post_media_source_selected', { selectedSourceKind: clean(safe.sourceKind), selectedSourceLength: clean(safe.url).length, renderUrlKind: safe.proxied ? 'server_proxy' : 'direct', external: Boolean(safe.external) });
+}
 function postMediaCandidates(source) {
   const post = source || {};
-  const lists = [post.previewAttachments, post.sourceAttachments, post.attachments, post.media, post.photos, post.images].filter(Array.isArray);
+  const lists = [post.previewAttachments, post.sourceAttachments, post.attachments, post.mediaAttachments, post.originalAttachments, post.media, post.photos, post.images].filter(Array.isArray);
   const out = [];
   function addCandidate(att, defaultName) {
     const selected = selectMediaSource(att || {});
@@ -770,7 +818,10 @@ function postMediaCandidates(source) {
     if (!selected.url) return;
     if (isRuntimeCommentUploadUrl(selected.url) && selected.broken) return;
     if (!isImageAttachment(att || {}, selected.url)) return;
-    if (!out.some((x) => x.url === selected.url)) out.push({ url: selected.url, name: clean(att && (att.name || att.fileName)) || defaultName || 'Фото поста' });
+    if (!out.some((x) => x.url === selected.url)) {
+      const external = isExternalPostMediaUrl(selected.url);
+      out.push({ url: selected.url, renderUrl: proxiedPostMediaUrl(selected.url), sourceKind: selected.kind || 'unknown', external, proxied: external, name: clean(att && (att.name || att.fileName)) || defaultName || 'Фото поста' });
+    }
   }
   lists.forEach((list) => list.forEach((att) => addCandidate(att, 'Фото поста')));
   ['thumbDataUrl', 'previewDataUrl', 'dataUrl', 'photoUrl', 'photo_url', 'imageUrl', 'image_url', 'mediaUrl', 'previewUrl', 'download_url', 'downloadUrl', 'link', 'url'].forEach((key) => {
@@ -795,7 +846,8 @@ function renderOriginalPostMedia(meta) {
     return;
   }
   refs.postMedia.classList.remove('hidden');
-  refs.postMedia.innerHTML = '<div class="post-original-media">' + media.map((item) => '<img class="post-original-media-img" src="' + escapeHtml(item.url) + '" alt="' + escapeHtml(item.name) + '" loading="lazy">').join('') + '</div>';
+  media.forEach(tracePostMediaSourceOnce);
+  refs.postMedia.innerHTML = '<div class="post-original-media">' + media.map((item) => '<img class="post-original-media-img" src="' + escapeHtml(item.renderUrl || item.url) + '" data-original-src="' + escapeHtml(item.url) + '" data-post-media-kind="' + escapeHtml(item.sourceKind || 'unknown') + '" alt="' + escapeHtml(item.name) + '" loading="lazy" onerror="window.__ADMINKIT_POST_MEDIA_EVENT__&&window.__ADMINKIT_POST_MEDIA_EVENT__(\'post_media_img_onerror\',this)">').join('') + '</div>';
 }
 function applyMeta(meta) {
   meta = meta || {};
@@ -997,9 +1049,14 @@ function renderComments(list) {
     if (row) { applyRowMetadata(row, comment); keep.add(row); }
   });
   Array.from(refs.commentsList.children || []).forEach((row) => { if (!keep.has(row)) row.remove(); });
+  if (refs.commentsList.querySelectorAll) {
+    Array.from(refs.commentsList.querySelectorAll('.last-media-comment')).forEach((row) => row.classList.remove('last-media-comment'));
+    const mediaRows = Array.from(refs.commentsList.querySelectorAll('.comment-row')).filter((row) => row.querySelector && row.querySelector('.comment-attachment-image'));
+    if (mediaRows.length && mediaRows[mediaRows.length - 1].classList) mediaRows[mediaRows.length - 1].classList.add('last-media-comment');
+  }
   if (refs.commentsCountPill) refs.commentsCountPill.textContent = query ? (prepared.length + ' из ' + pluralComments(renderableAll.length)) : pluralComments(renderableAll.length);
 }
-window.__ADMINKIT_ONEPASS_TEST_HOOKS__ = { isRenderableComment, getRenderableComments, selectMediaSource, hasDisplayableMedia, computeCommentsFingerprint, reactionFingerprint, renderOpenState };
+window.__ADMINKIT_ONEPASS_TEST_HOOKS__ = { isRenderableComment, getRenderableComments, selectMediaSource, hasDisplayableMedia, computeCommentsFingerprint, reactionFingerprint, renderOpenState, clearComposerPhotoPreviewAfterOptimisticInsert, optimisticImageUsesSrc, postMediaCandidates };
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🔥', '😮', '😢', '👏'];
 const MORE_REACTIONS = ['😀', '😍', '🤔', '🙏', '😡', '👎', '🎯', '💯', '🤝', '🤣'];
 function findCommentById(commentId) { return (state.comments || []).find((c) => String(c.id || '') === String(commentId || '')); }
@@ -1130,8 +1187,13 @@ function syncCommentsBottomInset() {
   const list = refs.commentsList; const composer = refs.composerCard;
   if (!list || !composer) return;
   const h = composer.offsetHeight || 0;
-  list.style.paddingBottom = (h + 20) + 'px';
-  emitTraceEvent('composer_anchor_fix', { composerHeight: h });
+  const inset = h + 44;
+  list.style.paddingBottom = inset + 'px';
+  list.style.setProperty('--comments-bottom-inset', inset + 'px');
+  let style = document.getElementById('adminkit-last-media-inset-style');
+  if (!style && document.head) { style = document.createElement('style'); style.id = 'adminkit-last-media-inset-style'; document.head.appendChild(style); }
+  if (style) style.textContent = '.comment-row:last-child:has(.comment-attachment-image),.comment-row.last-media-comment{scroll-margin-bottom:calc(var(--comments-bottom-inset,132px) + 28px);margin-bottom:18px}.post-original-media-unavailable{display:flex;align-items:center;justify-content:center;min-height:96px;border-radius:14px;background:rgba(238,246,255,.82);color:#6b7f99;font-size:13px}';
+  emitTraceEvent('composer_anchor_fix', { composerHeight: h, bottomInset: inset });
 }
 function hasRenderablePhotoSource(att) {
   const a = att || {};
@@ -1182,6 +1244,7 @@ async function sendComment() {
   autoResizeComposerInput();
   renderComments();
   scrollToBottom(true);
+  if (hasPhoto) clearComposerPhotoPreviewAfterOptimisticInsert(optimisticCommentId, preview);
   try {
     const attachments = hasPhoto ? await buildPreviewOnlyAttachment() : [];
     emitTraceEvent('comment_create_start', { size: attachments.length, replyToId: state.replyToId || '' });
@@ -1221,7 +1284,7 @@ async function sendComment() {
       if (hasPhoto) { const row = findCommentRow({ id: optimisticCommentId, clientCommentId: optimisticCommentId }); if (row) { applyRowMetadata(row, mergedComment); const img = row.querySelector('.comment-attachment-image img'); const src = clean(img && img.getAttribute('src')); pushCommentTrace('media_dom_preserved', { clientCommentId: optimisticCommentId, selectedSourceLength: src.length }); emitTraceEvent('media_dom_preserved', { clientCommentId: optimisticCommentId, selectedSourceLength: src.length }); } else renderComments(); }
       else renderComments();
     }
-    if (hasPhoto) clearPendingPhoto(false);
+    if (hasPhoto && state.pendingPhoto) clearPendingPhoto(false);
     clearReplyComposer();
     state.lastSendFingerprint = '';
     setInlineStatus('', false);
