@@ -56,6 +56,9 @@ async function verifyActiveRuntimePath() {
   const activeBot = require('../bot');
   assert.strictEqual(typeof activeBot.handleWebhook, 'function', 'active bot export must expose handleWebhook');
 
+  const access = require('../services/clientAccessService');
+  ['pr105-start-user', 'pr105-menu-user', 'pr105-bot-started-user'].forEach((maxUserId) => access.createClientProfile({ maxUserId, name: 'PR105 active test', planId: 'business', status: 'active', expiresAt: '2099-01-01T00:00:00.000Z', maxChannels: 20 }));
+
   const startRes = createJsonRes();
   await activeBot.handleWebhook({ body: { update_type: 'message_created', message: { id: 'm-start-pr105', body: { text: '/start' }, sender: { user_id: 'pr105-start-user' }, recipient: { chat_id: 'pr105-start-chat', chat_type: 'user' } } } }, startRes, { botToken: 'test-token', menuDeleteTimeoutMs: 1 });
   assert.strictEqual(startRes.statusCode, 200, '/start active webhook must return 200');

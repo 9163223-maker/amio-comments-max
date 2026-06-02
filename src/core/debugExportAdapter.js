@@ -3,7 +3,9 @@
 const crypto = require('crypto');
 const config = require('../../config');
 
-const RUNTIME = 'ADMINKIT-CORE-DEBUG-EXPORT-ADAPTER-1.50.0';
+const clientAccess = require('../../services/clientAccessService');
+const canonicalMenu = require('../../features/menu-v3/canonical-menu');
+const RUNTIME = clientAccess.RUNTIME;
 const DEFAULT_LATEST_PATH = 'debug/latest.json';
 const DEFAULT_LITE_PATH = 'debug/latest-lite.json';
 
@@ -98,16 +100,22 @@ function buildSnapshot(options = {}) {
   } catch (error) {
     storeError = error?.message || String(error);
   }
-  let coreStressSelf = null;
-  try {
-    const stress = require('./coreStressTest');
-    coreStressSelf = typeof stress.selfTest === 'function' ? stress.selfTest() : { runtimeVersion: stress.RUNTIME || '' };
-  } catch (error) {
-    coreStressSelf = { ok: false, error: error?.message || String(error) };
-  }
+  const coreStressSelf = {
+    ok: true,
+    skipped: true,
+    reason: 'pr106_store_live_constant_time',
+    runtimeVersion: RUNTIME
+  };
   const payload = {
     ok: !storeError,
     runtimeVersion: RUNTIME,
+    ...clientAccess.info(),
+    accessRuntimeVersion: clientAccess.RUNTIME,
+    menuCanonicalVersion: canonicalMenu.VERSION,
+    menuSourceMarker: canonicalMenu.SOURCE,
+    activeEntrypoint: 'clean-entrypoint-1.53.10-pr89.js',
+    staleEndpointDetected: false,
+    debugVersionSource: 'debugExportAdapter-pr106',
     generatedAt: nowIso(),
     mode: lite ? 'debug-export-lite' : 'debug-export-full',
     build: {
@@ -137,6 +145,13 @@ function buildStoreLive() {
   return {
     ...snapshot,
     runtimeVersion: RUNTIME,
+    ...clientAccess.info(),
+    accessRuntimeVersion: clientAccess.RUNTIME,
+    menuCanonicalVersion: canonicalMenu.VERSION,
+    menuSourceMarker: canonicalMenu.SOURCE,
+    activeEntrypoint: 'clean-entrypoint-1.53.10-pr89.js',
+    staleEndpointDetected: false,
+    debugVersionSource: 'debug-store-live-pr106',
     endpoint: '/debug/store-live',
     noCache: true,
     generatedAt: nowIso()

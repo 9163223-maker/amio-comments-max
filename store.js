@@ -189,6 +189,16 @@ function createEmptyStore() {
           allowedExtensions: []
         }
       }
+    },
+    clientAccess: {
+      clients: {},
+      tenants: {},
+      tenantUsers: {},
+      tenantChannels: {},
+      activationCodes: {},
+      accessEvents: [],
+      channelsByUser: {},
+      pendingActivation: {}
     }
   };
 }
@@ -235,6 +245,16 @@ function normalizeStoreShape(parsed) {
           ...(parsed.gifts?.settings?.uploadLimits || {})
         }
       }
+    },
+    clientAccess: {
+      clients: parsed.clientAccess?.clients && typeof parsed.clientAccess.clients === "object" ? parsed.clientAccess.clients : {},
+      tenants: parsed.clientAccess?.tenants && typeof parsed.clientAccess.tenants === "object" ? parsed.clientAccess.tenants : {},
+      tenantUsers: parsed.clientAccess?.tenantUsers && typeof parsed.clientAccess.tenantUsers === "object" ? parsed.clientAccess.tenantUsers : {},
+      tenantChannels: parsed.clientAccess?.tenantChannels && typeof parsed.clientAccess.tenantChannels === "object" ? parsed.clientAccess.tenantChannels : {},
+      activationCodes: parsed.clientAccess?.activationCodes && typeof parsed.clientAccess.activationCodes === "object" ? parsed.clientAccess.activationCodes : {},
+      accessEvents: Array.isArray(parsed.clientAccess?.accessEvents) ? parsed.clientAccess.accessEvents : [],
+      channelsByUser: parsed.clientAccess?.channelsByUser && typeof parsed.clientAccess.channelsByUser === "object" ? parsed.clientAccess.channelsByUser : {},
+      pendingActivation: parsed.clientAccess?.pendingActivation && typeof parsed.clientAccess.pendingActivation === "object" ? parsed.clientAccess.pendingActivation : {}
     }
   };
 }
@@ -1274,6 +1294,14 @@ function getDebugSnapshot() {
         }
       }
       if (!Object.keys(byEmoji).length) delete byComment[commentId];
+    }
+  }
+  if (snapshot.clientAccess && typeof snapshot.clientAccess === 'object') {
+    try {
+      const access = require('./services/clientAccessService');
+      snapshot.clientAccess = access.sanitizedSnapshot();
+    } catch {
+      snapshot.clientAccess = { sanitized: true, error: 'client_access_sanitize_failed' };
     }
   }
   const build = getBuildInfo();
