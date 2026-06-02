@@ -45,6 +45,28 @@ async function sendBot(bot, sent, update) { const res = createJsonRes(); await b
   assert.strictEqual(admin.res.body.screenId, 'pr108_admin_panel', 'explicit env admin can open /admin');
   assert.deepStrictEqual(admin.labels, ['Создать код', 'Коды доступа', 'Клиенты / tenants', 'Главное меню'], 'admin panel buttons');
 
+  const durationScreen = adminScreens.screenForAction('admin_code_plan_start', 'pr108-admin', {});
+  assert.ok(!labels(durationScreen).includes('Ввести вручную'), 'admin create duration screen must not include manual input');
+  const channelsScreen = adminScreens.screenForAction('admin_code_duration_30', 'pr108-admin', { planId: 'start' });
+  assert.ok(!labels(channelsScreen).includes('Ввести вручную'), 'admin create channels screen must not include manual input');
+  const bindScreen = adminScreens.screenForAction('admin_code_channels_3', 'pr108-admin', { planId: 'start', durationDays: 30 });
+  assert.ok(!labels(bindScreen).includes('Привязать к channelId вручную'), 'admin bind screen must not include manual channel binding');
+
+  const beforeStaleManualCodes = access.listActivationCodes({ limit: 100 }).length;
+  const staleDuration = await sendBot(bot, sent, callbackUpdate('pr108-admin', { action: 'admin_code_duration_manual', planId: 'start' }));
+  assert.strictEqual(staleDuration.res.body.screenId, 'pr108_admin_manual_deferred', 'stale manual duration action must not confirm with default 30 days');
+  assert.ok(/Ручной ввод будет добавлен позже/.test(staleDuration.text), 'stale manual duration gets friendly deferred message');
+  assert.deepStrictEqual(staleDuration.labels, ['Создать код', 'Админ-панель'], 'stale manual duration buttons');
+  assert.strictEqual(access.listActivationCodes({ limit: 100 }).length, beforeStaleManualCodes, 'stale manual duration must not create a code');
+
+  const staleChannels = await sendBot(bot, sent, callbackUpdate('pr108-admin', { action: 'admin_code_channels_manual', planId: 'start', durationDays: 30 }));
+  assert.strictEqual(staleChannels.res.body.screenId, 'pr108_admin_manual_deferred', 'stale manual channel action must not confirm with default 1 channel');
+  assert.strictEqual(access.listActivationCodes({ limit: 100 }).length, beforeStaleManualCodes, 'stale manual channels must not create a code');
+
+  const staleBind = await sendBot(bot, sent, callbackUpdate('pr108-admin', { action: 'admin_code_bind_manual', planId: 'start', durationDays: 30, maxChannels: 3 }));
+  assert.strictEqual(staleBind.res.body.screenId, 'pr108_admin_manual_deferred', 'stale manual bind action must not confirm empty channel binding');
+  assert.strictEqual(access.listActivationCodes({ limit: 100 }).length, beforeStaleManualCodes, 'stale manual bind must not create a code');
+
   const created = access.createActivationCode({ planId: 'start', durationDays: 30, maxChannels: 3, createdByMaxUserId: 'pr108-admin' });
   assert.ok(/^AK-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}$/.test(created.code), 'admin can create production-safe activation code');
   const rawCode = created.code;

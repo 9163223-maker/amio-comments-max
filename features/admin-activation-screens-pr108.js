@@ -13,6 +13,10 @@ function dateRu(value = '') { if (!value) return 'без даты'; const d = ne
 function denyScreen() {
   return { id: 'pr108_admin_denied', text: ['Недоступно', '', 'Админ-панель доступна только поддержке. Обратитесь к поддержке, если вам нужен доступ.'].join('\n'), attachments: keyboard([[button('Поддержка', 'account_support')]]) };
 }
+function manualDeferredScreen(maxUserId = '') {
+  if (!assertAdmin(maxUserId)) return denyScreen();
+  return { id: 'pr108_admin_manual_deferred', text: 'Ручной ввод будет добавлен позже. Создайте код через фиксированные варианты.', attachments: keyboard([[button('Создать код', 'admin_code_create')], [button('Админ-панель', 'admin_panel')]]) };
+}
 function assertAdmin(maxUserId = '') { return access.isAdmin(maxUserId); }
 function adminPanel(maxUserId = '') {
   if (!assertAdmin(maxUserId)) return denyScreen();
@@ -25,17 +29,17 @@ function createPlanScreen(maxUserId = '') {
 function createDurationScreen(maxUserId = '', planId = 'start') {
   if (!assertAdmin(maxUserId)) return denyScreen();
   const extra = { planId };
-  return { id: 'pr108_admin_code_duration', text: ['Создать код', '', `Тариф: ${tariffs.getTariff(planId).name}`, 'Выберите срок действия.'].join('\n'), attachments: keyboard([[button('7 дней', 'admin_code_duration_7', extra), button('14 дней', 'admin_code_duration_14', extra)], [button('30 дней', 'admin_code_duration_30', extra), button('90 дней', 'admin_code_duration_90', extra)], [button('365 дней', 'admin_code_duration_365', extra)], [button('Ввести вручную', 'admin_code_duration_manual', extra)], [button('Назад', 'admin_code_create'), button('Отмена', 'admin_panel')]]) };
+  return { id: 'pr108_admin_code_duration', text: ['Создать код', '', `Тариф: ${tariffs.getTariff(planId).name}`, 'Выберите срок действия.'].join('\n'), attachments: keyboard([[button('7 дней', 'admin_code_duration_7', extra), button('14 дней', 'admin_code_duration_14', extra)], [button('30 дней', 'admin_code_duration_30', extra), button('90 дней', 'admin_code_duration_90', extra)], [button('365 дней', 'admin_code_duration_365', extra)], [button('Назад', 'admin_code_create'), button('Отмена', 'admin_panel')]]) };
 }
 function createChannelsScreen(maxUserId = '', planId = 'start', durationDays = 30) {
   if (!assertAdmin(maxUserId)) return denyScreen();
   const extra = { planId, durationDays };
-  return { id: 'pr108_admin_code_channels', text: ['Создать код', '', `Тариф: ${tariffs.getTariff(planId).name}`, `Срок: ${durationDays} дней`, 'Выберите лимит каналов.'].join('\n'), attachments: keyboard([[button('1 канал', 'admin_code_channels_1', extra), button('3 канала', 'admin_code_channels_3', extra)], [button('5 каналов', 'admin_code_channels_5', extra), button('10 каналов', 'admin_code_channels_10', extra)], [button('Ввести вручную', 'admin_code_channels_manual', extra)], [button('Назад', 'admin_code_create'), button('Отмена', 'admin_panel')]]) };
+  return { id: 'pr108_admin_code_channels', text: ['Создать код', '', `Тариф: ${tariffs.getTariff(planId).name}`, `Срок: ${durationDays} дней`, 'Выберите лимит каналов.'].join('\n'), attachments: keyboard([[button('1 канал', 'admin_code_channels_1', extra), button('3 канала', 'admin_code_channels_3', extra)], [button('5 каналов', 'admin_code_channels_5', extra), button('10 каналов', 'admin_code_channels_10', extra)], [button('Назад', 'admin_code_create'), button('Отмена', 'admin_panel')]]) };
 }
 function createBindScreen(maxUserId = '', planId = 'start', durationDays = 30, maxChannels = 1) {
   if (!assertAdmin(maxUserId)) return denyScreen();
   const extra = { planId, durationDays, maxChannels };
-  return { id: 'pr108_admin_code_bind', text: ['Создать код', '', 'Привязка к каналу необязательна.', 'Для production-safe минимального flow используйте «Без привязки к каналу».'].join('\n'), attachments: keyboard([[button('Без привязки к каналу', 'admin_code_bind_none', extra)], [button('Привязать к channelId вручную', 'admin_code_bind_manual', extra)], [button('Назад', 'admin_code_create'), button('Отмена', 'admin_panel')]]) };
+  return { id: 'pr108_admin_code_bind', text: ['Создать код', '', 'Привязка к каналу необязательна.', 'Для production-safe минимального flow используйте «Без привязки к каналу».'].join('\n'), attachments: keyboard([[button('Без привязки к каналу', 'admin_code_bind_none', extra)], [button('Назад', 'admin_code_create'), button('Отмена', 'admin_panel')]]) };
 }
 function confirmScreen(maxUserId = '', opts = {}) {
   if (!assertAdmin(maxUserId)) return denyScreen();
@@ -96,12 +100,12 @@ function tenantDetailsScreen(maxUserId = '', tenantId = '') {
 function screenForAction(action = '', maxUserId = '', payload = {}) {
   const a = clean(action);
   if (a === 'admin_panel') return adminPanel(maxUserId);
+  if (a === 'admin_code_duration_manual' || a === 'admin_code_channels_manual' || a === 'admin_code_bind_manual') return manualDeferredScreen(maxUserId);
   if (a === 'admin_code_create') return createPlanScreen(maxUserId);
   if (a.startsWith('admin_code_plan_')) return createDurationScreen(maxUserId, a.replace('admin_code_plan_', ''));
   if (a.startsWith('admin_code_duration_')) return createChannelsScreen(maxUserId, payload.planId || 'start', Number(a.replace('admin_code_duration_', '')) || Number(payload.durationDays || 30));
   if (a.startsWith('admin_code_channels_')) return createBindScreen(maxUserId, payload.planId || 'start', Number(payload.durationDays || 30), Number(a.replace('admin_code_channels_', '')) || Number(payload.maxChannels || 1));
   if (a === 'admin_code_bind_none') return confirmScreen(maxUserId, { ...payload, boundChannelId: '' });
-  if (a === 'admin_code_bind_manual') return confirmScreen(maxUserId, { ...payload, boundChannelId: clean(payload.boundChannelId || '') });
   if (a === 'admin_code_confirm_create') return createdScreen(maxUserId, payload);
   if (a === 'admin_codes_list') return codesListScreen(maxUserId);
   if (a === 'admin_code_details') return codeDetailsScreen(maxUserId, payload.codeHashOrSafeId || '');
@@ -111,4 +115,4 @@ function screenForAction(action = '', maxUserId = '', payload = {}) {
   return null;
 }
 
-module.exports = { ADMIN_RUNTIME, denyScreen, adminPanel, screenForAction, createdScreen, codesListScreen, codeDetailsScreen, tenantsListScreen, tenantDetailsScreen };
+module.exports = { ADMIN_RUNTIME, denyScreen, manualDeferredScreen, adminPanel, screenForAction, createdScreen, codesListScreen, codeDetailsScreen, tenantsListScreen, tenantDetailsScreen };
