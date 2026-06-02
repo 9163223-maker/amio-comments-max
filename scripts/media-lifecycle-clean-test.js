@@ -78,6 +78,30 @@ assert.strictEqual(hooks.getRenderableComments([brokenMediaOnly, textComment, go
 assert.strictEqual(hooks.selectMediaSource(brokenMediaOnly.attachments[0]).broken, true, 'broken runtime-only media should be selected as broken and skipped');
 assert.strictEqual(hooks.hasDisplayableMedia(brokenMediaOnly.attachments[0]), false, 'broken runtime-only media should not create an image node');
 
+const reactionBase = [{ id: 'reacted', text: 'same text', attachments: [], createdAt: '2026-06-01T00:00:00Z', updatedAt: '2026-06-01T00:00:00Z' }];
+const reactionToggled = [{
+  id: 'reacted',
+  text: 'same text',
+  attachments: [],
+  createdAt: '2026-06-01T00:00:00Z',
+  updatedAt: '2026-06-01T00:00:00Z',
+  reactionDetails: [{ emoji: '👍', count: 1, active: true }],
+  ownReactions: ['👍'],
+  reactionCounts: { '👍': 1 }
+}];
+const reactionIncremented = [{
+  id: 'reacted',
+  text: 'same text',
+  attachments: [],
+  createdAt: '2026-06-01T00:00:00Z',
+  updatedAt: '2026-06-01T00:00:00Z',
+  reactionDetails: [{ emoji: '👍', count: 2, active: true }],
+  ownReactions: ['👍'],
+  reactionCounts: { '👍': 2 }
+}];
+assert.notStrictEqual(hooks.computeCommentsFingerprint(reactionBase), hooks.computeCommentsFingerprint(reactionToggled), 'reaction toggle should change the render fingerprint');
+assert.notStrictEqual(hooks.computeCommentsFingerprint(reactionToggled), hooks.computeCommentsFingerprint(reactionIncremented), 'reaction count changes should change the render fingerprint');
+
 assert.ok(appSource.includes("if (fingerprint !== state.lastRenderFingerprint)"), 'renderOpenState should compare comment fingerprint');
 assert.ok(appSource.includes("state.comments = mergedList;\n    emitTraceEvent('comment_render_skip_unchanged'"), 'unchanged polling should update state without re-rendering or touching img nodes');
 assert.ok(appSource.includes('clearPendingPhoto(false);'), 'successful photo send should clear composer preview without revoking optimistic object URL');

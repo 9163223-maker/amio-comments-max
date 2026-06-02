@@ -483,6 +483,19 @@ async function compressImageForComment(file) {
     if (objectUrl) try { URL.revokeObjectURL(objectUrl); } catch (_) {}
   }
 }
+function reactionFingerprint(comment) {
+  const details = (Array.isArray(comment && comment.reactionDetails) ? comment.reactionDetails : []).map((item) => [
+    clean(item && item.emoji),
+    String(Number(item && item.count || 0) || 0),
+    item && item.active ? '1' : '0'
+  ].join(':')).sort().join(',');
+  const own = (Array.isArray(comment && comment.ownReactions) ? comment.ownReactions : []).map(clean).filter(Boolean).sort().join(',');
+  const counts = Object.entries((comment && comment.reactionCounts) || {}).map(([emoji, count]) => [
+    clean(emoji),
+    String(Number(count || 0) || 0)
+  ].join(':')).sort().join(',');
+  return [details, own, counts].join('|');
+}
 function computeCommentsFingerprint(list) {
   const safe = Array.isArray(list) ? list : [];
   return safe.map((comment) => {
@@ -507,7 +520,7 @@ function computeCommentsFingerprint(list) {
         sourceLength
       ].join(':');
     }).join('|');
-    return [clean(comment.id), commentClientId, clean(comment.text || comment.body), attachments, commentCreated, commentUpdated].join('~');
+    return [clean(comment.id), commentClientId, clean(comment.text || comment.body), attachments, reactionFingerprint(comment), commentCreated, commentUpdated].join('~');
   }).join('||');
 }
 function postMiniTiming(name, extra) {
@@ -965,7 +978,7 @@ function renderComments(list) {
   Array.from(refs.commentsList.children || []).forEach((row) => { if (!keep.has(row)) row.remove(); });
   if (refs.commentsCountPill) refs.commentsCountPill.textContent = query ? (prepared.length + ' из ' + pluralComments(renderableAll.length)) : pluralComments(renderableAll.length);
 }
-window.__ADMINKIT_ONEPASS_TEST_HOOKS__ = { isRenderableComment, getRenderableComments, selectMediaSource, hasDisplayableMedia, computeCommentsFingerprint };
+window.__ADMINKIT_ONEPASS_TEST_HOOKS__ = { isRenderableComment, getRenderableComments, selectMediaSource, hasDisplayableMedia, computeCommentsFingerprint, reactionFingerprint };
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🔥', '😮', '😢', '👏'];
 const MORE_REACTIONS = ['😀', '😍', '🤔', '🙏', '😡', '👎', '🎯', '💯', '🤝', '🤣'];
 function findCommentById(commentId) { return (state.comments || []).find((c) => String(c.id || '') === String(commentId || '')); }
