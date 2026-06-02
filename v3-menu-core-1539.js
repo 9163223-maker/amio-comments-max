@@ -23,7 +23,7 @@ const UNIFIED_ROUTE_OWNERS=new Set(['main',...canonicalMenu.clientSections.map((
 const {button,link,keyboard,callbackPayload,footerRows}=old;
 function runtimeVersion(){return process.env.RUNTIME_VERSION||process.env.BUILD_VERSION||RUNTIME;}
 function sc(t,b,r,id){return{id:id||'',text:[t,'',...(b||[])].filter(Boolean).join('\n'),attachments:keyboard(r||footerRows())};}
-function routeFromPayload(p){p=p||{};const r=String(p.route||p.action||'').trim();if(!/^[a-z][a-z0-9_]*:[a-z0-9_]+/i.test(r))return'';const owner=r.split(':')[0];return UNIFIED_ROUTE_OWNERS.has(owner)?r:'';}
+function routeFromPayload(p){p=p||{};const r=String(p.route||p.r||p.action||'').trim();if(!/^[a-z][a-z0-9_]*:[a-z0-9_]+/i.test(r))return'';const owner=r.split(':')[0];return UNIFIED_ROUTE_OWNERS.has(owner)?r:'';}
 function unifiedScreen(route){const s=unifiedMenu.render(route||'main:home');return{id:route||s.route||'unified',text:s.text,attachments:s.attachments};}
 function mainScreen(){return unifiedScreen('main:home');}
 function archiveScreen(){return sc('🗄 Архив / восстановление',['Postgres-архив постов: список, снимки, восстановление как новый пост и лимиты по тарифам.','Сейчас храним все посты. Ограничения 5/15/30 будут маркетинговыми по тарифу позже.','Связка клиент ↔ бот ↔ канал и посты не должна теряться после обновлений.'],[[button('📋 Список архива','archive_list',{offset:0})],[button('🔄 Статус архива','archive_status')],[button('💾 Как сохраняется архив','archive_save')],[button('📏 Лимиты архива','archive_limits')],...footerRows()],'archive');}

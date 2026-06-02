@@ -11,6 +11,20 @@ const ROUTE_FEATURES = {
   channels: 'channels', comments: 'comments', gifts: 'gifts', buttons: 'buttons', stats: 'basic_stats', ad_links: 'ad_links', ads: 'ad_links', polls: 'polls', highlight: 'highlights', highlights: 'highlights', editor: 'post_editor', posts: 'post_editor', archive: 'archive', moderation: 'moderation', settings: 'settings'
 };
 
+const BASIC_STATS_ACTIONS = new Set([
+  'admin_stats_overview', 'admin_stats_overview_cache',
+  'admin_stats_subscribers', 'admin_stats_subscribers_day', 'admin_stats_subscribers_7', 'admin_stats_subscribers_14', 'admin_stats_subscribers_30', 'admin_stats_subscribers_trend',
+  'admin_stats_posts', 'admin_stats_posts_cache', 'admin_stats_post',
+  'admin_stats_views', 'admin_stats_views_cache',
+  'admin_stats_comments', 'admin_stats_comments_cache',
+  'admin_stats_reactions', 'admin_stats_reactions_cache',
+  'admin_stats_polls', 'admin_stats_polls_cache',
+  'admin_stats_gifts', 'admin_stats_gifts_cache',
+  'admin_stats_buttons', 'admin_stats_buttons_cache',
+  'admin_stats_archive', 'admin_stats_archive_cache',
+  'admin_stats_refresh', 'admin_stats_refresh_status'
+]);
+
 function clean(value) { return String(value || '').trim(); }
 function routeOwner(route = '') { return clean(route).split(/[:.]/)[0].toLowerCase(); }
 function featureForSource(source = '') {
@@ -24,6 +38,22 @@ function featureForSource(source = '') {
   if (s === 'archive') return 'archive';
   return 'comments';
 }
+function actionRouteSignal(action = '', route = '') { return clean([action, route].filter(Boolean).join(' ')).toLowerCase(); }
+function hasToken(signal = '', tokens = []) {
+  const value = clean(signal).toLowerCase();
+  return tokens.some((token) => new RegExp(`(^|[_.:-])${token}($|[_.:-])`, 'i').test(value));
+}
+function featureForStatsSignal(action = '', route = '') {
+  const a = clean(action).toLowerCase();
+  const signal = actionRouteSignal(a, route);
+  if (hasToken(signal, ['export'])) return 'export';
+  if (/admin_stats_campaign(?:s|_|$)/i.test(a) || hasToken(signal, ['campaign', 'campaigns', 'ad_link', 'ad_links', 'ad-link', 'ad-links', 'adlink', 'adlinks', 'referral', 'referrals', 'referral_create'])) return 'ad_links';
+  if (hasToken(signal, ['attribution'])) return 'attribution';
+  if (hasToken(signal, ['source', 'sources', 'tracking', 'traffic', 'utm', 'funnel', 'cost', 'costs'])) return 'advanced_stats';
+  if (a === 'admin_section_stats' || BASIC_STATS_ACTIONS.has(a)) return 'basic_stats';
+  if (/^admin_stats_/i.test(a)) return 'basic_stats';
+  return '';
+}
 function featureForAction(action = '', payload = {}) {
   const a = clean(action || payload.action || payload.raw || payload.route || payload.r);
   const route = clean(payload.route || payload.r);
@@ -36,13 +66,8 @@ function featureForAction(action = '', payload = {}) {
   if (a === 'admin_section_comments') return 'comments';
   if (a === 'admin_section_gifts' || /^gift_/i.test(a)) return 'gifts';
   if (a === 'admin_section_buttons' || /^button_/i.test(a)) return 'buttons';
-  const statsSignal = clean([a, route].filter(Boolean).join(' ')).toLowerCase();
-  if (/(^|[_.:-])export($|[_.:-])|export_/i.test(statsSignal)) return 'export';
-  if (/admin_stats_campaign(?:s|_|$)|(^|[_.:-])campaign(s|_|[_.:-]|$)|ad[_-]?links?|referral(_create|s)?($|[_.:-])/i.test(statsSignal)) return 'ad_links';
-  if (/(^|[_.:-])(source|sources|attribution|traffic|utm|funnel|costs?)($|[_.:-])/i.test(statsSignal)) return 'attribution';
-  if (a === 'admin_section_stats') return 'basic_stats';
-  if (/^admin_stats_(overview|overview_cache|subscribers|subscribers_day|subscribers_7|subscribers_14|subscribers_30|subscribers_trend|posts|posts_cache|post|views|views_cache|comments|comments_cache|reactions|reactions_cache|polls|polls_cache|gifts|gifts_cache|buttons|buttons_cache|archive|archive_cache|refresh|refresh_status)$/i.test(a)) return 'basic_stats';
-  if (/^admin_stats_/i.test(a)) return 'basic_stats';
+  const statsFeature = featureForStatsSignal(a, route);
+  if (statsFeature) return statsFeature;
   if (a === 'admin_section_polls' || /^poll_/i.test(a)) return 'polls';
   if (a === 'admin_section_highlights' || /^highlight_/i.test(a)) return 'highlights';
   if (a === 'admin_section_posts' || /^admin_posts_/i.test(a)) return 'post_editor';
@@ -52,7 +77,7 @@ function featureForAction(action = '', payload = {}) {
   return ROUTE_FEATURES[owner] || '';
 }
 function featureForCommand(command = '') { return COMMAND_FEATURES[clean(command).toLowerCase()] || ''; }
-function featureForRoute(route = '') { return ROUTE_FEATURES[routeOwner(route)] || ''; }
+function featureForRoute(route = '') { return featureForAction('', { route }); }
 
 function checkFeature(maxUserId, featureKey, { allowAccount = true } = {}) {
   const key = clean(featureKey);
