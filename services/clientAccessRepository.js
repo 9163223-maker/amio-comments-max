@@ -67,26 +67,37 @@ async function hydrateFromDb() {
   persist();
 }
 
-async function ensureTables() {
-  bootstrapState = { ...bootstrapState, attempted: true, at: nowIso() };
-  if (!postgresConfigured()) {
-    bootstrapState = { attempted: true, ok: false, tenantTablesReady: false, error: 'postgres_not_configured', at: nowIso() };
-    return bootstrapState;
-  }
-  try {
-    await db.query(`CREATE TABLE IF NOT EXISTS ak_tenants (
+const TENANT_TABLE_MIGRATIONS = Object.freeze([
+  {
+    table: 'ak_tenants',
+    create: `CREATE TABLE IF NOT EXISTS ak_tenants (
       tenant_id TEXT PRIMARY KEY,
-      owner_max_user_id TEXT NOT NULL,
+      owner_max_user_id TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'active',
       plan_id TEXT NOT NULL DEFAULT 'free',
       expires_at TIMESTAMPTZ,
       max_channels INTEGER NOT NULL DEFAULT 1,
-      source TEXT NOT NULL DEFAULT 'adminkit',
-      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`);
-    await db.query(`CREATE TABLE IF NOT EXISTS ak_tenant_users (
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      source TEXT NOT NULL DEFAULT 'adminkit',
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb
+    )`,
+    columns: [
+      `ADD COLUMN IF NOT EXISTS tenant_id TEXT`,
+      `ADD COLUMN IF NOT EXISTS owner_max_user_id TEXT NOT NULL DEFAULT ''`,
+      `ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`,
+      `ADD COLUMN IF NOT EXISTS plan_id TEXT NOT NULL DEFAULT 'free'`,
+      `ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`,
+      `ADD COLUMN IF NOT EXISTS max_channels INTEGER NOT NULL DEFAULT 1`,
+      `ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+      `ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+      `ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'adminkit'`,
+      `ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb`
+    ]
+  },
+  {
+    table: 'ak_tenant_users',
+    create: `CREATE TABLE IF NOT EXISTS ak_tenant_users (
       tenant_id TEXT NOT NULL REFERENCES ak_tenants(tenant_id) ON DELETE CASCADE,
       max_user_id TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'owner',
@@ -94,8 +105,19 @@ async function ensureTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (tenant_id, max_user_id)
-    )`);
-    await db.query(`CREATE TABLE IF NOT EXISTS ak_tenant_channels (
+    )`,
+    columns: [
+      `ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT ''`,
+      `ADD COLUMN IF NOT EXISTS max_user_id TEXT NOT NULL DEFAULT ''`,
+      `ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'owner'`,
+      `ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`,
+      `ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+      `ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+    ]
+  },
+  {
+    table: 'ak_tenant_channels',
+    create: `CREATE TABLE IF NOT EXISTS ak_tenant_channels (
       tenant_id TEXT NOT NULL REFERENCES ak_tenants(tenant_id) ON DELETE CASCADE,
       channel_id TEXT NOT NULL PRIMARY KEY,
       channel_title TEXT NOT NULL DEFAULT '',
@@ -104,8 +126,21 @@ async function ensureTables() {
       bound_by_code TEXT NOT NULL DEFAULT '',
       metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`);
-    await db.query(`CREATE TABLE IF NOT EXISTS ak_activation_codes (
+    )`,
+    columns: [
+      `ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT ''`,
+      `ADD COLUMN IF NOT EXISTS channel_id TEXT NOT NULL DEFAULT ''`,
+      `ADD COLUMN IF NOT EXISTS channel_title TEXT NOT NULL DEFAULT ''`,
+      `ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`,
+      `ADD COLUMN IF NOT EXISTS connected_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+      `ADD COLUMN IF NOT EXISTS bound_by_code TEXT NOT NULL DEFAULT ''`,
+      `ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+    ]
+  },
+  {
+    table: 'ak_activation_codes',
+    create: `CREATE TABLE IF NOT EXISTS ak_activation_codes (
       code_hash TEXT PRIMARY KEY,
       plan_id TEXT NOT NULL,
       duration_days INTEGER NOT NULL DEFAULT 30,
@@ -120,15 +155,65 @@ async function ensureTables() {
       metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`);
-    await db.query(`CREATE TABLE IF NOT EXISTS ak_access_events (
+    )`,
+    columns: [
+      `ADD COLUMN IF NOT EXISTS code_hash TEXT`,
+      `ADD COLUMN IF NOT EXISTS plan_id TEXT NOT NULL DEFAULT 'free'`,
+      `ADD COLUMN IF NOT EXISTS duration_days INTEGER NOT NULL DEFAULT 30`,
+      `ADD COLUMN IF NOT EXISTS max_channels INTEGER NOT NULL DEFAULT 1`,
+      `ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`,
+      `ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`,
+      `ADD COLUMN IF NOT EXISTS single_use BOOLEAN NOT NULL DEFAULT TRUE`,
+      `ADD COLUMN IF NOT EXISTS used_at TIMESTAMPTZ`,
+      `ADD COLUMN IF NOT EXISTS used_by_max_user_id TEXT NOT NULL DEFAULT ''`,
+      `ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT ''`,
+      `ADD COLUMN IF NOT EXISTS bound_channel_id TEXT NOT NULL DEFAULT ''`,
+      `ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+      `ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+    ]
+  },
+  {
+    table: 'ak_access_events',
+    create: `CREATE TABLE IF NOT EXISTS ak_access_events (
       event_id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL DEFAULT '',
       max_user_id TEXT NOT NULL DEFAULT '',
       event_type TEXT NOT NULL,
       payload JSONB NOT NULL DEFAULT '{}'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`);
+    )`,
+    columns: [
+      `ADD COLUMN IF NOT EXISTS event_id TEXT`,
+      `ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT ''`,
+      `ADD COLUMN IF NOT EXISTS max_user_id TEXT NOT NULL DEFAULT ''`,
+      `ADD COLUMN IF NOT EXISTS event_type TEXT NOT NULL DEFAULT ''`,
+      `ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+    ]
+  }
+]);
+
+async function migrateTenantAccessTables() {
+  // Fresh schemas keep tenant FK/cascade relationships in CREATE TABLE definitions.
+  // Legacy table repair intentionally only adds missing columns here; validating or
+  // backfilling FK constraints for existing rows is safer as a separate migration.
+  for (const migration of TENANT_TABLE_MIGRATIONS) {
+    await db.query(migration.create);
+    for (const column of migration.columns) {
+      await db.query(`ALTER TABLE ${migration.table} ${column}`);
+    }
+  }
+}
+
+async function ensureTables() {
+  bootstrapState = { ...bootstrapState, attempted: true, at: nowIso() };
+  if (!postgresConfigured()) {
+    bootstrapState = { attempted: true, ok: false, tenantTablesReady: false, error: 'postgres_not_configured', at: nowIso() };
+    return bootstrapState;
+  }
+  try {
+    await migrateTenantAccessTables();
     await hydrateFromDb();
     bootstrapState = { attempted: true, ok: true, tenantTablesReady: true, error: '', at: nowIso() };
   } catch (error) {
