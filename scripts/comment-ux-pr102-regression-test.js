@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const openStateModule = require('../routes/commentOpenState');
+const activeCommentOpenStateModule = require('../comment-open-state-route-1546');
 
 const root = path.join(__dirname, '..');
 const appOnepass = fs.readFileSync(path.join(root, 'public', 'app-onepass.js'), 'utf8');
@@ -12,6 +13,10 @@ const loader = fs.readFileSync(path.join(root, 'public', 'app.js'), 'utf8');
 const miniApp = fs.readFileSync(path.join(root, 'mini-app.html'), 'utf8');
 const timingRoutes = fs.readFileSync(path.join(root, 'performance-debug-routes-pr73.js'), 'utf8');
 const openStateRoute = fs.readFileSync(path.join(root, 'routes', 'commentOpenState.js'), 'utf8');
+const packageJson = fs.readFileSync(path.join(root, 'package.json'), 'utf8');
+const activeEntrypoint = fs.readFileSync(path.join(root, 'clean-entrypoint-1.53.10-pr89.js'), 'utf8');
+const activeRoutes = fs.readFileSync(path.join(root, 'v3-menu-routes-1539.js'), 'utf8');
+const activeCommentOpenStateRoute = fs.readFileSync(path.join(root, 'comment-open-state-route-1546.js'), 'utf8');
 
 function has(text, needle, message) {
   assert.ok(text.includes(needle), message || `missing ${needle}`);
@@ -36,6 +41,20 @@ has(appOnepass, 'Фото поста недоступно', 'post media fallback
 has(appOnepass, 'post_media_source_selected', 'post media source selection should be traced');
 has(appOnepass, '/api/adminkit/post-media-preview?src=', 'external post media should use server-side lightweight preview proxy');
 has(openStateRoute, '/api/adminkit/post-media-preview', 'post media preview proxy endpoint should be registered');
+has(packageJson, 'clean-entrypoint-1.53.10-pr89.js', 'package start should use active production entrypoint');
+has(activeEntrypoint, "require('./v3-menu-routes-1539')", 'active entrypoint should install v3-menu-routes-1539');
+has(activeRoutes, "require('./comment-open-state-route-1546')", 'active menu routes should load comment-open-state-route-1546');
+has(activeRoutes, 'commentOpenState.install(app)', 'active menu routes should install comment open-state module');
+has(activeRoutes, '/api/adminkit/post-media-preview', 'active menu route listing should include post-media preview endpoint');
+has(activeCommentOpenStateRoute, "require('./routes/commentOpenState')", 'active comment-open-state route should reuse shared safe proxy helper');
+has(activeCommentOpenStateRoute, "app.get('/api/adminkit/post-media-preview', postMediaPreviewHandler)", 'active production route should register post-media preview endpoint');
+assert.strictEqual(activeCommentOpenStateModule.postMediaPreviewHandler, openStateModule.postMediaPreviewHandler, 'active route should use the shared SSRF-hardened post media handler');
+{
+  const registered = [];
+  activeCommentOpenStateModule.install({ get(pathName, handler) { registered.push({ pathName, handler }); } });
+  assert.ok(registered.some((route) => route.pathName === '/api/adminkit/comment-open-state'), 'active install should still register comment-open-state');
+  assert.ok(registered.some((route) => route.pathName === '/api/adminkit/post-media-preview' && route.handler === openStateModule.postMediaPreviewHandler), 'active install should register shared post-media preview handler');
+}
 has(openStateRoute, "redirect: 'manual'", 'post media proxy must not auto-follow redirects');
 has(openStateRoute, 'post_media_redirect_blocked', 'post media proxy should block redirects instead of following them');
 has(openStateRoute, 'safeImageLookup', 'post media proxy should validate DNS-resolved fetch addresses');

@@ -558,6 +558,7 @@ module.exports = {
   isAllowedExternalImagePort,
   setPostMediaImageCache,
   destroyUpstreamBody,
+  postMediaPreviewHandler,
   expandIPv6Hextets,
   firstIPv6Hextet,
   ipv4FromEmbeddedIPv6,
