@@ -1,15 +1,24 @@
 'use strict';
 
-const accountCabinet = require('./accountCabinet');
+const accountScreens = require('../../features/account-screens-pr106');
+const clientAccess = require('../../services/clientAccessService');
 const webhookContext = require('./webhookContext');
 
-const RUNTIME = 'CC8.0.1-ACCOUNT-CONTEXT-FALLBACK';
+const RUNTIME = clientAccess.RUNTIME;
 const ACCOUNT_ACTIONS = new Set([
   'admin_section_tariffs',
   'billing_current_plan',
   'billing_limits',
   'billing_referral',
-  'billing_upgrade'
+  'billing_upgrade',
+  'account_home',
+  'account_my_access',
+  'account_activate_code',
+  'account_payment',
+  'account_limits',
+  'account_channels',
+  'account_support',
+  'account_capabilities'
 ]);
 
 function clean(value) {
@@ -70,12 +79,18 @@ async function resolveContext(update = {}, context = {}) {
   return retry;
 }
 
+function getMaxUserId(update = {}, context = {}) {
+  const callback = getCallback(update) || {};
+  const message = getMessage(update) || {};
+  return clean(context?.user?.maxUserId || context?.user?.userId || callback?.user?.user_id || callback?.user?.id || callback?.sender?.user_id || callback?.sender?.id || update?.user?.user_id || update?.user?.id || message?.sender?.user_id || message?.sender?.id || message?.user_id);
+}
+
 async function buildAccountScreenForUpdate({ update = {}, context = {}, config = {} } = {}) {
   const decision = shouldHandleAccountUpdate(update);
   if (!decision.ok) return { ...decision, screen: null, runtimeVersion: RUNTIME };
-  const resolvedContext = await resolveContext(update, context).catch((error) => ({ ok: false, reason: 'context_retry_failed', error: error?.message || String(error) }));
-  const screen = await accountCabinet.buildAccountScreen({ action: decision.action, context: resolvedContext?.ok ? resolvedContext : {}, config });
-  return { ok: true, action: decision.action, screen, contextOk: Boolean(resolvedContext?.ok), contextReason: resolvedContext?.reason || '', runtimeVersion: RUNTIME };
+  const maxUserId = getMaxUserId(update, context);
+  const screen = accountScreens.screenForAction(decision.action, maxUserId);
+  return { ok: Boolean(screen), action: decision.action, screen, contextOk: Boolean(maxUserId), contextReason: maxUserId ? '' : 'max_user_id_missing', runtimeVersion: RUNTIME };
 }
 
 module.exports = {
@@ -87,5 +102,6 @@ module.exports = {
   getActionFromUpdate,
   isAccountAction,
   shouldHandleAccountUpdate,
+  getMaxUserId,
   buildAccountScreenForUpdate
 };

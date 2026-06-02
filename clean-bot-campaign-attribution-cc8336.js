@@ -6,8 +6,12 @@ const growthService = require('./services/growthService');
 const campaignAttribution = require('./campaign-attribution-cc8336');
 const titleResolver = require('./channel-title-resolver-cc8340');
 const botAudit = require('./admin-bot-audit-trace');
+const max = require('./services/maxApi');
+const menu = require('./v3-menu-core-1539');
+const access = require('./services/clientAccessService');
+const accountScreens = require('./features/account-screens-pr106');
 
-const RUNTIME = 'CC8.3.40-CHANNEL-TITLE-RESOLVER';
+const RUNTIME = access.RUNTIME;
 
 function clean(value) { return String(value || '').trim(); }
 function audit(type, payload = {}) { try { botAudit.log(type, payload); } catch {} }
@@ -43,6 +47,77 @@ function channelIdFromUpdate(update = {}) {
 }
 function userIdFromUpdate(update = {}) { return clean(firstValue(update, ['user_id', 'userId', 'sender_id', 'senderId', 'from_id', 'fromId'])); }
 function userNameFromUpdate(update = {}) { return clean(firstValue(update, ['first_name', 'firstName', 'username', 'name'])); }
+
+function messageFromUpdate(update = {}) { return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || find(update, (x) => x && typeof x === 'object' && (x.body?.text || x.text) && (x.recipient || x.sender || x.message_id || x.id), 6) || null; }
+function callbackFromUpdate(update = {}) { return update?.callback || update?.data?.callback || update?.message?.callback || update?.data?.message?.callback || find(update, (x) => x && typeof x === 'object' && (x.callback_id || x.callbackId || x.payload || x.callback_data || x.callbackData) && !(x.body && x.body.text), 6) || null; }
+function messageText(message = {}) { return clean(message?.body?.text || message?.text || ''); }
+function messageId(message = {}) { return clean(message?.body?.mid || message?.body?.message_id || message?.message_id || message?.messageId || message?.id); }
+function chatId(message = {}) { return clean(message?.recipient?.chat_id || message?.recipient?.id || message?.chat_id || message?.chat?.id); }
+function callbackId(callback = {}) { return clean(callback?.callback_id || callback?.callbackId || callback?.id); }
+function callbackPayload(callback = {}) { const raw = callback?.payload ?? callback?.data ?? callback?.value ?? callback?.callback_data ?? callback?.callbackData ?? ''; if (raw && typeof raw === 'object') return raw; const text = clean(raw); if (!text) return {}; try { return JSON.parse(text); } catch { return { action: text, raw: text }; } }
+function senderId(update = {}, callback = null, message = null) { return clean(callback?.user?.user_id || callback?.user?.id || callback?.sender?.user_id || callback?.sender?.id || update?.user?.user_id || update?.user?.id || message?.sender?.user_id || message?.sender?.id || userIdFromUpdate(update)); }
+async function sendOrEditScreen({ update = {}, callback = null, message = null, config = {}, screen, edit = false }) {
+  const mid = messageId(message);
+  if (edit && mid) {
+    try { return await max.editMessage({ botToken: config.botToken, messageId: mid, text: screen.text, attachments: screen.attachments, notify: false }); }
+    catch {}
+  }
+  const cid = chatId(message);
+  const uid = senderId(update, callback, message);
+  return max.sendMessage({ botToken: config.botToken, userId: cid ? '' : uid, chatId: cid, text: screen.text, attachments: screen.attachments, notify: false });
+}
+async function tryHandleAccessRuntime(req, res, config = {}) {
+  const update = req.body || {};
+  const callback = callbackFromUpdate(update);
+  const message = messageFromUpdate(update);
+  const type = updateType(update);
+  if (callback) {
+    const payload = callbackPayload(callback);
+    const action = clean(payload.action || payload.raw);
+    const uid = senderId(update, callback, message);
+    if (action === 'admin_section_main') {
+      const state = access.getAccessState(uid);
+      const screen = state.active || state.admin ? menu.mainScreen() : accountScreens.gateMenuForUser(uid);
+      if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
+      await sendOrEditScreen({ update, callback, message, config, screen, edit: true });
+      return res.status(200).json({ ok: true, handledBy: RUNTIME, action, screenId: screen.id, accessGate: true });
+    }
+    const accountScreen = accountScreens.screenForAction(action, uid);
+    if (accountScreen) {
+      if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
+      await sendOrEditScreen({ update, callback, message, config, screen: accountScreen, edit: true });
+      return res.status(200).json({ ok: true, handledBy: RUNTIME, action, screenId: accountScreen.id, accountRuntime: true });
+    }
+  }
+  if (type === 'bot_started') {
+    const uid = senderId(update, callback, message);
+    if (uid) {
+      const screen = accountScreens.gateMenuForUser(uid);
+      await max.sendMessage({ botToken: config.botToken, userId: uid, text: screen.text, attachments: screen.attachments, notify: false });
+      return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'bot_started_access_gate', screenId: screen.id });
+    }
+  }
+  if (message) {
+    const uid = senderId(update, callback, message);
+    const text = messageText(message);
+    if (/^\/?(?:start|menu)(?:\s|$)/i.test(text)) {
+      const isMenu = /^\/?menu(?:\s|$)/i.test(text);
+      const state = access.getAccessState(uid);
+      const screen = (isMenu && (state.active || state.admin)) ? menu.screenForPayload({ action: 'admin_section_main' }) : accountScreens.gateMenuForUser(uid);
+      await sendOrEditScreen({ update, callback, message, config, screen, edit: false });
+      return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'start_menu_access_gate', screenId: screen.id });
+    }
+    if (text && access.hasPendingActivation(uid)) {
+      const result = access.activateCode({ maxUserId: uid, code: text });
+      access.clearPendingActivation(uid);
+      const screen = accountScreens.activationResultScreen(result, uid);
+      await sendOrEditScreen({ update, callback, message, config, screen, edit: false });
+      return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'activation_code_input', activated: !!result.ok, screenId: screen.id });
+    }
+  }
+  return null;
+}
+
 async function resolveChannelTitleFromUpdate(update = {}, config = {}) {
   const channelId = channelIdFromUpdate(update);
   if (!channelId || !/^-/i.test(channelId) || !config?.botToken) return null;
@@ -59,6 +134,8 @@ function createCleanBot(legacy) {
   const wrapped = base.createCleanBot(legacy);
   return {
     handleWebhook: async function handleWebhookWithCampaignAttribution(req, res, config) {
+      const accessResult = await tryHandleAccessRuntime(req, res, config);
+      if (accessResult) return accessResult;
       try { await resolveChannelTitleFromUpdate(req.body || {}, config); }
       catch (error) { audit('channel_title_resolver.error', { error: String(error && error.message || error).slice(0, 220), runtimeVersion: RUNTIME }); }
       try { campaignAttribution.saveAudienceEventFromUpdate(store, growthService, req.body || {}, audit); }

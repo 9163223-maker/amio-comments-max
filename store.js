@@ -189,6 +189,12 @@ function createEmptyStore() {
           allowedExtensions: []
         }
       }
+    },
+    clientAccess: {
+      clients: {},
+      activationCodes: {},
+      channelsByUser: {},
+      pendingActivation: {}
     }
   };
 }
@@ -235,6 +241,12 @@ function normalizeStoreShape(parsed) {
           ...(parsed.gifts?.settings?.uploadLimits || {})
         }
       }
+    },
+    clientAccess: {
+      clients: parsed.clientAccess?.clients && typeof parsed.clientAccess.clients === "object" ? parsed.clientAccess.clients : {},
+      activationCodes: parsed.clientAccess?.activationCodes && typeof parsed.clientAccess.activationCodes === "object" ? parsed.clientAccess.activationCodes : {},
+      channelsByUser: parsed.clientAccess?.channelsByUser && typeof parsed.clientAccess.channelsByUser === "object" ? parsed.clientAccess.channelsByUser : {},
+      pendingActivation: parsed.clientAccess?.pendingActivation && typeof parsed.clientAccess.pendingActivation === "object" ? parsed.clientAccess.pendingActivation : {}
     }
   };
 }

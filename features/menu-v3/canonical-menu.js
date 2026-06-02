@@ -7,13 +7,14 @@
 const VERSION = 'pr105-client-production-menu-v1';
 const SOURCE = 'adminkit-pr105-production-menu-canonicalization';
 
-function action({ id, title, section, targetAction = '', existingAction = '', clientVisible = true, adminOnly = false, requiresChannel = false, requiresPost = false, implemented = true, hiddenReason = '', payload = {} }) {
-  return { id, title, section, targetAction: targetAction || existingAction || id, existingAction: existingAction || targetAction || id, clientVisible: Boolean(clientVisible && !adminOnly && implemented), adminOnly: Boolean(adminOnly), requiresChannel: Boolean(requiresChannel), requiresPost: Boolean(requiresPost), implemented: Boolean(implemented), hiddenReason: hiddenReason || '', payload: payload || {} };
+function action({ id, title, section, targetAction = '', existingAction = '', clientVisible = true, adminOnly = false, requiresChannel = false, requiresPost = false, implemented = true, hiddenReason = '', payload = {}, featureKey = '', minPlan = 'free', requiresActiveAccess = true, availableInPlans = [], accountOnlyWhenExpired = false }) {
+  return { id, title, section, targetAction: targetAction || existingAction || id, existingAction: existingAction || targetAction || id, clientVisible: Boolean(clientVisible && !adminOnly && implemented), adminOnly: Boolean(adminOnly), requiresChannel: Boolean(requiresChannel), requiresPost: Boolean(requiresPost), implemented: Boolean(implemented), hiddenReason: hiddenReason || '', payload: payload || {}, featureKey: featureKey || section || id, minPlan, requiresActiveAccess: Boolean(requiresActiveAccess), availableInPlans, accountOnlyWhenExpired: Boolean(accountOnlyWhenExpired) };
 }
 
 const sections = [
   {
     id: 'channels', title: 'Каналы', route: 'channels:home', clientVisible: true, adminOnly: false,
+    featureKey: 'channels', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'channels.connect', title: 'Подключить канал', section: 'channels', existingAction: 'admin_section_channels' }),
       action({ id: 'channels.mine', title: 'Мои каналы', section: 'channels', existingAction: 'admin_section_channels' }),
@@ -23,6 +24,7 @@ const sections = [
   },
   {
     id: 'comments', title: 'Комментарии', route: 'comments:home', clientVisible: true, adminOnly: false,
+    featureKey: 'comments', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'comments.post_comments', title: 'Комментарии к посту', section: 'comments', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'comments' } }),
       action({ id: 'comments.auto_comments', title: 'Автокомментарии', section: 'comments', existingAction: 'admin_section_comments' }),
@@ -32,6 +34,7 @@ const sections = [
   },
   {
     id: 'gifts', title: 'Подарки / лид-магниты', route: 'gifts:home', clientVisible: true, adminOnly: false,
+    featureKey: 'gifts', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'gifts.create', title: 'Создать подарок', section: 'gifts', existingAction: 'gift_admin_start_create' }),
       action({ id: 'gifts.post_gift', title: 'Подарок под постом', section: 'gifts', existingAction: 'gift_admin_recent_posts', requiresChannel: true, requiresPost: true, payload: { page: 0 } }),
@@ -40,6 +43,7 @@ const sections = [
   },
   {
     id: 'buttons', title: 'Кнопки под постами', route: 'buttons:home', clientVisible: true, adminOnly: false,
+    featureKey: 'buttons', minPlan: 'start', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'buttons.add', title: 'Добавить кнопку', section: 'buttons', existingAction: 'button_admin_start_add', requiresChannel: true, requiresPost: true }),
       action({ id: 'buttons.current', title: 'Текущие кнопки', section: 'buttons', existingAction: 'button_admin_show_current', requiresChannel: true, requiresPost: true }),
@@ -48,6 +52,7 @@ const sections = [
   },
   {
     id: 'stats', title: 'Статистика', route: 'stats:home', clientVisible: true, adminOnly: false,
+    featureKey: 'basic_stats', minPlan: 'start', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'stats.overview', title: 'Обзор', section: 'stats', existingAction: 'admin_section_stats' }),
       action({ id: 'stats.subscribers', title: 'Подписчики', section: 'stats', existingAction: 'admin_stats_subscribers_day' }),
@@ -63,6 +68,7 @@ const sections = [
   },
   {
     id: 'ad_links', title: 'Рекламные ссылки', route: 'ad_links:home', aliases: ['ads:home'], clientVisible: true, adminOnly: false,
+    featureKey: 'ad_links', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'ad_links.create', title: 'Создать рекламную ссылку', section: 'ad_links', existingAction: 'admin_stats_campaign_create' }),
       action({ id: 'ad_links.mine', title: 'Мои рекламные ссылки', section: 'ad_links', existingAction: 'admin_stats_campaigns' }),
@@ -71,6 +77,7 @@ const sections = [
   },
   {
     id: 'polls', title: 'Опросы / голосования', route: 'polls:home', clientVisible: true, adminOnly: false,
+    featureKey: 'polls', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'polls.create', title: 'Создать опрос', section: 'polls', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'polls' } }),
       action({ id: 'polls.results', title: 'Результаты опросов', section: 'polls', existingAction: 'poll_status' }),
@@ -79,6 +86,7 @@ const sections = [
   },
   {
     id: 'highlights', title: 'Выделение постов', route: 'highlights:home', aliases: ['highlight:home'], clientVisible: true, adminOnly: false,
+    featureKey: 'highlights', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'highlights.apply', title: 'Поставить выделение', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
       action({ id: 'highlights.remove', title: 'Снять выделение', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
@@ -86,6 +94,7 @@ const sections = [
   },
   {
     id: 'editor', title: 'Редактор постов', route: 'editor:home', clientVisible: true, adminOnly: false,
+    featureKey: 'post_editor', minPlan: 'start', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'editor.change_text', title: 'Изменить текст поста', section: 'editor', existingAction: 'admin_posts_picker', requiresChannel: true, requiresPost: true }),
       action({ id: 'editor.history', title: 'История версий', section: 'editor', existingAction: 'admin_posts_history', clientVisible: false, implemented: false, hiddenReason: 'not_client_root' }),
@@ -93,6 +102,7 @@ const sections = [
   },
   {
     id: 'archive', title: 'Архив постов', route: 'archive:home', clientVisible: true, adminOnly: false,
+    featureKey: 'archive', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'archive.saved_posts', title: 'Сохранённые посты', section: 'archive', existingAction: 'archive_list', payload: { offset: 0 } }),
       action({ id: 'archive.restore_post', title: 'Восстановить пост', section: 'archive', existingAction: 'archive_list', payload: { offset: 0 } }),
@@ -102,17 +112,19 @@ const sections = [
   },
   {
     id: 'account', title: 'Личный кабинет', route: 'account:home', aliases: ['tariffs:home'], clientVisible: true, adminOnly: false,
+    featureKey: 'account', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: true,
     actions: [
       action({ id: 'account.access', title: 'Мой доступ', section: 'account', existingAction: 'billing_current_plan' }),
-      action({ id: 'account.activate_code', title: 'Активировать код', section: 'account', existingAction: 'billing_upgrade', implemented: false, clientVisible: false, hiddenReason: 'handler_not_ready' }),
+      action({ id: 'account.activate_code', title: 'Активировать код', section: 'account', existingAction: 'account_activate_code' }),
       action({ id: 'account.payment', title: 'Оплата / продление', section: 'account', existingAction: 'billing_upgrade' }),
       action({ id: 'account.limits', title: 'Лимиты и функции', section: 'account', existingAction: 'billing_limits' }),
-      action({ id: 'account.channels', title: 'Мои каналы', section: 'account', existingAction: 'admin_section_channels' }),
-      action({ id: 'account.support', title: 'Поддержка', section: 'account', targetAction: 'support:home', implemented: false, clientVisible: false, hiddenReason: 'handler_not_ready' }),
+      action({ id: 'account.channels', title: 'Мои каналы', section: 'account', existingAction: 'account_channels' }),
+      action({ id: 'account.support', title: 'Поддержка', section: 'account', existingAction: 'account_support' }),
     ],
   },
   {
     id: 'settings', title: 'Настройки', route: 'settings:home', clientVisible: true, adminOnly: false,
+    featureKey: 'settings', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'settings.clear_chat', title: 'Очистить чат', section: 'settings', existingAction: 'clear_chat', implemented: false, clientVisible: false, hiddenReason: 'slash_command_only' }),
       action({ id: 'settings.main_menu', title: 'Главное меню', section: 'settings', targetAction: 'main:home' }),
