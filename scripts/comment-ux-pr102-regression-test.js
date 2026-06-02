@@ -101,6 +101,10 @@ async function verifyBuildPreviewFromSnapshotAfterOptimisticClear() {
   hooks.clearComposerPhotoPreviewAfterOptimisticInsert('client_test', pending.previewUrl);
   assert.strictEqual(hooks.hasDisplayableMedia({ type: 'video', mimeType: 'video/mp4', posterUrl: 'https://cdn.example/video-poster.jpg' }), false, 'video poster should not render as comment image');
   assert.strictEqual(hooks.hasDisplayableMedia({ type: 'file', mimeType: 'application/pdf', url: 'https://cdn.example/file.jpg' }), false, 'file URL ending with jpg should not render as comment image');
+  const protocolRelativePostMedia = hooks.postMediaCandidates({ previewAttachments: [{ type: 'image', url: '//cdn.example/post.jpg' }] });
+  assert.strictEqual(protocolRelativePostMedia.length, 1, 'protocol-relative post media should be detected');
+  assert.ok(protocolRelativePostMedia[0].renderUrl.startsWith('/api/adminkit/post-media-preview?src='), 'protocol-relative external post media should use proxy');
+  assert.strictEqual(new URLSearchParams(protocolRelativePostMedia[0].renderUrl.split('?')[1]).get('src'), 'https://cdn.example/post.jpg', 'protocol-relative post media proxy src should be absolute');
   const attachments = await hooks.buildPreviewOnlyAttachment(snapshot);
   assert.strictEqual(attachments.length, 1, 'buildPreviewOnlyAttachment should return one image attachment after optimistic clear');
   assert.strictEqual(attachments[0].type, 'image', 'snapshot-built attachment should be image');

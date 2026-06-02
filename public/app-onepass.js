@@ -802,13 +802,15 @@ function isImageAttachment(attachment, selectedUrl) {
 }
 function isExternalPostMediaUrl(url) {
   const value = clean(url);
-  if (!value || /^(data:image\/|blob:|\/)/i.test(value)) return false;
-  try { const u = new URL(value, location.href); return Boolean(u.origin && u.origin !== location.origin); } catch (_) { return /^https?:\/\//i.test(value); }
+  if (!value || /^(data:image\/|blob:)/i.test(value) || /^\/(?!\/)/.test(value)) return false;
+  try { const u = new URL(value, location.href); return Boolean(u.origin && u.origin !== location.origin); } catch (_) { return /^(https?:\/\/|\/\/)/i.test(value); }
 }
 function proxiedPostMediaUrl(url) {
   const value = clean(url);
   if (!value || !isExternalPostMediaUrl(value)) return value;
-  return '/api/adminkit/post-media-preview?src=' + encodeURIComponent(value);
+  let absolute = value;
+  try { absolute = new URL(value, location.href).href; } catch (_) { if (/^\/\//.test(value)) absolute = clean(location && location.protocol) ? (location.protocol + value) : ('https:' + value); }
+  return '/api/adminkit/post-media-preview?src=' + encodeURIComponent(absolute);
 }
 function tracePostMediaSourceOnce(item) {
   const safe = item || {};
