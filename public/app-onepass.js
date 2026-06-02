@@ -1,7 +1,7 @@
 ;(() => {
 'use strict';
 
-const RUNTIME = 'CC8.3.57-MEDIA-LIFECYCLE-CLEAN';
+const RUNTIME = 'CC8.3.58-MEDIA-HEALTH-FINGERPRINT';
 const CORE_SEND_RUNTIME = 'CC8.1.12-CORE-FAST-TEXT-SEND';
 const MARKER = '__ADMINKIT_CC7_5_64_DIRECT_MEDIA_POST_PATCH_TRACE__';
 if (window[MARKER]) return;
@@ -496,6 +496,26 @@ function reactionFingerprint(comment) {
   ].join(':')).sort().join(',');
   return [details, own, counts].join('|');
 }
+function attachmentFlagFingerprint(attachment, key) {
+  if (!attachment || !Object.prototype.hasOwnProperty.call(attachment, key)) return 'u';
+  return attachment[key] ? '1' : '0';
+}
+function mediaHealthFingerprint(attachment) {
+  const att = attachment || {};
+  const selected = selectMediaSource(att);
+  return [
+    'health',
+    attachmentFlagFingerprint(att, 'brokenRuntimeOnly'),
+    attachmentFlagFingerprint(att, 'runtimeOnlyBroken'),
+    attachmentFlagFingerprint(att, 'runtimeOnly'),
+    attachmentFlagFingerprint(att, 'runtimeFileExists'),
+    attachmentFlagFingerprint(att, 'inlinePreviewUnavailable'),
+    attachmentFlagFingerprint(att, 'possiblyBrokenRuntimeUrl'),
+    selected && selected.broken ? 'broken' : 'ok',
+    selected && selected.runtimeOnly ? 'runtime' : 'stable',
+    hasDisplayableMedia(att) ? 'displayable' : 'hidden'
+  ].join(':');
+}
 function computeCommentsFingerprint(list) {
   const safe = Array.isArray(list) ? list : [];
   return safe.map((comment) => {
@@ -517,7 +537,8 @@ function computeCommentsFingerprint(list) {
         clean(a && (a.updatedAt || a.updated_at || '')),
         clean(a && (a.clientUploadId || '')),
         sourceKind,
-        sourceLength
+        sourceLength,
+        mediaHealthFingerprint(a)
       ].join(':');
     }).join('|');
     return [clean(comment.id), commentClientId, clean(comment.text || comment.body), attachments, reactionFingerprint(comment), commentCreated, commentUpdated].join('~');
@@ -978,7 +999,7 @@ function renderComments(list) {
   Array.from(refs.commentsList.children || []).forEach((row) => { if (!keep.has(row)) row.remove(); });
   if (refs.commentsCountPill) refs.commentsCountPill.textContent = query ? (prepared.length + ' из ' + pluralComments(renderableAll.length)) : pluralComments(renderableAll.length);
 }
-window.__ADMINKIT_ONEPASS_TEST_HOOKS__ = { isRenderableComment, getRenderableComments, selectMediaSource, hasDisplayableMedia, computeCommentsFingerprint, reactionFingerprint };
+window.__ADMINKIT_ONEPASS_TEST_HOOKS__ = { isRenderableComment, getRenderableComments, selectMediaSource, hasDisplayableMedia, computeCommentsFingerprint, reactionFingerprint, renderOpenState };
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🔥', '😮', '😢', '👏'];
 const MORE_REACTIONS = ['😀', '😍', '🤔', '🙏', '😡', '👎', '🎯', '💯', '🤝', '🤣'];
 function findCommentById(commentId) { return (state.comments || []).find((c) => String(c.id || '') === String(commentId || '')); }
