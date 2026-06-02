@@ -105,7 +105,17 @@ assert.strictEqual(access.canUseFeature('pr106-code-user', 'gifts').allowed, fal
 assert.ok(/другом тарифе|скоро/i.test(access.canUseFeature('pr106-code-user', 'gifts').message), 'feature gate denial must be client-friendly');
 assert.strictEqual(access.canUseFeature('pr106-new-user', 'comments').allowed, false, 'new user cannot use features before activation');
 assert.strictEqual(access.canUseFeature('pr106-active-user', 'export').allowed, false, 'business-only export must be denied for pro');
+assert.strictEqual(accessGate.featureForAction('admin_stats_campaign_create'), 'ad_links', 'campaign create callback maps to ad_links');
+assert.strictEqual(accessGate.featureForAction('admin_stats_campaigns'), 'ad_links', 'campaign list callback maps to ad_links');
+assert.strictEqual(accessGate.featureForAction('admin_stats_sources_cache'), 'attribution', 'source tracking callback maps to attribution');
+assert.strictEqual(accessGate.featureForAction('admin_stats_export'), 'export', 'export callback maps to export');
+assert.strictEqual(accessGate.featureForAction('admin_stats_comments_cache'), 'basic_stats', 'basic stats callback remains basic_stats');
 assert.strictEqual(accessGate.checkAction('pr106-code-user', { action: 'gift_admin_start_create' }).allow, false, 'direct gift callback must be denied on Start');
+assert.strictEqual(accessGate.checkAction('pr106-code-user', { action: 'admin_stats_campaign_create' }).allow, false, 'Start user direct campaign create callback denied');
+assert.strictEqual(accessGate.checkAction('pr106-code-user', { action: 'admin_stats_campaigns' }).allow, false, 'Start user direct campaign list callback denied');
+assert.strictEqual(accessGate.checkAction('pr106-active-user', { action: 'admin_stats_campaign_create' }).allow, true, 'Pro user campaign create callback allowed');
+assert.strictEqual(accessGate.checkAction('pr106-code-user', { action: 'admin_stats_comments_cache' }).allow, true, 'Start user basic stats callback allowed');
+assert.strictEqual(accessGate.checkAction('pr106-active-user', { action: 'admin_stats_export' }).allow, false, 'Pro user export callback denied');
 
 ['account_my_access', 'account_activate_code', 'account_payment', 'account_limits', 'account_channels', 'account_support', 'account_capabilities'].forEach((action) => {
   const screen = accountScreens.screenForAction(action, 'pr106-code-user');
@@ -182,8 +192,13 @@ assert.ok(!JSON.stringify(live).includes('PR106-VALID'), '/debug/store-live must
   assert.ok(/Функция недоступна|другом тарифе|скоро/.test((await sendBot(bot, sent, messageUpdate('pr106-start-user', '/polls'))).text), 'Start user /polls denied');
   assert.ok((await sendBot(bot, sent, messageUpdate('pr106-start-user', '/stats'))).labels.length > 1, 'Start user /stats allowed by basic stats');
   assert.ok(/Функция недоступна|другом тарифе|скоро/.test((await sendBot(bot, sent, callbackUpdate('pr106-start-user', { action: 'gift_admin_start_create' }))).text), 'Start user direct gift callback denied');
+  assert.ok(/Функция недоступна|другом тарифе|скоро/.test((await sendBot(bot, sent, callbackUpdate('pr106-start-user', { action: 'admin_stats_campaign_create' }))).text), 'Start user direct campaign create callback denied');
+  assert.ok(/Функция недоступна|другом тарифе|скоро/.test((await sendBot(bot, sent, callbackUpdate('pr106-start-user', { action: 'admin_stats_campaigns' }))).text), 'Start user direct campaign list callback denied');
+  assert.ok((await sendBot(bot, sent, callbackUpdate('pr106-start-user', { action: 'admin_stats_comments_cache' }))).labels.length > 1, 'Start user basic stats callback allowed');
 
   assert.ok((await sendBot(bot, sent, messageUpdate('pr106-pro-user', '/gifts'))).labels.length > 1, 'Pro user /gifts allowed');
+  assert.ok((await sendBot(bot, sent, callbackUpdate('pr106-pro-user', { action: 'admin_stats_campaign_create' }))).labels.length > 1, 'Pro user campaign create callback allowed');
+  assert.ok(/Функция недоступна|другом тарифе|скоро/.test((await sendBot(bot, sent, callbackUpdate('pr106-pro-user', { action: 'admin_stats_export' }))).text), 'Pro user export callback denied');
   assert.strictEqual(accessGate.checkFeature('pr106-pro-user', 'ad_links').allow, true, 'Pro ad_links allowed');
   assert.strictEqual(accessGate.checkFeature('pr106-pro-user', 'polls').allow, true, 'Pro polls allowed');
   assert.strictEqual(accessGate.checkFeature('pr106-pro-user', 'highlights').allow, true, 'Pro highlights allowed');

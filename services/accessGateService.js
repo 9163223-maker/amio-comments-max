@@ -12,7 +12,7 @@ const ROUTE_FEATURES = {
 };
 
 function clean(value) { return String(value || '').trim(); }
-function routeOwner(route = '') { return clean(route).split(':')[0].toLowerCase(); }
+function routeOwner(route = '') { return clean(route).split(/[:.]/)[0].toLowerCase(); }
 function featureForSource(source = '') {
   const s = clean(source).toLowerCase();
   if (s === 'polls') return 'polls';
@@ -25,24 +25,30 @@ function featureForSource(source = '') {
   return 'comments';
 }
 function featureForAction(action = '', payload = {}) {
-  const a = clean(action || payload.action || payload.raw);
-  if (!a) return '';
+  const a = clean(action || payload.action || payload.raw || payload.route || payload.r);
+  const route = clean(payload.route || payload.r);
+  if (!a && !route) return '';
   if (ACCOUNT_ACTIONS.has(a)) return 'account';
   if (PUBLIC_ACTIONS.has(a)) return 'public';
   if (a === 'admin_section_debug' || /^debug[:_]/i.test(a)) return 'debug';
-  if (a === 'admin_section_main') return 'main';
+  if (a === 'admin_section_main' || route === 'main.home') return 'main';
   if (a === 'admin_section_channels') return 'channels';
   if (a === 'admin_section_comments') return 'comments';
   if (a === 'admin_section_gifts' || /^gift_/i.test(a)) return 'gifts';
   if (a === 'admin_section_buttons' || /^button_/i.test(a)) return 'buttons';
-  if (a === 'admin_section_stats' || /^admin_stats_/i.test(a)) return 'basic_stats';
+  const statsSignal = clean([a, route].filter(Boolean).join(' ')).toLowerCase();
+  if (/(^|[_.:-])export($|[_.:-])|export_/i.test(statsSignal)) return 'export';
+  if (/admin_stats_campaign(?:s|_|$)|(^|[_.:-])campaign(s|_|[_.:-]|$)|ad[_-]?links?|referral(_create|s)?($|[_.:-])/i.test(statsSignal)) return 'ad_links';
+  if (/(^|[_.:-])(source|sources|attribution|traffic|utm|funnel|costs?)($|[_.:-])/i.test(statsSignal)) return 'attribution';
+  if (a === 'admin_section_stats') return 'basic_stats';
+  if (/^admin_stats_(overview|overview_cache|subscribers|subscribers_day|subscribers_7|subscribers_14|subscribers_30|subscribers_trend|posts|posts_cache|post|views|views_cache|comments|comments_cache|reactions|reactions_cache|polls|polls_cache|gifts|gifts_cache|buttons|buttons_cache|archive|archive_cache|refresh|refresh_status)$/i.test(a)) return 'basic_stats';
+  if (/^admin_stats_/i.test(a)) return 'basic_stats';
   if (a === 'admin_section_polls' || /^poll_/i.test(a)) return 'polls';
   if (a === 'admin_section_highlights' || /^highlight_/i.test(a)) return 'highlights';
   if (a === 'admin_section_posts' || /^admin_posts_/i.test(a)) return 'post_editor';
   if (a === 'admin_section_archive' || /^archive_/i.test(a)) return 'archive';
   if (a === 'comments_select_post' || a === 'comments_pick_post') return featureForSource(payload.source);
-  if (/export/i.test(a)) return 'export';
-  const owner = routeOwner(payload.route || '');
+  const owner = routeOwner(route);
   return ROUTE_FEATURES[owner] || '';
 }
 function featureForCommand(command = '') { return COMMAND_FEATURES[clean(command).toLowerCase()] || ''; }
