@@ -43,5 +43,6 @@ runSmoke('wire-pr73-active-entrypoint-test.js', 'wire PR73 active entrypoint smo
 runSmoke('patch-compute-breakdown-pr75-test.js', 'patch compute breakdown PR75 smoke test');
 runSmoke('comment-runtime-media-contract-test.js', 'comment runtime media contract smoke test');
 runSmoke('media-lifecycle-clean-test.js', 'media lifecycle clean contract smoke test');
+runSmoke('test-canonical-client-menu.js', 'PR105 canonical client menu smoke test');
 
 console.log('smoke ok');

@@ -1,0 +1,171 @@
+'use strict';
+
+// PR105 Production Menu Canonicalization.
+// Single source of truth for the client-visible production menu.
+// Legacy production-menu-map-v3-fixed.js and production-menu-v3-renderer.js are reference-only.
+
+const VERSION = 'pr105-client-production-menu-v1';
+const SOURCE = 'adminkit-pr105-production-menu-canonicalization';
+
+function action({ id, title, section, targetAction = '', existingAction = '', clientVisible = true, adminOnly = false, requiresChannel = false, requiresPost = false, implemented = true, hiddenReason = '', payload = {} }) {
+  return { id, title, section, targetAction: targetAction || existingAction || id, existingAction: existingAction || targetAction || id, clientVisible: Boolean(clientVisible && !adminOnly && implemented), adminOnly: Boolean(adminOnly), requiresChannel: Boolean(requiresChannel), requiresPost: Boolean(requiresPost), implemented: Boolean(implemented), hiddenReason: hiddenReason || '', payload: payload || {} };
+}
+
+const sections = [
+  {
+    id: 'channels', title: 'Каналы', route: 'channels:home', clientVisible: true, adminOnly: false,
+    actions: [
+      action({ id: 'channels.connect', title: 'Подключить канал', section: 'channels', existingAction: 'admin_section_channels' }),
+      action({ id: 'channels.mine', title: 'Мои каналы', section: 'channels', existingAction: 'admin_section_channels' }),
+      action({ id: 'channels.verify_bot', title: 'Проверить права бота', section: 'channels', existingAction: 'admin_section_channels' }),
+      action({ id: 'channels.instructions', title: 'Инструкция по подключению', section: 'channels', existingAction: 'admin_section_help', payload: { context: 'admin_section_channels' } }),
+    ],
+  },
+  {
+    id: 'comments', title: 'Комментарии', route: 'comments:home', clientVisible: true, adminOnly: false,
+    actions: [
+      action({ id: 'comments.post_comments', title: 'Комментарии к посту', section: 'comments', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'comments' } }),
+      action({ id: 'comments.auto_comments', title: 'Автокомментарии', section: 'comments', existingAction: 'admin_section_comments' }),
+      action({ id: 'comments.photo', title: 'Фото в комментариях', section: 'comments', existingAction: 'admin_section_comments', payload: { focus: 'photos' } }),
+      action({ id: 'comments.reactions_replies', title: 'Реакции и ответы', section: 'comments', existingAction: 'admin_section_comments', payload: { focus: 'reactions_replies' } }),
+    ],
+  },
+  {
+    id: 'gifts', title: 'Подарки / лид-магниты', route: 'gifts:home', clientVisible: true, adminOnly: false,
+    actions: [
+      action({ id: 'gifts.create', title: 'Создать подарок', section: 'gifts', existingAction: 'gift_admin_start_create' }),
+      action({ id: 'gifts.post_gift', title: 'Подарок под постом', section: 'gifts', existingAction: 'gift_admin_recent_posts', requiresChannel: true, requiresPost: true, payload: { page: 0 } }),
+      action({ id: 'gifts.list', title: 'Список подарков', section: 'gifts', existingAction: 'gift_admin_show_current' }),
+    ],
+  },
+  {
+    id: 'buttons', title: 'Кнопки под постами', route: 'buttons:home', clientVisible: true, adminOnly: false,
+    actions: [
+      action({ id: 'buttons.add', title: 'Добавить кнопку', section: 'buttons', existingAction: 'button_admin_start_add', requiresChannel: true, requiresPost: true }),
+      action({ id: 'buttons.current', title: 'Текущие кнопки', section: 'buttons', existingAction: 'button_admin_show_current', requiresChannel: true, requiresPost: true }),
+      action({ id: 'buttons.delete', title: 'Удалить кнопку', section: 'buttons', existingAction: 'button_admin_delete', clientVisible: false, implemented: false, hiddenReason: 'inside_current_buttons_card' }),
+    ],
+  },
+  {
+    id: 'stats', title: 'Статистика', route: 'stats:home', clientVisible: true, adminOnly: false,
+    actions: [
+      action({ id: 'stats.overview', title: 'Обзор', section: 'stats', existingAction: 'admin_section_stats' }),
+      action({ id: 'stats.subscribers', title: 'Подписчики', section: 'stats', existingAction: 'admin_stats_subscribers_day' }),
+      action({ id: 'stats.posts', title: 'Посты', section: 'stats', existingAction: 'admin_stats_posts_cache' }),
+      action({ id: 'stats.comments', title: 'Комментарии', section: 'stats', existingAction: 'admin_stats_comments_cache' }),
+      action({ id: 'stats.reactions', title: 'Реакции', section: 'stats', existingAction: 'admin_stats_reactions_cache' }),
+      action({ id: 'stats.gifts', title: 'Подарки', section: 'stats', existingAction: 'admin_stats_gifts_cache' }),
+      action({ id: 'stats.buttons_clicks', title: 'Кнопки под постами / клики', section: 'stats', existingAction: 'admin_stats_buttons_cache' }),
+      action({ id: 'stats.ad_links', title: 'Рекламные ссылки', section: 'stats', existingAction: 'admin_stats_campaigns' }),
+      action({ id: 'stats.subscriber_sources', title: 'Источники подписчиков', section: 'stats', existingAction: 'admin_stats_sources_cache' }),
+      action({ id: 'stats.refresh', title: 'Обновить данные', section: 'stats', existingAction: 'admin_stats_refresh' }),
+    ],
+  },
+  {
+    id: 'ad_links', title: 'Рекламные ссылки', route: 'ad_links:home', aliases: ['ads:home'], clientVisible: true, adminOnly: false,
+    actions: [
+      action({ id: 'ad_links.create', title: 'Создать рекламную ссылку', section: 'ad_links', existingAction: 'admin_stats_campaign_create' }),
+      action({ id: 'ad_links.mine', title: 'Мои рекламные ссылки', section: 'ad_links', existingAction: 'admin_stats_campaigns' }),
+      action({ id: 'ad_links.disable', title: 'Отключить ссылку', section: 'ad_links', existingAction: 'admin_stats_campaign_disable', clientVisible: false, implemented: false, hiddenReason: 'inside_ad_link_card' }),
+    ],
+  },
+  {
+    id: 'polls', title: 'Опросы / голосования', route: 'polls:home', clientVisible: true, adminOnly: false,
+    actions: [
+      action({ id: 'polls.create', title: 'Создать опрос', section: 'polls', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'polls' } }),
+      action({ id: 'polls.results', title: 'Результаты опросов', section: 'polls', existingAction: 'poll_status' }),
+      action({ id: 'polls.stop', title: 'Остановить опрос', section: 'polls', existingAction: 'poll_stop', clientVisible: false, implemented: false, hiddenReason: 'inside_active_poll_card' }),
+    ],
+  },
+  {
+    id: 'highlights', title: 'Выделение постов', route: 'highlights:home', aliases: ['highlight:home'], clientVisible: true, adminOnly: false,
+    actions: [
+      action({ id: 'highlights.apply', title: 'Поставить выделение', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
+      action({ id: 'highlights.remove', title: 'Снять выделение', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
+    ],
+  },
+  {
+    id: 'editor', title: 'Редактор постов', route: 'editor:home', clientVisible: true, adminOnly: false,
+    actions: [
+      action({ id: 'editor.change_text', title: 'Изменить текст поста', section: 'editor', existingAction: 'admin_posts_picker', requiresChannel: true, requiresPost: true }),
+      action({ id: 'editor.history', title: 'История версий', section: 'editor', existingAction: 'admin_posts_history', clientVisible: false, implemented: false, hiddenReason: 'not_client_root' }),
+    ],
+  },
+  {
+    id: 'archive', title: 'Архив постов', route: 'archive:home', clientVisible: true, adminOnly: false,
+    actions: [
+      action({ id: 'archive.saved_posts', title: 'Сохранённые посты', section: 'archive', existingAction: 'archive_list', payload: { offset: 0 } }),
+      action({ id: 'archive.restore_post', title: 'Восстановить пост', section: 'archive', existingAction: 'archive_list', payload: { offset: 0 } }),
+      action({ id: 'archive.storage_limits', title: 'Лимиты хранения', section: 'archive', existingAction: 'archive_limits' }),
+      action({ id: 'archive.status', title: 'Статус архива', section: 'archive', existingAction: 'archive_status' }),
+    ],
+  },
+  {
+    id: 'account', title: 'Личный кабинет', route: 'account:home', aliases: ['tariffs:home'], clientVisible: true, adminOnly: false,
+    actions: [
+      action({ id: 'account.access', title: 'Мой доступ', section: 'account', existingAction: 'billing_current_plan' }),
+      action({ id: 'account.activate_code', title: 'Активировать код', section: 'account', existingAction: 'billing_upgrade', implemented: false, clientVisible: false, hiddenReason: 'handler_not_ready' }),
+      action({ id: 'account.payment', title: 'Оплата / продление', section: 'account', existingAction: 'billing_upgrade' }),
+      action({ id: 'account.limits', title: 'Лимиты и функции', section: 'account', existingAction: 'billing_limits' }),
+      action({ id: 'account.channels', title: 'Мои каналы', section: 'account', existingAction: 'admin_section_channels' }),
+      action({ id: 'account.support', title: 'Поддержка', section: 'account', targetAction: 'support:home', implemented: false, clientVisible: false, hiddenReason: 'handler_not_ready' }),
+    ],
+  },
+  {
+    id: 'settings', title: 'Настройки', route: 'settings:home', clientVisible: true, adminOnly: false,
+    actions: [
+      action({ id: 'settings.clear_chat', title: 'Очистить чат', section: 'settings', existingAction: 'clear_chat', implemented: false, clientVisible: false, hiddenReason: 'slash_command_only' }),
+      action({ id: 'settings.main_menu', title: 'Главное меню', section: 'settings', targetAction: 'main:home' }),
+      action({ id: 'settings.notifications', title: 'Уведомления', section: 'settings', targetAction: 'settings:notifications', implemented: false, clientVisible: false, hiddenReason: 'handler_not_ready' }),
+      action({ id: 'settings.language_format', title: 'Язык / формат', section: 'settings', targetAction: 'settings:language_format', implemented: false, clientVisible: false, hiddenReason: 'handler_not_ready' }),
+    ],
+  },
+];
+
+const hidden = [
+  action({ id: 'debug.admin_only', title: 'Debug / Admin-only', section: 'debug', adminOnly: true, clientVisible: false, implemented: false, hiddenReason: 'admin_only' }),
+  action({ id: 'debug.github_export', title: 'GitHub export', section: 'debug', adminOnly: true, clientVisible: false, implemented: false, hiddenReason: 'admin_only' }),
+  action({ id: 'debug.selftests', title: 'selftests', section: 'debug', adminOnly: true, clientVisible: false, implemented: false, hiddenReason: 'admin_only' }),
+  action({ id: 'debug.trace', title: 'trace', section: 'debug', adminOnly: true, clientVisible: false, implemented: false, hiddenReason: 'admin_only' }),
+  action({ id: 'debug.production_checklist', title: 'production checklist', section: 'debug', adminOnly: true, clientVisible: false, implemented: false, hiddenReason: 'admin_only' }),
+  action({ id: 'moderation.ai', title: 'AI-модерация', section: 'moderation', adminOnly: true, clientVisible: false, implemented: false, hiddenReason: 'not_ready' }),
+  action({ id: 'comments.video', title: 'Видео в комментариях', section: 'comments', clientVisible: false, implemented: false, hiddenReason: 'not_supported' }),
+  action({ id: 'comments.files', title: 'Файлы в комментариях', section: 'comments', clientVisible: false, implemented: false, hiddenReason: 'not_supported' }),
+];
+
+const hiddenFromClient = hidden.map((item) => item.id);
+const clientSections = sections.filter((section) => section.clientVisible && !section.adminOnly);
+const sectionById = Object.fromEntries(sections.map((section) => [section.id, section]));
+const routeToSectionId = {};
+for (const section of sections) {
+  routeToSectionId[section.route] = section.id;
+  for (const alias of section.aliases || []) routeToSectionId[alias] = section.id;
+}
+
+function clientActions(sectionId) {
+  const section = sectionById[sectionId];
+  return section ? section.actions.filter((item) => item.clientVisible && !item.adminOnly && item.implemented) : [];
+}
+
+function allActions() { return sections.flatMap((section) => section.actions).concat(hidden); }
+function visibleLabels() { return clientSections.flatMap((section) => [section.title, ...clientActions(section.id).map((item) => item.title)]); }
+function resolveSectionByRoute(route = '') { return sectionById[routeToSectionId[String(route || '').trim()]] || null; }
+
+function validate() {
+  const labels = visibleLabels();
+  const joined = labels.join('\n');
+  const banned = [/\bCTA\b/i, /Debug/i, /trace/i, /GitHub export/i, /production checklist/i, /postId/i, /channelId/i, /commentKey/i, /token/i, /payload/i, /видео/i, /файл/i];
+  const flowSteps = ['Выбрать канал', 'Выбрать пост', 'Материал подарка', 'Текст получателю', 'Условия'];
+  const errors = [];
+  if (clientSections.length !== 12) errors.push(`client_sections_count:${clientSections.length}`);
+  for (const pattern of banned) if (pattern.test(joined)) errors.push(`banned_label:${pattern}`);
+  for (const step of flowSteps) if (labels.some((label) => label.toLowerCase() === step.toLowerCase())) errors.push(`flow_step_root:${step}`);
+  for (const item of allActions().filter((entry) => entry.clientVisible && entry.requiresPost && !entry.requiresChannel)) errors.push(`post_without_channel:${item.id}`);
+  if (clientActions('buttons').some((item) => /удалить/i.test(item.title))) errors.push('delete_button_visible_in_buttons_root');
+  if (clientActions('ad_links').some((item) => /отключить/i.test(item.title))) errors.push('disable_ad_link_visible_in_ad_links_root');
+  if (clientActions('polls').some((item) => /остановить/i.test(item.title))) errors.push('stop_poll_visible_in_polls_root');
+  if (clientActions('ad_links').some((item) => /статист|источники/i.test(item.title))) errors.push('stats_visible_in_ad_links_root');
+  return { ok: errors.length === 0, version: VERSION, sourceMarker: SOURCE, clientSections: clientSections.length, visibleActions: clientSections.reduce((sum, section) => sum + clientActions(section.id).length, 0), errors };
+}
+
+module.exports = { VERSION, SOURCE, sections, clientSections, hidden, hiddenFromClient, sectionById, routeToSectionId, clientActions, allActions, visibleLabels, resolveSectionByRoute, validate };
