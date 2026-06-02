@@ -44,7 +44,11 @@ assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://127.0.0.1/priv
 assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://192.168.1.5/private.jpg'), false, 'redirect target private address should be unsafe');
 assert.strictEqual(openStateModule.isSafeExternalImageUrl('file:///etc/passwd'), false, 'file/internal protocols should be unsafe');
 assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://[::1]/private.jpg'), false, 'IPv6 localhost should be unsafe');
+assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://[::7f00:1]/private.jpg'), false, 'IPv4-compatible IPv6 localhost should be unsafe');
+assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://[::ffff:192.168.1.5]/private.jpg'), false, 'IPv4-mapped IPv6 private address should be unsafe');
+assert.strictEqual(openStateModule.ipv4FromEmbeddedIPv6('::ffff:192.168.1.5'), '192.168.1.5', 'IPv4-mapped dotted IPv6 should decode to IPv4');
 assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://[fd00::1]/private.jpg'), false, 'IPv6 unique-local should be unsafe');
+assert.strictEqual(openStateModule.isSafeExternalImageAddress('::7f00:1'), false, 'resolved IPv4-compatible IPv6 localhost should be unsafe');
 assert.strictEqual(openStateModule.isSafeExternalImageAddress('169.254.10.20'), false, 'link-local resolved address should be unsafe');
 assert.strictEqual(openStateModule.isSafeExternalImageAddress('10.1.2.3'), false, 'private resolved address should be unsafe');
 assert.strictEqual(openStateModule.isSafeExternalImageAddress('93.184.216.34'), true, 'public resolved address should be allowed');

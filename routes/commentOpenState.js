@@ -211,17 +211,40 @@ function isUnsafeIPv4(address) {
 }
 
 function normalizeIpLiteral(value) {
-  return String(value || '').toLowerCase().replace(/^\[/, '').replace(/\]$/, '');
+  return String(value || '').toLowerCase().replace(/^\[/, '').replace(/\]$/, '').split('%')[0];
+}
+
+function ipv4FromEmbeddedIPv6(address) {
+  const value = normalizeIpLiteral(address);
+  if (net.isIP(value) !== 6) return '';
+  const pieces = value.split('::');
+  if (pieces.length > 2) return '';
+  const expandDottedTail = (parts) => {
+    const out = parts.slice();
+    const last = out[out.length - 1] || '';
+    const dotted = ipv4Parts(last);
+    if (dotted) out.splice(out.length - 1, 1, ((dotted[0] << 8) | dotted[1]).toString(16), ((dotted[2] << 8) | dotted[3]).toString(16));
+    return out;
+  };
+  const head = expandDottedTail(pieces[0] ? pieces[0].split(':').filter(Boolean) : []);
+  const tail = expandDottedTail(pieces.length === 2 && pieces[1] ? pieces[1].split(':').filter(Boolean) : []);
+  const missing = pieces.length === 2 ? Math.max(0, 8 - head.length - tail.length) : 0;
+  const hextets = head.concat(Array(missing).fill('0'), tail).map((part) => parseInt(part || '0', 16));
+  if (hextets.length !== 8 || hextets.some((part) => !Number.isInteger(part) || part < 0 || part > 0xffff)) return '';
+  const firstFiveZero = hextets.slice(0, 5).every((part) => part === 0);
+  const firstSixZero = firstFiveZero && hextets[5] === 0;
+  const mapped = firstFiveZero && hextets[5] === 0xffff;
+  const compatible = firstSixZero && (hextets[6] !== 0 || hextets[7] !== 0);
+  if (!mapped && !compatible) return '';
+  return [hextets[6] >> 8, hextets[6] & 255, hextets[7] >> 8, hextets[7] & 255].join('.');
 }
 
 function isUnsafeIPv6(address) {
   const value = normalizeIpLiteral(address);
   if (net.isIP(value) !== 6) return false;
   if (value === '::' || value === '::1') return true;
-  if (/^::ffff:/i.test(value)) {
-    const mapped = value.slice(7);
-    return net.isIP(mapped) === 4 ? isUnsafeIPv4(mapped) : true;
-  }
+  const embedded = ipv4FromEmbeddedIPv6(value);
+  if (embedded) return isUnsafeIPv4(embedded);
   return /^(fc|fd|fe80|ff|2001:db8)/i.test(value);
 }
 
@@ -472,5 +495,6 @@ module.exports = {
   isExplicitNonImageAttachment,
   isSafeExternalImageUrl,
   isSafeExternalImageAddress,
+  ipv4FromEmbeddedIPv6,
   selfTest
 };
