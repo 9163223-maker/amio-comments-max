@@ -122,6 +122,16 @@ function loadRepository(fakeDb) {
   return require(REPO_PATH);
 }
 
+
+function assertFreshCreateHasTenantCascade(fakeDb, tableName) {
+  const createStatement = fakeDb.state.statements.find((sql) => sql.startsWith(`CREATE TABLE IF NOT EXISTS ${tableName}`));
+  assert.ok(createStatement, `${tableName} fresh CREATE TABLE statement must be issued`);
+  assert.ok(
+    /tenant_id TEXT NOT NULL REFERENCES ak_tenants\(tenant_id\) ON DELETE CASCADE/i.test(createStatement),
+    `${tableName}.tenant_id fresh schema must reference ak_tenants with ON DELETE CASCADE`
+  );
+}
+
 function assertExpectedColumns(fakeDb) {
   for (const [tableName, columns] of Object.entries(EXPECTED_COLUMNS)) {
     const existing = fakeDb.state.tables[tableName]?.columns || new Set();
@@ -136,6 +146,8 @@ function assertExpectedColumns(fakeDb) {
   assert.strictEqual(freshState.tenantTablesReady, true, 'fresh schema bootstrap must report ready');
   assert.strictEqual(freshRepo.publicInfo().tenantTablesReady, true, 'repository public info must report ready after fresh bootstrap');
   assertExpectedColumns(freshDb);
+  assertFreshCreateHasTenantCascade(freshDb, 'ak_tenant_channels');
+  assertFreshCreateHasTenantCascade(freshDb, 'ak_tenant_users');
 
   const partialDb = makeFakeDb({
     ak_tenants: {

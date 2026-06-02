@@ -98,7 +98,7 @@ const TENANT_TABLE_MIGRATIONS = Object.freeze([
   {
     table: 'ak_tenant_users',
     create: `CREATE TABLE IF NOT EXISTS ak_tenant_users (
-      tenant_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL REFERENCES ak_tenants(tenant_id) ON DELETE CASCADE,
       max_user_id TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'owner',
       status TEXT NOT NULL DEFAULT 'active',
@@ -118,7 +118,7 @@ const TENANT_TABLE_MIGRATIONS = Object.freeze([
   {
     table: 'ak_tenant_channels',
     create: `CREATE TABLE IF NOT EXISTS ak_tenant_channels (
-      tenant_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL REFERENCES ak_tenants(tenant_id) ON DELETE CASCADE,
       channel_id TEXT NOT NULL PRIMARY KEY,
       channel_title TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'active',
@@ -195,6 +195,9 @@ const TENANT_TABLE_MIGRATIONS = Object.freeze([
 ]);
 
 async function migrateTenantAccessTables() {
+  // Fresh schemas keep tenant FK/cascade relationships in CREATE TABLE definitions.
+  // Legacy table repair intentionally only adds missing columns here; validating or
+  // backfilling FK constraints for existing rows is safer as a separate migration.
   for (const migration of TENANT_TABLE_MIGRATIONS) {
     await db.query(migration.create);
     for (const column of migration.columns) {
