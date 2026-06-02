@@ -145,7 +145,7 @@ assert.strictEqual(version.accessRuntimeVersion, access.RUNTIME, '/debug/version
 assert.strictEqual(version.menuCanonicalVersion, canonical.VERSION, '/debug/version must include PR105 menu canonical version');
 assert.strictEqual(version.activeEntrypoint, 'clean-entrypoint-1.53.10-pr89.js', '/debug/version must show active entrypoint');
 assert.strictEqual(version.staleEndpointDetected, false, '/debug/version must mark staleEndpointDetected false');
-['clientAccessStorageBackend','tenantStorageBackend','tenantTablesReady','postgresConfigured','postgresPersistent'].forEach((key) => assert.ok(Object.prototype.hasOwnProperty.call(version, key), `/debug/version must include ${key}`));
+['clientAccessStorageBackend','tenantStorageBackend','tenantTablesReady','postgresConfigured','postgresPersistent','clientAccessFallbackMode','clientAccessStoreFallbackAllowed'].forEach((key) => assert.ok(Object.prototype.hasOwnProperty.call(version, key), `/debug/version must include ${key}`));
 assert.ok(/no-store/i.test(versionRes.headers['Cache-Control'] || ''), '/debug/version must be no-store');
 
 const auditRes = createRouteRes();
@@ -188,7 +188,15 @@ assert.ok(!JSON.stringify(live).includes('PR106-VALID'), '/debug/store-live must
   assert.deepStrictEqual((await sendBot(bot, sent, messageUpdate('pr106-bot-new', '/menu'))).labels, ['Активировать код', 'Что умеет АдминКИТ', 'Поддержка'], 'new user /menu activation screen');
   assert.notStrictEqual((await sendBot(bot, sent, messageUpdate('pr106-bot-new', '/gifts'))).screenId, 'gifts:home', 'new user /gifts must not open gifts');
   assert.notStrictEqual((await sendBot(bot, sent, messageUpdate('pr106-bot-new', '/stats'))).screenId, 'stats:home', 'new user /stats must not open stats');
+  assert.deepStrictEqual((await sendBot(bot, sent, messageUpdate('pr106-bot-new', '/channels'))).labels, ['Активировать код', 'Что умеет АдминКИТ', 'Поддержка'], 'new user /channels activation screen');
   assert.ok(!/Debug|GitHub export/i.test((await sendBot(bot, sent, messageUpdate('pr106-bot-new', '/debug'))).text), 'new user /debug must not show debug');
+  access.setPendingActivation('pr106-pending-slash', true);
+  const pendingAccount = await sendBot(bot, sent, messageUpdate('pr106-pending-slash', '/account'));
+  assert.ok(/Личный кабинет/.test(pendingAccount.text), 'pending activation user /account must open account, not consume slash as activation code');
+  assert.strictEqual(access.hasPendingActivation('pr106-pending-slash'), true, '/account must not clear pending activation');
+  const pendingClear = await sendBot(bot, sent, messageUpdate('pr106-pending-slash', '/clear'));
+  assert.deepStrictEqual(pendingClear.labels, ['Активировать код', 'Что умеет АдминКИТ', 'Поддержка'], 'pending activation user /clear must return gated activation screen');
+  assert.ok(!/Код не активирован/i.test(pendingClear.text), '/clear must not be treated as an activation code');
   assert.deepStrictEqual((await sendBot(bot, sent, callbackUpdate('pr106-bot-new', { action: 'comments_select_post' }))).labels, ['Активировать код', 'Что умеет АдминКИТ', 'Поддержка'], 'stale comments callback gated for new user');
   assert.deepStrictEqual((await sendBot(bot, sent, callbackUpdate('pr106-bot-new', { action: 'gift_admin_start_create' }))).labels, ['Активировать код', 'Что умеет АдминКИТ', 'Поддержка'], 'stale gift callback gated for new user');
 
@@ -197,8 +205,12 @@ assert.ok(!JSON.stringify(live).includes('PR106-VALID'), '/debug/store-live must
   assert.deepStrictEqual((await sendBot(bot, sent, callbackUpdate('pr106-bot-expired', { action: 'gift_admin_start_create' }))).labels, ['Мой доступ', 'Оплата / продление', 'Поддержка'], 'expired stale callback account-only');
 
   assert.ok((await sendBot(bot, sent, messageUpdate('pr106-start-user', '/buttons'))).labels.some((label) => /Добавить кнопку|Текущие кнопки/.test(label)), 'Start user /buttons allowed');
+  assert.ok((await sendBot(bot, sent, messageUpdate('pr106-start-user', '/comments'))).labels.length > 1, 'Start user /comments allowed');
+  assert.ok((await sendBot(bot, sent, messageUpdate('pr106-start-user', '/posts'))).labels.length > 1, 'Start user /posts allowed');
+  assert.ok((await sendBot(bot, sent, messageUpdate('pr106-start-user', '/archive'))).labels.length > 1, 'Start user /archive allowed');
   assert.ok(/Функция недоступна|другом тарифе|скоро/.test((await sendBot(bot, sent, messageUpdate('pr106-start-user', '/gifts'))).text), 'Start user /gifts denied');
   assert.ok(/Функция недоступна|другом тарифе|скоро/.test((await sendBot(bot, sent, messageUpdate('pr106-start-user', '/polls'))).text), 'Start user /polls denied');
+  assert.ok(/Функция недоступна|другом тарифе|скоро/.test((await sendBot(bot, sent, messageUpdate('pr106-start-user', '/highlight'))).text), 'Start user /highlight denied');
   assert.ok((await sendBot(bot, sent, messageUpdate('pr106-start-user', '/stats'))).labels.length > 1, 'Start user /stats allowed by basic stats');
   assert.ok(/Функция недоступна|другом тарифе|скоро/.test((await sendBot(bot, sent, callbackUpdate('pr106-start-user', { action: 'gift_admin_start_create' }))).text), 'Start user direct gift callback denied');
   assert.ok(/Функция недоступна|другом тарифе|скоро/.test((await sendBot(bot, sent, callbackUpdate('pr106-start-user', { action: 'admin_stats_campaign_create' }))).text), 'Start user direct campaign create callback denied');

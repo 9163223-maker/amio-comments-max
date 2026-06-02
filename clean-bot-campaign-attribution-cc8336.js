@@ -52,6 +52,7 @@ function userNameFromUpdate(update = {}) { return clean(firstValue(update, ['fir
 function messageFromUpdate(update = {}) { return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || find(update, (x) => x && typeof x === 'object' && (x.body?.text || x.text) && (x.recipient || x.sender || x.message_id || x.id), 6) || null; }
 function callbackFromUpdate(update = {}) { return update?.callback || update?.data?.callback || update?.message?.callback || update?.data?.message?.callback || find(update, (x) => x && typeof x === 'object' && (x.callback_id || x.callbackId || x.payload || x.callback_data || x.callbackData) && !(x.body && x.body.text), 6) || null; }
 function messageText(message = {}) { return clean(message?.body?.text || message?.text || ''); }
+function isSlashCommand(text = '') { return /^\/[a-z_]+(?:\s|$)/i.test(clean(text)); }
 function messageId(message = {}) { return clean(message?.body?.mid || message?.body?.message_id || message?.message_id || message?.messageId || message?.id); }
 function chatId(message = {}) { return clean(message?.recipient?.chat_id || message?.recipient?.id || message?.chat_id || message?.chat?.id); }
 function chatType(message = {}) { return clean(message?.recipient?.chat_type || message?.recipient?.type || message?.chat_type || message?.chat?.type).toLowerCase(); }
@@ -119,7 +120,7 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
       await sendOrEditScreen({ update, callback, message, config, screen, edit: false });
       return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'start_menu_access_gate', screenId: screen.id });
     }
-    if (text && access.hasPendingActivation(uid)) {
+    if (text && !isSlashCommand(text) && access.hasPendingActivation(uid)) {
       const result = access.activateCode({ maxUserId: uid, code: text });
       access.clearPendingActivation(uid);
       const screen = accountScreens.activationResultScreen(result, uid);
