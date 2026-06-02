@@ -251,13 +251,27 @@ function ipv4FromEmbeddedIPv6(address) {
   return [hextets[6] >> 8, hextets[6] & 255, hextets[7] >> 8, hextets[7] & 255].join('.');
 }
 
+function firstIPv6Hextet(address) {
+  const value = normalizeIpLiteral(address);
+  if (net.isIP(value) !== 6) return -1;
+  const first = value.split(':')[0] || '0';
+  const parsed = parseInt(first, 16);
+  return Number.isInteger(parsed) ? parsed : -1;
+}
+
 function isUnsafeIPv6(address) {
   const value = normalizeIpLiteral(address);
   if (net.isIP(value) !== 6) return false;
   if (value === '::' || value === '::1') return true;
   const embedded = ipv4FromEmbeddedIPv6(value);
   if (embedded) return isUnsafeIPv4(embedded);
-  return /^(fc|fd|fe80|ff|2001:db8)/i.test(value);
+  const first = firstIPv6Hextet(value);
+  if (first < 0) return true;
+  if ((first & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
+  if ((first & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+  if ((first & 0xff00) === 0xff00) return true; // ff00::/8 multicast
+  if (value === '2001:db8' || /^2001:db8:/i.test(value)) return true; // documentation range
+  return false;
 }
 
 function isSafeExternalImageAddress(address) {
@@ -527,6 +541,7 @@ module.exports = {
   isSafeExternalImageAddress,
   isAllowedExternalImagePort,
   setPostMediaImageCache,
+  firstIPv6Hextet,
   ipv4FromEmbeddedIPv6,
   isAllowedPostMediaContentType,
   selfTest
