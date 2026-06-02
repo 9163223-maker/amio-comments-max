@@ -3,6 +3,7 @@
 const store = require('./store');
 const { listComments } = require('./services/commentService');
 const timing = require('./v3-ui-timing-cc8');
+const { postMediaPreviewHandler } = require('./routes/commentOpenState');
 
 const RUNTIME = 'CC7.5.46-COMMENT-OPEN-STATE-CANONICAL';
 const INSTRUMENTATION_VERSION = 'CC8.1.6-COMMENT-OPEN-TIMING-INSTRUMENTATION';
@@ -218,6 +219,7 @@ function buildSkeletonPayload(resolved, commentKey, query, traceId) {
 function install(app) {
   if (!app || app.__adminkitCommentOpenState1546) return app;
   app.__adminkitCommentOpenState1546 = true;
+  app.get('/api/adminkit/post-media-preview', postMediaPreviewHandler);
   app.get('/api/adminkit/comment-open-state', (req, res) => {
     const totalStarted = nowMs();
     const traceId = clean(req.query && (req.query.trace_id || req.query.traceId)) || makeTraceId();
@@ -252,4 +254,4 @@ function install(app) {
   });
   return app;
 }
-module.exports = { RUNTIME, INSTRUMENTATION_VERSION, SKELETON_VERSION, install, resolvePost, buildMeta, buildSkeletonPayload, buildPostMediaPreview, mediaSourceValue, collectCandidates, compactToCommentKey, hydrateUrl, wantsSkeleton };
+module.exports = { RUNTIME, INSTRUMENTATION_VERSION, SKELETON_VERSION, install, postMediaPreviewHandler, resolvePost, buildMeta, buildSkeletonPayload, buildPostMediaPreview, mediaSourceValue, collectCandidates, compactToCommentKey, hydrateUrl, wantsSkeleton };
