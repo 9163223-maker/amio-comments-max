@@ -273,9 +273,9 @@ const state = {
   commentKey: params.commentKey, handoff: params.handoff, channelId: params.channelId, postId: params.postId,
   title: params.title, raw: params.raw, launchMode: params.launchMode, hasCommentIdentity: params.hasCommentIdentity,
   currentUserId: getBridgeUserId(), currentUserName: getBridgeUserName(), currentUserAvatarUrl: getBridgeAvatarUrl(),
-  comments: [], meta: {}, commentsCount: 0, pollTimer: null, requestInFlight: false, openStateResolved: false, openStateStarted: false,
+  comments: [], meta: {}, commentsCount: 0, renderableCount: 0, hiddenBrokenCount: 0, pollTimer: null, requestInFlight: false, openStateResolved: false, openStateStarted: false,
   sendInFlight: false, textSendInFlight: {}, lastSendFingerprint: '', lastSendStartedAt: 0,
-  pendingPhoto: null,
+  pendingPhoto: null, mediaSourceTraceKeys: {}, miniTimingStartedAt: Date.now(),
   commentTrace: [],
   searchOpen: false, searchQuery: '',
   activeCommentId: '', replyToId: ''
@@ -483,6 +483,19 @@ async function compressImageForComment(file) {
     if (objectUrl) try { URL.revokeObjectURL(objectUrl); } catch (_) {}
   }
 }
+function reactionFingerprint(comment) {
+  const details = (Array.isArray(comment && comment.reactionDetails) ? comment.reactionDetails : []).map((item) => [
+    clean(item && item.emoji),
+    String(Number(item && item.count || 0) || 0),
+    item && item.active ? '1' : '0'
+  ].join(':')).sort().join(',');
+  const own = (Array.isArray(comment && comment.ownReactions) ? comment.ownReactions : []).map(clean).filter(Boolean).sort().join(',');
+  const counts = Object.entries((comment && comment.reactionCounts) || {}).map(([emoji, count]) => [
+    clean(emoji),
+    String(Number(count || 0) || 0)
+  ].join(':')).sort().join(',');
+  return [details, own, counts].join('|');
+}
 function computeCommentsFingerprint(list) {
   const safe = Array.isArray(list) ? list : [];
   return safe.map((comment) => {
@@ -507,8 +520,24 @@ function computeCommentsFingerprint(list) {
         sourceLength
       ].join(':');
     }).join('|');
-    return [clean(comment.id), commentClientId, clean(comment.text || comment.body), attachments, commentCreated, commentUpdated].join('~');
+    return [clean(comment.id), commentClientId, clean(comment.text || comment.body), attachments, reactionFingerprint(comment), commentCreated, commentUpdated].join('~');
   }).join('||');
+}
+function postMiniTiming(name, extra) {
+  try {
+    const now = Date.now();
+    const payload = Object.assign({
+      name: clean(name),
+      appRuntime: RUNTIME,
+      route: String((location && location.pathname) || ''),
+      href: String((location && location.href) || '').slice(0, 500),
+      durationMs: now - Number(state.miniTimingStartedAt || now),
+      sinceAppStartMs: now - Number(state.miniTimingStartedAt || now)
+    }, extra || {});
+    const body = JSON.stringify(payload);
+    if (typeof fetch === 'function') fetch('/api/debug/miniapp-timing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+    else if (navigator && typeof navigator.sendBeacon === 'function') navigator.sendBeacon('/api/debug/miniapp-timing', new Blob([body], { type: 'application/json' }));
+  } catch (_) {}
 }
 function emitTraceEvent(event, payload) {
   const eventName = clean(event);
@@ -672,6 +701,10 @@ function isRuntimeCommentUploadUrl(value) {
   return Boolean(raw && raw.startsWith('/public/comment-uploads/'));
 }
 function isInlinePreviewSource(value) { return /^data:image\//i.test(String(value || '')) || /^blob:/i.test(String(value || '')); }
+function payloadMediaSource(att) {
+  const payload = att && typeof att.payload === 'object' ? att.payload : {};
+  return clean(payload.url || payload.download_url || payload.downloadUrl || payload.link || payload.photo_url || payload.photoUrl || payload.image_url || payload.imageUrl || '');
+}
 function selectMediaSource(attachment) {
   const att = attachment || {};
   const inline = [
@@ -683,6 +716,11 @@ function selectMediaSource(attachment) {
   const fallback = [
     ['previewUrl', clean(att.previewUrl)],
     ['url', clean(att.url)],
+    ['download_url', clean(att.download_url || att.downloadUrl)],
+    ['link', clean(att.link)],
+    ['photo_url', clean(att.photo_url || att.photoUrl)],
+    ['image_url', clean(att.image_url || att.imageUrl)],
+    ['payload.url', payloadMediaSource(att)],
     ['posterUrl', clean(att.posterUrl)]
   ].find((x) => Boolean(x[1]));
   if (!fallback) return { kind: '', url: '', broken: false, runtimeOnly: false };
@@ -694,7 +732,7 @@ function selectMediaSource(attachment) {
 function isImageAttachment(attachment, selectedUrl) {
   const type = clean(attachment && (attachment.type || attachment.kind));
   const mimeType = clean(attachment && (attachment.mimeType || attachment.mime));
-  const url = clean(selectedUrl || (attachment && (attachment.thumbDataUrl || attachment.previewDataUrl || attachment.dataUrl || attachment.previewUrl || attachment.url || attachment.posterUrl)));
+  const url = clean(selectedUrl || (attachment && (attachment.thumbDataUrl || attachment.previewDataUrl || attachment.dataUrl || attachment.previewUrl || attachment.url || attachment.download_url || attachment.downloadUrl || attachment.link || attachment.photo_url || attachment.photoUrl || attachment.image_url || attachment.imageUrl || payloadMediaSource(attachment) || attachment.posterUrl)));
   return type === 'image' || /^image\//i.test(mimeType) || /\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i.test(url) || /^data:image\//i.test(url) || /^blob:/i.test(url);
 }
 function postMediaCandidates(source) {
@@ -703,14 +741,18 @@ function postMediaCandidates(source) {
   const out = [];
   function addCandidate(att, defaultName) {
     const selected = selectMediaSource(att || {});
-    if (selected.broken) { emitTraceEvent('broken_runtime_media_skipped', { scope: 'post', selectedSourceKind: selected.kind }); return; }
+    if (selected.broken) {
+      const traceKey = 'post|' + clean(att && (att.id || att.fileName || att.name)) + '|' + clean(selected.kind);
+      if (!state.mediaSourceTraceKeys[traceKey]) { state.mediaSourceTraceKeys[traceKey] = 1; emitTraceEvent('broken_runtime_media_skipped', { scope: 'post', selectedSourceKind: selected.kind }); }
+      return;
+    }
     if (!selected.url) return;
     if (isRuntimeCommentUploadUrl(selected.url) && selected.broken) return;
     if (!isImageAttachment(att || {}, selected.url)) return;
     if (!out.some((x) => x.url === selected.url)) out.push({ url: selected.url, name: clean(att && (att.name || att.fileName)) || defaultName || 'Фото поста' });
   }
   lists.forEach((list) => list.forEach((att) => addCandidate(att, 'Фото поста')));
-  ['thumbDataUrl', 'previewDataUrl', 'dataUrl', 'photoUrl', 'imageUrl', 'mediaUrl', 'previewUrl'].forEach((key) => {
+  ['thumbDataUrl', 'previewDataUrl', 'dataUrl', 'photoUrl', 'photo_url', 'imageUrl', 'image_url', 'mediaUrl', 'previewUrl', 'download_url', 'downloadUrl', 'link', 'url'].forEach((key) => {
     const value = clean(post[key]);
     if (!value) return;
     addCandidate({ type: 'image', name: 'Фото поста', [key]: value, runtimeOnly: isRuntimeCommentUploadUrl(value) }, 'Фото поста');
@@ -757,7 +799,26 @@ function applyMeta(meta) {
   }
   if (refs.postError) { refs.postError.textContent = ''; refs.postError.style.display = 'none'; }
 }
-function renderAttachment(attachment) {
+function attachmentTraceKey(comment, attachment, selected) {
+  return [clean(comment && (comment.clientCommentId || comment.id)), clean(attachment && (attachment.id || attachment.clientUploadId || attachment.fileName || attachment.name)), clean(selected && selected.kind), clean(selected && selected.url), selected && selected.broken ? 'broken' : 'ok'].join('|');
+}
+function traceMediaSelectionOnce(comment, attachment, selected, tracePayload) {
+  const key = attachmentTraceKey(comment, attachment, selected);
+  if (state.mediaSourceTraceKeys[key]) return;
+  state.mediaSourceTraceKeys[key] = 1;
+  pushCommentTrace('media_source_selected', tracePayload);
+  emitTraceEvent('media_source_selected', tracePayload);
+  if (selected && selected.broken) {
+    pushCommentTrace('broken_runtime_media_skipped', tracePayload);
+    emitTraceEvent('broken_runtime_media_skipped', tracePayload);
+  }
+}
+function hasDisplayableMedia(attachment) {
+  const selected = selectMediaSource(attachment || {});
+  if (selected.broken) return false;
+  return Boolean(selected.url && isImageAttachment(attachment || {}, selected.url));
+}
+function renderAttachment(attachment, comment) {
   const type = clean(attachment && (attachment.type || attachment.kind));
   const mimeType = clean(attachment && (attachment.mimeType || attachment.mime));
   const name = clean(attachment && (attachment.name || attachment.fileName)) || 'фото';
@@ -765,15 +826,10 @@ function renderAttachment(attachment) {
   const selectedSourceKind = selected.kind || '';
   const url = selected.url || '';
   const isImage = isImageAttachment(attachment || {}, url);
-  const tracePayload = { fileName: name, mimeType, selectedSourceKind, selectedSourceLength: url.length, hasThumbDataUrl: Boolean(clean(attachment && attachment.thumbDataUrl)), hasPreviewDataUrl: Boolean(clean(attachment && attachment.previewDataUrl)), hasDataUrl: Boolean(clean(attachment && attachment.dataUrl)), hasPreviewUrl: Boolean(clean(attachment && attachment.previewUrl)), hasUrl: Boolean(clean(attachment && attachment.url)), brokenRuntimeOnly: Boolean(selected.broken), runtimeOnly: Boolean(selected.runtimeOnly), runtimeFileExists: Boolean(attachment && attachment.runtimeFileExists), inlinePreviewUnavailable: Boolean(attachment && attachment.inlinePreviewUnavailable) };
-  pushCommentTrace('media_source_selected', tracePayload);
-  emitTraceEvent('media_source_selected', tracePayload);
-  if (selected.broken) {
-    pushCommentTrace('broken_runtime_media_skipped', tracePayload);
-    emitTraceEvent('broken_runtime_media_skipped', tracePayload);
-    return '';
-  }
-  if (isImage && !url) return '<div class="comment-attachment comment-attachment-missing">Фото недоступно</div>';
+  const tracePayload = { commentId: clean(comment && comment.id), clientCommentId: clean(comment && comment.clientCommentId), fileName: name, mimeType, selectedSourceKind, selectedSourceLength: url.length, hasThumbDataUrl: Boolean(clean(attachment && attachment.thumbDataUrl)), hasPreviewDataUrl: Boolean(clean(attachment && attachment.previewDataUrl)), hasDataUrl: Boolean(clean(attachment && attachment.dataUrl)), hasPreviewUrl: Boolean(clean(attachment && attachment.previewUrl)), hasUrl: Boolean(clean(attachment && attachment.url)), brokenRuntimeOnly: Boolean(selected.broken), runtimeOnly: Boolean(selected.runtimeOnly), runtimeFileExists: Boolean(attachment && attachment.runtimeFileExists), inlinePreviewUnavailable: Boolean(attachment && attachment.inlinePreviewUnavailable) };
+  traceMediaSelectionOnce(comment, attachment, selected, tracePayload);
+  if (selected.broken) return '';
+  if (isImage && !url) return '';
   if (!url) return '';
   if (isImage) return '<div class="comment-attachment comment-attachment-image"><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(name) + '" loading="lazy" data-attachment-kind="' + escapeHtml(selectedSourceKind || 'unknown') + '" onerror="window.__ADMINKIT_COMMENT_PHOTO_EVENT__&&window.__ADMINKIT_COMMENT_PHOTO_EVENT__(\'attachment_img_onerror\',this)"></div>';
   return '';
@@ -787,8 +843,9 @@ function searchableComment(comment) {
 }
 function visibleComments() {
   const query = normalizeSearch(state.searchQuery || (refs.commentSearchInput && refs.commentSearchInput.value) || '');
-  if (!query) return state.comments;
-  return state.comments.filter((comment) => searchableComment(comment).includes(query));
+  const renderable = getRenderableComments(state.comments);
+  if (!query) return renderable;
+  return renderable.filter((comment) => searchableComment(comment).includes(query));
 }
 function commentDomKey(comment) { return clean(comment && (comment.clientCommentId || comment.id)); }
 function cssEscapeValue(value) { try { return window.CSS && CSS.escape ? CSS.escape(String(value || '')) : String(value || '').replace(/[^a-zA-Z0-9_-]/g, '\\$&'); } catch (_) { return String(value || ''); } }
@@ -807,7 +864,19 @@ function findCommentRow(comment) {
   return null;
 }
 function renderedAttachmentsHtml(comment) {
-  return (Array.isArray(comment.attachments) ? comment.attachments : []).map(renderAttachment).join('');
+  return (Array.isArray(comment.attachments) ? comment.attachments : []).map((att) => renderAttachment(att, comment)).join('');
+}
+function isRenderableComment(comment) {
+  const text = clean(comment && (comment.text || comment.body || ''));
+  const reactions = Array.isArray(comment && comment.reactionDetails) && comment.reactionDetails.length;
+  const sticker = clean(comment && comment.type) === 'sticker';
+  const reply = Boolean(comment && comment.replyTo);
+  const attachments = Array.isArray(comment && comment.attachments) ? comment.attachments : [];
+  const media = attachments.some(hasDisplayableMedia);
+  return Boolean(text || media || reactions || sticker || reply);
+}
+function getRenderableComments(list) {
+  return (Array.isArray(list) ? list : []).filter(isRenderableComment);
 }
 function commentHasRenderableContent(comment, renderedAttachments) {
   const text = clean(comment && (comment.text || comment.body || ''));
@@ -874,6 +943,7 @@ function updateExistingRow(row, comment, renderedAttachments) {
 function renderComments(list) {
   if (Array.isArray(list)) state.comments = list;
   const all = Array.isArray(state.comments) ? state.comments : [];
+  const renderableAll = getRenderableComments(all);
   const visible = visibleComments();
   const query = normalizeSearch(state.searchQuery || '');
   const prepared = [];
@@ -906,8 +976,9 @@ function renderComments(list) {
     if (row) { applyRowMetadata(row, comment); keep.add(row); }
   });
   Array.from(refs.commentsList.children || []).forEach((row) => { if (!keep.has(row)) row.remove(); });
-  if (refs.commentsCountPill) refs.commentsCountPill.textContent = query ? (prepared.length + ' из ' + pluralComments(all.length)) : pluralComments(all.length);
+  if (refs.commentsCountPill) refs.commentsCountPill.textContent = query ? (prepared.length + ' из ' + pluralComments(renderableAll.length)) : pluralComments(renderableAll.length);
 }
+window.__ADMINKIT_ONEPASS_TEST_HOOKS__ = { isRenderableComment, getRenderableComments, selectMediaSource, hasDisplayableMedia, computeCommentsFingerprint, reactionFingerprint };
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🔥', '😮', '😢', '👏'];
 const MORE_REACTIONS = ['😀', '😍', '🤔', '🙏', '😡', '👎', '🎯', '💯', '🤝', '🤣'];
 function findCommentById(commentId) { return (state.comments || []).find((c) => String(c.id || '') === String(commentId || '')); }
@@ -960,6 +1031,7 @@ function mergeOpenStateComments(serverList) {
   return list.concat(optimistic);
 }
 function renderOpenState(data) {
+  const renderStartedAt = Date.now();
   data = data || {};
   state.launchMode = 'comments';
   state.hasCommentIdentity = true;
@@ -967,24 +1039,40 @@ function renderOpenState(data) {
   hideMiniStart();
   applyMeta(data.meta || {});
   const mergedList = mergeOpenStateComments(data.comments || []);
-  const count = Number(data.commentsCount || mergedList.length || 0) || 0;
-  state.commentsCount = count;
+  const serverCount = Number(data.commentsCount || mergedList.length || 0) || 0;
+  const renderableList = getRenderableComments(mergedList);
+  const renderableCount = renderableList.length;
+  const hiddenBrokenCount = Math.max(0, mergedList.length - renderableCount);
+  state.commentsCount = renderableCount;
+  state.renderableCount = renderableCount;
+  state.hiddenBrokenCount = hiddenBrokenCount;
   const fingerprint = computeCommentsFingerprint(mergedList);
+  let rendered = false;
   if (fingerprint !== state.lastRenderFingerprint) {
     state.lastRenderFingerprint = fingerprint;
     renderComments(mergedList);
-    emitTraceEvent('comment_render_apply', { size: mergedList.length });
+    rendered = true;
+    emitTraceEvent('comment_render_apply', { size: mergedList.length, renderableCount });
   } else {
-    renderComments(mergedList);
-    emitTraceEvent('comment_render_skip_unchanged', { size: mergedList.length });
+    state.comments = mergedList;
+    emitTraceEvent('comment_render_skip_unchanged', { size: mergedList.length, renderableCount });
   }
+  const renderMs = Date.now() - renderStartedAt;
+  const postMediaCount = postMediaCandidates((state.meta && (state.meta.postSnapshot || state.meta.post || state.meta.snapshot)) || {}).length;
+  const mediaThumbCount = renderableList.reduce((n, c) => n + (Array.isArray(c.attachments) ? c.attachments.filter((a) => hasDisplayableMedia(a)).length : 0), 0);
+  const runtimeBrokenCount = mergedList.reduce((n, c) => n + (Array.isArray(c.attachments) ? c.attachments.filter((a) => selectMediaSource(a).broken).length : 0), 0);
+  const timingSummary = { serverCount, renderableCount, hiddenBrokenCount, postMediaCount, mediaThumbCount, runtimeBrokenCount, renderMs };
+  postMiniTiming('app.open_state_resolved', timingSummary);
+  postMiniTiming('app.comments_rendered', Object.assign({ rendered }, timingSummary));
+  postMiniTiming('app.media_summary', timingSummary);
   pushCommentTrace('open_state_resolved', { status: 'ok', uploadSize: mergedList.length });
-  emitTraceEvent('open_state_resolved', { status: 'ok', commentsCount: count });
-  if (refs.commentsCountPill && !state.searchQuery) refs.commentsCountPill.textContent = pluralComments(count);
+  emitTraceEvent('open_state_resolved', Object.assign({ status: 'ok', commentsCount: renderableCount, serverCount }, timingSummary));
+  if (refs.commentsCountPill && !state.searchQuery) refs.commentsCountPill.textContent = pluralComments(renderableCount);
 }
 async function refreshOpenState() {
   if (state.launchMode !== 'comments' || state.requestInFlight) return;
   state.requestInFlight = true;
+  postMiniTiming('app.open_state_fetch_start', { serverCount: Number(state.comments && state.comments.length || 0) || 0, renderableCount: Number(state.renderableCount || 0) || 0, hiddenBrokenCount: Number(state.hiddenBrokenCount || 0) || 0, postMediaCount: postMediaCandidates((state.meta && (state.meta.postSnapshot || state.meta.post || state.meta.snapshot)) || {}).length, mediaThumbCount: 0, runtimeBrokenCount: 0, renderMs: 0 });
   try { renderOpenState(await loadOpenStateAsync()); }
   catch (error) { pushCommentTrace('open_state_failed', { status: 'failed', error: clean(error && error.message) }); emitTraceEvent('open_state_failed', { status: 'failed', error: clean(error && error.message) }); }
   finally { state.requestInFlight = false; }
@@ -1250,6 +1338,7 @@ async function boot() {
     state.openStateStarted = true;
     pushCommentTrace('open_state_started', { status: 'started' });
     emitTraceEvent('open_state_started', { status: 'started' });
+    postMiniTiming('app.open_state_fetch_start', { serverCount: 0, renderableCount: 0, hiddenBrokenCount: 0, postMediaCount: 0, mediaThumbCount: 0, runtimeBrokenCount: 0, renderMs: 0 });
     try {
       const initial = await loadOpenStateAsync();
       window.__ADMINKIT_CC7_5_55_INITIAL__ = initial;
