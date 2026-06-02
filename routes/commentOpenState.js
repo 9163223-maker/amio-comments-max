@@ -7,6 +7,10 @@
 
 const postMetaService = require('../services/postMetaService');
 const fetch = require('node-fetch');
+const dns = require('dns');
+const http = require('http');
+const https = require('https');
+const net = require('net');
 
 const RUNTIME = 'CC8.3.60-COMMENT-OPEN-STATE-POST-MEDIA-PROXY';
 
@@ -173,17 +177,101 @@ async function buildStateFromRequest(req, options = {}) {
 }
 
 
+function ipv4Parts(address) {
+  if (net.isIP(address) !== 4) return null;
+  const parts = String(address).split('.').map((x) => Number(x));
+  return parts.length === 4 && parts.every((x) => Number.isInteger(x) && x >= 0 && x <= 255) ? parts : null;
+}
+
+function isUnsafeIPv4(address) {
+  const parts = ipv4Parts(address);
+  if (!parts) return false;
+  const [a, b] = parts;
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && (b === 0 || b === 168)) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    a >= 224
+  );
+}
+
+function normalizeIpLiteral(value) {
+  return String(value || '').toLowerCase().replace(/^\[/, '').replace(/\]$/, '');
+}
+
+function isUnsafeIPv6(address) {
+  const value = normalizeIpLiteral(address);
+  if (net.isIP(value) !== 6) return false;
+  if (value === '::' || value === '::1') return true;
+  if (/^::ffff:/i.test(value)) {
+    const mapped = value.slice(7);
+    return net.isIP(mapped) === 4 ? isUnsafeIPv4(mapped) : true;
+  }
+  return /^(fc|fd|fe80|ff|2001:db8)/i.test(value);
+}
+
+function isSafeExternalImageAddress(address) {
+  const value = normalizeIpLiteral(address);
+  const family = net.isIP(value);
+  if (family === 4) return !isUnsafeIPv4(value);
+  if (family === 6) return !isUnsafeIPv6(value);
+  return false;
+}
+
 function isSafeExternalImageUrl(value) {
   const raw = clean(value);
   if (!raw) return false;
   let parsed;
   try { parsed = new URL(raw); } catch { return false; }
   if (!/^https?:$/i.test(parsed.protocol)) return false;
-  const host = String(parsed.hostname || '').toLowerCase();
-  if (!host || host === 'localhost' || host === '127.0.0.1' || host === '::1') return false;
-  if (/^(10|127|169\.254|192\.168)\./.test(host)) return false;
-  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return false;
+  if (parsed.username || parsed.password) return false;
+  const host = normalizeIpLiteral(parsed.hostname);
+  if (!host || host === 'localhost' || host.endsWith('.localhost')) return false;
+  if (net.isIP(host) && !isSafeExternalImageAddress(host)) return false;
   return true;
+}
+
+function safeImageLookup(hostname, options, callback) {
+  dns.lookup(hostname, options, (error, address, family) => {
+    if (error) return callback(error);
+    if (!isSafeExternalImageAddress(address)) {
+      const blocked = new Error('post_media_private_address_blocked');
+      blocked.code = 'POST_MEDIA_PRIVATE_ADDRESS_BLOCKED';
+      return callback(blocked);
+    }
+    return callback(null, address, family);
+  });
+}
+
+const postMediaHttpAgent = new http.Agent({ keepAlive: false, lookup: safeImageLookup });
+const postMediaHttpsAgent = new https.Agent({ keepAlive: false, lookup: safeImageLookup });
+
+function postMediaAgentForUrl(parsedUrl) {
+  return parsedUrl && parsedUrl.protocol === 'http:' ? postMediaHttpAgent : postMediaHttpsAgent;
+}
+
+function readLimitedResponseBuffer(stream, maxBytes) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let total = 0;
+    stream.on('data', (chunk) => {
+      total += chunk.length;
+      if (total > maxBytes) {
+        const error = new Error('post_media_too_large');
+        error.code = 'POST_MEDIA_TOO_LARGE';
+        stream.destroy(error);
+        return;
+      }
+      chunks.push(chunk);
+    });
+    stream.on('error', reject);
+    stream.on('end', () => resolve(Buffer.concat(chunks, total)));
+  });
 }
 
 async function postMediaPreviewHandler(req, res) {
@@ -197,6 +285,7 @@ async function postMediaPreviewHandler(req, res) {
       method: 'GET',
       redirect: 'manual',
       timeout: 8000,
+      agent: postMediaAgentForUrl,
       headers: { 'User-Agent': 'AdminkitPostMediaPreview/1.0' }
     });
     if (upstream.status >= 300 && upstream.status < 400) {
@@ -206,12 +295,16 @@ async function postMediaPreviewHandler(req, res) {
       return res.status(400).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_redirect_blocked', redirectSafe: Boolean(redirectTarget && isSafeExternalImageUrl(redirectTarget)) });
     }
     const contentType = clean(upstream.headers && upstream.headers.get('content-type')).toLowerCase();
+    const maxBytes = 3 * 1024 * 1024;
+    const contentLength = Number(upstream.headers && upstream.headers.get('content-length')) || 0;
     if (!upstream.ok || !contentType.startsWith('image/')) {
       return res.status(502).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_fetch_failed', status: upstream.status || 0 });
     }
-    const maxBytes = 3 * 1024 * 1024;
-    const buf = await upstream.buffer();
-    if (!buf.length || buf.length > maxBytes) {
+    if (contentLength > maxBytes) {
+      return res.status(502).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_too_large', size: contentLength });
+    }
+    const buf = await readLimitedResponseBuffer(upstream.body, maxBytes);
+    if (!buf.length) {
       return res.status(502).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_too_large', size: buf.length });
     }
     res.set({
@@ -221,6 +314,13 @@ async function postMediaPreviewHandler(req, res) {
     });
     return res.send(buf);
   } catch (error) {
+    const code = error && error.code;
+    if (code === 'POST_MEDIA_PRIVATE_ADDRESS_BLOCKED') {
+      return res.status(400).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_private_address_blocked' });
+    }
+    if (code === 'POST_MEDIA_TOO_LARGE') {
+      return res.status(502).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_too_large' });
+    }
     return res.status(502).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_proxy_error', message: safeError(error) });
   }
 }
@@ -360,5 +460,6 @@ module.exports = {
   normalizeOpenStateMediaContract,
   normalizeAttachmentForMiniApp,
   isSafeExternalImageUrl,
+  isSafeExternalImageAddress,
   selfTest
 };

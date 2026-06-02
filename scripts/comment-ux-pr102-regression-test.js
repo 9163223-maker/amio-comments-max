@@ -37,9 +37,17 @@ has(appOnepass, '/api/adminkit/post-media-preview?src=', 'external post media sh
 has(openStateRoute, '/api/adminkit/post-media-preview', 'post media preview proxy endpoint should be registered');
 has(openStateRoute, "redirect: 'manual'", 'post media proxy must not auto-follow redirects');
 has(openStateRoute, 'post_media_redirect_blocked', 'post media proxy should block redirects instead of following them');
+has(openStateRoute, 'safeImageLookup', 'post media proxy should validate DNS-resolved fetch addresses');
+has(openStateRoute, 'POST_MEDIA_PRIVATE_ADDRESS_BLOCKED', 'post media proxy should fail closed on private DNS targets');
+has(openStateRoute, 'readLimitedResponseBuffer', 'post media proxy should enforce byte limit while streaming');
 assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://127.0.0.1/private.jpg'), false, 'redirect target localhost should be unsafe');
 assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://192.168.1.5/private.jpg'), false, 'redirect target private address should be unsafe');
 assert.strictEqual(openStateModule.isSafeExternalImageUrl('file:///etc/passwd'), false, 'file/internal protocols should be unsafe');
+assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://[::1]/private.jpg'), false, 'IPv6 localhost should be unsafe');
+assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://[fd00::1]/private.jpg'), false, 'IPv6 unique-local should be unsafe');
+assert.strictEqual(openStateModule.isSafeExternalImageAddress('169.254.10.20'), false, 'link-local resolved address should be unsafe');
+assert.strictEqual(openStateModule.isSafeExternalImageAddress('10.1.2.3'), false, 'private resolved address should be unsafe');
+assert.strictEqual(openStateModule.isSafeExternalImageAddress('93.184.216.34'), true, 'public resolved address should be allowed');
 for (const field of ['serverCount', 'renderableCount', 'hiddenBrokenCount', 'postMediaCount', 'mediaThumbCount', 'runtimeBrokenCount', 'renderMs']) {
   has(timingRoutes, `${field}: safe.${field}`, `miniapp timing details should persist ${field}`);
 }
