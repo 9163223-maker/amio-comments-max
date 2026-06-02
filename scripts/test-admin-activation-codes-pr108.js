@@ -41,6 +41,10 @@ async function sendBot(bot, sent, update) { const res = createJsonRes(); await b
   assert.strictEqual(nonAdmin.res.body.screenId, 'pr108_admin_denied', 'non-admin /admin is denied');
   assert.ok(/Недоступно/.test(nonAdmin.text), 'non-admin denial is friendly');
 
+  process.env.DEBUG_ADMIN_ID = 'pr108-debug-admin';
+  assert.strictEqual(access.isAdmin('pr108-debug-admin'), true, 'DEBUG_ADMIN_ID must be honored alongside ADMINKIT_ADMIN_MAX_USER_IDS');
+  delete process.env.DEBUG_ADMIN_ID;
+
   const admin = await sendBot(bot, sent, messageUpdate('pr108-admin', '/admin'));
   assert.strictEqual(admin.res.body.screenId, 'pr108_admin_panel', 'explicit env admin can open /admin');
   assert.deepStrictEqual(admin.labels, ['Создать код', 'Коды доступа', 'Клиенты / tenants', 'Главное меню'], 'admin panel buttons');
@@ -66,6 +70,14 @@ async function sendBot(bot, sent, update) { const res = createJsonRes(); await b
   const staleBind = await sendBot(bot, sent, callbackUpdate('pr108-admin', { action: 'admin_code_bind_manual', planId: 'start', durationDays: 30, maxChannels: 3 }));
   assert.strictEqual(staleBind.res.body.screenId, 'pr108_admin_manual_deferred', 'stale manual bind action must not confirm empty channel binding');
   assert.strictEqual(access.listActivationCodes({ limit: 100 }).length, beforeStaleManualCodes, 'stale manual bind must not create a code');
+
+  const staleInvalidDuration = await sendBot(bot, sent, callbackUpdate('pr108-admin', { action: 'admin_code_duration_31', planId: 'start' }));
+  assert.strictEqual(staleInvalidDuration.res.body.screenId, 'pr108_admin_manual_deferred', 'invalid duration callback must not default to 30 days');
+  const staleInvalidChannels = await sendBot(bot, sent, callbackUpdate('pr108-admin', { action: 'admin_code_channels_2', planId: 'start', durationDays: 30 }));
+  assert.strictEqual(staleInvalidChannels.res.body.screenId, 'pr108_admin_manual_deferred', 'invalid channel callback must not default to 1 channel');
+  const staleDirectCreate = await sendBot(bot, sent, callbackUpdate('pr108-admin', { action: 'admin_code_confirm_create', planId: 'start' }));
+  assert.strictEqual(staleDirectCreate.res.body.screenId, 'pr108_admin_manual_deferred', 'malformed direct create callback must not create default code');
+  assert.strictEqual(access.listActivationCodes({ limit: 100 }).length, beforeStaleManualCodes, 'invalid stale callbacks must not create codes');
 
   const created = access.createActivationCode({ planId: 'start', durationDays: 30, maxChannels: 3, createdByMaxUserId: 'pr108-admin' });
   assert.ok(/^AK-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}$/.test(created.code), 'admin can create production-safe activation code');

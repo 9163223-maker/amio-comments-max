@@ -5,11 +5,17 @@ const tariffs = require('../services/tariffConfig');
 const menu = require('../v3-menu-core-1539');
 
 const ADMIN_RUNTIME = access.ADMIN_ACCESS_RUNTIME;
+const ALLOWED_PLANS = new Set(['free', 'trial', 'start', 'pro', 'business']);
+const FIXED_DURATIONS = new Set([7, 14, 30, 90, 365]);
+const FIXED_CHANNEL_LIMITS = new Set([1, 3, 5, 10]);
 
 function clean(value) { return String(value || '').trim(); }
 function button(text, action, extra = {}) { return menu.button(text, action, extra); }
 function keyboard(rows) { return menu.keyboard(rows); }
 function dateRu(value = '') { if (!value) return 'без даты'; const d = new Date(value); return Number.isNaN(d.getTime()) ? 'без даты' : d.toLocaleDateString('ru-RU', { timeZone: 'UTC' }); }
+function fixedDuration(value) { const n = Number(value); return FIXED_DURATIONS.has(n) ? n : 0; }
+function fixedChannelLimit(value) { const n = Number(value); return FIXED_CHANNEL_LIMITS.has(n) ? n : 0; }
+function fixedPlan(value) { const planId = clean(value || 'start').toLowerCase(); return ALLOWED_PLANS.has(planId) ? planId : ''; }
 function denyScreen() {
   return { id: 'pr108_admin_denied', text: ['Недоступно', '', 'Админ-панель доступна только поддержке. Обратитесь к поддержке, если вам нужен доступ.'].join('\n'), attachments: keyboard([[button('Поддержка', 'account_support')]]) };
 }
@@ -28,31 +34,46 @@ function createPlanScreen(maxUserId = '') {
 }
 function createDurationScreen(maxUserId = '', planId = 'start') {
   if (!assertAdmin(maxUserId)) return denyScreen();
-  const extra = { planId };
-  return { id: 'pr108_admin_code_duration', text: ['Создать код', '', `Тариф: ${tariffs.getTariff(planId).name}`, 'Выберите срок действия.'].join('\n'), attachments: keyboard([[button('7 дней', 'admin_code_duration_7', extra), button('14 дней', 'admin_code_duration_14', extra)], [button('30 дней', 'admin_code_duration_30', extra), button('90 дней', 'admin_code_duration_90', extra)], [button('365 дней', 'admin_code_duration_365', extra)], [button('Назад', 'admin_code_create'), button('Отмена', 'admin_panel')]]) };
+  const fixedPlanId = fixedPlan(planId);
+  if (!fixedPlanId) return manualDeferredScreen(maxUserId);
+  const extra = { planId: fixedPlanId };
+  return { id: 'pr108_admin_code_duration', text: ['Создать код', '', `Тариф: ${tariffs.getTariff(fixedPlanId).name}`, 'Выберите срок действия.'].join('\n'), attachments: keyboard([[button('7 дней', 'admin_code_duration_7', extra), button('14 дней', 'admin_code_duration_14', extra)], [button('30 дней', 'admin_code_duration_30', extra), button('90 дней', 'admin_code_duration_90', extra)], [button('365 дней', 'admin_code_duration_365', extra)], [button('Назад', 'admin_code_create'), button('Отмена', 'admin_panel')]]) };
 }
 function createChannelsScreen(maxUserId = '', planId = 'start', durationDays = 30) {
   if (!assertAdmin(maxUserId)) return denyScreen();
-  const extra = { planId, durationDays };
-  return { id: 'pr108_admin_code_channels', text: ['Создать код', '', `Тариф: ${tariffs.getTariff(planId).name}`, `Срок: ${durationDays} дней`, 'Выберите лимит каналов.'].join('\n'), attachments: keyboard([[button('1 канал', 'admin_code_channels_1', extra), button('3 канала', 'admin_code_channels_3', extra)], [button('5 каналов', 'admin_code_channels_5', extra), button('10 каналов', 'admin_code_channels_10', extra)], [button('Назад', 'admin_code_create'), button('Отмена', 'admin_panel')]]) };
+  const fixedPlanId = fixedPlan(planId);
+  const fixedDays = fixedDuration(durationDays);
+  if (!fixedPlanId || !fixedDays) return manualDeferredScreen(maxUserId);
+  const extra = { planId: fixedPlanId, durationDays: fixedDays };
+  return { id: 'pr108_admin_code_channels', text: ['Создать код', '', `Тариф: ${tariffs.getTariff(fixedPlanId).name}`, `Срок: ${fixedDays} дней`, 'Выберите лимит каналов.'].join('\n'), attachments: keyboard([[button('1 канал', 'admin_code_channels_1', extra), button('3 канала', 'admin_code_channels_3', extra)], [button('5 каналов', 'admin_code_channels_5', extra), button('10 каналов', 'admin_code_channels_10', extra)], [button('Назад', 'admin_code_create'), button('Отмена', 'admin_panel')]]) };
 }
 function createBindScreen(maxUserId = '', planId = 'start', durationDays = 30, maxChannels = 1) {
   if (!assertAdmin(maxUserId)) return denyScreen();
-  const extra = { planId, durationDays, maxChannels };
+  const fixedPlanId = fixedPlan(planId);
+  const fixedDays = fixedDuration(durationDays);
+  const fixedChannels = fixedChannelLimit(maxChannels);
+  if (!fixedPlanId || !fixedDays || !fixedChannels) return manualDeferredScreen(maxUserId);
+  const extra = { planId: fixedPlanId, durationDays: fixedDays, maxChannels: fixedChannels };
   return { id: 'pr108_admin_code_bind', text: ['Создать код', '', 'Привязка к каналу необязательна.', 'Для production-safe минимального flow используйте «Без привязки к каналу».'].join('\n'), attachments: keyboard([[button('Без привязки к каналу', 'admin_code_bind_none', extra)], [button('Назад', 'admin_code_create'), button('Отмена', 'admin_panel')]]) };
 }
 function confirmScreen(maxUserId = '', opts = {}) {
   if (!assertAdmin(maxUserId)) return denyScreen();
-  const plan = tariffs.getTariff(opts.planId || 'start');
-  const durationDays = Number(opts.durationDays || 30);
+  const fixedPlanId = fixedPlan(opts.planId || 'start');
+  const durationDays = fixedDuration(opts.durationDays);
+  const maxChannels = fixedChannelLimit(opts.maxChannels);
+  if (!fixedPlanId || !durationDays || !maxChannels) return manualDeferredScreen(maxUserId);
+  const plan = tariffs.getTariff(fixedPlanId);
   const expiresAt = new Date(Date.now() + durationDays * 86400000).toISOString();
-  const maxChannels = Number(opts.maxChannels || plan.maxChannels || 1);
   const boundChannelId = clean(opts.boundChannelId || '');
   return { id: 'pr108_admin_code_confirm', text: ['Создать код', '', `Тариф: ${plan.name}`, `Срок: ${durationDays} дней`, `Лимит каналов: ${maxChannels}`, `Действует до: ${dateRu(expiresAt)}`, 'singleUse: да', boundChannelId ? `channelId: ${boundChannelId}` : 'Привязка к каналу: нет', '', 'Создать код?'].join('\n'), attachments: keyboard([[button('Создать код', 'admin_code_confirm_create', { planId: plan.id, durationDays, maxChannels, boundChannelId })], [button('Назад', 'admin_code_create'), button('Отмена', 'admin_panel')]]) };
 }
 function createdScreen(maxUserId = '', opts = {}) {
   if (!assertAdmin(maxUserId)) return denyScreen();
-  const created = access.createActivationCode({ planId: opts.planId || 'start', durationDays: Number(opts.durationDays || 30), maxChannels: Number(opts.maxChannels || 1), boundChannelId: opts.boundChannelId || '', createdByMaxUserId: maxUserId });
+  const fixedPlanId = fixedPlan(opts.planId || 'start');
+  const durationDays = fixedDuration(opts.durationDays);
+  const maxChannels = fixedChannelLimit(opts.maxChannels);
+  if (!fixedPlanId || !durationDays || !maxChannels) return manualDeferredScreen(maxUserId);
+  const created = access.createActivationCode({ planId: fixedPlanId, durationDays, maxChannels, boundChannelId: opts.boundChannelId || '', createdByMaxUserId: maxUserId });
   return { id: 'pr108_admin_code_created', text: ['✅ Код создан', '', `Код создан: ${created.code}`, '', `Тариф: ${tariffs.getTariff(created.planId).name}`, `Действует до: ${dateRu(created.expiresAt)}`, `Лимит каналов: ${created.maxChannels}`, '', 'Передайте код клиенту. Клиент должен открыть бота и нажать «Активировать код».', '', 'Этот полный код больше не будет показан в списке или истории.'].join('\n'), attachments: keyboard([[button('Коды доступа', 'admin_codes_list')], [button('Создать ещё', 'admin_code_create')], [button('Главное меню', 'admin_section_main')]]) };
 }
 function codesListScreen(maxUserId = '') {
@@ -103,8 +124,14 @@ function screenForAction(action = '', maxUserId = '', payload = {}) {
   if (a === 'admin_code_duration_manual' || a === 'admin_code_channels_manual' || a === 'admin_code_bind_manual') return manualDeferredScreen(maxUserId);
   if (a === 'admin_code_create') return createPlanScreen(maxUserId);
   if (a.startsWith('admin_code_plan_')) return createDurationScreen(maxUserId, a.replace('admin_code_plan_', ''));
-  if (a.startsWith('admin_code_duration_')) return createChannelsScreen(maxUserId, payload.planId || 'start', Number(a.replace('admin_code_duration_', '')) || Number(payload.durationDays || 30));
-  if (a.startsWith('admin_code_channels_')) return createBindScreen(maxUserId, payload.planId || 'start', Number(payload.durationDays || 30), Number(a.replace('admin_code_channels_', '')) || Number(payload.maxChannels || 1));
+  if (a.startsWith('admin_code_duration_')) {
+    const durationDays = fixedDuration(a.replace('admin_code_duration_', ''));
+    return durationDays ? createChannelsScreen(maxUserId, payload.planId || 'start', durationDays) : manualDeferredScreen(maxUserId);
+  }
+  if (a.startsWith('admin_code_channels_')) {
+    const maxChannels = fixedChannelLimit(a.replace('admin_code_channels_', ''));
+    return maxChannels ? createBindScreen(maxUserId, payload.planId || 'start', payload.durationDays, maxChannels) : manualDeferredScreen(maxUserId);
+  }
   if (a === 'admin_code_bind_none') return confirmScreen(maxUserId, { ...payload, boundChannelId: '' });
   if (a === 'admin_code_confirm_create') return createdScreen(maxUserId, payload);
   if (a === 'admin_codes_list') return codesListScreen(maxUserId);

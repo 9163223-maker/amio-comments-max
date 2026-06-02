@@ -20,8 +20,11 @@ function maskActivationCode(codeOrHash = '') { const value = normalizeCode(codeO
 function isPast(value) { const t = Date.parse(value || ''); return Number.isFinite(t) && t <= nowMs(); }
 
 function adminIds() {
-  return String(process.env.ADMINKIT_ADMIN_MAX_USER_IDS || process.env.DEBUG_ADMIN_ID || process.env.ADMIN_ID || '')
-    .split(/[\s,;]+/).map(clean).filter(Boolean);
+  return [process.env.ADMINKIT_ADMIN_MAX_USER_IDS, process.env.DEBUG_ADMIN_ID, process.env.ADMIN_ID]
+    .join(',')
+    .split(/[\s,;]+/)
+    .map(clean)
+    .filter(Boolean);
 }
 function isAdmin(maxUserId) {
   const id = clean(maxUserId);
