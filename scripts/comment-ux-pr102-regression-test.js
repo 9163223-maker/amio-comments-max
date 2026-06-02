@@ -42,6 +42,7 @@ has(openStateRoute, 'safeImageLookup', 'post media proxy should validate DNS-res
 has(openStateRoute, 'POST_MEDIA_PRIVATE_ADDRESS_BLOCKED', 'post media proxy should fail closed on private DNS targets');
 has(openStateRoute, 'readLimitedResponseBuffer', 'post media proxy should enforce byte limit while streaming');
 has(openStateRoute, 'setPostMediaImageCache', 'post media proxy success should use dedicated public cache headers');
+has(openStateRoute, 'destroyUpstreamBody(upstream)', 'post media proxy should destroy upstream bodies before early error returns');
 has(openStateRoute, "removeHeader('Pragma')", 'post media proxy success should clear no-cache Pragma header');
 assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://127.0.0.1/private.jpg'), false, 'redirect target localhost should be unsafe');
 assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://localhost./private.jpg'), false, 'trailing-dot localhost should be unsafe');
@@ -64,6 +65,11 @@ assert.strictEqual(openStateModule.isSafeExternalImageAddress('10.1.2.3'), false
 assert.strictEqual(openStateModule.isSafeExternalImageAddress('93.184.216.34'), true, 'public resolved address should be allowed');
 assert.strictEqual(openStateModule.isAllowedPostMediaContentType('image/jpeg; charset=binary'), true, 'jpeg post media content-type should be allowed');
 assert.strictEqual(openStateModule.isAllowedPostMediaContentType('image/svg+xml'), false, 'svg post media should not be proxied as same-origin content');
+{
+  let destroyed = false;
+  openStateModule.destroyUpstreamBody({ body: { destroy() { destroyed = true; } } });
+  assert.strictEqual(destroyed, true, 'post media proxy should expose body destroy helper for early returns');
+}
 {
   const removed = [];
   const headers = {};

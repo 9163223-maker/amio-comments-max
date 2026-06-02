@@ -343,6 +343,12 @@ function setPostMediaImageCache(res, contentType) {
   } catch {}
 }
 
+function destroyUpstreamBody(upstream) {
+  try {
+    if (upstream && upstream.body && typeof upstream.body.destroy === 'function') upstream.body.destroy();
+  } catch {}
+}
+
 function readLimitedResponseBuffer(stream, maxBytes) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -377,6 +383,7 @@ async function postMediaPreviewHandler(req, res) {
       headers: { 'User-Agent': 'AdminkitPostMediaPreview/1.0' }
     });
     if (upstream.status >= 300 && upstream.status < 400) {
+      destroyUpstreamBody(upstream);
       const location = clean(upstream.headers && upstream.headers.get('location'), 4096);
       let redirectTarget = '';
       try { redirectTarget = location ? new URL(location, src).href : ''; } catch {}
@@ -386,9 +393,11 @@ async function postMediaPreviewHandler(req, res) {
     const maxBytes = 3 * 1024 * 1024;
     const contentLength = Number(upstream.headers && upstream.headers.get('content-length')) || 0;
     if (!upstream.ok || !isAllowedPostMediaContentType(contentType)) {
+      destroyUpstreamBody(upstream);
       return res.status(502).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_fetch_failed', status: upstream.status || 0 });
     }
     if (contentLength > maxBytes) {
+      destroyUpstreamBody(upstream);
       return res.status(502).json({ ok: false, routeRuntimeVersion: RUNTIME, error: 'post_media_too_large', size: contentLength });
     }
     const buf = await readLimitedResponseBuffer(upstream.body, maxBytes);
@@ -548,6 +557,7 @@ module.exports = {
   isSafeExternalImageAddress,
   isAllowedExternalImagePort,
   setPostMediaImageCache,
+  destroyUpstreamBody,
   expandIPv6Hextets,
   firstIPv6Hextet,
   ipv4FromEmbeddedIPv6,
