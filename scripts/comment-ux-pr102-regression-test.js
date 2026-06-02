@@ -56,6 +56,8 @@ assert.strictEqual(openStateModule.ipv4FromEmbeddedIPv6('::ffff:192.168.1.5'), '
 assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://[fd00::1]/private.jpg'), false, 'IPv6 unique-local should be unsafe');
 assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://[fea0::1]/private.jpg'), false, 'IPv6 link-local fe80::/10 range should be unsafe');
 assert.strictEqual(openStateModule.firstIPv6Hextet('fea0::1'), 0xfea0, 'IPv6 first hextet parser should support link-local range checks');
+assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://[64:ff9b::c0a8:101]/private.jpg'), false, 'NAT64 private IPv4-mapped prefix should be unsafe');
+assert.strictEqual(openStateModule.isSafeExternalImageUrl('http://[2002:c0a8:101::]/private.jpg'), false, '6to4 IPv6 prefix should be unsafe for proxy fetches');
 assert.strictEqual(openStateModule.isSafeExternalImageAddress('::7f00:1'), false, 'resolved IPv4-compatible IPv6 localhost should be unsafe');
 assert.strictEqual(openStateModule.isSafeExternalImageAddress('169.254.10.20'), false, 'link-local resolved address should be unsafe');
 assert.strictEqual(openStateModule.isSafeExternalImageAddress('10.1.2.3'), false, 'private resolved address should be unsafe');

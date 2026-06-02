@@ -226,11 +226,11 @@ function isAllowedExternalImagePort(parsed) {
   return false;
 }
 
-function ipv4FromEmbeddedIPv6(address) {
+function expandIPv6Hextets(address) {
   const value = normalizeIpLiteral(address);
-  if (net.isIP(value) !== 6) return '';
+  if (net.isIP(value) !== 6) return [];
   const pieces = value.split('::');
-  if (pieces.length > 2) return '';
+  if (pieces.length > 2) return [];
   const expandDottedTail = (parts) => {
     const out = parts.slice();
     const last = out[out.length - 1] || '';
@@ -242,7 +242,13 @@ function ipv4FromEmbeddedIPv6(address) {
   const tail = expandDottedTail(pieces.length === 2 && pieces[1] ? pieces[1].split(':').filter(Boolean) : []);
   const missing = pieces.length === 2 ? Math.max(0, 8 - head.length - tail.length) : 0;
   const hextets = head.concat(Array(missing).fill('0'), tail).map((part) => parseInt(part || '0', 16));
-  if (hextets.length !== 8 || hextets.some((part) => !Number.isInteger(part) || part < 0 || part > 0xffff)) return '';
+  if (hextets.length !== 8 || hextets.some((part) => !Number.isInteger(part) || part < 0 || part > 0xffff)) return [];
+  return hextets;
+}
+
+function ipv4FromEmbeddedIPv6(address) {
+  const hextets = expandIPv6Hextets(address);
+  if (hextets.length !== 8) return '';
   const firstFiveZero = hextets.slice(0, 5).every((part) => part === 0);
   const firstSixZero = firstFiveZero && hextets[5] === 0;
   const mapped = firstFiveZero && hextets[5] === 0xffff;
@@ -252,11 +258,8 @@ function ipv4FromEmbeddedIPv6(address) {
 }
 
 function firstIPv6Hextet(address) {
-  const value = normalizeIpLiteral(address);
-  if (net.isIP(value) !== 6) return -1;
-  const first = value.split(':')[0] || '0';
-  const parsed = parseInt(first, 16);
-  return Number.isInteger(parsed) ? parsed : -1;
+  const hextets = expandIPv6Hextets(address);
+  return hextets.length ? hextets[0] : -1;
 }
 
 function isUnsafeIPv6(address) {
@@ -270,7 +273,11 @@ function isUnsafeIPv6(address) {
   if ((first & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
   if ((first & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
   if ((first & 0xff00) === 0xff00) return true; // ff00::/8 multicast
-  if (value === '2001:db8' || /^2001:db8:/i.test(value)) return true; // documentation range
+  const hextets = expandIPv6Hextets(value);
+  if (hextets[0] === 0x2001 && hextets[1] === 0x0) return true; // 2001::/32 Teredo
+  if (hextets[0] === 0x2001 && hextets[1] === 0x0db8) return true; // documentation range
+  if (hextets[0] === 0x2002) return true; // 2002::/16 6to4 can tunnel to private IPv4
+  if (hextets[0] === 0x64 && hextets[1] === 0xff9b && (hextets[2] === 0 || hextets[2] === 1)) return true; // NAT64 well-known/local-use prefixes
   return false;
 }
 
@@ -541,6 +548,7 @@ module.exports = {
   isSafeExternalImageAddress,
   isAllowedExternalImagePort,
   setPostMediaImageCache,
+  expandIPv6Hextets,
   firstIPv6Hextet,
   ipv4FromEmbeddedIPv6,
   isAllowedPostMediaContentType,
