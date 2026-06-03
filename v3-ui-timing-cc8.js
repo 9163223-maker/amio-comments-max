@@ -5,7 +5,7 @@ const SLOW_MS = 900;
 
 function limit() {
   const n = Number(process.env.ADMINKIT_UI_TIMING_LIMIT || DEFAULT_LIMIT);
-  return Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 200) : DEFAULT_LIMIT;
+  return Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 500) : DEFAULT_LIMIT;
 }
 
 function nowMs() { return Date.now(); }
@@ -24,6 +24,10 @@ function mask(v) {
   return s.slice(0, 3) + '…' + s.slice(-4);
 }
 
+function redacted(value = '') { const s = clean(value); if (!s) return ''; if (/AK-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/i.test(s)) return '[activation-code-redacted]'; return s.length > 120 ? s.slice(0, 40) + '…' : s; }
+function sanitizeKey(key = '', value = '') { const k = clean(key).toLowerCase(); if (/token|secret|authorization|cookie|raw|payload|code/.test(k)) return '[redacted]'; if (/userid|user_id|tenantid|tenant_id|channelid|channel_id|postid|post_id|commentkey|comment_key/.test(k)) return mask(value); return redacted(value); }
+function sanitizeValue(value, key = '') { if (value === null || value === undefined) return value; if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return sanitizeKey(key, value); if (Array.isArray(value)) return value.slice(0, 10).map((item) => sanitizeValue(item, key)); if (typeof value === 'object') { const out = {}; Object.keys(value).slice(0, 30).forEach((childKey) => { out[childKey] = sanitizeValue(value[childKey], childKey); }); return out; } return ''; }
+function sanitizeData(data = {}) { const out = {}; Object.keys(data || {}).slice(0, 40).forEach((key) => { out[key] = sanitizeValue(data[key], key); }); return out; }
 function log(name, data = {}) {
   try {
     const st = state();
@@ -35,7 +39,7 @@ function log(name, data = {}) {
       name: clean(name || 'timing'),
       durationMs: Number.isFinite(durationMs) ? durationMs : 0,
       slow: Number.isFinite(durationMs) ? durationMs >= SLOW_MS : false,
-      ...(data || {})
+      ...sanitizeData(data || {})
     };
     st.events.push(entry);
     const cap = limit();
@@ -96,4 +100,4 @@ function info() {
   };
 }
 
-module.exports = { log, measure, list, clear, info, mask, limit, SLOW_MS };
+module.exports = { log, measure, list, clear, info, mask, limit, sanitizeData, SLOW_MS };
