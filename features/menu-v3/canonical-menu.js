@@ -26,7 +26,7 @@ const sections = [
     id: 'comments', title: 'Комментарии', route: 'comments:home', clientVisible: true, adminOnly: false,
     featureKey: 'comments', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
-      action({ id: 'comments.post_comments', title: 'Комментарии к посту', section: 'comments', targetAction: 'comments:choose_channel', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'comments' } }),
+      action({ id: 'comments.post_comments', title: 'Комментарии к посту', section: 'comments', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'comments' } }),
       action({ id: 'comments.auto_comments', title: 'Автокомментарии', section: 'comments', existingAction: 'admin_section_comments' }),
       action({ id: 'comments.photo', title: 'Фото в комментариях', section: 'comments', existingAction: 'admin_section_comments', payload: { focus: 'photos' } }),
       action({ id: 'comments.reactions_replies', title: 'Реакции и ответы', section: 'comments', existingAction: 'admin_section_comments', payload: { focus: 'reactions_replies' } }),
@@ -37,7 +37,7 @@ const sections = [
     featureKey: 'gifts', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'gifts.create', title: 'Создать подарок', section: 'gifts', existingAction: 'gift_admin_start_create' }),
-      action({ id: 'gifts.post_gift', title: 'Подарок под постом', section: 'gifts', targetAction: 'gifts:choose_channel', existingAction: 'gift_admin_recent_posts', requiresChannel: true, requiresPost: true, payload: { page: 0 } }),
+      action({ id: 'gifts.post_gift', title: 'Подарок под постом', section: 'gifts', existingAction: 'gift_admin_recent_posts', requiresChannel: true, requiresPost: true, payload: { page: 0 } }),
       action({ id: 'gifts.list', title: 'Список подарков', section: 'gifts', existingAction: 'gift_admin_show_current' }),
     ],
   },
@@ -45,8 +45,8 @@ const sections = [
     id: 'buttons', title: 'Кнопки под постами', route: 'buttons:home', clientVisible: true, adminOnly: false,
     featureKey: 'buttons', minPlan: 'start', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
-      action({ id: 'buttons.add', title: 'Добавить кнопку', section: 'buttons', targetAction: 'buttons:choose_channel', existingAction: 'button_admin_start_add', requiresChannel: true, requiresPost: true }),
-      action({ id: 'buttons.current', title: 'Текущие кнопки', section: 'buttons', targetAction: 'buttons:choose_channel', existingAction: 'button_admin_show_current', requiresChannel: true, requiresPost: true }),
+      action({ id: 'buttons.add', title: 'Добавить кнопку', section: 'buttons', existingAction: 'button_admin_start_add', requiresChannel: true, requiresPost: true }),
+      action({ id: 'buttons.current', title: 'Текущие кнопки', section: 'buttons', existingAction: 'button_admin_show_current', requiresChannel: true, requiresPost: true }),
       action({ id: 'buttons.delete', title: 'Удалить кнопку', section: 'buttons', existingAction: 'button_admin_delete', clientVisible: false, implemented: false, hiddenReason: 'inside_current_buttons_card' }),
     ],
   },
@@ -79,7 +79,7 @@ const sections = [
     id: 'polls', title: 'Опросы / голосования', route: 'polls:home', clientVisible: true, adminOnly: false,
     featureKey: 'polls', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
-      action({ id: 'polls.create', title: 'Создать опрос', section: 'polls', targetAction: 'polls:choose_channel', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'polls' } }),
+      action({ id: 'polls.create', title: 'Создать опрос', section: 'polls', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'polls' } }),
       action({ id: 'polls.results', title: 'Результаты опросов', section: 'polls', existingAction: 'poll_status' }),
       action({ id: 'polls.stop', title: 'Остановить опрос', section: 'polls', existingAction: 'poll_stop', clientVisible: false, implemented: false, hiddenReason: 'inside_active_poll_card' }),
     ],
@@ -88,15 +88,15 @@ const sections = [
     id: 'highlights', title: 'Выделение постов', route: 'highlights:home', aliases: ['highlight:home'], clientVisible: true, adminOnly: false,
     featureKey: 'highlights', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
-      action({ id: 'highlights.apply', title: 'Поставить выделение', section: 'highlights', targetAction: 'highlights:choose_channel', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
-      action({ id: 'highlights.remove', title: 'Снять выделение', section: 'highlights', targetAction: 'highlights:choose_channel', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
+      action({ id: 'highlights.apply', title: 'Поставить выделение', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
+      action({ id: 'highlights.remove', title: 'Снять выделение', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
     ],
   },
   {
     id: 'editor', title: 'Редактор постов', route: 'editor:home', clientVisible: true, adminOnly: false,
     featureKey: 'post_editor', minPlan: 'start', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
-      action({ id: 'editor.change_text', title: 'Изменить текст поста', section: 'editor', targetAction: 'editor:choose_channel', existingAction: 'admin_posts_picker', requiresChannel: true, requiresPost: true }),
+      action({ id: 'editor.change_text', title: 'Изменить текст поста', section: 'editor', existingAction: 'admin_posts_picker', requiresChannel: true, requiresPost: true }),
       action({ id: 'editor.history', title: 'История версий', section: 'editor', existingAction: 'admin_posts_history', clientVisible: false, implemented: false, hiddenReason: 'not_client_root' }),
     ],
   },

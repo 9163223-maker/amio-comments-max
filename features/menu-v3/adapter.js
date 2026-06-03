@@ -196,11 +196,11 @@ function normalizeRoute(route) {
 }
 function postPickerContract(sectionId = '') {
   const section = normalize(sectionId);
-  return { section, source: section, sequence: POST_PICKER_SEQUENCE.slice(), steps: ['section home', 'choose channel', 'choose post', 'section action'], payload: ['section/source', 'step', 'internal channelId', 'internal commentKey', 'internal postId when needed', 'safe back target', 'safe section home target'], clientVisibleTechnicalIds: false, tenantVisibleChannelsOnly: true, staleForeignReplayBlockedBySectionHandlers: true };
+  return { section, source: section, sequence: POST_PICKER_SEQUENCE.slice(), steps: ['section home', 'choose channel', 'choose post', 'section action'], payload: ['section/source', 'step', 'internal channelId', 'internal commentKey', 'internal postId when needed', 'safe back target', 'safe section home target'], clientVisibleTechnicalIds: false, tenantVisibleChannelsOnly: true, staleForeignReplayBlockedBySectionHandlers: true, implementationStatus: 'contract_only', productionActionsMigrated: false, note: 'Production post-scoped callbacks continue to use existing tenant-aware flows until picker hydration/delegation is migrated safely.' };
 }
 function postPickerAudit() {
   const sections = POST_SCOPED_SECTIONS.map((section) => postPickerContract(section));
-  return { ok: sections.every((item) => item.sequence.join('>') === POST_PICKER_SEQUENCE.join('>') && item.tenantVisibleChannelsOnly && item.clientVisibleTechnicalIds === false), version: VERSION, sections };
+  return { ok: sections.every((item) => item.sequence.join('>') === POST_PICKER_SEQUENCE.join('>') && item.tenantVisibleChannelsOnly && item.clientVisibleTechnicalIds === false && item.implementationStatus === 'contract_only'), version: VERSION, implementationStatus: 'contract_only', productionActionsMigrated: false, sections };
 }
 
 function render(route, context = {}) {
