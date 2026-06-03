@@ -58,6 +58,17 @@ function messageId(message = {}) { return clean(message?.body?.mid || message?.b
 function chatId(message = {}) { return clean(message?.recipient?.chat_id || message?.recipient?.id || message?.chat_id || message?.chat?.id); }
 function chatType(message = {}) { return clean(message?.recipient?.chat_type || message?.recipient?.type || message?.chat_type || message?.chat?.type).toLowerCase(); }
 function isChannelMessage(message = {}) { const id = chatId(message); return chatType(message) === 'channel' || /^-/.test(id); }
+function isPrivateUserChat(message = {}) {
+  const type = chatType(message);
+  const id = chatId(message);
+  if (/^-/.test(id)) return false;
+  return ['user', 'private', 'direct', 'private_chat', 'direct_chat', 'im'].includes(type);
+}
+function isAdminRuntimeAction(action = '') {
+  const a = clean(action);
+  return a === 'admin_panel' || a === 'admin_codes_list' || a === 'admin_tenants_list' || a.startsWith('admin_code_') || a.startsWith('admin_tenant_');
+}
+function adminPrivateChatScreen() { return { id: 'pr108_admin_private_chat_required', text: 'Админ-панель доступна только в личном чате с ботом.', attachments: [] }; }
 function callbackId(callback = {}) { return clean(callback?.callback_id || callback?.callbackId || callback?.id); }
 function callbackPayload(callback = {}) { const raw = callback?.payload ?? callback?.data ?? callback?.value ?? callback?.callback_data ?? callback?.callbackData ?? ''; if (raw && typeof raw === 'object') return raw; const text = clean(raw); if (!text) return {}; try { return JSON.parse(text); } catch { return { action: text, raw: text }; } }
 function senderId(update = {}, callback = null, message = null) { return clean(callback?.user?.user_id || callback?.user?.id || callback?.sender?.user_id || callback?.sender?.id || update?.user?.user_id || update?.user?.id || message?.sender?.user_id || message?.sender?.id || userIdFromUpdate(update)); }
@@ -88,7 +99,11 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
         await sendOrEditScreen({ update, callback, message, config, screen, edit: true });
         return res.status(200).json({ ok: true, handledBy: RUNTIME, action, screenId: screen.id, accessGate: true });
       }
-      const adminScreen = adminScreens.screenForAction(action, uid, payload);
+      if (isAdminRuntimeAction(action) && !isPrivateUserChat(message)) {
+        if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
+        return res.status(200).json({ ok: true, handledBy: access.ADMIN_ACCESS_RUNTIME, action, screenId: 'pr108_admin_private_chat_required', adminRuntime: true, privateChatRequired: true });
+      }
+      const adminScreen = isPrivateUserChat(message) ? adminScreens.screenForAction(action, uid, payload) : null;
       if (adminScreen) {
         if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
         await sendOrEditScreen({ update, callback, message, config, screen: adminScreen, edit: true });
@@ -121,9 +136,9 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
     const uid = senderId(update, callback, message);
     const text = messageText(message);
     if (/^\/?admin(?:\s|$)/i.test(text)) {
-      const screen = adminScreens.adminPanel(uid);
+      const screen = isPrivateUserChat(message) ? adminScreens.adminPanel(uid) : adminPrivateChatScreen();
       await sendOrEditScreen({ update, callback, message, config, screen, edit: false });
-      return res.status(200).json({ ok: true, handledBy: access.ADMIN_ACCESS_RUNTIME, action: 'admin_command', screenId: screen.id, adminRuntime: true });
+      return res.status(200).json({ ok: true, handledBy: access.ADMIN_ACCESS_RUNTIME, action: 'admin_command', screenId: screen.id, adminRuntime: true, privateChatRequired: !isPrivateUserChat(message) });
     }
     if (/^\/?(?:start|menu)(?:\s|$)/i.test(text)) {
       const isMenu = /^\/?menu(?:\s|$)/i.test(text);
