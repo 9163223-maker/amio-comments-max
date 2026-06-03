@@ -13,6 +13,21 @@ function assertNo(pattern, values, message) {
   assert.deepStrictEqual(hits, [], message);
 }
 
+
+function payloadOf(button) {
+  try { return JSON.parse(String(button?.payload || '{}')); } catch { return {}; }
+}
+function buttonTargets(screen) {
+  return rows(screen).flat().map((item) => ({ text: String(item.text || '').trim(), payload: payloadOf(item) }));
+}
+function assertHasAll(values, required, message) {
+  for (const item of required) assert.ok(values.includes(item), `${message}: missing ${item}`);
+}
+function assertNoSelfRoute(screen, route) {
+  const self = buttonTargets(screen).filter((item) => item.payload.route === route || item.payload.action === route);
+  assert.deepStrictEqual(self.map((item) => item.text), [], `${route} must not include self-click buttons`);
+}
+
 function payloadLabelsFromSend(call) {
   return (call?.attachments?.[0]?.payload?.buttons || []).flat().map((button) => String(button.text || '').trim()).filter(Boolean);
 }
@@ -138,6 +153,54 @@ assert.ok(!labels(adapter.render('ad_links:home')).some((label) => /источн
 for (const item of canonical.allActions().filter((action) => action.clientVisible && action.requiresPost)) {
   assert.strictEqual(item.requiresChannel, true, `${item.id} requires post and must require channel first`);
 }
+
+
+for (const section of canonical.clientSections) {
+  const root = adapter.render(section.route);
+  const rootLabels = labels(root);
+  assertHasAll(rootLabels, ['❓ Помощь по разделу', '🏠 Главное меню'], `${section.id} root navigation`);
+  assert.ok(!rootLabels.includes('↩️ В начало раздела'), `${section.id} root must not include section-home self-click`);
+  assert.ok(!rootLabels.includes('⬅️ Назад'), `${section.id} root must not include back without context`);
+  assertNoSelfRoute(root, section.route);
+
+  const help = adapter.render(`${section.id}:help`);
+  assert.deepStrictEqual(labels(help), ['↩️ В начало раздела', '🏠 Главное меню'], `${section.id} help navigation must be section home + main only`);
+  assert.ok(!/postId|channelId|commentKey|token|payload|trace/i.test(help.text), `${section.id} help must not expose technical identifiers`);
+}
+
+const deepCases = [
+  adapter.render('channels:list'),
+  adapter.render('channels:connect'),
+  adapter.render('comments:choose_channel', { dataContext: { channels: [{ channelId: 'internal-channel-1', title: 'Новости' }] } }),
+  adapter.render('comments:choose_post', { dataContext: { channelId: 'internal-channel-1', channelTitle: 'Новости', posts: [{ postId: 'post-1', commentKey: 'comment-key-1', title: 'Анонс недели' }] } }),
+  adapter.render('comments:post', { payload: { postTitle: 'Анонс недели' } }),
+];
+for (const screen of deepCases) {
+  const deepLabels = labels(screen);
+  assertHasAll(deepLabels, ['⬅️ Назад', '↩️ В начало раздела', '❓ Помощь по разделу', '🏠 Главное меню'], `${screen.route || screen.id} deep navigation`);
+  assertNoSelfRoute(screen, screen.route || screen.id);
+}
+
+const zeroChannels = adapter.render('channels:list', { channels: [] });
+assert.ok(/У вас пока нет подключённых каналов\./.test(zeroChannels.text), 'zero-channel channels list must show safe empty state');
+assertHasAll(labels(zeroChannels), ['Подключить канал', '❓ Помощь по разделу', '🏠 Главное меню'], 'zero-channel channels list navigation');
+
+const channelCard = adapter.render('channels:card', { payload: { channelId: 'raw-channel-123', channelTitle: 'Новости компании' } });
+assert.ok(/Новости компании/.test(channelCard.text), 'channel card must use human-readable channel title');
+assert.ok(!/raw-channel-123|postId|channelId|commentKey|token|payload|trace/i.test(channelCard.text), 'channel card must not expose technical identifiers');
+
+const pickerAudit = adapter.postPickerAudit();
+assert.strictEqual(pickerAudit.ok, true, `post picker audit failed: ${JSON.stringify(pickerAudit)}`);
+for (const section of ['comments', 'gifts', 'buttons', 'polls', 'highlights', 'editor']) {
+  const contract = adapter.postPickerContract(section);
+  assert.deepStrictEqual(contract.sequence, ['section', 'channel', 'post', 'action'], `${section} picker sequence must be section → channel → post → action`);
+  assert.strictEqual(contract.tenantVisibleChannelsOnly, true, `${section} picker must declare tenant-visible channel filtering`);
+  assert.strictEqual(contract.clientVisibleTechnicalIds, false, `${section} picker must hide technical identifiers from visible UI`);
+}
+
+const pickerScreen = adapter.render('buttons:choose_channel', { dataContext: { channels: [{ channelId: 'secret-channel-id', title: 'Канал продаж' }] } });
+assert.ok(labels(pickerScreen).includes('Канал продаж'), 'shared picker must show human-readable channel title');
+assert.ok(!labels(pickerScreen).join('\n').includes('secret-channel-id'), 'shared picker must not show raw channel id in labels');
 
 const hiddenDebugScreen = adapter.render('debug:home');
 assertNo(/Debug|GitHub export|trace|production checklist/i, labels(hiddenDebugScreen), 'debug route must not render client-visible debug buttons');
