@@ -74,7 +74,7 @@ function createdScreen(maxUserId = '', opts = {}) {
   const maxChannels = fixedChannelLimit(opts.maxChannels);
   if (!fixedPlanId || !durationDays || !maxChannels || clean(opts.boundChannelId || '')) return manualDeferredScreen(maxUserId);
   const created = access.createActivationCode({ planId: fixedPlanId, durationDays, maxChannels, boundChannelId: '', createdByMaxUserId: maxUserId });
-  return { id: 'pr108_admin_code_created', text: ['✅ Код создан', '', `Код создан: ${created.code}`, '', `Тариф: ${tariffs.getTariff(created.planId).name}`, `Действует до: ${dateRu(created.expiresAt)}`, `Лимит каналов: ${created.maxChannels}`, '', 'Передайте код клиенту. Клиент должен открыть бота и нажать «Активировать код».', '', 'Этот полный код больше не будет показан в списке или истории.'].join('\n'), attachments: keyboard([[button('Коды доступа', 'admin_codes_list')], [button('Создать ещё', 'admin_code_create')], [button('Главное меню', 'admin_section_main')]]) };
+  return { id: 'pr108_admin_code_created', rawCodePrivateMessage: created.code, text: ['✅ Код создан', '', 'Код отправлен отдельным сообщением.', `Код: ${access.maskActivationCode(created.code)}`, '', `Тариф: ${tariffs.getTariff(created.planId).name}`, `Действует до: ${dateRu(created.expiresAt)}`, `Лимит каналов: ${created.maxChannels}`, '', 'Передайте отдельное сообщение с кодом клиенту. Клиент должен открыть бота и нажать «Активировать код».', '', 'Этот полный код больше не будет показан в списке или истории.'].join('\n'), attachments: keyboard([[button('Коды доступа', 'admin_codes_list')], [button('Создать ещё', 'admin_code_create')], [button('Главное меню', 'admin_section_main')]]) };
 }
 function codesListScreen(maxUserId = '') {
   if (!assertAdmin(maxUserId)) return denyScreen();

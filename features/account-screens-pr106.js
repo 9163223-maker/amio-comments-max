@@ -159,11 +159,12 @@ function channelsScreen(maxUserId = '') {
       '📣 Мои каналы',
       '',
       `Лимит каналов: ${channels.length} из ${state.maxChannels || 1}`,
-      ...(channels.length ? channels.map((channel, index) => `${index + 1}. ${channelTitle(channel)}`) : ['Каналы пока не подключены.']),
-      reached ? 'Лимит каналов достигнут. Для увеличения лимита выберите продление или напишите в поддержку.' : ''
+      ...(channels.length ? channels.map((channel, index) => `${index + 1}. ${channelTitle(channel)}`) : ['У вас пока нет подключённых каналов.']),
+      reached ? 'Лимит каналов достигнут. Для подключения ещё одного канала нужен апгрейд тарифа или помощь менеджера.' : ''
     ].filter(Boolean).join('\n'),
     attachments: keyboard([
-      [button('Подключить канал', 'admin_section_channels')],
+      ...(reached ? [] : [[button('Подключить канал', 'admin_section_channels')]]),
+      ...(channels.length ? [] : [[button('Как подключить', 'account_support')]]),
       [button('Оплата / продление', 'account_payment')],
       [button('Главное меню', 'admin_section_main')]
     ])
