@@ -3,6 +3,7 @@
 const access = require('../services/clientAccessService');
 const tariffs = require('../services/tariffConfig');
 const menu = require('../v3-menu-core-1539');
+const visibility = require('../services/tenantChannelVisibility');
 
 const ADMIN_RUNTIME = access.ADMIN_ACCESS_RUNTIME;
 const ALLOWED_PLANS = new Set(['free', 'trial', 'start', 'pro', 'business']);
@@ -116,7 +117,9 @@ function tenantDetailsScreen(maxUserId = '', tenantId = '') {
   if (!tenant) return { id: 'pr108_admin_tenant_not_found', text: 'Tenant не найден.', attachments: keyboard([[button('Клиенты / tenants', 'admin_tenants_list')]]) };
   const channels = access.listTenantChannels(tenant.tenantId);
   const events = access.listAccessEvents({ tenantId: tenant.tenantId, limit: 5 });
-  return { id: 'pr108_admin_tenant_details', text: ['Tenant', '', `tenantId: ${tenant.tenantId}`, `owner: ${tenant.ownerMaxUserId}`, `plan: ${tenant.planId}`, `status: ${tenant.status}`, `expiresAt: ${dateRu(tenant.expiresAt)}`, `channels: ${channels.length}/${tenant.maxChannels}`, ...(channels.length ? channels.map((ch) => `• ${ch.channelTitle || ch.channelId} (${ch.status})`) : ['• Каналы пока не подключены']), '', 'Recent access events:', ...(events.length ? events.map((event) => `• ${event.eventType} · ${dateRu(event.createdAt)} · user ${event.maxUserId || '—'}`) : ['• событий пока нет'])].join('\n'), attachments: keyboard([[button('Клиенты / tenants', 'admin_tenants_list')], [button('Админ-панель', 'admin_panel')]]) };
+  const tenantChannelIds = new Set(channels.map((ch) => clean(ch.channelId)));
+  const legacyChannels = visibility.adminVisibleStoredChannels(maxUserId).filter((ch) => !tenantChannelIds.has(clean(ch.channelId))).slice(0, 8);
+  return { id: 'pr108_admin_tenant_details', text: ['Tenant', '', `tenantId: ${tenant.tenantId}`, `owner: ${tenant.ownerMaxUserId}`, `plan: ${tenant.planId}`, `status: ${tenant.status}`, `expiresAt: ${dateRu(tenant.expiresAt)}`, `channels: ${channels.length}/${tenant.maxChannels}`, ...(channels.length ? channels.map((ch) => `• ${ch.channelTitle || ch.channelId} (${ch.status})`) : ['• Каналы пока не подключены']), '', 'Admin legacy/unowned stored channels:', ...(legacyChannels.length ? legacyChannels.map((ch) => `• ${visibility.channelTitle(ch)}`) : ['• нет legacy/unowned каналов']), '', 'Recent access events:', ...(events.length ? events.map((event) => `• ${event.eventType} · ${dateRu(event.createdAt)} · user ${event.maxUserId || '—'}`) : ['• событий пока нет'])].join('\n'), attachments: keyboard([[button('Клиенты / tenants', 'admin_tenants_list')], [button('Админ-панель', 'admin_panel')]]) };
 }
 function screenForAction(action = '', maxUserId = '', payload = {}) {
   const a = clean(action);

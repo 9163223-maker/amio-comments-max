@@ -9,7 +9,7 @@ const SLOW_MS = 900;
 const LABELS = {
   admin_section_channels: 'Подключение канала',
   admin_section_gifts: 'Подарки / лид-магниты',
-  admin_section_buttons: 'CTA / пользовательские кнопки',
+  admin_section_buttons: 'Кнопки под постами',
   admin_section_posts: 'Редактирование постов',
   admin_posts_picker: 'Редактирование постов: выбор поста',
   admin_posts_open: 'Редактирование постов: карточка поста',
@@ -28,7 +28,7 @@ const LABELS = {
   admin_stats_reactions_cache: 'Статистика: реакции',
   admin_stats_polls_cache: 'Статистика: опросы',
   admin_stats_gifts_cache: 'Статистика: подарки',
-  admin_stats_buttons_cache: 'Статистика: CTA-кнопки',
+  admin_stats_buttons_cache: 'Статистика: Кнопки под постами',
   admin_stats_archive_cache: 'Статистика: архив',
   admin_stats_refresh: 'Статистика: live-обновление',
   admin_stats_post: 'Статистика: выбранный пост',

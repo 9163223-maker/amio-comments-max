@@ -3,6 +3,8 @@
 const store = require('./store');
 const channelService = require('./services/channelService');
 const postEditor = require('./services/postEditorService');
+const tenant = require('./tenant-scope');
+const visibility = require('./services/tenantChannelVisibility');
 
 const RUNTIME = 'CC8.0.9-POSTS-SELECTED-CARD';
 const MAX_POSTS = 8;
@@ -28,13 +30,7 @@ function channelTitle(channelId = '') {
   const channel = safeCall(() => channelService.listChannels().find((item) => clean(item.channelId) === id), null) || {};
   return clean(channel.title || channel.channelTitle || channel.name || channel.chatTitle || channel.channelName || id || 'Канал');
 }
-function visibleChannelIds(userId = '') {
-  const channels = safeCall(() => channelService.listChannels(), []);
-  const uid = clean(userId);
-  const mine = uid ? channels.filter((item) => clean(item.linkedByUserId) === uid) : [];
-  const source = mine.length ? mine : channels;
-  return new Set(source.map((item) => clean(item.channelId)).filter(Boolean));
-}
+function visibleChannelIds(userId = '') { return visibility.clientVisibleChannelIds(userId); }
 function postTitle(post = {}) { return short(post.originalText || post.postText || post.text || post.caption || post.postId || post.messageId || post.commentKey || 'Пост без текста', 58); }
 function postTime(post = {}) {
   const ts = n(post.updatedAt || post.createdAt || post.ts || 0);
@@ -44,28 +40,30 @@ function postTime(post = {}) {
 function listPosts(userId = '') {
   const ids = visibleChannelIds(userId);
   const posts = safeCall(() => array(store.getPostsList()), []);
-  const filtered = ids.size ? posts.filter((post) => ids.has(clean(post && post.channelId))) : posts;
+  const ctx = tenant.ensureTenantContext(userId);
+  const filtered = posts.filter((post) => ids.has(clean(post && post.channelId)) && tenant.belongsToTenant(post, ctx));
   return filtered
     .filter((post) => clean(post && post.commentKey))
     .sort((a, b) => n(b.updatedAt || b.createdAt || b.ts) - n(a.updatedAt || a.createdAt || a.ts))
     .slice(0, MAX_POSTS);
 }
-function findPost(commentKey = '') {
+function findPost(commentKey = '', userId = '') {
   const key = clean(commentKey);
   if (!key) return null;
-  return safeCall(() => store.getPost(key), null) || safeCall(() => array(store.getPostsList()).find((post) => clean(post.commentKey) === key), null) || null;
+  const post = safeCall(() => store.getPost(key), null) || safeCall(() => array(store.getPostsList()).find((item) => clean(item.commentKey) === key), null) || null;
+  return post && tenant.belongsToTenant(post, tenant.ensureTenantContext(userId)) && visibility.canUseClientChannel(userId, post.channelId) ? post : null;
 }
 function getStoredTarget(userId = '') {
   const uid = clean(userId);
   if (!uid) return null;
   const state = safeCall(() => store.getSetupState(uid), {}) || {};
   const target = state.commentTargetPost || state.giftTargetPost || null;
-  const post = target && target.commentKey ? findPost(target.commentKey) : null;
+  const post = target && target.commentKey ? findPost(target.commentKey, userId) : null;
   return post || target || null;
 }
 function resolvePost(payload = {}, ctx = {}) {
   const explicitKey = clean(payload.commentKey || payload.key || '');
-  if (explicitKey) return findPost(explicitKey);
+  if (explicitKey) return findPost(explicitKey, ctx.userId);
   return getStoredTarget(ctx.userId);
 }
 function targetRecord(post = {}) {
@@ -128,7 +126,7 @@ async function home(menu, ctx = {}) {
     '• открыть историю версий.',
     '',
     'Комментарии включаются/выключаются в разделе «Комментарии под постами».',
-    'CTA-кнопки редактируются в отдельном разделе «CTA / пользовательские кнопки».',
+    'Кнопки под постами редактируются в отдельном разделе «Кнопки под постами».',
     '',
     'Постов в быстром списке: ' + posts.length,
     '',
@@ -176,7 +174,7 @@ async function details(menu, payload = {}, ctx = {}) {
     'Версий в истории: ' + n(card.versionsCount || versionsCount(post)),
     'Окно редактирования: ' + (editable.editable ? 'доступно' : 'может быть ограничено MAX'),
     '',
-    'Здесь только функции редактора поста. Комментарии и CTA-кнопки — в отдельных разделах.'
+    'Здесь только функции редактора поста. Комментарии и Кнопки под постами — в отдельных разделах.'
   ], buildPostRows(menu, post));
 }
 

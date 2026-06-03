@@ -215,6 +215,13 @@ function getClientChannels(maxUserId) {
   [...tenantChannels, ...own, ...linked].forEach((channel) => { const id = clean(channel.channelId || channel.id); if (id) byId.set(id, { ...channel, channelId: id }); });
   return [...byId.values()];
 }
+function listAdminVisibleChannels(maxUserId = '') {
+  if (!isAdmin(maxUserId)) return getClientChannels(maxUserId);
+  try {
+    const channelService = require('./channelService');
+    return channelService.listChannels();
+  } catch { return []; }
+}
 function bindTenantChannel(options = {}) { return repository.bindTenantChannel(options); }
 function getTenantByMaxUserId(maxUserId) { return repository.getTenantByUserId(maxUserId); }
 function getTenantUsers(tenantId) { return repository.getTenantUsers(tenantId); }
@@ -228,4 +235,4 @@ function hasPendingActivation(maxUserId) { return Boolean(repository.pendingActi
 function clearPendingActivation(maxUserId) { return setPendingActivation(maxUserId, false); }
 function _resetForTests() { repository.resetForTests(); }
 
-module.exports = { RUNTIME, ADMIN_ACCESS_RUNTIME, ACCESS_NAMESPACE, generateActivationCode, hashActivationCode, maskActivationCode, getClientByMaxUserId, createClientProfile, getAccessState, createActivationCode, listActivationCodes, getActivationCodeInfo, revokeActivationCode, listTenants, getTenantInfo, listTenantChannels, listAccessEvents, activateCode, isAccessActive, isAdmin, getPlanLimits, canUseFeature, getClientChannels, upsertActivationCode, getActivationCode, bindTenantChannel, getTenantByMaxUserId, getTenantUsers, getAccessEvents, setPendingActivation, hasPendingActivation, clearPendingActivation, statusLabel, info, sanitizedSnapshot, bootstrap, _resetForTests };
+module.exports = { RUNTIME, ADMIN_ACCESS_RUNTIME, ACCESS_NAMESPACE, generateActivationCode, hashActivationCode, maskActivationCode, getClientByMaxUserId, createClientProfile, getAccessState, createActivationCode, listActivationCodes, getActivationCodeInfo, revokeActivationCode, listTenants, getTenantInfo, listTenantChannels, listAccessEvents, activateCode, isAccessActive, isAdmin, getPlanLimits, canUseFeature, getClientChannels, listAdminVisibleChannels, upsertActivationCode, getActivationCode, bindTenantChannel, getTenantByMaxUserId, getTenantUsers, getAccessEvents, setPendingActivation, hasPendingActivation, clearPendingActivation, statusLabel, info, sanitizedSnapshot, bootstrap, _resetForTests };

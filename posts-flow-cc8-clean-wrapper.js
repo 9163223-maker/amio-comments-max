@@ -3,6 +3,8 @@
 const base = require('./posts-flow-cc8-text-flow');
 const store = require('./store');
 const fastText = require('./services/postEditorFastTextService');
+const tenant = require('./tenant-scope');
+const visibility = require('./services/tenantChannelVisibility');
 
 const RUNTIME = 'CC8.3.8-POSTS-TEXT-MEDIA-WRAPPER';
 const EDIT_FLOW_KIND = 'post_edit_text';
@@ -19,13 +21,15 @@ function storedChannelTitle(channelId = '') {
   const title = clean(channel && (channel.title || channel.channelTitle || channel.channelName || channel.chatTitle || channel.name));
   return title && !looksTechnicalId(title) ? title : '';
 }
+function postAllowedForUser(post = null, userId = '') { return Boolean(post && post.commentKey && tenant.belongsToTenant(post, tenant.ensureTenantContext(userId)) && visibility.canUseClientChannel(userId, post.channelId)); }
+function findVisiblePost(commentKey = '', userId = '') { const key = clean(commentKey); if (!key) return null; const post = safe(() => store.getPost(key), null) || safe(() => arr(store.getPostsList()).find((item) => clean(item.commentKey) === key), null); return postAllowedForUser(post, userId) ? post : null; }
 function currentPostFromState(userId = '', payload = {}) {
   const key = clean(payload.commentKey || payload.key || '');
-  if (key && base.findPost) return safe(() => base.findPost(key), null) || null;
+  if (key) return findVisiblePost(key, userId);
   const state = safe(() => store.getSetupState(clean(userId)) || {}, {}) || {};
   const target = state.commentTargetPost || state.postTargetPost || null;
-  if (target && target.commentKey && base.findPost) return safe(() => base.findPost(target.commentKey), null) || target;
-  return target || null;
+  if (target && target.commentKey) return findVisiblePost(target.commentKey, userId) || null;
+  return target && postAllowedForUser(target, userId) ? target : null;
 }
 function channelTitleFor(post = null) {
   const explicit = clean(post && (post.channelTitle || post.channelName || post.chatTitle || post.title || post.name));
@@ -122,7 +126,7 @@ function getPostEditState(userId = '') {
   const flow = state.postEditFlow || {};
   if (clean(state.activeAdminFlowKind) !== EDIT_FLOW_KIND && clean(flow.mode) !== 'edit_text') return null;
   const commentKey = clean(flow.commentKey || state.commentTargetPost?.commentKey || '');
-  const post = commentKey && base.findPost ? safe(() => base.findPost(commentKey), null) : null;
+  const post = commentKey ? findVisiblePost(commentKey, userId) : null;
   return post && post.commentKey ? { state, flow, commentKey, post } : null;
 }
 function button(menu, text, action, extra) { return menu.button(text, action, extra || {}); }
@@ -147,6 +151,9 @@ function errorScreen(menu, post = {}, error = null) {
 }
 async function screenForPayload(menu, payload = {}, ctx = {}) {
   const action = clean(payload.action || payload.raw || payload.route || '');
+  const channelId = clean(payload.channelId || '');
+  const commentKey = clean(payload.commentKey || payload.key || '');
+  if ((channelId && !visibility.canUseClientChannel(ctx.userId, channelId)) || (commentKey && !findVisiblePost(commentKey, ctx.userId))) return visibility.deniedChannelScreen(menu, { id: 'posts_clean_channel_denied', title: '✏️ Редактор постов', rootAction: 'admin_section_posts' });
   if (isPostsAction(action)) clearCompetingFlows(ctx.userId, `posts_action:${action}`);
   const screen = await base.screenForPayload(menu, payload, ctx);
   if (isPostsAction(action)) clearCompetingFlows(ctx.userId, `posts_screen:${action}`);
@@ -161,7 +168,7 @@ async function handleTextInput(menu, ctx = {}) {
       const nextText = clean(ctx.text) || clean(edit.post.originalText || edit.post.postText || edit.post.text || '');
       const result = await fastText.editPostTextFast({ commentKey: edit.commentKey, text: nextText, sourceAttachments: attachments, actorId: ctx.userId, actorName: 'admin', config: ctx.config || {} });
       if (base.clearPostEditFlow) base.clearPostEditFlow(ctx.userId);
-      const updatedPost = result?.post || (base.findPost ? base.findPost(edit.commentKey) : edit.post) || edit.post;
+      const updatedPost = (result?.post && postAllowedForUser(result.post, ctx.userId) ? result.post : null) || findVisiblePost(edit.commentKey, ctx.userId) || edit.post;
       if (base.bindTargetForLegacy) base.bindTargetForLegacy(ctx.userId, updatedPost);
       clearCompetingFlows(ctx.userId, 'posts_media_text_saved');
       return cleanScreen(savedScreen(menu, updatedPost, result), ctx, { commentKey: edit.commentKey });

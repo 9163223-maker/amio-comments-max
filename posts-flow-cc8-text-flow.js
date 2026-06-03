@@ -3,6 +3,8 @@
 const store = require('./store');
 const postEditor = require('./services/postEditorService');
 const fastText = require('./services/postEditorFastTextService');
+const tenant = require('./tenant-scope');
+const visibility = require('./services/tenantChannelVisibility');
 const basePosts = require('./posts-flow-cc8');
 
 const RUNTIME = 'CC8.0.13-POSTS-FAST-OPEN';
@@ -24,11 +26,15 @@ function screen(menu, id, title, lines, rows) {
   return { id, text: [title, '', ...(lines || [])].filter(Boolean).join('\n'), attachments: keyboard(menu, rows || footer(menu)) };
 }
 function getSetup(userId = '') { return safeCall(() => store.getSetupState(clean(userId)), {}) || {}; }
-function findPost(commentKey = '') { return basePosts.findPost(clean(commentKey)); }
-function listPosts() {
+function getTenant(userId = '') { return tenant.ensureTenantContext(userId); }
+function postAllowedForUser(post = null, userId = '') { return Boolean(post && post.commentKey && tenant.belongsToTenant(post, getTenant(userId)) && visibility.canUseClientChannel(userId, post.channelId)); }
+function findPost(commentKey = '', userId = '') { const key = clean(commentKey); const post = key ? (safeCall(() => store.getPost(key), null) || safeCall(() => array(store.getPostsList()).find((item) => clean(item.commentKey) === key), null)) : null; return postAllowedForUser(post, userId) ? post : null; }
+function listPosts(userId = '') {
+  const ctx = getTenant(userId);
+  const visible = visibility.clientVisibleChannelIds(userId);
   const posts = safeCall(() => array(store.getPostsList()), []);
   return posts
-    .filter((post) => clean(post && post.commentKey))
+    .filter((post) => clean(post && post.commentKey) && visible.has(clean(post.channelId)) && tenant.belongsToTenant(post, ctx))
     .sort((a, b) => n(b.updatedAt || b.createdAt || b.ts) - n(a.updatedAt || a.createdAt || a.ts))
     .slice(0, MAX_POSTS);
 }
@@ -60,12 +66,12 @@ function editableMeta(post = {}, config = {}) {
 function getStoredTarget(userId = '') {
   const state = getSetup(userId);
   const target = state.commentTargetPost || state.giftTargetPost || null;
-  const post = target && target.commentKey ? findPost(target.commentKey) : null;
+  const post = target && target.commentKey ? findPost(target.commentKey, userId) : null;
   return post || target || null;
 }
 function resolvePost(payload = {}, ctx = {}) {
   const explicitKey = clean(payload.commentKey || payload.key || '');
-  if (explicitKey) return findPost(explicitKey);
+  if (explicitKey) return findPost(explicitKey, ctx.userId);
   return getStoredTarget(ctx.userId);
 }
 function targetRecord(post = {}) {
@@ -160,7 +166,7 @@ function editTextRows(menu, post = {}) {
 async function home(menu, ctx = {}) {
   clearPostEditFlow(ctx.userId);
   const selected = getStoredTarget(ctx.userId);
-  const posts = listPosts();
+  const posts = listPosts(ctx.userId);
   const rows = [[button(menu, '📌 Выбрать пост для редактирования', 'admin_posts_picker')]];
   if (selected && selected.commentKey) rows.push([button(menu, '↩️ К выбранному посту', 'admin_posts_open', { commentKey: clean(selected.commentKey) })]);
   if (posts[0] && clean(posts[0].commentKey) !== clean(selected?.commentKey)) rows.push([button(menu, '🧾 Последний пост', 'admin_posts_open', { commentKey: clean(posts[0].commentKey) })]);
@@ -174,13 +180,13 @@ async function home(menu, ctx = {}) {
     '• история версий;',
     '',
     'Комментарии включаются/выключаются в разделе «Комментарии под постами».',
-    'CTA-кнопки редактируются в отдельном разделе «CTA / пользовательские кнопки».',
+    'Кнопки под постами редактируются в отдельном разделе «Кнопки под постами».',
     '',
     'Постов в быстром списке: ' + posts.length
   ], rows);
 }
-async function picker(menu) {
-  const posts = listPosts();
+async function picker(menu, ctx = {}) {
+  const posts = listPosts(ctx.userId);
   const rows = posts.map((post, index) => [button(menu, `${index + 1}. ${postTitle(post)}`, 'admin_posts_open', { commentKey: clean(post.commentKey) })]);
   if (!rows.length) rows.push([button(menu, 'Пока нет постов в памяти', 'admin_section_posts')]);
   rows.push([button(menu, '📌 Выбрать через список канал/пост', 'comments_select_post', { source: 'posts' })]);
@@ -215,7 +221,7 @@ async function details(menu, payload = {}, ctx = {}) {
     'Версий в истории: ' + versionsCount(post),
     'Окно редактирования: ' + (editable.editable ? 'доступно' : 'может быть ограничено MAX'),
     '',
-    'Здесь только функции редактора поста. Комментарии и CTA-кнопки — в отдельных разделах.'
+    'Здесь только функции редактора поста. Комментарии и Кнопки под постами — в отдельных разделах.'
   ], detailsRows(menu, post));
 }
 async function editTextStart(menu, payload = {}, ctx = {}) {
@@ -262,7 +268,7 @@ async function handleTextInput(menu, { config = {}, userId = '', text = '' } = {
   const flow = state.postEditFlow || {};
   if (clean(state.activeAdminFlowKind) !== EDIT_FLOW_KIND && clean(flow.mode) !== 'edit_text') return null;
   const commentKey = clean(flow.commentKey || state.commentTargetPost?.commentKey || state.giftTargetPost?.commentKey || '');
-  const post = findPost(commentKey);
+  const post = findPost(commentKey, uid);
   if (!post || !post.commentKey) {
     clearPostEditFlow(uid);
     return screen(menu, 'posts_clean_edit_missing', '✏️ Изменение текста поста', ['Пост для редактирования не найден в store/cache.', 'Выберите пост заново.'], [[button(menu, '📌 Выбрать пост', 'admin_posts_picker')], ...footer(menu)]);
@@ -276,7 +282,7 @@ async function handleTextInput(menu, { config = {}, userId = '', text = '' } = {
   try {
     const result = await fastText.editPostTextFast({ commentKey: post.commentKey, text: nextText, actorId: uid, actorName: 'admin', config });
     clearPostEditFlow(uid);
-    const updatedPost = result?.post || findPost(post.commentKey) || post;
+    const updatedPost = (result?.post && postAllowedForUser(result.post, uid) ? result.post : null) || findPost(post.commentKey, uid) || post;
     bindTarget(uid, updatedPost);
     return screen(menu, 'posts_clean_edit_saved', '✅ Текст поста изменён', [
       'Текст сохранён через быстрый staged-flow редактора постов.',
