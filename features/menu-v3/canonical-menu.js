@@ -126,10 +126,12 @@ const sections = [
     id: 'settings', title: 'Настройки', route: 'settings:home', clientVisible: true, adminOnly: false,
     featureKey: 'settings', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
-      action({ id: 'settings.clear_chat', title: 'Очистить чат', section: 'settings', existingAction: 'clear_chat', implemented: false, clientVisible: false, hiddenReason: 'slash_command_only' }),
-      action({ id: 'settings.main_menu', title: 'Главное меню', section: 'settings', targetAction: 'main:home', implemented: false, clientVisible: false, hiddenReason: 'footer_navigation' }),
-      action({ id: 'settings.notifications', title: 'Уведомления', section: 'settings', targetAction: 'settings:notifications', implemented: false, clientVisible: false, hiddenReason: 'handler_not_ready' }),
-      action({ id: 'settings.language_format', title: 'Язык / формат', section: 'settings', targetAction: 'settings:language_format', implemented: false, clientVisible: false, hiddenReason: 'handler_not_ready' }),
+      action({ id: 'settings.clear_chat', title: 'Очистить чат', section: 'settings', targetAction: 'settings:clear_chat' }),
+      action({ id: 'settings.notifications', title: 'Уведомления', section: 'settings', targetAction: 'settings:notifications' }),
+      action({ id: 'settings.language_format', title: 'Язык / формат', section: 'settings', targetAction: 'settings:language_format' }),
+      action({ id: 'settings.help', title: 'Помощь', section: 'settings', targetAction: 'settings:help' }),
+      action({ id: 'settings.privacy_terms', title: 'Privacy / Terms', section: 'settings', targetAction: 'settings:privacy_terms' }),
+      action({ id: 'settings.navigation', title: 'Навигация', section: 'settings', targetAction: 'settings:navigation' }),
     ],
   },
 ];

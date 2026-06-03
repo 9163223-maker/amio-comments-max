@@ -197,6 +197,28 @@ assert.ok(!labels(adapter.render('ad_links:home')).some((label) => /отключ
 assert.ok(!labels(adapter.render('polls:home')).some((label) => /остановить/i.test(label)), 'stop poll must stay inside active poll card, not section root');
 assert.ok(!labels(adapter.render('ad_links:home')).some((label) => /источники|статистик/i.test(label)), 'ad link/source statistics must stay in Stats section');
 
+const settingsRoot = adapter.render('settings:home');
+const settingsRootLabels = labels(settingsRoot);
+assert.deepStrictEqual(
+  settingsRootLabels,
+  ['Очистить чат', 'Уведомления', 'Язык / формат', 'Помощь', 'Privacy / Terms', 'Навигация', '❓ Помощь по разделу', '🏠 Главное меню'],
+  'settings root must expose safe client-visible actions plus root navigation'
+);
+assert.ok(!settingsRootLabels.includes('↩️ В начало раздела'), 'settings root must not include section-home self-click');
+
+const settingsDeepRoutes = ['settings:clear_chat', 'settings:notifications', 'settings:language_format', 'settings:privacy_terms', 'settings:navigation'];
+for (const route of settingsDeepRoutes) {
+  const screen = adapter.render(route);
+  assertHasAll(labels(screen), ['⬅️ Назад', '↩️ В начало раздела', '❓ Помощь по разделу', '🏠 Главное меню'], `${route} settings detail navigation`);
+  assertNoSelfRoute(screen, route);
+  assert.ok(!/postId|channelId|commentKey|token|payload|trace/i.test(screen.text), `${route} must not expose technical identifiers`);
+}
+assert.ok(/будут доступны позже/.test(adapter.render('settings:notifications').text), 'notifications must be an honest placeholder');
+assert.ok(/русский язык/.test(adapter.render('settings:language_format').text), 'language/format must explain current defaults');
+assertHasAll(labels(adapter.render('settings:privacy_terms')), ['Privacy', 'Terms'], 'privacy/terms screen must link to existing document screens');
+assert.ok(/штатное меню MAX/.test(adapter.render('settings:clear_chat').text), 'clear chat must explain safe MAX client behavior');
+assert.ok(/Главное меню/.test(adapter.render('settings:navigation').text) && /Назад/.test(adapter.render('settings:navigation').text) && /В начало раздела/.test(adapter.render('settings:navigation').text), 'navigation screen must explain navigation buttons');
+
 for (const item of canonical.allActions().filter((action) => action.clientVisible && action.requiresPost)) {
   assert.strictEqual(item.requiresChannel, true, `${item.id} requires post and must require channel first`);
 }

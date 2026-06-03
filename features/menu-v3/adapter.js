@@ -92,6 +92,59 @@ function sectionHome(owner) {
   return { ok: true, route: section.route, owner: section.id, text: `${section.title}\n\nВыберите действие.`, attachments: keyboard([...rowsOfTwo(actions), ...sectionNavRows(section.id, { isRoot: true, currentRoute: section.route })]) };
 }
 
+
+function settingsDetailScreen(route) {
+  const screens = {
+    'settings:clear_chat': {
+      title: 'Очистить чат',
+      lines: [
+        'Очистка всего чата недоступна через Bot API MAX.',
+        'Бот не может запустить очистку истории от имени пользователя.',
+        'Чтобы убрать историю полностью, используйте штатное меню MAX в самом чате.'
+      ],
+      rows: []
+    },
+    'settings:notifications': {
+      title: 'Уведомления',
+      lines: [
+        'Настройки уведомлений будут доступны позже.',
+        'Сейчас бот не показывает переключатели, чтобы не создавать видимость сохранённых предпочтений.',
+        'Важные сообщения сервиса остаются в обычном чате с ботом.'
+      ],
+      rows: []
+    },
+    'settings:language_format': {
+      title: 'Язык / формат',
+      lines: [
+        'Текущий интерфейс: русский язык.',
+        'Текущий формат дат, чисел и сообщений используется по умолчанию для АдминКИТ.',
+        'Постоянные пользовательские настройки языка и формата появятся после отдельной безопасной реализации.'
+      ],
+      rows: []
+    },
+    'settings:privacy_terms': {
+      title: 'Privacy / Terms',
+      lines: [
+        'Документы доступны на отдельных безопасных экранах.',
+        'Откройте политику конфиденциальности или пользовательское соглашение.'
+      ],
+      rows: [[button('Privacy', 'privacy:home')], [button('Terms', 'terms:home')]]
+    },
+    'settings:navigation': {
+      title: 'Навигация',
+      lines: [
+        '«Главное меню» возвращает к списку основных разделов.',
+        '«Назад» возвращает на предыдущий безопасный экран внутри текущего сценария.',
+        '«В начало раздела» открывает корневой экран текущего раздела.',
+        'Если экран открыт из корня раздела, лишние кнопки возврата не показываются.'
+      ],
+      rows: []
+    }
+  };
+  const screen = screens[route] || screens['settings:navigation'];
+  return { ok: true, route, owner: 'settings', text: [screen.title, '', ...screen.lines].join('\n'), attachments: keyboard([...screen.rows, ...sectionNavRows('settings', { currentRoute: route, backAction: 'settings:home' })]) };
+}
+
 function accountSectionScreen(route, context = {}) {
   const maxUserId = normalize(context.maxUserId || context.userId || context.max_user_id);
   const actionByRoute = { 'account:home': 'account_home', 'account:access': 'account_my_access', 'account:activate': 'account_activate_code', 'account:payment': 'account_payment', 'account:limits': 'account_limits', 'account:channels': 'account_channels', 'account:support': 'account_support' };
@@ -211,6 +264,7 @@ function render(route, context = {}) {
     const section = canonical.resolveSectionByRoute(safeRoute);
     const owner = section ? section.id : ownerOf(safeRoute);
     if (safeRoute.endsWith(':help')) return sectionHelpScreen(owner);
+    if (owner === 'settings' && safeRoute !== 'settings:home') return settingsDetailScreen(safeRoute);
     if (owner === 'account') return accountSectionScreen(safeRoute, context);
     if (owner === 'channels') {
       if (safeRoute === 'channels:home') return channelsHome(context);
@@ -230,7 +284,7 @@ function render(route, context = {}) {
 
 function selfTest() {
   const validation = canonical.validate();
-  const routes = ['main:home', ...canonical.clientSections.map((section) => section.route), ...canonical.clientSections.map((section) => `${section.id}:help`), 'comments:choose_channel', 'comments:choose_post', 'editor:choose_post', 'gifts:choose_post', 'highlights:choose_post', 'polls:choose_post', 'terms:home', 'privacy:home'];
+  const routes = ['main:home', ...canonical.clientSections.map((section) => section.route), ...canonical.clientSections.map((section) => `${section.id}:help`), 'settings:clear_chat', 'settings:notifications', 'settings:language_format', 'settings:privacy_terms', 'settings:navigation', 'comments:choose_channel', 'comments:choose_post', 'editor:choose_post', 'gifts:choose_post', 'highlights:choose_post', 'polls:choose_post', 'terms:home', 'privacy:home'];
   const sampleContext = { dataContext: { ok: true, channels: [{ channelId: 'test-channel', title: 'Тестовый канал' }], channelId: 'test-channel', channelTitle: 'Тестовый канал', posts: [{ postId: '1', commentKey: 'test-channel:1', title: 'Тестовый пост' }] } };
   const results = routes.map(route => render(route, route.includes('choose_') ? sampleContext : {}));
   const screensOk = results.every(result => result && result.text && Array.isArray(result.attachments));
@@ -246,7 +300,7 @@ function selfTest() {
     const texts = visibleButtonTexts(screen);
     return texts.includes('❓ Помощь по разделу') && texts.includes('🏠 Главное меню') && !texts.includes('↩️ В начало раздела') && !texts.includes('⬅️ Назад');
   });
-  const deepScreens = ['channels:list', 'channels:connect', 'comments:choose_channel', 'comments:choose_post', 'comments:post'].map((route) => render(route, route === 'comments:post' ? { payload: { postTitle: 'Тестовый пост' } } : sampleContext));
+  const deepScreens = ['channels:list', 'channels:connect', 'settings:clear_chat', 'settings:notifications', 'settings:language_format', 'settings:privacy_terms', 'settings:navigation', 'comments:choose_channel', 'comments:choose_post', 'comments:post'].map((route) => render(route, route === 'comments:post' ? { payload: { postTitle: 'Тестовый пост' } } : sampleContext));
   const deepNavOk = deepScreens.every((screen) => {
     const texts = visibleButtonTexts(screen);
     return texts.includes('↩️ В начало раздела') && texts.includes('❓ Помощь по разделу') && texts.includes('🏠 Главное меню') && texts.includes('⬅️ Назад');
