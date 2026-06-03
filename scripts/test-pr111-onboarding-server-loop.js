@@ -63,6 +63,7 @@ function assertNoGlobalChannels(rendered) { assert.ok(!/Production comments matr
   maxApi.getChat = async () => ({ title: 'Тестовый канал' });
   maxApi.getBotChatMember = async () => ({ ok: true });
 
+  const legacyBot = require('../bot');
   const entrypoint = require('../clean-entrypoint-1.53.10-pr89');
   entrypoint.applyEnv();
   entrypoint.installCleanBot();
@@ -71,6 +72,7 @@ function assertNoGlobalChannels(rendered) { assert.ok(!/Production comments matr
   store.saveChannel('-global-selftest', { channelId: '-global-selftest', title: 'Production comments matrix selftest post', channelTitle: 'Production comments matrix selftest post', isMaxChannel: true, isChannel: true, type: 'channel' });
   store.saveChannel('-ak-test-1', { channelId: '-ak-test-1', title: 'AK-ТЕСТ 1', channelTitle: 'AK-ТЕСТ 1', isMaxChannel: true, isChannel: true, type: 'channel' });
   store.saveChannel('-admin-kit-club', { channelId: '-admin-kit-club', title: 'АдминКИТ клуб', channelTitle: 'АдминКИТ клуб', isMaxChannel: true, isChannel: true, type: 'channel' });
+  store.savePost('-global-selftest:post-global', { channelId: '-global-selftest', postId: 'post-global', messageId: 'msg-global', originalText: 'GLOBAL SECRET POST', channelTitle: 'Production comments matrix selftest post' });
 
   const createdScreen = adminScreens.screenForAction('admin_code_confirm_create', 'pr111-admin', { planId: 'business', durationDays: 30, maxChannels: 1 });
   const rawCode = createdScreen.rawCodePrivateMessage;
@@ -118,6 +120,10 @@ function assertNoGlobalChannels(rendered) { assert.ok(!/Production comments matr
   assert.ok(/У вас пока нет подключённых каналов/.test(clientChannelSection.text), 'non-admin channel section keeps tenant-safe empty state even when the route requests adminView');
   assertNoGlobalChannels(clientChannelSection.text + clientChannelSection.labels.join('\n'));
 
+  const replayGlobalEmpty = await sendBot(legacyBot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source: 'comments', channelId: '-global-selftest' }));
+  assert.ok(/У вас пока нет подключённых каналов/.test(replayGlobalEmpty.text), 'zero-channel client replaying a legacy global channelId gets tenant-safe empty state');
+  assert.ok(!/GLOBAL SECRET POST|Production comments matrix selftest post/.test(replayGlobalEmpty.text + replayGlobalEmpty.labels.join('\n')), 'zero-channel replay must not expose global posts');
+
   const adminChannelSection = await sendBot(bot, sent, callbackUpdate('pr111-admin', { action: 'admin_section_channels' }));
   assert.ok(/Production comments matrix selftest post|AK-ТЕСТ 1|АдминКИТ клуб/.test(adminChannelSection.text), 'configured admin still sees legacy unowned stored channels in admin channel UI');
 
@@ -127,16 +133,30 @@ function assertNoGlobalChannels(rendered) { assert.ok(!/Production comments matr
 
   const bindA = access.bindTenantChannel({ tenantId: tenantA.tenantId, channelId: '-tenant-a', channelTitle: 'Tenant A Channel', maxChannels: 1 });
   assert.strictEqual(bindA.ok, true, 'tenant A can bind first channel');
+  store.savePost('-tenant-a:post-a', { channelId: '-tenant-a', postId: 'post-a', messageId: 'msg-a', originalText: 'Tenant A Only Post', channelTitle: 'Tenant A Channel' });
   const onlyA = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source: 'comments' }));
   assert.ok(/Tenant A Channel/.test(onlyA.text) || onlyA.labels.some((label) => /Tenant A Channel/.test(label)), 'tenant A sees its bound channel');
   assertNoGlobalChannels(onlyA.text + onlyA.labels.join('\n'));
+
+  const replayAllowedA = await sendBot(legacyBot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source: 'comments', channelId: '-tenant-a' }));
+  assert.ok(/Tenant A Only Post/.test(replayAllowedA.text + replayAllowedA.labels.join('\n')), 'tenant A can replay/use only its tenant-bound channel');
+  assert.ok(!/GLOBAL SECRET POST/.test(replayAllowedA.text + replayAllowedA.labels.join('\n')), 'tenant A allowed replay must not include global posts');
+
+  const replayGlobalWithA = await sendBot(legacyBot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source: 'comments', channelId: '-global-selftest' }));
+  assert.ok(/У вас пока нет подключённых каналов/.test(replayGlobalWithA.text), 'tenant A replaying a global channelId is denied before post list');
+  assert.ok(!/GLOBAL SECRET POST|Tenant A Only Post/.test(replayGlobalWithA.text + replayGlobalWithA.labels.join('\n')), 'denied replay must not show any post list');
 
   const codeB = access.createActivationCode({ planId: 'business', durationDays: 30, maxChannels: 1, createdByMaxUserId: 'pr111-admin' });
   assert.strictEqual(access.activateCode({ maxUserId: 'pr111-client-b', name: 'Client B', code: codeB.code }).ok, true, 'second tenant activates');
   const tenantB = access.getTenantByMaxUserId('pr111-client-b');
   assert.strictEqual(access.bindTenantChannel({ tenantId: tenantB.tenantId, channelId: '-tenant-b', channelTitle: 'Tenant B Channel', maxChannels: 1 }).ok, true, 'tenant B can bind its channel');
+  store.savePost('-tenant-b:post-b', { channelId: '-tenant-b', postId: 'post-b', messageId: 'msg-b', originalText: 'Tenant B Secret Post', channelTitle: 'Tenant B Channel' });
   const stillOnlyA = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source: 'comments' }));
   assert.ok(!/Tenant B Channel/.test(stillOnlyA.text + stillOnlyA.labels.join('\n')), 'tenant A does not see tenant B channel');
+
+  const replayTenantB = await sendBot(legacyBot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source: 'comments', channelId: '-tenant-b' }));
+  assert.ok(/У вас пока нет подключённых каналов/.test(replayTenantB.text), 'tenant A replaying tenant B channelId is denied');
+  assert.ok(!/Tenant B Secret Post|Tenant B Channel/.test(replayTenantB.text + replayTenantB.labels.join('\n')), 'tenant A replay must not expose tenant B post list');
 
   const secondA = access.bindTenantChannel({ tenantId: tenantA.tenantId, channelId: '-tenant-a-second', channelTitle: 'Tenant A Second Channel', maxChannels: 1 });
   assert.strictEqual(secondA.ok, false, 'Start/one-channel limit blocks second channel');
