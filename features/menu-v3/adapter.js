@@ -100,11 +100,10 @@ function accountSectionScreen(route, context = {}) {
     const accountScreens = require('../account-screens-pr106');
     const screen = accountScreens.screenForAction(action, maxUserId) || accountScreens.accountHome(maxUserId);
     const isRoot = route === 'account:home';
-    const mappedRows = (screen.attachments?.[0]?.payload?.buttons || []).map((row) => row.map((item) => {
+    const mappedRows = (screen.attachments?.[0]?.payload?.buttons || []).map((row) => row.filter((item) => {
       const text = normalize(item.text);
-      if (text === 'Главное меню') return navButton('🏠 Главное меню', 'main:home');
-      return item;
-    }).filter((item) => normalize(item.text) !== 'Главное меню'));
+      return text !== 'Главное меню' && text !== '🏠 Главное меню';
+    }));
     return { ok: true, route, owner: 'account', text: screen.text, attachments: keyboard([...mappedRows, ...sectionNavRows('account', { isRoot, currentRoute: route, backAction: isRoot ? '' : 'account:home' })]) };
   } catch (error) {
     return sectionHome('account');

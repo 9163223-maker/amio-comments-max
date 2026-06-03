@@ -232,6 +232,9 @@ const zeroChannels = adapter.render('channels:list', { channels: [] });
 assert.ok(/У вас пока нет подключённых каналов\./.test(zeroChannels.text), 'zero-channel channels list must show safe empty state');
 assertHasAll(labels(zeroChannels), ['Подключить канал', '❓ Помощь по разделу', '🏠 Главное меню'], 'zero-channel channels list navigation');
 
+const accountActive = adapter.render('account:home', { maxUserId: 'pr105-start-user' });
+assert.strictEqual(labels(accountActive).filter((label) => label === '🏠 Главное меню' || label === 'Главное меню').length, 1, 'active account screen must show one main-menu button');
+
 const channelCard = adapter.render('channels:card', { payload: { channelId: 'raw-channel-123', channelTitle: 'Новости компании' } });
 assert.ok(/Новости компании/.test(channelCard.text), 'channel card must use human-readable channel title');
 assert.ok(!/raw-channel-123|postId|channelId|commentKey|token|payload|trace/i.test(channelCard.text), 'channel card must not expose technical identifiers');
