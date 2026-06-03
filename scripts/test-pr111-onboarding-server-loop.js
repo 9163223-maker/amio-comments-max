@@ -51,6 +51,12 @@ function assertDeniedNoPosts(label, result, forbiddenPattern) {
   assert.ok(!forbiddenPattern.test(result.text + result.labels.join('\n')), `${label}: denied replay must not expose channels/posts`);
 }
 
+function assertNoTenantBStaleLeak(label, result) {
+  const rendered = result.text + result.labels.join('\n');
+  assert.ok(!/Опрос создан|Выделение применено|Выделение снято/.test(rendered), `${label}: stale callback must not complete privileged action`);
+  assert.ok(!/Tenant B Secret Post|Tenant B Channel|-tenant-b:post-b|-tenant-b/.test(rendered), `${label}: stale callback must not leak tenant B identifiers or content`);
+}
+
 (async () => {
   access._resetForTests();
   uiTrace.clear();
@@ -221,6 +227,19 @@ function assertDeniedNoPosts(label, result, forbiddenPattern) {
     const replay = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source, channelId: '-tenant-b' }));
     assertDeniedNoPosts(`tenant A wrapped ${source} tenant B replay`, replay, /Tenant B Secret Post|Tenant B Channel/);
   }
+  const staleHighlightPick = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'comments_pick_post', source: 'highlights', commentKey: '-tenant-b:post-b' }));
+  assertNoTenantBStaleLeak('tenant A stale highlight pick', staleHighlightPick);
+  const staleHighlightApply = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'highlight_apply', commentKey: '-tenant-b:post-b', badgeId: 'important' }));
+  assertNoTenantBStaleLeak('tenant A stale highlight apply', staleHighlightApply);
+  const staleHighlightRemove = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'highlight_remove', commentKey: '-tenant-b:post-b' }));
+  assertNoTenantBStaleLeak('tenant A stale highlight remove', staleHighlightRemove);
+  const stalePollPick = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'comments_pick_post', source: 'polls', commentKey: '-tenant-b:post-b' }));
+  assert.strictEqual(stalePollPick.res.body.screenId, 'poll_post_missing', 'tenant A stale poll pick returns safe missing-post screen');
+  assertNoTenantBStaleLeak('tenant A stale poll pick', stalePollPick);
+  const stalePollCreate = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'poll_create', commentKey: '-tenant-b:post-b', template: 'yes_no' }));
+  assertNoTenantBStaleLeak('tenant A stale poll create', stalePollCreate);
+  const stalePollCustomStart = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'poll_custom_start', commentKey: '-tenant-b:post-b' }));
+  assertNoTenantBStaleLeak('tenant A stale poll custom start', stalePollCustomStart);
 
   const secondA = access.bindTenantChannel({ tenantId: tenantA.tenantId, channelId: '-tenant-a-second', channelTitle: 'Tenant A Second Channel', maxChannels: 1 });
   assert.strictEqual(secondA.ok, false, 'Start/one-channel limit blocks second channel');
