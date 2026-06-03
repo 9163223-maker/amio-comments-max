@@ -46,6 +46,10 @@ async function sendBot(bot, sent, update) {
 }
 function assertNoRawCode(label, rawCode, value) { assert.ok(!String(value || '').includes(rawCode), `${label} must not include raw activation code`); }
 function assertNoGlobalChannels(rendered) { assert.ok(!/Production comments matrix selftest post|AK[-\s]?ТЕСТ|АК[-\s]?Тест|АдминКИТ клуб|Tenant B Channel/.test(rendered), 'client-facing channel screen must not leak global/test/other tenant channels'); }
+function assertDeniedNoPosts(label, result, forbiddenPattern) {
+  assert.ok(/У вас пока нет подключённых каналов/.test(result.text), `${label}: denied replay must show tenant-safe empty state`);
+  assert.ok(!forbiddenPattern.test(result.text + result.labels.join('\n')), `${label}: denied replay must not expose channels/posts`);
+}
 
 (async () => {
   access._resetForTests();
@@ -74,6 +78,27 @@ function assertNoGlobalChannels(rendered) { assert.ok(!/Production comments matr
   store.saveChannel('-admin-kit-club', { channelId: '-admin-kit-club', title: 'АдминКИТ клуб', channelTitle: 'АдминКИТ клуб', isMaxChannel: true, isChannel: true, type: 'channel' });
   store.savePost('-global-selftest:post-global', { channelId: '-global-selftest', postId: 'post-global', messageId: 'msg-global', originalText: 'GLOBAL SECRET POST', channelTitle: 'Production comments matrix selftest post' });
 
+  const adminCommand = await sendBot(bot, sent, messageUpdate('pr111-admin', '/admin'));
+  assert.ok(/Админ-панель/.test(adminCommand.text), 'admin has /admin access');
+  const nonAdminCommand = await sendBot(bot, sent, messageUpdate('pr111-client-pre', '/admin'));
+  assert.ok(/Недоступно|Админ-панель доступна только/.test(nonAdminCommand.text), 'non-admin cannot access /admin');
+
+  const preStart = await sendBot(bot, sent, messageUpdate('pr111-client-pre', '/start'));
+  assert.ok(/Для работы с АдминКИТ активируйте доступ/.test(preStart.text), 'client before activation /start shows activation screen');
+  const preMenu = await sendBot(bot, sent, messageUpdate('pr111-client-pre-menu', '/menu'));
+  assert.ok(!preMenu.labels.includes('Каналы'), 'client before activation /menu does not show full production menu');
+  const preAccount = await sendBot(bot, sent, messageUpdate('pr111-client-pre', '/account'));
+  assert.ok(/Личный кабинет/.test(preAccount.text) && /нет доступа|Trial \/ Free/i.test(preAccount.text), 'client before activation /account shows no-access/account state');
+  const preProtected = await sendBot(bot, sent, callbackUpdate('pr111-client-pre', { action: 'admin_section_comments' }));
+  assert.ok(/активируйте доступ|Функция недоступна|АдминКИТ/.test(preProtected.text), 'protected actions are blocked before activation');
+
+  const botRawBefore = sent.length;
+  const botCreated = await sendBot(bot, sent, callbackUpdate('pr111-admin', { action: 'admin_code_confirm_create', planId: 'start', durationDays: 30, maxChannels: 1 }));
+  const botRawCalls = sent.slice(botRawBefore).filter((call) => /^AK-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}$/.test(String(call.text || '')));
+  assert.strictEqual(botRawCalls.length, 1, 'raw activation code is sent once by bot create flow');
+  assert.strictEqual(botRawCalls[0].userId, 'pr111-admin', 'raw activation code is sent as a separate private message');
+  assert.ok(!/^AK-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}$/.test(botCreated.text), 'raw activation code is not shown in admin confirmation text');
+
   const createdScreen = adminScreens.screenForAction('admin_code_confirm_create', 'pr111-admin', { planId: 'business', durationDays: 30, maxChannels: 1 });
   const rawCode = createdScreen.rawCodePrivateMessage;
   assert.ok(/^AK-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}$/.test(rawCode), 'admin creates a production activation code');
@@ -82,12 +107,33 @@ function assertNoGlobalChannels(rendered) { assert.ok(!/Production comments matr
   assert.strictEqual(privateRawPayload.chatId || '', '', 'raw code payload is not addressed to a group/channel chat');
   assertNoRawCode('admin created confirmation screen', rawCode, createdScreen.text);
 
+  assert.strictEqual(access.activateCode({ maxUserId: 'pr111-invalid-client', code: 'AK-0000-0000-0000' }).ok, false, 'invalid code is rejected');
+  const expired = access.createActivationCode({ planId: 'start', durationDays: 30, maxChannels: 1, expiresAt: '2000-01-01T00:00:00.000Z', createdByMaxUserId: 'pr111-admin' });
+  assert.strictEqual(access.activateCode({ maxUserId: 'pr111-expired-client', code: expired.code }).error, 'code_expired', 'expired code is rejected');
+  const startCode = access.createActivationCode({ planId: 'start', durationDays: 30, maxChannels: 1, createdByMaxUserId: 'pr111-admin' });
+  assert.strictEqual(access.activateCode({ maxUserId: 'pr111-start-client', name: 'Start Client', code: startCode.code }).ok, true, 'valid Start code activates access');
+  const startTenant = access.getTenantByMaxUserId('pr111-start-client');
+  assert.strictEqual(access.bindTenantChannel({ tenantId: startTenant.tenantId, channelId: '-start-one', channelTitle: 'Start One', maxChannels: 1 }).ok, true, 'Start client binds first channel');
+  assert.strictEqual(access.bindTenantChannel({ tenantId: startTenant.tenantId, channelId: '-start-two', channelTitle: 'Start Two', maxChannels: 1 }).error, 'channel_limit_reached', 'Start maxChannels=1 blocks second channel');
+  assert.strictEqual(access.canUseFeature('pr111-start-client', 'comments').allowed, true, 'basic allowed comments action remains available on Start');
+  assert.strictEqual(access.canUseFeature('pr111-start-client', 'gifts').allowed, false, 'Pro-only gifts action is denied for Start');
+  assert.strictEqual(access.canUseFeature('pr111-start-client', 'export').allowed, false, 'Business-only export action is denied for Start');
+  const proCode = access.createActivationCode({ planId: 'pro', durationDays: 30, maxChannels: 5, createdByMaxUserId: 'pr111-admin' });
+  assert.strictEqual(access.activateCode({ maxUserId: 'pr111-pro-client', name: 'Pro Client', code: proCode.code }).ok, true, 'valid Pro code activates access');
+  const proTenant = access.getTenantByMaxUserId('pr111-pro-client');
+  for (let i = 1; i <= 5; i += 1) assert.strictEqual(access.bindTenantChannel({ tenantId: proTenant.tenantId, channelId: `-pro-${i}`, channelTitle: `Pro ${i}`, maxChannels: 5 }).ok, true, 'Pro can bind channels up to configured limit');
+  assert.strictEqual(access.bindTenantChannel({ tenantId: proTenant.tenantId, channelId: '-pro-six', channelTitle: 'Pro Six', maxChannels: 5 }).error, 'channel_limit_reached', 'Pro limit blocks sixth channel');
+  assert.strictEqual(access.canUseFeature('pr111-pro-client', 'gifts').allowed, true, 'Pro-only gifts action is allowed for Pro');
+  assert.strictEqual(access.canUseFeature('pr111-pro-client', 'export').allowed, false, 'Business-only export action is denied for Pro');
+
   const activation = access.activateCode({ maxUserId: 'pr111-client-a', name: 'Client A', code: rawCode });
   assert.strictEqual(activation.ok, true, 'client activates Business code');
   const tenantA = access.getTenantByMaxUserId('pr111-client-a');
   assert.ok(tenantA?.tenantId, 'activation creates tenant');
   assert.ok(access.getTenantUsers(tenantA.tenantId).some((user) => user.maxUserId === 'pr111-client-a'), 'activation creates tenant user');
   assert.strictEqual(access.getAccessState('pr111-client-a').active, true, 'activation creates active access');
+  assert.strictEqual(access.activateCode({ maxUserId: 'pr111-reuse-client', code: rawCode }).error, 'code_used', 'used single-use code is rejected');
+  assert.strictEqual(access.canUseFeature('pr111-client-a', 'export').allowed, true, 'Business-only export action is allowed for Business');
 
   const start = await sendBot(bot, sent, messageUpdate('pr111-client-a', '/start'));
   assert.ok(!/Для работы с АдминКИТ активируйте доступ|Активировать код/.test(start.text), 'same client /start does not show activation screen again');
@@ -102,14 +148,17 @@ function assertNoGlobalChannels(rendered) { assert.ok(!/Production comments matr
     messageUpdate('pr111-client-a', '/account'),
     callbackUpdate('ignored', { action: 'account_my_access' }, { callbackUser: { user_id: 'pr111-client-a' }, sender: {} }),
     botStartedUpdate('pr111-client-a'),
-    messageUpdate('ignored', '/account', { sender: {}, user: { user_id: 'pr111-client-a' }, recipient: { chat_id: 'private-chat', chat_type: 'user', user_id: 'pr111-client-a' } })
+    messageUpdate('ignored', '/account', { sender: {}, user: { user_id: 'pr111-client-a' }, recipient: { chat_id: 'private-chat', chat_type: 'user', user_id: 'recipient-chat-not-actor' } })
   ];
   for (const update of identityUpdates) {
     const body = update.body;
     const runtimeId = accountRuntime.getMaxUserId(body, {});
     const profileId = webhookContext.extractUserProfile(body)?.maxUserId || runtimeId;
-    assert.strictEqual(runtimeId || profileId, 'pr111-client-a', 'MAX user id extraction is stable across message/callback/bot_started/private fields');
+    assert.strictEqual(runtimeId || profileId, 'pr111-client-a', 'MAX user id extraction is stable across message/callback/bot_started/user fields');
   }
+  const recipientOnly = messageUpdate('ignored', '/account', { sender: {}, recipient: { chat_id: 'private-chat', chat_type: 'user', user_id: 'recipient-chat-not-actor' } }).body;
+  assert.strictEqual(accountRuntime.getMaxUserId(recipientOnly, {}), '', 'recipient-only payload is not treated as acting user in account runtime');
+  assert.strictEqual(webhookContext.extractUserProfile(recipientOnly)?.maxUserId || '', '', 'recipient-only payload is not treated as acting user in webhook context');
 
   const emptyPicker = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source: 'comments' }));
   assert.ok(/У вас пока нет подключённых каналов/.test(emptyPicker.text), 'zero-channel client sees tenant-safe empty state');
@@ -121,8 +170,15 @@ function assertNoGlobalChannels(rendered) { assert.ok(!/Production comments matr
   assertNoGlobalChannels(clientChannelSection.text + clientChannelSection.labels.join('\n'));
 
   const replayGlobalEmpty = await sendBot(legacyBot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source: 'comments', channelId: '-global-selftest' }));
-  assert.ok(/У вас пока нет подключённых каналов/.test(replayGlobalEmpty.text), 'zero-channel client replaying a legacy global channelId gets tenant-safe empty state');
-  assert.ok(!/GLOBAL SECRET POST|Production comments matrix selftest post/.test(replayGlobalEmpty.text + replayGlobalEmpty.labels.join('\n')), 'zero-channel replay must not expose global posts');
+  assertDeniedNoPosts('legacy bot zero-channel comments_select_post global replay', replayGlobalEmpty, /GLOBAL SECRET POST|Production comments matrix selftest post/);
+  const replayGlobalEmptyWrapped = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source: 'comments', channelId: '-global-selftest' }));
+  assertDeniedNoPosts('wrapped channel-first zero-channel comments_select_post global replay', replayGlobalEmptyWrapped, /GLOBAL SECRET POST|Production comments matrix selftest post/);
+  for (const source of ['buttons', 'posts', 'polls', 'highlights']) {
+    const replay = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source, channelId: '-global-selftest' }));
+    assertDeniedNoPosts(`wrapped ${source} stale global channel replay`, replay, /GLOBAL SECRET POST|Production comments matrix selftest post/);
+  }
+  const giftReplayEmpty = await sendBot(legacyBot, sent, callbackUpdate('pr111-client-a', { action: 'gift_admin_recent_posts', channelId: '-global-selftest' }));
+  assertDeniedNoPosts('gift zero-channel stale global channel replay', giftReplayEmpty, /GLOBAL SECRET POST|Production comments matrix selftest post/);
 
   const adminChannelSection = await sendBot(bot, sent, callbackUpdate('pr111-admin', { action: 'admin_section_channels' }));
   assert.ok(/Production comments matrix selftest post|AK-ТЕСТ 1|АдминКИТ клуб/.test(adminChannelSection.text), 'configured admin still sees legacy unowned stored channels in admin channel UI');
@@ -143,8 +199,11 @@ function assertNoGlobalChannels(rendered) { assert.ok(!/Production comments matr
   assert.ok(!/GLOBAL SECRET POST/.test(replayAllowedA.text + replayAllowedA.labels.join('\n')), 'tenant A allowed replay must not include global posts');
 
   const replayGlobalWithA = await sendBot(legacyBot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source: 'comments', channelId: '-global-selftest' }));
-  assert.ok(/У вас пока нет подключённых каналов/.test(replayGlobalWithA.text), 'tenant A replaying a global channelId is denied before post list');
-  assert.ok(!/GLOBAL SECRET POST|Tenant A Only Post/.test(replayGlobalWithA.text + replayGlobalWithA.labels.join('\n')), 'denied replay must not show any post list');
+  assertDeniedNoPosts('tenant A legacy comments_select_post global replay', replayGlobalWithA, /GLOBAL SECRET POST|Tenant A Only Post/);
+  for (const source of ['buttons', 'posts', 'polls', 'highlights']) {
+    const replay = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source, channelId: '-global-selftest' }));
+    assertDeniedNoPosts(`tenant A wrapped ${source} stale global channel replay`, replay, /GLOBAL SECRET POST|Tenant A Only Post/);
+  }
 
   const codeB = access.createActivationCode({ planId: 'business', durationDays: 30, maxChannels: 1, createdByMaxUserId: 'pr111-admin' });
   assert.strictEqual(access.activateCode({ maxUserId: 'pr111-client-b', name: 'Client B', code: codeB.code }).ok, true, 'second tenant activates');
@@ -155,8 +214,13 @@ function assertNoGlobalChannels(rendered) { assert.ok(!/Production comments matr
   assert.ok(!/Tenant B Channel/.test(stillOnlyA.text + stillOnlyA.labels.join('\n')), 'tenant A does not see tenant B channel');
 
   const replayTenantB = await sendBot(legacyBot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source: 'comments', channelId: '-tenant-b' }));
-  assert.ok(/У вас пока нет подключённых каналов/.test(replayTenantB.text), 'tenant A replaying tenant B channelId is denied');
-  assert.ok(!/Tenant B Secret Post|Tenant B Channel/.test(replayTenantB.text + replayTenantB.labels.join('\n')), 'tenant A replay must not expose tenant B post list');
+  assertDeniedNoPosts('tenant A legacy comments_select_post tenant B replay', replayTenantB, /Tenant B Secret Post|Tenant B Channel/);
+  const giftReplayTenantB = await sendBot(legacyBot, sent, callbackUpdate('pr111-client-a', { action: 'gift_admin_recent_posts', channelId: '-tenant-b' }));
+  assertDeniedNoPosts('tenant A gift tenant B replay', giftReplayTenantB, /Tenant B Secret Post|Tenant B Channel/);
+  for (const source of ['buttons', 'posts', 'polls', 'highlights']) {
+    const replay = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source, channelId: '-tenant-b' }));
+    assertDeniedNoPosts(`tenant A wrapped ${source} tenant B replay`, replay, /Tenant B Secret Post|Tenant B Channel/);
+  }
 
   const secondA = access.bindTenantChannel({ tenantId: tenantA.tenantId, channelId: '-tenant-a-second', channelTitle: 'Tenant A Second Channel', maxChannels: 1 });
   assert.strictEqual(secondA.ok, false, 'Start/one-channel limit blocks second channel');

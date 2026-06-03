@@ -66,8 +66,12 @@ function parseStartReferral(text = '') {
   return payload.replace(/^ref_/, '');
 }
 
+function looksLikeRecipientOrChat(item = {}) {
+  if (!item || typeof item !== 'object') return false;
+  return Boolean(item.chat_id || item.chatId || item.chat_type || item.chatType || item.recipient || item.chat);
+}
 function pickUserLikeObject(update = {}) {
-  return findDeep(update, (item) => item && typeof item === 'object' && (
+  return findDeep(update, (item) => item && typeof item === 'object' && !looksLikeRecipientOrChat(item) && (
     item.user_id || item.userId || item.userID || item.sender_id || item.senderId || item.from_id || item.fromId || item.uid || item.id
   ), 8) || {};
 }
@@ -76,7 +80,7 @@ function extractUserProfile(update = {}) {
   const callback = getCallback(update) || {};
   const message = getMessage(update) || {};
   const deepUser = pickUserLikeObject(update);
-  const userSource = callback.user || callback.sender || callback.from || update.user || update.sender || update.from || message.sender || message.from || message.user || message.recipient || update.recipient || deepUser || {};
+  const userSource = callback.user || callback.sender || callback.from || update.user || update.sender || update.from || message.sender || message.from || message.user || deepUser || {};
   const maxUserId = clean(
     userSource.user_id ||
     userSource.userId ||
@@ -108,10 +112,6 @@ function extractUserProfile(update = {}) {
     message.user?.user_id ||
     message.user?.userId ||
     message.user?.id ||
-    message.recipient?.user_id ||
-    message.recipient?.userId ||
-    update.recipient?.user_id ||
-    update.recipient?.userId ||
     message.user_id ||
     message.userId ||
     ''
