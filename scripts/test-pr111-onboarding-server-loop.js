@@ -114,6 +114,13 @@ function assertNoGlobalChannels(rendered) { assert.ok(!/Production comments matr
   assert.deepStrictEqual(emptyPicker.labels, ['Подключить канал', 'Как подключить', '🏠 Главное меню'], 'zero-channel picker has connect/help/main buttons');
   assertNoGlobalChannels(emptyPicker.text + emptyPicker.labels.join('\n'));
 
+  const clientChannelSection = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'admin_section_channels' }));
+  assert.ok(/У вас пока нет подключённых каналов/.test(clientChannelSection.text), 'non-admin channel section keeps tenant-safe empty state even when the route requests adminView');
+  assertNoGlobalChannels(clientChannelSection.text + clientChannelSection.labels.join('\n'));
+
+  const adminChannelSection = await sendBot(bot, sent, callbackUpdate('pr111-admin', { action: 'admin_section_channels' }));
+  assert.ok(/Production comments matrix selftest post|AK-ТЕСТ 1|АдминКИТ клуб/.test(adminChannelSection.text), 'configured admin still sees legacy unowned stored channels in admin channel UI');
+
   const accountChannelsEmpty = accountScreens.channelsScreen('pr111-client-a');
   assert.ok(/У вас пока нет подключённых каналов/.test(accountChannelsEmpty.text), 'account channel screen has same zero-channel copy');
   assert.deepStrictEqual(labels(accountChannelsEmpty), ['Подключить канал', 'Как подключить', 'Главное меню'], 'account zero-channel screen has required buttons');

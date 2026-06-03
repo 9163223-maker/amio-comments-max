@@ -257,7 +257,7 @@ function dedupeChannelsByIdAndTitle(items = []) {
   return result;
 }
 
-function getVisibleStoredChannelsForUser(userId = '') {
+function getClientVisibleStoredChannelsForUser(userId = '') {
   const key = String(userId || '').trim();
   if (!key) return [];
 
@@ -291,6 +291,18 @@ function getVisibleStoredChannelsForUser(userId = '') {
   return dedupeChannelsByIdAndTitle(Array.from(byId.values()));
 }
 
+function getAdminVisibleStoredChannelsForUser(userId = '') {
+  const key = String(userId || '').trim();
+  if (key && clientAccessService.isAdmin(key)) return dedupeChannelsByIdAndTitle(listChannels());
+  return getClientVisibleStoredChannelsForUser(key);
+}
+
+function getVisibleStoredChannelsForUser(userId = '', options = {}) {
+  return options?.adminView === true
+    ? getAdminVisibleStoredChannelsForUser(userId)
+    : getClientVisibleStoredChannelsForUser(userId);
+}
+
 async function enrichChannelTitle(config, item = {}) {
   const currentTitle = getChannelDisplayName(item);
   if (currentTitle) return { ...item, title: currentTitle };
@@ -304,8 +316,8 @@ async function enrichChannelTitle(config, item = {}) {
   } catch {}
   return item;
 }
-async function getVisibleChannelsForUser(config, userId) {
-  const unique = getVisibleStoredChannelsForUser(userId).slice(0, 20);
+async function getVisibleChannelsForUser(config, userId, options = {}) {
+  const unique = getVisibleStoredChannelsForUser(userId, options).slice(0, 20);
 
   // Быстрый путь по умолчанию: не делаем live-запросы к MAX API при каждом открытии меню.
   // Иначе раздел «Ваши каналы» ждёт getChat/getBotChatMember по каждому каналу и может
@@ -2150,10 +2162,10 @@ function buildAdminChannelPickerText(source = 'comments') {
   ].join('\n');
 }
 
-function buildAdminChannelPickerKeyboard(userId = '', source = 'comments') {
+function buildAdminChannelPickerKeyboard(userId = '', source = 'comments', options = {}) {
   const normalizedSource = String(source || 'comments').trim().toLowerCase();
   const rootAction = getAdminSectionActionFromSource(normalizedSource);
-  const channels = getVisibleStoredChannelsForUser(userId).filter((item) => String(item?.channelId || '').trim()).slice(0, 12);
+  const channels = getVisibleStoredChannelsForUser(userId, { adminView: options?.adminView === true }).filter((item) => String(item?.channelId || '').trim()).slice(0, 12);
   let rows = channels.map((channel, index) => [{
     type: 'callback',
     text: truncateText(`${index + 1}. ${getChannelDisplayName(channel) || channel.channelId}`, 56),
@@ -3040,11 +3052,12 @@ async function sendChannelsSection({ config, message, note = '', editCurrent = f
   clearCommentAdminFlow(userId);
   clearActiveAdminFlowKind(userId);
   rememberAdminScreen(userId, { section: 'channels', backAction: 'admin_section_main', rootAction: 'admin_section_channels' });
-  const channels = await getVisibleChannelsForUser(config, userId);
+  const adminView = clientAccessService.isAdmin(userId);
+  const channels = await getVisibleChannelsForUser(config, userId, { adminView });
   const lines = [];
   if (note) lines.push(String(note).trim());
   if (!channels.length) {
-    lines.push('У вас еще нет каналов. Добавьте бота в канал как администратора и перешлите любой пост из канала.');
+    lines.push('У вас пока нет подключённых каналов.');
   } else {
     lines.push('Ваши каналы:');
     channels.forEach((item, index) => {
@@ -4591,9 +4604,10 @@ async function handleMessageCallback(update, config) {
       const source = String(payload.source || getAdminSelectMode(userId) || 'comments').trim().toLowerCase();
       let channelId = String(payload.channelId || '').trim();
       setAdminUiState(userId, { selectMode: source });
-      const visibleChannels = getVisibleStoredChannelsForUser(userId).filter((item) => String(item?.channelId || '').trim());
+      const adminView = clientAccessService.isAdmin(userId);
+      const visibleChannels = getVisibleStoredChannelsForUser(userId, { adminView }).filter((item) => String(item?.channelId || '').trim());
       if (!channelId && visibleChannels.length > 1) {
-        if (message) await upsertBotMessage({ config, message, text: buildAdminChannelPickerText(source), attachments: buildAdminChannelPickerKeyboard(userId, source), editCurrent: true });
+        if (message) await upsertBotMessage({ config, message, text: buildAdminChannelPickerText(source), attachments: buildAdminChannelPickerKeyboard(userId, source, { adminView }), editCurrent: true });
         return { ok: true, action: 'comments_select_channel', source };
       }
       if (!channelId && visibleChannels.length === 1) channelId = String(visibleChannels[0].channelId || '').trim();
@@ -4844,9 +4858,10 @@ async function handleMessageCallback(update, config) {
       const page = Math.max(0, Number(payload.page || 0));
       let channelId = String(payload.channelId || '').trim();
       await acknowledgeCallbackSilently(config, callbackId);
-      const visibleChannels = getVisibleStoredChannelsForUser(userId).filter((item) => String(item?.channelId || '').trim());
+      const adminView = clientAccessService.isAdmin(userId);
+      const visibleChannels = getVisibleStoredChannelsForUser(userId, { adminView }).filter((item) => String(item?.channelId || '').trim());
       if (!channelId && visibleChannels.length > 1) {
-        if (message) await upsertBotMessage({ config, message, text: buildAdminChannelPickerText('gifts'), attachments: buildAdminChannelPickerKeyboard(userId, 'gifts'), editCurrent: true });
+        if (message) await upsertBotMessage({ config, message, text: buildAdminChannelPickerText('gifts'), attachments: buildAdminChannelPickerKeyboard(userId, 'gifts', { adminView }), editCurrent: true });
         return { ok: true, action: 'gift_admin_select_channel' };
       }
       if (!channelId && visibleChannels.length === 1) channelId = String(visibleChannels[0].channelId || '').trim();
