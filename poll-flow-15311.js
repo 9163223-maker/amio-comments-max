@@ -41,6 +41,7 @@ function picker(menu,userId=''){
 }
 function picked(menu,commentKey,userId=''){
   const post=postByKey(commentKey,userId);
+  if(!post)return {id:'poll_post_missing',text:['⚠️ Пост не найден','','Нужно выбрать пост из сохранённых.'].join('\n'),attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]])};
   return {id:'polls_picked',text:['🗳 Создание опроса','','Пост: '+postTitle(post,commentKey),'','Можно создать быстрый опрос или настроить свой вопрос и ответы. Ответов — от 2 до 4. Короткие варианты будут разложены по две кнопки в ряд.'].join('\n'),attachments:menu.keyboard([[menu.button('✍️ Свой вопрос и ответы','poll_custom_start',{commentKey})],[menu.button('✅ Быстро: Да / Нет','poll_create',{commentKey,template:'yes_no'})],[menu.button('👍 Быстро: Нравится / Не нравится','poll_create',{commentKey,template:'like_dislike'})],[menu.button('1️⃣ 2️⃣ 3️⃣ Быстро: три варианта','poll_create',{commentKey,template:'three'})],[menu.button('📌 Назад к выбору поста','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]])};
 }
 async function customStart(menu,{userId='',commentKey=''}={}){

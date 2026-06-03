@@ -77,7 +77,7 @@ async function customRun(menu,{config,userId='',commentKey=''}={}){
   const created=await pollService.createPoll({adminId:userId,channelId:post.channelId,postId:post.postId,commentKey:key,question:flow.question,options:flow.options,template:'custom'});
   if(!created.ok)return {id:'poll_error',text:'⚠️ Не удалось создать опрос: '+String(created.error||'unknown'),attachments:menu.keyboard([[menu.button('✏️ Изменить ответы','poll_custom_edit_options',{commentKey:key})],[menu.button('🏠 Главное меню','admin_section_main')]])};
   await clearFlow(userId);
-  let patched={ok:false};try{patched=await base.patchPostWithPoll({config,commentKey:key});}catch(e){patched={ok:false,error:String(e&&e.message||e)};}
+  let patched={ok:false};try{patched=await base.patchPostWithPoll({config,commentKey:key,userId});}catch(e){patched={ok:false,error:String(e&&e.message||e)};}
   const lines=['✅ Опрос создан','','Шаги завершены.','Вопрос: '+sh(flow.question,180),'Ответов: '+flow.options.length,'Голоса сохраняются в Postgres.'];
   lines.push('',patched.ok?'Кнопки опроса добавлены под постом.':'Опрос создан в базе, но пост пока не пропатчился: '+String(patched.error||'patch_failed'));
   return {id:'poll_created',text:lines.join('\n'),attachments:menu.keyboard([[menu.button('📊 Статус опросов','poll_status')],[menu.button('📌 Выбрать другой пост','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]])};
