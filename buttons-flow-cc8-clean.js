@@ -4,6 +4,7 @@ const store = require('./store');
 const tenant = require('./tenant-scope');
 const max = require('./services/maxApi');
 const postPatcher = require('./services/postPatcher');
+const clientAccessService = require('./services/clientAccessService');
 
 const RUNTIME = 'CC8.3.4-BUTTONS-DIRECT-LINKS-CHANNEL-HYDRATE';
 const MAX_POSTS = 8;
@@ -63,8 +64,10 @@ function postTitle(post = {}) {
 }
 function postTime(post = {}) { const ts = n(post.updatedAt || post.createdAt || post.ts || 0); if (!ts) return ''; try { return new Date(ts).toISOString().slice(0, 16).replace('T', ' '); } catch { return ''; } }
 function targetRecord(post = {}, userId = '') { return tenant.stampRecord({ channelId: clean(post.channelId), channelTitle: channelTitle(post), postId: clean(post.postId), messageId: clean(post.messageId), commentKey: clean(post.commentKey), originalText: clean(post.originalText || post.postText || post.text || ''), linkedAt: Date.now() }, getTenant(userId), post); }
-function findPost(commentKey = '', userId = '') { const key = clean(commentKey); if (!key) return null; const post = safeCall(() => store.getPost(key), null) || safeCall(() => array(store.getPostsList()).find((item) => clean(item && item.commentKey) === key), null) || null; return post && tenant.belongsToTenant(post, getTenant(userId)) ? post : null; }
-function listAllPosts(userId = '') { const ctx = getTenant(userId); const seen = new Set(); return safeCall(() => array(store.getPostsList()), []).filter((post) => post && clean(post.commentKey) && clean(post.channelId) && clean(post.postId) && tenant.belongsToTenant(post, ctx)).filter((post) => { const key = clean(post.commentKey); if (!key || seen.has(key)) return false; seen.add(key); return true; }).sort((a, b) => n(b.updatedAt || b.createdAt || b.ts) - n(a.updatedAt || a.createdAt || a.ts)); }
+function findPost(commentKey = '', userId = '') { const key = clean(commentKey); if (!key) return null; const post = safeCall(() => store.getPost(key), null) || safeCall(() => array(store.getPostsList()).find((item) => clean(item && item.commentKey) === key), null) || null; const channelIds = visibleChannelIds(userId); return post && tenant.belongsToTenant(post, getTenant(userId)) && channelVisibleToClient(post, channelIds, userId) ? post : null; }
+function visibleChannelIds(userId = '') { const ids = safeCall(() => clientAccessService.getClientChannels(userId), []).map((channel) => clean(channel.channelId || channel.id)).filter(Boolean); return new Set(ids); }
+function channelVisibleToClient(post = {}, channelIds = new Set(), userId = '') { return !clean(userId) || channelIds.has(clean(post.channelId || post.requiredChatId || '')); }
+function listAllPosts(userId = '') { const ctx = getTenant(userId); const channelIds = visibleChannelIds(userId); const seen = new Set(); return safeCall(() => array(store.getPostsList()), []).filter((post) => post && clean(post.commentKey) && clean(post.channelId) && clean(post.postId) && tenant.belongsToTenant(post, ctx) && channelVisibleToClient(post, channelIds, userId)).filter((post) => { const key = clean(post.commentKey); if (!key || seen.has(key)) return false; seen.add(key); return true; }).sort((a, b) => n(b.updatedAt || b.createdAt || b.ts) - n(a.updatedAt || a.createdAt || a.ts)); }
 function listPosts(channelId = '', userId = '') { const channel = clean(channelId); return listAllPosts(userId).filter((post) => !channel || clean(post.channelId) === channel).slice(0, MAX_POSTS); }
 function listChannelsFromPosts(userId = '') { const map = new Map(); listAllPosts(userId).forEach((post) => { const id = clean(post.channelId); if (!id || map.has(id)) return; map.set(id, channelTitle(post)); }); return Array.from(map.entries()).map(([channelId, title]) => ({ channelId, title })); }
 function getStoredTarget(userId = '') { const state = getSetup(userId); const target = state.buttonTargetPost || state.commentTargetPost || null; return target && target.commentKey ? findPost(target.commentKey, userId) : null; }
