@@ -1,21 +1,30 @@
 'use strict';
 
+const crypto = require('crypto');
 const storeModule = require('../store');
 const tariffs = require('./tariffConfig');
 const repository = require('./clientAccessRepository');
 
 const RUNTIME = 'CC8.3.46-PR106-ACCOUNT-ACCESS-RUNTIME';
+const ADMIN_ACCESS_RUNTIME = 'CC8.3.47-PR108-ADMIN-ACTIVATION-CODES';
 const ACCESS_NAMESPACE = repository.ACCESS_NAMESPACE;
 
 function clean(value) { return String(value || '').trim(); }
 function nowMs() { return Date.now(); }
 function addDays(days) { return new Date(nowMs() + Math.max(0, Number(days || 0)) * 86400000).toISOString(); }
 function normalizeCode(code = '') { return clean(code).toUpperCase().replace(/\s+/g, ''); }
+function randomCodePart() { return crypto.randomBytes(2).toString('hex').toUpperCase(); }
+function generateActivationCode() { return `AK-${randomCodePart()}-${randomCodePart()}-${randomCodePart()}`; }
+function hashActivationCode(code = '') { return repository.codeHash(normalizeCode(code)); }
+function maskActivationCode(codeOrHash = '') { const value = normalizeCode(codeOrHash); if (!value) return 'AK-****'; if (/^AK-/.test(value)) return `${value.slice(0, 7)}-****-${value.slice(-4)}`; return `AK-${value.slice(0, 4)}…${value.slice(-4)}`.toUpperCase(); }
 function isPast(value) { const t = Date.parse(value || ''); return Number.isFinite(t) && t <= nowMs(); }
 
 function adminIds() {
-  return String(process.env.ADMINKIT_ADMIN_MAX_USER_IDS || process.env.DEBUG_ADMIN_ID || process.env.ADMIN_ID || '')
-    .split(/[\s,;]+/).map(clean).filter(Boolean);
+  return [process.env.ADMINKIT_ADMIN_MAX_USER_IDS, process.env.DEBUG_ADMIN_ID, process.env.ADMIN_ID]
+    .join(',')
+    .split(/[\s,;]+/)
+    .map(clean)
+    .filter(Boolean);
 }
 function isAdmin(maxUserId) {
   const id = clean(maxUserId);
@@ -85,6 +94,49 @@ function getActivationCode(code = '') {
   const item = repository.getActivationCodeByHash(repository.codeHash(normalizeCode(code)));
   return item ? { ...item, code: undefined } : null;
 }
+
+
+function createActivationCode({ planId = 'start', durationDays = 30, maxChannels, expiresAt = '', singleUse = true, boundChannelId = '', createdByMaxUserId = '', note = '' } = {}) {
+  const plan = tariffs.getTariff(planId || 'start');
+  const days = Math.max(1, Number(durationDays || 30));
+  const limit = Math.max(1, Number(maxChannels || plan.maxChannels || 1));
+  let code = '';
+  let hash = '';
+  for (let i = 0; i < 20; i += 1) {
+    code = generateActivationCode();
+    hash = hashActivationCode(code);
+    if (!repository.getActivationCodeByHash(hash)) break;
+    code = '';
+  }
+  if (!code) throw new Error('activation_code_collision');
+  const item = {
+    codeHash: hash,
+    codeHashPrefix: hash.slice(0, 12),
+    planId: plan.id,
+    durationDays: days,
+    maxChannels: limit,
+    expiresAt: expiresAt || addDays(days),
+    usedAt: '',
+    usedByMaxUserId: '',
+    tenantId: '',
+    boundChannelId: clean(boundChannelId),
+    singleUse: singleUse !== false,
+    status: 'active',
+    metadata: { codeHashPrefix: hash.slice(0, 12), createdByMaxUserId: clean(createdByMaxUserId), note: clean(note), safeCodeLabel: maskActivationCode(hash) },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  repository.saveActivationCode(item);
+  repository.recordEvent({ tenantId: '', maxUserId: createdByMaxUserId, eventType: 'code_created', payload: { codeHashPrefix: item.codeHashPrefix, planId: item.planId, durationDays: item.durationDays, maxChannels: item.maxChannels, boundChannelId: Boolean(item.boundChannelId) } });
+  return { ...repository.safeActivationCode(item), code };
+}
+function listActivationCodes(options = {}) { return repository.listActivationCodes(options); }
+function getActivationCodeInfo(options = {}) { return repository.getActivationCodeInfo(options); }
+function revokeActivationCode(options = {}) { return repository.revokeActivationCode(options); }
+function listTenants(options = {}) { return repository.listTenants(options); }
+function getTenantInfo(options = {}) { return repository.getTenantInfo(options); }
+function listTenantChannels(tenantId = '') { return repository.listTenantChannels(tenantId).map((channel) => ({ tenantId: channel.tenantId, channelId: channel.channelId, channelTitle: channel.channelTitle, status: channel.status, connectedAt: channel.connectedAt, boundByCode: channel.boundByCode ? maskActivationCode(channel.boundByCode) : '' })); }
+function listAccessEvents(options = {}) { return repository.listAccessEvents(options); }
 
 function getAccessState(maxUserId) {
   const id = clean(maxUserId);
@@ -167,7 +219,7 @@ function bindTenantChannel(options = {}) { return repository.bindTenantChannel(o
 function getTenantByMaxUserId(maxUserId) { return repository.getTenantByUserId(maxUserId); }
 function getTenantUsers(tenantId) { return repository.getTenantUsers(tenantId); }
 function getAccessEvents(tenantId) { return repository.getAccessEvents(tenantId); }
-function info() { return { runtimeVersion: RUNTIME, ...repository.publicInfo() }; }
+function info() { return { runtimeVersion: RUNTIME, adminAccessRuntimeVersion: ADMIN_ACCESS_RUNTIME, ...repository.publicInfo() }; }
 function sanitizedSnapshot() { return repository.sanitizedSnapshot(); }
 function bootstrap() { return repository.bootstrap(); }
 
@@ -176,4 +228,4 @@ function hasPendingActivation(maxUserId) { return Boolean(repository.pendingActi
 function clearPendingActivation(maxUserId) { return setPendingActivation(maxUserId, false); }
 function _resetForTests() { repository.resetForTests(); }
 
-module.exports = { RUNTIME, ACCESS_NAMESPACE, getClientByMaxUserId, createClientProfile, getAccessState, activateCode, isAccessActive, isAdmin, getPlanLimits, canUseFeature, getClientChannels, upsertActivationCode, getActivationCode, bindTenantChannel, getTenantByMaxUserId, getTenantUsers, getAccessEvents, setPendingActivation, hasPendingActivation, clearPendingActivation, statusLabel, info, sanitizedSnapshot, bootstrap, _resetForTests };
+module.exports = { RUNTIME, ADMIN_ACCESS_RUNTIME, ACCESS_NAMESPACE, generateActivationCode, hashActivationCode, maskActivationCode, getClientByMaxUserId, createClientProfile, getAccessState, createActivationCode, listActivationCodes, getActivationCodeInfo, revokeActivationCode, listTenants, getTenantInfo, listTenantChannels, listAccessEvents, activateCode, isAccessActive, isAdmin, getPlanLimits, canUseFeature, getClientChannels, upsertActivationCode, getActivationCode, bindTenantChannel, getTenantByMaxUserId, getTenantUsers, getAccessEvents, setPendingActivation, hasPendingActivation, clearPendingActivation, statusLabel, info, sanitizedSnapshot, bootstrap, _resetForTests };

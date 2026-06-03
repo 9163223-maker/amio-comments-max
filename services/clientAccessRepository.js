@@ -237,6 +237,73 @@ function saveTenant(tenant) { if (!tenant?.tenantId) return null; ns().tenants[c
 function saveTenantUser(user) { if (!user?.tenantId || !user?.maxUserId) return null; ns().tenantUsers[`${clean(user.tenantId)}:${clean(user.maxUserId)}`] = user; persist(); scheduleDbUpsertTenantUser(user); return user; }
 function getTenantUsers(tenantId) { return Object.values(ns().tenantUsers).filter((item) => clean(item.tenantId) === clean(tenantId)); }
 function getActivationCodeByHash(hash) { return ns().activationCodes[clean(hash)] || null; }
+function activationStatus(item = {}) {
+  const status = clean(item.status || 'active');
+  const expires = Date.parse(item.expiresAt || '');
+  if (status === 'active' && Number.isFinite(expires) && expires <= Date.now()) return 'expired';
+  return status;
+}
+function codeSafeId(item = {}) { return clean(item.codeHash || '').slice(0, 12); }
+function safeActivationCode(item = {}) {
+  return {
+    codeHashPrefix: codeSafeId(item),
+    safeCodeLabel: `AK-${codeSafeId(item).toUpperCase().slice(0, 4)}…${codeSafeId(item).toUpperCase().slice(-4)}`,
+    planId: item.planId || 'free',
+    durationDays: Number(item.durationDays || 30),
+    maxChannels: Number(item.maxChannels || 1),
+    expiresAt: item.expiresAt || '',
+    status: activationStatus(item),
+    singleUse: item.singleUse !== false,
+    usedAt: item.usedAt || '',
+    usedByMaxUserId: item.usedByMaxUserId || '',
+    tenantId: item.tenantId || '',
+    boundChannelId: item.boundChannelId || '',
+    createdByMaxUserId: item.metadata?.createdByMaxUserId || '',
+    note: item.metadata?.note || '',
+    createdAt: item.createdAt || '',
+    updatedAt: item.updatedAt || ''
+  };
+}
+function findActivationCodeBySafeId(codeHashOrSafeId = '') {
+  const id = clean(codeHashOrSafeId).toLowerCase();
+  if (!id) return null;
+  return Object.values(ns().activationCodes).find((item) => clean(item.codeHash).toLowerCase() === id || clean(item.codeHash).toLowerCase().startsWith(id) || clean(item.codeHashPrefix).toLowerCase() === id) || null;
+}
+function listActivationCodes({ limit = 20, status = '' } = {}) {
+  const wanted = clean(status).toLowerCase();
+  return Object.values(ns().activationCodes)
+    .map((item) => ({ ...item, status: activationStatus(item) }))
+    .filter((item) => !wanted || clean(item.status).toLowerCase() === wanted)
+    .sort((a, b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''))
+    .slice(0, Math.max(1, Math.min(100, Number(limit || 20))))
+    .map(safeActivationCode);
+}
+function getActivationCodeInfo({ codeHashOrSafeId = '' } = {}) { const item = findActivationCodeBySafeId(codeHashOrSafeId); return item ? safeActivationCode(item) : null; }
+function revokeActivationCode({ codeHashOrSafeId = '', revokedByMaxUserId = '' } = {}) {
+  const item = findActivationCodeBySafeId(codeHashOrSafeId);
+  if (!item) return null;
+  item.status = 'revoked';
+  item.updatedAt = nowIso();
+  item.metadata = { ...(item.metadata || {}), revokedByMaxUserId: clean(revokedByMaxUserId), revokedAt: item.updatedAt };
+  saveActivationCode(item);
+  recordEvent({ tenantId: item.tenantId || '', maxUserId: revokedByMaxUserId, eventType: 'code_revoked', payload: { codeHashPrefix: codeSafeId(item), planId: item.planId } });
+  return safeActivationCode(item);
+}
+function listTenants({ limit = 20 } = {}) {
+  const n = ns();
+  return Object.values(n.tenants)
+    .sort((a, b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''))
+    .slice(0, Math.max(1, Math.min(100, Number(limit || 20))))
+    .map((tenant) => ({ tenantId: tenant.tenantId, shortTenantId: clean(tenant.tenantId).slice(0, 16), ownerMaxUserId: tenant.ownerMaxUserId || '', planId: tenant.planId || 'free', status: tenant.status || 'active', expiresAt: tenant.expiresAt || '', maxChannels: Number(tenant.maxChannels || 1), channelsCount: listTenantChannels(tenant.tenantId).length, createdAt: tenant.createdAt || '', updatedAt: tenant.updatedAt || '' }));
+}
+function getTenantInfo({ tenantId = '' } = {}) {
+  const tenant = getTenant(tenantId);
+  if (!tenant) return null;
+  return { tenantId: tenant.tenantId, shortTenantId: clean(tenant.tenantId).slice(0, 16), ownerMaxUserId: tenant.ownerMaxUserId || '', planId: tenant.planId || 'free', status: tenant.status || 'active', expiresAt: tenant.expiresAt || '', maxChannels: Number(tenant.maxChannels || 1), channelsCount: listTenantChannels(tenant.tenantId).length, users: getTenantUsers(tenant.tenantId).map((u) => ({ maxUserId: u.maxUserId, role: u.role, status: u.status, createdAt: u.createdAt })), createdAt: tenant.createdAt || '', updatedAt: tenant.updatedAt || '' };
+}
+function listAccessEvents({ tenantId = '', limit = 20 } = {}) {
+  return getAccessEvents(tenantId).slice(0, Math.max(1, Math.min(100, Number(limit || 20)))).map((event) => ({ eventId: event.eventId, tenantId: event.tenantId || '', maxUserId: event.maxUserId || '', eventType: event.eventType, payload: event.payload || {}, createdAt: event.createdAt || '' }));
+}
 function saveActivationCode(item) { if (!item?.codeHash) return null; ns().activationCodes[clean(item.codeHash)] = item; persist(); scheduleDbUpsertActivationCode(item); return item; }
 function recordEvent({ tenantId = '', maxUserId = '', eventType = '', payload = {} } = {}) {
   const event = { eventId: makeId('evt'), tenantId: clean(tenantId), maxUserId: clean(maxUserId), eventType: clean(eventType), payload: payload || {}, createdAt: nowIso() };
@@ -308,6 +375,9 @@ function publicInfo() {
     postgresPersistent: pgPersistent,
     clientAccessFallbackMode: backend === 'store' ? (pg ? 'store_fallback_db_unavailable' : 'store_fallback_no_postgres') : '',
     clientAccessStoreFallbackAllowed: fallbackAllowed,
+    adminActivationCodesReady: true,
+    adminCodeToolsHiddenFromClient: true,
+    adminAccessRuntimeVersion: 'CC8.3.47-PR108-ADMIN-ACTIVATION-CODES',
     bootstrapAttempted: bootstrapState.attempted,
     bootstrapError: bootstrapState.error || '',
     paidProductionBlocker: pgPersistent && !bootstrapState.tenantTablesReady
@@ -321,7 +391,7 @@ function sanitizedSnapshot() {
     tenants: Object.keys(n.tenants).length,
     tenantUsers: Object.keys(n.tenantUsers).length,
     tenantChannels: Object.keys(n.tenantChannels).length,
-    activationCodes: Object.values(n.activationCodes).map((item) => ({ codeHashPrefix: clean(item.codeHash).slice(0, 12), planId: item.planId, status: item.status, expiresAt: item.expiresAt, usedAt: item.usedAt, tenantId: item.tenantId || '', boundChannelId: item.boundChannelId || '' })),
+    activationCodes: Object.values(n.activationCodes).map(safeActivationCode),
     accessEvents: n.accessEvents.length
   };
 }
@@ -333,4 +403,4 @@ function scheduleDbUpsertTenantChannel(item) { if (!item || !item.tenantId || !i
 function scheduleDbUpsertActivationCode(item) { if (!item || !item.codeHash) return; schedule(() => db.query(`INSERT INTO ak_activation_codes (code_hash, plan_id, duration_days, max_channels, expires_at, status, single_use, used_at, used_by_max_user_id, tenant_id, bound_channel_id, metadata, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,COALESCE($13::timestamptz,NOW()),NOW()) ON CONFLICT (code_hash) DO UPDATE SET plan_id=EXCLUDED.plan_id,duration_days=EXCLUDED.duration_days,max_channels=EXCLUDED.max_channels,expires_at=EXCLUDED.expires_at,status=EXCLUDED.status,single_use=EXCLUDED.single_use,used_at=EXCLUDED.used_at,used_by_max_user_id=EXCLUDED.used_by_max_user_id,tenant_id=EXCLUDED.tenant_id,bound_channel_id=EXCLUDED.bound_channel_id,metadata=EXCLUDED.metadata,updated_at=NOW()`, [item.codeHash, item.planId, Number(item.durationDays || 30), Number(item.maxChannels || 1), item.expiresAt || null, item.status || 'active', item.singleUse !== false, item.usedAt || null, item.usedByMaxUserId || '', item.tenantId || '', item.boundChannelId || '', JSON.stringify(item.metadata || {}), item.createdAt || null])); }
 function scheduleDbInsertEvent(event) { if (!event || !event.eventId) return; schedule(() => db.query(`INSERT INTO ak_access_events (event_id, tenant_id, max_user_id, event_type, payload, created_at) VALUES ($1,$2,$3,$4,$5::jsonb,COALESCE($6::timestamptz,NOW())) ON CONFLICT (event_id) DO NOTHING`, [event.eventId, event.tenantId || '', event.maxUserId || '', event.eventType, JSON.stringify(event.payload || {}), event.createdAt || null])); }
 
-module.exports = { RUNTIME, ACCESS_NAMESPACE, bootstrap, ensureTables, publicInfo, sanitizedSnapshot, ns, persist, codeHash, getClient, saveClient, getTenant, getTenantByUserId, saveTenant, saveTenantUser, getTenantUsers, upsertTenantForUser, listTenantChannels, bindTenantChannel, findChannelOwner, getActivationCodeByHash, saveActivationCode, recordEvent, getAccessEvents, pendingActivation, resetForTests };
+module.exports = { RUNTIME, ACCESS_NAMESPACE, bootstrap, ensureTables, publicInfo, sanitizedSnapshot, ns, persist, codeHash, getClient, saveClient, getTenant, getTenantByUserId, saveTenant, saveTenantUser, getTenantUsers, upsertTenantForUser, listTenantChannels, bindTenantChannel, findChannelOwner, getActivationCodeByHash, findActivationCodeBySafeId, saveActivationCode, listActivationCodes, getActivationCodeInfo, revokeActivationCode, listTenants, getTenantInfo, listAccessEvents, safeActivationCode, recordEvent, getAccessEvents, pendingActivation, resetForTests };
