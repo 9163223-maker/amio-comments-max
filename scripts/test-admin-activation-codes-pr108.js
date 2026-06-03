@@ -19,8 +19,8 @@ function rows(screen) { return screen?.attachments?.[0]?.payload?.buttons || [];
 function labels(screen) { return rows(screen).flat().map((button) => String(button.text || '').trim()).filter(Boolean); }
 function createJsonRes() { const res = { statusCode: 200, body: null, headersSent: false }; res.status = (code) => { res.statusCode = code; return res; }; res.json = (body) => { res.body = body; res.headersSent = true; return res; }; return res; }
 function createRouteRes() { const res = { statusCode: 200, body: '', headers: {} }; res.set = (headers) => { res.headers = { ...res.headers, ...(headers || {}) }; return res; }; res.status = (code) => { res.statusCode = code; return res; }; res.type = (value) => { res.contentType = value; return res; }; res.send = (body) => { res.body = body; return res; }; return res; }
-function messageUpdate(userId, text, chatType = 'user', chatId = `${userId}-chat`) { return { body: { update_type: 'message_created', message: { id: `m-${userId}-${Date.now()}`, body: { text }, sender: { user_id: userId }, recipient: { chat_id: chatId, chat_type: chatType } } } }; }
-function callbackUpdate(userId, payload, chatType = 'user', chatId = `${userId}-chat`) { return { body: { update_type: 'message_callback', callback: { callback_id: `cb-${userId}-${Date.now()}-${Math.random()}`, user: { user_id: userId }, payload: JSON.stringify(payload) }, message: { id: `msg-${userId}`, body: { mid: `mid-${userId}`, text: 'old' }, sender: { user_id: userId }, recipient: { chat_id: chatId, chat_type: chatType } } } }; }
+function messageUpdate(userId, text, chatType = 'user', chatId = `${userId}-chat`, recipientExtra = {}) { return { body: { update_type: 'message_created', message: { id: `m-${userId}-${Date.now()}`, body: { text }, sender: { user_id: userId }, recipient: { chat_id: chatId, chat_type: chatType, ...recipientExtra } } } }; }
+function callbackUpdate(userId, payload, chatType = 'user', chatId = `${userId}-chat`, recipientExtra = {}) { return { body: { update_type: 'message_callback', callback: { callback_id: `cb-${userId}-${Date.now()}-${Math.random()}`, user: { user_id: userId }, payload: JSON.stringify(payload) }, message: { id: `msg-${userId}`, body: { mid: `mid-${userId}`, text: 'old' }, sender: { user_id: userId }, recipient: { chat_id: chatId, chat_type: chatType, ...recipientExtra } } } }; }
 function payloadLabels(call) { return (call?.attachments?.[0]?.payload?.buttons || []).flat().map((button) => String(button.text || '').trim()).filter(Boolean); }
 async function sendBot(bot, sent, update) { const before = sent.length; const res = createJsonRes(); await bot.handleWebhook(update, res, { botToken: 'test-token', menuDeleteTimeoutMs: 1 }); assert.strictEqual(res.statusCode, 200); const newCalls = sent.slice(before); return { res, call: sent.at(-1), newCalls, labels: payloadLabels(sent.at(-1)), text: String(sent.at(-1)?.text || '') }; }
 
@@ -41,6 +41,10 @@ async function sendBot(bot, sent, update) { const before = sent.length; const re
   assert.strictEqual(nonAdmin.res.body.screenId, 'pr108_admin_denied', 'non-admin /admin is denied');
   assert.ok(/Недоступно/.test(nonAdmin.text), 'non-admin denial is friendly');
 
+  const maxPrivateNonAdmin = await sendBot(bot, sent, messageUpdate('pr108-normal', '/admin', 'chat', 'visible-private-chat-108', { user_id: 'pr108-normal' }));
+  assert.strictEqual(maxPrivateNonAdmin.res.body.screenId, 'pr108_admin_denied', 'non-admin /admin in MAX private recipient.user_id dialog is denied');
+  assert.strictEqual(maxPrivateNonAdmin.res.body.privateChatRequired, false, 'non-admin MAX private recipient.user_id dialog must pass private-chat detection before admin validation');
+
   process.env.DEBUG_ADMIN_ID = 'pr108-debug-admin';
   assert.strictEqual(access.isAdmin('pr108-debug-admin'), true, 'DEBUG_ADMIN_ID must be honored alongside ADMINKIT_ADMIN_MAX_USER_IDS');
   delete process.env.DEBUG_ADMIN_ID;
@@ -49,10 +53,24 @@ async function sendBot(bot, sent, update) { const before = sent.length; const re
   assert.strictEqual(admin.res.body.screenId, 'pr108_admin_panel', 'explicit env admin can open /admin in private chat');
   assert.deepStrictEqual(admin.labels, ['Создать код', 'Коды доступа', 'Клиенты / tenants', 'Главное меню'], 'admin panel buttons');
 
+  const maxPrivateAdmin = await sendBot(bot, sent, messageUpdate('pr108-admin', '/admin', 'chat', 'visible-private-chat-108', { user_id: 'pr108-admin' }));
+  assert.strictEqual(maxPrivateAdmin.res.body.screenId, 'pr108_admin_panel', 'explicit env admin can open /admin in MAX private recipient.user_id dialog');
+  assert.strictEqual(maxPrivateAdmin.res.body.privateChatRequired, false, 'MAX private recipient.user_id dialog is recognized as private');
+
+  const dialogAdmin = await sendBot(bot, sent, messageUpdate('pr108-admin', '/admin', 'dialog', 'dialog-chat-108'));
+  assert.strictEqual(dialogAdmin.res.body.screenId, 'pr108_admin_panel', 'explicit env admin can open /admin in MAX dialog chat_type');
+
+  const plainChatAdmin = await sendBot(bot, sent, messageUpdate('pr108-admin', '/admin', 'chat', 'plain-chat-108'));
+  assert.strictEqual(plainChatAdmin.res.body.screenId, 'pr108_admin_private_chat_required', 'plain chat_type=chat without recipient.user_id is not enough for private admin access');
+
   const groupAdmin = await sendBot(bot, sent, messageUpdate('pr108-admin', '/admin', 'group', 'group-chat-108'));
   assert.strictEqual(groupAdmin.res.body.screenId, 'pr108_admin_private_chat_required', 'admin /admin in group/shared chat must not open admin panel');
   assert.ok(/личном чате/.test(groupAdmin.text), 'group /admin gets safe private-chat message');
   assert.ok(!groupAdmin.labels.includes('Создать код'), 'group /admin must not show admin buttons');
+
+  const channelAdmin = await sendBot(bot, sent, messageUpdate('pr108-admin', '/admin', 'channel', '-channel-108'));
+  assert.strictEqual(channelAdmin.res.body.screenId, 'pr108_admin_private_chat_required', 'admin /admin in channel must not open admin panel');
+  assert.ok(/личном чате/.test(channelAdmin.text), 'channel /admin gets safe private-chat message');
 
   const beforeGroupCallbackCodes = access.listActivationCodes({ limit: 100 }).length;
   const beforeGroupSent = sent.length;
@@ -61,6 +79,14 @@ async function sendBot(bot, sent, update) { const before = sent.length; const re
   assert.strictEqual(access.listActivationCodes({ limit: 100 }).length, beforeGroupCallbackCodes, 'group admin callback must not create a code');
   const groupTexts = sent.slice(beforeGroupSent).map((call) => String(call.text || '')).join('\n');
   assert.ok(!/AK-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}/.test(groupTexts), 'raw activation code must not be sent to group/shared chat');
+
+  const beforeChannelCallbackCodes = access.listActivationCodes({ limit: 100 }).length;
+  const beforeChannelSent = sent.length;
+  const channelCreate = await sendBot(bot, sent, callbackUpdate('pr108-admin', { action: 'admin_code_confirm_create', planId: 'pro', durationDays: 14, maxChannels: 5 }, 'channel', '-channel-108'));
+  assert.strictEqual(channelCreate.res.body.screenId, 'pr108_admin_private_chat_required', 'admin create callback in channel must be blocked');
+  assert.strictEqual(access.listActivationCodes({ limit: 100 }).length, beforeChannelCallbackCodes, 'channel admin callback must not create a code');
+  const channelTexts = sent.slice(beforeChannelSent).map((call) => String(call.text || '')).join('\n');
+  assert.ok(!/AK-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}/.test(channelTexts), 'raw activation code must not be sent to channel');
 
   const durationScreen = adminScreens.screenForAction('admin_code_plan_start', 'pr108-admin', {});
   assert.ok(!labels(durationScreen).includes('Ввести вручную'), 'admin create duration screen must not include manual input');

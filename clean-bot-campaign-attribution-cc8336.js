@@ -57,12 +57,15 @@ function isSlashCommand(text = '') { return /^\/[a-z_]+(?:\s|$)/i.test(clean(tex
 function messageId(message = {}) { return clean(message?.body?.mid || message?.body?.message_id || message?.message_id || message?.messageId || message?.id); }
 function chatId(message = {}) { return clean(message?.recipient?.chat_id || message?.recipient?.id || message?.chat_id || message?.chat?.id); }
 function chatType(message = {}) { return clean(message?.recipient?.chat_type || message?.recipient?.type || message?.chat_type || message?.chat?.type).toLowerCase(); }
+function recipientUserId(message = {}) { return clean(message?.recipient?.user_id || message?.recipient?.userId); }
+function isGroupOrChannelChatType(type = '') { return ['channel', 'group', 'supergroup', 'shared_chat', 'shared'].includes(clean(type).toLowerCase()); }
 function isChannelMessage(message = {}) { const id = chatId(message); return chatType(message) === 'channel' || /^-/.test(id); }
 function isPrivateUserChat(message = {}) {
   const type = chatType(message);
   const id = chatId(message);
-  if (/^-/.test(id)) return false;
-  return ['user', 'private', 'direct', 'private_chat', 'direct_chat', 'im'].includes(type);
+  if (/^-/.test(id) || isGroupOrChannelChatType(type)) return false;
+  if (recipientUserId(message)) return true;
+  return ['user', 'private', 'direct', 'private_chat', 'direct_chat', 'im', 'dialog'].includes(type);
 }
 function isAdminRuntimeAction(action = '') {
   const a = clean(action);
@@ -91,6 +94,10 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
     const payload = callbackPayload(callback);
     const action = clean(payload.action || payload.raw);
     const uid = senderId(update, callback, message);
+    if (isAdminRuntimeAction(action) && !isPrivateUserChat(message)) {
+      if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
+      return res.status(200).json({ ok: true, handledBy: access.ADMIN_ACCESS_RUNTIME, action, screenId: 'pr108_admin_private_chat_required', adminRuntime: true, privateChatRequired: true });
+    }
     if (!isChannelMessage(message)) {
       if (action === 'admin_section_main') {
         const state = access.getAccessState(uid);
@@ -98,10 +105,6 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
         if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
         await sendOrEditScreen({ update, callback, message, config, screen, edit: true });
         return res.status(200).json({ ok: true, handledBy: RUNTIME, action, screenId: screen.id, accessGate: true });
-      }
-      if (isAdminRuntimeAction(action) && !isPrivateUserChat(message)) {
-        if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
-        return res.status(200).json({ ok: true, handledBy: access.ADMIN_ACCESS_RUNTIME, action, screenId: 'pr108_admin_private_chat_required', adminRuntime: true, privateChatRequired: true });
       }
       const adminScreen = isPrivateUserChat(message) ? adminScreens.screenForAction(action, uid, payload) : null;
       if (adminScreen) {
