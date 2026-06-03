@@ -76,7 +76,7 @@ function extractUserProfile(update = {}) {
   const callback = getCallback(update) || {};
   const message = getMessage(update) || {};
   const deepUser = pickUserLikeObject(update);
-  const userSource = callback.user || callback.sender || callback.from || update.user || update.sender || update.from || message.sender || message.from || deepUser || {};
+  const userSource = callback.user || callback.sender || callback.from || update.user || update.sender || update.from || message.sender || message.from || message.user || message.recipient || update.recipient || deepUser || {};
   const maxUserId = clean(
     userSource.user_id ||
     userSource.userId ||
@@ -105,6 +105,13 @@ function extractUserProfile(update = {}) {
     message.from?.user_id ||
     message.from?.userId ||
     message.from?.id ||
+    message.user?.user_id ||
+    message.user?.userId ||
+    message.user?.id ||
+    message.recipient?.user_id ||
+    message.recipient?.userId ||
+    update.recipient?.user_id ||
+    update.recipient?.userId ||
     message.user_id ||
     message.userId ||
     ''

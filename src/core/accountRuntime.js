@@ -82,7 +82,7 @@ async function resolveContext(update = {}, context = {}) {
 function getMaxUserId(update = {}, context = {}) {
   const callback = getCallback(update) || {};
   const message = getMessage(update) || {};
-  return clean(context?.user?.maxUserId || context?.user?.userId || callback?.user?.user_id || callback?.user?.id || callback?.sender?.user_id || callback?.sender?.id || update?.user?.user_id || update?.user?.id || message?.sender?.user_id || message?.sender?.id || message?.user_id);
+  return clean(context?.user?.maxUserId || context?.user?.userId || callback?.user?.user_id || callback?.user?.id || callback?.sender?.user_id || callback?.sender?.id || update?.user?.user_id || update?.user?.id || update?.sender?.user_id || update?.sender?.id || update?.recipient?.user_id || update?.recipient?.id || message?.sender?.user_id || message?.sender?.id || message?.user?.user_id || message?.user?.id || message?.recipient?.user_id || message?.recipient?.userId || message?.recipient?.id || message?.user_id || message?.userId);
 }
 
 async function buildAccountScreenForUpdate({ update = {}, context = {}, config = {} } = {}) {

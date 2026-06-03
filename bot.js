@@ -29,6 +29,7 @@ const {
   listChannelMemberSnapshots
 } = require("./store");
 const { listChannels, registerChannel } = require("./services/channelService");
+const clientAccessService = require("./services/clientAccessService");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
 const {
   getNativeSlashCommand,
@@ -258,9 +259,36 @@ function dedupeChannelsByIdAndTitle(items = []) {
 
 function getVisibleStoredChannelsForUser(userId = '') {
   const key = String(userId || '').trim();
-  const all = dedupeChannelsByIdAndTitle(listChannels());
-  const mine = key ? dedupeChannelsByIdAndTitle(all.filter((item) => String(item?.linkedByUserId || '').trim() === key)) : [];
-  return mine.length ? mine : all;
+  if (!key) return [];
+
+  const byId = new Map();
+  const addSafeChannel = (item = {}) => {
+    const channelId = String(item?.channelId || item?.id || '').trim();
+    if (!channelId) return;
+    byId.set(channelId, { ...item, channelId });
+  };
+
+  try {
+    const clientChannels = clientAccessService.getClientChannels(key);
+    for (const item of Array.isArray(clientChannels) ? clientChannels : []) addSafeChannel(item);
+  } catch (error) {
+    logVerbose(null, 'CLIENT CHANNELS RESOLVE FAILED', { userId: key, error: error?.message || String(error) });
+  }
+
+  // Last safe legacy source: explicit same-user ownership/link metadata only.
+  // Never fall back to the global store; empty tenant/user bindings must render an empty state.
+  try {
+    for (const item of listChannels()) {
+      const ownerIds = [item?.linkedByUserId, item?.ownerUserId, item?.createdByUserId, item?.updatedByUserId]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean);
+      if (ownerIds.includes(key)) addSafeChannel(item);
+    }
+  } catch (error) {
+    logVerbose(null, 'LEGACY USER CHANNELS RESOLVE FAILED', { userId: key, error: error?.message || String(error) });
+  }
+
+  return dedupeChannelsByIdAndTitle(Array.from(byId.values()));
 }
 
 async function enrichChannelTitle(config, item = {}) {

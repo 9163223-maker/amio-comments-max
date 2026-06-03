@@ -14,9 +14,9 @@ function txt(m){return String((m&&m.body&&m.body.text)||m&&m.text||'')}
 function isSlashCommand(text){return /^\/[a-z_]+(?:\s|$)/i.test(norm(text))}
 function mid(m){return String((m&&m.body&&(m.body.mid||m.body.message_id))||m&&m.message_id||m&&m.id||'').trim()}
 function chat(m){return String((m&&m.recipient&&(m.recipient.chat_id||m.recipient.id))||m&&m.chat_id||'').trim()}
-function sender(m){return String((m&&m.sender&&(m.sender.user_id||m.sender.id))||m&&m.user_id||'').trim()}
+function sender(m){return String((m&&m.sender&&(m.sender.user_id||m.sender.id))||(m&&m.user&&(m.user.user_id||m.user.id))||(m&&m.recipient&&(m.recipient.user_id||m.recipient.userId||m.recipient.id))||m&&m.user_id||m&&m.userId||'').trim()}
 function cbid(c){return String((c&&(c.callback_id||c.id))||'').trim()}
-function uid(u,c){return String((c&&c.user&&(c.user_id||c.userId||c.user.user_id||c.user.id))||(c&&c.sender&&(c.sender.user_id||c.sender.id))||(u&&u.user&&(u.user.user_id||u.user.id))||(u&&u.sender&&(u.sender.user_id||u.sender.id))||'').trim()}
+function uid(u,c){return String((c&&c.user&&(c.user_id||c.userId||c.user.user_id||c.user.id))||(c&&c.sender&&(c.sender.user_id||c.sender.id))||(c&&c.recipient&&(c.recipient.user_id||c.recipient.userId||c.recipient.id))||(u&&u.user&&(u.user.user_id||u.user.id))||(u&&u.sender&&(u.sender.user_id||u.sender.id))||(u&&u.recipient&&(u.recipient.user_id||u.recipient.userId||u.recipient.id))||'').trim()}
 function rawPayload(c){return String((c&&(c.payload||c.data||c.value||c.callback_data))||'').trim()}
 function parse(c){var raw=rawPayload(c);if(!raw)return{};try{return JSON.parse(raw)}catch(e){if(/^admin_section_|^admin_stats_|^comments_|^gift_|^post_|^stats_|^moderation_|^archive_|^poll_/i.test(raw))return{action:raw,raw:raw};return{raw:raw}}}
 function sh(v,n){var s=String(v||'Пост без текста').replace(/\s+/g,' ').trim();return s.length<=n?s:s.slice(0,n-1).trim()+'…'}
