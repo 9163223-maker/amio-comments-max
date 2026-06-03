@@ -221,6 +221,12 @@ function assertDeniedNoPosts(label, result, forbiddenPattern) {
     const replay = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'comments_select_post', source, channelId: '-tenant-b' }));
     assertDeniedNoPosts(`tenant A wrapped ${source} tenant B replay`, replay, /Tenant B Secret Post|Tenant B Channel/);
   }
+  const staleHighlightApply = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'highlight_apply', commentKey: '-tenant-b:post-b', badgeId: 'important' }));
+  assert.ok(!/Выделение применено|Tenant B Secret Post|Tenant B Channel/.test(staleHighlightApply.text + staleHighlightApply.labels.join('\n')), 'tenant A stale highlight callback cannot open tenant B post');
+  assert.ok(!/Tenant B Secret Post|Tenant B Channel/.test(staleHighlightApply.text + staleHighlightApply.labels.join('\n')), 'tenant A stale highlight callback does not leak tenant B post');
+  const stalePollCreate = await sendBot(bot, sent, callbackUpdate('pr111-client-a', { action: 'poll_create', commentKey: '-tenant-b:post-b', template: 'yes_no' }));
+  assert.ok(!/Опрос создан|Tenant B Secret Post|Tenant B Channel/.test(stalePollCreate.text + stalePollCreate.labels.join('\n')), 'tenant A stale poll callback cannot open tenant B post');
+  assert.ok(!/Tenant B Secret Post|Tenant B Channel/.test(stalePollCreate.text + stalePollCreate.labels.join('\n')), 'tenant A stale poll callback does not leak tenant B post');
 
   const secondA = access.bindTenantChannel({ tenantId: tenantA.tenantId, channelId: '-tenant-a-second', channelTitle: 'Tenant A Second Channel', maxChannels: 1 });
   assert.strictEqual(secondA.ok, false, 'Start/one-channel limit blocks second channel');
