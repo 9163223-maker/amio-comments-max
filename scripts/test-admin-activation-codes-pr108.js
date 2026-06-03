@@ -183,8 +183,13 @@ async function sendBot(bot, sent, update) { const before = sent.length; const re
 
   const adminFlow = await sendBot(bot, sent, callbackUpdate('pr108-admin', { action: 'admin_code_confirm_create', planId: 'pro', durationDays: 14, maxChannels: 5 }));
   assert.strictEqual(adminFlow.res.body.screenId, 'pr108_admin_code_created', 'admin bot flow creates code');
-  assert.ok(/Код создан: AK-/.test(adminFlow.text), 'admin sees generated raw code once');
-  const flowRaw = adminFlow.text.match(/AK-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}/)[0];
+  assert.ok(/Код отправлен отдельным сообщением/.test(adminFlow.text), 'admin main screen points to the separate code message');
+  assert.ok(!/AK-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}/.test(adminFlow.text), 'admin main screen does not embed the raw code');
+  const flowRawCall = adminFlow.newCalls.find((call) => /^AK-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}$/.test(String(call.text || '')));
+  assert.ok(flowRawCall, 'admin receives generated raw code once as a separate short message');
+  assert.strictEqual(flowRawCall.userId, 'pr108-admin', 'raw activation code is sent directly to admin user');
+  assert.strictEqual(flowRawCall.chatId || '', '', 'raw activation code is not sent to shared chat');
+  const flowRaw = flowRawCall.text;
   const listScreen = adminScreens.codesListScreen('pr108-admin');
   assert.ok(!JSON.stringify(listScreen).includes(flowRaw), 'admin code list does not show raw created code');
   const tenantScreen = adminScreens.tenantDetailsScreen ? adminScreens.tenantDetailsScreen('pr108-admin', tenant.tenantId) : adminScreens.screenForAction('admin_tenant_details', 'pr108-admin', { tenantId: tenant.tenantId });

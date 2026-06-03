@@ -109,6 +109,7 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
       const adminScreen = isPrivateUserChat(message) ? adminScreens.screenForAction(action, uid, payload) : null;
       if (adminScreen) {
         if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
+        if (adminScreen.rawCodePrivateMessage) await max.sendMessage({ botToken: config.botToken, userId: uid, text: adminScreen.rawCodePrivateMessage, attachments: [], notify: false });
         await sendOrEditScreen({ update, callback, message, config, screen: adminScreen, edit: true });
         return res.status(200).json({ ok: true, handledBy: access.ADMIN_ACCESS_RUNTIME, action, screenId: adminScreen.id, adminRuntime: true });
       }
