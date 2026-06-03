@@ -16,10 +16,10 @@ const sections = [
     id: 'channels', title: 'Каналы', route: 'channels:home', clientVisible: true, adminOnly: false,
     featureKey: 'channels', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
-      action({ id: 'channels.connect', title: 'Подключить канал', section: 'channels', existingAction: 'admin_section_channels' }),
-      action({ id: 'channels.mine', title: 'Мои каналы', section: 'channels', existingAction: 'admin_section_channels' }),
-      action({ id: 'channels.verify_bot', title: 'Проверить права бота', section: 'channels', existingAction: 'admin_section_channels' }),
-      action({ id: 'channels.instructions', title: 'Инструкция по подключению', section: 'channels', existingAction: 'admin_section_help', payload: { context: 'admin_section_channels' } }),
+      action({ id: 'channels.connect', title: 'Подключить канал', section: 'channels', targetAction: 'channels:connect', existingAction: 'admin_section_channels' }),
+      action({ id: 'channels.mine', title: 'Мои каналы', section: 'channels', targetAction: 'channels:list', existingAction: 'admin_section_channels' }),
+      action({ id: 'channels.verify_bot', title: 'Проверить права бота', section: 'channels', targetAction: 'channels:check', existingAction: 'admin_section_channels' }),
+      action({ id: 'channels.instructions', title: 'Инструкция по подключению', section: 'channels', targetAction: 'channels:instructions', existingAction: 'admin_section_help', payload: { context: 'admin_section_channels' } }),
     ],
   },
   {
@@ -127,7 +127,7 @@ const sections = [
     featureKey: 'settings', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'settings.clear_chat', title: 'Очистить чат', section: 'settings', existingAction: 'clear_chat', implemented: false, clientVisible: false, hiddenReason: 'slash_command_only' }),
-      action({ id: 'settings.main_menu', title: 'Главное меню', section: 'settings', targetAction: 'main:home' }),
+      action({ id: 'settings.main_menu', title: 'Главное меню', section: 'settings', targetAction: 'main:home', implemented: false, clientVisible: false, hiddenReason: 'footer_navigation' }),
       action({ id: 'settings.notifications', title: 'Уведомления', section: 'settings', targetAction: 'settings:notifications', implemented: false, clientVisible: false, hiddenReason: 'handler_not_ready' }),
       action({ id: 'settings.language_format', title: 'Язык / формат', section: 'settings', targetAction: 'settings:language_format', implemented: false, clientVisible: false, hiddenReason: 'handler_not_ready' }),
     ],

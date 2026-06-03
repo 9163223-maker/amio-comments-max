@@ -13,6 +13,21 @@ function assertNo(pattern, values, message) {
   assert.deepStrictEqual(hits, [], message);
 }
 
+
+function payloadOf(button) {
+  try { return JSON.parse(String(button?.payload || '{}')); } catch { return {}; }
+}
+function buttonTargets(screen) {
+  return rows(screen).flat().map((item) => ({ text: String(item.text || '').trim(), payload: payloadOf(item) }));
+}
+function assertHasAll(values, required, message) {
+  for (const item of required) assert.ok(values.includes(item), `${message}: missing ${item}`);
+}
+function assertNoSelfRoute(screen, route) {
+  const self = buttonTargets(screen).filter((item) => item.payload.route === route || item.payload.action === route);
+  assert.deepStrictEqual(self.map((item) => item.text), [], `${route} must not include self-click buttons`);
+}
+
 function payloadLabelsFromSend(call) {
   return (call?.attachments?.[0]?.payload?.buttons || []).flat().map((button) => String(button.text || '').trim()).filter(Boolean);
 }
@@ -31,6 +46,11 @@ function createJsonRes() {
   res.json = (body) => { res.body = body; res.headersSent = true; return res; };
   return res;
 }
+
+function callbackUpdate(userId, payload) {
+  return { body: { update_type: 'message_callback', callback: { callback_id: `cb-${userId}-${Date.now()}-${Math.random()}`, user: { user_id: userId }, payload: JSON.stringify(payload) }, message: { id: `msg-${userId}-${Date.now()}`, body: { mid: `mid-${userId}`, text: 'old' }, sender: { user_id: userId }, recipient: { chat_id: `${userId}-chat`, chat_type: 'user' } } } };
+}
+function sentTextAndLabels(call) { return [String(call?.text || ''), ...payloadLabelsFromSend(call)].join('\n'); }
 async function verifyActiveRuntimePath() {
   const coreCalls = { mainScreen: 0, screenForPayload: 0 };
   const originalMainScreen = menuCore.mainScreen;
@@ -76,6 +96,48 @@ async function verifyActiveRuntimePath() {
   assert.strictEqual(botStartedRes.statusCode, 200, 'bot_started active webhook must return 200');
   assert.deepStrictEqual(payloadLabelsFromSend(sent.at(-1)), expectedMain, 'bot_started active runtime must send canonical main menu');
   assert.ok(coreCalls.mainScreen >= 2, 'bot_started must render through v3-menu-core-1539.mainScreen');
+
+  const store = require('../store');
+  const codeA = access.createActivationCode({ planId: 'business', durationDays: 30, maxChannels: 3, createdByMaxUserId: 'pr115-admin' });
+  assert.strictEqual(access.activateCode({ maxUserId: 'pr115-tenant-a', name: 'PR115 Tenant A', code: codeA.code }).ok, true, 'PR115 tenant A activates');
+  const tenantA = access.getTenantByMaxUserId('pr115-tenant-a');
+  assert.strictEqual(access.bindTenantChannel({ tenantId: tenantA.tenantId, channelId: '-pr115-tenant-a-channel', channelTitle: 'PR115 Tenant A Channel', maxChannels: 3 }).ok, true, 'PR115 tenant A channel binds');
+  store.savePost('-pr115-tenant-a-channel:post-a', { channelId: '-pr115-tenant-a-channel', postId: 'post-a', messageId: 'msg-a', originalText: 'PR115 Tenant A Post', channelTitle: 'PR115 Tenant A Channel' });
+  store.saveChannel('-pr115-global-hidden', { channelId: '-pr115-global-hidden', title: 'PR115 Global Hidden Channel', channelTitle: 'PR115 Global Hidden Channel', isMaxChannel: true, isChannel: true, type: 'channel' });
+  const codeB = access.createActivationCode({ planId: 'business', durationDays: 30, maxChannels: 3, createdByMaxUserId: 'pr115-admin' });
+  assert.strictEqual(access.activateCode({ maxUserId: 'pr115-tenant-b', name: 'PR115 Tenant B', code: codeB.code }).ok, true, 'PR115 tenant B activates');
+  const tenantB = access.getTenantByMaxUserId('pr115-tenant-b');
+  assert.strictEqual(access.bindTenantChannel({ tenantId: tenantB.tenantId, channelId: '-pr115-tenant-b-channel', channelTitle: 'PR115 Tenant B Channel', maxChannels: 3 }).ok, true, 'PR115 tenant B channel binds');
+
+  const channelsListRes = createJsonRes();
+  await activeBot.handleWebhook(callbackUpdate('pr115-tenant-a', { route: 'channels:list', action: 'channels:list' }), channelsListRes, { botToken: 'test-token', menuDeleteTimeoutMs: 1 });
+  assert.strictEqual(channelsListRes.statusCode, 200, 'channels:list active callback must return 200');
+  assert.strictEqual(channelsListRes.body?.screenId, 'channels:list', 'channels:list active callback must resolve route screen');
+  const channelsVisible = sentTextAndLabels(sent.at(-1));
+  assert.ok(/PR115 Tenant A Channel/.test(channelsVisible), 'tenant client with channels sees own channel in channels:list active callback');
+  assert.ok(!/У вас пока нет подключённых каналов/.test(channelsVisible), 'tenant client with channels must not see false empty channels:list state');
+  assert.ok(!/PR115 Tenant B Channel|PR115 Global Hidden Channel/.test(channelsVisible), 'channels:list active callback must hide foreign/global channels');
+  assert.ok(!/-pr115-tenant-a-channel|post-a|commentKey|postId|channelId|token|payload|trace/i.test(channelsVisible), 'channels:list active callback must not expose technical identifiers');
+
+  const preservedCallbacks = [
+    ['buttons add', { action: 'button_admin_start_add' }],
+    ['buttons current', { action: 'button_admin_show_current' }],
+    ['gifts post picker', { action: 'gift_admin_recent_posts', page: 0 }],
+    ['gifts list', { action: 'gift_admin_show_current' }],
+    ['editor picker', { action: 'admin_posts_picker' }],
+    ['polls create picker', { action: 'comments_select_post', source: 'polls' }],
+    ['polls results', { action: 'poll_status' }],
+    ['highlights apply picker', { action: 'comments_select_post', source: 'highlights' }],
+    ['highlights remove picker', { action: 'comments_select_post', source: 'highlights' }],
+  ];
+  for (const [name, payload] of preservedCallbacks) {
+    const res = createJsonRes();
+    await activeBot.handleWebhook(callbackUpdate('pr115-tenant-a', payload), res, { botToken: 'test-token', menuDeleteTimeoutMs: 1 });
+    assert.strictEqual(res.statusCode, 200, `${name} active callback must return 200`);
+    assert.ok(!String(res.body?.screenId || '').includes(':choose_channel'), `${name} must not be replaced by static route choose_channel screen`);
+    const visible = sentTextAndLabels(sent.at(-1));
+    assert.ok(!/У вас пока нет подключённых каналов/.test(visible), `${name} must not show false no-channel state for tenant with channels`);
+  }
 
   const legacyMapPath = require.resolve('../production-menu-map-v3-fixed');
   const legacyRendererPath = require.resolve('../production-menu-v3-renderer');
@@ -138,6 +200,65 @@ assert.ok(!labels(adapter.render('ad_links:home')).some((label) => /источн
 for (const item of canonical.allActions().filter((action) => action.clientVisible && action.requiresPost)) {
   assert.strictEqual(item.requiresChannel, true, `${item.id} requires post and must require channel first`);
 }
+
+
+for (const section of canonical.clientSections) {
+  const root = adapter.render(section.route);
+  const rootLabels = labels(root);
+  assertHasAll(rootLabels, ['❓ Помощь по разделу', '🏠 Главное меню'], `${section.id} root navigation`);
+  assert.ok(!rootLabels.includes('↩️ В начало раздела'), `${section.id} root must not include section-home self-click`);
+  assert.ok(!rootLabels.includes('⬅️ Назад'), `${section.id} root must not include back without context`);
+  assertNoSelfRoute(root, section.route);
+
+  const help = adapter.render(`${section.id}:help`);
+  assert.deepStrictEqual(labels(help), ['↩️ В начало раздела', '🏠 Главное меню'], `${section.id} help navigation must be section home + main only`);
+  assert.ok(!/postId|channelId|commentKey|token|payload|trace/i.test(help.text), `${section.id} help must not expose technical identifiers`);
+}
+
+const deepCases = [
+  adapter.render('channels:list'),
+  adapter.render('channels:connect'),
+  adapter.render('comments:choose_channel', { dataContext: { channels: [{ channelId: 'internal-channel-1', title: 'Новости' }] } }),
+  adapter.render('comments:choose_post', { dataContext: { channelId: 'internal-channel-1', channelTitle: 'Новости', posts: [{ postId: 'post-1', commentKey: 'comment-key-1', title: 'Анонс недели' }] } }),
+  adapter.render('comments:post', { payload: { postTitle: 'Анонс недели' } }),
+];
+for (const screen of deepCases) {
+  const deepLabels = labels(screen);
+  assertHasAll(deepLabels, ['⬅️ Назад', '↩️ В начало раздела', '❓ Помощь по разделу', '🏠 Главное меню'], `${screen.route || screen.id} deep navigation`);
+  assertNoSelfRoute(screen, screen.route || screen.id);
+}
+
+const zeroChannels = adapter.render('channels:list', { channels: [] });
+assert.ok(/У вас пока нет подключённых каналов\./.test(zeroChannels.text), 'zero-channel channels list must show safe empty state');
+assertHasAll(labels(zeroChannels), ['Подключить канал', '❓ Помощь по разделу', '🏠 Главное меню'], 'zero-channel channels list navigation');
+
+const accountActive = adapter.render('account:home', { maxUserId: 'pr105-start-user' });
+assert.strictEqual(labels(accountActive).filter((label) => label === '🏠 Главное меню' || label === 'Главное меню').length, 1, 'active account screen must show one main-menu button');
+
+const channelCard = adapter.render('channels:card', { payload: { channelId: 'raw-channel-123', channelTitle: 'Новости компании' } });
+assert.ok(/Новости компании/.test(channelCard.text), 'channel card must use human-readable channel title');
+assert.ok(!/raw-channel-123|postId|channelId|commentKey|token|payload|trace/i.test(channelCard.text), 'channel card must not expose technical identifiers');
+
+const pickerAudit = adapter.postPickerAudit();
+assert.strictEqual(pickerAudit.ok, true, `post picker audit failed: ${JSON.stringify(pickerAudit)}`);
+assert.strictEqual(pickerAudit.implementationStatus, 'contract_only', 'post picker audit must honestly report contract-only status for this PR');
+assert.strictEqual(pickerAudit.productionActionsMigrated, false, 'post picker audit must not claim production post flows are migrated');
+for (const section of ['comments', 'gifts', 'buttons', 'polls', 'highlights', 'editor']) {
+  const contract = adapter.postPickerContract(section);
+  assert.deepStrictEqual(contract.sequence, ['section', 'channel', 'post', 'action'], `${section} picker sequence must be section → channel → post → action`);
+  assert.strictEqual(contract.tenantVisibleChannelsOnly, true, `${section} picker must declare tenant-visible channel filtering`);
+  assert.strictEqual(contract.clientVisibleTechnicalIds, false, `${section} picker must hide technical identifiers from visible UI`);
+  assert.strictEqual(contract.implementationStatus, 'contract_only', `${section} picker contract must not imply production migration`);
+}
+const canonicalActionById = Object.fromEntries(canonical.allActions().map((item) => [item.id, item]));
+assert.strictEqual(canonicalActionById['comments.post_comments'].targetAction, 'comments_select_post', 'comments production action must keep existing picker action');
+assert.strictEqual(canonicalActionById['gifts.post_gift'].targetAction, 'gift_admin_recent_posts', 'gifts production action must keep existing picker action');
+assert.strictEqual(canonicalActionById['buttons.add'].targetAction, 'button_admin_start_add', 'buttons add production action must keep existing flow action');
+assert.strictEqual(canonicalActionById['buttons.current'].targetAction, 'button_admin_show_current', 'buttons current production action must keep existing flow action');
+assert.strictEqual(canonicalActionById['polls.create'].targetAction, 'comments_select_post', 'polls production action must keep existing tenant-aware picker action');
+assert.strictEqual(canonicalActionById['highlights.apply'].targetAction, 'comments_select_post', 'highlights apply production action must keep existing tenant-aware picker action');
+assert.strictEqual(canonicalActionById['highlights.remove'].targetAction, 'comments_select_post', 'highlights remove production action must keep existing tenant-aware picker action');
+assert.strictEqual(canonicalActionById['editor.change_text'].targetAction, 'admin_posts_picker', 'editor production action must keep existing post picker action');
 
 const hiddenDebugScreen = adapter.render('debug:home');
 assertNo(/Debug|GitHub export|trace|production checklist/i, labels(hiddenDebugScreen), 'debug route must not render client-visible debug buttons');

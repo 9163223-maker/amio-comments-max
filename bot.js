@@ -2242,7 +2242,7 @@ function buildGiftWebLinksRow(config) {
   const rows = [];
   if (postsUrl || moderationUrl) {
     rows.push([
-      ...(postsUrl ? [{ type: 'link', text: '📝 Посты / CTA', url: postsUrl }] : []),
+      ...(postsUrl ? [{ type: 'link', text: '📝 Посты / кнопки', url: postsUrl }] : []),
       ...(moderationUrl ? [{ type: 'link', text: '🛡️ Модерация', url: moderationUrl }] : [])
     ]);
   }
@@ -2454,7 +2454,7 @@ function buildButtonsSectionText(targetPost = null) {
     return [
       '🔘 Кнопки под постами',
       '',
-      'Отдельный раздел для CTA-кнопок: комментарии, подарок, заявка, ссылка, переход в бот или мини-приложение.',
+      'Отдельный раздел для кнопок под постами: комментарии, подарок, заявка, ссылка, переход в бот или мини-приложение.',
       'Сначала выберите или перешлите пост.'
     ].join('\n');
   }
@@ -4164,7 +4164,7 @@ async function handleForward(message, config) {
           : selectedSection === 'posts'
           ? 'Меню редактора постов сохранено. Можно безопасно менять текст поста.'
           : selectedSection === 'buttons'
-            ? 'Меню кнопок сохранено. Можно добавлять CTA-кнопки под постом.'
+            ? 'Меню кнопок сохранено. Можно добавлять кнопки под постом.'
             : selectedSection === 'stats'
               ? 'Открываю статистику выбранного поста.'
               : selectedSection === 'gifts'
