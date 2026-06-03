@@ -1,11 +1,12 @@
 'use strict';
 
 const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 500;
 const SLOW_MS = 900;
 
 function limit() {
   const n = Number(process.env.ADMINKIT_UI_TIMING_LIMIT || DEFAULT_LIMIT);
-  return Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 200) : DEFAULT_LIMIT;
+  return Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), MAX_LIMIT) : DEFAULT_LIMIT;
 }
 
 function nowMs() { return Date.now(); }
@@ -23,6 +24,20 @@ function mask(v) {
   if (s.length <= 6) return '***' + s.slice(-2);
   return s.slice(0, 3) + '…' + s.slice(-4);
 }
+function redactText(v) { return clean(v).replace(/AK-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/gi, 'AK-****-****-****').slice(0, 220); }
+function safeData(input = {}) {
+  const out = {};
+  for (const [key, value] of Object.entries(input || {})) {
+    const k = clean(key).toLowerCase();
+    if (/token|secret|authorization|cookie|password|activationcode|rawcode|privatepayload/.test(k)) continue;
+    if (k === 'userid' || k === 'user_id' || k === 'maxuserid' || k === 'max_user_id' || k === 'tenantid' || k === 'tenant_id' || k === 'adminid' || k === 'chatid' || k === 'channelid' || k === 'messageid' || k === 'callbackid') out[key] = mask(value);
+    else if (key === 'durationMs' || key === 'channelCount') { const n = Number(value || 0); if (Number.isFinite(n)) out[key] = n; }
+    else if (typeof value === 'boolean' || typeof value === 'number') out[key] = value;
+    else if (value && typeof value === 'object') out[key] = '[redacted-object]';
+    else out[key] = redactText(value);
+  }
+  return out;
+}
 
 function log(name, data = {}) {
   try {
@@ -35,7 +50,7 @@ function log(name, data = {}) {
       name: clean(name || 'timing'),
       durationMs: Number.isFinite(durationMs) ? durationMs : 0,
       slow: Number.isFinite(durationMs) ? durationMs >= SLOW_MS : false,
-      ...(data || {})
+      ...safeData(data || {})
     };
     st.events.push(entry);
     const cap = limit();
@@ -56,7 +71,7 @@ async function measure(name, data, fn) {
   }
 }
 
-function list() { return state().events.slice().reverse(); }
+function list(max) { const n = Number(max || 0); const cap = Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), MAX_LIMIT) : 0; const events = state().events.slice().reverse(); return cap ? events.slice(0, cap) : events; }
 function clear() { const st = state(); st.seq = 0; st.events = []; return true; }
 
 function summary() {
@@ -89,6 +104,7 @@ function info() {
     total: state().events.length,
     slowThresholdMs: SLOW_MS,
     summary: summary(),
+    maxLimit: MAX_LIMIT,
     events: list(),
     safe: true,
     noDatabaseRead: true,
@@ -96,4 +112,4 @@ function info() {
   };
 }
 
-module.exports = { log, measure, list, clear, info, mask, limit, SLOW_MS };
+module.exports = { log, measure, list, clear, info, mask, limit, SLOW_MS, MAX_LIMIT };

@@ -47,7 +47,8 @@ function updateType(update = {}) { return clean(update.update_type || update.typ
 function channelIdFromUpdate(update = {}) {
   return clean(firstValue(update, ['chat_id', 'chatId', 'channel_id', 'channelId'])) || clean(find(update, (x) => x && typeof x === 'object' && (x.chat_id || x.chatId || x.channel_id || x.channelId), 7)?.chat_id || '');
 }
-function userIdFromUpdate(update = {}) { return clean(firstValue(update, ['user_id', 'userId', 'sender_id', 'senderId', 'from_id', 'fromId'])); }
+function actorUserId(value = {}) { if (!value || typeof value !== 'object') return ''; return clean(value.user_id || value.userId || value.sender_id || value.senderId || value.from_id || value.fromId || value.id); }
+function userIdFromUpdate(update = {}) { const message = messageFromUpdate(update) || {}; const callback = callbackFromUpdate(update) || {}; return clean(actorUserId(callback.user) || actorUserId(callback.sender) || actorUserId(callback.from) || actorUserId(update.user) || actorUserId(update.sender) || actorUserId(update.from) || actorUserId(message.sender) || actorUserId(message.from) || actorUserId(message.user)); }
 function userNameFromUpdate(update = {}) { return clean(firstValue(update, ['first_name', 'firstName', 'username', 'name'])); }
 
 function messageFromUpdate(update = {}) { return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || find(update, (x) => x && typeof x === 'object' && (x.body?.text || x.text) && (x.recipient || x.sender || x.message_id || x.id), 6) || null; }

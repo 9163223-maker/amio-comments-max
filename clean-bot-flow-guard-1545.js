@@ -23,10 +23,11 @@ function mid(m){ return String(m?.body?.mid || m?.body?.message_id || m?.message
 function chat(m){ return String(m?.recipient?.chat_id || m?.recipient?.id || m?.chat_id || m?.chat?.id || '').trim(); }
 function chatType(m){ return String(m?.recipient?.chat_type || m?.recipient?.type || m?.chat_type || m?.chat?.type || '').trim().toLowerCase(); }
 function isChannelMessage(m){ const id=chat(m); return chatType(m)==='channel' || /^-/.test(id); }
-function sender(m){ return String(m?.sender?.user_id || m?.sender?.id || m?.user_id || '').trim(); }
+function sender(m){ return String(m?.sender?.user_id || m?.sender?.id || m?.user?.user_id || m?.user?.id || m?.user_id || m?.userId || '').trim(); }
 function clean(v){ return String(v||'').trim(); }
 function userFrom(o){ if(!o||typeof o!=='object') return ''; return clean(o.user_id||o.userId||o.userID||o.sender_id||o.senderId||o.from_id||o.fromId||o.id||o.uid||userFrom(o.user)||userFrom(o.sender)||userFrom(o.from)||userFrom(o.author)); }
-function uid(u,c,m){ return userFrom(c)||userFrom(u)||sender(m)||userFrom(find(u,x=>x&&typeof x==='object'&&(x.user_id||x.userId||x.sender_id||x.senderId||x.from_id||x.fromId),7)); }
+function actorLike(o){ return o&&typeof o==='object'&&!o.chat_id&&!o.chatId&&!o.chat_type&&!o.chatType&&!o.recipient&&!o.chat&&(o.user_id||o.userId||o.sender_id||o.senderId||o.from_id||o.fromId); }
+function uid(u,c,m){ return userFrom(c)||userFrom(u)||sender(m)||userFrom(find(u,x=>actorLike(x),7)); }
 function cbid(c){ return clean(c?.callback_id || c?.callbackId || c?.id); }
 function pv(c){ return !c ? '' : c.payload!==undefined ? c.payload : c.data!==undefined ? c.data : c.value!==undefined ? c.value : c.callback_data!==undefined ? c.callback_data : c.callbackData!==undefined ? c.callbackData : ''; }
 function rawPayload(c){ const v=pv(c); return !v ? '' : typeof v==='object' ? JSON.stringify(v) : String(v).trim(); }
