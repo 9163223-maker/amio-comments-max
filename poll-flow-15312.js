@@ -13,7 +13,8 @@ function rawText(v){return String(v||'').replace(/\r\n?/g,'\n').trim();}
 function sh(v,n=90){const s=clean(v||'Пост');return s.length<=n?s:s.slice(0,n-1).trim()+'…';}
 function channelAllowed(post={},userId=''){const id=clean(post&&post.channelId);if(!id||!clean(userId))return false;try{return (access.getClientChannels(userId)||[]).some(ch=>clean(ch.channelId||ch.id)===id);}catch{return false;}}
 function postByKey(key,userId=''){try{const post=store.getPost(key)||null;if(!post)return null;if(!clean(userId))return post;const ctx=tenant.ensureTenantContext(userId);return channelAllowed(post,userId)||tenant.belongsToTenant(post,{...ctx,canReadLegacyUnscoped:false})?post:null;}catch{return null;}}
-function postTitle(post,key){return sh((post&&(post.originalText||post.postText||post.title||post.postId))||key||'Пост',120);}
+function hasMedia(post={}){const arr=v=>Array.isArray(v)?v:[];return arr(post.sourceAttachments||post.attachments||post.media||post.photos||post.files).length>0||Boolean(post.photo||post.image||post.video||post.document);}
+function postTitle(post,key){const text=clean(post&&(post.originalText||post.postText||post.text||post.caption)||'');if(text)return sh(text,120);return hasMedia(post)?'Пост с медиа':'Пост без текста';}
 async function setFlow(userId,flow){try{await db.setFlow(String(userId||''),flow);}catch{}}
 async function getFlow(userId){try{return await db.getFlow(String(userId||''));}catch{return null;}}
 async function clearFlow(userId){try{await db.clearFlow(String(userId||''));}catch{}}
@@ -73,7 +74,7 @@ async function customRun(menu,{config,userId='',commentKey=''}={}){
   const flow=await getFlow(userId);const key=commentKey||clean(flow&&flow.commentKey);
   if(!flow||flow.type!=='poll_custom'||!flow.question||!Array.isArray(flow.options)||flow.options.length<2){return {id:'poll_custom_missing',text:['⚠️ Опрос не готов','','Нужно пройти шаги: вопрос → ответы → подтверждение.'].join('\n'),attachments:menu.keyboard([[menu.button('🗳 В начало опросов','admin_section_polls')]])};}
   const post=postByKey(key,userId);
-  if(!post)return {id:'poll_error',text:'⚠️ Пост не найден. Выберите пост заново.',attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'polls'})]])};
+  if(!post)return {id:'poll_error',text:'⚠️ Пост недоступен. Выберите пост заново.',attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'polls'})]])};
   const created=await pollService.createPoll({adminId:userId,channelId:post.channelId,postId:post.postId,commentKey:key,question:flow.question,options:flow.options,template:'custom'});
   if(!created.ok)return {id:'poll_error',text:'⚠️ Не удалось создать опрос: '+String(created.error||'unknown'),attachments:menu.keyboard([[menu.button('✏️ Изменить ответы','poll_custom_edit_options',{commentKey:key})],[menu.button('🏠 Главное меню','admin_section_main')]])};
   await clearFlow(userId);
