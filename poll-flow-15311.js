@@ -33,11 +33,11 @@ function postRows(menu, source='polls', userId=''){
 }
 
 function home(menu){
-  return {id:'polls_home',text:['🗳 Голосовалки / опросы','','Опросы создаются как кнопки под выбранным постом, голоса сохраняются в Postgres.','','Можно выбрать быстрый шаблон или создать свой вопрос и до 4 ответов.'].join('\n'),attachments:menu.keyboard([[menu.button('📌 Выбрать пост для опроса','comments_select_post',{source:'polls'})],[menu.button('📊 Статус опросов','poll_status')],[menu.button('🏠 Главное меню','admin_section_main')]])};
+  return {id:'polls_home',text:['🗳 Опросы','','Опрос создаётся под выбранным постом: вопрос, 2–4 ответа и результаты.','','Можно выбрать быстрый шаблон или написать свой вопрос.'].join('\n'),attachments:menu.keyboard([[menu.button('📌 Выбрать пост для опроса','comments_select_post',{source:'polls'})],[menu.button('📊 Результаты','poll_status')],[menu.button('🏠 Главное меню','admin_section_main')]])};
 }
 function picker(menu,userId=''){
   const {posts,rows}=postRows(menu,'polls',userId);
-  return {id:'polls_picker',text:['🗳 Голосовалки / опросы','',posts.length?'Выберите пост для создания опроса.':'Пока нет постов в памяти бота. Перешлите публикацию боту, чтобы он сохранил канал и пост в Postgres.'].join('\n'),attachments:menu.keyboard(rows)};
+  return {id:'polls_picker',text:['🗳 Опросы','',posts.length?'Выберите пост для создания опроса.':'Пока нет сохранённых постов. Перешлите нужную публикацию боту.'].join('\n'),attachments:menu.keyboard(rows)};
 }
 function picked(menu,commentKey,userId=''){
   const post=postByKey(commentKey,userId);
@@ -114,8 +114,52 @@ async function vote({config,userId='',pollId='',optionId='',commentKey=''}){
   if(r.ok&&key){try{await patchPostWithPoll({config,commentKey:key,pollId});}catch(e){return {ok:true,patchError:String(e&&e.message||e),summary:r.summary};}}
   return r;
 }
-async function statusScreen(menu){
-  try{const s=await pollService.status();return {id:'poll_status',text:['📊 Статус опросов','','Postgres: OK','Опросов: '+((s.counts&&s.counts.polls)||0),'Голосов: '+((s.counts&&s.counts.votes)||0),'','Есть быстрые шаблоны и пользовательские опросы: вопрос + 2–4 ответа.'].join('\n'),attachments:menu.keyboard([[menu.button('📌 Выбрать пост для опроса','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]])};}
-  catch(e){return {id:'poll_status_error',text:['⚠️ Статус опросов недоступен','','Ошибка: '+String(e&&e.message||e)].join('\n'),attachments:menu.keyboard([[menu.button('🏠 Главное меню','admin_section_main')]])};}
+function resultLines(summary){
+  const opts=Array.isArray(summary&&summary.options)?summary.options:[];
+  return ['Опрос','','Вопрос: '+sh(summary&&summary.question||'Опрос',180),'Ответы:',...opts.map((o,i)=>(i+1)+'. '+sh(o&&o.text||'',72)+' — '+Number(o&&o.votes||0)+' ('+Number(o&&o.percent||0)+'%)'),'','Результаты: '+Number(summary&&summary.total||0)];
 }
-module.exports={RUNTIME,home,picker,picked,customStart,createPoll,handleTextInput,vote,statusScreen,patchPostWithPoll};
+async function visibleSummary(userId='',pollId=''){
+  if(!clean(userId)) return null;
+  const summary=await pollService.summary(pollId);
+  if(!summary) return null;
+  const post=postByKey(summary.commentKey,userId);
+  if(!post||clean(post.channelId)!==clean(summary.channelId)||clean(post.postId)!==clean(summary.postId)) return null;
+  return summary;
+}
+async function tenantVisibleActivePolls(userId='',limit=10){
+  let polls=[]; try{polls=await pollService.listRecent({status:'active',limit:Math.max(10,limit*3)});}catch{}
+  const out=[];
+  for(const item of (Array.isArray(polls)?polls:[])){
+    if(out.length>=limit) break;
+    const summary=await visibleSummary(userId,item.pollId);
+    if(summary&&clean(summary.status)==='active') out.push(summary);
+  }
+  return out;
+}
+async function statusScreen(menu,{userId=''}={}){
+  try{
+    const totals=await pollService.status();
+    const active=await tenantVisibleActivePolls(userId,8);
+    const lines=['📊 Результаты','','Опросов: '+((totals.counts&&totals.counts.polls)||0),'Голосов: '+((totals.counts&&totals.counts.votes)||0),'','Активные опросы:',...(active.length?active.map((p,i)=>(i+1)+'. '+sh(p.question,90)):['Пока нет активных опросов.']),'','Опрос содержит вопрос, ответы и результаты.'];
+    const rows=active.map((p,i)=>[menu.button('📊 Результаты '+(i+1),'poll_results',{pollId:p.pollId})]);
+    rows.push([menu.button('📌 Выбрать пост для опроса','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]);
+    return {id:'poll_status',text:lines.join('\n'),attachments:menu.keyboard(rows)};
+  }catch(e){return {id:'poll_status_error',text:['⚠️ Результаты недоступны','','Попробуйте открыть раздел опросов ещё раз.'].join('\n'),attachments:menu.keyboard([[menu.button('🏠 Главное меню','admin_section_main')]])};}
+}
+async function resultsScreen(menu,{userId='',pollId=''}={}){
+  const summary=await visibleSummary(userId,pollId);
+  if(!summary) return {id:'poll_results_missing',text:['⚠️ Опрос не найден','','Откройте результаты из раздела опросов.'].join('\n'),attachments:menu.keyboard([[menu.button('📊 Результаты','poll_status')],[menu.button('🏠 Главное меню','admin_section_main')]])};
+  const rows=[];
+  if(clean(summary.status)==='active') rows.push([menu.button('Остановить опрос','poll_stop',{pollId:summary.pollId,source:'poll_card'})]);
+  rows.push([menu.button('📊 Результаты','poll_status')],[menu.button('🏠 Главное меню','admin_section_main')]);
+  return {id:'poll_results_card',text:resultLines(summary).join('\n'),attachments:menu.keyboard(rows)};
+}
+async function stopPoll(menu,{config,userId='',pollId='',source=''}={}){
+  if(clean(source)!=='poll_card') return {id:'poll_stop_blocked',text:['⚠️ Опрос не остановлен','','Откройте карточку активного опроса и нажмите «Остановить опрос» там.'].join('\n'),attachments:menu.keyboard([[menu.button('📊 Результаты','poll_status')],[menu.button('🏠 Главное меню','admin_section_main')]])};
+  const summary=await visibleSummary(userId,pollId);
+  if(!summary||clean(summary.status)!=='active') return {id:'poll_stop_missing',text:['⚠️ Опрос не найден','','Откройте карточку активного опроса из раздела результатов.'].join('\n'),attachments:menu.keyboard([[menu.button('📊 Результаты','poll_status')],[menu.button('🏠 Главное меню','admin_section_main')]])};
+  const closed=await pollService.closePoll({pollId:summary.pollId,channelId:summary.channelId,postId:summary.postId,commentKey:summary.commentKey});
+  if(closed&&closed.ok){try{await patchPostWithPoll({config,commentKey:summary.commentKey,pollId:summary.pollId,userId});}catch{}}
+  return {id:closed&&closed.ok?'poll_stopped':'poll_stop_missing',text:[closed&&closed.ok?'✅ Опрос остановлен':'⚠️ Опрос не остановлен','','Вопрос: '+sh(summary.question,180),'','Результаты сохранены.'].join('\n'),attachments:menu.keyboard([[menu.button('📊 Результаты','poll_results',{pollId:summary.pollId})],[menu.button('🏠 Главное меню','admin_section_main')]])};
+}
+module.exports={RUNTIME,home,picker,picked,customStart,createPoll,handleTextInput,vote,statusScreen,resultsScreen,stopPoll,patchPostWithPoll};

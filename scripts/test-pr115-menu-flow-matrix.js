@@ -13,6 +13,9 @@ const statsFlow = require('../stats-flow-cc8');
 const adCampaigns = require('../services/adCampaignService');
 const archive = require('../archive-clean-flow-cc8311');
 const tenantScope = require('../tenant-scope');
+const polls = require('../poll-flow-15313');
+const pollService = require('../services/pollService');
+const maxApi = require('../services/maxApi');
 
 const TENANT_A_USER = 'pr115-tenant-a';
 const TENANT_B_USER = 'pr115-tenant-b';
@@ -84,6 +87,21 @@ function assertNoAdLinkRawTechnicalText(screen, label) {
 
 function assertNoAdLinkDisable(screen, label) {
   assert.ok(!buttonLabels(screen).some((text) => /Отключить ссылку/i.test(text)), `${label} must not expose ad link disable`);
+}
+
+function assertNoPollStop(screen, label) {
+  assert.ok(!buttonLabels(screen).some((text) => /Остановить опрос/i.test(text)), `${label} must not expose poll stop`);
+}
+
+function assertHasPollStop(screen, label) {
+  assert.ok(buttonLabels(screen).some((text) => /Остановить опрос/i.test(text)), `${label} must expose poll stop`);
+}
+
+function assertNoPollRawTechnicalText(screen, label) {
+  const visible = screenText(screen);
+  assert.ok(!/\b(postId|channelId|commentKey|token|payload|trace)\b/i.test(visible), `${label} must not expose raw technical fields`);
+  assert.ok(!/poll_[a-z0-9_:-]+|-[a-z0-9-]+:post-/i.test(visible), `${label} must not expose raw poll or post ids`);
+  assert.ok(!/\bCTA\b/i.test(visible), `${label} must not expose CTA wording`);
 }
 
 function assertHasAdLinkDisable(screen, label) {
@@ -260,6 +278,80 @@ async function main() {
   const cardDelete = await buttons.screenForPayload(menu, deletePayload(currentAfterSave), { userId: TENANT_A_USER, config: {} });
   assert.strictEqual(buttonSet(commentKeyA).length, beforeRawDeleteCount - 1, 'card-marked button_admin_delete must delete exactly one button');
   assert.ok(/Последняя кнопка удалена/.test(screenText(cardDelete)), 'card-marked delete should confirm removal');
+
+
+  const originalPollMethods = {
+    status: pollService.status,
+    listRecent: pollService.listRecent,
+    summary: pollService.summary,
+    closePoll: pollService.closePoll,
+    buildPollKeyboardRows: pollService.buildPollKeyboardRows,
+    editMessage: maxApi.editMessage
+  };
+  const pollState = {
+    a: { pollId: 101, question: 'Tenant A Product Question', commentKey: commentKeyA, channelId: TENANT_A_CHANNEL, postId: 'post-a', status: 'active', total: 3, options: [{ text: 'Да', votes: 2, percent: 67 }, { text: 'Нет', votes: 1, percent: 33 }] },
+    b: { pollId: 202, question: 'Tenant B Hidden Poll', commentKey: `${TENANT_B_CHANNEL}:post-b`, channelId: TENANT_B_CHANNEL, postId: 'post-b', status: 'active', total: 1, options: [{ text: 'Скрытый ответ', votes: 1, percent: 100 }, { text: 'Нет', votes: 0, percent: 0 }] },
+    legacy: { pollId: 303, question: 'Global Legacy Poll postId channelId', commentKey: '-global-legacy:post-x', channelId: '-global-legacy', postId: 'post-x', status: 'active', total: 0, options: [{ text: 'payload trace token', votes: 0, percent: 0 }, { text: 'Нет', votes: 0, percent: 0 }] }
+  };
+  pollService.status = async () => ({ ok: true, counts: { polls: 3, votes: 4 } });
+  pollService.listRecent = async () => Object.values(pollState).map((item) => ({ pollId: item.pollId, question: item.question, status: item.status, commentKey: item.commentKey, channelId: item.channelId, postId: item.postId }));
+  pollService.summary = async (pollId) => Object.values(pollState).find((item) => Number(item.pollId) === Number(pollId)) || null;
+  pollService.closePoll = async ({ pollId, channelId, postId, commentKey }) => {
+    const item = Object.values(pollState).find((candidate) => Number(candidate.pollId) === Number(pollId) && candidate.channelId === channelId && candidate.postId === postId && candidate.commentKey === commentKey && candidate.status === 'active');
+    if (!item) return { ok: false, closed: false };
+    item.status = 'closed';
+    return { ok: true, closed: true, pollId: item.pollId };
+  };
+  pollService.buildPollKeyboardRows = async () => [];
+  maxApi.editMessage = async () => ({ ok: true, skipped: true });
+
+  const pollsHome = polls.home(menu);
+  assertNoPollStop(pollsHome, 'polls home/root');
+  assertNoPollRawTechnicalText(pollsHome, 'polls home/root');
+
+  const pollsStatus = await polls.statusScreen(menu, { userId: TENANT_A_USER });
+  assertNoPollStop(pollsStatus, 'polls results list');
+  assertNoPollRawTechnicalText(pollsStatus, 'polls results list');
+  assert.ok(/Tenant A Product Question/.test(screenText(pollsStatus)), 'polls results list should show tenant A active poll');
+  assert.ok(!/Tenant B Hidden Poll|Global Legacy Poll|payload trace token/.test(screenText(pollsStatus)), 'polls results list must not leak tenant B/global/legacy polls');
+
+  const activePollCard = await polls.resultsScreen(menu, { userId: TENANT_A_USER, pollId: pollState.a.pollId });
+  assertHasPollStop(activePollCard, 'active poll card');
+  assertNoPollRawTechnicalText(activePollCard, 'active poll card');
+  assert.ok(/Опрос/.test(screenText(activePollCard)) && /Вопрос/.test(screenText(activePollCard)) && /Ответы/.test(screenText(activePollCard)) && /Результаты/.test(screenText(activePollCard)), 'poll card must use product-safe wording');
+
+  const rawStop = await polls.stopPoll(menu, { userId: TENANT_A_USER, pollId: pollState.a.pollId });
+  assert.strictEqual(pollState.a.status, 'active', 'raw/stale poll stop without poll-card marker must not stop');
+  assertNoPollStop(rawStop, 'raw poll stop rejection');
+  assertNoPollRawTechnicalText(rawStop, 'raw poll stop rejection');
+
+  const tenantBStop = await polls.stopPoll(menu, { userId: TENANT_A_USER, pollId: pollState.b.pollId, source: 'poll_card' });
+  assert.strictEqual(pollState.b.status, 'active', 'tenant A card-marked stop must not stop tenant B poll');
+  assert.ok(/не найден|активного опроса/i.test(screenText(tenantBStop)), 'tenant B stop rejection should be safe');
+  assertNoPollRawTechnicalText(tenantBStop, 'tenant B poll stop rejection');
+
+  const legacyStop = await polls.stopPoll(menu, { userId: TENANT_A_USER, pollId: pollState.legacy.pollId, source: 'poll_card' });
+  assert.strictEqual(pollState.legacy.status, 'active', 'tenant A card-marked stop must not stop global legacy poll');
+  assertNoPollRawTechnicalText(legacyStop, 'global legacy poll stop rejection');
+
+  const stopPayload = callbackPayload(activePollCard, /Остановить опрос/i);
+  assert.deepStrictEqual(stopPayload, { action: 'poll_stop', pollId: pollState.a.pollId, source: 'poll_card' }, 'poll stop button must carry poll-card marker');
+  const stopped = await polls.stopPoll(menu, { userId: TENANT_A_USER, pollId: stopPayload.pollId, source: stopPayload.source, config: {} });
+  assert.strictEqual(pollState.a.status, 'closed', 'card-marked poll stop must stop selected tenant poll');
+  assert.strictEqual(pollState.b.status, 'active', 'card-marked poll stop must not stop tenant B poll');
+  assert.strictEqual(pollState.legacy.status, 'active', 'card-marked poll stop must not stop global legacy poll');
+  assert.ok(/Опрос остановлен/.test(screenText(stopped)), 'card-marked poll stop should confirm stop');
+  assertNoPollRawTechnicalText(stopped, 'card-marked poll stop confirmation');
+
+  const stoppedCard = await polls.resultsScreen(menu, { userId: TENANT_A_USER, pollId: pollState.a.pollId });
+  assertNoPollStop(stoppedCard, 'closed poll results card');
+
+  pollService.status = originalPollMethods.status;
+  pollService.listRecent = originalPollMethods.listRecent;
+  pollService.summary = originalPollMethods.summary;
+  pollService.closePoll = originalPollMethods.closePoll;
+  pollService.buildPollKeyboardRows = originalPollMethods.buildPollKeyboardRows;
+  maxApi.editMessage = originalPollMethods.editMessage;
 
 
   store.setSetupState(TENANT_A_USER, {

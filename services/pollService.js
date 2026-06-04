@@ -165,9 +165,11 @@ async function activePoll({channelId='',postId='',commentKey=''}={}){
   else return null;
   return r.rows[0]||null;
 }
-async function pollById(pollId=''){
+async function pollById(pollId='', {activeOnly=true}={}){
   const id=pollNumber(pollId); if(!id) return null;
-  const r=await q("select * from ak_polls where id=$1 and status='active' limit 1",[id]);
+  const r=activeOnly
+    ? await q("select * from ak_polls where id=$1 and status='active' limit 1",[id])
+    : await q("select * from ak_polls where id=$1 limit 1",[id]);
   return r.rows[0]||null;
 }
 async function summary(pollId){
@@ -178,7 +180,7 @@ async function summary(pollId){
   const cr=await q('select option_id,count(*)::int n from ak_poll_votes where poll_id=$1 group by option_id',[id]);
   const counts={}; for(const row of cr.rows||[]) counts[clean(row.option_id)]=Number(row.n||0);
   const total=Object.values(counts).reduce((a,b)=>a+b,0);
-  return {pollId:id,question:clean(poll.question),commentKey:clean(poll.comment_key),channelId:clean(poll.channel_id),postId:clean(poll.post_id),total,options:opts.map(o=>({id:clean(o.id),text:clean(o.text),votes:counts[clean(o.id)]||0,percent:total?Math.round(((counts[clean(o.id)]||0)/total)*100):0}))};
+  return {pollId:id,question:clean(poll.question),commentKey:clean(poll.comment_key),channelId:clean(poll.channel_id),postId:clean(poll.post_id),status:clean(poll.status),total,options:opts.map(o=>({id:clean(o.id),text:clean(o.text),votes:counts[clean(o.id)]||0,percent:total?Math.round(((counts[clean(o.id)]||0)/total)*100):0}))};
 }
 async function vote({pollId='',optionId='',userId=''}={}){
   const id=pollNumber(pollId), opt=clean(optionId), uid=clean(userId);
@@ -204,5 +206,19 @@ async function buildPollKeyboardRows({channelId='',postId='',commentKey='',pollI
   rows.push(...adaptiveOptionRows(s.options,s.total,s.pollId,s.commentKey));
   return rows;
 }
+async function listRecent({limit=20,status=''}={}){
+  const lim=Math.max(1,Math.min(Number(limit||20),50));
+  const st=clean(status);
+  const r=st
+    ? await q('select * from ak_polls where status=$1 order by updated_at desc,id desc limit $2',[st,lim])
+    : await q('select * from ak_polls order by updated_at desc,id desc limit $1',[lim]);
+  return (r.rows||[]).map(row=>({pollId:Number(row.id),question:clean(row.question),commentKey:clean(row.comment_key),channelId:clean(row.channel_id),postId:clean(row.post_id),status:clean(row.status),updatedAt:row.updated_at}));
+}
+async function closePoll({pollId='',channelId='',postId='',commentKey=''}={}){
+  const id=pollNumber(pollId), ch=clean(channelId), post=clean(postId), ck=clean(commentKey);
+  if(!id||!ch||!post||!ck) return {ok:false,error:'poll_stop_required_fields_missing'};
+  const r=await q("update ak_polls set status='closed',updated_at=now() where id=$1 and channel_id=$2 and post_id=$3 and comment_key=$4 and status='active'",[id,ch,post,ck]);
+  return {ok:r.rowCount>0,pollId:id,closed:r.rowCount>0};
+}
 async function status(){ await ensure(); const a=await q('select count(*)::int n from ak_polls'), b=await q('select count(*)::int n from ak_poll_votes'); return {ok:true,runtimeVersion:RUNTIME,counts:{polls:a.rows[0].n,votes:b.rows[0].n}}; }
-module.exports={RUNTIME,ensure,createPoll,createQuickPoll,parseOptionsText,normalizeOptions,activePoll,summary,vote,buildPollKeyboardRows,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-custom-callback-polls-fast-no-marker-skip'})};
+module.exports={RUNTIME,ensure,createPoll,createQuickPoll,parseOptionsText,normalizeOptions,activePoll,pollById,summary,vote,buildPollKeyboardRows,listRecent,closePoll,status,info:()=>({runtimeVersion:RUNTIME,backend:'postgres-custom-callback-polls-fast-no-marker-skip'})};
