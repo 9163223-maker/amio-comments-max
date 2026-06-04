@@ -38,7 +38,7 @@ function summaryLines(userId = '') {
   const { draft, config } = draftState(userId);
   const items = arr(config.items).filter((x) => x && x.enabled !== false);
   return [
-    `Материал: ${draft.giftAttachment ? 'файл/вложение' : (draft.giftUrl ? safeLinkLabel(draft.giftUrl) : 'не добавлен')}`,
+    `Материал подарка: ${draft.giftAttachment ? 'материал подарка добавлен' : (draft.giftUrl ? safeLinkLabel(draft.giftUrl).replace(/^ссылка сохранена/, 'ссылка на материал сохранена') : 'не добавлен')}`,
     `Текст получателю: ${draft.giftMessage ? short(stripRawUrls(draft.giftMessage), 100) : 'не задан'}`,
     `Условия: ${items.length ? `${items.length} услов.` : 'без условий'}`,
     ...items.map((item) => `• ${stripRawUrls(conditionLabel(item))}`)
