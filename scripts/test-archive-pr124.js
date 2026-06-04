@@ -10,6 +10,7 @@ const insertedAdmins = new Set();
 let sawPostInsertWithAdmin = false;
 let sawArchiveInsertWithAdmin = false;
 let sawSnapshotInsertWithAdmin = false;
+let capturedArchiveHomeText = '';
 
 class FakePool {
   query(sql, params = []) {
@@ -79,7 +80,48 @@ async function main() {
   assert.strictEqual(rawRestore.ok, false, 'raw restore without archive_card marker is blocked');
   assert.strictEqual(rawRestore.error, 'archive_card_source_required', 'raw restore requires archive_card source');
 
-  console.log('PR124 archive FK and restore guard assertions passed');
+  Module._load = function patchedCleanBotLoad(request, parent, isMain) {
+    if (request === './archive-flow-15311') {
+      return {
+        listArchive: async (options = {}) => {
+          assert.strictEqual(options.adminId, 'tenant-a-admin', 'archive home/status count must use current admin scope');
+          assert.deepStrictEqual(options.channelIds, ['tenant-a-channel'], 'archive home/status count must use tenant-visible channels');
+          return { items: [{ id: 1, post_title: 'Tenant A Public Post' }], total: 1, limit: options.limit, offset: options.offset };
+        },
+        stats: async () => { throw new Error('global archive.stats must not be called by client archive home/status'); },
+        formatDate: () => 'now',
+        getArchiveItem: async () => null,
+        restoreAsNewPost: async () => ({ ok: false, error: 'not_used' })
+      };
+    }
+    if (request === './services/maxApi') {
+      return {
+        answerCallback: async () => ({ ok: true }),
+        editMessage: async ({ text }) => { capturedArchiveHomeText = text; return { ok: true }; },
+        sendMessage: async ({ text }) => { capturedArchiveHomeText = text; return { ok: true }; }
+      };
+    }
+    if (request === './services/clientAccessService') {
+      return {
+        getClientChannels: () => [{ channelId: 'tenant-a-channel', title: 'Tenant A Channel' }],
+        getAccessState: () => ({ active: true, admin: false, status: 'active' })
+      };
+    }
+    if (request === './services/accessGateService') return { checkAction: () => ({ allow: true }) };
+    if (request === './features/account-screens-pr106') return { gateMenuForUser: () => null, screenForAction: () => null, screenForGateDecision: () => null };
+    return originalLoad.apply(this, arguments);
+  };
+  delete require.cache[require.resolve('../clean-bot-1539')];
+  const cleanBot = require('../clean-bot-1539').createCleanBot({ handleWebhook: async () => { throw new Error('legacy should not handle archive home'); } });
+  const res = { statusCode: 0, body: null, headersSent: false, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  await cleanBot.handleWebhook({ body: { update_type: 'message_callback', callback: { callback_id: 'cb-home', payload: JSON.stringify({ action: 'admin_section_archive' }), user: { user_id: 'tenant-a-admin' }, message: { body: { mid: 'm1' }, recipient: { chat_id: 'chat-1' } } } } }, res, { botToken: 'test' });
+  assert.strictEqual(res.statusCode, 200, 'archive home callback handled');
+  assert.ok(/подключённых каналов: 1/.test(capturedArchiveHomeText), 'archive home shows visible connected channels count');
+  assert.ok(/сохранённых постов: 1/.test(capturedArchiveHomeText), 'archive home shows tenant-visible archive total');
+  assert.ok(!/сохранённых постов: 3|снимков: 9|архивных записей: 3/i.test(capturedArchiveHomeText), 'archive home must not show global archive.stats totals');
+  assert.ok(/снимки: доступны в карточках постов/i.test(capturedArchiveHomeText), 'archive home does not expose a global snapshot count');
+
+  console.log('PR124 archive FK, tenant home count, and restore guard assertions passed');
 }
 
 main().catch((error) => {
