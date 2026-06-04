@@ -30,6 +30,8 @@ const {
 } = require("./store");
 const { listChannels, registerChannel } = require("./services/channelService");
 const clientAccessService = require("./services/clientAccessService");
+const channelTitleHelper = require("./human-channel-title-helper");
+const channelPostPicker = require("./channel-post-picker-core");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
 const {
   getNativeSlashCommand,
@@ -61,6 +63,7 @@ const MENU_DEDUPE_TTL_MS = 2500;
 const processedCallbacks = new Map();
 const processedCallbackActions = new Map();
 const recentMenus = new Map();
+let activeCallbackUiContext = null;
 
 const ADMINKIT_MENU_LOGO_PATH = path.join(__dirname, "public", "adminkit_chat_logo.png");
 let cachedAdminKitMenuLogoAttachment = null;
@@ -353,15 +356,19 @@ function findStoredChannel(channelId) {
   return listChannels().find((item) => String(item?.channelId || '').trim() === key) || null;
 }
 
-function getReadableChannelName(channelId, fallback = 'Название канала пока недоступно') {
-  const item = findStoredChannel(channelId);
-  return getChannelDisplayName(item) || String(fallback || '').trim() || 'Название канала пока недоступно';
+function getReadableChannelName(channelId, fallback = 'Название канала пока недоступно', userId = '') {
+  const key = String(channelId || '').trim();
+  if (key) {
+    const helperTitle = getSafeHumanChannelTitle(key, userId, findStoredChannel(key) || {});
+    if (helperTitle) return helperTitle;
+  }
+  return String(fallback || '').trim() || 'Название канала пока недоступно';
 }
 
-function getTargetChannelName(targetPost = null, fallback = 'Название канала пока недоступно') {
+function getTargetChannelName(targetPost = null, fallback = 'Название канала пока недоступно', userId = '') {
   const direct = String(targetPost?.channelTitle || targetPost?.title || '').trim();
-  if (direct) return direct;
-  return getReadableChannelName(targetPost?.channelId, fallback);
+  if (direct && !channelPostPicker.looksRawId(direct) && !channelPostPicker.looksInternal(direct)) return direct;
+  return getReadableChannelName(targetPost?.channelId, fallback, userId);
 }
 
 function getSingleVisibleChannel(userId = '') {
@@ -584,7 +591,12 @@ async function buildChannelStatsTextLive({ targetPost = null, userId = '', confi
 }
 
 function getActiveTargetPost(userId = '') {
-  return getCommentTargetPost(userId) || getGiftTargetPost(userId) || null;
+  const target = getCommentTargetPost(userId) || getGiftTargetPost(userId) || null;
+  if (!target?.channelId || !target?.commentKey) return target;
+  if (!canUsePostChannelForUser(userId, target.channelId, { adminView: false })) return null;
+  const stored = getPost(target.commentKey) || null;
+  if (!stored?.commentKey || String(stored.channelId || '').trim() !== String(target.channelId || '').trim()) return null;
+  return getFreshTargetPost(target);
 }
 
 function getGiftPostPreview(targetPost = null, fallback = 'Пост без текста') {
@@ -1487,10 +1499,11 @@ function clearCommentTargetPost(userId) {
   return removeSetupStateKeys(userId, ['commentTargetPost']);
 }
 
-function buildCommentTargetPostRecord({ channelId, channelTitle, postId, messageId, commentKey, originalText, linkedAt = Date.now() } = {}) {
+function buildCommentTargetPostRecord({ channelId, channelTitle, postId, messageId, commentKey, originalText, linkedAt = Date.now(), userId = '' } = {}) {
+  const safeChannelId = String(channelId || '').trim();
   return {
-    channelId: String(channelId || '').trim(),
-    channelTitle: String(channelTitle || '').trim(),
+    channelId: safeChannelId,
+    channelTitle: getSafeHumanChannelTitle(safeChannelId, userId, { channelTitle }),
     postId: String(postId || '').trim(),
     messageId: String(messageId || '').trim(),
     commentKey: String(commentKey || '').trim(),
@@ -1535,14 +1548,22 @@ function sanitizeCommentsUiText(value = '') {
 }
 
 function hasCommentsPostMedia(post = {}) {
-  const attachments = Array.isArray(post.attachments) ? post.attachments : (Array.isArray(post.media) ? post.media : []);
-  return attachments.some((item) => item && typeof item === 'object');
+  const arrays = [post.sourceAttachments, post.attachments, post.media, post.photos].filter(Array.isArray);
+  return arrays.some((items) => items.some((item) => item && typeof item === 'object')) || Boolean(post.photo || post.image || post.video || post.document);
 }
 
 function safeCommentsPostPreview(post = {}) {
-  const text = sanitizeCommentsUiText(post.originalText || post.title || post.preview || '');
-  if (text) return text;
+  const text = sanitizeCommentsUiText(post.originalText || post.postText || post.text || post.caption || '');
+  if (text) return truncateText(text, 120);
   return hasCommentsPostMedia(post) ? 'Пост с медиа' : 'Пост без текста';
+}
+
+function getSafeHumanChannelTitle(channelId = '', userId = '', fallbackSource = {}) {
+  return channelTitleHelper.resolveHumanChannelTitle(channelId, userId, fallbackSource);
+}
+
+async function getTenantChannelPickerChannels(userId = '', config = {}) {
+  return channelPostPicker.listUiChannelsForUser(userId, config || {});
 }
 
 function safeCommentPreview(comment = {}, index = 0) {
@@ -1556,12 +1577,12 @@ function getSelectedPostComments(targetPost = null) {
   return getComments(targetPost.commentKey).filter((item) => !item?.deleted && !item?.hidden);
 }
 
-function buildSelectedCommentsText(targetPost = null, mode = 'list') {
+function buildSelectedCommentsText(targetPost = null, mode = 'list', userId = '') {
   const comments = getSelectedPostComments(targetPost);
   const photoCount = comments.filter((item) => Array.isArray(item.attachments) && item.attachments.some((attachment) => String(attachment?.type || '').toLowerCase() === 'image')).length;
   const reactionsMap = getReactionsMap(targetPost?.commentKey || '') || {};
   const reactionTotal = Object.values(reactionsMap || {}).reduce((sum, byEmoji) => sum + Object.values(byEmoji || {}).reduce((inner, users) => inner + (Array.isArray(users) ? users.length : Object.keys(users || {}).length), 0), 0);
-  const lines = ['Комментарии под постом', '', `Пост: ${safeCommentsPostPreview(targetPost)}`, `Всего комментариев: ${comments.length}`];
+  const lines = ['Комментарии под постом', '', `Канал: ${getTargetChannelName(targetPost, 'Канал без названия', userId)}`, `Пост: ${safeCommentsPostPreview(targetPost)}`, `Всего комментариев: ${comments.length}`];
   if (mode === 'photos') lines.push(`Фото в комментариях: ${photoCount}`);
   if (mode === 'reactions') lines.push(`Реакции и ответы: ${reactionTotal} реакций, ${comments.filter((item) => item.replyToId).length} ответов`);
   if (mode === 'settings') lines.push('Настройки кнопки комментариев', 'Кнопка настраивается только для выбранного поста.');
@@ -1916,6 +1937,7 @@ async function replyToUser({ config, message, text, attachments }) {
   });
   const sentMessageId = extractSentMessageId(result);
   if (userId && sentMessageId) setLatestBotMessageId(userId, sentMessageId);
+  if (message?.__fromCallback && activeCallbackUiContext?.action) recordActualProductionScreen({ userId: userId || activeCallbackUiContext.userId, action: activeCallbackUiContext.action, source: activeCallbackUiContext.source, text, attachments, resolver: 'replyToUser' });
   return result;
 }
 
@@ -2012,6 +2034,7 @@ async function upsertBotMessage({ config, message, text, attachments, editCurren
           activeMessageId: editTargetId,
           deleteIds: []
         });
+        if (message?.__fromCallback && activeCallbackUiContext?.action) recordActualProductionScreen({ userId: userId || activeCallbackUiContext.userId, action: activeCallbackUiContext.action, source: activeCallbackUiContext.source, text, attachments, resolver: 'upsertBotMessage.editMessage' });
         return result;
       } catch (error) {
         logVerbose(config, 'UPSERT EDIT FAILED, FALLBACK TO FRESH MESSAGE', {
@@ -2025,12 +2048,14 @@ async function upsertBotMessage({ config, message, text, attachments, editCurren
     const result = await replyFreshBotMessage({ config, message, text, attachments });
     const sentMessageId = String(extractSentMessageId(result) || '').trim();
     await finalizeActiveAdminMessage({ config, userId, activeMessageId: sentMessageId, deleteIds: [] });
+    if (message?.__fromCallback && activeCallbackUiContext?.action) recordActualProductionScreen({ userId: userId || activeCallbackUiContext.userId, action: activeCallbackUiContext.action, source: activeCallbackUiContext.source, text, attachments, resolver: 'upsertBotMessage.freshFallback' });
     return result;
   }
 
   const result = await replyToUser({ config, message, text, attachments });
   const sentMessageId = String(extractSentMessageId(result) || '').trim();
   await finalizeActiveAdminMessage({ config, userId, activeMessageId: sentMessageId, deleteIds: [] });
+  if (message?.__fromCallback && activeCallbackUiContext?.action) recordActualProductionScreen({ userId: userId || activeCallbackUiContext.userId, action: activeCallbackUiContext.action, source: activeCallbackUiContext.source, text, attachments, resolver: 'upsertBotMessage.reply' });
   return result;
 }
 
@@ -2181,7 +2206,7 @@ function buildRecentPostsKeyboard(page = 0, options = {}) {
   const recent = getRecentGiftPosts(6, page, options);
   let buttons = recent.items.map((post, index) => [{
     type: 'callback',
-    text: truncateText(`${index + 1 + (recent.page * 6)}. ${post.originalText || post.postId || 'Пост без текста'}`, 56),
+    text: truncateText(`${index + 1 + (recent.page * 6)}. ${channelPostPicker.safePostPreview(post)}`, 56),
     payload: buildAdminCallbackPayload('gift_admin_select_post', { commentKey: post.commentKey || '', channelId })
   }]);
 
@@ -2205,9 +2230,12 @@ function buildRecentCommentPostsKeyboard(page = 0, options = {}) {
   const rootAction = getAdminSectionActionFromSource(source);
   let buttons = recent.items.map((post, index) => [{
     type: 'callback',
-    text: truncateText(`${index + 1 + (recent.page * 6)}. ${source === 'comments' ? safeCommentsPostPreview(post) : (post.originalText || post.postId || 'Пост без текста')}`, 56),
+    text: truncateText(`${index + 1 + (recent.page * 6)}. ${safeCommentsPostPreview(post)}`, 56),
     payload: buildAdminCallbackPayload('comments_pick_post', { commentKey: post.commentKey || '', source, channelId })
   }]);
+  if (!buttons.length) {
+    buttons.push([{ type: 'callback', text: 'В этом канале пока нет сохранённых постов.', payload: buildAdminCallbackPayload('comments_select_post', { source, channelId }) }]);
+  }
 
   const navRow = [];
   if (recent.hasPrev) {
@@ -2240,26 +2268,18 @@ function buildAdminChannelPickerText(source = 'comments') {
   return [
     `Выберите канал для ${getAdminSectionNameFromSource(source)}.`,
     '',
-    'После выбора канала бот покажет последние посты этого канала.',
+    'После выбора канала бот покажет сохранённые посты только этого канала.',
     'Если нужного канала нет в списке — добавьте бота в канал администратором и перешлите любой пост.'
   ].join('\n');
 }
 
-function buildAdminChannelPickerKeyboard(userId = '', source = 'comments', options = {}) {
+async function buildAdminChannelPickerKeyboard(userId = '', source = 'comments', options = {}) {
   const normalizedSource = String(source || 'comments').trim().toLowerCase();
   const rootAction = getAdminSectionActionFromSource(normalizedSource);
-  const channels = getVisibleStoredChannelsForUser(userId, { adminView: options?.adminView === true }).filter((item) => String(item?.channelId || '').trim()).slice(0, 12);
-  let rows = channels.map((channel, index) => [{
-    type: 'callback',
-    text: truncateText(`${index + 1}. ${getChannelDisplayName(channel) || channel.channelId}`, 56),
-    payload: buildAdminCallbackPayload(normalizedSource === 'gifts' ? 'gift_admin_channel_pick' : 'comments_channel_pick', {
-      source: normalizedSource,
-      channelId: String(channel.channelId || '').trim()
-    })
-  }]);
-  if (!rows.length) {
-    rows.push([{ type: 'callback', text: '📺 Подключить канал', payload: buildAdminCallbackPayload('admin_bind_channel') }]);
-  }
+  const menu = { button: (text, action, extra = {}) => ({ type: 'callback', text, payload: buildAdminCallbackPayload(action, extra) }) };
+  const built = await channelPostPicker.buildChannelPickerRows(menu, userId, normalizedSource, options?.config || options || {});
+  let rows = built.rows.slice(0, 12);
+  if (!rows.length) rows = [[{ type: 'callback', text: 'Подключить канал', payload: buildAdminCallbackPayload('admin_bind_channel') }]];
   rows = appendAdminFooterRows(rows, { backAction: rootAction, rootAction });
   return [{ type: 'inline_keyboard', payload: { buttons: rows } }];
 }
@@ -2442,9 +2462,8 @@ function buildCommentsSectionKeyboard(config = null, targetPost = null) {
     rows.push([{ type: 'callback', text: 'Фото в комментариях', payload: buildAdminCallbackPayload('comments_photos', cardPayload) }]);
     rows.push([{ type: 'callback', text: 'Реакции и ответы', payload: buildAdminCallbackPayload('comments_reactions', cardPayload) }]);
     rows.push([{ type: 'callback', text: 'Настройки кнопки комментариев', payload: buildAdminCallbackPayload('comments_button_settings', cardPayload) }]);
-    rows.push([{ type: 'callback', text: 'Выбрать пост', payload: buildAdminCallbackPayload('comments_select_post', { source: 'comments' }) }]);
+    rows.push([{ type: 'callback', text: 'Выбрать другой пост', payload: buildAdminCallbackPayload('comments_select_post', { source: 'comments' }) }]);
   } else {
-    rows.push([{ type: 'callback', text: 'Комментарии под постом', payload: buildAdminCallbackPayload('comments_select_post', { source: 'comments' }) }]);
     rows.push([{ type: 'callback', text: 'Выбрать пост', payload: buildAdminCallbackPayload('comments_select_post', { source: 'comments' }) }]);
   }
 
@@ -2488,27 +2507,26 @@ function buildContentSectionKeyboard(targetPost = null) {
   return [{ type: 'inline_keyboard', payload: { buttons: rows } }];
 }
 
-function buildPostsSectionText(targetPost = null) {
+function buildPostsSectionText(targetPost = null, userId = '') {
   const freshTargetPost = getFreshTargetPost(targetPost);
-  const channelName = getTargetChannelName(freshTargetPost);
+  const channelName = getTargetChannelName(freshTargetPost, 'Канал без названия', userId);
   if (!freshTargetPost?.commentKey) {
     return [
       '✏️ Редактор постов',
       '',
-      'Отдельный раздел для безопасного редактирования уже опубликованных постов.',
-      'Сначала выберите или перешлите пост из канала.',
-      'Важно: MAX может ограничивать редактирование опубликованных сообщений по времени. Бот старается сохранить форматирование, ссылки, медиа и системные кнопки.'
+      'Пост не выбран. Сначала выберите канал, затем пост.',
+      'Редактирование текста начнётся только после явного открытия карточки выбранного поста.',
+      '',
+      'Нажмите «Выбрать пост», чтобы открыть список каналов.'
     ].join('\n');
   }
-  const commentsEnabled = !Boolean(freshTargetPost?.commentsDisabled);
   return [
     '✏️ Редактор постов',
     '',
-    'Безопасное изменение текста опубликованного поста без потери медиа, ссылок, форматирования и кнопки комментариев.',
+    'Пост выбран. Действия ниже относятся только к этому посту.',
     '',
-    `Канал: ${channelName}`,
-    `Пост: ${getGiftPostPreview(freshTargetPost)}`,
-    `Комментарии: ${commentsEnabled ? 'включены' : 'выключены'}`,
+    `Выбранный канал: ${channelName}`,
+    `Выбранный пост: ${safeCommentsPostPreview(freshTargetPost)}`,
     '',
     'Выберите действие кнопками ниже.'
   ].join('\n');
@@ -2516,17 +2534,18 @@ function buildPostsSectionText(targetPost = null) {
 
 function buildPostsSectionKeyboard(targetPost = null) {
   const freshTargetPost = getFreshTargetPost(targetPost);
-  const commentsEnabled = !Boolean(freshTargetPost?.commentsDisabled);
-  let rows = [[{ type: 'callback', text: '📌 Выбрать пост', payload: buildAdminCallbackPayload('comments_select_post', { source: 'posts' }) }]];
+  let rows = [];
   if (freshTargetPost?.commentKey) {
-    rows.push([{ type: 'callback', text: '✏️ Изменить текст поста', payload: buildAdminCallbackPayload('comments_edit_text') }]);
-    rows.push([{ type: 'callback', text: commentsEnabled ? '🗑 Убрать комментарии' : '↩️ Вернуть комментарии', payload: buildAdminCallbackPayload('comments_toggle_post_comments', { enabled: commentsEnabled ? '0' : '1' }) }]);
+    rows.push([{ type: 'callback', text: 'Изменить текст выбранного поста', payload: buildAdminCallbackPayload('comments_edit_text', { source: 'editor_card' }) }]);
+    rows.push([{ type: 'callback', text: 'Выбрать другой пост', payload: buildAdminCallbackPayload('comments_select_post', { source: 'posts' }) }]);
+  } else {
+    rows.push([{ type: 'callback', text: 'Выбрать пост', payload: buildAdminCallbackPayload('comments_select_post', { source: 'posts' }) }]);
   }
   rows = appendAdminFooterRows(rows, { backAction: 'admin_section_main', rootAction: 'admin_section_posts' });
   return [{ type: 'inline_keyboard', payload: { buttons: rows } }];
 }
 
-function buildButtonsSectionText(targetPost = null) {
+function buildButtonsSectionText(targetPost = null, userId = '') {
   if (!targetPost?.commentKey) {
     return [
       '🔘 Кнопки под постами',
@@ -2535,7 +2554,7 @@ function buildButtonsSectionText(targetPost = null) {
       'Сначала выберите или перешлите пост.'
     ].join('\n');
   }
-  const channelName = getTargetChannelName(targetPost);
+  const channelName = getTargetChannelName(targetPost, 'Канал без названия', userId);
   const buttons = flattenCustomButtons(targetPost);
   const lines = [
     '🔘 Кнопки под постами',
@@ -2580,21 +2599,23 @@ function buildStatsSectionKeyboard(targetPost = null, userId = '') {
 }
 
 
-function buildCommentsOverviewText(targetPost = null) {
+function buildCommentsOverviewText(targetPost = null, userId = '') {
   const freshTargetPost = getFreshTargetPost(targetPost);
   const lines = [
     'Комментарии под постом',
     '',
-    'Выберите пост, проверьте комментарии, откройте список, фото, реакции и ответы для выбранной публикации.'
+    'Управление комментариями начинается только после явного выбора канала и поста.'
   ];
 
   if (freshTargetPost?.commentKey) {
     lines.push('');
+    lines.push(`Выбранный канал: ${getTargetChannelName(freshTargetPost, 'Канал без названия', userId)}`);
     lines.push(`Выбранный пост: ${safeCommentsPostPreview(freshTargetPost)}`);
     lines.push(`Комментарии: ${!Boolean(freshTargetPost.commentsDisabled) ? 'включены' : 'выключены'}`);
   } else {
     lines.push('');
-    lines.push('Пост пока не выбран. Выберите пост из списка или перешлите публикацию боту.');
+    lines.push('Пост не выбран. Сначала выберите канал, затем пост.');
+    lines.push('Нажмите «Выбрать пост», чтобы открыть список каналов.');
   }
 
   lines.push('');
@@ -2671,8 +2692,8 @@ function buildCommentsHowItWorksText() {
 }
 
 
-function buildCommentsPostAdminText(targetPost = null) {
-  const channelName = getTargetChannelName(targetPost);
+function buildCommentsPostAdminText(targetPost = null, userId = '') {
+  const channelName = getTargetChannelName(targetPost, 'Канал без названия', userId);
   if (!targetPost?.commentKey) {
     return [
       'Редактирование поста',
@@ -3074,12 +3095,12 @@ function buildHelpText() {
 }
 
 
-function buildSectionIntro(section, { userName = '', targetPost = null } = {}) {
+function buildSectionIntro(section, { userName = '', targetPost = null, userId = '' } = {}) {
   if (section === 'gifts') {
     const lines = [];
     if (targetPost?.channelId && targetPost?.postId) {
       lines.push('Раздел «Подарки и лид-магниты».');
-      lines.push(`Канал: ${getTargetChannelName(targetPost)}`);
+      lines.push(`Канал: ${getTargetChannelName(targetPost, 'Канал без названия', userId)}`);
       lines.push(`Пост: ${getGiftPostPreview(targetPost)}`);
       lines.push('Нажмите «Создать подарок», чтобы открыть мастер.');
     } else {
@@ -3088,11 +3109,11 @@ function buildSectionIntro(section, { userName = '', targetPost = null } = {}) {
     }
     return lines.join('\n');
   }
-  if (section === 'comments') return buildCommentsOverviewText(targetPost);
+  if (section === 'comments') return buildCommentsOverviewText(targetPost, userId || userName);
   if (section === 'moderation') return buildModerationSectionText(targetPost);
   if (section === 'content') return buildContentSectionText(targetPost);
-  if (section === 'posts') return buildPostsSectionText(targetPost);
-  if (section === 'buttons') return buildButtonsSectionText(targetPost);
+  if (section === 'posts') return buildPostsSectionText(targetPost, userId || userName);
+  if (section === 'buttons') return buildButtonsSectionText(targetPost, userId || userName);
   if (section === 'stats') return buildStatsSectionText(targetPost);
   if (section === 'info') return buildInfoText();
   if (section === 'help') return buildHelpText();
@@ -3134,10 +3155,10 @@ async function sendSectionMenu({ section = 'main', config, message, note = '', e
 
   if (section === 'gifts') {
     attachments = buildGiftMainMenuKeyboard(config, { flow: currentFlow, targetPost });
-    text = currentFlow ? buildGiftFlowGuidance(currentFlow, config, { targetPost }) : buildSectionIntro('gifts', { userName, targetPost });
+    text = currentFlow ? buildGiftFlowGuidance(currentFlow, config, { targetPost }) : buildSectionIntro('gifts', { userName, userId, targetPost });
   } else if (section === 'comments') {
     attachments = buildCommentsSectionKeyboard(config, targetPost);
-    text = buildSectionIntro('comments', { userName, targetPost });
+    text = buildSectionIntro('comments', { userName, userId, targetPost });
   } else if (section === 'moderation') {
     attachments = buildModerationSectionKeyboard(targetPost);
     text = buildSectionIntro('moderation', { userName, targetPost });
@@ -3146,10 +3167,10 @@ async function sendSectionMenu({ section = 'main', config, message, note = '', e
     text = buildSectionIntro('content', { userName, targetPost });
   } else if (section === 'posts') {
     attachments = buildPostsSectionKeyboard(targetPost);
-    text = buildSectionIntro('posts', { userName, targetPost });
+    text = buildSectionIntro('posts', { userName, userId, targetPost });
   } else if (section === 'buttons') {
     attachments = buildCommentsButtonsAdminKeyboard(targetPost);
-    text = buildSectionIntro('buttons', { userName, targetPost });
+    text = buildSectionIntro('buttons', { userName, userId, targetPost });
   } else if (section === 'stats') {
     attachments = buildStatsSectionKeyboard(targetPost, userId);
     text = buildStatsSectionText(targetPost, userId);
@@ -4369,7 +4390,9 @@ async function handleMessageCallback(update, config) {
     message.__senderUserId = userId;
     message.__senderFirstName = userName;
   }
+  activeCallbackUiContext = { userId, action: String(payload?.action || '').trim(), source: String(payload?.source || '').trim(), at: Date.now() };
 
+  try {
   const callbackMessageIdForDedupe = String(getMessageId(message) || '').trim();
   const actionKey = callbackId ? '' : [userId, payload?.action || '', payload?.commentKey || '', payload?.campaignId || '', payload?.page || '', callbackMessageIdForDedupe].join(':');
   if (isDuplicateCallback(callbackId, actionKey)) {
@@ -4600,7 +4623,7 @@ async function handleMessageCallback(update, config) {
       await acknowledgeCallbackSilently(config, callbackId);
       const targetPost = getCommentTargetPost(userId) || getGiftTargetPost(userId);
       if (message) {
-        await upsertBotMessage({ config, message, text: buildPostsSectionText(targetPost), attachments: buildPostsSectionKeyboard(targetPost), editCurrent: true });
+        await upsertBotMessage({ config, message, text: buildPostsSectionText(targetPost, userId), attachments: buildPostsSectionKeyboard(targetPost), editCurrent: true });
       }
       return { ok: true, action: 'comments_edit_post' };
     }
@@ -4609,7 +4632,7 @@ async function handleMessageCallback(update, config) {
       await acknowledgeCallbackSilently(config, callbackId);
       const targetPost = getCommentTargetPost(userId) || getGiftTargetPost(userId);
       if (message) {
-        await upsertBotMessage({ config, message, text: buildButtonsSectionText(targetPost), attachments: buildCommentsButtonsAdminKeyboard(targetPost), editCurrent: true });
+        await upsertBotMessage({ config, message, text: buildButtonsSectionText(targetPost, userId), attachments: buildCommentsButtonsAdminKeyboard(targetPost), editCurrent: true });
       }
       return { ok: true, action: payload.action };
     }
@@ -4626,7 +4649,7 @@ async function handleMessageCallback(update, config) {
       const currentFlow = getCommentAdminFlow(userId);
       const targetPost = currentFlow?.targetPost || getCommentTargetPost(userId) || getGiftTargetPost(userId);
       if (!currentFlow?.mode) {
-        if (message) await upsertBotMessage({ config, message, text: buildButtonsSectionText(targetPost), attachments: buildCommentsButtonsAdminKeyboard(targetPost), editCurrent: true });
+        if (message) await upsertBotMessage({ config, message, text: buildButtonsSectionText(targetPost, userId), attachments: buildCommentsButtonsAdminKeyboard(targetPost), editCurrent: true });
         return { ok: true, action: 'comments_button_back_no_flow' };
       }
       let nextFlow = null;
@@ -4639,7 +4662,7 @@ async function handleMessageCallback(update, config) {
         nextText = currentFlow.buttonDraft?.edit ? 'Шаг 1/3. Напишите новый текст кнопки.' : 'Шаг 1/3. Напишите текст дополнительной кнопки под постом.';
       } else {
         clearCommentAdminFlow(userId);
-        if (message) await upsertBotMessage({ config, message, text: buildButtonsSectionText(targetPost), attachments: buildCommentsButtonsAdminKeyboard(targetPost), editCurrent: true });
+        if (message) await upsertBotMessage({ config, message, text: buildButtonsSectionText(targetPost, userId), attachments: buildCommentsButtonsAdminKeyboard(targetPost), editCurrent: true });
         return { ok: true, action: 'comments_button_back_to_section' };
       }
       setCommentAdminFlow(userId, nextFlow);
@@ -4748,7 +4771,7 @@ async function handleMessageCallback(update, config) {
         return { ok: true, action: 'comments_select_post_channel_denied', page, source, channelId: '' };
       }
       if (!channelId && visibleChannels.length > 1) {
-        if (message) await upsertBotMessage({ config, message, text: buildAdminChannelPickerText(source), attachments: buildAdminChannelPickerKeyboard(userId, source, { adminView }), editCurrent: true });
+        if (message) { const text = buildAdminChannelPickerText(source); const attachments = await buildAdminChannelPickerKeyboard(userId, source, { config }); await upsertBotMessage({ config, message, text, attachments, editCurrent: true }); recordActualProductionScreen({ userId, action: payload.action, source, text, attachments, resolver: 'comments_select_post.actual' }); }
         return { ok: true, action: 'comments_select_channel', source };
       }
       if (!channelId && visibleChannels.length === 1) channelId = String(visibleChannels[0].channelId || '').trim();
@@ -4757,8 +4780,8 @@ async function handleMessageCallback(update, config) {
         return { ok: true, action: 'comments_select_post_no_channels', page, source, channelId: '' };
       }
       if (message) {
-        const channelLine = `Канал: ${getReadableChannelName(channelId)}`;
-        await upsertBotMessage({ config, message, text: [channelLine, '', 'Выберите пост из списка или просто перешлите его боту.'].join('\n'), attachments: buildRecentCommentPostsKeyboard(page, { source, userId, channelId, adminView }), editCurrent: true });
+        const channelLine = `Канал: ${getReadableChannelName(channelId, 'Канал без названия', userId)}`;
+        const text = [channelLine, '', 'Выберите пост из списка или просто перешлите его боту.'].join('\n'); const attachments = buildRecentCommentPostsKeyboard(page, { source, userId, channelId, adminView }); await upsertBotMessage({ config, message, text, attachments, editCurrent: true }); recordActualProductionScreen({ userId, action: payload.action, source, text, attachments, resolver: 'comments_select_post.actual_posts' });
       }
       return { ok: true, action: 'comments_select_post', page, source, channelId };
     }
@@ -4773,7 +4796,7 @@ async function handleMessageCallback(update, config) {
         return { ok: true, action: 'comments_channel_pick_denied', source, channelId: '' };
       }
       if (message) {
-        await upsertBotMessage({ config, message, text: [`Канал: ${getReadableChannelName(channelId)}`, '', 'Выберите пост из списка или просто перешлите его боту.'].join('\n'), attachments: buildRecentCommentPostsKeyboard(0, { source, userId, channelId, adminView }), editCurrent: true });
+        await upsertBotMessage({ config, message, text: [`Канал: ${getReadableChannelName(channelId, 'Канал без названия', userId)}`, '', 'Выберите пост из списка или просто перешлите его боту.'].join('\n'), attachments: buildRecentCommentPostsKeyboard(0, { source, userId, channelId, adminView }), editCurrent: true });
       }
       return { ok: true, action: 'comments_channel_pick', source, channelId };
     }
@@ -4792,7 +4815,7 @@ async function handleMessageCallback(update, config) {
       if (await rejectInvisibleRequestedChannel({ config, message, userId, channelId: selected.channelId, adminView, editCurrent: true })) {
         return { ok: true, action: 'comments_pick_post_channel_denied', source };
       }
-      const targetPost = buildCommentTargetPostRecord({ channelId: selected.channelId, channelTitle: selected.channelTitle || getReadableChannelName(selected.channelId, ''), postId: selected.postId, messageId: selected.messageId, commentKey: selected.commentKey, originalText: selected.originalText || '' });
+      const targetPost = buildCommentTargetPostRecord({ channelId: selected.channelId, channelTitle: selected.channelTitle || getReadableChannelName(selected.channelId, '', userId), postId: selected.postId, messageId: selected.messageId, commentKey: selected.commentKey, originalText: selected.originalText || selected.postText || selected.text || selected.caption || '', userId });
       setCommentTargetPost(userId, targetPost);
       setGiftTargetPost(userId, buildGiftTargetPostRecord(targetPost));
       if (message) {
@@ -4800,17 +4823,17 @@ async function handleMessageCallback(update, config) {
           rememberAdminScreen(userId, { section: 'content', backAction: 'admin_section_main', rootAction: 'admin_section_content', selectMode: 'content' });
           await upsertBotMessage({ config, message, text: buildContentSectionText(targetPost), attachments: buildContentSectionKeyboard(targetPost), editCurrent: true });
         } else if (source === 'buttons') {
-          await upsertBotMessage({ config, message, text: buildButtonsSectionText(targetPost), attachments: buildCommentsButtonsAdminKeyboard(targetPost), editCurrent: true });
+          await upsertBotMessage({ config, message, text: buildButtonsSectionText(targetPost, userId), attachments: buildCommentsButtonsAdminKeyboard(targetPost), editCurrent: true });
         } else if (source === 'moderation') {
           rememberAdminScreen(userId, { section: 'moderation', backAction: 'admin_section_main', rootAction: 'admin_section_moderation', selectMode: 'moderation' });
           await upsertBotMessage({ config, message, text: buildModerationSectionText(targetPost), attachments: buildModerationSectionKeyboard(targetPost), editCurrent: true });
         } else if (source === 'stats') {
           await upsertBotMessage({ config, message, text: buildCurrentPostStatsText({ targetPost, userId }), attachments: buildStatsSectionKeyboard(targetPost, userId), editCurrent: true });
         } else if (source === 'posts') {
-          await upsertBotMessage({ config, message, text: buildPostsSectionText(targetPost), attachments: buildPostsSectionKeyboard(targetPost), editCurrent: true });
+          await upsertBotMessage({ config, message, text: buildPostsSectionText(targetPost, userId), attachments: buildPostsSectionKeyboard(targetPost), editCurrent: true });
         } else {
           rememberAdminScreen(userId, { section: 'comments', backAction: 'admin_section_main', rootAction: 'admin_section_comments', selectMode: 'comments' });
-          await upsertBotMessage({ config, message, text: buildSectionIntro('comments', { userName, targetPost }), attachments: buildCommentsSectionKeyboard(config, targetPost), editCurrent: true });
+          await upsertBotMessage({ config, message, text: buildSectionIntro('comments', { userName, userId, targetPost }), attachments: buildCommentsSectionKeyboard(config, targetPost), editCurrent: true });
         }
       }
       return { ok: true, action: 'comments_pick_post', source };
@@ -4822,6 +4845,10 @@ async function handleMessageCallback(update, config) {
       if (currentSection === 'comments' || isCommentsPostCardCallback(payload)) {
         if (message) await upsertBotMessage({ config, message, text: 'Сначала выберите пост для комментариев.', attachments: buildCommentsSectionKeyboard(config, null), editCurrent: true });
         return { ok: true, action: 'comments_edit_text_comments_ui_blocked' };
+      }
+      if (currentSection === 'posts' && String(payload.source || '').trim() !== 'editor_card') {
+        if (message) await upsertBotMessage({ config, message, text: 'Сначала выберите пост и откройте его карточку редактора.', attachments: buildPostsSectionKeyboard(null), editCurrent: true });
+        return { ok: true, action: 'comments_edit_text_editor_card_required' };
       }
       const targetPost = getCommentTargetPost(userId) || getGiftTargetPost(userId);
       if (!targetPost?.commentKey) {
@@ -4857,7 +4884,7 @@ async function handleMessageCallback(update, config) {
       if (message) await upsertBotMessage({
         config,
         message,
-        text: buildSelectedCommentsText(targetPost, modeByAction[payload.action] || 'list'),
+        text: buildSelectedCommentsText(targetPost, modeByAction[payload.action] || 'list', userId),
         attachments: buildSelectedCommentsKeyboard(targetPost),
         editCurrent: true
       });
@@ -4891,7 +4918,7 @@ async function handleMessageCallback(update, config) {
             await upsertBotMessage({
               config,
               message,
-              text: buildSectionIntro('comments', { userName, targetPost: freshTarget }) + '\n\n' + successText,
+              text: buildSectionIntro('comments', { userName, userId, targetPost: freshTarget }) + '\n\n' + successText,
               attachments: buildCommentsSectionKeyboard(config, freshTarget),
               editCurrent: true
             });
@@ -4899,7 +4926,7 @@ async function handleMessageCallback(update, config) {
             await upsertBotMessage({
               config,
               message,
-              text: buildPostsSectionText(freshTarget) + '\n\n' + successText,
+              text: buildPostsSectionText(freshTarget, userId) + '\n\n' + successText,
               attachments: buildPostsSectionKeyboard(freshTarget),
               editCurrent: true
             });
@@ -5042,7 +5069,8 @@ async function handleMessageCallback(update, config) {
       return { ok: true, action: 'gift_admin_callback_denied' };
     }
 
-    const targetPost = getGiftTargetPost(userId) || getCommentTargetPost(userId) || null;
+    const rawGiftTargetPost = getGiftTargetPost(userId) || getCommentTargetPost(userId) || null;
+    const targetPost = rawGiftTargetPost?.channelId && canUsePostChannelForUser(userId, rawGiftTargetPost.channelId, { adminView: false }) ? getFreshTargetPost(rawGiftTargetPost) : null;
     const currentFlow = getGiftFlow(userId);
 
     if (payload.action === 'gift_admin_recent_posts') {
@@ -5056,7 +5084,7 @@ async function handleMessageCallback(update, config) {
         return { ok: true, action: 'gift_admin_recent_posts_channel_denied', page, channelId: '' };
       }
       if (!channelId && visibleChannels.length > 1) {
-        if (message) await upsertBotMessage({ config, message, text: buildAdminChannelPickerText('gifts'), attachments: buildAdminChannelPickerKeyboard(userId, 'gifts', { adminView }), editCurrent: true });
+        if (message) await upsertBotMessage({ config, message, text: buildAdminChannelPickerText('gifts'), attachments: await buildAdminChannelPickerKeyboard(userId, 'gifts', { config }), editCurrent: true });
         return { ok: true, action: 'gift_admin_select_channel' };
       }
       if (!channelId && visibleChannels.length === 1) channelId = String(visibleChannels[0].channelId || '').trim();
@@ -5064,7 +5092,7 @@ async function handleMessageCallback(update, config) {
         await showTenantSafeNoChannelsState({ config, message, editCurrent: true });
         return { ok: true, action: 'gift_admin_recent_posts_no_channels', page, channelId: '' };
       }
-      if (message) await sendRecentPostsMenu({ config, message, page, note: `Канал: ${getReadableChannelName(channelId)}
+      if (message) await sendRecentPostsMenu({ config, message, page, note: `Канал: ${getReadableChannelName(channelId, 'Канал без названия', userId)}
 Выберите пост для подарка.`, editCurrent: true, channelId, adminView });
       return { ok: true, action: 'gift_admin_recent_posts', page, channelId };
     }
@@ -5076,7 +5104,7 @@ async function handleMessageCallback(update, config) {
       if (await rejectInvisibleRequestedChannel({ config, message, userId, channelId, adminView, editCurrent: true })) {
         return { ok: true, action: 'gift_admin_channel_pick_denied', channelId: '' };
       }
-      if (message) await sendRecentPostsMenu({ config, message, page: 0, note: `Канал: ${getReadableChannelName(channelId)}
+      if (message) await sendRecentPostsMenu({ config, message, page: 0, note: `Канал: ${getReadableChannelName(channelId, 'Канал без названия', userId)}
 Выберите пост для подарка.`, editCurrent: true, channelId, adminView });
       return { ok: true, action: 'gift_admin_channel_pick', channelId };
     }
@@ -5095,7 +5123,7 @@ async function handleMessageCallback(update, config) {
       }
       const nextTarget = buildGiftTargetPostRecord({
         channelId: selected.channelId,
-        channelTitle: selected.channelTitle || getReadableChannelName(selected.channelId, ''),
+        channelTitle: selected.channelTitle || getReadableChannelName(selected.channelId, '', userId),
         postId: selected.postId,
         messageId: selected.messageId,
         commentKey: selected.commentKey,
@@ -5350,6 +5378,9 @@ async function handleMessageCallback(update, config) {
   }
 
   return { ok: true, skipped: true, reason: 'unsupported_callback', payload };
+  } finally {
+    activeCallbackUiContext = null;
+  }
 }
 
 async function sendStatsMenuResponse({ config, message, userId, mode = 'channel', editCurrent = true }) {
@@ -5542,9 +5573,123 @@ async function handleWebhook(req, res, config) {
   }
 }
 
+
+const uiReplayLast = new Map();
+const uiActualLast = new Map();
+function uiButtonLabels(attachments = []) { return ((attachments && attachments[0] && attachments[0].payload && attachments[0].payload.buttons) || []).flat().map((item) => String(item.text || '').trim()).filter(Boolean); }
+function uiScreenResult(screen = null, fallbackId = '') { return { screenId: String(screen?.id || fallbackId || ''), text: String(screen?.text || ''), buttonLabels: uiButtonLabels(screen?.attachments || []) }; }
+function recordActualProductionScreen({ userId = '', action = '', source = '', text = '', attachments = null, resolver = '' } = {}) {
+  const uid = String(userId || '').trim();
+  const act = String(action || '').trim();
+  if (!uid || !act) return null;
+  const targetPost = getActiveTargetPost(uid);
+  const diag = channelPostPicker.getLastDiagnostics(uid, 'channel_picker');
+  const result = {
+    ok: true,
+    runtimeVersion: channelPostPicker.RUNTIME,
+    action: act,
+    source: String(source || '').trim(),
+    screenId: act,
+    text: String(text || ''),
+    buttonLabels: uiButtonLabels(attachments || []),
+    resolver: resolver || 'actual_callback_send',
+    selectedTarget: selectedTargetDiagnostics(uid, targetPost, text),
+    wizardStarted: /Шаг 1|Напишите текст кнопки|материал подарка/i.test(String(text || '')),
+    channelDiagnostics: diag?.channelDiagnostics || [],
+    warnings: diag?.warnings || [],
+    replayMode: 'actual',
+    notActualProductionPath: false,
+    recordedAt: Date.now()
+  };
+  uiActualLast.set(`${uid}:${act}`, result);
+  uiActualLast.set(uid, result);
+  return result;
+}
+function selectedTargetDiagnostics(userId = '', targetPost = null, text = '') {
+  const fresh = targetPost?.commentKey ? getFreshTargetPost(targetPost) : targetPost;
+  const postPreview = fresh?.commentKey ? safeCommentsPostPreview(fresh) : '';
+  return {
+    exists: Boolean(fresh?.commentKey),
+    channelTitle: fresh?.commentKey ? getTargetChannelName(fresh, 'Канал без названия', userId) : '',
+    postPreview,
+    sourceState: fresh?.commentKey ? (getCommentTargetPost(userId)?.commentKey === fresh.commentKey ? 'commentTargetPost' : (getGiftTargetPost(userId)?.commentKey === fresh.commentKey ? 'giftTargetPost' : 'activeTarget')) : '',
+    visibleOnThisScreen: Boolean(postPreview && String(text || '').includes(postPreview))
+  };
+}
+async function debugUiReplay({ userId = '', action = '', source = '', channelId = '', commentKey = '', config = {} } = {}) {
+  const warnings = [];
+  const safeAction = String(action || 'admin_section_comments').trim();
+  const safeSource = String(source || '').trim();
+  let screen = null;
+  let resolver = 'bot.debugUiReplay';
+  let wizardStarted = false;
+  const targetPost = getActiveTargetPost(userId);
+  const normalizedSource = safeSource || (safeAction.startsWith('gift_') ? 'gifts' : (safeAction.startsWith('button_') ? 'buttons' : 'comments'));
+  if (safeAction === 'comments_select_post' || safeAction === 'gift_admin_recent_posts' || safeAction === 'button_admin_recent_posts') {
+    const pickerSource = safeAction === 'gift_admin_recent_posts' ? 'gifts' : (safeAction === 'button_admin_recent_posts' ? 'buttons' : normalizedSource || 'comments');
+    const attachments = await buildAdminChannelPickerKeyboard(userId, pickerSource, { config });
+    screen = { id: `${pickerSource}_channel_picker`, text: buildAdminChannelPickerText(pickerSource), attachments };
+    resolver = 'channel-post-picker-core';
+  } else if (safeAction === 'admin_section_posts') {
+    screen = { id: 'editor_home', text: buildPostsSectionText(targetPost, userId), attachments: buildPostsSectionKeyboard(targetPost) };
+    resolver = 'buildPostsSectionText/buildPostsSectionKeyboard';
+  } else if (safeAction === 'admin_section_comments') {
+    screen = { id: 'comments_home', text: buildCommentsOverviewText(targetPost, userId), attachments: buildCommentsSectionKeyboard(config, targetPost) };
+    resolver = 'buildCommentsOverviewText/buildCommentsSectionKeyboard';
+  } else if (safeAction === 'admin_section_gifts') {
+    screen = { id: 'gifts_home', text: buildSectionIntro('gifts', { userId, targetPost }), attachments: buildGiftMainMenuKeyboard(config, { targetPost }) };
+    resolver = 'buildGiftMainMenuKeyboard';
+  } else if (safeAction === 'admin_section_buttons') {
+    screen = { id: 'buttons_home', text: buildButtonsSectionText(targetPost, userId), attachments: buildCommentsButtonsAdminKeyboard(targetPost) };
+    resolver = 'buildButtonsSectionText/buildCommentsButtonsAdminKeyboard';
+  } else if (safeAction === 'gift_admin_start_create' || safeAction === 'button_admin_start_add') {
+    if (!targetPost?.commentKey) {
+      const pickerSource = safeAction.startsWith('gift_') ? 'gifts' : 'buttons';
+      const attachments = await buildAdminChannelPickerKeyboard(userId, pickerSource, { config });
+      screen = { id: `${pickerSource}_channel_picker`, text: `Сначала выберите канал и пост.`, attachments };
+      resolver = safeAction === 'comments_select_post' || safeAction === 'gift_admin_recent_posts' || safeAction === 'button_admin_recent_posts' ? 'channel-post-picker-core' : 'synthetic_guarded_channel_picker';
+    } else {
+      screen = safeAction.startsWith('gift_')
+        ? { id: 'gift_start_guarded', text: ['Пост выбран.', `Канал: ${getTargetChannelName(targetPost, 'Канал без названия', userId)}`, `Пост: ${safeCommentsPostPreview(targetPost)}`].join('\n'), attachments: buildGiftMainMenuKeyboard(config, { targetPost }) }
+        : { id: 'button_start_guarded', text: ['Пост выбран.', `Канал: ${getTargetChannelName(targetPost, 'Канал без названия', userId)}`, `Пост: ${safeCommentsPostPreview(targetPost)}`].join('\n'), attachments: buildCommentsButtonsAdminKeyboard(targetPost) };
+      wizardStarted = false;
+    }
+  } else {
+    warnings.push('unsupported_action_replayed_as_comments_home');
+    screen = { id: 'comments_home', text: buildCommentsOverviewText(targetPost, userId), attachments: buildCommentsSectionKeyboard(config, targetPost) };
+  }
+
+  const diag = channelPostPicker.getLastDiagnostics(userId, 'channel_picker');
+  const explicitDiag = channelId ? (await channelPostPicker.resolveUiChannelTitle(channelId, userId, config, {})).diagnostic : null;
+  const rendered = uiScreenResult(screen, safeAction);
+  const result = {
+    ok: true,
+    replayMode: resolver === 'channel-post-picker-core' ? 'production' : 'synthetic',
+    notActualProductionPath: resolver !== 'channel-post-picker-core',
+    runtimeVersion: channelPostPicker.RUNTIME,
+    action: safeAction,
+    source: normalizedSource,
+    screenId: rendered.screenId,
+    text: rendered.text,
+    buttonLabels: rendered.buttonLabels,
+    resolver,
+    selectedTarget: selectedTargetDiagnostics(userId, targetPost, rendered.text),
+    wizardStarted,
+    channelDiagnostics: explicitDiag ? [explicitDiag] : (diag?.channelDiagnostics || []),
+    warnings: [...warnings, ...(diag?.warnings || [])].filter(Boolean)
+  };
+  uiReplayLast.set(`${String(userId || '').trim()}:${safeAction}`, result);
+  uiReplayLast.set(String(userId || '').trim() || 'anonymous', result);
+  return result;
+}
+function debugUiLast({ userId = '', action = '' } = {}) { return uiActualLast.get(`${String(userId || '').trim()}:${String(action || '').trim()}`) || uiActualLast.get(String(userId || '').trim() || 'anonymous') || { ok: false, error: 'ui_last_not_recorded' }; }
+
 module.exports = {
   handleWebhook,
   getPostPatchTraceEvents,
   getPostPatchPerfMetrics,
-  pushPostPatchTrace
+  pushPostPatchTrace,
+  debugUiReplay,
+  debugUiLast,
+  __testBuildCommentsPostAdminText: buildCommentsPostAdminText
 };

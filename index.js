@@ -1062,6 +1062,38 @@ app.get(["/debug/version", "/version/debug"], (req, res) => {
   res.json(baseDebugPayload());
 });
 
+
+function requireUiDebugToken(req, res, next) {
+  const expected = String(config.giftAdminToken || process.env.ADMIN_TOKEN || '').trim();
+  if (!expected) return res.status(403).json({ ok: false, error: 'debug_disabled' });
+  const bearer = String(req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  const token = String(req.query?.token || req.query?.adminToken || req.get('x-admin-token') || bearer || '').trim();
+  if (token !== expected) return res.status(403).json({ ok: false, error: 'debug_forbidden' });
+  return next();
+}
+
+app.get('/debug/ui-replay', requireUiDebugToken, async (req, res) => {
+  setNoCacheHeaders(res);
+  try {
+    const result = await botModule.debugUiReplay({
+      userId: String(req.query?.userId || '').trim(),
+      action: String(req.query?.action || '').trim(),
+      source: String(req.query?.source || '').trim(),
+      channelId: String(req.query?.channelId || '').trim(),
+      commentKey: String(req.query?.commentKey || '').trim(),
+      config
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error?.message || 'ui_replay_failed' });
+  }
+});
+
+app.get('/debug/ui-last', requireUiDebugToken, (req, res) => {
+  setNoCacheHeaders(res);
+  res.json(botModule.debugUiLast({ userId: String(req.query?.userId || '').trim(), action: String(req.query?.action || '').trim() }));
+});
+
 app.get(["/debug", "/debug/store", "/debug/store-live"], (req, res) => {
   setNoCacheHeaders(res);
   res.json(buildLiveDebugPayload());

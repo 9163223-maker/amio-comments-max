@@ -5,6 +5,7 @@ const store = require('./store');
 const config = require('./config');
 const { patchStoredPost } = require('./services/postPatcher');
 const channelTitles = require('./human-channel-title-helper');
+const pickerCore = require('./channel-post-picker-core');
 
 const RUNTIME = 'CC8.3.7-GIFTS-SKIP-CLEAN-NO-IDS';
 const EXTRA_ACTIONS = ['gift_admin_skip_message'];
@@ -17,7 +18,8 @@ function arr(value) { return Array.isArray(value) ? value : []; }
 function looksTechnicalId(value = '') { const s = clean(value); return /^-?\d{6,}$/.test(s) || /^id\d{6,}$/i.test(s); }
 function clearActiveGiftScreen(userId = '') { const uid = clean(userId); if (!uid) return; try { store.setSetupState(uid, { giftActiveScreenMessageId: '', giftActiveScreenId: '', giftActiveScreenAt: 0 }); } catch {} }
 function storedChannelTitle(channelId = '', userId = '') { return channelTitles.resolveHumanChannelTitle(channelId, userId); }
-function targetFromState(userId = '') { const state = setup(userId); const flow = state.giftFlow || {}; return flow.targetPost || state.giftTargetPost || state.commentTargetPost || null; }
+function isVisibleTarget(userId = '', target = null) { if (!target || !clean(target.commentKey) || !clean(target.channelId)) return false; return pickerCore.listUiPostsForChannel(userId, target.channelId).some((post) => clean(post.commentKey) === clean(target.commentKey)); }
+function targetFromState(userId = '') { const state = setup(userId); const flow = state.giftFlow || {}; const target = flow.targetPost || state.giftTargetPost || state.commentTargetPost || null; return isVisibleTarget(userId, target) ? target : null; }
 function hasMedia(target = null) { return arr(target?.sourceAttachments || target?.attachments || target?.media || target?.photos || target?.files).length > 0 || Boolean(target?.photo || target?.image || target?.video || target?.document); }
 function postTitle(target = null) { const text = clean(target?.originalText || target?.postText || target?.text || target?.caption || ''); if (text) return short(text, 70); return hasMedia(target) ? 'Пост с медиа' : 'Пост без текста'; }
 function channelTitle(target = null, userId = '') { return channelTitles.resolveHumanChannelTitle(target?.channelId || target?.requiredChatId || '', userId, target || {}); }
@@ -48,7 +50,7 @@ function rewriteScreen(screen = null, ctx = {}) { if (!screen) return screen; le
   next = cleanTechnicalText(next, ctx);
   return next;
 }
-async function screenForPayload(menu, payload = {}, ctx = {}) { const action = clean(payload.action || payload.raw); const normalized = action === 'gift_admin_skip_message' ? { ...payload, action: 'gift_admin_message_default' } : payload; const normalizedAction = clean(normalized.action || normalized.raw); if (normalizedAction === 'gift_admin_commit_save') { const target = targetFromState(ctx.userId); const screen = rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); if (/Подарок сохран/i.test(clean(screen && screen.text))) { const patchResult = await patchGiftButton(ctx, target); return appendPatchResult(screen, patchResult); } return screen; } return rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); }
+async function screenForPayload(menu, payload = {}, ctx = {}) { const action = clean(payload.action || payload.raw); const normalized = action === 'gift_admin_skip_message' ? { ...payload, action: 'gift_admin_message_default' } : payload; const normalizedAction = clean(normalized.action || normalized.raw); if ((normalizedAction === 'gift_admin_start_create' || normalizedAction === 'gift_admin_create_from_target' || normalizedAction === 'gift_admin_pick_file') && !targetFromState(ctx.userId)) { try { store.setSetupState(clean(ctx.userId), { giftTargetPost: null, commentTargetPost: null, giftFlow: null, activeAdminFlowKind: '' }); } catch {} } if (normalizedAction === 'gift_admin_commit_save') { const target = targetFromState(ctx.userId); const screen = rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); if (/Подарок сохран/i.test(clean(screen && screen.text))) { const patchResult = await patchGiftButton(ctx, target); return appendPatchResult(screen, patchResult); } return screen; } return rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); }
 async function handleTextInput(menu, ctx = {}) { clearActiveGiftScreen(ctx.userId); return rewriteScreen(await base.handleTextInput(menu, ctx), ctx); }
 function isCleanGiftAction(action = '') { return CLEAN_GIFT_ACTIONS.includes(clean(action)) || (base.isCleanGiftAction ? base.isCleanGiftAction(action) : false); }
 
