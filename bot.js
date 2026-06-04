@@ -4807,6 +4807,11 @@ async function handleMessageCallback(update, config) {
 
     if (payload.action === 'comments_edit_text') {
       await acknowledgeCallbackSilently(config, callbackId);
+      const currentSection = String(getAdminUiState(userId)?.section || '').trim();
+      if (currentSection === 'comments' || isCommentsPostCardCallback(payload)) {
+        if (message) await upsertBotMessage({ config, message, text: 'Сначала выберите пост для комментариев.', attachments: buildCommentsSectionKeyboard(config, null), editCurrent: true });
+        return { ok: true, action: 'comments_edit_text_comments_ui_blocked' };
+      }
       const targetPost = getCommentTargetPost(userId) || getGiftTargetPost(userId);
       if (!targetPost?.commentKey) {
         if (message) await upsertBotMessage({ config, message, text: 'Сначала выберите или перешлите пост.', attachments: buildCommentsPostAdminKeyboard(null), editCurrent: true });
@@ -4850,25 +4855,18 @@ async function handleMessageCallback(update, config) {
 
     if (payload.action === 'comments_toggle_post_comments') {
       await acknowledgeCallbackSilently(config, callbackId);
-      const rawTargetPost = getCommentTargetPost(userId) || getGiftTargetPost(userId);
-      const targetPost = isCommentsPostCardCallback(payload) ? getTenantVisibleCommentTargetPost(userId, rawTargetPost) : rawTargetPost;
+      const rawTargetPost = getCommentTargetPost(userId);
+      const targetPost = isCommentsPostCardCallback(payload) ? getTenantVisibleCommentTargetPost(userId, rawTargetPost) : null;
       const currentSection = String(getAdminUiState(userId)?.section || '').trim();
-      if (isCommentsPostCardCallback(payload) && !targetPost?.commentKey) {
-        if (message) await upsertBotMessage({ config, message, text: 'Сначала выберите пост для комментариев.', attachments: buildCommentsSectionKeyboard(config, null), editCurrent: true });
+      if (!isCommentsPostCardCallback(payload) || !targetPost?.commentKey) {
+        if (message) await upsertBotMessage({
+          config,
+          message,
+          text: 'Сначала выберите пост для комментариев.',
+          attachments: buildCommentsSectionKeyboard(config, null),
+          editCurrent: true
+        });
         return { ok: true, action: 'comments_toggle_post_comments_without_selected_post' };
-      }
-      if (!targetPost?.commentKey) {
-        if (message) {
-          const inComments = currentSection === 'comments';
-          await upsertBotMessage({
-            config,
-            message,
-            text: 'Сначала выберите или перешлите пост.',
-            attachments: inComments ? buildCommentsSectionKeyboard(config, null) : buildPostsSectionKeyboard(null),
-            editCurrent: true
-          });
-        }
-        return { ok: true, action: 'comments_toggle_post_comments_without_post' };
       }
       const enabled = String(payload.enabled || '').trim() === '1';
       try {

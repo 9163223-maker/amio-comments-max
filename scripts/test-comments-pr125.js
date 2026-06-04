@@ -7,6 +7,7 @@ process.env.ADMINKIT_TEST_MODE = '1';
 const store = require('../store');
 const access = require('../services/clientAccessService');
 const maxApi = require('../services/maxApi');
+const postEditorService = require('../services/postEditorService');
 
 const TENANT_A_USER = 'pr125-tenant-a';
 const TENANT_B_USER = 'pr125-tenant-b';
@@ -89,9 +90,9 @@ async function main() {
   store.saveChannel(TENANT_A_CHANNEL, { channelId: TENANT_A_CHANNEL, title: 'Tenant A Channel', channelTitle: 'Tenant A Channel' });
   store.saveChannel(TENANT_B_CHANNEL, { channelId: TENANT_B_CHANNEL, title: 'Tenant B Channel', channelTitle: 'Tenant B Channel' });
   store.saveChannel('-pr125-global', { channelId: '-pr125-global', title: 'Global Legacy Channel', channelTitle: 'Global Legacy Channel' });
-  store.savePost(TENANT_A_KEY, { channelId: TENANT_A_CHANNEL, channelTitle: 'Tenant A Channel', postId: 'post-a', messageId: 'msg-a', commentKey: TENANT_A_KEY, originalText: 'Tenant A Public Post' });
-  store.savePost(TENANT_B_KEY, { channelId: TENANT_B_CHANNEL, channelTitle: 'Tenant B Channel', postId: 'post-b', messageId: 'msg-b', commentKey: TENANT_B_KEY, originalText: 'Tenant B Secret Post' });
-  store.savePost(GLOBAL_KEY, { channelId: '-pr125-global', channelTitle: 'Global Legacy Channel', postId: 'post-global', messageId: 'msg-global', commentKey: GLOBAL_KEY, originalText: 'Global Legacy Post postId channelId payload trace token' });
+  store.savePost(TENANT_A_KEY, { channelId: TENANT_A_CHANNEL, channelTitle: 'Tenant A Channel', postId: 'post-a', messageId: 'msg-a', commentKey: TENANT_A_KEY, originalText: 'Tenant A Public Post', commentsDisabled: false });
+  store.savePost(TENANT_B_KEY, { channelId: TENANT_B_CHANNEL, channelTitle: 'Tenant B Channel', postId: 'post-b', messageId: 'msg-b', commentKey: TENANT_B_KEY, originalText: 'Tenant B Secret Post', commentsDisabled: false });
+  store.savePost(GLOBAL_KEY, { channelId: '-pr125-global', channelTitle: 'Global Legacy Channel', postId: 'post-global', messageId: 'msg-global', commentKey: GLOBAL_KEY, originalText: 'Global Legacy Post postId channelId payload trace token', commentsDisabled: false });
   store.addComment(TENANT_A_KEY, { id: 'a-comment-1', text: 'Tenant A visible comment', userId: 'reader-a', attachments: [{ type: 'image', url: 'https://example.test/a.jpg' }] });
   store.addComment(TENANT_A_KEY, { id: 'a-comment-2', text: 'Tenant A visible reply', userId: 'reader-a2', replyToId: 'a-comment-1' });
   store.addComment(TENANT_B_KEY, { id: 'b-comment-1', text: 'Tenant B hidden comment', userId: 'reader-b' });
@@ -105,6 +106,13 @@ async function main() {
   maxApi.editMessage = async (payload) => { sent.push(payload); return { message: { id: `edit-${sent.length}`, body: { mid: `edit-${sent.length}` } } }; };
   maxApi.answerCallback = async () => ({ ok: true });
   maxApi.deleteMessage = async () => ({ ok: true });
+  const toggleCalls = [];
+  postEditorService.setPostCommentsEnabled = async ({ commentKey, enabled }) => {
+    toggleCalls.push({ commentKey, enabled });
+    const current = store.getPost(commentKey) || {};
+    store.savePost(commentKey, { ...current, commentsDisabled: !enabled, commentsEnabled: enabled });
+    return { ok: true, post: store.getPost(commentKey) };
+  };
   delete require.cache[require.resolve('../bot')];
   const bot = require('../bot');
 
@@ -131,6 +139,38 @@ async function main() {
   assert.ok(labels(card).includes('Реакции и ответы'), 'selected comments card exposes scoped reactions/replies');
   assert.ok(labels(card).includes('Настройки кнопки комментариев'), 'selected comments card exposes button settings without raw IDs');
   assertNoCommentsUnsafeUi(card, 'selected comments card');
+
+  const rawToggle = await sendBot(bot, { action: 'comments_toggle_post_comments', enabled: '0' }, sent);
+  assert.ok(/Сначала выберите пост для комментариев/i.test(visible(rawToggle)), 'raw/stale comments toggle without card marker is blocked');
+  assert.strictEqual(toggleCalls.length, 0, 'raw/stale comments toggle must not call setPostCommentsEnabled');
+  assert.strictEqual(store.getPost(TENANT_A_KEY).commentsDisabled, false, 'raw/stale comments toggle must not change selected post state');
+  assertNoCommentsUnsafeUi(rawToggle, 'raw comments toggle rejection');
+
+  const rawEdit = await sendBot(bot, { action: 'comments_edit_text' }, sent);
+  assert.ok(/Сначала выберите пост для комментариев/i.test(visible(rawEdit)), 'raw/stale comments_edit_text from Comments UI is blocked');
+  assert.ok(!store.getSetupState(TENANT_A_USER)?.commentAdminFlow, 'raw/stale comments_edit_text must not enter edit flow from Comments UI');
+  assertNoCommentsUnsafeUi(rawEdit, 'raw comments edit rejection');
+
+  const cardToggle = await sendBot(bot, { action: 'comments_toggle_post_comments', enabled: '0', source: 'comments_post_card' }, sent);
+  assert.strictEqual(toggleCalls.length, 1, 'card-marked comments toggle calls setPostCommentsEnabled once');
+  assert.deepStrictEqual(toggleCalls[0], { commentKey: TENANT_A_KEY, enabled: false }, 'card-marked comments toggle targets selected Tenant A post');
+  assert.strictEqual(store.getPost(TENANT_A_KEY).commentsDisabled, true, 'card-marked comments toggle updates selected Tenant A post');
+  assert.strictEqual(store.getPost(TENANT_B_KEY).commentsDisabled, false, 'card-marked comments toggle does not touch Tenant B post');
+  assert.strictEqual(store.getPost(GLOBAL_KEY).commentsDisabled, false, 'card-marked comments toggle does not touch global legacy post');
+
+  store.setSetupState(TENANT_A_USER, { commentTargetPost: { channelId: TENANT_B_CHANNEL, channelTitle: 'Tenant B Channel', postId: 'post-b', messageId: 'msg-b', commentKey: TENANT_B_KEY, originalText: 'Tenant B Secret Post' } });
+  const staleTenantBToggle = await sendBot(bot, { action: 'comments_toggle_post_comments', enabled: '0', source: 'comments_post_card' }, sent);
+  assert.ok(/Сначала выберите пост для комментариев/i.test(visible(staleTenantBToggle)), 'card-marked comments toggle rejects non-visible Tenant B selected context');
+  assert.strictEqual(toggleCalls.length, 1, 'Tenant B stale toggle must not call setPostCommentsEnabled');
+  assert.strictEqual(store.getPost(TENANT_B_KEY).commentsDisabled, false, 'Tenant A cannot toggle Tenant B comments');
+
+  store.setSetupState(TENANT_A_USER, { commentTargetPost: { channelId: '-pr125-global', channelTitle: 'Global Legacy Channel', postId: 'post-global', messageId: 'msg-global', commentKey: GLOBAL_KEY, originalText: 'Global Legacy Post' } });
+  const staleGlobalToggle = await sendBot(bot, { action: 'comments_toggle_post_comments', enabled: '0', source: 'comments_post_card' }, sent);
+  assert.ok(/Сначала выберите пост для комментариев/i.test(visible(staleGlobalToggle)), 'card-marked comments toggle rejects global legacy selected context');
+  assert.strictEqual(toggleCalls.length, 1, 'global stale toggle must not call setPostCommentsEnabled');
+  assert.strictEqual(store.getPost(GLOBAL_KEY).commentsDisabled, false, 'Tenant A cannot toggle global legacy comments');
+
+  store.setSetupState(TENANT_A_USER, { commentTargetPost: { channelId: TENANT_A_CHANNEL, channelTitle: 'Tenant A Channel', postId: 'post-a', messageId: 'msg-a', commentKey: TENANT_A_KEY, originalText: 'Tenant A Public Post' } });
 
   const listPayload = callbackPayload(card, /Список комментариев/);
   assert.strictEqual(listPayload.source, 'comments_post_card', 'comments list callback carries selected post/card marker');
