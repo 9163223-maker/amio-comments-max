@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const { Pool } = require('pg');
 
-const RUNTIME = 'ADMINKIT-POSTGRES-POST-ARCHIVE-1.1-SCHEMA-MIGRATE';
+const RUNTIME = 'ADMINKIT-POSTGRES-POST-ARCHIVE-1.2-FK-TENANT-SAFE';
 let pool = null;
 let ensurePromise = null;
 let pendingSnapshot = null;
@@ -80,6 +80,10 @@ async function ensureArchiveSchema() {
     "ALTER TABLE ak_posts ADD COLUMN IF NOT EXISTS meta JSONB NOT NULL DEFAULT '{}'::jsonb",
     "ALTER TABLE ak_posts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
     "ALTER TABLE ak_posts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+    "CREATE TABLE IF NOT EXISTS ak_admins (admin_id TEXT PRIMARY KEY)",
+    "ALTER TABLE ak_admins ADD COLUMN IF NOT EXISTS raw JSONB NOT NULL DEFAULT '{}'::jsonb",
+    "ALTER TABLE ak_admins ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+    "ALTER TABLE ak_admins ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
     "UPDATE ak_posts SET comment_key = channel_id || ':' || post_id WHERE COALESCE(comment_key, '') = '' AND COALESCE(channel_id, '') <> '' AND COALESCE(post_id, '') <> ''",
     "CREATE INDEX IF NOT EXISTS ak_posts_comment_key_idx ON ak_posts(comment_key)",
     "CREATE INDEX IF NOT EXISTS ak_posts_channel_updated_idx ON ak_posts(channel_id, updated_at DESC)",
@@ -97,6 +101,7 @@ async function ensureArchiveSchema() {
     "ALTER TABLE ak_post_snapshots ADD COLUMN IF NOT EXISTS post_title TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE ak_post_snapshots ADD COLUMN IF NOT EXISTS post_preview TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE ak_post_snapshots ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT '{}'::jsonb",
+    "ALTER TABLE ak_post_snapshots ADD COLUMN IF NOT EXISTS admin_id TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE ak_post_snapshots ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
     "CREATE UNIQUE INDEX IF NOT EXISTS ak_post_snapshots_unique_uidx ON ak_post_snapshots(channel_id, post_id, snapshot_hash)",
     "CREATE INDEX IF NOT EXISTS ak_post_snapshots_post_idx ON ak_post_snapshots(channel_id, post_id, created_at DESC)",
@@ -113,9 +118,11 @@ async function ensureArchiveSchema() {
     "ALTER TABLE ak_post_archive ADD COLUMN IF NOT EXISTS post_title TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE ak_post_archive ADD COLUMN IF NOT EXISTS post_preview TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE ak_post_archive ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT '{}'::jsonb",
+    "ALTER TABLE ak_post_archive ADD COLUMN IF NOT EXISTS admin_id TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE ak_post_archive ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
     "CREATE INDEX IF NOT EXISTS ak_post_archive_post_idx ON ak_post_archive(channel_id, post_id, created_at DESC)",
-    "CREATE INDEX IF NOT EXISTS ak_post_archive_comment_key_idx ON ak_post_archive(comment_key, created_at DESC)"
+    "CREATE INDEX IF NOT EXISTS ak_post_archive_comment_key_idx ON ak_post_archive(comment_key, created_at DESC)",
+    "CREATE INDEX IF NOT EXISTS ak_post_archive_admin_created_idx ON ak_post_archive(admin_id, created_at DESC)"
   ];
   for (const sql of archiveMigrations) await query(sql);
 }
@@ -143,6 +150,26 @@ async function ensure() {
 function channelTitle(channel = {}) { return clean(channel.title || channel.channelTitle || channel.name || channel.chatTitle || channel.channelName || ''); }
 function postTitle(post = {}) { return clean(post.postTitle || post.title || post.originalText || post.postText || post.text || post.messageText || 'Пост').slice(0, 180); }
 function postPreview(post = {}) { return clean(post.postPreview || post.preview || post.originalText || post.postText || post.text || post.messageText || postTitle(post)).slice(0, 500); }
+function adminIdOfPost(post = {}) { return clean(post.adminId || post.admin_id || post.linkedByUserId || post.linked_by_user_id || post.ownerUserId || post.owner_user_id || post.userId || post.user_id || ''); }
+async function adminIdForChannel(channelId = '') {
+  const id = clean(channelId);
+  if (!id) return '';
+  try {
+    const r = await query(`SELECT COALESCE(NULLIF(linked_by_user_id,''), NULLIF(meta->>'linkedByUserId',''), NULLIF(meta->>'adminId',''), '') AS admin_id FROM ak_channels WHERE channel_id=$1 LIMIT 1`, [id]);
+    return clean(r.rows && r.rows[0] && r.rows[0].admin_id);
+  } catch { return ''; }
+}
+async function ensureArchivePrincipals({ adminId = '', channelId = '', channelTitle = '', meta = {} } = {}) {
+  const aid = clean(adminId);
+  const cid = clean(channelId);
+  if (!aid || !cid) return { ok: false, error: 'archive_principal_missing', adminId: !!aid, channelId: !!cid };
+  const raw = JSON.stringify({ source: 'postgres_archive_fk_guard', runtimeVersion: RUNTIME, ...(meta || {}) });
+  await query(`INSERT INTO ak_admins(admin_id, raw, updated_at) VALUES($1,$2::jsonb,NOW()) ON CONFLICT(admin_id) DO UPDATE SET raw=COALESCE(ak_admins.raw,'{}'::jsonb) || excluded.raw, updated_at=NOW()`, [aid, raw]);
+  const title = clean(channelTitle) || cid;
+  const updated = await query(`UPDATE ak_channels SET channel_title=COALESCE(NULLIF($2,''), channel_title), linked_by_user_id=COALESCE(NULLIF($3,''), linked_by_user_id), active=TRUE, meta=COALESCE(meta,'{}'::jsonb) || $4::jsonb, updated_at=NOW() WHERE channel_id=$1`, [cid, title, aid, raw]);
+  if (updated.rowCount === 0) await query(`INSERT INTO ak_channels(channel_id, channel_title, linked_by_user_id, active, meta, created_at, updated_at) VALUES($1,$2,$3,TRUE,$4::jsonb,NOW(),NOW())`, [cid, title, aid, raw]);
+  return { ok: true, adminId: aid, channelId: cid };
+}
 function stableStringify(value) {
   if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']';
   if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map((key) => JSON.stringify(key) + ':' + stableStringify(value[key])).join(',') + '}';
@@ -179,7 +206,11 @@ async function syncPosts(posts = [], reason = 'auto') {
     const preview = postPreview(post);
     const payload = { ...post, channelId, postId, commentKey };
     const hash = snapshotHash(payload);
-    const values = [clean(post.adminId || post.admin_id || post.linkedByUserId), channelId, clean(post.channelTitle || post.chatTitle || post.channelName), postId, clean(post.messageId), commentKey, title, preview, reason, JSON.stringify(payload)];
+    const adminId = adminIdOfPost(post) || await adminIdForChannel(channelId);
+    const principal = await ensureArchivePrincipals({ adminId, channelId, channelTitle: clean(post.channelTitle || post.chatTitle || post.channelName), meta: { postId, reason } });
+    if (!principal.ok) throw new Error(principal.error);
+    payload.adminId = principal.adminId;
+    const values = [principal.adminId, channelId, clean(post.channelTitle || post.chatTitle || post.channelName), postId, clean(post.messageId), commentKey, title, preview, reason, JSON.stringify(payload)];
     const updated = await query(
       `UPDATE ak_posts SET admin_id = COALESCE(NULLIF($1, ''), admin_id), channel_title = COALESCE(NULLIF($3, ''), channel_title), message_id = COALESCE(NULLIF($5, ''), message_id), comment_key = COALESCE(NULLIF($6, ''), comment_key), post_title = COALESCE(NULLIF($7, ''), post_title), post_preview = COALESCE(NULLIF($8, ''), post_preview), source = $9, archived = FALSE, meta = meta || $10::jsonb, updated_at = NOW() WHERE channel_id = $2 AND post_id = $4`,
       values
@@ -187,12 +218,12 @@ async function syncPosts(posts = [], reason = 'auto') {
     if (updated.rowCount === 0) await query(`INSERT INTO ak_posts (admin_id, channel_id, channel_title, post_id, message_id, comment_key, post_title, post_preview, source, archived, meta, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10::jsonb,NOW(),NOW())`, values);
     upserted += 1;
     const inserted = await query(
-      `INSERT INTO ak_post_snapshots (channel_id, post_id, comment_key, snapshot_hash, snapshot_kind, post_title, post_preview, payload, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,NOW()) ON CONFLICT (channel_id, post_id, snapshot_hash) DO NOTHING RETURNING id`,
-      [channelId, postId, commentKey, hash, reason, title, preview, JSON.stringify(payload)]
+      `INSERT INTO ak_post_snapshots (channel_id, post_id, comment_key, snapshot_hash, snapshot_kind, post_title, post_preview, payload, admin_id, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,NOW()) ON CONFLICT (channel_id, post_id, snapshot_hash) DO NOTHING RETURNING id`,
+      [channelId, postId, commentKey, hash, reason, title, preview, JSON.stringify(payload), principal.adminId]
     );
     if (inserted.rowCount > 0) {
       snapshots += 1;
-      await query(`INSERT INTO ak_post_archive (channel_id, post_id, comment_key, archive_reason, post_title, post_preview, payload, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,NOW())`, [channelId, postId, commentKey, reason, title, preview, JSON.stringify(payload)]);
+      await query(`INSERT INTO ak_post_archive (channel_id, post_id, comment_key, archive_reason, post_title, post_preview, payload, admin_id, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,NOW())`, [channelId, postId, commentKey, reason, title, preview, JSON.stringify(payload), principal.adminId]);
     }
   }
   return { upserted, snapshots };
@@ -258,4 +289,4 @@ async function flush() {
 function info() { return { ...lastInfo, configured: isConfigured(), runtimeVersion: RUNTIME, backend: 'postgres-archive-tables', pending: Boolean(pendingTimer || pendingSnapshot || pendingPromise) }; }
 process.once('SIGTERM', () => { flush().finally(() => {}); });
 process.once('SIGINT', () => { flush().finally(() => {}); });
-module.exports = { RUNTIME, isConfigured, ensure, syncStore, scheduleSync, flush, status, info };
+module.exports = { RUNTIME, isConfigured, ensure, syncStore, scheduleSync, flush, status, info, ensureArchivePrincipals };

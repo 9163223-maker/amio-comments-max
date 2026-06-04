@@ -106,6 +106,14 @@ function assertNoPollRawTechnicalText(screen, label) {
   assert.ok(!/\bCTA\b/i.test(visible), `${label} must not expose CTA wording`);
 }
 
+
+function assertNoArchiveRawTechnicalText(screen, label) {
+  const visible = screenText(screen);
+  assert.ok(!/Post ID|admin_id|FK|SQL|Postgres error/i.test(visible), `${label} must not expose database or raw id wording`);
+  assert.ok(!/\b(postId|channelId|commentKey|token|payload|trace)\b/i.test(visible), `${label} must not expose raw technical fields`);
+  assert.ok(!/\bCTA\b/i.test(visible), `${label} must not expose CTA wording`);
+}
+
 function assertNoEditorRawTechnicalText(screen, label) {
   const visible = screenText(screen);
   assert.ok(!/Post ID/i.test(visible), `${label} must not expose raw Post ID`);
@@ -615,6 +623,45 @@ async function main() {
 
   const archiveList = await archive.screenForPayload(menu, { action: 'archive_list' }, { userId: TENANT_A_USER, config: {} });
   assertTenantAScreen(archiveList, 'archive_list');
+  assert.ok(!/Global Legacy Post|postId channelId payload trace token/.test(screenText(archiveList)), 'archive_list must hide global legacy posts');
+  assertNoArchiveRawTechnicalText(archiveList, 'archive_list');
+
+  const archiveGroupPayload = callbackPayload(archiveList, /Tenant A Public Post/i);
+  const archiveGroupCard = await archive.screenForPayload(menu, archiveGroupPayload, { userId: TENANT_A_USER, config: {} });
+  assertTenantAScreen(archiveGroupCard, 'archive_group_card');
+  assertNoArchiveRawTechnicalText(archiveGroupCard, 'archive_group_card');
+
+  const archivePostPayload = callbackPayload(archiveGroupCard, /Tenant A Public Post/i);
+  const archiveCard = await archive.screenForPayload(menu, archivePostPayload, { userId: TENANT_A_USER, config: {} });
+  assertTenantAScreen(archiveCard, 'archive_post_card');
+  assert.ok(buttonLabels(archiveCard).some((text) => /Восстановить пост/i.test(text)), 'restore button appears only inside selected archive card');
+  assertNoArchiveRawTechnicalText(archiveCard, 'archive_post_card');
+
+  const archiveVersions = await archive.screenForPayload(menu, { action: 'archive_post_versions', commentKey: `${TENANT_A_CHANNEL}:post-a` }, { userId: TENANT_A_USER, config: {} });
+  assertTenantAScreen(archiveVersions, 'archive_post_versions');
+  assert.ok(!/Tenant B Secret Post|Global Legacy Post/.test(screenText(archiveVersions)), 'archive versions must not leak tenant B/global data');
+  assertNoArchiveRawTechnicalText(archiveVersions, 'archive_post_versions');
+
+  const tenantBArchiveCard = await archive.screenForPayload(menu, { action: 'archive_post_card', commentKey: `${TENANT_B_CHANNEL}:post-b` }, { userId: TENANT_A_USER, config: {} });
+  assert.ok(!/Tenant B Secret Post|Tenant B Channel/.test(screenText(tenantBArchiveCard)), 'tenant A must not open tenant B archive card');
+  assert.ok(!buttonLabels(tenantBArchiveCard).some((text) => /Восстановить пост/i.test(text)), 'tenant B archive rejection must not expose restore');
+  assertNoArchiveRawTechnicalText(tenantBArchiveCard, 'tenant B archive card rejection');
+
+  const rawArchiveRestore = await archive.screenForPayload(menu, { action: 'archive_restore', commentKey: `${TENANT_A_CHANNEL}:post-a` }, { userId: TENANT_A_USER, config: {} });
+  assert.notStrictEqual(rawArchiveRestore.id, 'archive_clean_restore_ready', 'raw/stale restore without archive_card marker must not restore');
+  assert.ok(/карточк.*архив/i.test(screenText(rawArchiveRestore)), 'raw archive restore should tell user to open archive card');
+  assertNoArchiveRawTechnicalText(rawArchiveRestore, 'raw archive restore rejection');
+
+  const restorePayload = callbackPayload(archiveCard, /Восстановить пост/i);
+  assert.deepStrictEqual(restorePayload, { action: 'archive_restore', commentKey: `${TENANT_A_CHANNEL}:post-a`, source: 'archive_card' }, 'archive restore button must carry archive-card marker');
+  const archiveRestoreReady = await archive.screenForPayload(menu, restorePayload, { userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(archiveRestoreReady.id, 'archive_clean_restore_ready', 'card-marked restore must target selected tenant-visible archive item');
+  assertTenantAScreen(archiveRestoreReady, 'card-marked archive restore');
+  assertNoArchiveRawTechnicalText(archiveRestoreReady, 'card-marked archive restore');
+
+  const staleTenantBRestore = await archive.screenForPayload(menu, { action: 'archive_restore', commentKey: `${TENANT_B_CHANNEL}:post-b`, source: 'archive_card' }, { userId: TENANT_A_USER, config: {} });
+  assert.notStrictEqual(staleTenantBRestore.id, 'archive_clean_restore_ready', 'card-marked restore must not target tenant B archive item');
+  assertNoArchiveRawTechnicalText(staleTenantBRestore, 'tenant B archive restore rejection');
 
   console.log('PR115 menu flow matrix tenant filtering assertions passed');
 }
