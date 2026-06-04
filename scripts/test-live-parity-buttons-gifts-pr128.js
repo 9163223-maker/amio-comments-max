@@ -94,6 +94,7 @@ async function main() {
     maxApi.answerCallback = async () => ({ ok: true });
     delete require.cache[require.resolve('../bot')];
     const bot = require('../bot');
+    assert.doesNotThrow(() => bot.__testBuildCommentsPostAdminText({ channelId: CH_LIVE, commentKey: KEY_LIVE, originalText: 'Live hydrated post' }, TENANT_A_USER), 'old comments post admin text path does not throw with userId');
     const editorReplay = await bot.debugUiReplay({ userId: TENANT_A_USER, action: 'comments_select_post', source: 'posts', config: { botToken: 'test-token' } });
     assert.strictEqual(editorReplay.ok, true, 'debug ui replay succeeds');
     assert.strictEqual(editorReplay.replayMode, 'production', 'channel picker replay uses production picker core');

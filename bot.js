@@ -2692,7 +2692,7 @@ function buildCommentsHowItWorksText() {
 }
 
 
-function buildCommentsPostAdminText(targetPost = null) {
+function buildCommentsPostAdminText(targetPost = null, userId = '') {
   const channelName = getTargetChannelName(targetPost, 'Канал без названия', userId);
   if (!targetPost?.commentKey) {
     return [
@@ -4390,7 +4390,9 @@ async function handleMessageCallback(update, config) {
     message.__senderUserId = userId;
     message.__senderFirstName = userName;
   }
+  activeCallbackUiContext = { userId, action: String(payload?.action || '').trim(), source: String(payload?.source || '').trim(), at: Date.now() };
 
+  try {
   const callbackMessageIdForDedupe = String(getMessageId(message) || '').trim();
   const actionKey = callbackId ? '' : [userId, payload?.action || '', payload?.commentKey || '', payload?.campaignId || '', payload?.page || '', callbackMessageIdForDedupe].join(':');
   if (isDuplicateCallback(callbackId, actionKey)) {
@@ -5376,6 +5378,9 @@ async function handleMessageCallback(update, config) {
   }
 
   return { ok: true, skipped: true, reason: 'unsupported_callback', payload };
+  } finally {
+    activeCallbackUiContext = null;
+  }
 }
 
 async function sendStatsMenuResponse({ config, message, userId, mode = 'channel', editCurrent = true }) {
@@ -5685,5 +5690,6 @@ module.exports = {
   getPostPatchPerfMetrics,
   pushPostPatchTrace,
   debugUiReplay,
-  debugUiLast
+  debugUiLast,
+  __testBuildCommentsPostAdminText: buildCommentsPostAdminText
 };
