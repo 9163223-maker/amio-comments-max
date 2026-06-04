@@ -51,6 +51,10 @@ function assertNoButtonsCta(screen, label) {
   assert.ok(!/\bCTA\b/i.test(screenText(screen)), `${label} must not expose CTA wording`);
 }
 
+function assertNoStatsCta(screen, label) {
+  assert.ok(!/\bCTA\b/i.test(screenText(screen)), `${label} must not expose CTA wording`);
+}
+
 function assertNoDelete(screen, label) {
   assert.ok(!buttonLabels(screen).some((text) => /Удалить последнюю кнопку/i.test(text)), `${label} must not expose delete`);
 }
@@ -151,6 +155,11 @@ async function main() {
     ...(settingsA.adCampaigns || []),
     { id: 'ad_global_legacy', slug: 'global-legacy', channelId: TENANT_A_CHANNEL, channelTitle: 'Global Legacy Channel', name: 'Global Legacy Link postId channelId', source: 'payload trace token', targetUrl: 'https://max.ru/global_legacy', enabled: true, createdAt: 1, updatedAt: 1 }
   ] });
+
+  const statsHome = await statsFlow.screenForPayload(menu, { action: 'admin_section_stats' }, { userId: TENANT_A_USER, config: {} });
+  assertNoStatsCta(statsHome, 'admin_section_stats');
+  const statsOverview = await statsFlow.screenForPayload(menu, { action: 'admin_stats_overview_cache' }, { userId: TENANT_A_USER, config: {} });
+  assertNoStatsCta(statsOverview, 'admin_stats_overview_cache');
 
   const adHome = await statsFlow.screenForPayload(menu, { action: 'admin_stats_campaigns' }, { userId: TENANT_A_USER, config: {} });
   assertNoAdLinkDisable(adHome, 'ad_links home/root');
