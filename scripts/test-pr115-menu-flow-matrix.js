@@ -10,6 +10,7 @@ const postPatcher = require('../services/postPatcher');
 const buttons = require('../buttons-flow-cc8-clean');
 const gifts = require('../gifts-flow-cc8-fast');
 const archive = require('../archive-clean-flow-cc8311');
+const tenantScope = require('../tenant-scope');
 
 const TENANT_A_USER = 'pr115-tenant-a';
 const TENANT_B_USER = 'pr115-tenant-b';
@@ -56,11 +57,38 @@ function assertHasDelete(screen, label) {
   assert.ok(buttonLabels(screen).some((text) => /Удалить последнюю кнопку/i.test(text)), `${label} must expose delete`);
 }
 
+function assertNoGiftDestructiveActions(screen, label) {
+  const labels = buttonLabels(screen);
+  assert.ok(!labels.some((text) => /Удалить подарок/i.test(text)), `${label} must not expose gift delete`);
+  assert.ok(!labels.some((text) => /Заменить материал/i.test(text)), `${label} must not expose gift material replacement`);
+}
+
+function assertNoGiftRawTechnicalText(screen, label) {
+  const visible = screenText(screen);
+  assert.ok(!/Post ID/i.test(visible), `${label} must not expose raw Post ID`);
+  assert.ok(!/\b(postId|channelId|commentKey|token|payload|trace)\b/i.test(visible), `${label} must not expose raw technical fields`);
+  assert.ok(!/файл|вложение/i.test(visible), `${label} must not use confusing file wording`);
+}
+
+function assertNoGiftInternalWording(screen, label) {
+  const visible = screenText(screen);
+  assert.ok(!/Clean Core|clean[- ]flow|clean-save|clean-delete|Repatch|перепатч|низкоуровнев|low-level/i.test(visible), `${label} must not expose internal Gifts implementation wording`);
+  assert.ok(!/\bstore\b|\bcache\b|store\/cache/i.test(visible), `${label} must not expose storage/cache wording`);
+  assert.ok(!/tenant/.test(visible), `${label} must not expose tenant wording`);
+}
+
 function deletePayload(screen) {
   return (screen.attachments || [])
     .flatMap((attachment) => attachment?.payload?.buttons || [])
     .flat()
     .find((button) => /Удалить последнюю кнопку/i.test(button?.text || ''))?.payload || null;
+}
+
+function callbackPayload(screen, pattern) {
+  return (screen.attachments || [])
+    .flatMap((attachment) => attachment?.payload?.buttons || [])
+    .flat()
+    .find((button) => pattern.test(button?.text || ''))?.payload || null;
 }
 
 function buttonSet(commentKey) {
@@ -83,6 +111,7 @@ async function main() {
   store.store.channels = {};
   store.store.setup = {};
   store.store.growth = { byChannel: {}, clicks: [], pollVotes: [], memberSnapshots: {} };
+  store.store.gifts = { campaigns: {}, claims: {}, settings: {} };
   store.saveStore();
   postPatcher.patchStoredPost = async () => ({ ok: true, skipped: true });
 
@@ -161,8 +190,95 @@ async function main() {
   assert.strictEqual(buttonSet(commentKeyA).length, beforeRawDeleteCount - 1, 'card-marked button_admin_delete must delete exactly one button');
   assert.ok(/Последняя кнопка удалена/.test(screenText(cardDelete)), 'card-marked delete should confirm removal');
 
+
+  store.setSetupState(TENANT_A_USER, {
+    giftTargetPost: { commentKey: commentKeyA, channelId: TENANT_A_CHANNEL, channelTitle: 'Tenant A Channel', postId: 'post-a', messageId: 'msg-a' },
+    commentTargetPost: { commentKey: commentKeyA, channelId: TENANT_A_CHANNEL, channelTitle: 'Tenant A Channel', postId: 'post-a', messageId: 'msg-a' }
+  });
+  const tenantBCampaign = tenantScope.patchStoredGiftCampaign(store.saveGiftCampaign({
+    id: 'gift-tenant-b-hidden',
+    title: 'Tenant B Hidden Gift',
+    channelId: TENANT_B_CHANNEL,
+    requiredChatId: TENANT_B_CHANNEL,
+    postIds: ['post-b'],
+    commentKey: `${TENANT_B_CHANNEL}:post-b`,
+    giftUrl: 'https://example.com/b',
+    enabled: true
+  }), tenantScope.ensureTenantContext(TENANT_B_USER));
+  const giftCampaignA = tenantScope.patchStoredGiftCampaign(store.saveGiftCampaign({
+    id: 'gift-tenant-a-visible',
+    title: 'Tenant A Gift',
+    channelId: TENANT_A_CHANNEL,
+    requiredChatId: TENANT_A_CHANNEL,
+    postIds: ['post-a'],
+    commentKey: commentKeyA,
+    giftUrl: 'https://example.com/a-material',
+    enabled: true
+  }), tenantScope.ensureTenantContext(TENANT_A_USER));
+  assert.ok(tenantBCampaign && giftCampaignA, 'gift test campaigns should be created');
+
+  const giftHomeWithExisting = await gifts.screenForPayload(menu, { action: 'admin_section_gifts' }, { userId: TENANT_A_USER, config: {} });
+  assertTenantAScreen(giftHomeWithExisting, 'gifts:home with existing gift');
+  assertNoGiftDestructiveActions(giftHomeWithExisting, 'gifts:home with existing gift');
+  assertNoGiftRawTechnicalText(giftHomeWithExisting, 'gifts:home with existing gift');
+  assertNoGiftInternalWording(giftHomeWithExisting, 'gifts:home with existing gift');
+  assert.ok(!/Tenant B Hidden Gift|Tenant B Secret Post|Tenant B Channel/.test(screenText(giftHomeWithExisting)), 'gifts:home must not leak tenant B/global/legacy gifts');
+
+  const giftCurrent = await gifts.screenForPayload(menu, { action: 'gift_admin_show_current' }, { userId: TENANT_A_USER, config: {} });
+  assertTenantAScreen(giftCurrent, 'gift_admin_show_current with gift');
+  assert.ok(buttonLabels(giftCurrent).some((text) => /Удалить подарок/i.test(text)), 'current gift card must expose delete when gift exists');
+  assert.ok(buttonLabels(giftCurrent).some((text) => /Заменить материал/i.test(text)), 'current gift card must expose material replacement when gift exists');
+  assertNoGiftRawTechnicalText(giftCurrent, 'gift_admin_show_current with gift');
+  assertNoGiftInternalWording(giftCurrent, 'gift_admin_show_current with gift');
+
+  const rawGiftDeleteCount = Object.keys(store.store.gifts.campaigns || {}).length;
+  const rawGiftDelete = await gifts.screenForPayload(menu, { action: 'gift_admin_delete_existing' }, { userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(Object.keys(store.store.gifts.campaigns || {}).length, rawGiftDeleteCount, 'raw gift_admin_delete_existing without card marker must not delete');
+  assert.ok(/карточк[аи].*подарк/i.test(screenText(rawGiftDelete)), 'raw gift delete should tell user to open gift card');
+  assertNoGiftDestructiveActions(rawGiftDelete, 'raw gift_admin_delete_existing rejection');
+  assertNoGiftInternalWording(rawGiftDelete, 'raw gift_admin_delete_existing rejection');
+  const rawGiftConfirm = await gifts.screenForPayload(menu, { action: 'gift_admin_confirm_delete' }, { userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(Object.keys(store.store.gifts.campaigns || {}).length, rawGiftDeleteCount, 'raw gift_admin_confirm_delete without card marker must not delete');
+  assert.ok(/карточк[аи].*подарк/i.test(screenText(rawGiftConfirm)), 'raw gift confirm delete should tell user to open gift card');
+  assertNoGiftDestructiveActions(rawGiftConfirm, 'raw gift_admin_confirm_delete rejection');
+  assertNoGiftInternalWording(rawGiftConfirm, 'raw gift_admin_confirm_delete rejection');
+
+  const replacePayload = callbackPayload(giftCurrent, /Заменить материал/i);
+  assert.deepStrictEqual(replacePayload, { action: 'gift_admin_replace_existing', source: 'gift_card' }, 'gift replace button must carry gift-card marker');
+  const replaceStart = await gifts.screenForPayload(menu, replacePayload, { userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(replaceStart.id, 'gifts_clean_start_create', 'card-marked replace must start material replacement');
+  assert.ok(/ссылку на материал подарка/i.test(screenText(replaceStart)), 'replace start should use safe material wording');
+  assertNoGiftRawTechnicalText(replaceStart, 'card-marked gift replacement start');
+  assertNoGiftInternalWording(replaceStart, 'card-marked gift replacement start');
+  const replaceMessage = await gifts.handleTextInput(menu, { userId: TENANT_A_USER, text: 'https://example.com/replaced-material', config: {} });
+  assertNoGiftInternalWording(replaceMessage, 'gift material link step');
+  const replaceConditions = await gifts.screenForPayload(menu, { action: 'gift_admin_message_default' }, { userId: TENANT_A_USER, config: {} });
+  assertNoGiftInternalWording(replaceConditions, 'gift conditions after material link');
+  const replaceSaved = await gifts.screenForPayload(menu, { action: 'gift_admin_save' }, { userId: TENANT_A_USER, config: {} });
+  assert.ok(/Пост будет обновлён после сохранения подарка/i.test(screenText(replaceSaved)), 'gift save note should use product update wording');
+  assertNoGiftRawTechnicalText(replaceSaved, 'gift save note');
+  assertNoGiftInternalWording(replaceSaved, 'gift save note');
+
+  const deleteStartPayload = callbackPayload(giftCurrent, /Удалить подарок/i);
+  assert.deepStrictEqual(deleteStartPayload, { action: 'gift_admin_delete_existing', source: 'gift_card' }, 'gift delete button must carry gift-card marker');
+  const deleteConfirmScreen = await gifts.screenForPayload(menu, deleteStartPayload, { userId: TENANT_A_USER, config: {} });
+  assert.ok(buttonLabels(deleteConfirmScreen).some((text) => /Да, удалить/i.test(text)), 'card-marked delete should show confirmation');
+  assertNoGiftRawTechnicalText(deleteConfirmScreen, 'card-marked delete confirmation');
+  assertNoGiftInternalWording(deleteConfirmScreen, 'card-marked delete confirmation');
+  const confirmDeletePayload = callbackPayload(deleteConfirmScreen, /Да, удалить/i);
+  assert.deepStrictEqual(confirmDeletePayload, { action: 'gift_admin_confirm_delete', source: 'gift_card' }, 'gift delete confirmation must carry gift-card marker');
+  const afterCardDelete = await gifts.screenForPayload(menu, confirmDeletePayload, { userId: TENANT_A_USER, config: {} });
+  assert.ok(!store.store.gifts.campaigns['gift-tenant-a-visible'], 'card-marked gift delete must delete selected gift');
+  assert.ok(store.store.gifts.campaigns['gift-tenant-b-hidden'], 'card-marked gift delete must not delete tenant B gift');
+  assert.ok(/Подарок удалён/.test(screenText(afterCardDelete)), 'card-marked gift delete should confirm removal');
+  assertNoGiftDestructiveActions(afterCardDelete, 'gifts:home after card delete');
+  assertNoGiftRawTechnicalText(afterCardDelete, 'gifts:home after card delete');
+  assertNoGiftInternalWording(afterCardDelete, 'gifts:home after card delete');
+
   const giftRecentPosts = await gifts.screenForPayload(menu, { action: 'gift_admin_recent_posts' }, { userId: TENANT_A_USER, config: {} });
   assertTenantAScreen(giftRecentPosts, 'gift_admin_recent_posts');
+  assertNoGiftRawTechnicalText(giftRecentPosts, 'gift_admin_recent_posts');
+  assertNoGiftInternalWording(giftRecentPosts, 'gift_admin_recent_posts');
 
   const archiveList = await archive.screenForPayload(menu, { action: 'archive_list' }, { userId: TENANT_A_USER, config: {} });
   assertTenantAScreen(archiveList, 'archive_list');
