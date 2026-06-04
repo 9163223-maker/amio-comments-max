@@ -293,7 +293,7 @@ async function main() {
     b: { pollId: 202, question: 'Tenant B Hidden Poll', commentKey: `${TENANT_B_CHANNEL}:post-b`, channelId: TENANT_B_CHANNEL, postId: 'post-b', status: 'active', total: 1, options: [{ text: 'Скрытый ответ', votes: 1, percent: 100 }, { text: 'Нет', votes: 0, percent: 0 }] },
     legacy: { pollId: 303, question: 'Global Legacy Poll postId channelId', commentKey: '-global-legacy:post-x', channelId: '-global-legacy', postId: 'post-x', status: 'active', total: 0, options: [{ text: 'payload trace token', votes: 0, percent: 0 }, { text: 'Нет', votes: 0, percent: 0 }] }
   };
-  pollService.status = async () => ({ ok: true, counts: { polls: 3, votes: 4 } });
+  pollService.status = async () => { throw new Error('poll status screen must not read global poll totals'); };
   pollService.listRecent = async () => Object.values(pollState).map((item) => ({ pollId: item.pollId, question: item.question, status: item.status, commentKey: item.commentKey, channelId: item.channelId, postId: item.postId }));
   pollService.summary = async (pollId) => Object.values(pollState).find((item) => Number(item.pollId) === Number(pollId)) || null;
   pollService.closePoll = async ({ pollId, channelId, postId, commentKey }) => {
@@ -312,6 +312,9 @@ async function main() {
   const pollsStatus = await polls.statusScreen(menu, { userId: TENANT_A_USER });
   assertNoPollStop(pollsStatus, 'polls results list');
   assertNoPollRawTechnicalText(pollsStatus, 'polls results list');
+  assert.ok(/Активных опросов: 1/.test(screenText(pollsStatus)), 'polls results list must count only tenant A visible active poll');
+  assert.ok(/Голосов в видимых опросах: 3/.test(screenText(pollsStatus)), 'polls results list must count votes only from visible polls');
+  assert.ok(!/Опросов: 3|Голосов: 4/.test(screenText(pollsStatus)), 'polls results list must not show global poll totals');
   assert.ok(/Tenant A Product Question/.test(screenText(pollsStatus)), 'polls results list should show tenant A active poll');
   assert.ok(!/Tenant B Hidden Poll|Global Legacy Poll|payload trace token/.test(screenText(pollsStatus)), 'polls results list must not leak tenant B/global/legacy polls');
 

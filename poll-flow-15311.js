@@ -138,10 +138,11 @@ async function tenantVisibleActivePolls(userId='',limit=10){
 }
 async function statusScreen(menu,{userId=''}={}){
   try{
-    const totals=await pollService.status();
-    const active=await tenantVisibleActivePolls(userId,8);
-    const lines=['📊 Результаты','','Опросов: '+((totals.counts&&totals.counts.polls)||0),'Голосов: '+((totals.counts&&totals.counts.votes)||0),'','Активные опросы:',...(active.length?active.map((p,i)=>(i+1)+'. '+sh(p.question,90)):['Пока нет активных опросов.']),'','Опрос содержит вопрос, ответы и результаты.'];
-    const rows=active.map((p,i)=>[menu.button('📊 Результаты '+(i+1),'poll_results',{pollId:p.pollId})]);
+    const active=await tenantVisibleActivePolls(userId,50);
+    const visibleVotes=active.reduce((sum,p)=>sum+Number(p&&p.total||0),0);
+    const display=active.slice(0,8);
+    const lines=['📊 Результаты','','Активных опросов: '+active.length,'Голосов в видимых опросах: '+visibleVotes,'','Активные опросы:',...(display.length?display.map((p,i)=>(i+1)+'. '+sh(p.question,90)):['Пока нет активных опросов.']),'','Опрос содержит вопрос, ответы и результаты.'];
+    const rows=display.map((p,i)=>[menu.button('📊 Результаты '+(i+1),'poll_results',{pollId:p.pollId})]);
     rows.push([menu.button('📌 Выбрать пост для опроса','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]);
     return {id:'poll_status',text:lines.join('\n'),attachments:menu.keyboard(rows)};
   }catch(e){return {id:'poll_status_error',text:['⚠️ Результаты недоступны','','Попробуйте открыть раздел опросов ещё раз.'].join('\n'),attachments:menu.keyboard([[menu.button('🏠 Главное меню','admin_section_main')]])};}
