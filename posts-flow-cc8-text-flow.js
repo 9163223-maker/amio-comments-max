@@ -204,7 +204,7 @@ async function home(menu, ctx = {}) {
 async function picker(menu, ctx = {}) {
   const posts = listPosts(ctx.userId);
   const rows = posts.map((post, index) => [button(menu, `${index + 1}. ${postTitle(post)}`, 'admin_posts_open', { commentKey: clean(post.commentKey) })]);
-  if (!rows.length) rows.push([button(menu, 'Пока нет постов в памяти', 'admin_section_posts')]);
+  if (!rows.length) rows.push([button(menu, 'Пока нет сохранённых постов', 'admin_section_posts')]);
   rows.push([button(menu, '📌 Выбрать через список канал/пост', 'comments_select_post', { source: 'posts' })]);
   rows.push(...footer(menu));
   const lines = ['Выберите пост из списка доступных публикаций.'];

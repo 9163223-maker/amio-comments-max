@@ -147,7 +147,7 @@ function savedScreen(menu, post = {}, result = {}) {
   const mediaLine = mediaUpdated ? `Медиа обновлено: ${Number(result.mediaCount || 0)} влож.` : '';
   return {
     id: 'posts_clean_edit_saved',
-    text: ['✅ Пост изменён', '', mediaUpdated ? 'Текст и медиа сохранены.' : 'Текст сохранён.', '', 'Пост: ' + postTitleFor(result.post || post), mediaLine, 'Патч кнопок/комментариев: ' + (result?.patch?.pending ? 'поставлен в очередь' : (result?.patch?.ok ? 'обновлён' : 'без подтверждения')), '', 'Дальше можно открыть историю версий или вернуться к карточке поста.'].filter(Boolean).join('\n'),
+    text: ['✅ Пост изменён', '', mediaUpdated ? 'Текст и медиа сохранены.' : 'Текст сохранён.', '', 'Пост: ' + postTitleFor(result.post || post), mediaLine, 'Кнопки и комментарии сохраняются.', '', 'Дальше можно открыть историю версий или вернуться к карточке поста.'].filter(Boolean).join('\n'),
     attachments: keyboard(menu, [[button(menu, '↩️ К выбранному посту', 'admin_posts_open', { commentKey: key })], [button(menu, '🕘 История версий', 'admin_posts_history', { commentKey: key })], [button(menu, '✏️ В начало редактора', 'admin_section_posts')], [button(menu, '🏠 Главное меню', 'admin_section_main')]])
   };
 }
