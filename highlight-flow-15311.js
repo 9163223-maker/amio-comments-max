@@ -8,6 +8,7 @@ const { findGiftCampaignForPost } = require('./services/giftService');
 const highlightTrace = require('./highlight-debug-trace');
 const tenant = require('./tenant-scope');
 const access = require('./services/clientAccessService');
+const channelTitles = require('./human-channel-title-helper');
 
 const RUNTIME = 'ADMINKIT-HIGHLIGHT-FLOW-1.2-CARD-CONTAINED';
 
@@ -24,7 +25,16 @@ function clone(v,fallback=null){ try { return JSON.parse(JSON.stringify(v ?? fal
 function stripKeyboard(arr){ return Array.isArray(arr) ? clone(arr,[]).filter(x => x && x.type !== 'inline_keyboard') : []; }
 function channelAllowed(post = {}, userId = '') { const id = clean(post && post.channelId); if (!id || !clean(userId)) return false; try { return (access.getClientChannels(userId) || []).some((channel) => clean(channel.channelId || channel.id) === id); } catch { return false; } }
 function postByKey(commentKey, userId = ''){ try { const post = store.getPost(commentKey) || null; if (!post) return null; if (!clean(userId)) return post; const ctx = tenant.ensureTenantContext(userId); return channelAllowed(post, userId) || tenant.belongsToTenant(post, { ...ctx, canReadLegacyUnscoped: false }) ? post : null; } catch { return null; } }
-function postTitle(post,key){ return sh((post && (post.originalText || post.postText || post.title || post.postId)) || key || 'Пост', 120); }
+function hasMedia(post={}){ const arr=v=>Array.isArray(v)?v:[]; return arr(post.sourceAttachments||post.attachments||post.media||post.photos||post.files).length>0 || Boolean(post.photo||post.image||post.video||post.document); }
+function postPreview(post={},n=120){ const text=clean(post.originalText||post.postText||post.text||post.caption||''); if(text) return sh(text,n); return hasMedia(post)?'Пост с медиа':'Пост без текста'; }
+function postTitle(post,key){ return postPreview(post,120); }
+function channelTitle(post={},userId=''){ return channelTitles.resolveHumanChannelTitle(post.channelId||post.requiredChatId||'',userId,post); }
+function visibleChannelIds(userId=''){ return new Set(channelTitles.listTenantVisibleChannels(userId).map(ch=>clean(ch.channelId)).filter(Boolean)); }
+function listPosts(channelId='',userId=''){ const ch=clean(channelId), ids=visibleChannelIds(userId), seen={}; let posts=[]; try{ posts=store.getPostsList().filter(p=>{ const k=clean(p&&(p.commentKey||((p.channelId||'')+':'+(p.postId||p.messageId||'')))); const pc=clean(p&&p.channelId); if(!k||seen[k]||!pc) return false; if(ch&&pc!==ch) return false; if(clean(userId)&&!ids.has(pc)) return false; if(clean(userId)&&!postByKey(k,userId)) return false; seen[k]=1; return true; }).slice(0,8); }catch{} return posts; }
+function targetRecord(post={},userId=''){ const ctx=tenant.ensureTenantContext(userId); return tenant.stampRecord({channelId:clean(post.channelId),channelTitle:channelTitle(post,userId),postId:clean(post.postId),messageId:clean(post.messageId),commentKey:clean(post.commentKey),originalText:clean(post.originalText||post.postText||post.text||post.caption||''),sourceAttachments:Array.isArray(post.sourceAttachments||post.attachments)?(post.sourceAttachments||post.attachments):[],linkedAt:Date.now()},ctx,post); }
+function bindTarget(userId='',post={}){ const uid=clean(userId); if(!uid||!post||!post.commentKey) return null; const target=targetRecord(post,uid); try{ const prev=store.getSetupState(uid)||{}; store.setSetupState(uid,{...prev,highlightTargetPost:target}); }catch{} return target; }
+function storedTarget(userId=''){ try{ const st=store.getSetupState(clean(userId))||{}; const t=st.highlightTargetPost||null; return t&&t.commentKey?postByKey(t.commentKey,userId):null; }catch{return null;} }
+function selectedLines(post,userId=''){ return ['Выбранный канал: '+channelTitle(post,userId),'Выбранный пост: '+postPreview(post,120)]; }
 function badgeById(id){ return BADGES.find(x => x.id === clean(id)) || BADGES[0]; }
 function baseText(post){ return String(post && (post.originalText || post.postText || '') || ''); }
 function highlightText(post){
@@ -38,46 +48,56 @@ function highlightText(post){
 }
 function highlightRow(){ return []; }
 
-function postRows(menu, source='highlights', userId=''){
-  let posts=[];
-  try{
-    const seen={};
-    posts=store.getPostsList().filter(p=>{
-      const k=clean(p && (p.commentKey || ((p.channelId||'')+':'+(p.postId||p.messageId||''))));
-      if(!k || seen[k]) return false;
-      if(clean(userId) && !postByKey(k, userId)) return false;
-      seen[k]=1;
-      return true;
-    }).slice(0,8);
-  }catch(e){ highlightTrace.add('picker_store_error',{error:String(e&&e.message||e)}); }
-  const rows=posts.map((p,i)=>[menu.button((i+1)+'. '+sh(p.originalText||p.postText||p.postId,54),'comments_pick_post',{source,commentKey:clean(p.commentKey)})]);
-  if(!rows.length) rows.push([menu.button('Пока нет постов','admin_section_highlights')]);
+function postRows(menu, source='highlights', userId='', channelId=''){
+  const posts=listPosts(channelId,userId);
+  const rows=posts.map((p,i)=>[menu.button((i+1)+'. '+postPreview(p,54),'comments_pick_post',{source,commentKey:clean(p.commentKey)})]);
+  if(!rows.length) rows.push([menu.button('В этом канале пока нет сохранённых постов.','admin_section_highlights')]);
+  rows.push([menu.button('📺 Выбрать другой канал','comments_select_post',{source})]);
   rows.push([menu.button('⭐ В начало выделения','admin_section_highlights')]);
   rows.push([menu.button('🏠 Главное меню','admin_section_main')]);
   return { posts, rows };
 }
-
-function home(menu){
+function channelPicker(menu,userId=''){
+  const channels=channelTitles.listTenantVisibleChannels(userId);
+  const rows=channels.map((ch,i)=>[menu.button((i+1)+'. '+sh(ch.title||channelTitles.UNTITLED_CHANNEL,52),'comments_select_post',{source:'highlights',channelId:clean(ch.channelId)})]);
+  if(!rows.length) rows.push([menu.button('Каналы не подключены','admin_section_highlights')]);
+  rows.push([menu.button('⭐ В начало выделения','admin_section_highlights')]);
+  rows.push([menu.button('🏠 Главное меню','admin_section_main')]);
+  return { id:'highlights_channel_picker', text:['⭐ Выделение поста','','Выберите канал. После этого бот покажет сохранённые посты только этого канала.'].join('\n'), attachments:menu.keyboard(rows) };
+}
+function home(menu,userId=''){
   highlightTrace.add('screen_home',{});
-  return { id:'highlights_home', text:['⭐ Выделение поста','','Выберите пост и назначьте ему тип метки: важно, новое, подарок или акция.','','Выделение добавляется в начало текста поста.'].join('\n'), attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'highlights'})],[menu.button('🧪 Проверить','highlight_status')],[menu.button('🏠 Главное меню','admin_section_main')]]) };
+  const target=storedTarget(userId);
+  if(target){
+    return { id:'highlights_home', text:['⭐ Выделение поста','','Пост выбран. Действия ниже относятся только к этому посту.','',...selectedLines(target,userId)].join('\n'), attachments:menu.keyboard([[menu.button('Поставить выделение на выбранный пост','comments_pick_post',{source:'highlights',commentKey:clean(target.commentKey)})],[menu.button('Проверить выделение','highlight_status')],[menu.button('Выбрать другой пост','comments_select_post',{source:'highlights'})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
+  }
+  return { id:'highlights_home', text:['⭐ Выделение поста','','Пост не выбран. Сначала выберите канал, затем пост.','','Выделение можно поставить или снять только из карточки выбранного поста.'].join('\n'), attachments:menu.keyboard([[menu.button('Поставить выделение','comments_select_post',{source:'highlights'})],[menu.button('Проверить','comments_select_post',{source:'highlights'})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
 }
 
-function picker(menu, userId=''){
-  const { posts, rows } = postRows(menu,'highlights',userId);
+function picker(menu, userId='', channelId=''){
+  const requested=clean(channelId);
+  if(!requested){ const channels=channelTitles.listTenantVisibleChannels(userId); if(channels.length===1) return picker(menu,userId,channels[0].channelId); return channelPicker(menu,userId); }
+  const channels=channelTitles.listTenantVisibleChannels(userId);
+  const picked=channels.find(ch=>clean(ch.channelId)===requested);
+  if(!picked) return channelPicker(menu,userId);
+  const { posts, rows } = postRows(menu,'highlights',userId,requested);
   highlightTrace.add('screen_picker',{posts:posts.length});
-  return { id:'highlights_picker', text:['⭐ Выделение поста','',posts.length?'Выберите пост.':'Пока нет постов. Опубликуйте или перешлите нужную публикацию боту.','','Этот выбор относится к разделу «Выделение поста».'].join('\n'), attachments:menu.keyboard(rows) };
+  const lines=['⭐ Выделение поста','','Канал: '+(picked.title||channelTitles.UNTITLED_CHANNEL),'',posts.length?'Выберите пост.':'В этом канале пока нет сохранённых постов.'];
+  posts.forEach((post,i)=>lines.push((i+1)+'. '+postPreview(post,80)));
+  return { id:'highlights_post_picker', text:lines.join('\n'), attachments:menu.keyboard(rows) };
 }
 
 function picked(menu,commentKey,userId=''){
   const post=postByKey(commentKey,userId);
   const current=post && post.highlight && post.highlight.enabled ? clean(post.highlight.label) : '';
   highlightTrace.add('screen_picked',{commentKey:highlightTrace.mask(commentKey),postFound:!!post,current:!!current});
-  if(!post) return { id:'highlight_post_missing', text:['⚠️ Пост не найден','','Нужно выбрать пост из сохранённых.'].join('\n'), attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'highlights'})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
+  if(!post) return { id:'highlight_post_missing', text:['⚠️ Пост не найден','','Нужно выбрать пост из доступных сохранённых постов.'].join('\n'), attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'highlights'})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
+  bindTarget(userId,post);
   const rows = BADGES.map(b => [menu.button(b.label+' — Применить','highlight_apply',{commentKey,badgeId:b.id,source:'highlight_card'})]);
   if(current) rows.unshift([menu.button('🧹 Снять выделение','highlight_remove',{commentKey,source:'highlight_card'})]);
   rows.push([menu.button('📌 Выбрать другой пост','comments_select_post',{source:'highlights'})]);
   rows.push([menu.button('🏠 Главное меню','admin_section_main')]);
-  return { id:'highlight_picked', text:['⭐ Выделение поста','','Пост: '+postTitle(post,commentKey),'',current?'Тип метки: '+current:'Тип метки не выбран.','','Выберите тип метки и нажмите «Применить».'].join('\n'), attachments:menu.keyboard(rows) };
+  return { id:'highlight_picked', text:['⭐ Выделение поста — карточка выбранного поста','','Канал: '+channelTitle(post,userId),'Пост: '+postPreview(post,120),'',current?'Тип метки: '+current:'Тип метки не выбран.','','Выберите тип метки и нажмите «Применить».'].join('\n'), attachments:menu.keyboard(rows) };
 }
 
 async function patchPostWithHighlight({ config, commentKey, userId = '' }){
@@ -117,7 +137,7 @@ async function apply(menu,{config,commentKey='',badgeId='important',userId='',so
   let patched={ok:false};
   try{patched=await patchPostWithHighlight({config,commentKey,userId});}catch(e){patched={ok:false,error:String(e&&e.message||e),status:e&&e.status};}
   highlightTrace.add('apply_result',{ok:!!patched.ok,commentKey:highlightTrace.mask(commentKey),badgeId:badge.id,mode:'text_mark_no_button',patchError:patched.error||'',status:patched.status||''});
-  const lines=['✅ Выделение применено','','Пост: '+postTitle(post,commentKey),'Тип метки: '+badge.label];
+  const lines=['✅ Выделение применено','','Канал: '+channelTitle(post,userId),'Пост: '+postPreview(post,120),'Тип метки: '+badge.label];
   if(patched.ok) lines.push('','Выделение добавлено в начало текста поста.'); else lines.push('','Выделение сохранено, но пост пока не обновился.');
   return { id:'highlight_applied', text:lines.join('\n'), attachments:menu.keyboard([[menu.button('⭐ К посту','comments_pick_post',{source:'highlights',commentKey})],[menu.button('📌 Выбрать другой пост','comments_select_post',{source:'highlights'})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
 }
@@ -139,7 +159,7 @@ async function remove(menu,{config,commentKey='',userId='',source=''}={}){
   let patched={ok:false};
   try{patched=await patchPostWithHighlight({config,commentKey,userId});}catch(e){patched={ok:false,error:String(e&&e.message||e),status:e&&e.status};}
   highlightTrace.add('remove_result',{ok:!!patched.ok,commentKey:highlightTrace.mask(commentKey),mode:'text_mark_no_button',patchError:patched.error||'',status:patched.status||''});
-  return { id:'highlight_removed', text:['🧹 Выделение снято','','Пост: '+postTitle(post,commentKey),patched.ok?'Выделение убрано из текста поста.':'Снятие сохранено, но пост пока не обновился.'].join('\n'), attachments:menu.keyboard([[menu.button('⭐ К посту','comments_pick_post',{source:'highlights',commentKey})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
+  return { id:'highlight_removed', text:['🧹 Выделение снято','','Канал: '+channelTitle(post,userId),'Пост: '+postPreview(post,120),patched.ok?'Выделение убрано из текста поста.':'Снятие сохранено, но пост пока не обновился.'].join('\n'), attachments:menu.keyboard([[menu.button('⭐ К посту','comments_pick_post',{source:'highlights',commentKey})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
 }
 
 function info(menu,{commentKey='',userId=''}={}){

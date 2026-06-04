@@ -13,7 +13,10 @@ function rawText(v){return String(v||'').replace(/\r\n?/g,'\n').trim();}
 function sh(v,n=90){const s=clean(v||'Пост');return s.length<=n?s:s.slice(0,n-1).trim()+'…';}
 function channelAllowed(post={},userId=''){const id=clean(post&&post.channelId);if(!id||!clean(userId))return false;try{return (access.getClientChannels(userId)||[]).some(ch=>clean(ch.channelId||ch.id)===id);}catch{return false;}}
 function postByKey(key,userId=''){try{const post=store.getPost(key)||null;if(!post)return null;if(!clean(userId))return post;const ctx=tenant.ensureTenantContext(userId);return channelAllowed(post,userId)||tenant.belongsToTenant(post,{...ctx,canReadLegacyUnscoped:false})?post:null;}catch{return null;}}
-function postTitle(post,key){return sh((post&&(post.originalText||post.postText||post.title||post.postId))||key||'Пост',120);}
+function hasMedia(post={}){const arr=v=>Array.isArray(v)?v:[];return arr(post.sourceAttachments||post.attachments||post.media||post.photos||post.files).length>0||Boolean(post.photo||post.image||post.video||post.document);}
+function postTitle(post,key){const text=clean(post&&(post.originalText||post.postText||post.text||post.caption)||'');if(text)return sh(text,120);return hasMedia(post)?'Пост с медиа':'Пост без текста';}
+function pollCardRequiredScreen(menu){return {id:'poll_card_required',text:['⚠️ Откройте карточку выбранного поста','','Создание опроса доступно только из карточки выбранного поста.'].join('\n'),attachments:menu.keyboard([[menu.button('Выбрать пост','comments_select_post',{source:'polls'})],[menu.button('В начало опросов','admin_section_polls')],[menu.button('Главное меню','admin_section_main')]])};}
+function isPollCardSource(source=''){return clean(source)==='poll_card';}
 async function setFlow(userId,flow){try{await db.setFlow(String(userId||''),flow);}catch{}}
 async function getFlow(userId){try{return await db.getFlow(String(userId||''));}catch{return null;}}
 async function clearFlow(userId){try{await db.clearFlow(String(userId||''));}catch{}}
@@ -35,7 +38,8 @@ function reviewScreen(menu,flow){
   const commentKey=clean(flow.commentKey);
   return {id:'poll_custom_review',text:['✍️ Свой опрос — шаг 3 из 3','','Проверьте перед публикацией.','','Вопрос: '+sh(flow.question,220),'','Ответы:',optionLines(flow.options),'','После подтверждения кнопки опроса будут добавлены под выбранным постом.'].join('\n'),attachments:menu.keyboard([[menu.button('✅ Создать опрос','poll_custom_run',{commentKey})],[menu.button('✏️ Изменить вопрос','poll_custom_edit_question',{commentKey})],[menu.button('✏️ Изменить ответы','poll_custom_edit_options',{commentKey})],[menu.button('🚫 Отмена','poll_custom_cancel',{commentKey})]])};
 }
-async function customStart(menu,{userId='',commentKey=''}={}){
+async function customStart(menu,{userId='',commentKey='',source=''}={}){
+  if(!isPollCardSource(source))return pollCardRequiredScreen(menu);
   if(!postByKey(commentKey,userId)) return {id:'poll_error',text:['⚠️ Пост не найден','','Нужно выбрать пост из сохранённых.'].join('\n'),attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]])};
   await setFlow(userId,{type:'poll_custom',step:'question',commentKey,startedAt:Date.now()});
   return questionScreen(menu,commentKey,'',userId);
@@ -73,13 +77,13 @@ async function customRun(menu,{config,userId='',commentKey=''}={}){
   const flow=await getFlow(userId);const key=commentKey||clean(flow&&flow.commentKey);
   if(!flow||flow.type!=='poll_custom'||!flow.question||!Array.isArray(flow.options)||flow.options.length<2){return {id:'poll_custom_missing',text:['⚠️ Опрос не готов','','Нужно пройти шаги: вопрос → ответы → подтверждение.'].join('\n'),attachments:menu.keyboard([[menu.button('🗳 В начало опросов','admin_section_polls')]])};}
   const post=postByKey(key,userId);
-  if(!post)return {id:'poll_error',text:'⚠️ Пост не найден. Выберите пост заново.',attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'polls'})]])};
+  if(!post)return {id:'poll_error',text:'⚠️ Пост недоступен. Выберите пост заново.',attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'polls'})]])};
   const created=await pollService.createPoll({adminId:userId,channelId:post.channelId,postId:post.postId,commentKey:key,question:flow.question,options:flow.options,template:'custom'});
-  if(!created.ok)return {id:'poll_error',text:'⚠️ Не удалось создать опрос: '+String(created.error||'unknown'),attachments:menu.keyboard([[menu.button('✏️ Изменить ответы','poll_custom_edit_options',{commentKey:key})],[menu.button('🏠 Главное меню','admin_section_main')]])};
+  if(!created.ok)return {id:'poll_error',text:['⚠️ Не удалось создать опрос','','Попробуйте позже или выберите пост заново.'].join('\n'),attachments:menu.keyboard([[menu.button('✏️ Изменить ответы','poll_custom_edit_options',{commentKey:key})],[menu.button('🏠 Главное меню','admin_section_main')]])};
   await clearFlow(userId);
   let patched={ok:false};try{patched=await base.patchPostWithPoll({config,commentKey:key,userId});}catch(e){patched={ok:false,error:String(e&&e.message||e)};}
-  const lines=['✅ Опрос создан','','Шаги завершены.','Вопрос: '+sh(flow.question,180),'Ответов: '+flow.options.length,'Голоса сохраняются в Postgres.'];
-  lines.push('',patched.ok?'Кнопки опроса добавлены под постом.':'Опрос создан в базе, но пост пока не пропатчился: '+String(patched.error||'patch_failed'));
+  const lines=['✅ Опрос создан','','Шаги завершены.','Вопрос: '+sh(flow.question,180),'Ответов: '+flow.options.length,'Результаты будут сохраняться автоматически.'];
+  lines.push('',patched.ok?'Кнопки опроса добавлены под постом.':'Опрос сохранён, но кнопки под постом пока не обновились. Проверьте подключение канала и повторите позже.');
   return {id:'poll_created',text:lines.join('\n'),attachments:menu.keyboard([[menu.button('📊 Статус опросов','poll_status')],[menu.button('📌 Выбрать другой пост','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]])};
 }
 
