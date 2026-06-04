@@ -26,8 +26,8 @@ const sections = [
     id: 'comments', title: 'Комментарии', route: 'comments:home', clientVisible: true, adminOnly: false,
     featureKey: 'comments', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
-      action({ id: 'comments.post_comments', title: 'Комментарии к посту', section: 'comments', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'comments' } }),
-      action({ id: 'comments.auto_comments', title: 'Автокомментарии', section: 'comments', existingAction: 'admin_section_comments' }),
+      action({ id: 'comments.post_comments', title: 'Комментарии под постом', section: 'comments', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'comments' } }),
+      action({ id: 'comments.auto_comments', title: 'Выбрать пост для комментариев', section: 'comments', existingAction: 'admin_section_comments' }),
       action({ id: 'comments.photo', title: 'Фото в комментариях', section: 'comments', existingAction: 'admin_section_comments', payload: { focus: 'photos' } }),
       action({ id: 'comments.reactions_replies', title: 'Реакции и ответы', section: 'comments', existingAction: 'admin_section_comments', payload: { focus: 'reactions_replies' } }),
     ],
