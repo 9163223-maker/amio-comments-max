@@ -23,6 +23,9 @@ const GLOBAL_CHANNEL = { id: 'pr126_global_legacy', title: 'Global Legacy Channe
 const SELFTEST_CHANNEL = { id: 'pr126_selftest_debug', title: 'selftest debug legacy' };
 const POST_A1 = `${CHANNELS_A[0].id}:post-style-1`;
 const POST_A2 = `${CHANNELS_A[1].id}:post-reviews-1`;
+const RAW_GIFT_POST_ID = 'postId_raw_gift_987654321';
+const RAW_GIFT_MESSAGE_ID = 'messageId_raw_gift_987654321';
+const RAW_GIFT_COMMENT_KEY = `${CHANNELS_A[1].id}:${RAW_GIFT_POST_ID}`;
 const POST_B = `${CHANNEL_B.id}:secret-post`;
 const POST_GLOBAL = `${GLOBAL_CHANNEL.id}:global-post`;
 
@@ -56,14 +59,15 @@ function stampFor(userId, record) {
   return tenant.stampRecord(record, tenant.ensureTenantContext(userId));
 }
 
-function savePostFor(userId, key, channel, text) {
+function savePostFor(userId, key, channel, text, extra = {}) {
   store.savePost(key, stampFor(userId, {
     channelId: channel.id,
     channelTitle: channel.title,
     postId: key.split(':').at(-1),
     messageId: `msg-${key.split(':').at(-1)}`,
     commentKey: key,
-    originalText: text
+    originalText: text,
+    ...extra
   }));
 }
 
@@ -82,6 +86,7 @@ function setupFixture() {
 
   savePostFor(TENANT_A_USER, POST_A1, CHANNELS_A[0], 'Olga Style launch post');
   savePostFor(TENANT_A_USER, POST_A2, CHANNELS_A[1], 'Отзывы клиентов за неделю');
+  savePostFor(TENANT_A_USER, RAW_GIFT_COMMENT_KEY, CHANNELS_A[1], '', { postId: RAW_GIFT_POST_ID, messageId: RAW_GIFT_MESSAGE_ID, commentKey: RAW_GIFT_COMMENT_KEY });
   savePostFor(TENANT_B_USER, POST_B, CHANNEL_B, 'Tenant B secret post');
   store.savePost(POST_GLOBAL, { channelId: GLOBAL_CHANNEL.id, channelTitle: GLOBAL_CHANNEL.title, postId: 'global-post', messageId: 'msg-global', commentKey: POST_GLOBAL, originalText: 'Global legacy post' });
 }
@@ -98,7 +103,7 @@ function payloadFor(screen, pattern) {
 async function call(flow, payload, userId = TENANT_A_USER) { return flow.screenForPayload(menu, payload, { userId, config: { botToken: '' } }); }
 function assertNoUnsafeUi(screen, label) {
   const text = visible(screen);
-  const rawIds = [CHANNELS_A[0].id, CHANNELS_A[1].id, CHANNELS_A[2].id, CHANNELS_A[3].id, CHANNEL_B.id, GLOBAL_CHANNEL.id, SELFTEST_CHANNEL.id];
+  const rawIds = [CHANNELS_A[0].id, CHANNELS_A[1].id, CHANNELS_A[2].id, CHANNELS_A[3].id, CHANNEL_B.id, GLOBAL_CHANNEL.id, SELFTEST_CHANNEL.id, RAW_GIFT_POST_ID, RAW_GIFT_MESSAGE_ID, RAW_GIFT_COMMENT_KEY];
   rawIds.forEach((id) => assert.ok(!text.includes(id), `${label} must not show raw channel id ${id}`));
   assert.ok(!/Production comments matrix selftest|selftest|debug|legacy|store|cache|в памяти/i.test(text), `${label} must not show internal labels`);
   assert.ok(!/\b(postId|channelId|commentKey|commentId|token|payload|trace)\b/i.test(text), `${label} must not expose technical fields`);
@@ -186,6 +191,7 @@ async function testGifts() {
   const channel2Picker = await call(gifts, payloadFor(createPicker, /Отзывы/));
   assert.ok(/gifts_clean_picker$/.test(channel2Picker.id), 'Gifts channel choice opens post picker');
   assert.ok(/Отзывы клиентов за неделю/.test(visible(channel2Picker)), 'Gifts post picker shows channel 2 post');
+  assert.ok(/Пост без текста/.test(visible(channel2Picker)), 'Gifts post picker uses safe fallback for empty raw-looking post');
   assert.ok(!/Olga Style launch post|Tenant B secret post|Global legacy post/.test(visible(channel2Picker)), 'Gifts post picker is scoped to selected channel');
   assertNoUnsafeUi(channel2Picker, 'gifts channel 2 posts');
 
@@ -203,11 +209,33 @@ async function testGifts() {
   const rawDelete = await call(gifts, { action: 'gift_admin_delete_existing' });
   assert.ok(/Удаление доступно только из карточки/i.test(visible(rawDelete)), 'Gifts raw delete remains blocked');
   const rawReplace = await call(gifts, { action: 'gift_admin_replace_existing' });
-  assert.ok(/Создание подарка|Текущий подарок|Выбранный пост/i.test(visible(rawReplace)), 'Gifts raw replace does not bypass selected context');
+  assert.ok(/Замена материала доступна только из карточки текущего подарка\./.test(visible(rawReplace)), 'Gifts raw replace explains card-only replacement');
+  assert.ok(!/Шаг 1|материал подарка/i.test(visible(rawReplace)), 'Gifts raw replace does not open material step');
+  assert.ok(!store.getSetupState(TENANT_A_USER)?.giftFlow, 'Gifts raw replace does not create giftFlow');
   assert.ok(!/Удалить подарок/.test(visible(card)), 'Gifts delete is not shown without an existing gift campaign');
 
-  const material = await call(gifts, payloadFor(card, /Создать подарок к выбранному посту/));
+  const rawPostCard = await call(gifts, payloadFor(channel2Picker, /Пост без текста/));
+  assert.ok(/gifts_clean_current$/.test(rawPostCard.id), 'Gifts empty raw-looking post opens selected card');
+  assert.ok(/Пост: Пост без текста/.test(visible(rawPostCard)), 'Gifts card uses safe post fallback for empty raw-looking post');
+  assertNoUnsafeUi(rawPostCard, 'gifts raw-looking empty post card');
+
+  const material = await call(gifts, payloadFor(rawPostCard, /Создать подарок к выбранному посту/));
   assert.strictEqual(material.id, 'adminkit_gift_step_1_material', 'Gifts create starts material step only from explicit selected card action');
+  assert.ok(/Пост: Пост без текста/.test(visible(material)), 'Gifts material step uses safe post fallback');
+  assertNoUnsafeUi(material, 'gifts raw-looking empty post material step');
+
+  const messageStep = await gifts.handleTextInput(menu, { userId: TENANT_A_USER, text: 'https://example.com/gift', config: { botToken: '' } });
+  assert.ok(/message_step|text/i.test(String(messageStep.id)), 'Gifts create flow accepts gift URL after material step');
+  assertNoUnsafeUi(messageStep, 'gifts message step after raw-looking post');
+  const conditions = await call(gifts, { action: 'gift_admin_message_default' });
+  assert.ok(/conditions|condition/i.test(String(conditions.id)), 'Gifts create flow advances to conditions');
+  const review = await call(gifts, { action: 'gift_admin_save' });
+  assertNoUnsafeUi(review, 'gifts save review for raw-looking post');
+  const saved = await call(gifts, { action: 'gift_admin_commit_save' });
+  assertNoUnsafeUi(saved, 'gifts save summary for raw-looking post');
+  const currentAfterSave = await call(gifts, { action: 'gift_admin_show_current' });
+  assert.ok(/Подарок к посту \(Пост без текста\)/.test(visible(currentAfterSave)), 'Gifts saved summary uses safe gift title fallback');
+  assertNoUnsafeUi(currentAfterSave, 'gifts current summary after raw-looking post save');
 }
 
 (async () => {
