@@ -6,6 +6,7 @@ process.env.ADMINKIT_TEST_MODE = '1';
 
 const store = require('../store');
 const access = require('../services/clientAccessService');
+const postPatcher = require('../services/postPatcher');
 const buttons = require('../buttons-flow-cc8-clean');
 const gifts = require('../gifts-flow-cc8-fast');
 const archive = require('../archive-clean-flow-cc8311');
@@ -29,10 +30,34 @@ function screenText(screen) {
   return `${screen.text || ''}\n${buttonText}`;
 }
 
+function buttonLabels(screen) {
+  return (screen.attachments || [])
+    .flatMap((attachment) => attachment?.payload?.buttons || [])
+    .flat()
+    .map((button) => button?.text || '')
+    .filter(Boolean);
+}
+
 function assertTenantAScreen(screen, label) {
   const text = screenText(screen);
   assert.ok(/Tenant A Channel|Tenant A Public Post/.test(text), `${label} should include tenant A content`);
   assert.ok(!/Tenant B Channel|Tenant B Secret Post/.test(text), `${label} must not leak tenant B content`);
+}
+
+function assertNoButtonsCta(screen, label) {
+  assert.ok(!/\bCTA\b/i.test(screenText(screen)), `${label} must not expose CTA wording`);
+}
+
+function assertNoDelete(screen, label) {
+  assert.ok(!buttonLabels(screen).some((text) => /Удалить последнюю кнопку/i.test(text)), `${label} must not expose delete`);
+}
+
+function assertHasDelete(screen, label) {
+  assert.ok(buttonLabels(screen).some((text) => /Удалить последнюю кнопку/i.test(text)), `${label} must expose delete`);
+}
+
+function buttonSet(commentKey) {
+  return store.store.growth?.byChannel?.[TENANT_A_CHANNEL]?.buttonSets?.[commentKey] || [];
 }
 
 function activateTenant(userId, name) {
@@ -50,7 +75,9 @@ async function main() {
   store.store.reactions = {};
   store.store.channels = {};
   store.store.setup = {};
+  store.store.growth = { byChannel: {}, clicks: [], pollVotes: [], memberSnapshots: {} };
   store.saveStore();
+  postPatcher.patchStoredPost = async () => ({ ok: true, skipped: true });
 
   const tenantA = activateTenant(TENANT_A_USER, 'Tenant A');
   const tenantB = activateTenant(TENANT_B_USER, 'Tenant B');
@@ -70,8 +97,49 @@ async function main() {
     commentTargetPost: { commentKey: `${TENANT_B_CHANNEL}:post-b`, channelId: TENANT_B_CHANNEL, channelTitle: 'Tenant B Channel', postId: 'post-b' }
   });
 
+  const buttonHomeWithoutTarget = await buttons.screenForPayload(menu, { action: 'admin_section_buttons' }, { userId: TENANT_A_USER, config: {} });
+  assertNoButtonsCta(buttonHomeWithoutTarget, 'buttons:home');
+  assertNoDelete(buttonHomeWithoutTarget, 'buttons:home without target');
+
   const buttonStartAdd = await buttons.screenForPayload(menu, { action: 'button_admin_start_add' }, { userId: TENANT_A_USER, config: {} });
   assertTenantAScreen(buttonStartAdd, 'button_admin_start_add');
+  assertNoButtonsCta(buttonStartAdd, 'button_admin_start_add');
+
+  const commentKeyA = `${TENANT_A_CHANNEL}:post-a`;
+  store.setSetupState(TENANT_A_USER, {
+    buttonTargetPost: { commentKey: commentKeyA, channelId: TENANT_A_CHANNEL, channelTitle: 'Tenant A Channel', postId: 'post-a', messageId: 'msg-a' },
+    commentTargetPost: { commentKey: commentKeyA, channelId: TENANT_A_CHANNEL, channelTitle: 'Tenant A Channel', postId: 'post-a', messageId: 'msg-a' }
+  });
+  const buttonCurrentEmpty = await buttons.screenForPayload(menu, { action: 'button_admin_show_current' }, { userId: TENANT_A_USER, config: {} });
+  assertNoDelete(buttonCurrentEmpty, 'button_admin_show_current without existing buttons');
+  store.store.growth.byChannel[TENANT_A_CHANNEL] = {
+    channelId: TENANT_A_CHANNEL,
+    buttonSets: {
+      [commentKeyA]: [{ id: 'existing-button', text: 'Подробнее', url: 'https://example.com/a', tenantKey: tenantA.tenantKey, ownerUserId: TENANT_A_USER }]
+    }
+  };
+
+  const buttonHomeWithTarget = await buttons.screenForPayload(menu, { action: 'admin_section_buttons' }, { userId: TENANT_A_USER, config: {} });
+  assertNoButtonsCta(buttonHomeWithTarget, 'buttons:home with target');
+  assertNoDelete(buttonHomeWithTarget, 'buttons:home with existing buttons');
+
+  const buttonCurrent = await buttons.screenForPayload(menu, { action: 'button_admin_show_current' }, { userId: TENANT_A_USER, config: {} });
+  assertNoButtonsCta(buttonCurrent, 'button_admin_show_current');
+  assertHasDelete(buttonCurrent, 'button_admin_show_current with selected post buttons');
+
+  const addLabel = await buttons.screenForPayload(menu, { action: 'button_admin_start_add' }, { userId: TENANT_A_USER, config: {} });
+  assertNoButtonsCta(addLabel, 'button_admin_start_add selected post');
+  assert.strictEqual(addLabel.id, 'buttons_clean_add_label', 'button_admin_start_add starts text entry for selected post');
+  const addUrl = await buttons.handleTextInput(menu, { userId: TENANT_A_USER, text: 'Купить', config: {} });
+  assert.strictEqual(addUrl.id, 'buttons_clean_add_url', 'button text input should ask for URL next');
+  const beforeUrlInputCount = buttonSet(commentKeyA).length;
+  const preview = await buttons.handleTextInput(menu, { userId: TENANT_A_USER, text: 'https://example.com/buy', config: {} });
+  assert.strictEqual(preview.id, 'buttons_clean_add_preview', 'URL input must show preview before save');
+  assert.ok(/Купить/.test(screenText(preview)) && /https:\/\/example.com\/buy/.test(screenText(preview)), 'preview must show button text and link');
+  assert.strictEqual(buttonSet(commentKeyA).length, beforeUrlInputCount, 'URL input must not save immediately');
+  const saved = await buttons.screenForPayload(menu, { action: 'button_admin_save' }, { userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(buttonSet(commentKeyA).length, beforeUrlInputCount + 1, 'preview confirmation must save the draft button');
+  assert.ok(/Кнопка сохранена/.test(screenText(saved)), 'preview confirmation should return saved state');
 
   const giftRecentPosts = await gifts.screenForPayload(menu, { action: 'gift_admin_recent_posts' }, { userId: TENANT_A_USER, config: {} });
   assertTenantAScreen(giftRecentPosts, 'gift_admin_recent_posts');
