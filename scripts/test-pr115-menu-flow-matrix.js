@@ -9,6 +9,8 @@ const access = require('../services/clientAccessService');
 const postPatcher = require('../services/postPatcher');
 const buttons = require('../buttons-flow-cc8-clean');
 const gifts = require('../gifts-flow-cc8-fast');
+const statsFlow = require('../stats-flow-cc8');
+const adCampaigns = require('../services/adCampaignService');
 const archive = require('../archive-clean-flow-cc8311');
 const tenantScope = require('../tenant-scope');
 
@@ -70,6 +72,20 @@ function assertNoGiftRawTechnicalText(screen, label) {
   assert.ok(!/файл|вложение/i.test(visible), `${label} must not use confusing file wording`);
 }
 
+function assertNoAdLinkRawTechnicalText(screen, label) {
+  const visible = screenText(screen);
+  assert.ok(!/\b(postId|channelId|commentKey|token|payload|trace)\b/i.test(visible), `${label} must not expose raw technical fields`);
+  assert.ok(!/ad_[a-z0-9_:-]+/i.test(visible), `${label} must not expose raw ad link ids`);
+}
+
+function assertNoAdLinkDisable(screen, label) {
+  assert.ok(!buttonLabels(screen).some((text) => /Отключить ссылку/i.test(text)), `${label} must not expose ad link disable`);
+}
+
+function assertHasAdLinkDisable(screen, label) {
+  assert.ok(buttonLabels(screen).some((text) => /Отключить ссылку/i.test(text)), `${label} must expose ad link disable`);
+}
+
 function assertNoGiftInternalWording(screen, label) {
   const visible = screenText(screen);
   assert.ok(!/Clean Core|clean[- ]flow|clean-save|clean-delete|Repatch|перепатч|низкоуровнев|low-level/i.test(visible), `${label} must not expose internal Gifts implementation wording`);
@@ -127,6 +143,52 @@ async function main() {
   // menus must still intersect them with the active client's tenant-visible channels.
   store.savePost(`${TENANT_A_CHANNEL}:post-a`, { channelId: TENANT_A_CHANNEL, channelTitle: 'Tenant A Channel', postId: 'post-a', messageId: 'msg-a', originalText: 'Tenant A Public Post', createdAt: 1000, updatedAt: 1000 });
   store.savePost(`${TENANT_B_CHANNEL}:post-b`, { channelId: TENANT_B_CHANNEL, channelTitle: 'Tenant B Channel', postId: 'post-b', messageId: 'msg-b', originalText: 'Tenant B Secret Post', createdAt: 2000, updatedAt: 2000 });
+
+  const adLinkA = adCampaigns.createCampaign({ channelId: TENANT_A_CHANNEL, name: 'Tenant A Summer', source: 'Tenant A Source', targetUrl: 'https://max.ru/tenant_a_public', channelTitleOverride: 'Tenant A Channel', createdByUserId: TENANT_A_USER, config: {} });
+  const adLinkB = adCampaigns.createCampaign({ channelId: TENANT_B_CHANNEL, name: 'Tenant B Hidden Link', source: 'Tenant B Source', targetUrl: 'https://max.ru/tenant_b_secret', channelTitleOverride: 'Tenant B Channel', createdByUserId: TENANT_B_USER, config: {} });
+  const settingsA = store.getGrowthSettings(TENANT_A_CHANNEL);
+  store.saveGrowthSettings(TENANT_A_CHANNEL, { ...settingsA, adCampaigns: [
+    ...(settingsA.adCampaigns || []),
+    { id: 'ad_global_legacy', slug: 'global-legacy', channelId: TENANT_A_CHANNEL, channelTitle: 'Global Legacy Channel', name: 'Global Legacy Link postId channelId', source: 'payload trace token', targetUrl: 'https://max.ru/global_legacy', enabled: true, createdAt: 1, updatedAt: 1 }
+  ] });
+
+  const adHome = await statsFlow.screenForPayload(menu, { action: 'admin_stats_campaigns' }, { userId: TENANT_A_USER, config: {} });
+  assertNoAdLinkDisable(adHome, 'ad_links home/root');
+  assertNoAdLinkRawTechnicalText(adHome, 'ad_links home/root');
+  assert.ok(/Tenant A Summer/.test(screenText(adHome)), 'ad_links home/root should show tenant A link');
+  assert.ok(!/Tenant B Hidden Link|Tenant B Source|Global Legacy|payload trace token/.test(screenText(adHome)), 'ad_links home/root must not leak tenant B/global/legacy links');
+
+  const adCard = await statsFlow.screenForPayload(menu, { action: 'admin_stats_campaign_view', campaignId: adLinkA.id, slug: adLinkA.slug }, { userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(adCard.id, 'stats_campaign_view', 'tenant A ad link card should open');
+  assertHasAdLinkDisable(adCard, 'tenant A ad link card');
+  assertNoAdLinkRawTechnicalText(adCard, 'tenant A ad link card');
+  assert.ok(/Рекламная ссылка/.test(screenText(adCard)) && /Источник/.test(screenText(adCard)) && /Статистика/.test(screenText(adCard)), 'ad link card must use product-safe wording');
+  assert.ok(!/Tenant B Hidden Link|Global Legacy/.test(screenText(adCard)), 'tenant A ad link card must not leak other links');
+
+  const missingLinkCard = await statsFlow.screenForPayload(menu, { action: 'admin_stats_campaign_view', campaignId: 'missing-link', slug: 'missing-link' }, { userId: TENANT_A_USER, config: {} });
+  assertNoAdLinkDisable(missingLinkCard, 'missing ad link card');
+
+  const rawDisable = await statsFlow.screenForPayload(menu, { action: 'admin_stats_campaign_disable', campaignId: adLinkA.id, slug: adLinkA.slug }, { userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(adCampaigns.getCampaignBySlug(adLinkA.slug, { userId: TENANT_A_USER }).enabled, true, 'raw/stale ad link disable without card marker must not disable');
+  assert.ok(/карточк[аи].*рекламн/i.test(screenText(rawDisable)), 'raw ad link disable should tell user to open link card');
+  assertNoAdLinkDisable(rawDisable, 'raw ad link disable rejection');
+  assertNoAdLinkRawTechnicalText(rawDisable, 'raw ad link disable rejection');
+
+  const tenantBStaleDisable = await statsFlow.screenForPayload(menu, { action: 'admin_stats_campaign_disable', source: 'ad_link_card', campaignId: adLinkB.id, slug: adLinkB.slug }, { userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(adCampaigns.getCampaignBySlug(adLinkB.slug, { userId: TENANT_B_USER }).enabled, true, 'tenant A card-marked disable must not disable tenant B link');
+  assert.ok(/не найдена|недоступна/i.test(screenText(tenantBStaleDisable)), 'tenant B stale disable should be rejected for tenant A');
+  assertNoAdLinkRawTechnicalText(tenantBStaleDisable, 'tenant B stale disable rejection');
+
+  const disablePayload = callbackPayload(adCard, /Отключить ссылку/i);
+  assert.deepStrictEqual(disablePayload, { action: 'admin_stats_campaign_disable', campaignId: adLinkA.id, slug: adLinkA.slug, source: 'ad_link_card' }, 'ad link disable button must carry ad link card marker');
+  const disabledCard = await statsFlow.screenForPayload(menu, disablePayload, { userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(adCampaigns.getCampaignBySlug(adLinkA.slug, { userId: TENANT_A_USER }).enabled, false, 'card-marked ad link disable must disable selected tenant link');
+  assert.strictEqual(adCampaigns.getCampaignBySlug(adLinkB.slug, { userId: TENANT_B_USER }).enabled, true, 'card-marked ad link disable must not disable tenant B link');
+  assert.strictEqual(adCampaigns.getCampaignBySlug('global-legacy')?.enabled, true, 'card-marked ad link disable must not disable global legacy link');
+  assert.ok(/Рекламная ссылка отключена/.test(screenText(disabledCard)), 'card-marked ad link disable should confirm removal');
+  assertNoAdLinkDisable(disabledCard, 'ad_links after disable confirmation');
+  assertNoAdLinkRawTechnicalText(disabledCard, 'ad_links after disable confirmation');
+
   store.setSetupState(TENANT_A_USER, {
     canReadLegacyUnscoped: true,
     buttonTargetPost: { commentKey: `${TENANT_B_CHANNEL}:post-b`, channelId: TENANT_B_CHANNEL, channelTitle: 'Tenant B Channel', postId: 'post-b' },
