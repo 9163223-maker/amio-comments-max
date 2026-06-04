@@ -6,6 +6,7 @@ const adapter = require('../features/menu-v3/adapter');
 const menuCore = require('../v3-menu-core-1539');
 
 function rows(screen) { return screen?.attachments?.[0]?.payload?.buttons || []; }
+function buttons(screen) { return rows(screen).flat(); }
 function labels(screen) { return rows(screen).flat().map((button) => String(button.text || '').trim()).filter(Boolean); }
 function sectionRootLabels() { return canonical.clientSections.flatMap((section) => labels(adapter.render(section.route))); }
 function assertNo(pattern, values, message) {
@@ -260,6 +261,17 @@ assert.strictEqual(labels(accountActive).filter((label) => label === '🏠 Гл�
 const channelCard = adapter.render('channels:card', { payload: { channelId: 'raw-channel-123', channelTitle: 'Новости компании' } });
 assert.ok(/Новости компании/.test(channelCard.text), 'channel card must use human-readable channel title');
 assert.ok(!/raw-channel-123|postId|channelId|commentKey|token|payload|trace/i.test(channelCard.text), 'channel card must not expose technical identifiers');
+
+
+const highlightPlainCard = adapter.render('highlights:post', { payload: { postTitle: 'Анонс недели' } });
+assert.ok(labels(highlightPlainCard).includes('Применить'), 'highlight post card should expose apply action');
+assert.ok(!labels(highlightPlainCard).includes('Снять выделение'), 'highlight post card without selected highlight must not expose remove');
+const highlightMarkedCard = adapter.render('highlights:post', { payload: { postTitle: 'Анонс недели', hasHighlight: true } });
+assert.ok(labels(highlightMarkedCard).includes('Снять выделение'), 'highlight post card with selected highlight must expose remove');
+const highlightRemoveButton = buttons(highlightMarkedCard).flat().find((item) => item.text === 'Снять выделение');
+assert.strictEqual(payloadOf(highlightRemoveButton).source, 'highlight_card', 'highlight remove action must be card-marked');
+assert.ok(!/postId|channelId|commentKey|token|payload|trace/i.test(highlightMarkedCard.text), 'highlight post card must not expose technical identifiers');
+
 
 const pickerAudit = adapter.postPickerAudit();
 assert.strictEqual(pickerAudit.ok, true, `post picker audit failed: ${JSON.stringify(pickerAudit)}`);

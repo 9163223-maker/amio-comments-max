@@ -222,12 +222,15 @@ function choosePost(owner, context = {}) {
 function postScreen(owner, context = {}) {
   const payload = context.payload || context.post || {};
   const title = normalize(payload.postTitle) || normalize(payload.title) || 'выбранный пост';
+  const highlightPayload = { ...payload, source: 'highlight_card' };
+  const highlightRows = [[actionButton('Применить', 'highlight_apply', highlightPayload)]];
+  if (payload.highlight?.enabled || payload.hasHighlight === true) highlightRows.push([actionButton('Снять выделение', 'highlight_remove', highlightPayload)]);
   const rowsByOwner = {
     comments: [[button('Включить / проверить комментарии', 'comments:toggle', payload)], [button('Список комментариев', 'comments:list', payload)], [button('Фото в комментариях', 'comments:photos', payload)], [button('Реакции и ответы', 'comments:reactions', payload)], [button('Настройки кнопки комментариев', 'comments:button', payload)]],
     editor: [[actionButton('Изменить текст', 'admin_posts_edit_text', payload)], [button('История версий', 'editor:history', payload)]],
     buttons: [[actionButton('Добавить кнопку', 'button_admin_start_add', payload), actionButton('Текущие кнопки', 'button_admin_show_current', payload)]],
     gifts: [[actionButton('Создать подарок', 'gift_admin_start_create', payload), actionButton('Список подарков', 'gift_admin_show_current', payload)]],
-    highlights: [[actionButton('Поставить выделение', 'highlight_apply', payload), actionButton('Снять выделение', 'highlight_remove', payload)]],
+    highlights: highlightRows,
     polls: [[actionButton('Создать опрос', 'poll_create', payload), actionButton('Результаты', 'poll_status', payload)]],
     stats: [[actionButton('Статистика поста', 'admin_stats_post', payload)]],
   };

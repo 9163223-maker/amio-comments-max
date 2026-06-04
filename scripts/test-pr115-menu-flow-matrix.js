@@ -14,6 +14,7 @@ const adCampaigns = require('../services/adCampaignService');
 const archive = require('../archive-clean-flow-cc8311');
 const tenantScope = require('../tenant-scope');
 const polls = require('../poll-flow-15313');
+const highlights = require('../highlight-flow-15311');
 const pollService = require('../services/pollService');
 const maxApi = require('../services/maxApi');
 
@@ -102,6 +103,22 @@ function assertNoPollRawTechnicalText(screen, label) {
   assert.ok(!/\b(postId|channelId|commentKey|token|payload|trace)\b/i.test(visible), `${label} must not expose raw technical fields`);
   assert.ok(!/poll_[a-z0-9_:-]+|-[a-z0-9-]+:post-/i.test(visible), `${label} must not expose raw poll or post ids`);
   assert.ok(!/\bCTA\b/i.test(visible), `${label} must not expose CTA wording`);
+}
+
+function assertNoHighlightRawTechnicalText(screen, label) {
+  const visible = screenText(screen);
+  assert.ok(!/\b(postId|channelId|commentKey|token|payload|trace)\b/i.test(visible), `${label} must not expose raw technical fields`);
+  assert.ok(!/Legacy|debug|trace/i.test(visible), `${label} must not expose legacy/debug/trace wording`);
+  assert.ok(!/\bCTA\b/i.test(visible), `${label} must not expose CTA wording`);
+  assert.ok(!/видео|файл/i.test(visible), `${label} must not use video/files wording`);
+}
+
+function assertNoHighlightRemove(screen, label) {
+  assert.ok(!buttonLabels(screen).some((text) => /Снять выделение/i.test(text)), `${label} must not expose highlight removal`);
+}
+
+function assertHasHighlightRemove(screen, label) {
+  assert.ok(buttonLabels(screen).some((text) => /Снять выделение/i.test(text)), `${label} must expose highlight removal`);
 }
 
 function assertHasAdLinkDisable(screen, label) {
@@ -237,6 +254,70 @@ async function main() {
   });
   const buttonCurrentEmpty = await buttons.screenForPayload(menu, { action: 'button_admin_show_current' }, { userId: TENANT_A_USER, config: {} });
   assertNoDelete(buttonCurrentEmpty, 'button_admin_show_current without existing buttons');
+
+
+  maxApi.editMessage = async () => ({ ok: true, skipped: true });
+  store.savePost(commentKeyA, { highlight: { enabled: true, badgeId: 'important', label: '⭐ Важно', updatedAt: 3000, mode: 'text_mark_no_button' } });
+  store.savePost(`${TENANT_B_CHANNEL}:post-b`, { highlight: { enabled: true, badgeId: 'promo', label: '🔥 Акция', updatedAt: 3000, mode: 'text_mark_no_button' } });
+  store.savePost('-global-legacy-highlight:post-x', { channelId: '-global-legacy-highlight', channelTitle: 'Global Legacy Highlight Channel', postId: 'post-x', messageId: 'msg-x', originalText: 'Global Legacy Highlight postId channelId payload trace token', highlight: { enabled: true, badgeId: 'new', label: '🆕 Новое', updatedAt: 3000, mode: 'text_mark_no_button' } });
+
+  const highlightHome = highlights.home(menu);
+  assertNoHighlightRemove(highlightHome, 'highlights home/root');
+  assertNoHighlightRawTechnicalText(highlightHome, 'highlights home/root');
+
+  const highlightPicker = highlights.picker(menu, TENANT_A_USER);
+  assert.ok(/Tenant A Public Post/.test(screenText(highlightPicker)), 'highlights picker should show tenant A post');
+  assert.ok(!/Tenant B Secret Post|Global Legacy Highlight|payload trace token/.test(screenText(highlightPicker)), 'highlights picker must not leak tenant B/global/legacy posts');
+  assertNoHighlightRemove(highlightPicker, 'highlights picker');
+  assertNoHighlightRawTechnicalText(highlightPicker, 'highlights picker');
+
+  const highlightedCard = highlights.picked(menu, commentKeyA, TENANT_A_USER);
+  assertHasHighlightRemove(highlightedCard, 'highlight card for selected highlighted post');
+  assertNoHighlightRawTechnicalText(highlightedCard, 'highlight card for selected highlighted post');
+  assert.ok(/Выделение поста/.test(screenText(highlightedCard)) && /Пост/.test(screenText(highlightedCard)) && /Тип метки/.test(screenText(highlightedCard)) && /Применить/.test(screenText(highlightedCard)) && /Снять выделение/.test(screenText(highlightedCard)), 'highlight card must use product-safe wording');
+
+  const highlightInfo = highlights.info(menu, { commentKey: commentKeyA, userId: TENANT_A_USER });
+  assert.ok(/Выделение поста/.test(screenText(highlightInfo)) && /Управлять выделением можно из карточки выбранного поста/.test(screenText(highlightInfo)), 'highlight_info must use product-safe wording');
+  assertNoHighlightRawTechnicalText(highlightInfo, 'highlight_info');
+
+  const removePayload = callbackPayload(highlightedCard, /Снять выделение/i);
+  assert.deepStrictEqual(removePayload, { action: 'highlight_remove', commentKey: commentKeyA, source: 'highlight_card' }, 'highlight remove button must carry highlight-card marker');
+
+  const rawHighlightRemove = await highlights.remove(menu, { commentKey: commentKeyA, userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(store.getPost(commentKeyA).highlight.enabled, true, 'raw/stale highlight_remove without highlight-card marker must not remove');
+  assertNoHighlightRemove(rawHighlightRemove, 'raw/stale highlight remove rejection');
+  assertNoHighlightRawTechnicalText(rawHighlightRemove, 'raw/stale highlight remove rejection');
+
+  const tenantBHighlightRemove = await highlights.remove(menu, { commentKey: `${TENANT_B_CHANNEL}:post-b`, userId: TENANT_A_USER, source: 'highlight_card', config: {} });
+  assert.strictEqual(store.getPost(`${TENANT_B_CHANNEL}:post-b`).highlight.enabled, true, 'tenant A card-marked remove must not remove tenant B highlight');
+  assert.ok(/недоступен/i.test(screenText(tenantBHighlightRemove)), 'tenant B highlight remove rejection should be safe');
+  assertNoHighlightRawTechnicalText(tenantBHighlightRemove, 'tenant B highlight remove rejection');
+
+  const legacyHighlightRemove = await highlights.remove(menu, { commentKey: '-global-legacy-highlight:post-x', userId: TENANT_A_USER, source: 'highlight_card', config: {} });
+  assert.strictEqual(store.getPost('-global-legacy-highlight:post-x').highlight.enabled, true, 'tenant A card-marked remove must not remove global legacy highlight');
+  assertNoHighlightRawTechnicalText(legacyHighlightRemove, 'global legacy highlight remove rejection');
+
+  const highlightStatus = highlights.statusScreen(menu, { userId: TENANT_A_USER });
+  assert.ok(/Выделенных постов: 1/.test(screenText(highlightStatus)), 'highlight check must count only tenant A visible highlights');
+  assert.ok(!/Tenant B Secret Post|Global Legacy Highlight|payload trace token/.test(screenText(highlightStatus)), 'highlight check must not leak tenant B/global/legacy highlights');
+  assertNoHighlightRemove(highlightStatus, 'highlight check screen');
+  assertNoHighlightRawTechnicalText(highlightStatus, 'highlight check screen');
+
+  const applied = await highlights.apply(menu, { commentKey: commentKeyA, badgeId: 'promo', source: 'highlight_card', userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(store.getPost(commentKeyA).highlight.enabled, true, 'card-marked highlight apply must stay tied to selected tenant post');
+  assert.strictEqual(store.getPost(commentKeyA).highlight.badgeId, 'promo', 'card-marked highlight apply must update selected tenant post marker');
+  assertNoHighlightRawTechnicalText(applied, 'card-marked highlight apply confirmation');
+
+  const removed = await highlights.remove(menu, { ...removePayload, userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(store.getPost(commentKeyA).highlight.enabled, false, 'card-marked highlight_remove must remove selected tenant highlight');
+  assert.strictEqual(store.getPost(`${TENANT_B_CHANNEL}:post-b`).highlight.enabled, true, 'card-marked highlight_remove must not remove tenant B highlight');
+  assert.strictEqual(store.getPost('-global-legacy-highlight:post-x').highlight.enabled, true, 'card-marked highlight_remove must not remove global legacy highlight');
+  assert.ok(/Выделение снято/.test(screenText(removed)), 'card-marked highlight remove should confirm removal');
+  assertNoHighlightRawTechnicalText(removed, 'card-marked highlight remove confirmation');
+
+  const plainCard = highlights.picked(menu, commentKeyA, TENANT_A_USER);
+  assertNoHighlightRemove(plainCard, 'highlight card for selected post without highlight');
+  assertNoHighlightRawTechnicalText(plainCard, 'highlight card for selected post without highlight');
   store.store.growth.byChannel[TENANT_A_CHANNEL] = {
     channelId: TENANT_A_CHANNEL,
     buttonSets: {
