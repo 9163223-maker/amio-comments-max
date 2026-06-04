@@ -2,6 +2,7 @@
 
 const base = require('./posts-flow-cc8-text-flow');
 const store = require('./store');
+const clientAccessService = require('./services/clientAccessService');
 const fastText = require('./services/postEditorFastTextService');
 
 const RUNTIME = 'CC8.3.8-POSTS-TEXT-MEDIA-WRAPPER';
@@ -117,13 +118,26 @@ function isPostsAction(action = '') {
   const a = clean(action);
   return a === 'editor:home' || a === 'admin_section_posts' || /^admin_posts_/.test(a) || a === 'comments_pick_post';
 }
+function visibleChannelIds(userId = '') {
+  const uid = clean(userId);
+  if (!uid) return null;
+  return new Set(safe(() => clientAccessService.getClientChannels(uid), []).map((channel) => clean(channel.channelId || channel.id)).filter(Boolean));
+}
+function isTenantVisiblePost(post = {}, userId = '') {
+  const ids = visibleChannelIds(userId);
+  if (!ids) return true;
+  return Boolean(post && clean(post.commentKey) && clean(post.channelId) && ids.has(clean(post.channelId)));
+}
 function getPostEditState(userId = '') {
   const state = safe(() => store.getSetupState(clean(userId)) || {}, {}) || {};
   const flow = state.postEditFlow || {};
   if (clean(state.activeAdminFlowKind) !== EDIT_FLOW_KIND && clean(flow.mode) !== 'edit_text') return null;
-  const commentKey = clean(flow.commentKey || state.commentTargetPost?.commentKey || '');
+  if (clean(flow.source).toLowerCase() !== 'editor_card') return null;
+  const selectedKey = clean(state.commentTargetPost?.commentKey || state.giftTargetPost?.commentKey || '');
+  const commentKey = clean(flow.commentKey || '');
+  if (!commentKey || commentKey !== selectedKey) return null;
   const post = commentKey && base.findPost ? safe(() => base.findPost(commentKey), null) : null;
-  return post && post.commentKey ? { state, flow, commentKey, post } : null;
+  return post && post.commentKey && isTenantVisiblePost(post, userId) ? { state, flow, commentKey, post } : null;
 }
 function button(menu, text, action, extra) { return menu.button(text, action, extra || {}); }
 function keyboard(menu, rows) { return menu.keyboard(rows); }
@@ -133,7 +147,7 @@ function savedScreen(menu, post = {}, result = {}) {
   const mediaLine = mediaUpdated ? `Медиа обновлено: ${Number(result.mediaCount || 0)} влож.` : '';
   return {
     id: 'posts_clean_edit_saved',
-    text: ['✅ Пост изменён', '', mediaUpdated ? 'Текст и медиа сохранены.' : 'Текст сохранён.', '', 'Пост: ' + postTitleFor(result.post || post), mediaLine, 'Патч кнопок/комментариев: ' + (result?.patch?.pending ? 'поставлен в очередь' : (result?.patch?.ok ? 'обновлён' : 'без подтверждения')), '', 'Дальше можно открыть историю версий или вернуться к карточке поста.'].filter(Boolean).join('\n'),
+    text: ['✅ Пост изменён', '', mediaUpdated ? 'Текст и медиа сохранены.' : 'Текст сохранён.', '', 'Пост: ' + postTitleFor(result.post || post), mediaLine, 'Кнопки и комментарии сохраняются.', '', 'Дальше можно открыть историю версий или вернуться к карточке поста.'].filter(Boolean).join('\n'),
     attachments: keyboard(menu, [[button(menu, '↩️ К выбранному посту', 'admin_posts_open', { commentKey: key })], [button(menu, '🕘 История версий', 'admin_posts_history', { commentKey: key })], [button(menu, '✏️ В начало редактора', 'admin_section_posts')], [button(menu, '🏠 Главное меню', 'admin_section_main')]])
   };
 }

@@ -15,6 +15,7 @@ const archive = require('../archive-clean-flow-cc8311');
 const tenantScope = require('../tenant-scope');
 const polls = require('../poll-flow-15313');
 const highlights = require('../highlight-flow-15311');
+const postsEditor = require('../posts-flow-cc8-clean-wrapper');
 const pollService = require('../services/pollService');
 const maxApi = require('../services/maxApi');
 
@@ -105,6 +106,19 @@ function assertNoPollRawTechnicalText(screen, label) {
   assert.ok(!/\bCTA\b/i.test(visible), `${label} must not expose CTA wording`);
 }
 
+function assertNoEditorRawTechnicalText(screen, label) {
+  const visible = screenText(screen);
+  assert.ok(!/Post ID/i.test(visible), `${label} must not expose raw Post ID`);
+  assert.ok(!/\b(postId|channelId|commentKey|token|payload|trace)\b/i.test(visible), `${label} must not expose raw technical fields`);
+  assert.ok(!/\bCTA\b/i.test(visible), `${label} must not expose CTA wording`);
+  assert.ok(!/видео|файл/i.test(visible), `${label} must not use video/files wording`);
+}
+
+function assertNoEditorInternalWording(screen, label) {
+  const visible = screenText(screen);
+  assert.ok(!/Патч|patch|staged[- ]flow|Clean Core|store\/cache|store|cache/i.test(visible), `${label} must not expose internal editor wording`);
+}
+
 function assertNoHighlightRawTechnicalText(screen, label) {
   const visible = screenText(screen);
   assert.ok(!/\b(postId|channelId|commentKey|token|payload|trace)\b/i.test(visible), `${label} must not expose raw technical fields`);
@@ -178,10 +192,82 @@ async function main() {
   store.saveChannel(TENANT_A_CHANNEL, { channelId: TENANT_A_CHANNEL, title: 'Tenant A Channel', channelTitle: 'Tenant A Channel' });
   store.saveChannel(TENANT_B_CHANNEL, { channelId: TENANT_B_CHANNEL, title: 'Tenant B Channel', channelTitle: 'Tenant B Channel' });
 
+  const emptyEditorPicker = await postsEditor.screenForPayload(menu, { action: 'admin_posts_picker' }, { userId: TENANT_A_USER, config: { postEditWindowHours: 999999 } });
+  assert.ok(/Пока нет сохранённых постов/.test(screenText(emptyEditorPicker)), 'editor empty picker should use safe saved-post wording');
+  assert.ok(!/в памяти/i.test(screenText(emptyEditorPicker)), 'editor empty picker must not expose memory wording');
+  assertNoEditorInternalWording(emptyEditorPicker, 'editor empty picker');
+
   // Legacy unscoped posts are intentionally visible to the owner, but production
   // menus must still intersect them with the active client's tenant-visible channels.
   store.savePost(`${TENANT_A_CHANNEL}:post-a`, { channelId: TENANT_A_CHANNEL, channelTitle: 'Tenant A Channel', postId: 'post-a', messageId: 'msg-a', originalText: 'Tenant A Public Post', createdAt: 1000, updatedAt: 1000 });
   store.savePost(`${TENANT_B_CHANNEL}:post-b`, { channelId: TENANT_B_CHANNEL, channelTitle: 'Tenant B Channel', postId: 'post-b', messageId: 'msg-b', originalText: 'Tenant B Secret Post', createdAt: 2000, updatedAt: 2000 });
+  store.savePost(`-global-legacy:post-x`, { channelId: '-global-legacy', channelTitle: 'Global Legacy Channel', postId: 'post-x', messageId: 'msg-x', originalText: 'Global Legacy Post postId channelId payload trace token', createdAt: 3000, updatedAt: 3000 });
+
+  const editorHome = await postsEditor.screenForPayload(menu, { action: 'admin_section_posts' }, { userId: TENANT_A_USER, config: { postEditWindowHours: 999999 } });
+  assert.ok(!buttonLabels(editorHome).some((text) => /^✏️ Изменить текст$/i.test(text)), 'editor home/root must not expose direct edit action');
+  assertNoEditorRawTechnicalText(editorHome, 'editor home/root');
+  assertNoEditorInternalWording(editorHome, 'editor home/root');
+
+  const editorPicker = await postsEditor.screenForPayload(menu, { action: 'admin_posts_picker' }, { userId: TENANT_A_USER, config: { postEditWindowHours: 999999 } });
+  assertTenantAScreen(editorPicker, 'editor post picker');
+  assert.ok(!/Global Legacy Post|Tenant B Secret Post/.test(screenText(editorPicker)), 'editor picker must hide tenant B/global/legacy posts');
+  assertNoEditorRawTechnicalText(editorPicker, 'editor post picker');
+  assertNoEditorInternalWording(editorPicker, 'editor post picker');
+
+  const tenantBEditorCard = await postsEditor.screenForPayload(menu, { action: 'admin_posts_open', commentKey: `${TENANT_B_CHANNEL}:post-b` }, { userId: TENANT_A_USER, config: { postEditWindowHours: 999999 } });
+  assert.ok(!/Tenant B Secret Post|Global Legacy Post/.test(screenText(tenantBEditorCard)), 'tenant A must not open tenant B editor card');
+  assert.ok(!buttonLabels(tenantBEditorCard).some((text) => /^✏️ Изменить текст$/i.test(text)), 'tenant B editor card must not expose edit text to tenant A');
+  assertNoEditorRawTechnicalText(tenantBEditorCard, 'tenant B editor card rejection');
+
+  const editorCard = await postsEditor.screenForPayload(menu, { action: 'admin_posts_open', commentKey: `${TENANT_A_CHANNEL}:post-a` }, { userId: TENANT_A_USER, config: { postEditWindowHours: 999999 } });
+  assert.ok(buttonLabels(editorCard).some((text) => /^✏️ Изменить текст$/i.test(text)), 'selected tenant-visible post card must expose Изменить текст');
+  assertNoEditorRawTechnicalText(editorCard, 'tenant A editor card');
+  const editPayload = callbackPayload(editorCard, /^✏️ Изменить текст$/i);
+  assert.deepStrictEqual(editPayload, { action: 'admin_posts_edit_text', commentKey: `${TENANT_A_CHANNEL}:post-a`, source: 'editor_card' }, 'editor edit button must carry editor-card marker');
+
+  const rawEditStart = await postsEditor.screenForPayload(menu, { action: 'admin_posts_edit_text', commentKey: `${TENANT_A_CHANNEL}:post-a` }, { userId: TENANT_A_USER, config: { postEditWindowHours: 999999 } });
+  assert.notStrictEqual(rawEditStart.id, 'posts_clean_edit_text', 'raw/stale editor edit-start without card marker must not enter edit mode');
+  assert.notStrictEqual(store.getSetupState(TENANT_A_USER).activeAdminFlowKind, 'post_edit_text', 'raw/stale editor edit-start must not activate edit flow');
+  assertNoEditorRawTechnicalText(rawEditStart, 'raw editor edit-start rejection');
+
+  const staleTenantBEditStart = await postsEditor.screenForPayload(menu, { action: 'admin_posts_edit_text', commentKey: `${TENANT_B_CHANNEL}:post-b`, source: 'editor_card' }, { userId: TENANT_A_USER, config: { postEditWindowHours: 999999 } });
+  assert.notStrictEqual(staleTenantBEditStart.id, 'posts_clean_edit_text', 'card-marked edit-start must not open tenant B post for tenant A');
+  assertNoEditorRawTechnicalText(staleTenantBEditStart, 'tenant B editor edit-start rejection');
+
+  const cardEditStart = await postsEditor.screenForPayload(menu, editPayload, { userId: TENANT_A_USER, config: { postEditWindowHours: 999999 } });
+  assert.strictEqual(cardEditStart.id, 'posts_clean_edit_text', 'card-marked edit-start must open selected tenant-visible post');
+  assert.strictEqual(store.getSetupState(TENANT_A_USER).postEditFlow?.source, 'editor_card', 'card-marked edit-start must store editor-card source');
+  assertNoEditorRawTechnicalText(cardEditStart, 'card-marked editor edit-start');
+
+  store.setSetupState(TENANT_A_USER, { activeAdminFlowKind: 'post_edit_text', commentTargetPost: { commentKey: `${TENANT_A_CHANNEL}:post-a`, channelId: TENANT_A_CHANNEL }, giftTargetPost: { commentKey: `${TENANT_A_CHANNEL}:post-a`, channelId: TENANT_A_CHANNEL }, postEditFlow: { mode: 'edit_text', commentKey: `${TENANT_A_CHANNEL}:post-a` } });
+  const rawSave = await postsEditor.handleTextInput(menu, { userId: TENANT_A_USER, text: 'Raw stale edit should not save', config: { postEditWindowHours: 999999 } });
+  assert.strictEqual(store.getPost(`${TENANT_A_CHANNEL}:post-a`).originalText, 'Tenant A Public Post', 'raw/stale editor save without card marker must not update selected post');
+  assertNoEditorRawTechnicalText(rawSave, 'raw editor save rejection');
+
+  await postsEditor.screenForPayload(menu, { action: 'admin_posts_open', commentKey: `${TENANT_A_CHANNEL}:post-a` }, { userId: TENANT_A_USER, config: { postEditWindowHours: 999999 } });
+  await postsEditor.screenForPayload(menu, editPayload, { userId: TENANT_A_USER, config: { postEditWindowHours: 999999 } });
+  const savedEditor = await postsEditor.handleTextInput(menu, { userId: TENANT_A_USER, text: 'Tenant A Edited Post', config: { postEditWindowHours: 999999 } });
+  assert.strictEqual(store.getPost(`${TENANT_A_CHANNEL}:post-a`).originalText, 'Tenant A Edited Post', 'card-marked editor save must update selected tenant post');
+  assert.strictEqual(store.getPost(`${TENANT_B_CHANNEL}:post-b`).originalText, 'Tenant B Secret Post', 'card-marked editor save must not update tenant B post');
+  assert.strictEqual(store.getPost(`-global-legacy:post-x`).originalText, 'Global Legacy Post postId channelId payload trace token', 'card-marked editor save must not update global legacy post');
+  assertNoEditorRawTechnicalText(savedEditor, 'card-marked editor save');
+  assertNoEditorInternalWording(savedEditor, 'card-marked editor save');
+
+  await postsEditor.screenForPayload(menu, { action: 'admin_posts_open', commentKey: `${TENANT_A_CHANNEL}:post-a` }, { userId: TENANT_A_USER, config: { postEditWindowHours: 999999 } });
+  await postsEditor.screenForPayload(menu, editPayload, { userId: TENANT_A_USER, config: { postEditWindowHours: 999999 } });
+  const wrapperSavedEditor = await postsEditor.handleTextInput(menu, {
+    userId: TENANT_A_USER,
+    text: 'Tenant A Edited Post With Media',
+    config: { postEditWindowHours: 999999 },
+    update: { message: { body: { attachments: [{ type: 'image', payload: { url: 'https://example.com/editor-image.jpg' } }] } } }
+  });
+  assert.strictEqual(store.getPost(`${TENANT_A_CHANNEL}:post-a`).originalText, 'Tenant A Edited Post With Media', 'card-marked wrapper save must update selected tenant post');
+  assert.strictEqual(store.getPost(`${TENANT_B_CHANNEL}:post-b`).originalText, 'Tenant B Secret Post', 'card-marked wrapper save must not update tenant B post');
+  assertNoEditorRawTechnicalText(wrapperSavedEditor, 'wrapper card-marked editor save');
+  assertNoEditorInternalWording(wrapperSavedEditor, 'wrapper card-marked editor save');
+  assert.ok(/Кнопки и комментарии сохраняются/.test(screenText(wrapperSavedEditor)), 'wrapper saved screen should use product-safe preservation wording');
+
+  store.savePost(`${TENANT_A_CHANNEL}:post-a`, { originalText: 'Tenant A Public Post', sourceAttachments: [], attachments: [], updatedAt: 1000 });
 
   const adLinkA = adCampaigns.createCampaign({ channelId: TENANT_A_CHANNEL, name: 'Tenant A Summer', source: 'Tenant A Source', targetUrl: 'https://max.ru/tenant_a_public', channelTitleOverride: 'Tenant A Channel', createdByUserId: TENANT_A_USER, config: {} });
   const adLinkB = adCampaigns.createCampaign({ channelId: TENANT_B_CHANNEL, name: 'Tenant B Hidden Link', source: 'Tenant B Source', targetUrl: 'https://max.ru/tenant_b_secret', channelTitleOverride: 'Tenant B Channel', createdByUserId: TENANT_B_USER, config: {} });
