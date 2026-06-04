@@ -28,6 +28,8 @@ function targetRecord(post={},userId=''){const ctx=tenant.ensureTenantContext(us
 function bindTarget(userId='',post={}){const uid=clean(userId);if(!uid||!post||!post.commentKey)return null;const target=targetRecord(post,uid);try{const prev=store.getSetupState(uid)||{};store.setSetupState(uid,{...prev,pollTargetPost:target});}catch{}return target;}
 function storedTarget(userId=''){try{const st=store.getSetupState(clean(userId))||{};const t=st.pollTargetPost||null;return t&&t.commentKey?postByKey(t.commentKey,userId):null;}catch{return null;}}
 function selectedLines(post,userId=''){return ['Выбранный канал: '+channelTitle(post,userId),'Выбранный пост: '+postPreview(post,120)];}
+function pollCardRequiredScreen(menu){return {id:'poll_card_required',text:['⚠️ Откройте карточку выбранного поста','','Создание опроса доступно только из карточки выбранного поста.'].join('\n'),attachments:menu.keyboard([[menu.button('Выбрать пост','comments_select_post',{source:'polls'})],[menu.button('В начало опросов','admin_section_polls')],[menu.button('Главное меню','admin_section_main')]])};}
+function isPollCardSource(source=''){return clean(source)==='poll_card';}
 async function setFlow(userId,flow){try{await db.setFlow(String(userId||''),flow);}catch{}}
 async function getFlow(userId){try{return await db.getFlow(String(userId||''));}catch{return null;}}
 async function clearFlow(userId){try{await db.clearFlow(String(userId||''));}catch{}}
@@ -71,9 +73,10 @@ function picked(menu,commentKey,userId=''){
   const post=postByKey(commentKey,userId);
   if(!post)return {id:'poll_post_missing',text:['⚠️ Пост не найден','','Нужно выбрать пост из доступных сохранённых постов.'].join('\n'),attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]])};
   bindTarget(userId,post);
-  return {id:'polls_picked',text:['🗳 Карточка выбранного поста','','Канал: '+channelTitle(post,userId),'Пост: '+postPreview(post,120),'','Теперь можно создать быстрый опрос или настроить свой вопрос и ответы. Ответов — от 2 до 4.'].join('\n'),attachments:menu.keyboard([[menu.button('✍️ Свой вопрос и ответы','poll_custom_start',{commentKey})],[menu.button('✅ Быстро: Да / Нет','poll_create',{commentKey,template:'yes_no'})],[menu.button('👍 Быстро: Нравится / Не нравится','poll_create',{commentKey,template:'like_dislike'})],[menu.button('1️⃣ 2️⃣ 3️⃣ Быстро: три варианта','poll_create',{commentKey,template:'three'})],[menu.button('📌 Выбрать другой пост','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]])};
+  return {id:'polls_picked',text:['🗳 Карточка выбранного поста','','Канал: '+channelTitle(post,userId),'Пост: '+postPreview(post,120),'','Теперь можно создать быстрый опрос или настроить свой вопрос и ответы. Ответов — от 2 до 4.'].join('\n'),attachments:menu.keyboard([[menu.button('✍️ Свой вопрос и ответы','poll_custom_start',{commentKey,source:'poll_card'})],[menu.button('✅ Быстро: Да / Нет','poll_create',{commentKey,template:'yes_no',source:'poll_card'})],[menu.button('👍 Быстро: Нравится / Не нравится','poll_create',{commentKey,template:'like_dislike',source:'poll_card'})],[menu.button('1️⃣ 2️⃣ 3️⃣ Быстро: три варианта','poll_create',{commentKey,template:'three',source:'poll_card'})],[menu.button('📌 Выбрать другой пост','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]])};
 }
-async function customStart(menu,{userId='',commentKey=''}={}){
+async function customStart(menu,{userId='',commentKey='',source=''}={}){
+  if(!isPollCardSource(source))return pollCardRequiredScreen(menu);
   const post=postByKey(commentKey,userId);
   if(!post)return {id:'poll_error',text:['⚠️ Пост не найден','','Нужно выбрать пост из сохранённых.'].join('\n'),attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]])};
   await setFlow(userId,{type:'poll_custom',step:'question',commentKey,startedAt:Date.now()});
@@ -106,18 +109,19 @@ async function patchPostWithPoll({config,commentKey,pollId='',userId=''}){
   return {ok:true,result,pollRows:pollRows.length,pollId:pollId||null};
 }
 
-async function finishCreate(menu,{config,userId='',commentKey='',question='',options=[],template='custom'}={}){
+async function finishCreate(menu,{config,userId='',commentKey='',question='',options=[],template='custom',source=''}={}){
+  if(!isPollCardSource(source))return pollCardRequiredScreen(menu);
   const post=postByKey(commentKey,userId);
   if(!post)return {id:'poll_error',text:['⚠️ Не удалось создать опрос','','Пост недоступен.'].join('\n'),attachments:menu.keyboard([[menu.button('📌 Выбрать другой пост','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]])};
   const created=template==='custom'?await pollService.createPoll({adminId:userId,channelId:post.channelId,postId:post.postId,commentKey,question,options,template}):await pollService.createQuickPoll({adminId:userId,channelId:post.channelId,postId:post.postId,commentKey,postTitle:postPreview(post,120),template});
-  if(!created.ok)return {id:'poll_error',text:['⚠️ Не удалось создать опрос','','Ошибка: '+String(created.error||'unknown')].join('\n'),attachments:menu.keyboard([[menu.button('🗳 В начало опросов','admin_section_polls')],[menu.button('🏠 Главное меню','admin_section_main')]])};
+  if(!created.ok)return {id:'poll_error',text:['⚠️ Не удалось создать опрос','','Попробуйте позже или выберите пост заново.'].join('\n'),attachments:menu.keyboard([[menu.button('🗳 В начало опросов','admin_section_polls')],[menu.button('🏠 Главное меню','admin_section_main')]])};
   let patched={ok:false};
   try{patched=await patchPostWithPoll({config,commentKey,pollId:created.poll&&created.poll.id,userId});}catch(e){patched={ok:false,error:String(e&&e.message||e),status:e&&e.status,data:e&&e.data};}
-  const lines=['✅ Опрос создан','','Канал: '+channelTitle(post,userId),'Пост: '+postPreview(post,120),'Вопрос: '+sh(created.poll&&created.poll.question||question,180),'Ответов: '+((created.poll&&created.poll.options&&created.poll.options.length)||options.length),'Голоса будут сохраняться в Postgres.'];
-  if(patched.ok)lines.push('','Кнопки опроса добавлены под постом.'); else lines.push('','Опрос создан в базе, но пост пока не пропатчился: '+String(patched.error||'patch_failed'));
+  const lines=['✅ Опрос создан','','Канал: '+channelTitle(post,userId),'Пост: '+postPreview(post,120),'Вопрос: '+sh(created.poll&&created.poll.question||question,180),'Ответов: '+((created.poll&&created.poll.options&&created.poll.options.length)||options.length),'Результаты будут сохраняться автоматически.'];
+  if(patched.ok)lines.push('','Кнопки опроса добавлены под постом.'); else lines.push('','Опрос сохранён, но кнопки под постом пока не обновились. Проверьте подключение канала и повторите позже.');
   return {id:'poll_created',text:lines.join('\n'),attachments:menu.keyboard([[menu.button('📊 Статус опросов','poll_status')],[menu.button('📌 Выбрать другой пост','comments_select_post',{source:'polls'})],[menu.button('🏠 Главное меню','admin_section_main')]])};
 }
-async function createPoll(menu,{config,userId='',commentKey='',template='yes_no'}={}){return finishCreate(menu,{config,userId,commentKey,template});}
+async function createPoll(menu,{config,userId='',commentKey='',template='yes_no',source=''}={}){return finishCreate(menu,{config,userId,commentKey,template,source});}
 async function handleTextInput(menu,{config,userId='',text=''}={}){
   const flow=await getFlow(userId);
   if(!flow||flow.type!=='poll_custom')return null;
@@ -133,7 +137,7 @@ async function handleTextInput(menu,{config,userId='',text=''}={}){
     const options=pollService.parseOptionsText(value);
     if(options.length<2||options.length>4)return {id:'poll_custom_options_error',text:['⚠️ Нужно от 2 до 4 вариантов.','','Напишите каждый ответ с новой строки. Например:','Да','Нет'].join('\n'),attachments:menu.keyboard([[menu.button('↩️ Отмена','comments_pick_post',{source:'polls',commentKey})]])};
     await clearFlow(userId);
-    return finishCreate(menu,{config,userId,commentKey,question:flow.question,options,template:'custom'});
+    return finishCreate(menu,{config,userId,commentKey,question:flow.question,options,template:'custom',source:'poll_card'});
   }
   return null;
 }

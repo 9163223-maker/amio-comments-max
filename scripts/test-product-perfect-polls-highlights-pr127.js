@@ -9,6 +9,8 @@ const tenant = require('../tenant-scope');
 const access = require('../services/clientAccessService');
 const polls = require('../poll-flow-15313');
 const highlights = require('../highlight-flow-15311');
+const pollService = require('../services/pollService');
+const maxApi = require('../services/maxApi');
 
 const TENANT_A_USER = 'pr127-tenant-a';
 const TENANT_B_USER = 'pr127-tenant-b';
@@ -149,6 +151,53 @@ async function testPolls() {
   assert.ok(/Выбранный канал: Отзывы/.test(visible(selectedHome)) && /Выбранный пост: Отзывы клиентов за неделю/.test(visible(selectedHome)), 'Polls home shows selected context');
   assert.ok(/Создать опрос к выбранному посту/.test(visible(selectedHome)) && /Выбрать другой пост/.test(visible(selectedHome)), 'Polls home actions are explicit');
   assertNoUnsafeUi(selectedHome, 'polls selected home');
+
+  let quickCreates = 0;
+  let customCreates = 0;
+  const originalQuick = pollService.createQuickPoll;
+  const originalCustom = pollService.createPoll;
+  const originalRows = pollService.buildPollKeyboardRows;
+  const originalEdit = maxApi.editMessage;
+  pollService.createQuickPoll = async () => { quickCreates += 1; return { ok: true, poll: { id: 101, question: 'Safe quick question', options: [{ text: 'Да' }, { text: 'Нет' }] } }; };
+  pollService.createPoll = async () => { customCreates += 1; return { ok: true, poll: { id: 102, question: 'Safe custom question', options: [{ text: 'Да' }, { text: 'Нет' }] } }; };
+  pollService.buildPollKeyboardRows = async () => [];
+  maxApi.editMessage = async () => { throw new Error('patch_failed raw internal Postgres details'); };
+  try {
+    const quickPayload = payloadFor(card, /Да \/ Нет/);
+    assert.strictEqual(quickPayload.source, 'poll_card', 'Polls quick create button carries poll_card marker');
+
+    const rawCreate = await polls.createPoll(menu, { userId: TENANT_A_USER, commentKey: quickPayload.commentKey, template: quickPayload.template, source: '' });
+    assert.strictEqual(rawCreate.id, 'poll_card_required', 'Polls raw/stale quick create is blocked without poll_card source');
+    assert.ok(/Создание опроса доступно только из карточки выбранного поста\./.test(visible(rawCreate)), 'Polls raw quick create returns card-required wording');
+    assert.strictEqual(quickCreates, 0, 'Polls raw quick create does not call poll creation service');
+    assertNoUnsafeUi(rawCreate, 'polls raw quick create');
+
+    const rawCustom = await polls.customStart(menu, { userId: TENANT_A_USER, commentKey: quickPayload.commentKey, source: '' });
+    assert.strictEqual(rawCustom.id, 'poll_card_required', 'Polls raw/stale custom start is blocked without poll_card source');
+    assert.ok(!/Напишите одним сообщением вопрос/.test(visible(rawCustom)), 'Polls raw custom start does not open question flow');
+    assertNoUnsafeUi(rawCustom, 'polls raw custom start');
+
+    const created = await polls.createPoll(menu, { userId: TENANT_A_USER, commentKey: quickPayload.commentKey, template: quickPayload.template, source: 'poll_card', config: { botToken: '', appBaseUrl: '', botUsername: '', maxDeepLinkBase: '' } });
+    assert.strictEqual(created.id, 'poll_created', 'Polls card-marked quick create works from selected post card');
+    assert.strictEqual(quickCreates, 1, 'Polls card-marked quick create calls poll creation service once');
+    assert.ok(/Опрос создан/.test(visible(created)) && /Результаты будут сохраняться автоматически/.test(visible(created)), 'Polls created screen uses product-safe success wording');
+    assert.ok(/Опрос сохранён, но кнопки под постом пока не обновились\. Проверьте подключение канала и повторите позже\./.test(visible(created)), 'Polls created screen uses product-safe post update failure wording');
+    assert.ok(!/Postgres|в базе|пропатч|patch_failed|raw internal|Error:/i.test(visible(created)), 'Polls created screen hides DB/patch/internal wording');
+    assertNoUnsafeUi(created, 'polls created quick poll');
+
+    const customPayload = payloadFor(card, /Свой вопрос/);
+    assert.strictEqual(customPayload.source, 'poll_card', 'Polls custom start button carries poll_card marker');
+    const customQuestion = await polls.customStart(menu, { userId: TENANT_A_USER, commentKey: customPayload.commentKey, source: 'poll_card' });
+    assert.strictEqual(customQuestion.id, 'poll_custom_question', 'Polls card-marked custom start opens question step');
+    assert.ok(/Напишите одним сообщением вопрос/.test(visible(customQuestion)), 'Polls card-marked custom start begins custom flow');
+    assert.strictEqual(customCreates, 0, 'Polls custom start does not create poll before custom answers');
+    assertNoUnsafeUi(customQuestion, 'polls custom question');
+  } finally {
+    pollService.createQuickPoll = originalQuick;
+    pollService.createPoll = originalCustom;
+    pollService.buildPollKeyboardRows = originalRows;
+    maxApi.editMessage = originalEdit;
+  }
 
   const rawStop = await polls.stopPoll(menu, { userId: TENANT_A_USER, pollId: RAW_POLL_ID, source: '' });
   assert.strictEqual(rawStop.id, 'poll_stop_blocked', 'Polls raw stop remains blocked');
