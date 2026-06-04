@@ -1065,7 +1065,7 @@ app.get(["/debug/version", "/version/debug"], (req, res) => {
 
 function requireUiDebugToken(req, res, next) {
   const expected = String(config.giftAdminToken || process.env.ADMIN_TOKEN || '').trim();
-  if (!expected) return next();
+  if (!expected) return res.status(403).json({ ok: false, error: 'debug_disabled' });
   const bearer = String(req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
   const token = String(req.query?.token || req.query?.adminToken || req.get('x-admin-token') || bearer || '').trim();
   if (token !== expected) return res.status(403).json({ ok: false, error: 'debug_forbidden' });
