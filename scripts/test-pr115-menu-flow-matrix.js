@@ -56,6 +56,13 @@ function assertHasDelete(screen, label) {
   assert.ok(buttonLabels(screen).some((text) => /Удалить последнюю кнопку/i.test(text)), `${label} must expose delete`);
 }
 
+function deletePayload(screen) {
+  return (screen.attachments || [])
+    .flatMap((attachment) => attachment?.payload?.buttons || [])
+    .flat()
+    .find((button) => /Удалить последнюю кнопку/i.test(button?.text || ''))?.payload || null;
+}
+
 function buttonSet(commentKey) {
   return store.store.growth?.byChannel?.[TENANT_A_CHANNEL]?.buttonSets?.[commentKey] || [];
 }
@@ -140,6 +147,19 @@ async function main() {
   const saved = await buttons.screenForPayload(menu, { action: 'button_admin_save' }, { userId: TENANT_A_USER, config: {} });
   assert.strictEqual(buttonSet(commentKeyA).length, beforeUrlInputCount + 1, 'preview confirmation must save the draft button');
   assert.ok(/Кнопка сохранена/.test(screenText(saved)), 'preview confirmation should return saved state');
+
+  const beforeRawDeleteCount = buttonSet(commentKeyA).length;
+  const rawDelete = await buttons.screenForPayload(menu, { action: 'button_admin_delete' }, { userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(buttonSet(commentKeyA).length, beforeRawDeleteCount, 'raw button_admin_delete without card marker must not delete');
+  assert.ok(/Текущие кнопки/.test(screenText(rawDelete)), 'raw delete should tell user to open current-buttons card');
+  assertNoButtonsCta(rawDelete, 'raw delete rejection');
+
+  const currentAfterSave = await buttons.screenForPayload(menu, { action: 'button_admin_show_current' }, { userId: TENANT_A_USER, config: {} });
+  assertHasDelete(currentAfterSave, 'button_admin_show_current after save');
+  assert.deepStrictEqual(deletePayload(currentAfterSave), { action: 'button_admin_delete', source: 'current_buttons_card' }, 'delete button must carry current-buttons card marker');
+  const cardDelete = await buttons.screenForPayload(menu, deletePayload(currentAfterSave), { userId: TENANT_A_USER, config: {} });
+  assert.strictEqual(buttonSet(commentKeyA).length, beforeRawDeleteCount - 1, 'card-marked button_admin_delete must delete exactly one button');
+  assert.ok(/Последняя кнопка удалена/.test(screenText(cardDelete)), 'card-marked delete should confirm removal');
 
   const giftRecentPosts = await gifts.screenForPayload(menu, { action: 'gift_admin_recent_posts' }, { userId: TENANT_A_USER, config: {} });
   assertTenantAScreen(giftRecentPosts, 'gift_admin_recent_posts');
