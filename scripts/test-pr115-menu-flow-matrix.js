@@ -108,6 +108,7 @@ function assertNoPollRawTechnicalText(screen, label) {
 function assertNoHighlightRawTechnicalText(screen, label) {
   const visible = screenText(screen);
   assert.ok(!/\b(postId|channelId|commentKey|token|payload|trace)\b/i.test(visible), `${label} must not expose raw technical fields`);
+  assert.ok(!/Legacy|debug|trace/i.test(visible), `${label} must not expose legacy/debug/trace wording`);
   assert.ok(!/\bCTA\b/i.test(visible), `${label} must not expose CTA wording`);
   assert.ok(!/видео|файл/i.test(visible), `${label} must not use video/files wording`);
 }
@@ -274,6 +275,10 @@ async function main() {
   assertHasHighlightRemove(highlightedCard, 'highlight card for selected highlighted post');
   assertNoHighlightRawTechnicalText(highlightedCard, 'highlight card for selected highlighted post');
   assert.ok(/Выделение поста/.test(screenText(highlightedCard)) && /Пост/.test(screenText(highlightedCard)) && /Тип метки/.test(screenText(highlightedCard)) && /Применить/.test(screenText(highlightedCard)) && /Снять выделение/.test(screenText(highlightedCard)), 'highlight card must use product-safe wording');
+
+  const highlightInfo = highlights.info(menu, { commentKey: commentKeyA, userId: TENANT_A_USER });
+  assert.ok(/Выделение поста/.test(screenText(highlightInfo)) && /Управлять выделением можно из карточки выбранного поста/.test(screenText(highlightInfo)), 'highlight_info must use product-safe wording');
+  assertNoHighlightRawTechnicalText(highlightInfo, 'highlight_info');
 
   const removePayload = callbackPayload(highlightedCard, /Снять выделение/i);
   assert.deepStrictEqual(removePayload, { action: 'highlight_remove', commentKey: commentKeyA, source: 'highlight_card' }, 'highlight remove button must carry highlight-card marker');

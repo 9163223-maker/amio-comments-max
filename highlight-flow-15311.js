@@ -144,9 +144,11 @@ async function remove(menu,{config,commentKey='',userId='',source=''}={}){
 
 function info(menu,{commentKey='',userId=''}={}){
   const post=postByKey(commentKey,userId);
-  const label=post && post.highlight && post.highlight.enabled ? clean(post.highlight.label) : 'Выделенный пост';
+  const label=post && post.highlight && post.highlight.enabled ? clean(post.highlight.label) : '';
   highlightTrace.add('info_click_legacy_ack_only',{commentKey:highlightTrace.mask(commentKey),postFound:!!post,label});
-  return { id:'highlight_info', text:['⭐ '+label,'','Legacy: кнопочный бейдж больше не используется.'].join('\n'), attachments:menu.keyboard([[menu.button('🏠 Главное меню','admin_section_main')]]) };
+  const lines=['⭐ Выделение поста','','Эта метка показывает, что пост выделен. Управлять выделением можно из карточки выбранного поста.'];
+  if(label) lines.push('', 'Тип метки: '+label);
+  return { id:'highlight_info', text:lines.join('\n'), attachments:menu.keyboard([[menu.button('🏠 Главное меню','admin_section_main')]]) };
 }
 
 function statusScreen(menu,{userId=''}={}){
