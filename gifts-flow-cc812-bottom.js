@@ -4,6 +4,7 @@ const base = require('./gifts-flow-cc812-summary');
 const store = require('./store');
 const config = require('./config');
 const { patchStoredPost } = require('./services/postPatcher');
+const channelTitles = require('./human-channel-title-helper');
 
 const RUNTIME = 'CC8.3.7-GIFTS-SKIP-CLEAN-NO-IDS';
 const EXTRA_ACTIONS = ['gift_admin_skip_message'];
@@ -15,27 +16,28 @@ function short(value = '', max = 90) { const s = clean(value).replace(/\s+/g, ' 
 function arr(value) { return Array.isArray(value) ? value : []; }
 function looksTechnicalId(value = '') { const s = clean(value); return /^-?\d{6,}$/.test(s) || /^id\d{6,}$/i.test(s); }
 function clearActiveGiftScreen(userId = '') { const uid = clean(userId); if (!uid) return; try { store.setSetupState(uid, { giftActiveScreenMessageId: '', giftActiveScreenId: '', giftActiveScreenAt: 0 }); } catch {} }
-function storedChannelTitle(channelId = '') { const id = clean(channelId); if (!id) return ''; try { const found = arr(store.getChannelsList()).find((item) => clean(item.channelId || item.id || item.chatId) === id); const title = clean(found && (found.title || found.channelTitle || found.channelName || found.chatTitle || found.name)); return title && !looksTechnicalId(title) ? title : ''; } catch { return ''; } }
+function storedChannelTitle(channelId = '', userId = '') { return channelTitles.resolveHumanChannelTitle(channelId, userId); }
 function targetFromState(userId = '') { const state = setup(userId); const flow = state.giftFlow || {}; return flow.targetPost || state.giftTargetPost || state.commentTargetPost || null; }
-function postTitle(target = null) { return short(target?.originalText || target?.postText || target?.text || target?.caption || 'выбранный пост', 70); }
-function channelTitle(target = null) { const explicit = clean(target?.channelTitle || target?.channelName || target?.chatTitle || target?.title || target?.name || ''); if (explicit && !looksTechnicalId(explicit)) return explicit; const stored = storedChannelTitle(target?.channelId || target?.requiredChatId || ''); return stored || 'Канал без названия'; }
+function hasMedia(target = null) { return arr(target?.sourceAttachments || target?.attachments || target?.media || target?.photos || target?.files).length > 0 || Boolean(target?.photo || target?.image || target?.video || target?.document); }
+function postTitle(target = null) { const text = clean(target?.originalText || target?.postText || target?.text || target?.caption || ''); if (text) return short(text, 70); return hasMedia(target) ? 'Пост с медиа' : 'Пост без текста'; }
+function channelTitle(target = null, userId = '') { return channelTitles.resolveHumanChannelTitle(target?.channelId || target?.requiredChatId || '', userId, target || {}); }
 function normalizeConfig(ctx = {}) { const c = ctx.config || {}; return { botToken: clean(c.botToken || config.botToken), appBaseUrl: clean(c.appBaseUrl || config.appBaseUrl || process.env.ADMINKIT_PUBLIC_BASE_URL), botUsername: clean(c.botUsername || config.botUsername), maxDeepLinkBase: clean(c.maxDeepLinkBase || config.maxDeepLinkBase) }; }
 async function patchGiftButton(ctx = {}, target = null) { const commentKey = clean(target?.commentKey); if (!commentKey) return { ok: false, skipped: true, reason: 'comment_key_missing' }; const c = normalizeConfig(ctx); if (!c.botToken) return { ok: false, skipped: true, reason: 'bot_token_missing' }; try { return await patchStoredPost({ ...c, commentKey }) || { ok: false, reason: 'empty_patch_result' }; } catch (error) { return { ok: false, error: { status: error?.status || 0, message: error?.message || 'patch_failed', data: error?.data || null } }; } }
 function patchLine(result = {}) { if (result.ok) { if (result.skipped && result.reason === 'already_patched') return 'Кнопка под постом: уже была актуальна.'; return 'Кнопка под постом: добавлена/обновлена.'; } return 'Если кнопка под постом не обновилась, проверьте подключение канала и повторите позже.'; }
 function appendPatchResult(screen = null, patchResult = null) { if (!screen || !patchResult) return screen; return { ...screen, text: [clean(screen.text), '', patchLine(patchResult)].filter(Boolean).join('\n') }; }
-function isStartCreateScreen(screen = null) { const id = clean(screen && screen.id); return /^(gifts_clean_start_create|adminkit_gift_step_1_material)$/i.test(id); }
+function isStartCreateScreen(screen = null) { const id = clean(screen && screen.id); return /^(gifts_clean_start_create|adminkit_gifts_clean_start_create|adminkit_gift_step_1_material)$/i.test(id); }
 function cleanGiftHome(screen = null, ctx = {}) { if (!screen || clean(screen.id) !== 'gifts_clean_home') return screen; const target = targetFromState(ctx.userId); const text = [
   '🎁 Подарки / лид-магниты',
   '',
-  target ? 'Выбранный пост:' : 'Сначала выберите пост, к которому нужно привязать подарок.',
-  ...(target ? [`Канал: ${channelTitle(target)}`, `Пост: ${postTitle(target)}`] : []),
+  target ? 'Выбранный пост:' : 'Сначала выберите канал и пост, к которому нужно привязать подарок.',
+  ...(target ? [`Канал: ${channelTitle(target, ctx.userId)}`, `Пост: ${postTitle(target)}`] : []),
   '',
   /Подарок для выбранного поста пока не создан/i.test(screen.text || '') ? 'Подарок для выбранного поста пока не создан.' : '',
   /Черновик:/i.test(screen.text || '') ? 'Есть незавершённый черновик подарка.' : '',
   '',
   'Доступные условия выдачи: подписка, промокод, ключевое слово, реакция, голос в опросе, первое получение и окно времени.'
 ].filter(Boolean).join('\n'); return { ...screen, text }; }
-function cleanTechnicalText(screen = null, ctx = {}) { if (!screen) return screen; const target = targetFromState(ctx.userId); let text = String(screen.text || ''); text = text.replace(/Clean Core экран подарков[\s\S]*?(?=Канал:|Пост выбран:|Пост:|Подарок для выбранного|Черновик:|Всего сохранённых|Доступны условия|$)/i, ''); text = text.replace(/^Post ID:.*$/gmi, ''); text = text.replace(/\b(?:postId|channelId|commentKey|token|payload|trace)\b\s*[:=][^\n]*/gmi, ''); text = text.replace(/^Канал:\s*(-?\d{6,}|id\d{6,})\s*$/gmi, `Канал: ${channelTitle(target)}`); text = text.replace(/\n{3,}/g, '\n\n').trim(); return { ...screen, text }; }
+function cleanTechnicalText(screen = null, ctx = {}) { if (!screen) return screen; const target = targetFromState(ctx.userId); let text = String(screen.text || ''); text = text.replace(/Clean Core экран подарков[\s\S]*?(?=Канал:|Пост выбран:|Пост:|Подарок для выбранного|Черновик:|Всего сохранённых|Доступны условия|$)/i, ''); text = text.replace(/^Post ID:.*$/gmi, ''); text = text.replace(/\b(?:postId|channelId|commentKey|token|payload|trace)\b\s*[:=][^\n]*/gmi, ''); text = text.replace(/^Канал:\s*(-?\d{6,}|id\d{6,})\s*$/gmi, `Канал: ${channelTitle(target, ctx.userId)}`); text = text.replace(/\n{3,}/g, '\n\n').trim(); return { ...screen, text }; }
 function rewriteScreen(screen = null, ctx = {}) { if (!screen) return screen; let text = String(screen.text || ''); if (isStartCreateScreen(screen)) { const target = targetFromState(ctx.userId); return { ...screen, id: 'adminkit_gift_step_1_material', text: ['🎁 Создание подарка', '', 'Шаг 1 — материал подарка', '', 'Пришлите ссылку на материал подарка.', '', ...(target ? [`Пост: ${postTitle(target)}`] : []), '', 'Условия получения настроим дальше.'].filter(Boolean).join('\n') }; }
   if (/Шаг 3 — текст получателю|Шаг 3\/4/i.test(text)) text = text.replace(/Шаг 3(?:\/4)?\s*[—.]?\s*текст получателю/i, 'Шаг 2 — текст получателю').replace(/Шаг 3\/4\. Напишите текст[^\n]*/i, 'Шаг 2 — текст получателю');
   if (/Шаг 4 — условия|Шаг 4\/4/i.test(text)) text = text.replace(/Шаг 4(?:\/4)?\s*[—.]?\s*условия[^\n]*/i, 'Шаг 3 — условия получения подарка');
