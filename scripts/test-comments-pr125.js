@@ -16,6 +16,8 @@ const TENANT_B_CHANNEL = '-pr125-tenant-b-channel';
 const TENANT_A_KEY = `${TENANT_A_CHANNEL}:post-a`;
 const TENANT_B_KEY = `${TENANT_B_CHANNEL}:post-b`;
 const GLOBAL_KEY = '-pr125-global:post-global';
+const TENANT_A_EMPTY_KEY = `${TENANT_A_CHANNEL}:postId-empty-raw`;
+const TENANT_A_RAW_TEXT_KEY = `${TENANT_A_CHANNEL}:post-raw-text`;
 
 function resetState() {
   access._resetForTests();
@@ -91,6 +93,8 @@ async function main() {
   store.saveChannel(TENANT_B_CHANNEL, { channelId: TENANT_B_CHANNEL, title: 'Tenant B Channel', channelTitle: 'Tenant B Channel' });
   store.saveChannel('-pr125-global', { channelId: '-pr125-global', title: 'Global Legacy Channel', channelTitle: 'Global Legacy Channel' });
   store.savePost(TENANT_A_KEY, { channelId: TENANT_A_CHANNEL, channelTitle: 'Tenant A Channel', postId: 'post-a', messageId: 'msg-a', commentKey: TENANT_A_KEY, originalText: 'Tenant A Public Post', commentsDisabled: false });
+  store.savePost(TENANT_A_EMPTY_KEY, { channelId: TENANT_A_CHANNEL, channelTitle: 'Tenant A Channel', postId: 'postId-empty-raw', messageId: 'msg-empty', commentKey: TENANT_A_EMPTY_KEY, originalText: '', commentsDisabled: false });
+  store.savePost(TENANT_A_RAW_TEXT_KEY, { channelId: TENANT_A_CHANNEL, channelTitle: 'Tenant A Channel', postId: 'post-raw-text', messageId: 'msg-raw', commentKey: TENANT_A_RAW_TEXT_KEY, originalText: 'postId channelId commentKey token payload trace debug legacy selftest store/cache в памяти видео files', commentsDisabled: false });
   store.savePost(TENANT_B_KEY, { channelId: TENANT_B_CHANNEL, channelTitle: 'Tenant B Channel', postId: 'post-b', messageId: 'msg-b', commentKey: TENANT_B_KEY, originalText: 'Tenant B Secret Post', commentsDisabled: false });
   store.savePost(GLOBAL_KEY, { channelId: '-pr125-global', channelTitle: 'Global Legacy Channel', postId: 'post-global', messageId: 'msg-global', commentKey: GLOBAL_KEY, originalText: 'Global Legacy Post postId channelId payload trace token', commentsDisabled: false });
   store.addComment(TENANT_A_KEY, { id: 'a-comment-1', text: 'Tenant A visible comment', userId: 'reader-a', attachments: [{ type: 'image', url: 'https://example.test/a.jpg' }] });
@@ -128,7 +132,16 @@ async function main() {
   const picker = await sendBot(bot, { action: 'comments_select_post', source: 'comments' }, sent);
   assert.ok(/Tenant A Channel|Tenant A Public Post/.test(visible(picker)), 'comments picker shows tenant A post/channel');
   assert.ok(!/Tenant B Secret Post|Tenant B Channel|Global Legacy/.test(visible(picker)), 'comments picker hides tenant B/global/legacy posts');
+  assert.ok(!/postId-empty-raw/i.test(visible(picker)), 'comments picker must not expose raw postId fallback for empty text post');
+  assert.ok(/Пост без текста/.test(visible(picker)), 'comments picker must use safe fallback for empty text post');
+  assert.ok(/данные/.test(visible(picker)), 'comments picker must show sanitized product-safe text for raw-looking post previews');
   assertNoCommentsUnsafeUi(picker, 'comments picker');
+
+  const rawTextPayload = callbackPayload(picker, /данные/);
+  const rawTextCard = await sendBot(bot, rawTextPayload, sent);
+  assert.ok(/Выбранный пост: .*данные/i.test(visible(rawTextCard)), 'selected comments overview shows sanitized post preview');
+  assert.ok(!/postId|channelId|commentKey|token|payload|trace|debug|legacy|selftest|store|cache|в памяти|видео|files?/i.test(visible(rawTextCard)), 'selected comments overview must not show raw/internal/video/files terms');
+  assertNoCommentsUnsafeUi(rawTextCard, 'raw-looking selected comments overview');
 
   const pickPayload = callbackPayload(picker, /Tenant A Public Post/);
   const card = await sendBot(bot, pickPayload, sent);

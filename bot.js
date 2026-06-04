@@ -1534,6 +1534,17 @@ function sanitizeCommentsUiText(value = '') {
     .trim();
 }
 
+function hasCommentsPostMedia(post = {}) {
+  const attachments = Array.isArray(post.attachments) ? post.attachments : (Array.isArray(post.media) ? post.media : []);
+  return attachments.some((item) => item && typeof item === 'object');
+}
+
+function safeCommentsPostPreview(post = {}) {
+  const text = sanitizeCommentsUiText(post.originalText || post.title || post.preview || '');
+  if (text) return text;
+  return hasCommentsPostMedia(post) ? 'Пост с медиа' : 'Пост без текста';
+}
+
 function safeCommentPreview(comment = {}, index = 0) {
   const text = sanitizeCommentsUiText(comment.text || comment.message || comment.caption || '');
   const fallback = Array.isArray(comment.attachments) && comment.attachments.some((item) => String(item?.type || '').toLowerCase() === 'image') ? 'Фото' : 'Комментарий';
@@ -1550,7 +1561,7 @@ function buildSelectedCommentsText(targetPost = null, mode = 'list') {
   const photoCount = comments.filter((item) => Array.isArray(item.attachments) && item.attachments.some((attachment) => String(attachment?.type || '').toLowerCase() === 'image')).length;
   const reactionsMap = getReactionsMap(targetPost?.commentKey || '') || {};
   const reactionTotal = Object.values(reactionsMap || {}).reduce((sum, byEmoji) => sum + Object.values(byEmoji || {}).reduce((inner, users) => inner + (Array.isArray(users) ? users.length : Object.keys(users || {}).length), 0), 0);
-  const lines = ['Комментарии под постом', '', `Пост: ${sanitizeCommentsUiText(getGiftPostPreview(targetPost))}`, `Всего комментариев: ${comments.length}`];
+  const lines = ['Комментарии под постом', '', `Пост: ${safeCommentsPostPreview(targetPost)}`, `Всего комментариев: ${comments.length}`];
   if (mode === 'photos') lines.push(`Фото в комментариях: ${photoCount}`);
   if (mode === 'reactions') lines.push(`Реакции и ответы: ${reactionTotal} реакций, ${comments.filter((item) => item.replyToId).length} ответов`);
   if (mode === 'settings') lines.push('Настройки кнопки комментариев', 'Кнопка настраивается только для выбранного поста.');
@@ -2194,7 +2205,7 @@ function buildRecentCommentPostsKeyboard(page = 0, options = {}) {
   const rootAction = getAdminSectionActionFromSource(source);
   let buttons = recent.items.map((post, index) => [{
     type: 'callback',
-    text: truncateText(`${index + 1 + (recent.page * 6)}. ${post.originalText || post.postId || 'Пост без текста'}`, 56),
+    text: truncateText(`${index + 1 + (recent.page * 6)}. ${source === 'comments' ? safeCommentsPostPreview(post) : (post.originalText || post.postId || 'Пост без текста')}`, 56),
     payload: buildAdminCallbackPayload('comments_pick_post', { commentKey: post.commentKey || '', source, channelId })
   }]);
 
@@ -2579,7 +2590,7 @@ function buildCommentsOverviewText(targetPost = null) {
 
   if (freshTargetPost?.commentKey) {
     lines.push('');
-    lines.push(`Выбранный пост: ${getGiftPostPreview(freshTargetPost)}`);
+    lines.push(`Выбранный пост: ${safeCommentsPostPreview(freshTargetPost)}`);
     lines.push(`Комментарии: ${!Boolean(freshTargetPost.commentsDisabled) ? 'включены' : 'выключены'}`);
   } else {
     lines.push('');
