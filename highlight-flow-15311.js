@@ -9,7 +9,7 @@ const highlightTrace = require('./highlight-debug-trace');
 const tenant = require('./tenant-scope');
 const access = require('./services/clientAccessService');
 
-const RUNTIME = 'ADMINKIT-HIGHLIGHT-FLOW-1.1-TEXT-MARK-NO-BUTTON';
+const RUNTIME = 'ADMINKIT-HIGHLIGHT-FLOW-1.2-CARD-CONTAINED';
 
 const BADGES = [
   { id: 'important', label: '⭐ Важно' },
@@ -59,13 +59,13 @@ function postRows(menu, source='highlights', userId=''){
 
 function home(menu){
   highlightTrace.add('screen_home',{});
-  return { id:'highlights_home', text:['⭐ Выделение постов','','Выберите пост и назначьте ему метку: важно, новое, подарок или акция.','','Метка добавляется в начало текста/подписи поста, а не отдельной кнопкой. Так пользователь не принимает выделение за переход или CTA.'].join('\n'), attachments:menu.keyboard([[menu.button('📌 Выбрать пост для выделения','comments_select_post',{source:'highlights'})],[menu.button('🧪 Статус выделения','highlight_status')],[menu.button('🏠 Главное меню','admin_section_main')]]) };
+  return { id:'highlights_home', text:['⭐ Выделение поста','','Выберите пост и назначьте ему тип метки: важно, новое, подарок или акция.','','Выделение добавляется в начало текста поста.'].join('\n'), attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'highlights'})],[menu.button('🧪 Проверить','highlight_status')],[menu.button('🏠 Главное меню','admin_section_main')]]) };
 }
 
 function picker(menu, userId=''){
   const { posts, rows } = postRows(menu,'highlights',userId);
   highlightTrace.add('screen_picker',{posts:posts.length});
-  return { id:'highlights_picker', text:['⭐ Выделение постов','',posts.length?'Выберите пост из последних сохранённых постов.':'Пока нет постов в памяти бота. Перешлите нужную публикацию боту.','','Этот выбор относится к разделу «Выделение постов» и не должен уводить в комментарии.'].join('\n'), attachments:menu.keyboard(rows) };
+  return { id:'highlights_picker', text:['⭐ Выделение поста','',posts.length?'Выберите пост.':'Пока нет постов. Опубликуйте или перешлите нужную публикацию боту.','','Этот выбор относится к разделу «Выделение поста».'].join('\n'), attachments:menu.keyboard(rows) };
 }
 
 function picked(menu,commentKey,userId=''){
@@ -73,11 +73,11 @@ function picked(menu,commentKey,userId=''){
   const current=post && post.highlight && post.highlight.enabled ? clean(post.highlight.label) : '';
   highlightTrace.add('screen_picked',{commentKey:highlightTrace.mask(commentKey),postFound:!!post,current:!!current});
   if(!post) return { id:'highlight_post_missing', text:['⚠️ Пост не найден','','Нужно выбрать пост из сохранённых.'].join('\n'), attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'highlights'})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
-  const rows = BADGES.map(b => [menu.button(b.label,'highlight_apply',{commentKey,badgeId:b.id})]);
-  if(current) rows.unshift([menu.button('🧹 Снять выделение','highlight_remove',{commentKey})]);
+  const rows = BADGES.map(b => [menu.button(b.label+' — Применить','highlight_apply',{commentKey,badgeId:b.id,source:'highlight_card'})]);
+  if(current) rows.unshift([menu.button('🧹 Снять выделение','highlight_remove',{commentKey,source:'highlight_card'})]);
   rows.push([menu.button('📌 Выбрать другой пост','comments_select_post',{source:'highlights'})]);
   rows.push([menu.button('🏠 Главное меню','admin_section_main')]);
-  return { id:'highlight_picked', text:['⭐ Выделение поста','','Пост: '+postTitle(post,commentKey),'',current?'Сейчас выделен: '+current:'Сейчас выделение не назначено.','','Выберите метку. Она появится в начале текста/подписи поста, не как кнопка.'].join('\n'), attachments:menu.keyboard(rows) };
+  return { id:'highlight_picked', text:['⭐ Выделение поста','','Пост: '+postTitle(post,commentKey),'',current?'Тип метки: '+current:'Тип метки не выбран.','','Выберите тип метки и нажмите «Применить».'].join('\n'), attachments:menu.keyboard(rows) };
 }
 
 async function patchPostWithHighlight({ config, commentKey, userId = '' }){
@@ -104,7 +104,11 @@ async function patchPostWithHighlight({ config, commentKey, userId = '' }){
   return { ok:true, result, highlightRows:hRows.length, pollRows:pollRows.length, mode:'text_mark_no_button' };
 }
 
-async function apply(menu,{config,commentKey='',badgeId='important',userId=''}={}){
+async function apply(menu,{config,commentKey='',badgeId='important',userId='',source=''}={}){
+  if(clean(source) !== 'highlight_card') {
+    highlightTrace.add('apply_blocked_stale_source',{commentKey:highlightTrace.mask(commentKey),source:clean(source)});
+    return requireCardScreen(menu);
+  }
   const post=postByKey(commentKey,userId);
   const badge=badgeById(badgeId);
   highlightTrace.add('apply_start',{commentKey:highlightTrace.mask(commentKey),badgeId:badge.id,postFound:!!post,mode:'text_mark_no_button'});
@@ -113,20 +117,29 @@ async function apply(menu,{config,commentKey='',badgeId='important',userId=''}={
   let patched={ok:false};
   try{patched=await patchPostWithHighlight({config,commentKey,userId});}catch(e){patched={ok:false,error:String(e&&e.message||e),status:e&&e.status};}
   highlightTrace.add('apply_result',{ok:!!patched.ok,commentKey:highlightTrace.mask(commentKey),badgeId:badge.id,mode:'text_mark_no_button',patchError:patched.error||'',status:patched.status||''});
-  const lines=['✅ Выделение применено','','Пост: '+postTitle(post,commentKey),'Метка: '+badge.label];
-  if(patched.ok) lines.push('','Метка добавлена в начало текста/подписи поста. Отдельной кнопки под постом больше нет.'); else lines.push('','Выделение сохранено, но пост пока не обновился: '+String(patched.error||'patch_failed'));
+  const lines=['✅ Выделение применено','','Пост: '+postTitle(post,commentKey),'Тип метки: '+badge.label];
+  if(patched.ok) lines.push('','Выделение добавлено в начало текста поста.'); else lines.push('','Выделение сохранено, но пост пока не обновился.');
   return { id:'highlight_applied', text:lines.join('\n'), attachments:menu.keyboard([[menu.button('⭐ К посту','comments_pick_post',{source:'highlights',commentKey})],[menu.button('📌 Выбрать другой пост','comments_select_post',{source:'highlights'})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
 }
 
-async function remove(menu,{config,commentKey='',userId=''}={}){
+function requireCardScreen(menu){
+  return { id:'highlight_card_required', text:['⚠️ Откройте карточку выделения','','Чтобы изменить выделение, выберите пост и используйте действие из карточки выбранного поста.'].join('\n'), attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'highlights'})],[menu.button('⭐ В начало выделения','admin_section_highlights')],[menu.button('🏠 Главное меню','admin_section_main')]]) };
+}
+
+async function remove(menu,{config,commentKey='',userId='',source=''}={}){
+  const cardMarked = clean(source) === 'highlight_card';
+  if(!cardMarked) {
+    highlightTrace.add('remove_blocked_stale_source',{commentKey:highlightTrace.mask(commentKey),source:clean(source),mode:'text_mark_no_button'});
+    return requireCardScreen(menu);
+  }
   const post=postByKey(commentKey,userId);
   highlightTrace.add('remove_start',{commentKey:highlightTrace.mask(commentKey),postFound:!!post,mode:'text_mark_no_button'});
-  if(!post) return picked(menu,commentKey,userId);
+  if(!post) return { id:'highlight_post_unavailable', text:['⚠️ Пост недоступен','','Выберите пост из списка доступных постов.'].join('\n'), attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'highlights'})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
   store.savePost(commentKey,{highlight:{enabled:false,updatedAt:Date.now(),mode:'text_mark_no_button'}});
   let patched={ok:false};
   try{patched=await patchPostWithHighlight({config,commentKey,userId});}catch(e){patched={ok:false,error:String(e&&e.message||e),status:e&&e.status};}
   highlightTrace.add('remove_result',{ok:!!patched.ok,commentKey:highlightTrace.mask(commentKey),mode:'text_mark_no_button',patchError:patched.error||'',status:patched.status||''});
-  return { id:'highlight_removed', text:['🧹 Выделение снято','','Пост: '+postTitle(post,commentKey),patched.ok?'Метка убрана из текста/подписи поста.':'Снятие сохранено, но пост пока не обновился: '+String(patched.error||'patch_failed')].join('\n'), attachments:menu.keyboard([[menu.button('⭐ К посту','comments_pick_post',{source:'highlights',commentKey})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
+  return { id:'highlight_removed', text:['🧹 Выделение снято','','Пост: '+postTitle(post,commentKey),patched.ok?'Выделение убрано из текста поста.':'Снятие сохранено, но пост пока не обновился.'].join('\n'), attachments:menu.keyboard([[menu.button('⭐ К посту','comments_pick_post',{source:'highlights',commentKey})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
 }
 
 function info(menu,{commentKey='',userId=''}={}){
@@ -136,11 +149,11 @@ function info(menu,{commentKey='',userId=''}={}){
   return { id:'highlight_info', text:['⭐ '+label,'','Legacy: кнопочный бейдж больше не используется.'].join('\n'), attachments:menu.keyboard([[menu.button('🏠 Главное меню','admin_section_main')]]) };
 }
 
-function statusScreen(menu){
+function statusScreen(menu,{userId=''}={}){
   let posts=[];
-  try{posts=store.getPostsList().filter(p=>p && p.highlight && p.highlight.enabled);}catch{}
+  try{posts=store.getPostsList().filter(p=>p && p.highlight && p.highlight.enabled && postByKey(p.commentKey,userId));}catch{}
   highlightTrace.add('status',{highlighted:posts.length,mode:'text_mark_no_button'});
-  return { id:'highlight_status', text:['🧪 Статус выделения','','Выделенных постов в памяти/store: '+posts.length,'Режим: метка в тексте/подписи, без кнопки под постом.','Trace: последние 6 действий всегда доступны через /debug/highlight-trace.'].join('\n'), attachments:menu.keyboard([[menu.button('📌 Выбрать пост для выделения','comments_select_post',{source:'highlights'})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
+  return { id:'highlight_status', text:['🧪 Проверить выделение','','Выделенных постов: '+posts.length,'Выделение отображается как метка в тексте поста.'].join('\n'), attachments:menu.keyboard([[menu.button('📌 Выбрать пост','comments_select_post',{source:'highlights'})],[menu.button('🏠 Главное меню','admin_section_main')]]) };
 }
 
 function simulate(step='full'){
@@ -149,8 +162,8 @@ function simulate(step='full'){
     home:{id:'highlights_home',action:'admin_section_highlights',next:'picker'},
     picker:{id:'highlights_picker',action:'comments_select_post',source:'highlights',next:'picked'},
     picked:{id:'highlight_picked',action:'comments_pick_post',source:'highlights',commentKey:sample.commentKey,next:'apply'},
-    apply:{id:'highlight_applied',action:'highlight_apply',commentKey:sample.commentKey,badgeId:'important',mode:'text_mark_no_button',next:'verify'},
-    remove:{id:'highlight_removed',action:'highlight_remove',commentKey:sample.commentKey,mode:'text_mark_no_button',next:'verify'},
+    apply:{id:'highlight_applied',action:'highlight_apply',commentKey:sample.commentKey,badgeId:'important',source:'highlight_card',mode:'text_mark_no_button',next:'verify'},
+    remove:{id:'highlight_removed',action:'highlight_remove',commentKey:sample.commentKey,source:'highlight_card',mode:'text_mark_no_button',next:'verify'},
     verify:{id:'highlight_trace',url:'/debug/highlight-trace',expected:['webhook_in','callback_received','apply_start','apply_result']}
   };
   highlightTrace.add('simulate',{step,mode:'text_mark_no_button'});
