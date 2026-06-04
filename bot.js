@@ -1508,6 +1508,70 @@ function buildDefaultCommentButtonText() {
   return '💬 Комментарии';
 }
 
+function getTenantVisibleCommentTargetPost(userId = '', targetPost = null, options = {}) {
+  const source = String(options?.source || '').trim();
+  if (!targetPost?.commentKey || !targetPost?.channelId || !targetPost?.postId) return null;
+  if (!canUsePostChannelForUser(userId, targetPost.channelId, options)) return null;
+  const stored = getPost(targetPost.commentKey) || null;
+  if (!stored?.commentKey) return null;
+  if (String(stored.channelId || '').trim() !== String(targetPost.channelId || '').trim()) return null;
+  if (String(stored.postId || '').trim() !== String(targetPost.postId || '').trim()) return null;
+  return getFreshTargetPost({ ...targetPost, ...stored, source });
+}
+
+function isCommentsPostCardCallback(payload = {}) {
+  return String(payload?.source || '').trim() === 'comments_post_card';
+}
+
+function sanitizeCommentsUiText(value = '') {
+  return String(value || '')
+    .replace(/\b(postId|channelId|commentKey|commentId|token|payload|trace)\b/gi, 'данные')
+    .replace(/\bCTA\b/gi, 'действие')
+    .replace(/debug|legacy|selftest|store|cache|в памяти/gi, 'служебное')
+    .replace(/видео|video/gi, 'медиа')
+    .replace(/файл(ы|ов|а|е|ам|ами)?|files?/gi, 'материал')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function safeCommentPreview(comment = {}, index = 0) {
+  const text = sanitizeCommentsUiText(comment.text || comment.message || comment.caption || '');
+  const fallback = Array.isArray(comment.attachments) && comment.attachments.some((item) => String(item?.type || '').toLowerCase() === 'image') ? 'Фото' : 'Комментарий';
+  return `${index + 1}. ${truncateText(text || fallback, 80)}`;
+}
+
+function getSelectedPostComments(targetPost = null) {
+  if (!targetPost?.commentKey) return [];
+  return getComments(targetPost.commentKey).filter((item) => !item?.deleted && !item?.hidden);
+}
+
+function buildSelectedCommentsText(targetPost = null, mode = 'list') {
+  const comments = getSelectedPostComments(targetPost);
+  const photoCount = comments.filter((item) => Array.isArray(item.attachments) && item.attachments.some((attachment) => String(attachment?.type || '').toLowerCase() === 'image')).length;
+  const reactionsMap = getReactionsMap(targetPost?.commentKey || '') || {};
+  const reactionTotal = Object.values(reactionsMap || {}).reduce((sum, byEmoji) => sum + Object.values(byEmoji || {}).reduce((inner, users) => inner + (Array.isArray(users) ? users.length : Object.keys(users || {}).length), 0), 0);
+  const lines = ['Комментарии под постом', '', `Пост: ${sanitizeCommentsUiText(getGiftPostPreview(targetPost))}`, `Всего комментариев: ${comments.length}`];
+  if (mode === 'photos') lines.push(`Фото в комментариях: ${photoCount}`);
+  if (mode === 'reactions') lines.push(`Реакции и ответы: ${reactionTotal} реакций, ${comments.filter((item) => item.replyToId).length} ответов`);
+  if (mode === 'settings') lines.push('Настройки кнопки комментариев', 'Кнопка настраивается только для выбранного поста.');
+  if (mode === 'check') lines.push(`Проверить комментарии: ${targetPost?.commentsDisabled ? 'выключены' : 'включены'}.`);
+  if (mode === 'list' && comments.length) lines.push('', ...comments.slice(0, 10).map(safeCommentPreview));
+  if (mode === 'list' && !comments.length) lines.push('', 'Комментариев пока нет.');
+  return lines.join('\n');
+}
+
+function buildSelectedCommentsKeyboard(targetPost = null) {
+  const cardPayload = { source: 'comments_post_card' };
+  const rows = [
+    [{ type: 'callback', text: 'Проверить комментарии', payload: buildAdminCallbackPayload('comments_check', cardPayload) }],
+    [{ type: 'callback', text: 'Список комментариев', payload: buildAdminCallbackPayload('comments_list', cardPayload) }],
+    [{ type: 'callback', text: 'Фото в комментариях', payload: buildAdminCallbackPayload('comments_photos', cardPayload) }],
+    [{ type: 'callback', text: 'Реакции и ответы', payload: buildAdminCallbackPayload('comments_reactions', cardPayload) }],
+    [{ type: 'callback', text: 'Настройки кнопки комментариев', payload: buildAdminCallbackPayload('comments_button_settings', cardPayload) }]
+  ];
+  return [{ type: 'inline_keyboard', payload: { buttons: appendAdminFooterRows(rows, { backAction: 'admin_section_comments', rootAction: 'admin_section_comments' }) } }];
+}
+
 function buildGiftTargetPostRecord({ channelId, channelTitle, postId, messageId, commentKey, originalText, linkedAt = Date.now() } = {}) {
   return {
     channelId: String(channelId || '').trim(),
@@ -2358,20 +2422,22 @@ function buildGiftMainMenuKeyboard(config = null, options = {}) {
 
 function buildCommentsSectionKeyboard(config = null, targetPost = null) {
   const freshTargetPost = getFreshTargetPost(targetPost);
-  const commentsEnabled = !Boolean(freshTargetPost?.commentsDisabled);
-  let rows = [
-    [{ type: 'callback', text: '⚡ Авто для новых постов', payload: buildAdminCallbackPayload('comments_enable_new') }],
-    [{ type: 'callback', text: '📌 Подключить старый пост', payload: buildAdminCallbackPayload('comments_old_post') }]
-  ];
+  let rows = [];
 
   if (freshTargetPost?.commentKey) {
-    rows.push([{ type: 'callback', text: commentsEnabled ? '🗑 Убрать комментарии у выбранного поста' : '↩️ Вернуть комментарии у выбранного поста', payload: buildAdminCallbackPayload('comments_toggle_post_comments', { enabled: commentsEnabled ? '0' : '1' }) }]);
-    rows.push([{ type: 'callback', text: '📌 Выбрать другой пост', payload: buildAdminCallbackPayload('comments_select_post', { source: 'comments' }) }]);
+    const cardPayload = { source: 'comments_post_card' };
+    rows.push([{ type: 'callback', text: 'Проверить комментарии', payload: buildAdminCallbackPayload('comments_check', cardPayload) }]);
+    rows.push([{ type: 'callback', text: 'Список комментариев', payload: buildAdminCallbackPayload('comments_list', cardPayload) }]);
+    rows.push([{ type: 'callback', text: 'Фото в комментариях', payload: buildAdminCallbackPayload('comments_photos', cardPayload) }]);
+    rows.push([{ type: 'callback', text: 'Реакции и ответы', payload: buildAdminCallbackPayload('comments_reactions', cardPayload) }]);
+    rows.push([{ type: 'callback', text: 'Настройки кнопки комментариев', payload: buildAdminCallbackPayload('comments_button_settings', cardPayload) }]);
+    rows.push([{ type: 'callback', text: 'Выбрать пост', payload: buildAdminCallbackPayload('comments_select_post', { source: 'comments' }) }]);
   } else {
-    rows.push([{ type: 'callback', text: '📌 Выбрать пост', payload: buildAdminCallbackPayload('comments_select_post', { source: 'comments' }) }]);
+    rows.push([{ type: 'callback', text: 'Комментарии под постом', payload: buildAdminCallbackPayload('comments_select_post', { source: 'comments' }) }]);
+    rows.push([{ type: 'callback', text: 'Выбрать пост', payload: buildAdminCallbackPayload('comments_select_post', { source: 'comments' }) }]);
   }
 
-  rows.push([{ type: 'callback', text: '👀 Как это выглядит', payload: buildAdminCallbackPayload('comments_example') }]);
+  rows.push([{ type: 'callback', text: 'Помощь по разделу', payload: buildAdminCallbackPayload('comments_how_it_works') }]);
 
   rows = appendAdminFooterRows(rows, { backAction: 'admin_section_main', rootAction: 'admin_section_comments' });
   return [{ type: 'inline_keyboard', payload: { buttons: rows } }];
@@ -2506,9 +2572,9 @@ function buildStatsSectionKeyboard(targetPost = null, userId = '') {
 function buildCommentsOverviewText(targetPost = null) {
   const freshTargetPost = getFreshTargetPost(targetPost);
   const lines = [
-    'Раздел «Комментарии».',
+    'Комментарии под постом',
     '',
-    'Здесь можно включать обсуждения под постами, добавлять комментарии к старым публикациям и убирать кнопку комментариев у конкретного поста.'
+    'Выберите пост, проверьте комментарии, откройте список, фото, реакции и ответы для выбранной публикации.'
   ];
 
   if (freshTargetPost?.commentKey) {
@@ -2586,7 +2652,7 @@ function buildCommentsHowItWorksText() {
   return [
     'Как это работает',
     '',
-    '1. Бот связывает пост канала с отдельным ключом обсуждения.',
+    '1. Бот связывает выбранный пост с отдельным обсуждением.',
     '2. Под постом появляется кнопка комментариев.',
     '3. Читатель открывает обсуждение именно этого поста.',
     '4. При повторном редактировании поста кнопка комментариев сохраняется.'
@@ -2798,17 +2864,17 @@ function buildModerationSectionKeyboard(targetPost = null) {
   if (channelId) {
     const settings = getModerationSettings(channelId);
     rows.push([{ type: 'callback', text: '🛡️ Правила всего канала', payload: buildAdminCallbackPayload('comments_moderation', { channelId }) }]);
-    rows.push([{ type: 'callback', text: settings.enabled ? '⏸ Выключить фильтр' : '▶️ Включить фильтр', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'enabled' }) }]);
-    rows.push([{ type: 'callback', text: settings.applyPresetCommon ? '🧱 Стоп-слова: вкл.' : '🧱 Стоп-слова: выкл.', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'applyPresetCommon' }) }]);
+    rows.push([{ type: 'callback', text: settings.enabled ? '⏸ Выключить фильтр' : '▶️ Включить фильтр', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'enabled', source: 'moderation_card' }) }]);
+    rows.push([{ type: 'callback', text: settings.applyPresetCommon ? '🧱 Стоп-слова: вкл.' : '🧱 Стоп-слова: выкл.', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'applyPresetCommon', source: 'moderation_card' }) }]);
     rows.push([
       { type: 'callback', text: '➕ Стоп-слово', payload: buildAdminCallbackPayload('moderation_add_stopword', { channelId }) },
       { type: 'callback', text: '🧹 Очистить ручные', payload: buildAdminCallbackPayload('moderation_clear_stopwords', { channelId }) }
     ]);
     rows.push([
-      { type: 'callback', text: settings.blockLinks ? '🔗 Ссылки: блок.' : '🔗 Ссылки: разреш.', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'blockLinks' }) },
-      { type: 'callback', text: settings.blockInvites ? '✉️ Инвайты: блок.' : '✉️ Инвайты: разреш.', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'blockInvites' }) }
+      { type: 'callback', text: settings.blockLinks ? '🔗 Ссылки: блок.' : '🔗 Ссылки: разреш.', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'blockLinks', source: 'moderation_card' }) },
+      { type: 'callback', text: settings.blockInvites ? '✉️ Инвайты: блок.' : '✉️ Инвайты: разреш.', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'blockInvites', source: 'moderation_card' }) }
     ]);
-    rows.push([{ type: 'callback', text: settings.aiEnabled ? '🤖 AI: вкл.' : '🤖 AI: PRO', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'aiEnabled' }) }]);
+    rows.push([{ type: 'callback', text: settings.aiEnabled ? '🤖 AI: вкл.' : '🤖 AI: PRO', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'aiEnabled', source: 'moderation_card' }) }]);
   }
   rows = appendAdminFooterRows(rows, { backAction: 'admin_section_main', rootAction: 'admin_section_moderation' });
   return [{ type: 'inline_keyboard', payload: { buttons: rows } }];
@@ -2878,13 +2944,13 @@ function buildModerationMenuKeyboard(channelId = '') {
     type: 'inline_keyboard',
     payload: {
       buttons: [
-        [{ type: 'callback', text: settings.enabled ? '⏸ Выключить фильтр' : '▶️ Включить фильтр', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'enabled' }) }],
-        [{ type: 'callback', text: settings.applyPresetCommon ? '🧱 Стоп-слова: вкл.' : '🧱 Стоп-слова: выкл.', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'applyPresetCommon' }) }],
+        [{ type: 'callback', text: settings.enabled ? '⏸ Выключить фильтр' : '▶️ Включить фильтр', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'enabled', source: 'moderation_card' }) }],
+        [{ type: 'callback', text: settings.applyPresetCommon ? '🧱 Стоп-слова: вкл.' : '🧱 Стоп-слова: выкл.', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'applyPresetCommon', source: 'moderation_card' }) }],
         [
-          { type: 'callback', text: settings.blockLinks ? '🔗 Ссылки: блок.' : '🔗 Ссылки: разреш.', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'blockLinks' }) },
-          { type: 'callback', text: settings.blockInvites ? '✉️ Инвайты: блок.' : '✉️ Инвайты: разреш.', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'blockInvites' }) }
+          { type: 'callback', text: settings.blockLinks ? '🔗 Ссылки: блок.' : '🔗 Ссылки: разреш.', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'blockLinks', source: 'moderation_card' }) },
+          { type: 'callback', text: settings.blockInvites ? '✉️ Инвайты: блок.' : '✉️ Инвайты: разреш.', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'blockInvites', source: 'moderation_card' }) }
         ],
-        [{ type: 'callback', text: settings.aiEnabled ? '🤖 AI: вкл.' : '🤖 AI: PRO', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'aiEnabled' }) }],
+        [{ type: 'callback', text: settings.aiEnabled ? '🤖 AI: вкл.' : '🤖 AI: PRO', payload: buildAdminCallbackPayload('comments_toggle_moderation', { channelId, field: 'aiEnabled', source: 'moderation_card' }) }],
         [{ type: 'callback', text: '🛡️ К модерации', payload: buildAdminCallbackPayload('admin_section_moderation') }],
         [{ type: 'callback', text: '🏠 Главное меню', payload: buildAdminCallbackPayload('admin_section_main') }]
       ]
@@ -4362,6 +4428,11 @@ async function handleMessageCallback(update, config) {
     'comments_edit_button',
     'comments_delete_button',
     'comments_toggle_post_comments',
+    'comments_check',
+    'comments_list',
+    'comments_photos',
+    'comments_reactions',
+    'comments_button_settings',
     'comments_moderation',
     'comments_toggle_moderation',
     'comments_example',
@@ -4746,10 +4817,46 @@ async function handleMessageCallback(update, config) {
       return { ok: true, action: 'comments_edit_text' };
     }
 
+    if (['comments_check', 'comments_list', 'comments_photos', 'comments_reactions', 'comments_button_settings'].includes(payload.action)) {
+      await acknowledgeCallbackSilently(config, callbackId);
+      const rawTargetPost = getCommentTargetPost(userId);
+      const targetPost = getTenantVisibleCommentTargetPost(userId, rawTargetPost);
+      if (!targetPost?.commentKey || !isCommentsPostCardCallback(payload)) {
+        if (message) await upsertBotMessage({
+          config,
+          message,
+          text: 'Сначала выберите пост для комментариев.',
+          attachments: buildCommentsSectionKeyboard(config, null),
+          editCurrent: true
+        });
+        return { ok: true, action: `${payload.action}_without_selected_post` };
+      }
+      const modeByAction = {
+        comments_check: 'check',
+        comments_list: 'list',
+        comments_photos: 'photos',
+        comments_reactions: 'reactions',
+        comments_button_settings: 'settings'
+      };
+      if (message) await upsertBotMessage({
+        config,
+        message,
+        text: buildSelectedCommentsText(targetPost, modeByAction[payload.action] || 'list'),
+        attachments: buildSelectedCommentsKeyboard(targetPost),
+        editCurrent: true
+      });
+      return { ok: true, action: payload.action };
+    }
+
     if (payload.action === 'comments_toggle_post_comments') {
       await acknowledgeCallbackSilently(config, callbackId);
-      const targetPost = getCommentTargetPost(userId) || getGiftTargetPost(userId);
+      const rawTargetPost = getCommentTargetPost(userId) || getGiftTargetPost(userId);
+      const targetPost = isCommentsPostCardCallback(payload) ? getTenantVisibleCommentTargetPost(userId, rawTargetPost) : rawTargetPost;
       const currentSection = String(getAdminUiState(userId)?.section || '').trim();
+      if (isCommentsPostCardCallback(payload) && !targetPost?.commentKey) {
+        if (message) await upsertBotMessage({ config, message, text: 'Сначала выберите пост для комментариев.', attachments: buildCommentsSectionKeyboard(config, null), editCurrent: true });
+        return { ok: true, action: 'comments_toggle_post_comments_without_selected_post' };
+      }
       if (!targetPost?.commentKey) {
         if (message) {
           const inComments = currentSection === 'comments';
@@ -4856,6 +4963,10 @@ async function handleMessageCallback(update, config) {
       await acknowledgeCallbackSilently(config, callbackId);
       const channelId = String(payload.channelId || '').trim();
       const field = String(payload.field || '').trim();
+      if (String(payload.source || '').trim() !== 'moderation_card' || !canUsePostChannelForUser(userId, channelId, { adminView: clientAccessService.isAdmin(userId) })) {
+        if (message) await upsertBotMessage({ config, message, text: 'Сначала выберите пост для комментариев.', attachments: buildCommentsSectionKeyboard(config, null), editCurrent: true });
+        return { ok: true, action: 'comments_toggle_moderation_stale_blocked' };
+      }
       const current = getModerationSettings(channelId);
       if (channelId && ['enabled','basicEnabled','applyPresetCommon','blockLinks','blockInvites','aiEnabled'].includes(field)) {
         saveModerationSettings(channelId, { [field]: !Boolean(current[field]) });
