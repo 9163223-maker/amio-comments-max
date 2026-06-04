@@ -2,6 +2,7 @@
 
 const store = require('./store');
 const clientAccessService = require('./services/clientAccessService');
+const channelTitleHelper = require('./human-channel-title-helper');
 const postEditor = require('./services/postEditorService');
 const fastText = require('./services/postEditorFastTextService');
 const basePosts = require('./posts-flow-cc8');
@@ -48,13 +49,20 @@ function listPosts(userId = '') {
     .sort((a, b) => n(b.updatedAt || b.createdAt || b.ts) - n(a.updatedAt || a.createdAt || a.ts))
     .slice(0, MAX_POSTS);
 }
-function channelTitle(postOrChannelId = '') {
-  if (postOrChannelId && typeof postOrChannelId === 'object') {
-    return clean(postOrChannelId.channelTitle || postOrChannelId.channelName || postOrChannelId.chatTitle || postOrChannelId.title || postOrChannelId.name || 'Канал');
-  }
-  return clean(postOrChannelId || 'Канал');
+function channelTitle(postOrChannelId = '', userId = '') {
+  const source = postOrChannelId && typeof postOrChannelId === 'object' ? postOrChannelId : {};
+  const channelId = clean(source.channelId || postOrChannelId || '');
+  return channelTitleHelper.resolveHumanChannelTitle(channelId, userId, source);
 }
-function postTitle(post = {}) { return short(post.originalText || post.postText || post.text || post.caption || 'Пост без текста', 58); }
+function hasMedia(post = {}) {
+  const arrays = [post.sourceAttachments, post.attachments, post.media, post.photos].filter(Array.isArray);
+  return arrays.some((items) => items.some((item) => item && typeof item === 'object')) || Boolean(post.photo || post.image || post.video || post.document);
+}
+function postTitle(post = {}) {
+  const text = clean(post.originalText || post.postText || post.text || post.caption || '');
+  if (text) return short(text, 58);
+  return hasMedia(post) ? 'Пост с медиа' : 'Пост без текста';
+}
 function postTime(post = {}) {
   const ts = n(post.updatedAt || post.createdAt || post.ts || 0);
   if (!ts) return '';
@@ -95,7 +103,7 @@ function resolvePost(payload = {}, ctx = {}, options = {}) {
 function targetRecord(post = {}) {
   return {
     channelId: clean(post.channelId),
-    channelTitle: channelTitle(post),
+    channelTitle: channelTitle(post, ''),
     postId: clean(post.postId),
     messageId: clean(post.messageId),
     commentKey: clean(post.commentKey),
@@ -169,7 +177,7 @@ function detailsRows(menu, post = {}) {
   return [
     [button(menu, '✏️ Изменить текст', 'admin_posts_edit_text', { commentKey: key, source: 'editor_card' })],
     [button(menu, '🕘 История версий', 'admin_posts_history', { commentKey: key })],
-    [button(menu, '📌 Выбрать другой пост', 'admin_posts_picker')],
+    [button(menu, 'Выбрать другой пост', 'comments_select_post', { source: 'posts' })],
     ...footer(menu)
   ];
 }
@@ -184,22 +192,18 @@ function editTextRows(menu, post = {}) {
 async function home(menu, ctx = {}) {
   clearPostEditFlow(ctx.userId);
   const selected = getStoredTarget(ctx.userId);
-  const posts = listPosts(ctx.userId);
-  const rows = [[button(menu, '📌 Выбрать пост', 'admin_posts_picker')]];
-  if (selected && selected.commentKey) rows.push([button(menu, '↩️ К выбранному посту', 'admin_posts_open', { commentKey: clean(selected.commentKey) })]);
+  const rows = [];
+  const lines = [];
+  if (selected && selected.commentKey) {
+    lines.push('Пост выбран. Действия ниже относятся только к этому посту.', '', 'Выбранный канал: ' + channelTitle(selected, ctx.userId), 'Выбранный пост: ' + postTitle(selected));
+    rows.push([button(menu, 'Изменить текст выбранного поста', 'admin_posts_edit_text', { commentKey: clean(selected.commentKey), source: 'editor_card' })]);
+    rows.push([button(menu, 'Выбрать другой пост', 'comments_select_post', { source: 'posts' })]);
+  } else {
+    lines.push('Пост не выбран. Сначала выберите канал, затем пост.', '', 'Редактирование текста начнётся только после явного открытия карточки выбранного поста.');
+    rows.push([button(menu, 'Выбрать пост', 'comments_select_post', { source: 'posts' })]);
+  }
   rows.push(...footer(menu));
-  return screen(menu, 'posts_clean_home', '✏️ Редактор постов', [
-    'Выберите пост, чтобы открыть действия редактора.',
-    '',
-    'Доступные действия после выбора:',
-    '• Выбрать пост;',
-    '• Изменить текст;',
-    '• История версий.',
-    '',
-    'Комментарии и кнопки настраиваются в отдельных разделах.',
-    '',
-    'Постов в быстром списке: ' + posts.length
-  ], rows);
+  return screen(menu, 'posts_clean_home', '✏️ Редактор постов', lines, rows);
 }
 async function picker(menu, ctx = {}) {
   const posts = listPosts(ctx.userId);
@@ -211,7 +215,7 @@ async function picker(menu, ctx = {}) {
   if (posts.length) {
     lines.push('');
     posts.forEach((post, index) => {
-      const meta = [channelTitle(post), postTime(post), commentsCount(post) ? `${commentsCount(post)} комм.` : 'комм. не сканируем'].filter(Boolean).join(' · ');
+      const meta = [channelTitle(post, ctx.userId), postTime(post), commentsCount(post) ? `${commentsCount(post)} комм.` : 'комм. не сканируем'].filter(Boolean).join(' · ');
       lines.push(`${index + 1}. ${postTitle(post)}${meta ? '\n   ' + meta : ''}`);
     });
   } else {
@@ -222,7 +226,7 @@ async function picker(menu, ctx = {}) {
 async function details(menu, payload = {}, ctx = {}) {
   const post = resolvePost(payload, ctx);
   if (!post || !post.commentKey) {
-    return screen(menu, 'posts_clean_not_found', '✏️ Редактор постов', ['Пост не найден.', 'Выберите другой пост или перешлите публикацию боту.'], [[button(menu, '📌 Выбрать другой пост', 'admin_posts_picker')], ...footer(menu)]);
+    return screen(menu, 'posts_clean_not_found', '✏️ Редактор постов', ['Пост не найден.', 'Выберите другой пост или перешлите публикацию боту.'], [[button(menu, 'Выбрать другой пост', 'comments_select_post', { source: 'posts' })], ...footer(menu)]);
   }
   clearPostEditFlow(ctx.userId);
   const target = bindTarget(ctx.userId, post);
@@ -230,7 +234,7 @@ async function details(menu, payload = {}, ctx = {}) {
   return screen(menu, 'posts_clean_detail', '✏️ Редактор постов', [
     payload.fromHome ? 'Выбранный пост уже сохранён. Можно сразу выполнять действия ниже.' : 'Пост выбран для редактирования.',
     '',
-    'Канал: ' + channelTitle(post),
+    'Канал: ' + channelTitle(post, ctx.userId),
     'Пост: ' + postTitle(post),
     'Медиа в посте: ' + mediaCount(post),
     'Версий в истории: ' + versionsCount(post),
