@@ -46,6 +46,18 @@ const menu = {
 };
 
 const rows = [];
+const REPLACE_EDIT_CATEGORY = Object.freeze({
+  name: 'Replace/Edit',
+  scenarios: Object.freeze({
+    A: 'no selected card',
+    B: 'selected post has existing object',
+    C: 'selected post has no object',
+    D: 'direct callback missing/wrong cardId',
+    E: 'cross-section isolation',
+    F: 'hidden/internal target'
+  })
+});
+function replaceEditScenario(letter) { return `${REPLACE_EDIT_CATEGORY.name} Scenario ${letter} — ${REPLACE_EDIT_CATEGORY.scenarios[letter]}`; }
 function clean(value) { return String(value || '').trim(); }
 function buttonsOf(screen) { return (screen && screen.attachments && screen.attachments[0] && screen.attachments[0].payload && screen.attachments[0].payload.buttons || []).flat(); }
 function labels(screen) { return buttonsOf(screen).map((button) => clean(button.text)).filter(Boolean); }
@@ -214,14 +226,16 @@ async function testButtons() {
 }
 
 async function testGifts() {
-  setOnlySetup({ giftTargetPost: null, commentTargetPost: null, buttonTargetPost: null, activeAdminFlowKind: '' });
-  const home = await scenario('gifts', 'A no selected card', 'section home', (s) => /(^|_)gifts_clean_home$/.test(s.id) && /Сначала выберите/.test(visible(s)), () => call(gifts, { action: 'admin_section_gifts' }));
+  setOnlySetup({ giftTargetPost: null, giftsCurrentCard: null, giftFlow: null, commentTargetPost: null, buttonTargetPost: null, activeAdminFlowKind: '' });
+  const home = await scenario('gifts', 'A no selected card', 'section home', (s) => /(^|_)gifts_clean_home$/.test(s.id) && /Сначала выберите/.test(visible(s)) && /Заменить подарок/.test(visible(s)), () => call(gifts, { action: 'admin_section_gifts' }));
   assertCardScopedPayloads(home, 'gifts');
+  const replaceNoCard = await scenario('gifts', replaceEditScenario('A'), 'replace shortcut', (s) => /gifts_clean_channel_picker$/.test(s.id) && !/Шаг 1|материал подарка/i.test(visible(s)), () => call(gifts, payloadFor(home, /Заменить подарок/)));
+  assertPickerSafety(replaceNoCard, 'gifts replace/edit no-card picker');
   const startNoCard = await scenario('gifts', 'A no selected card', 'start/create', (s) => /gifts_clean_channel_picker$/.test(s.id) && !/Шаг 1|материал подарка/i.test(visible(s)), () => call(gifts, { action: 'gift_admin_start_create' }));
   assertPickerSafety(startNoCard, 'gifts channel picker');
-  setOnlySetup({ buttonTargetPost: rawTarget(KEY2), commentTargetPost: rawTarget(KEY2), giftTargetPost: null });
+  setOnlySetup({ buttonTargetPost: rawTarget(KEY2), commentTargetPost: rawTarget(KEY2), giftTargetPost: null, giftsCurrentCard: null, giftFlow: null });
   await scenario('gifts', 'D target from buttons/comments', 'start/create', (s) => /gifts_clean_channel_picker$/.test(s.id) && !/Шаг 1|материал подарка/i.test(visible(s)), () => call(gifts, { action: 'gift_admin_start_create' }));
-  setOnlySetup({ giftTargetPost: rawTarget(KEY_SELFTEST), commentTargetPost: rawTarget(KEY_SELFTEST) });
+  setOnlySetup({ giftTargetPost: rawTarget(KEY_SELFTEST), commentTargetPost: rawTarget(KEY_SELFTEST), giftsCurrentCard: null, giftFlow: null });
   const hiddenStart = await scenario('gifts', 'E hidden/internal target', 'start/create', (s) => /gifts_clean_channel_picker$/.test(s.id) && !/selftest|debug|internal/i.test(visible(s)), () => call(gifts, { action: 'gift_admin_start_create' }));
   assertPickerSafety(hiddenStart, 'gifts hidden-target picker');
   const channel = await call(gifts, payloadFor(startNoCard, /АК-ТЕСТ 2/));
@@ -231,11 +245,37 @@ async function testGifts() {
   assertNoRawOrInternal(start, 'gifts valid start');
   await scenario('gifts', 'K direct missing cardId', 'direct callback', (s) => /gifts_clean_channel_picker$/.test(s.id) && !/материал подарка/i.test(visible(s)), () => call(gifts, { action: 'gift_admin_start_create', source: 'gift_card' }));
   await scenario('gifts', 'L direct wrong cardId', 'direct callback', (s) => /gifts_clean_channel_picker$/.test(s.id) && !/материал подарка/i.test(visible(s)), () => call(gifts, { action: 'gift_admin_start_create', source: 'gift_card', cardId: 'wrong-card' }));
-  const existingChannel = await call(gifts, payloadFor(await call(gifts, { action: 'gift_admin_start_create' }), /АК-Тест 3/));
-  const existingCard = await scenario('gifts', 'F existing object', 'selected post card', (s) => /gifts_clean_current$/.test(s.id) && /Удалить подарок/.test(visible(s)), () => call(gifts, payloadFor(existingChannel, /существующими объектами/)));
+  setOnlySetup({ giftTargetPost: null, giftsCurrentCard: null, giftFlow: null, commentTargetPost: null, buttonTargetPost: null, activeAdminFlowKind: '' });
+  const replaceHome = await call(gifts, { action: 'admin_section_gifts' });
+  const replacePicker = await scenario('gifts', replaceEditScenario('B'), 'replace shortcut opens picker', (s) => /gifts_clean_channel_picker$/.test(s.id) && !/материал подарка/i.test(visible(s)), () => call(gifts, payloadFor(replaceHome, /Заменить подарок/)));
+  assertPickerSafety(replacePicker, 'gifts replace/edit existing picker');
+  const existingChannel = await call(gifts, payloadFor(replacePicker, /АК-Тест 3/));
+  const existingCard = await scenario('gifts', replaceEditScenario('B'), 'selected post card', (s) => /gifts_clean_current$/.test(s.id) && /Матрица подарок/.test(visible(s)) && /Заменить материал/.test(visible(s)) && /Удалить подарок/.test(visible(s)), () => call(gifts, payloadFor(existingChannel, /существующими объектами/)));
   assertCardScopedPayloads(existingCard, 'gifts');
-  // TODO(PR137 follow-up): when product adds a dedicated “Заменить подарок” shortcut, keep it card-scoped like this existing replace-material action.
-  const confirm = await scenario('gifts', 'delete action', 'delete confirmation', (s) => /gifts_clean_delete_confirm$/.test(s.id) && /Подтвердите удаление/.test(visible(s)), () => call(gifts, payloadFor(existingCard, /Удалить подарок/)));
+  const replacePayload = payloadFor(existingCard, /Заменить материал/);
+  assert.strictEqual(clean(replacePayload.source), 'gift_card', 'replace/edit: replace button is gift_card scoped');
+  assert.ok(clean(replacePayload.cardId), 'replace/edit: replace button carries cardId');
+  const replaceStart = await scenario('gifts', replaceEditScenario('B'), 'start replace material', (s) => s.id === 'adminkit_gift_step_1_material' && /существующими объектами/.test(visible(s)) && !/Выберите канал/i.test(visible(s)), () => call(gifts, replacePayload));
+  assertNoRawOrInternal(replaceStart, 'gifts replace/edit valid start');
+  assert.strictEqual(clean(store.getSetupState(USER).giftFlow?.replacingCampaignId), 'gift-pr137-existing', 'replace/edit: flow keeps existing campaign reference');
+  setOnlySetup({ giftTargetPost: null, giftsCurrentCard: null, giftFlow: null, commentTargetPost: null, buttonTargetPost: null, activeAdminFlowKind: '' });
+  const noGiftPicker = await call(gifts, payloadFor(await call(gifts, { action: 'admin_section_gifts' }), /Заменить подарок/));
+  const noGiftChannel = await call(gifts, payloadFor(noGiftPicker, /АК-ТЕСТ 2/));
+  const noGiftCard = await scenario('gifts', replaceEditScenario('C'), 'selected post card', (s) => /gifts_clean_current$/.test(s.id) && /В выбранном посте подарок не найден/.test(visible(s)) && /Создать подарок для этого поста/.test(visible(s)) && !/Заменить материал/.test(visible(s)), () => call(gifts, payloadFor(noGiftChannel, /Матрица: выбранный/)));
+  const noGiftCreate = await scenario('gifts', replaceEditScenario('C'), 'create from selected post', (s) => s.id === 'adminkit_gift_step_1_material' && /Матрица: выбранный/.test(visible(s)), () => call(gifts, payloadFor(noGiftCard, /Создать подарок для этого поста/)));
+  assertNoRawOrInternal(noGiftCreate, 'gifts replace/edit create no-gift start');
+  await scenario('gifts', replaceEditScenario('D'), 'direct replace callback', (s) => /gifts_clean_channel_picker$/.test(s.id) && !/материал подарка/i.test(visible(s)), () => call(gifts, { action: 'gift_admin_replace_existing', source: 'gift_card' }));
+  await scenario('gifts', replaceEditScenario('D'), 'direct replace callback', (s) => /gifts_clean_channel_picker$/.test(s.id) && !/материал подарка/i.test(visible(s)), () => call(gifts, { action: 'gift_admin_replace_existing', source: 'gift_card', cardId: 'wrong-card' }));
+  setOnlySetup({ buttonTargetPost: rawTarget(KEY2), commentTargetPost: rawTarget(KEY2), giftTargetPost: null, giftsCurrentCard: null, giftFlow: null });
+  await scenario('gifts', replaceEditScenario('E'), 'replace shortcut', (s) => /gifts_clean_channel_picker$/.test(s.id) && !/Матрица: выбранный|материал подарка/i.test(visible(s)), () => call(gifts, { action: 'gift_admin_replace_pick' }));
+  setOnlySetup({ giftTargetPost: rawTarget(KEY_SELFTEST), commentTargetPost: rawTarget(KEY_SELFTEST), giftsCurrentCard: null, giftFlow: null });
+  const hiddenReplace = await scenario('gifts', replaceEditScenario('F'), 'replace shortcut', (s) => /gifts_clean_channel_picker$/.test(s.id) && !/selftest|debug|internal/i.test(visible(s)), () => call(gifts, { action: 'gift_admin_replace_pick' }));
+  assertPickerSafety(hiddenReplace, 'gifts replace/edit hidden-target picker');
+  setOnlySetup({ giftTargetPost: null, giftsCurrentCard: null, giftFlow: null, commentTargetPost: null, buttonTargetPost: null, activeAdminFlowKind: '' });
+  const deletePicker = await call(gifts, payloadFor(await call(gifts, { action: 'admin_section_gifts' }), /Заменить подарок/));
+  const deleteChannel = await call(gifts, payloadFor(deletePicker, /АК-Тест 3/));
+  const deleteExistingCard = await call(gifts, payloadFor(deleteChannel, /существующими объектами/));
+  const confirm = await scenario('gifts', 'delete action', 'delete confirmation', (s) => /gifts_clean_delete_confirm$/.test(s.id) && /Подтвердите удаление/.test(visible(s)), () => call(gifts, payloadFor(deleteExistingCard, /Удалить подарок/)));
   assertCardScopedPayloads(confirm, 'gifts');
   const deleted = await scenario('gifts', 'H after delete', 'confirm delete continuity', (s) => /gifts_clean_(home|current)$/.test(s.id) && /выбранный пост|для этого поста|к выбранному посту/i.test(visible(s)), () => call(gifts, payloadFor(confirm, /Да, удалить/)));
   assertCardScopedPayloads(deleted, 'gifts');
