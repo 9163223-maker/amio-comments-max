@@ -703,10 +703,15 @@ function getCallbackUserId(update, callback) {
   return String(
     callback?.user?.user_id ||
       callback?.user?.id ||
+      callback?.user_id ||
+      callback?.from?.user_id ||
+      callback?.from?.id ||
       callback?.sender?.user_id ||
       callback?.sender?.id ||
       update?.user?.user_id ||
       update?.user?.id ||
+      update?.data?.user?.user_id ||
+      update?.data?.user?.id ||
       update?.sender?.user_id ||
       update?.sender?.id ||
       ""
@@ -1157,10 +1162,11 @@ async function finalizeActiveAdminMessage({ config, userId, activeMessageId = ''
   (Array.isArray(deleteIds) ? deleteIds : []).forEach(push);
 
   if (candidates.length) {
-    setTimeout(async () => {
+    const cleanupTimer = setTimeout(async () => {
       const failedIds = await deleteStoredMessageIds(config, candidates);
       if (failedIds.length) queuePendingDeleteMessageIds(normalizedUserId, failedIds);
     }, 0);
+    if (typeof cleanupTimer?.unref === 'function') cleanupTimer.unref();
   }
 
   if (keepId) {
@@ -4465,6 +4471,7 @@ async function handleMessageCallback(update, config) {
   const message = getMessage(update);
   if (callback && message && typeof message === 'object') {
     message.__fromCallback = true;
+    message.__callbackActorUserId = userId;
     message.__senderUserId = userId;
     message.__senderFirstName = userName;
   }
@@ -5668,7 +5675,7 @@ const uiActualLast = new Map();
 function uiButtonLabels(attachments = []) { return ((attachments && attachments[0] && attachments[0].payload && attachments[0].payload.buttons) || []).flat().map((item) => String(item.text || '').trim()).filter(Boolean); }
 function uiScreenResult(screen = null, fallbackId = '') { return { screenId: String(screen?.id || fallbackId || ''), text: String(screen?.text || ''), buttonLabels: uiButtonLabels(screen?.attachments || []) }; }
 function getActualCallbackActorUserId(message = null, fallbackUserId = '') {
-  return String(activeCallbackUiContext?.userId || message?.__senderUserId || fallbackUserId || '').trim();
+  return String(message?.__callbackActorUserId || activeCallbackUiContext?.userId || fallbackUserId || '').trim();
 }
 function recordActualProductionScreen({ userId = '', action = '', source = '', text = '', attachments = null, resolver = '' } = {}) {
   const uid = String(userId || '').trim();

@@ -10,11 +10,14 @@ const pickerCore = require('../channel-post-picker-core');
 const buttons = require('../buttons-flow-cc8-clean');
 const gifts = require('../gifts-flow-cc812-bottom');
 
-const TENANT_A_USER = 'pr128-live-a';
+const TENANT_A_USER = '17507246';
 const TENANT_B_USER = 'pr128-live-b';
 const CH_LIVE = '-75423245645230';
 const CH_FAIL = '-753000002';
 const CH_REVIEWS = '-753000003';
+const CH_AK_TEST_1 = '-753000004';
+const CH_AK_TEST_2 = '-753000005';
+const CH_AK_TEST_3 = '-753000006';
 const CH_SELFTEST = 'selftest_comments_matrix_channel';
 const CH_B = '-753999999';
 const KEY_LIVE = `${CH_LIVE}:post-live`;
@@ -39,11 +42,14 @@ function response() { return { statusCode: 0, body: null, status(code) { this.st
 async function sendBot(bot, payload, sent, userId = TENANT_A_USER) { const res = response(); await bot.handleWebhook(callbackUpdate(userId, payload), res, { botToken: 'test-token', menuDeleteTimeoutMs: 1 }); assert.strictEqual(res.statusCode, 200, `callback ${payload.action} returns 200`); return sent.at(-1) || {}; }
 async function main() {
   reset();
-  const tenantA = activate(TENANT_A_USER, 'Tenant A', 5);
+  const tenantA = activate(TENANT_A_USER, 'Tenant A', 8);
   const tenantB = activate(TENANT_B_USER, 'Tenant B', 1);
   bind(tenantA, CH_LIVE, '');
   bind(tenantA, CH_FAIL, '');
   bind(tenantA, CH_REVIEWS, 'Отзывы');
+  bind(tenantA, CH_AK_TEST_1, 'АК-ТЕСТ 1');
+  bind(tenantA, CH_AK_TEST_2, 'АК-ТЕСТ 2');
+  bind(tenantA, CH_AK_TEST_3, 'АК-Тест 3');
   bind(tenantA, CH_SELFTEST, 'selftest debug channel');
   bind(tenantB, CH_B, 'Tenant B Secret');
   savePost(KEY_LIVE, CH_LIVE, '', 'Live hydrated post');
@@ -62,6 +68,7 @@ async function main() {
     const channels = await pickerCore.listUiChannelsForUser(TENANT_A_USER, { botToken: 'test-token' });
     const channelText = channels.map((item) => item.title).join('\n');
     assert.ok(/Olga Style Live/.test(channelText), 'MAX getChat title hydration shows live title');
+    assert.ok(/АК-ТЕСТ 1/.test(channelText) && /АК-ТЕСТ 2/.test(channelText) && /АК-Тест 3/.test(channelText), 'real АК-ТЕСТ channels remain visible');
     assert.ok(/Канал без названия/.test(channelText), 'failed getChat falls back to untitled');
     assert.ok(!/Tenant B Secret|selftest_comments_matrix_channel|selftest/.test(channelText), 'unified core hides foreign/internal channels');
     assertNoRaw(channelText, 'unified core channel titles');
@@ -127,7 +134,10 @@ async function main() {
     const liveButtonStart = await sendBot(bot, { action: 'button_admin_start_add' }, sent);
     const liveButtonStartText = visible(liveButtonStart);
     assert.ok(liveButtonStartText.length > 0, 'actual button_admin_start_add produces a visible screen');
-    assert.ok(/Выберите канал|Выбор поста для кнопок|Olga Style Live|Отзывы|Канал без названия/.test(liveButtonStartText), 'actual button_admin_start_add routes to tenant-visible channel/post selection');
+    assert.ok(/Выберите канал|Выбор поста для кнопок|Olga Style Live|Отзывы|АК-ТЕСТ 1|АК-ТЕСТ 2|АК-Тест 3|Канал без названия/.test(liveButtonStartText), 'actual button_admin_start_add routes to tenant-visible channel/post selection');
+    assert.ok(/АК-ТЕСТ 1/.test(liveButtonStartText) && /АК-ТЕСТ 2/.test(liveButtonStartText) && /АК-Тест 3/.test(liveButtonStartText), 'actual Buttons channel picker keeps real АК-ТЕСТ channels visible');
+    assert.ok(/Канал без названия/.test(liveButtonStartText), 'actual Buttons channel picker may show titleless real tenant channel fallback');
+    assert.ok(!/selftest_comments_matrix_channel|selftest|debug|legacy|global|internal/i.test(liveButtonStartText), 'actual Buttons channel picker hides internal service channels');
     assert.ok(!/Tenant B secret post|Tenant B Secret|Tenant B secret/i.test(liveButtonStartText), 'actual button_admin_start_add hides Tenant B dirty target');
     assertNoRaw(liveButtonStartText, 'actual button_admin_start_add screen');
     assert.ok(!/Шаг 1\/3/.test(liveButtonStartText), 'actual button_admin_start_add does not show Step 1/3 for foreign target');
@@ -139,6 +149,7 @@ async function main() {
     assert.strictEqual(buttonLast.replayMode, 'actual', 'button_admin_start_add ui-last record is actual');
     assert.strictEqual(buttonLast.text, liveButtonStart.text, 'button_admin_start_add ui-last text matches actual edited/sent screen');
     assert.deepStrictEqual(buttonLast.buttonLabels, labels(liveButtonStart), 'button_admin_start_add ui-last buttons match actual edited/sent screen');
+    assert.deepStrictEqual(bot.debugUiLast({ userId: '244564887', action: 'button_admin_start_add' }), { ok: false, error: 'ui_last_not_recorded', userId: '244564887', action: 'button_admin_start_add' }, 'button_admin_start_add ui-last is not recorded under sender/system id');
 
 
     store.setSetupState(TENANT_A_USER, {

@@ -5,7 +5,7 @@ const clientAccessService = require('./services/clientAccessService');
 const maxApi = require('./services/maxApi');
 const channelTitles = require('./human-channel-title-helper');
 
-const RUNTIME = 'PR128-CHANNEL-POST-PICKER-CORE-1.0';
+const RUNTIME = 'PR134-CHANNEL-POST-PICKER-CORE-1.1';
 const UNTITLED_CHANNEL = channelTitles.UNTITLED_CHANNEL || 'Канал без названия';
 const diagnosticsByUser = new Map();
 
@@ -14,14 +14,29 @@ function array(value) { return Array.isArray(value) ? value : []; }
 function safe(fn, fallback) { try { return fn(); } catch { return fallback; } }
 function short(value = '', max = 72) { const text = clean(value).replace(/\s+/g, ' '); return text.length <= max ? text : `${text.slice(0, Math.max(1, max - 1)).trim()}…`; }
 function looksRawId(value = '') { const text = clean(value); return /^-?\d{6,}$/.test(text) || /^id\d{6,}$/i.test(text); }
-function looksInternal(value = '') { return /\b(?:selftest|debug|test|legacy|global|internal)\b/i.test(clean(value)); }
+function looksInternal(value = '') {
+  const text = clean(value);
+  if (!text) return false;
+  return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|test|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text)
+    || /(^|[^A-Za-z0-9А-Яа-яЁё])internal\s+service(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text);
+}
+function looksForbiddenInternal(value = '') {
+  const text = clean(value);
+  if (!text) return false;
+  return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text)
+    || /(^|[^A-Za-z0-9А-Яа-яЁё])internal\s+service(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text);
+}
+function isIntentionalUserTestTitle(value = '') {
+  return /(^|[^А-Яа-яЁё])(?:ак[\s-]*тест|тест[А-Яа-яЁё\d\s-]*)(?:[^А-Яа-яЁё]|$)/i.test(clean(value));
+}
 function maskChannelId(channelId = '') { const id = clean(channelId); if (!id) return ''; if (id.length <= 6) return '***'; return `${id.slice(0, 3)}…${id.slice(-3)}`; }
 function firstTitle(source = {}) { return clean(source.title || source.channelTitle || source.name || source.channelName || source.chatTitle || source.chat_title || source.displayName || source.display_name || ''); }
 function safeTitle(value = '') { const title = clean(value); if (!title || looksRawId(title) || looksInternal(title) || /^(?:Канал без названия|Канал из кода доступа|Название канала пока недоступно)$/i.test(title)) return ''; return title; }
 function storedChannel(channelId = '') { const id = clean(channelId); if (!id) return null; return safe(() => array(store.getChannelsList()).find((item) => clean(item.channelId || item.id || item.chatId) === id), null) || null; }
 function accessChannels(userId = '') { return array(safe(() => clientAccessService.getClientChannels(clean(userId)), [])); }
 function accessChannel(userId = '', channelId = '') { const id = clean(channelId); return accessChannels(userId).find((item) => clean(item.channelId || item.id || item.chatId) === id) || null; }
-function titleFromChat(chat = {}) { return safeTitle(firstTitle(chat) || firstTitle(chat.chat || {}) || firstTitle(chat.body || {}) || firstTitle(chat.payload || {})); }
+function rawTitleFromChat(chat = {}) { return clean(firstTitle(chat) || firstTitle(chat.chat || {}) || firstTitle(chat.body || {}) || firstTitle(chat.payload || {})); }
+function titleFromChat(chat = {}) { return safeTitle(rawTitleFromChat(chat)); }
 function record(userId = '', action = '', entry = {}) {
   const key = `${clean(userId)}:${clean(action || 'channel_picker')}`;
   const current = diagnosticsByUser.get(key) || { userId: clean(userId), action: clean(action || 'channel_picker'), channelDiagnostics: [], warnings: [], at: Date.now() };
@@ -36,8 +51,14 @@ function getLastDiagnostics(userId = '', action = '') { return diagnosticsByUser
 function clearDiagnostics(userId = '', action = '') { if (userId || action) diagnosticsByUser.delete(`${clean(userId)}:${clean(action || 'channel_picker')}`); }
 function isVisibleChannelRecord(channel = {}) {
   const channelId = clean(channel.channelId || channel.id || channel.chatId);
-  const label = [channelId, firstTitle(channel), firstTitle(storedChannel(channelId) || {})].join(' ');
-  return Boolean(channelId && !looksInternal(label));
+  if (!channelId) return false;
+  const stored = storedChannel(channelId) || {};
+  const title = firstTitle(channel);
+  const storedTitle = firstTitle(stored);
+  const titleLabel = [title, storedTitle].join(' ');
+  if (looksForbiddenInternal([channelId, titleLabel].join(' '))) return false;
+  if (looksInternal(channelId) && isIntentionalUserTestTitle(titleLabel) && !looksInternal(titleLabel)) return true;
+  return !looksInternal([channelId, titleLabel].join(' '));
 }
 function persistTitle(channelId = '', userId = '', title = '') {
   const id = clean(channelId), human = safeTitle(title);
@@ -49,9 +70,13 @@ function persistTitle(channelId = '', userId = '', title = '') {
 async function resolveUiChannelTitle(channelId = '', userId = '', config = {}, fallbackSource = {}) {
   const id = clean(channelId || fallbackSource.channelId || fallbackSource.id || fallbackSource.chatId || '');
   const diagnostic = { channelIdMasked: maskChannelId(id), title: UNTITLED_CHANNEL, titleSource: 'fallback', getChatAttempted: false, getChatOk: false };
-  if (!id || looksInternal(id)) return { title: UNTITLED_CHANNEL, diagnostic: { ...diagnostic, error: !id ? 'missing_channel_id' : 'internal_channel_hidden' } };
-
   const access = accessChannel(userId, id) || {};
+  const storedForGuard = storedChannel(id) || {};
+  const visibleTitleGuard = [firstTitle(access), firstTitle(fallbackSource), firstTitle(storedForGuard)].join(' ');
+  if (!id || (looksInternal(id) && (looksForbiddenInternal(id) || !isIntentionalUserTestTitle(visibleTitleGuard) || looksInternal(visibleTitleGuard)))) {
+    return { title: UNTITLED_CHANNEL, hidden: Boolean(id), diagnostic: { ...diagnostic, error: !id ? 'missing_channel_id' : 'internal_channel_hidden' } };
+  }
+
   const accessTitle = safeTitle(firstTitle(access));
   if (accessTitle) return { title: accessTitle, diagnostic: { ...diagnostic, title: accessTitle, titleSource: 'clientAccess' } };
 
@@ -65,7 +90,11 @@ async function resolveUiChannelTitle(channelId = '', userId = '', config = {}, f
     diagnostic.getChatAttempted = true;
     try {
       const chat = await maxApi.getChat({ botToken: clean(config.botToken), chatId: id, timeoutMs: Number(config.getChatTimeoutMs || 1200) || 1200 });
-      const liveTitle = titleFromChat(chat);
+      const rawLiveTitle = rawTitleFromChat(chat);
+      if (looksInternal(rawLiveTitle)) {
+        return { title: UNTITLED_CHANNEL, hidden: true, diagnostic: { ...diagnostic, getChatAttempted: true, getChatOk: true, error: 'internal_live_title_hidden' } };
+      }
+      const liveTitle = safeTitle(rawLiveTitle);
       if (liveTitle) {
         persistTitle(id, userId, liveTitle);
         return { title: liveTitle, diagnostic: { ...diagnostic, title: liveTitle, titleSource: 'maxGetChat', getChatAttempted: true, getChatOk: true } };
@@ -88,6 +117,7 @@ async function listUiChannelsForUser(userId = '', config = {}) {
     seen.add(channelId);
     const resolved = await resolveUiChannelTitle(channelId, userId, config, raw);
     diagnostics.push(resolved.diagnostic);
+    if (resolved.hidden || isVisibleChannelRecord({ ...raw, channelId, title: resolved.title }) === false) continue;
     channels.push({ ...raw, channelId, title: resolved.title || UNTITLED_CHANNEL, titleSource: resolved.diagnostic.titleSource, diagnostic: resolved.diagnostic });
   }
   record(userId, 'channel_picker', { warning: channels.length ? '' : 'no_tenant_visible_channels' });
