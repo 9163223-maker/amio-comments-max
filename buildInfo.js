@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const SERVER_STARTED_AT = new Date().toISOString();
-const CURRENT_RUNTIME = 'CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER';
+const CURRENT_RUNTIME = 'CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F';
 
 function clean(value) { return String(value || '').trim(); }
 function readJsonSafe(filePath) {
@@ -26,6 +26,7 @@ const markerJson = readJsonSafe(path.join(__dirname, 'build-info.json'));
 const envBuildVersion = clean(process.env.BUILD_VERSION);
 const envRuntimeVersion = clean(process.env.RUNTIME_VERSION);
 const envSourceMarker = clean(process.env.BUILD_SOURCE_MARKER);
+const envGitCommit = clean(process.env.GIT_COMMIT || process.env.COMMIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION);
 
 const runtimeVersion = firstFresh(markerJson.runtimeVersion, markerJson.displayVersion, packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
 const buildVersion = firstFresh(markerJson.buildVersion, markerJson.runtimeVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
@@ -39,6 +40,8 @@ const BUILD_INFO = Object.freeze({
   packageVersion: firstFresh(clean(packageJson.version), buildVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME,
   packageName: clean(packageJson.name || 'amio-comments-max'),
   sourceMarker,
+  gitCommit: firstFresh(markerJson.gitCommit, envGitCommit, '5a39d1f1b63670293e21a244e22e8a159bc9cc7a') || '5a39d1f1b63670293e21a244e22e8a159bc9cc7a',
+  pr131MergeCommit: firstFresh(markerJson.pr131MergeCommit, '5a39d1f1b63670293e21a244e22e8a159bc9cc7a') || '5a39d1f1b63670293e21a244e22e8a159bc9cc7a',
   buildGeneratedAt: clean(markerJson.buildGeneratedAt),
   serverStartedAt: SERVER_STARTED_AT,
   buildInfoSource: 'build-info.json/package.json/env-fresh-only',

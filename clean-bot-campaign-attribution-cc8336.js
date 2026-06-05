@@ -178,6 +178,8 @@ function createCleanBot(legacy) {
   campaignAttribution.install();
   const wrapped = base.createCleanBot(legacy);
   return {
+    ...legacy,
+    ...wrapped,
     handleWebhook: async function handleWebhookWithCampaignAttribution(req, res, config) {
       const accessResult = await tryHandleAccessRuntime(req, res, config);
       if (accessResult) return accessResult;

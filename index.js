@@ -172,7 +172,7 @@ function sanitizeUpload(item = {}) {
 }
 function baseDebugPayload() {
   const b = getBuildInfo();
-  return { ok:true, runtimeVersion:b.runtimeVersion, buildVersion:b.buildVersion, displayVersion:b.displayVersion, packageVersion:b.packageVersion, sourceMarker:b.sourceMarker, activeEntrypoint:b.activeEntrypoint, expectedRuntimeVersion:b.expectedRuntimeVersion, generatedAt:b.generatedAt, serverStartedAt:b.serverStartedAt, staleEndpointDetected:Boolean(b.staleEndpointDetected) };
+  return { ok:true, runtimeVersion:b.runtimeVersion, buildVersion:b.buildVersion, displayVersion:b.displayVersion, packageVersion:b.packageVersion, sourceMarker:b.sourceMarker, gitCommit:b.gitCommit, pr131MergeCommit:b.pr131MergeCommit, activeEntrypoint:b.activeEntrypoint, expectedRuntimeVersion:b.expectedRuntimeVersion, generatedAt:b.generatedAt, serverStartedAt:b.serverStartedAt, staleEndpointDetected:Boolean(b.staleEndpointDetected) };
 }
 
 function setNoCacheHeaders(res) {
@@ -1063,6 +1063,21 @@ app.get(["/debug/version", "/version/debug"], (req, res) => {
 });
 
 
+function debugBotExportDiagnostics(functionName = '') {
+  const keys = Object.keys(botModule || {}).sort();
+  return {
+    ...baseDebugPayload(),
+    ok: false,
+    error: 'bot_debug_export_missing',
+    missingExport: String(functionName || '').trim(),
+    botModuleType: typeof botModule,
+    botModuleKeys: keys.slice(0, 80),
+    hasDebugUiLast: typeof botModule?.debugUiLast === 'function',
+    hasDebugUiReplay: typeof botModule?.debugUiReplay === 'function',
+    advice: 'If live shows this, the active entrypoint wrapped ./bot without preserving debug exports or the deployment is stale.'
+  };
+}
+
 function requireUiDebugToken(req, res, next) {
   const expected = String(config.giftAdminToken || process.env.ADMIN_TOKEN || '').trim();
   if (!expected) return res.status(403).json({ ok: false, error: 'debug_disabled' });
@@ -1074,6 +1089,9 @@ function requireUiDebugToken(req, res, next) {
 
 app.get('/debug/ui-replay', requireUiDebugToken, async (req, res) => {
   setNoCacheHeaders(res);
+  if (typeof botModule?.debugUiReplay !== 'function') {
+    return res.status(503).json(debugBotExportDiagnostics('debugUiReplay'));
+  }
   try {
     const result = await botModule.debugUiReplay({
       userId: String(req.query?.userId || '').trim(),
@@ -1091,6 +1109,9 @@ app.get('/debug/ui-replay', requireUiDebugToken, async (req, res) => {
 
 app.get('/debug/ui-last', requireUiDebugToken, (req, res) => {
   setNoCacheHeaders(res);
+  if (typeof botModule?.debugUiLast !== 'function') {
+    return res.status(503).json(debugBotExportDiagnostics('debugUiLast'));
+  }
   res.json(botModule.debugUiLast({ userId: String(req.query?.userId || '').trim(), action: String(req.query?.action || '').trim() }));
 });
 
