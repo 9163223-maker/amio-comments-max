@@ -20,6 +20,7 @@ const CH_B = '-753999999';
 const KEY_LIVE = `${CH_LIVE}:post-live`;
 const KEY_REVIEWS = `${CH_REVIEWS}:post-reviews`;
 const KEY_B = `${CH_B}:post-secret`;
+const KEY_SELFTEST = `${CH_SELFTEST}:post-selftest`;
 
 const menu = {
   button(text, action, extra = {}) { return { text, payload: JSON.stringify({ action, ...extra }) }; },
@@ -48,6 +49,7 @@ async function main() {
   savePost(KEY_LIVE, CH_LIVE, '', 'Live hydrated post');
   savePost(KEY_REVIEWS, CH_REVIEWS, 'Отзывы', 'Отзывы клиентов за неделю');
   savePost(KEY_B, CH_B, 'Tenant B Secret', 'Tenant B secret post');
+  savePost(KEY_SELFTEST, CH_SELFTEST, 'selftest debug channel', 'selftest global legacy internal post');
 
   const originalGetChat = maxApi.getChat;
   maxApi.getChat = async ({ chatId }) => {
@@ -94,6 +96,66 @@ async function main() {
     maxApi.answerCallback = async () => ({ ok: true });
     delete require.cache[require.resolve('../bot')];
     const bot = require('../bot');
+
+    store.setSetupState(TENANT_A_USER, {
+      giftTargetPost: { channelId: CH_B, channelTitle: 'Tenant B Secret', postId: 'post-secret', messageId: 'msg-secret', commentKey: KEY_B, originalText: 'Tenant B secret post' },
+      commentTargetPost: { channelId: CH_B, channelTitle: 'Tenant B Secret', postId: 'post-secret', messageId: 'msg-secret', commentKey: KEY_B, originalText: 'Tenant B secret post' }
+    });
+    const liveGiftStart = await sendBot(bot, { action: 'gift_admin_start_create' }, sent);
+    const liveGiftStartText = visible(liveGiftStart);
+    assert.ok(liveGiftStartText.length > 0, 'actual gift_admin_start_create produces a visible screen');
+    assert.ok(/Выберите канал|Выберите пост|Olga Style Live|Отзывы|Канал без названия/.test(liveGiftStartText), 'actual gift_admin_start_create routes to tenant-visible channel/post selection');
+    assert.ok(!/Tenant B secret post|Tenant B Secret|Tenant B secret/i.test(liveGiftStartText), 'actual gift_admin_start_create hides Tenant B dirty target');
+    assertNoRaw(liveGiftStartText, 'actual gift_admin_start_create screen');
+    const giftLast = bot.debugUiLast({ userId: TENANT_A_USER, action: 'gift_admin_start_create' });
+    assert.strictEqual(giftLast.ok, true, 'debug ui-last records gift_admin_start_create actual callback');
+    assert.strictEqual(giftLast.replayMode, 'actual', 'gift_admin_start_create ui-last record is actual');
+    const giftLastVisible = [giftLast.text, ...giftLast.buttonLabels].join('\n');
+    assert.strictEqual(giftLast.text, liveGiftStart.text, 'gift_admin_start_create ui-last text matches actual edited/sent screen');
+    assert.deepStrictEqual(giftLast.buttonLabels, labels(liveGiftStart), 'gift_admin_start_create ui-last buttons match actual edited/sent screen');
+    assert.ok(!/Tenant B secret post|Tenant B Secret|Tenant B secret|global|legacy|selftest|debug|internal/i.test(giftLastVisible), 'gift_admin_start_create ui-last hides foreign and internal labels');
+    assertNoRaw(giftLastVisible, 'gift_admin_start_create ui-last');
+
+    store.setSetupState(TENANT_A_USER, {
+      giftTargetPost: { channelId: CH_B, channelTitle: 'Tenant B Secret', postId: 'post-secret', messageId: 'msg-secret', commentKey: KEY_B, originalText: 'Tenant B secret post' },
+      commentTargetPost: { channelId: CH_B, channelTitle: 'Tenant B Secret', postId: 'post-secret', messageId: 'msg-secret', commentKey: KEY_B, originalText: 'Tenant B secret post' }
+    });
+    const deniedTenantBSelect = await sendBot(bot, { action: 'gift_admin_select_post', commentKey: KEY_B }, sent);
+    const deniedTenantBText = visible(deniedTenantBSelect);
+    assert.ok(deniedTenantBText.length > 0, 'direct Tenant B gift_admin_select_post produces safe screen');
+    assert.ok(/Выберите канал|Выберите пост|Сначала выберите пост|Olga Style Live|Отзывы|Канал без названия|нет подключённых каналов/.test(deniedTenantBText), 'direct Tenant B gift_admin_select_post routes to safe selection/rejection');
+    assert.ok(!/Tenant B secret post|Tenant B Secret|Tenant B secret/i.test(deniedTenantBText), 'direct Tenant B gift_admin_select_post hides Tenant B data');
+    assertNoRaw(deniedTenantBText, 'direct Tenant B gift_admin_select_post screen');
+    let setupAfterDenied = store.getSetupState(TENANT_A_USER) || {};
+    assert.notStrictEqual(setupAfterDenied.giftTargetPost?.commentKey, KEY_B, 'direct Tenant B select does not set giftTargetPost');
+    assert.notStrictEqual(setupAfterDenied.giftFlow?.draft?.commentKey, KEY_B, 'direct Tenant B select does not start Tenant B gift flow');
+
+    store.setSetupState(TENANT_A_USER, {
+      giftTargetPost: { channelId: CH_SELFTEST, channelTitle: 'selftest debug channel', postId: 'post-selftest', messageId: 'msg-post-selftest', commentKey: KEY_SELFTEST, originalText: 'selftest global legacy internal post' },
+      commentTargetPost: { channelId: CH_SELFTEST, channelTitle: 'selftest debug channel', postId: 'post-selftest', messageId: 'msg-post-selftest', commentKey: KEY_SELFTEST, originalText: 'selftest global legacy internal post' }
+    });
+    const deniedInternalSelect = await sendBot(bot, { action: 'gift_admin_select_post', commentKey: KEY_SELFTEST }, sent);
+    const deniedInternalText = visible(deniedInternalSelect);
+    assert.ok(!/selftest|debug|legacy|global|internal/i.test(deniedInternalText), 'direct internal gift_admin_select_post hides internal labels');
+    assertNoRaw(deniedInternalText, 'direct internal gift_admin_select_post screen');
+    setupAfterDenied = store.getSetupState(TENANT_A_USER) || {};
+    assert.notStrictEqual(setupAfterDenied.giftTargetPost?.commentKey, KEY_SELFTEST, 'direct internal select does not set giftTargetPost');
+    assert.notStrictEqual(setupAfterDenied.giftFlow?.draft?.commentKey, KEY_SELFTEST, 'direct internal select does not start gift flow');
+
+    const validGiftSelect = await sendBot(bot, { action: 'gift_admin_select_post', commentKey: KEY_LIVE }, sent);
+    const validGiftSelectText = visible(validGiftSelect);
+    assert.ok(/Пост для подарка выбран|Live hydrated post/.test(validGiftSelectText), 'valid Tenant A gift_admin_select_post shows selected context');
+    assert.ok(!/Tenant B secret post|Tenant B Secret|selftest|debug|legacy|global|internal/i.test(validGiftSelectText), 'valid Tenant A gift_admin_select_post stays tenant-safe');
+    assertNoRaw(validGiftSelectText, 'valid Tenant A gift_admin_select_post screen');
+    const setupAfterValid = store.getSetupState(TENANT_A_USER) || {};
+    assert.strictEqual(setupAfterValid.giftTargetPost?.commentKey, KEY_LIVE, 'valid Tenant A select sets giftTargetPost');
+    assert.strictEqual(setupAfterValid.giftFlow?.draft?.commentKey, KEY_LIVE, 'valid Tenant A select starts gift flow for selected post');
+    const selectLast = bot.debugUiLast({ userId: TENANT_A_USER, action: 'gift_admin_select_post' });
+    assert.strictEqual(selectLast.ok, true, 'debug ui-last records gift_admin_select_post actual callback');
+    assert.strictEqual(selectLast.replayMode, 'actual', 'gift_admin_select_post ui-last record is actual');
+    assert.strictEqual(selectLast.text, validGiftSelect.text, 'gift_admin_select_post ui-last text matches actual edited/sent screen');
+    assert.deepStrictEqual(selectLast.buttonLabels, labels(validGiftSelect), 'gift_admin_select_post ui-last buttons match actual edited/sent screen');
+
     assert.doesNotThrow(() => bot.__testBuildCommentsPostAdminText({ channelId: CH_LIVE, commentKey: KEY_LIVE, originalText: 'Live hydrated post' }, TENANT_A_USER), 'old comments post admin text path does not throw with userId');
     const editorReplay = await bot.debugUiReplay({ userId: TENANT_A_USER, action: 'comments_select_post', source: 'posts', config: { botToken: 'test-token' } });
     assert.strictEqual(editorReplay.ok, true, 'debug ui replay succeeds');
@@ -106,7 +168,7 @@ async function main() {
     assert.ok(editorReplay.channelDiagnostics.some((item) => item.titleSource === 'maxGetChat' && item.getChatOk), 'ui replay includes maxGetChat diagnostic');
     assert.ok(editorReplay.channelDiagnostics.some((item) => item.getChatAttempted && item.getChatOk === false), 'ui replay includes getChat failure diagnostic');
     const beforeLast = bot.debugUiLast({ userId: TENANT_A_USER, action: 'comments_select_post' });
-    assert.strictEqual(beforeLast.error, 'ui_last_not_recorded', 'ui-last is not populated by replay alone');
+    assert.notStrictEqual(beforeLast.action, 'comments_select_post', 'ui-last is not populated for comments_select_post by replay alone');
     const liveScreen = await sendBot(bot, { action: 'comments_select_post', source: 'posts' }, sent);
     assert.ok(/Olga Style Live|Канал без названия|Отзывы/.test(visible(liveScreen)), 'actual callback renders safe channel picker');
     const last = bot.debugUiLast({ userId: TENANT_A_USER, action: 'comments_select_post' });
