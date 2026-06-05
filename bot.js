@@ -2163,6 +2163,32 @@ function buildAdminPageUrl(pathName = "", token = "", config = null) {
   return url.toString();
 }
 
+function isTenantVisibleGiftPostForUser(post = null, userId = '', options = {}) {
+  if (!post?.channelId || !post?.postId || !post?.commentKey) return false;
+  const uid = String(userId || '').trim();
+  const channelId = String(post.channelId || '').trim();
+  const adminView = options?.adminView === true && clientAccessService.isAdmin(uid);
+  const visibleChannels = Array.isArray(options?.visibleChannels)
+    ? options.visibleChannels
+    : (uid ? getVisibleStoredChannelsForUser(uid, { adminView }).filter((item) => String(item?.channelId || item?.id || '').trim()) : []);
+  if (uid && !findVisibleChannelById(visibleChannels, channelId)) return false;
+  if (options?.hideInternalPosts) {
+    const publicText = [post.channelId, post.channelTitle, post.title, post.originalText, post.postText, post.text, post.commentKey].join(' ');
+    if (channelPostPicker.looksInternal(publicText)) return false;
+  }
+  return true;
+}
+
+function getTenantVisibleGiftTargetPost(userId = '', rawTargetPost = null) {
+  if (!rawTargetPost?.channelId || !rawTargetPost?.postId || !rawTargetPost?.commentKey) return null;
+  const stored = getPost(rawTargetPost.commentKey) || null;
+  if (!stored?.channelId || !stored?.postId || !stored?.commentKey) return null;
+  if (String(stored.channelId || '').trim() !== String(rawTargetPost.channelId || '').trim()) return null;
+  if (String(rawTargetPost.postId || '').trim() && String(stored.postId || '').trim() !== String(rawTargetPost.postId || '').trim()) return null;
+  const fresh = { ...(rawTargetPost || {}), ...(stored || {}) };
+  return isTenantVisibleGiftPostForUser(fresh, userId, { adminView: false, hideInternalPosts: true }) ? fresh : null;
+}
+
 function getRecentGiftPosts(limit = 6, page = 0, options = {}) {
   const safeLimit = Math.max(1, Math.min(Number(limit || 6), 10));
   const safePage = Math.max(0, Number(page || 0));
@@ -2180,8 +2206,9 @@ function getRecentGiftPosts(limit = 6, page = 0, options = {}) {
   const filterChannelId = requestedChannelId || String(singleChannel?.channelId || '').trim();
   const seen = new Set();
   const posts = getPostsList()
-    .filter((post) => post?.channelId && post?.postId)
+    .filter((post) => post?.channelId && post?.postId && post?.commentKey)
     .filter((post) => !filterChannelId || String(post.channelId || '').trim() === filterChannelId)
+    .filter((post) => !userId || isTenantVisibleGiftPostForUser(post, userId, { adminView, visibleChannels, hideInternalPosts: options?.hideInternalPosts === true }))
     .filter((post) => {
       const channel = String(post.channelId || '').trim();
       const idKey = [channel, String(post.postId || '').trim()].join(':post:');
@@ -2203,7 +2230,7 @@ function getRecentGiftPosts(limit = 6, page = 0, options = {}) {
 
 function buildRecentPostsKeyboard(page = 0, options = {}) {
   const channelId = String(options?.channelId || '').trim();
-  const recent = getRecentGiftPosts(6, page, options);
+  const recent = getRecentGiftPosts(6, page, { ...options, hideInternalPosts: true });
   let buttons = recent.items.map((post, index) => [{
     type: 'callback',
     text: truncateText(`${index + 1 + (recent.page * 6)}. ${channelPostPicker.safePostPreview(post)}`, 56),
@@ -3232,7 +3259,7 @@ async function sendRecentPostsMenu({ config, message, page = 0, note = '', editC
   clearActiveAdminFlowKind(userId);
   rememberAdminScreen(userId, { section: 'gifts_post_picker', backAction: 'admin_section_gifts', rootAction: 'admin_section_gifts', selectMode: 'gifts' });
   if (channelId && await rejectInvisibleRequestedChannel({ config, message, userId, channelId, adminView, editCurrent })) return null;
-  const recent = getRecentGiftPosts(6, page, { userId, channelId, adminView });
+  const recent = getRecentGiftPosts(6, page, { userId, channelId, adminView, hideInternalPosts: true });
   const lines = [];
   if (note) lines.push(String(note).trim());
   if (!recent.items.length) {
@@ -3247,7 +3274,7 @@ async function sendRecentPostsMenu({ config, message, page = 0, note = '', editC
     config,
     message,
     text: lines.join('\n'),
-    attachments: buildRecentPostsKeyboard(page, { userId, channelId, adminView }),
+    attachments: buildRecentPostsKeyboard(page, { userId, channelId, adminView, hideInternalPosts: true }),
     editCurrent
   });
 }
@@ -5070,7 +5097,7 @@ async function handleMessageCallback(update, config) {
     }
 
     const rawGiftTargetPost = getGiftTargetPost(userId) || getCommentTargetPost(userId) || null;
-    const targetPost = rawGiftTargetPost?.channelId && canUsePostChannelForUser(userId, rawGiftTargetPost.channelId, { adminView: false }) ? getFreshTargetPost(rawGiftTargetPost) : null;
+    const targetPost = getTenantVisibleGiftTargetPost(userId, rawGiftTargetPost);
     const currentFlow = getGiftFlow(userId);
 
     if (payload.action === 'gift_admin_recent_posts') {
@@ -5078,7 +5105,7 @@ async function handleMessageCallback(update, config) {
       let channelId = String(payload.channelId || '').trim();
       await acknowledgeCallbackSilently(config, callbackId);
       const adminView = clientAccessService.isAdmin(userId);
-      const visibleChannels = getVisibleStoredChannelsForUser(userId, { adminView }).filter((item) => String(item?.channelId || '').trim());
+      const visibleChannels = await channelPostPicker.listUiChannelsForUser(userId, config);
       if (channelId && !findVisibleChannelById(visibleChannels, channelId)) {
         await showTenantSafeNoChannelsState({ config, message, editCurrent: true });
         return { ok: true, action: 'gift_admin_recent_posts_channel_denied', page, channelId: '' };
@@ -5101,7 +5128,9 @@ async function handleMessageCallback(update, config) {
       const channelId = String(payload.channelId || '').trim();
       const adminView = clientAccessService.isAdmin(userId);
       await acknowledgeCallbackSilently(config, callbackId);
-      if (await rejectInvisibleRequestedChannel({ config, message, userId, channelId, adminView, editCurrent: true })) {
+      const visibleChannels = await channelPostPicker.listUiChannelsForUser(userId, config);
+      if (!findVisibleChannelById(visibleChannels, channelId)) {
+        await showTenantSafeNoChannelsState({ config, message, editCurrent: true });
         return { ok: true, action: 'gift_admin_channel_pick_denied', channelId: '' };
       }
       if (message) await sendRecentPostsMenu({ config, message, page: 0, note: `Канал: ${getReadableChannelName(channelId, 'Канал без названия', userId)}
@@ -5164,7 +5193,29 @@ async function handleMessageCallback(update, config) {
     if (payload.action === 'gift_admin_start_create' || payload.action === 'gift_admin_create_from_target' || payload.action === 'gift_admin_pick_file') {
       if (!targetPost?.channelId || !targetPost?.postId) {
         await acknowledgeCallbackSilently(config, callbackId);
-        if (message) await sendRecentPostsMenu({ config, message, page: 0, note: 'Сначала выберите пост для подарка.', editCurrent: true });
+        clearGiftFlow(userId);
+        clearGiftTargetPost(userId);
+        clearCommentTargetPost(userId);
+        const adminView = clientAccessService.isAdmin(userId);
+        const visibleChannels = await channelPostPicker.listUiChannelsForUser(userId, config);
+        if (message) {
+          if (visibleChannels.length > 1) {
+            await upsertBotMessage({
+              config,
+              message,
+              text: ['Сначала выберите пост для подарка.', '', buildAdminChannelPickerText('gifts')].join('\n'),
+              attachments: await buildAdminChannelPickerKeyboard(userId, 'gifts', { config }),
+              editCurrent: true
+            });
+          } else {
+            const channelId = String(visibleChannels[0]?.channelId || visibleChannels[0]?.id || '').trim();
+            if (channelId) {
+              await sendRecentPostsMenu({ config, message, page: 0, note: `Сначала выберите пост для подарка.\nКанал: ${getReadableChannelName(channelId, 'Канал без названия', userId)}`, editCurrent: true, channelId, adminView });
+            } else {
+              await showTenantSafeNoChannelsState({ config, message, editCurrent: true });
+            }
+          }
+        }
         return { ok: true, action: 'gift_admin_create_without_target' };
       }
       const existingCampaign = findGiftCampaignForPost({ channelId: targetPost.channelId, postId: targetPost.postId, commentKey: targetPost.commentKey });
