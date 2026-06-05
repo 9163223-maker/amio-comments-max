@@ -5744,7 +5744,14 @@ async function debugUiReplay({ userId = '', action = '', source = '', channelId 
   uiReplayLast.set(String(userId || '').trim() || 'anonymous', result);
   return result;
 }
-function debugUiLast({ userId = '', action = '' } = {}) { return uiActualLast.get(`${String(userId || '').trim()}:${String(action || '').trim()}`) || uiActualLast.get(String(userId || '').trim() || 'anonymous') || { ok: false, error: 'ui_last_not_recorded' }; }
+function debugUiLast({ userId = '', action = '' } = {}) {
+  const uid = String(userId || '').trim() || 'anonymous';
+  const act = String(action || '').trim();
+  if (act) {
+    return uiActualLast.get(`${uid}:${act}`) || { ok: false, error: 'ui_last_not_recorded', userId: uid, action: act };
+  }
+  return uiActualLast.get(uid) || { ok: false, error: 'ui_last_not_recorded' };
+}
 
 module.exports = {
   handleWebhook,

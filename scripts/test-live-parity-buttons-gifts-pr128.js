@@ -110,6 +110,11 @@ async function main() {
     const giftLast = bot.debugUiLast({ userId: TENANT_A_USER, action: 'gift_admin_start_create' });
     assert.strictEqual(giftLast.ok, true, 'debug ui-last records gift_admin_start_create actual callback');
     assert.strictEqual(giftLast.replayMode, 'actual', 'gift_admin_start_create ui-last record is actual');
+    const latestUserLast = bot.debugUiLast({ userId: TENANT_A_USER });
+    assert.strictEqual(latestUserLast.ok, true, 'debug ui-last user-level lookup returns latest actual record');
+    assert.strictEqual(latestUserLast.replayMode, 'actual', 'debug ui-last user-level record is actual');
+    const missingActionLast = bot.debugUiLast({ userId: TENANT_A_USER, action: 'missing_action' });
+    assert.deepStrictEqual(missingActionLast, { ok: false, error: 'ui_last_not_recorded', userId: TENANT_A_USER, action: 'missing_action' }, 'debug ui-last action lookup does not fall back to latest user-level record');
     const giftLastVisible = [giftLast.text, ...giftLast.buttonLabels].join('\n');
     assert.strictEqual(giftLast.text, liveGiftStart.text, 'gift_admin_start_create ui-last text matches actual edited/sent screen');
     assert.deepStrictEqual(giftLast.buttonLabels, labels(liveGiftStart), 'gift_admin_start_create ui-last buttons match actual edited/sent screen');
@@ -168,7 +173,7 @@ async function main() {
     assert.ok(editorReplay.channelDiagnostics.some((item) => item.titleSource === 'maxGetChat' && item.getChatOk), 'ui replay includes maxGetChat diagnostic');
     assert.ok(editorReplay.channelDiagnostics.some((item) => item.getChatAttempted && item.getChatOk === false), 'ui replay includes getChat failure diagnostic');
     const beforeLast = bot.debugUiLast({ userId: TENANT_A_USER, action: 'comments_select_post' });
-    assert.notStrictEqual(beforeLast.action, 'comments_select_post', 'ui-last is not populated for comments_select_post by replay alone');
+    assert.deepStrictEqual(beforeLast, { ok: false, error: 'ui_last_not_recorded', userId: TENANT_A_USER, action: 'comments_select_post' }, 'ui-last is not populated for comments_select_post by replay alone');
     const liveScreen = await sendBot(bot, { action: 'comments_select_post', source: 'posts' }, sent);
     assert.ok(/Olga Style Live|Канал без названия|Отзывы/.test(visible(liveScreen)), 'actual callback renders safe channel picker');
     const last = bot.debugUiLast({ userId: TENANT_A_USER, action: 'comments_select_post' });
