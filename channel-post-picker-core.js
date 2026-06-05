@@ -118,7 +118,13 @@ async function listUiChannelsForUser(userId = '', config = {}) {
     const resolved = await resolveUiChannelTitle(channelId, userId, config, raw);
     diagnostics.push(resolved.diagnostic);
     if (resolved.hidden || isVisibleChannelRecord({ ...raw, channelId, title: resolved.title }) === false) continue;
-    channels.push({ ...raw, channelId, title: resolved.title || UNTITLED_CHANNEL, titleSource: resolved.diagnostic.titleSource, diagnostic: resolved.diagnostic });
+    const visiblePosts = listUiPostsForChannel(userId, channelId);
+    const hasSafeTitle = Boolean(safeTitle(resolved.title));
+    if (!hasSafeTitle && !visiblePosts.length) {
+      diagnostics.push({ ...resolved.diagnostic, error: 'titleless_channel_without_visible_posts_hidden' });
+      continue;
+    }
+    channels.push({ ...raw, channelId, title: hasSafeTitle ? resolved.title : UNTITLED_CHANNEL, titleSource: resolved.diagnostic.titleSource, diagnostic: resolved.diagnostic });
   }
   record(userId, 'channel_picker', { warning: channels.length ? '' : 'no_tenant_visible_channels' });
   diagnostics.forEach((item) => record(userId, 'channel_picker', item));

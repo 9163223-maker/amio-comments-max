@@ -21,6 +21,7 @@ const CH_AK_TEST_3 = '-753000006';
 const CH_SELFTEST = 'selftest_comments_matrix_channel';
 const CH_B = '-753999999';
 const KEY_LIVE = `${CH_LIVE}:post-live`;
+const KEY_FAIL = `${CH_FAIL}:post-fail`;
 const KEY_REVIEWS = `${CH_REVIEWS}:post-reviews`;
 const KEY_B = `${CH_B}:post-secret`;
 const KEY_SELFTEST = `${CH_SELFTEST}:post-selftest`;
@@ -53,6 +54,7 @@ async function main() {
   bind(tenantA, CH_SELFTEST, 'selftest debug channel');
   bind(tenantB, CH_B, 'Tenant B Secret');
   savePost(KEY_LIVE, CH_LIVE, '', 'Live hydrated post');
+  savePost(KEY_FAIL, CH_FAIL, '', 'Titleless fallback post');
   savePost(KEY_REVIEWS, CH_REVIEWS, 'Отзывы', 'Отзывы клиентов за неделю');
   savePost(KEY_B, CH_B, 'Tenant B Secret', 'Tenant B secret post');
   savePost(KEY_SELFTEST, CH_SELFTEST, 'selftest debug channel', 'selftest global legacy internal post');

@@ -27,6 +27,89 @@ function postTitle(target = null) { const text = clean(target?.originalText || t
 function channelTitle(target = null, userId = '') { return channelTitles.resolveHumanChannelTitle(target?.channelId || target?.requiredChatId || '', userId, target || {}); }
 function normalizeConfig(ctx = {}) { const c = ctx.config || {}; return { botToken: clean(c.botToken || config.botToken), appBaseUrl: clean(c.appBaseUrl || config.appBaseUrl || process.env.ADMINKIT_PUBLIC_BASE_URL), botUsername: clean(c.botUsername || config.botUsername), maxDeepLinkBase: clean(c.maxDeepLinkBase || config.maxDeepLinkBase) }; }
 async function patchGiftButton(ctx = {}, target = null) { const commentKey = clean(target?.commentKey); saveGiftPatchDiagnostic(ctx.userId, 'patch_attempted', { commentKey }); if (!commentKey) { saveGiftPatchDiagnostic(ctx.userId, 'patch_failed', { reason: 'comment_key_missing' }); return { ok: false, skipped: true, reason: 'comment_key_missing' }; } const c = normalizeConfig(ctx); if (!c.botToken) { saveGiftPatchDiagnostic(ctx.userId, 'patch_failed', { reason: 'bot_token_missing', commentKey }); return { ok: false, skipped: true, reason: 'bot_token_missing' }; } try { const result = await patchStoredPost({ ...c, commentKey }) || { ok: false, reason: 'empty_patch_result' }; saveGiftPatchDiagnostic(ctx.userId, result.ok ? 'patch_confirmed' : 'patch_not_confirmed', { commentKey, reason: clean(result.reason || '') }); return result; } catch (error) { saveGiftPatchDiagnostic(ctx.userId, 'patch_failed', { commentKey, reason: error?.message || 'patch_failed' }); return { ok: false, error: { status: error?.status || 0, message: error?.message || 'patch_failed', data: error?.data || null } }; } }
+
+function extractPayload(value = null) {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    try { return JSON.parse(value); } catch { return null; }
+  }
+  return typeof value === 'object' ? value : null;
+}
+function buttonCampaignId(button = {}) {
+  const payload = extractPayload(button.payload) || extractPayload(button.data) || null;
+  return clean(payload?.campaignId || payload?.giftCampaignId || '');
+}
+function attachmentHasCampaign(attachment = {}, campaignId = '') {
+  const id = clean(campaignId);
+  if (!id || !attachment || typeof attachment !== 'object') return false;
+  if (clean(attachment.campaignId || attachment.giftCampaignId) === id) return true;
+  const payload = extractPayload(attachment.payload) || null;
+  if (clean(payload?.campaignId || payload?.giftCampaignId) === id) return true;
+  return false;
+}
+function stripGiftCampaignRowsFromAttachments(attachments = [], campaignId = '') {
+  const id = clean(campaignId);
+  if (!id) return arr(attachments);
+  return arr(attachments).map((attachment) => {
+    if (!attachment || typeof attachment !== 'object') return attachment;
+    if (attachmentHasCampaign(attachment, id)) return null;
+    if (attachment.type !== 'inline_keyboard') return attachment;
+    const payload = attachment.payload && typeof attachment.payload === 'object' ? { ...attachment.payload } : {};
+    const buttons = arr(payload.buttons);
+    const nextButtons = buttons.map((row) => arr(row).filter((button) => buttonCampaignId(button) !== id)).filter((row) => row.length);
+    return { ...attachment, payload: { ...payload, buttons: nextButtons } };
+  }).filter(Boolean);
+}
+function stripGiftCampaignRowsFromKeyboard(keyboard = {}, campaignId = '') {
+  if (!keyboard || typeof keyboard !== 'object') return keyboard;
+  const rows = arr(keyboard.rows).map((row) => arr(row).filter((button) => buttonCampaignId(button) !== clean(campaignId))).filter((row) => row.length);
+  return { ...keyboard, rows };
+}
+function cleanupDeletedGiftPostState(userId = '', target = null, campaignId = '') {
+  const key = clean(target?.commentKey);
+  const id = clean(campaignId);
+  if (!key || !id) return null;
+  const post = store.getPost(key) || target || {};
+  const patchedAttachments = stripGiftCampaignRowsFromAttachments(post.patchedAttachments, id);
+  const customKeyboard = stripGiftCampaignRowsFromKeyboard(post.customKeyboard, id);
+  const patch = {
+    giftCampaignId: clean(post.giftCampaignId) === id ? '' : clean(post.giftCampaignId || ''),
+    lastGiftRowsCount: clean(post.giftCampaignId) === id ? 0 : Number(post.lastGiftRowsCount || 0),
+    patchedAttachments,
+    customKeyboard,
+    deletedGiftCampaignId: id,
+    deletedGiftCampaignAt: Date.now()
+  };
+  store.savePost(key, patch);
+  try {
+    const state = setup(userId);
+    const targetPost = state.giftTargetPost && clean(state.giftTargetPost.commentKey) === key ? { ...state.giftTargetPost, giftCampaignId: '' } : state.giftTargetPost;
+    const card = state.giftsCurrentCard && clean(state.giftsCurrentCard.commentKey) === key ? { ...state.giftsCurrentCard, giftCampaignId: '' } : state.giftsCurrentCard;
+    store.setSetupState(clean(userId), { giftTargetPost: targetPost, giftsCurrentCard: card });
+  } catch {}
+  return store.getPost(key) || null;
+}
+function findCampaignForTarget(target = null) {
+  if (!target) return null;
+  const channelId = clean(target.channelId || target.requiredChatId || '');
+  const postId = clean(target.postId || '');
+  const commentKey = clean(target.commentKey || '');
+  return Object.values(store.store?.gifts?.campaigns || {}).find((campaign) => campaign && (clean(campaign.commentKey) === commentKey || (clean(campaign.channelId || campaign.requiredChatId) === channelId && arr(campaign.postIds).map(clean).includes(postId)))) || null;
+}
+async function handleConfirmDelete(menu, payload = {}, ctx = {}) {
+  const userId = clean(ctx.userId);
+  const before = targetFromState(userId);
+  const campaign = before ? findCampaignForTarget(before) : null;
+  const screen = await base.screenForPayload(menu, payload, ctx);
+  if (clean(payload.action || payload.raw) !== 'gift_admin_confirm_delete' || !before || !campaign?.id) return rewriteScreen(screen, ctx);
+  const cleanedPost = cleanupDeletedGiftPostState(userId, before, campaign.id) || before;
+  const patchResult = await patchGiftButton(ctx, cleanedPost);
+  const ok = Boolean(patchResult && patchResult.ok);
+  const safeNote = ok ? 'Подарок удалён. Кнопка под постом обновлена/удалена.' : 'Подарок удалён, но обновление кнопки под постом не подтверждено.';
+  const current = await base.screenForPayload(menu, { action: 'gift_admin_show_current', note: safeNote }, ctx);
+  return rewriteScreen(current, ctx);
+}
+
 function patchLine(result = {}, target = null, userId = '') { const targetLine = exactTargetLine(target, userId); if (result.ok) { const status = result.skipped && result.reason === 'already_patched' ? 'Кнопка под постом уже была актуальна.' : 'Кнопка под постом добавлена/обновлена.'; return [targetLine, status].filter(Boolean).join('\n'); } return [targetLine, 'Не удалось подтвердить обновление кнопки под постом. Проверьте подключение канала и повторите сохранение подарка позже.'].filter(Boolean).join('\n'); }
 function appendPatchResult(screen = null, patchResult = null, target = null, ctx = {}) { if (!screen || !patchResult) return screen; return { ...screen, text: [clean(screen.text), '', patchLine(patchResult, target, ctx.userId)].filter(Boolean).join('\n') }; }
 function isStartCreateScreen(screen = null) { const id = clean(screen && screen.id); return /^(gifts_clean_start_create|adminkit_gifts_clean_start_create|adminkit_gift_step_1_material)$/i.test(id); }
@@ -52,7 +135,7 @@ function rewriteScreen(screen = null, ctx = {}) { if (!screen) return screen; le
   next = cleanTechnicalText(next, ctx);
   return next;
 }
-async function screenForPayload(menu, payload = {}, ctx = {}) { const action = clean(payload.action || payload.raw); const normalized = action === 'gift_admin_skip_message' ? { ...payload, action: 'gift_admin_message_default' } : payload; const normalizedAction = clean(normalized.action || normalized.raw); if ((normalizedAction === 'gift_admin_start_create' || normalizedAction === 'gift_admin_create_from_target' || normalizedAction === 'gift_admin_pick_file') && !targetFromState(ctx.userId)) { try { store.setSetupState(clean(ctx.userId), { giftTargetPost: null, commentTargetPost: null, giftFlow: null, activeAdminFlowKind: '' }); } catch {} } if (normalizedAction === 'gift_admin_commit_save') { const target = targetFromState(ctx.userId); const screen = rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); if (/Подарок сохран/i.test(clean(screen && screen.text))) { const patchResult = await patchGiftButton(ctx, target); return appendPatchResult(screen, patchResult, target, ctx); } return screen; } return rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); }
+async function screenForPayload(menu, payload = {}, ctx = {}) { const action = clean(payload.action || payload.raw); const normalized = action === 'gift_admin_skip_message' ? { ...payload, action: 'gift_admin_message_default' } : payload; const normalizedAction = clean(normalized.action || normalized.raw); if ((normalizedAction === 'gift_admin_start_create' || normalizedAction === 'gift_admin_create_from_target' || normalizedAction === 'gift_admin_pick_file') && !targetFromState(ctx.userId)) { try { store.setSetupState(clean(ctx.userId), { giftTargetPost: null, commentTargetPost: null, giftFlow: null, activeAdminFlowKind: '' }); } catch {} } if (normalizedAction === 'gift_admin_confirm_delete') return handleConfirmDelete(menu, normalized, ctx); if (normalizedAction === 'gift_admin_commit_save') { const target = targetFromState(ctx.userId); const screen = rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); if (/Подарок сохран/i.test(clean(screen && screen.text))) { const patchResult = await patchGiftButton(ctx, target); return appendPatchResult(screen, patchResult, target, ctx); } return screen; } return rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); }
 async function handleTextInput(menu, ctx = {}) { clearActiveGiftScreen(ctx.userId); return rewriteScreen(await base.handleTextInput(menu, ctx), ctx); }
 function isCleanGiftAction(action = '') { return CLEAN_GIFT_ACTIONS.includes(clean(action)) || (base.isCleanGiftAction ? base.isCleanGiftAction(action) : false); }
 
