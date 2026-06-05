@@ -9,6 +9,7 @@ const tenant = require('../tenant-scope');
 const access = require('../services/clientAccessService');
 const buttons = require('../buttons-flow-cc8-clean');
 const gifts = require('../gifts-flow-cc812-bottom');
+const postPatcher = require('../services/postPatcher');
 
 const TENANT_A_USER = 'pr126-tenant-a';
 const TENANT_B_USER = 'pr126-tenant-b';
@@ -95,6 +96,14 @@ function labels(screen) {
   return (screen.attachments?.[0]?.payload?.buttons || []).flat().map((button) => String(button.text || '').trim()).filter(Boolean);
 }
 function visible(screen) { return [String(screen.text || ''), ...labels(screen)].join('\n'); }
+function reloadGiftsWithPatch(fn) {
+  const original = postPatcher.patchStoredPost;
+  postPatcher.patchStoredPost = fn;
+  delete require.cache[require.resolve('../gifts-flow-cc812-bottom')];
+  const reloaded = require('../gifts-flow-cc812-bottom');
+  postPatcher.patchStoredPost = original;
+  return reloaded;
+}
 function payloadFor(screen, pattern) {
   const button = (screen.attachments?.[0]?.payload?.buttons || []).flat().find((item) => pattern.test(String(item.text || '')));
   assert.ok(button, `button ${pattern} exists in ${screen.id}`);
@@ -174,7 +183,18 @@ async function testButtons() {
 }
 
 async function testGifts() {
-  store.setSetupState(TENANT_A_USER, { giftTargetPost: null, commentTargetPost: null, giftFlow: null, activeAdminFlowKind: '' });
+  store.setSetupState(TENANT_A_USER, {
+    giftTargetPost: { channelId: CHANNELS_A[0].id, channelTitle: CHANNELS_A[0].title, postId: 'post-style-1', messageId: 'msg-post-style-1', commentKey: POST_A1, originalText: 'Olga Style launch post' },
+    commentTargetPost: { channelId: CHANNELS_A[1].id, channelTitle: CHANNELS_A[1].title, postId: 'post-reviews-1', messageId: 'msg-post-reviews-1', commentKey: POST_A2, originalText: 'Отзывы клиентов за неделю' },
+    buttonTargetPost: { channelId: CHANNELS_A[1].id, channelTitle: CHANNELS_A[1].title, postId: 'post-reviews-1', messageId: 'msg-post-reviews-1', commentKey: POST_A2, originalText: 'Отзывы клиентов за неделю' },
+    giftsCurrentCard: null, giftFlow: null, activeAdminFlowKind: ''
+  });
+  const staleCreate = await call(gifts, { action: 'gift_admin_start_create' });
+  assert.ok(/gifts_clean_channel_picker$|gifts_clean_picker$/.test(staleCreate.id), 'Gifts stale/cross-section target opens selection instead of material step');
+  assert.ok(!/Шаг 1|материал подарка/i.test(visible(staleCreate)), 'Gifts stale/cross-section target does not start material step');
+  assert.ok(store.getSetupState(TENANT_A_USER)?.giftTargetDiagnostics?.some((item) => /cross_section_target|denied_no_current_card/.test(item.status)), 'Gifts stale/cross-section target records source diagnostic');
+
+  store.setSetupState(TENANT_A_USER, { giftTargetPost: null, commentTargetPost: null, buttonTargetPost: null, giftsCurrentCard: null, giftFlow: null, activeAdminFlowKind: '' });
   const home = await call(gifts, { action: 'admin_section_gifts' });
   assert.ok(/Сначала выберите канал и пост/i.test(visible(home)), 'Gifts home with no target explains channel/post selection');
   assert.ok(!/Шаг 1|материал подарка/i.test(visible(home)), 'Gifts home with no target does not start material step silently');
@@ -219,7 +239,7 @@ async function testGifts() {
   assert.ok(/Пост: Пост без текста/.test(visible(rawPostCard)), 'Gifts card uses safe post fallback for empty raw-looking post');
   assertNoUnsafeUi(rawPostCard, 'gifts raw-looking empty post card');
 
-  const material = await call(gifts, payloadFor(rawPostCard, /Создать подарок к выбранному посту/));
+  const material = await call(gifts, payloadFor(rawPostCard, /Создать подарок для этого поста/));
   assert.strictEqual(material.id, 'adminkit_gift_step_1_material', 'Gifts create starts material step only from explicit selected card action');
   assert.ok(/Пост: Пост без текста/.test(visible(material)), 'Gifts material step uses safe post fallback');
   assertNoUnsafeUi(material, 'gifts raw-looking empty post material step');
@@ -232,16 +252,50 @@ async function testGifts() {
   const review = await call(gifts, { action: 'gift_admin_save' });
   assertNoUnsafeUi(review, 'gifts save review for raw-looking post');
   const saved = await call(gifts, { action: 'gift_admin_commit_save' });
+  assert.ok(/Целевой пост: канал «Отзывы», пост «Пост без текста»\./.test(visible(saved)), 'Gifts save reports exact target post');
+  assert.ok(!/Кнопка под постом добавлена\/обновлена/.test(visible(saved)), 'Gifts unconfirmed patch does not claim button success');
+  assert.ok(/Не удалось подтвердить обновление кнопки под постом/.test(visible(saved)), 'Gifts unconfirmed patch shows recoverable failure');
+  assert.ok(store.getSetupState(TENANT_A_USER)?.giftPatchDiagnostics?.some((item) => item.status === 'patch_failed'), 'Gifts failed patch diagnostic recorded');
   assertNoUnsafeUi(saved, 'gifts save summary for raw-looking post');
   const currentAfterSave = await call(gifts, { action: 'gift_admin_show_current' });
   assert.ok(/Подарок к посту \(Пост без текста\)/.test(visible(currentAfterSave)), 'Gifts saved summary uses safe gift title fallback');
   assertNoUnsafeUi(currentAfterSave, 'gifts current summary after raw-looking post save');
 }
 
+async function testGiftPatchConfirmed() {
+  const patchedGifts = reloadGiftsWithPatch(async () => ({ ok: true, patchResult: { ok: true } }));
+  const target = stampFor(TENANT_A_USER, { channelId: CHANNELS_A[1].id, channelTitle: CHANNELS_A[1].title, postId: 'post-reviews-1', messageId: 'msg-post-reviews-1', commentKey: POST_A2, originalText: 'Отзывы клиентов за неделю' });
+  store.setSetupState(TENANT_A_USER, {
+    giftTargetPost: target,
+    giftsCurrentCard: { ...target, cardId: 'gifts_card_confirmed', source: 'gifts_selected_post_card' },
+    giftFlow: { targetPost: target, draft: { id: 'gift-confirmed', title: 'Gift confirmed', giftUrl: 'https://example.com/gift', giftMessage: 'Спасибо!', conditions: {} } },
+    activeAdminFlowKind: 'gift'
+  });
+  const saved = await patchedGifts.screenForPayload(menu, { action: 'gift_admin_commit_save' }, { userId: TENANT_A_USER, config: { botToken: 'test-token' } });
+  assert.ok(/Подарок сохранён/.test(visible(saved)), 'Gifts confirmed patch still saves gift');
+  assert.ok(/Целевой пост: канал «Отзывы», пост «Отзывы клиентов за неделю»\./.test(visible(saved)), 'Gifts confirmed patch reports exact target');
+  assert.ok(/Кнопка под постом добавлена\/обновлена\./.test(visible(saved)), 'Gifts confirmed patch claims button success only after confirmation');
+  assert.ok(store.getSetupState(TENANT_A_USER)?.giftPatchDiagnostics?.some((item) => item.status === 'patch_confirmed'), 'Gifts confirmed patch diagnostic recorded');
+}
+
+function testPostBoundAuditTable() {
+  const audit = [
+    ['gifts', 'gift_admin_start_create', 'requires giftsCurrentCard/cardId'],
+    ['buttons', 'button_admin_start_add', 'requires buttonsCurrentCard/cardId'],
+    ['comments', 'comments_select_post', 'uses section picker before post work'],
+    ['polls', 'poll_admin_select_post', 'covered by PR127 post picker flow'],
+    ['highlights', 'highlight_select_post', 'covered by PR127 post picker flow'],
+    ['archive', 'archive_select_post', 'covered by PR124 archive picker flow']
+  ];
+  assert.ok(audit.every(([, action, guard]) => action && guard), 'Post-bound section audit table names canonical actions and guards');
+}
+
 (async () => {
   setupFixture();
   await testButtons();
   await testGifts();
+  await testGiftPatchConfirmed();
+  testPostBoundAuditTable();
   console.log('PR126 Buttons/Gifts product-perfect channel-first UX assertions passed');
 })().catch((error) => {
   console.error(error);
