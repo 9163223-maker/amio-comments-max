@@ -143,10 +143,10 @@ async function testButtons() {
   assertNoUnsafeUi(emptyPicker, 'buttons empty channel');
 
   const card = await call(buttons, payloadFor(channel2Picker, /Отзывы клиентов/));
-  assert.strictEqual(card.id, 'buttons_clean_home', 'Buttons post selection returns selected context home/card');
+  assert.strictEqual(card.id, 'buttons_clean_selected_post', 'Buttons post selection returns explicit selected-post card');
   assert.ok(/Выбранный пост:|Пост для кнопок выбран/.test(visible(card)), 'Buttons selected post context is explicit');
   assert.ok(/Канал: Отзывы|Пост: Отзывы клиентов/.test(visible(card)), 'Buttons card shows selected channel and post');
-  assert.ok(/Добавить кнопку к выбранному посту|Текущие кнопки|Выбрать другой пост/.test(visible(card)), 'Buttons selected home exposes explicit actions');
+  assert.ok(/Добавить кнопку к этому посту|Действие: Добавить кнопку к этому посту|Выбрать другой пост/.test(visible(card)), 'Buttons selected card exposes explicit card-only action');
   assertNoUnsafeUi(card, 'buttons selected card');
 
   const current = await call(buttons, { action: 'button_admin_show_current' });
@@ -154,7 +154,7 @@ async function testButtons() {
   assert.ok(/Канал: Отзывы|Пост: Отзывы клиентов/.test(visible(current)), 'Buttons current card shows selected channel/post');
   assert.ok(!/Удалить последнюю кнопку/.test(visible(current)), 'Buttons delete hidden when selected post has no buttons');
 
-  const step1 = await call(buttons, payloadFor(card, /Добавить кнопку к выбранному посту/));
+  const step1 = await call(buttons, payloadFor(card, /Добавить кнопку к этому посту/));
   assert.strictEqual(step1.id, 'buttons_clean_add_label', 'Buttons add starts at text step after explicit selected context');
   const step2 = await buttons.handleTextInput(menu, { userId: TENANT_A_USER, text: 'Записаться', config: { botToken: '' } });
   assert.strictEqual(step2.id, 'buttons_clean_add_url', 'Buttons add flow advances text → URL');
