@@ -260,6 +260,13 @@ async function testGifts() {
   const currentAfterSave = await call(gifts, { action: 'gift_admin_show_current' });
   assert.ok(/Подарок к посту \(Пост без текста\)/.test(visible(currentAfterSave)), 'Gifts saved summary uses safe gift title fallback');
   assertNoUnsafeUi(currentAfterSave, 'gifts current summary after raw-looking post save');
+
+  const deleteConfirm = await call(gifts, payloadFor(currentAfterSave, /Удалить подарок/));
+  assert.strictEqual(deleteConfirm.id, 'adminkit_gifts_clean_delete_confirm', 'Gifts delete from selected card opens confirmation');
+  assert.ok(/Подтвердите удаление подарка/.test(visible(deleteConfirm)), 'Gifts delete confirmation is shown');
+  const deleted = await call(gifts, payloadFor(deleteConfirm, /Да, удалить/));
+  assert.ok(/Подарок удалён/.test(visible(deleted)), 'Gifts confirmed delete succeeds with selected-card guard');
+  assert.ok(!/Удаление доступно только из карточки/.test(visible(deleted)), 'Gifts confirmed delete is not blocked by selected-card guard');
 }
 
 async function testGiftPatchConfirmed() {
