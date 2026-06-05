@@ -1938,7 +1938,7 @@ async function replyToUser({ config, message, text, attachments }) {
   });
   const sentMessageId = extractSentMessageId(result);
   if (userId && sentMessageId) setLatestBotMessageId(userId, sentMessageId);
-  if (message?.__fromCallback && activeCallbackUiContext?.action) recordActualProductionScreen({ userId: userId || activeCallbackUiContext.userId, action: activeCallbackUiContext.action, source: activeCallbackUiContext.source, text, attachments, resolver: 'replyToUser' });
+  if (message?.__fromCallback && activeCallbackUiContext?.action) recordActualProductionScreen({ userId: getActualCallbackActorUserId(message, userId), action: activeCallbackUiContext.action, source: activeCallbackUiContext.source, text, attachments, resolver: 'replyToUser' });
   return result;
 }
 
@@ -2035,7 +2035,7 @@ async function upsertBotMessage({ config, message, text, attachments, editCurren
           activeMessageId: editTargetId,
           deleteIds: []
         });
-        if (message?.__fromCallback && activeCallbackUiContext?.action) recordActualProductionScreen({ userId: userId || activeCallbackUiContext.userId, action: activeCallbackUiContext.action, source: activeCallbackUiContext.source, text, attachments, resolver: 'upsertBotMessage.editMessage' });
+        if (message?.__fromCallback && activeCallbackUiContext?.action) recordActualProductionScreen({ userId: getActualCallbackActorUserId(message, userId), action: activeCallbackUiContext.action, source: activeCallbackUiContext.source, text, attachments, resolver: 'upsertBotMessage.editMessage' });
         return result;
       } catch (error) {
         logVerbose(config, 'UPSERT EDIT FAILED, FALLBACK TO FRESH MESSAGE', {
@@ -2049,14 +2049,14 @@ async function upsertBotMessage({ config, message, text, attachments, editCurren
     const result = await replyFreshBotMessage({ config, message, text, attachments });
     const sentMessageId = String(extractSentMessageId(result) || '').trim();
     await finalizeActiveAdminMessage({ config, userId, activeMessageId: sentMessageId, deleteIds: [] });
-    if (message?.__fromCallback && activeCallbackUiContext?.action) recordActualProductionScreen({ userId: userId || activeCallbackUiContext.userId, action: activeCallbackUiContext.action, source: activeCallbackUiContext.source, text, attachments, resolver: 'upsertBotMessage.freshFallback' });
+    if (message?.__fromCallback && activeCallbackUiContext?.action) recordActualProductionScreen({ userId: getActualCallbackActorUserId(message, userId), action: activeCallbackUiContext.action, source: activeCallbackUiContext.source, text, attachments, resolver: 'upsertBotMessage.freshFallback' });
     return result;
   }
 
   const result = await replyToUser({ config, message, text, attachments });
   const sentMessageId = String(extractSentMessageId(result) || '').trim();
   await finalizeActiveAdminMessage({ config, userId, activeMessageId: sentMessageId, deleteIds: [] });
-  if (message?.__fromCallback && activeCallbackUiContext?.action) recordActualProductionScreen({ userId: userId || activeCallbackUiContext.userId, action: activeCallbackUiContext.action, source: activeCallbackUiContext.source, text, attachments, resolver: 'upsertBotMessage.reply' });
+  if (message?.__fromCallback && activeCallbackUiContext?.action) recordActualProductionScreen({ userId: getActualCallbackActorUserId(message, userId), action: activeCallbackUiContext.action, source: activeCallbackUiContext.source, text, attachments, resolver: 'upsertBotMessage.reply' });
   return result;
 }
 
@@ -5667,6 +5667,9 @@ const uiReplayLast = new Map();
 const uiActualLast = new Map();
 function uiButtonLabels(attachments = []) { return ((attachments && attachments[0] && attachments[0].payload && attachments[0].payload.buttons) || []).flat().map((item) => String(item.text || '').trim()).filter(Boolean); }
 function uiScreenResult(screen = null, fallbackId = '') { return { screenId: String(screen?.id || fallbackId || ''), text: String(screen?.text || ''), buttonLabels: uiButtonLabels(screen?.attachments || []) }; }
+function getActualCallbackActorUserId(message = null, fallbackUserId = '') {
+  return String(activeCallbackUiContext?.userId || message?.__senderUserId || fallbackUserId || '').trim();
+}
 function recordActualProductionScreen({ userId = '', action = '', source = '', text = '', attachments = null, resolver = '' } = {}) {
   const uid = String(userId || '').trim();
   const act = String(action || '').trim();

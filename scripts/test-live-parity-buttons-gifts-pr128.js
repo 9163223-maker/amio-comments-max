@@ -34,7 +34,7 @@ function reset() { access._resetForTests(); store.store.posts = {}; store.store.
 function activate(userId, name, maxChannels) { const code = access.createActivationCode({ planId: 'start', durationDays: 30, maxChannels, createdByMaxUserId: 'pr128-live-admin' }); const result = access.activateCode({ maxUserId: userId, name, code: code.code }); assert.strictEqual(result.ok, true); return access.getTenantByMaxUserId(userId); }
 function bind(tenant, channelId, title) { assert.strictEqual(access.bindTenantChannel({ tenantId: tenant.tenantId, channelId, channelTitle: title, maxChannels: tenant.maxChannels }).ok, true); store.saveChannel(channelId, { channelId, title, channelTitle: title }); }
 function savePost(key, channelId, title, text) { store.savePost(key, { channelId, channelTitle: title, postId: key.split(':').at(-1), messageId: `msg-${key.split(':').at(-1)}`, commentKey: key, originalText: text }); }
-function callbackUpdate(userId, payload) { return { body: { update_type: 'message_callback', callback: { callback_id: `cb-${userId}-${Date.now()}-${Math.random()}`, user: { user_id: userId, first_name: userId }, payload: JSON.stringify(payload) }, message: { id: `msg-${Date.now()}`, body: { mid: `mid-${Date.now()}`, text: 'old' }, sender: { user_id: userId }, recipient: { chat_id: `${userId}-chat`, chat_type: 'user' } } } }; }
+function callbackUpdate(userId, payload) { return { body: { update_type: 'message_callback', callback: { callback_id: `cb-${userId}-${Date.now()}-${Math.random()}`, user: { user_id: userId, first_name: userId }, payload: JSON.stringify(payload) }, message: { id: `msg-${Date.now()}`, body: { mid: `mid-${Date.now()}`, text: 'old' }, sender: { user_id: '244564887' }, recipient: { chat_id: `${userId}-chat`, chat_type: 'user' } } } }; }
 function response() { return { statusCode: 0, body: null, status(code) { this.statusCode = code; return this; }, json(value) { this.body = value; return value; } }; }
 async function sendBot(bot, payload, sent, userId = TENANT_A_USER) { const res = response(); await bot.handleWebhook(callbackUpdate(userId, payload), res, { botToken: 'test-token', menuDeleteTimeoutMs: 1 }); assert.strictEqual(res.statusCode, 200, `callback ${payload.action} returns 200`); return sent.at(-1) || {}; }
 async function main() {
@@ -139,6 +139,31 @@ async function main() {
     assert.strictEqual(buttonLast.replayMode, 'actual', 'button_admin_start_add ui-last record is actual');
     assert.strictEqual(buttonLast.text, liveButtonStart.text, 'button_admin_start_add ui-last text matches actual edited/sent screen');
     assert.deepStrictEqual(buttonLast.buttonLabels, labels(liveButtonStart), 'button_admin_start_add ui-last buttons match actual edited/sent screen');
+
+
+    store.setSetupState(TENANT_A_USER, {
+      buttonTargetPost: { channelId: CH_REVIEWS, channelTitle: 'Отзывы', postId: 'post-reviews', messageId: 'msg-post-reviews', commentKey: KEY_REVIEWS, originalText: 'Отзывы клиентов за неделю' },
+      commentTargetPost: { channelId: CH_REVIEWS, channelTitle: 'Отзывы', postId: 'post-reviews', messageId: 'msg-post-reviews', commentKey: KEY_REVIEWS, originalText: 'Отзывы клиентов за неделю' },
+      buttonFlow: null,
+      activeAdminFlowKind: ''
+    });
+    await sendBot(bot, { action: 'admin_section_buttons' }, sent);
+    const staleValidStart = await sendBot(bot, { action: 'button_admin_start_add' }, sent);
+    const staleValidText = visible(staleValidStart);
+    assert.ok(!/Шаг 1\/3/.test(staleValidText), 'actual button_admin_start_add does not start from old valid Tenant A target after Buttons home');
+    assert.ok(/Выберите канал|Выбор поста для кнопок|Olga Style Live|Отзывы|Канал без названия/.test(staleValidText), 'old valid Tenant A target routes to safe selection/card flow');
+    const staleValidLast = bot.debugUiLast({ userId: TENANT_A_USER, action: 'button_admin_start_add' });
+    assert.strictEqual(staleValidLast.ok, true, 'debug ui-last records old-valid-target button_admin_start_add for callback actor');
+    assert.strictEqual(staleValidLast.replayMode, 'actual', 'old-valid-target button ui-last is actual');
+    assert.strictEqual(staleValidLast.text, staleValidStart.text, 'old-valid-target ui-last text matches actual screen');
+    assert.deepStrictEqual(staleValidLast.buttonLabels, labels(staleValidStart), 'old-valid-target ui-last buttons match actual screen');
+
+    const explicitChannelPicker = await sendBot(bot, { action: 'button_admin_start_add' }, sent);
+    const explicitPostPicker = await sendBot(bot, payloadFor(explicitChannelPicker, /Отзывы/), sent);
+    const explicitCard = await sendBot(bot, payloadFor(explicitPostPicker, /Отзывы клиентов/), sent);
+    assert.ok(/Пост для кнопок выбран|Действие: Добавить кнопку к этому посту/.test(visible(explicitCard)), 'actual Buttons explicit selected post card is shown');
+    const explicitStep1 = await sendBot(bot, payloadFor(explicitCard, /Добавить кнопку к этому посту/), sent);
+    assert.ok(/Шаг 1\/3/.test(visible(explicitStep1)), 'actual Buttons wizard starts only from explicit selected-post card action');
 
     assert.ok(!/Tenant B secret post|Tenant B Secret|Tenant B secret|global|legacy|selftest|debug|internal/i.test(giftLastVisible), 'gift_admin_start_create ui-last hides foreign and internal labels');
     assertNoRaw(giftLastVisible, 'gift_admin_start_create ui-last');
