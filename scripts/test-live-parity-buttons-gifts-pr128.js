@@ -29,7 +29,7 @@ const menu = {
 function labels(screen) { return (screen.attachments?.[0]?.payload?.buttons || []).flat().map((button) => String(button.text || '').trim()).filter(Boolean); }
 function visible(screen) { return [String(screen.text || ''), ...labels(screen)].join('\n'); }
 function payloadFor(screen, pattern) { const b = (screen.attachments?.[0]?.payload?.buttons || []).flat().find((item) => pattern.test(String(item.text || ''))); assert.ok(b, `button ${pattern} exists in ${visible(screen)}`); return JSON.parse(String(b.payload || '{}')); }
-function assertNoRaw(text, label) { assert.ok(!/selftest_comments_matrix_channel|debug|legacy|selftest/i.test(text), `${label}: no selftest/debug/legacy`); assert.ok(!/-?\d{6,}|\b(?:channelId|postId|messageId|commentKey)\b/i.test(text), `${label}: no raw ids or key names`); }
+function assertNoRaw(text, label) { assert.ok(!/selftest_comments_matrix_channel|debug|legacy|selftest|global|internal/i.test(text), `${label}: no selftest/debug/legacy/global/internal`); assert.ok(!/-?\d{6,}|\b(?:channelId|postId|messageId|commentKey|token|payload|trace)\b/i.test(text), `${label}: no raw ids or key names`); }
 function reset() { access._resetForTests(); store.store.posts = {}; store.store.comments = {}; store.store.reactions = {}; store.store.channels = {}; store.store.setup = {}; store.store.setupState = {}; store.store.growth = { byChannel: {}, clicks: [], pollVotes: [], memberSnapshots: {} }; store.store.gifts = { campaigns: {}, claims: {}, settings: {} }; store.saveStore(); }
 function activate(userId, name, maxChannels) { const code = access.createActivationCode({ planId: 'start', durationDays: 30, maxChannels, createdByMaxUserId: 'pr128-live-admin' }); const result = access.activateCode({ maxUserId: userId, name, code: code.code }); assert.strictEqual(result.ok, true); return access.getTenantByMaxUserId(userId); }
 function bind(tenant, channelId, title) { assert.strictEqual(access.bindTenantChannel({ tenantId: tenant.tenantId, channelId, channelTitle: title, maxChannels: tenant.maxChannels }).ok, true); store.saveChannel(channelId, { channelId, title, channelTitle: title }); }
@@ -118,6 +118,28 @@ async function main() {
     const giftLastVisible = [giftLast.text, ...giftLast.buttonLabels].join('\n');
     assert.strictEqual(giftLast.text, liveGiftStart.text, 'gift_admin_start_create ui-last text matches actual edited/sent screen');
     assert.deepStrictEqual(giftLast.buttonLabels, labels(liveGiftStart), 'gift_admin_start_create ui-last buttons match actual edited/sent screen');
+    store.setSetupState(TENANT_A_USER, {
+      buttonTargetPost: { channelId: CH_B, channelTitle: 'Tenant B Secret', postId: 'post-secret', messageId: 'msg-secret', commentKey: KEY_B, originalText: 'Tenant B secret post' },
+      commentTargetPost: { channelId: CH_B, channelTitle: 'Tenant B Secret', postId: 'post-secret', messageId: 'msg-secret', commentKey: KEY_B, originalText: 'Tenant B secret post' },
+      buttonFlow: { mode: 'button_wizard', stepIndex: 0, targetPost: { channelId: CH_B, channelTitle: 'Tenant B Secret', postId: 'post-secret', messageId: 'msg-secret', commentKey: KEY_B, originalText: 'Tenant B secret post' }, draft: { text: '', url: '' } },
+      activeAdminFlowKind: 'button'
+    });
+    const liveButtonStart = await sendBot(bot, { action: 'button_admin_start_add' }, sent);
+    const liveButtonStartText = visible(liveButtonStart);
+    assert.ok(liveButtonStartText.length > 0, 'actual button_admin_start_add produces a visible screen');
+    assert.ok(/Выберите канал|Выбор поста для кнопок|Olga Style Live|Отзывы|Канал без названия/.test(liveButtonStartText), 'actual button_admin_start_add routes to tenant-visible channel/post selection');
+    assert.ok(!/Tenant B secret post|Tenant B Secret|Tenant B secret/i.test(liveButtonStartText), 'actual button_admin_start_add hides Tenant B dirty target');
+    assertNoRaw(liveButtonStartText, 'actual button_admin_start_add screen');
+    assert.ok(!/Шаг 1\/3/.test(liveButtonStartText), 'actual button_admin_start_add does not show Step 1/3 for foreign target');
+    const setupAfterButtonStart = store.getSetupState(TENANT_A_USER) || {};
+    assert.notStrictEqual(setupAfterButtonStart.buttonFlow?.targetPost?.commentKey, KEY_B, 'button wizard does not start for Tenant B target');
+    assert.notStrictEqual(setupAfterButtonStart.buttonTargetPost?.commentKey, KEY_B, 'stale Tenant B button target is cleared');
+    const buttonLast = bot.debugUiLast({ userId: TENANT_A_USER, action: 'button_admin_start_add' });
+    assert.strictEqual(buttonLast.ok, true, 'debug ui-last records button_admin_start_add actual callback');
+    assert.strictEqual(buttonLast.replayMode, 'actual', 'button_admin_start_add ui-last record is actual');
+    assert.strictEqual(buttonLast.text, liveButtonStart.text, 'button_admin_start_add ui-last text matches actual edited/sent screen');
+    assert.deepStrictEqual(buttonLast.buttonLabels, labels(liveButtonStart), 'button_admin_start_add ui-last buttons match actual edited/sent screen');
+
     assert.ok(!/Tenant B secret post|Tenant B Secret|Tenant B secret|global|legacy|selftest|debug|internal/i.test(giftLastVisible), 'gift_admin_start_create ui-last hides foreign and internal labels');
     assertNoRaw(giftLastVisible, 'gift_admin_start_create ui-last');
 
