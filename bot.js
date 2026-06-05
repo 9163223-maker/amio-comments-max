@@ -3279,6 +3279,36 @@ async function sendRecentPostsMenu({ config, message, page = 0, note = '', editC
   });
 }
 
+async function showSafeGiftPostSelectionState({ config, message, userId = '', adminView = false, note = 'Сначала выберите пост для подарка.', editCurrent = true } = {}) {
+  clearGiftFlow(userId);
+  clearGiftTargetPost(userId);
+  clearCommentTargetPost(userId);
+  if (!message) return null;
+  const visibleChannels = await channelPostPicker.listUiChannelsForUser(userId, config);
+  if (visibleChannels.length > 1) {
+    return upsertBotMessage({
+      config,
+      message,
+      text: [String(note || '').trim(), '', buildAdminChannelPickerText('gifts')].filter(Boolean).join('\n'),
+      attachments: await buildAdminChannelPickerKeyboard(userId, 'gifts', { config }),
+      editCurrent
+    });
+  }
+  const channelId = String(visibleChannels[0]?.channelId || visibleChannels[0]?.id || '').trim();
+  if (channelId) {
+    return sendRecentPostsMenu({
+      config,
+      message,
+      page: 0,
+      note: `${String(note || '').trim()}\nКанал: ${getReadableChannelName(channelId, 'Канал без названия', userId)}`.trim(),
+      editCurrent,
+      channelId,
+      adminView
+    });
+  }
+  return showTenantSafeNoChannelsState({ config, message, editCurrent });
+}
+
 function buildGiftAdminActionsKeyboard(config = null, flow = null, targetPost = null) {
   return buildGiftMainMenuKeyboard(config, { flow, targetPost });
 }
@@ -5141,22 +5171,24 @@ async function handleMessageCallback(update, config) {
     if (payload.action === 'gift_admin_select_post') {
       const selected = getPostsList().find((item) => normalizeKey(item.commentKey || '') === normalizeKey(payload.commentKey || '')) || null;
       const adminView = clientAccessService.isAdmin(userId);
-      if (!selected?.channelId || !selected?.postId) {
+      if (!selected?.channelId || !selected?.postId || !selected?.commentKey) {
         await acknowledgeCallbackSilently(config, callbackId);
-        if (message) await sendRecentPostsMenu({ config, message, page: 0, note: 'Не удалось найти выбранный пост. Попробуйте другой.', editCurrent: true, adminView });
+        await showSafeGiftPostSelectionState({ config, message, userId, adminView, note: 'Не удалось найти выбранный пост. Попробуйте другой.', editCurrent: true });
         return { ok: true, action: 'gift_admin_select_post_missing' };
       }
       await acknowledgeCallbackSilently(config, callbackId);
-      if (await rejectInvisibleRequestedChannel({ config, message, userId, channelId: selected.channelId, adminView, editCurrent: true })) {
-        return { ok: true, action: 'gift_admin_select_post_channel_denied' };
+      const safeSelected = getTenantVisibleGiftTargetPost(userId, selected);
+      if (!safeSelected?.channelId || !safeSelected?.postId || !safeSelected?.commentKey) {
+        await showSafeGiftPostSelectionState({ config, message, userId, adminView, note: 'Сначала выберите пост для подарка.', editCurrent: true });
+        return { ok: true, action: 'gift_admin_select_post_denied' };
       }
       const nextTarget = buildGiftTargetPostRecord({
-        channelId: selected.channelId,
-        channelTitle: selected.channelTitle || getReadableChannelName(selected.channelId, '', userId),
-        postId: selected.postId,
-        messageId: selected.messageId,
-        commentKey: selected.commentKey,
-        originalText: selected.originalText || selected.postText || ''
+        channelId: safeSelected.channelId,
+        channelTitle: safeSelected.channelTitle || getReadableChannelName(safeSelected.channelId, '', userId),
+        postId: safeSelected.postId,
+        messageId: safeSelected.messageId,
+        commentKey: safeSelected.commentKey,
+        originalText: safeSelected.originalText || safeSelected.postText || ''
       });
       setGiftTargetPost(userId, nextTarget);
       clearGiftFlow(userId);
@@ -5193,29 +5225,8 @@ async function handleMessageCallback(update, config) {
     if (payload.action === 'gift_admin_start_create' || payload.action === 'gift_admin_create_from_target' || payload.action === 'gift_admin_pick_file') {
       if (!targetPost?.channelId || !targetPost?.postId) {
         await acknowledgeCallbackSilently(config, callbackId);
-        clearGiftFlow(userId);
-        clearGiftTargetPost(userId);
-        clearCommentTargetPost(userId);
         const adminView = clientAccessService.isAdmin(userId);
-        const visibleChannels = await channelPostPicker.listUiChannelsForUser(userId, config);
-        if (message) {
-          if (visibleChannels.length > 1) {
-            await upsertBotMessage({
-              config,
-              message,
-              text: ['Сначала выберите пост для подарка.', '', buildAdminChannelPickerText('gifts')].join('\n'),
-              attachments: await buildAdminChannelPickerKeyboard(userId, 'gifts', { config }),
-              editCurrent: true
-            });
-          } else {
-            const channelId = String(visibleChannels[0]?.channelId || visibleChannels[0]?.id || '').trim();
-            if (channelId) {
-              await sendRecentPostsMenu({ config, message, page: 0, note: `Сначала выберите пост для подарка.\nКанал: ${getReadableChannelName(channelId, 'Канал без названия', userId)}`, editCurrent: true, channelId, adminView });
-            } else {
-              await showTenantSafeNoChannelsState({ config, message, editCurrent: true });
-            }
-          }
-        }
+        await showSafeGiftPostSelectionState({ config, message, userId, adminView, note: 'Сначала выберите пост для подарка.', editCurrent: true });
         return { ok: true, action: 'gift_admin_create_without_target' };
       }
       const existingCampaign = findGiftCampaignForPost({ channelId: targetPost.channelId, postId: targetPost.postId, commentKey: targetPost.commentKey });
