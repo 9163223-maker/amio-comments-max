@@ -1,10 +1,10 @@
 {
-  "runtimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-  "buildVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-  "displayVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-  "packageVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-  "sourceMarker": "adminkit-cc8-2-4-compressed-final-photo-composer",
-  "buildGeneratedAt": "2026-05-29T12:00:00Z",
+  "runtimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+  "buildVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+  "displayVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+  "packageVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+  "sourceMarker": "adminkit-cc8-3-50-pr131-live-sync-audit-5a39d1f",
+  "buildGeneratedAt": "2026-06-05T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
     "version": "1.53.11",
@@ -15,13 +15,14 @@
     "archiveFlowPath": "archive-flow-15311.js",
     "pollFlowPath": "poll-flow-15311.js",
     "pollServicePath": "services/pollService.js",
-    "activeRuntime": "clean-entrypoint-1.53.9.js",
+    "activeRuntime": "clean-entrypoint-1.53.10-pr89.js",
     "cleanBase": true,
     "noModuleLoadPatch": true,
     "noMaxApiPatch": true,
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
-    "legacyBotOnlyDelegatedForUnmigratedActions": true
+    "legacyBotOnlyDelegatedForUnmigratedActions": true,
+    "activeRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F"
   },
   "persistentStore": {
     "enabled": true,
@@ -88,5 +89,8 @@
     "Open MAX /start and verify channel/post binding survived without re-forwarding a channel post",
     "Open Голосовалки / опросы → choose post → create quick poll → vote by callback button under post",
     "Open Архив / восстановление and verify archive counts survived the same update"
-  ]
+  ],
+  "gitCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
+  "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
+  "liveSyncAudit": "PR131 live deploy sync audit marker; expected on /debug/version-live after redeploy"
 }

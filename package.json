@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
+  "version": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node clean-entrypoint-1.53.10-pr89.js",
@@ -16,5 +16,9 @@
     "multer": "^1.4.5-lts.1",
     "node-fetch": "^2.7.0",
     "pg": "^8.13.1"
-  }
+  },
+  "buildVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+  "displayVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+  "sourceMarker": "adminkit-cc8-3-50-pr131-live-sync-audit-5a39d1f",
+  "gitCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a"
 }

@@ -5,7 +5,7 @@ const storeModule = require('../store');
 const tariffs = require('./tariffConfig');
 const repository = require('./clientAccessRepository');
 
-const RUNTIME = 'CC8.3.46-PR106-ACCOUNT-ACCESS-RUNTIME';
+const RUNTIME = 'CC8.3.50-PR131-LIVE-SYNC-AUDIT-ACCOUNT-ACCESS';
 const ADMIN_ACCESS_RUNTIME = 'CC8.3.47-PR108-ADMIN-ACTIVATION-CODES';
 const ACCESS_NAMESPACE = repository.ACCESS_NAMESPACE;
 

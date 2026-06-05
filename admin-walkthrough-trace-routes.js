@@ -10,13 +10,14 @@ const growthService = require('./services/growthService');
 const adCampaigns = require('./services/adCampaignService');
 const store = require('./store');
 const config = require('./config');
+const { getBuildInfo } = require('./buildInfo');
 
-const RUNTIME = 'CC8.3.17-CAMPAIGN-LINKS';
+const RUNTIME = 'CC8.3.50-PR131-LIVE-SYNC-AUDIT-ROUTES';
 const STARTED_AT = new Date().toISOString();
 
 function clean(value) { return String(value || '').trim(); }
 function liveRuntime() { return clean(process.env.RUNTIME_VERSION || process.env.BUILD_VERSION || RUNTIME) || RUNTIME; }
-function liveSourceMarker() { return clean(process.env.BUILD_SOURCE_MARKER) || 'adminkit-cc8-3-17-campaign-links'; }
+function liveSourceMarker() { return clean(process.env.BUILD_SOURCE_MARKER) || 'adminkit-cc8-3-50-pr131-live-sync-audit-5a39d1f'; }
 function noCache(res) { try { res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0', Pragma: 'no-cache', Expires: '0', 'Surrogate-Control': 'no-store' }); } catch {} }
 function safeInt(value, fallback = 100, min = 1, max = 1000) { const n = Number(value); if (!Number.isFinite(n)) return fallback; return Math.max(min, Math.min(Math.floor(n), max)); }
 function take(list, limit) { return (Array.isArray(list) ? list : []).slice(0, limit); }
@@ -24,7 +25,7 @@ function publicBase() { return clean(config.appBaseUrl || process.env.ADMINKIT_P
 function safeRedirectTarget(value = '') { const raw = clean(value); if (!/^https?:\/\//i.test(raw)) return ''; return raw; }
 function resolveTrackingUserId(req) { return clean(req.query?.userId || req.query?.uid || req.query?.u || ''); }
 function eventLite(event = {}) { return { type: clean(event.type), channelId: clean(event.channelId), userId: clean(event.userId), displayName: clean(event.displayName || event.username || [event.firstName, event.lastName].filter(Boolean).join(' ') || event.userId || 'Пользователь'), source: clean(event.source), attribution: event.attribution || {}, createdAt: event.createdAt || 0 }; }
-function liveVersionPayload() { const runtimeVersion = liveRuntime(); return { ok: true, runtimeVersion, buildVersion: runtimeVersion, displayVersion: runtimeVersion, packageVersion: runtimeVersion, sourceMarker: liveSourceMarker(), activeEntrypoint: clean(process.argv?.[1] ? path.basename(process.argv[1]) : process.env.ADMINKIT_CLEAN_ENTRYPOINT || 'unknown'), expectedRuntimeVersion: runtimeVersion, routeRuntimeVersion: RUNTIME, generatedAt: Date.now(), serverStartedAt: process.env.ADMINKIT_SERVER_STARTED_AT || STARTED_AT, staleEndpointDetected: false, debugVersionSource: 'live-env-override-before-index-routes', commentsMatrixSelftest: true, productionCommentsMatrixProbe: true, commentsTimingTraceV2: true, pr97ReconciledOnCc8344: true, autoTenantChannelBind: true, tenantChannelBinding: true, channelTitleResolver: true, hybridChannelRegistry: true, getChatChannelTitles: true, campaignAttributionSupported: true, trackingLinksSupported: true, clckShortLinksSupported: true, campaignRedirectRoute: '/r/:slug', safe: true, noDatabaseRead: true, noMaxApiCall: true }; }
+function liveVersionPayload() { const build = getBuildInfo(); const runtimeVersion = liveRuntime() || build.runtimeVersion; return { ok: true, runtimeVersion, buildVersion: build.buildVersion || runtimeVersion, displayVersion: build.displayVersion || runtimeVersion, packageVersion: build.packageVersion || runtimeVersion, sourceMarker: liveSourceMarker() || build.sourceMarker, gitCommit: build.gitCommit, pr131MergeCommit: build.pr131MergeCommit, activeEntrypoint: clean(process.argv?.[1] ? path.basename(process.argv[1]) : process.env.ADMINKIT_CLEAN_ENTRYPOINT || build.activeEntrypoint || 'unknown'), expectedRuntimeVersion: build.expectedRuntimeVersion || runtimeVersion, routeRuntimeVersion: RUNTIME, routeRuntimeCurrent: true, generatedAt: Date.now(), serverStartedAt: process.env.ADMINKIT_SERVER_STARTED_AT || build.serverStartedAt || STARTED_AT, staleEndpointDetected: runtimeVersion !== (build.expectedRuntimeVersion || runtimeVersion), debugVersionSource: 'live-env-plus-build-info-pr131-audit', commentsMatrixSelftest: true, productionCommentsMatrixProbe: true, commentsTimingTraceV2: true, pr97ReconciledOnCc8344: true, autoTenantChannelBind: true, tenantChannelBinding: true, channelTitleResolver: true, hybridChannelRegistry: true, getChatChannelTitles: true, campaignAttributionSupported: true, trackingLinksSupported: true, clckShortLinksSupported: true, campaignRedirectRoute: '/r/:slug', safe: true, noDatabaseRead: true, noMaxApiCall: true }; }
 
 function install(app) {
   if (!app || app.__adminkitWalkthroughTraceRoutes) return app;
