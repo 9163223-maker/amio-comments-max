@@ -32,6 +32,7 @@ const { listChannels, registerChannel } = require("./services/channelService");
 const clientAccessService = require("./services/clientAccessService");
 const channelTitleHelper = require("./human-channel-title-helper");
 const channelPostPicker = require("./channel-post-picker-core");
+const buttonsFlow = require("./buttons-flow-cc8-clean");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
 const {
   getNativeSlashCommand,
@@ -4435,6 +4436,26 @@ async function handleDirectChannelPost(message, config) {
   return { ok: true, action: "channel_post_processed", result };
 }
 
+
+async function renderCleanButtonsCallback({ config, message, payload, userId }) {
+  const menu = {
+    button: (text, action, extra = {}) => ({ type: 'callback', text, payload: buildAdminCallbackPayload(action, extra) }),
+    keyboard: (rows) => [{ type: 'inline_keyboard', payload: { buttons: rows } }]
+  };
+  const screen = await buttonsFlow.screenForPayload(menu, payload || {}, { userId, config });
+  if (!screen || !String(screen.text || '').trim()) return false;
+  if (message) {
+    await upsertBotMessage({
+      config,
+      message,
+      text: screen.text,
+      attachments: screen.attachments,
+      editCurrent: true
+    });
+  }
+  return true;
+}
+
 async function handleMessageCallback(update, config) {
   const callback = getCallback(update);
   const payload = parseCallbackPayload(callback);
@@ -4464,6 +4485,12 @@ async function handleMessageCallback(update, config) {
     userName,
     payload
   });
+
+  if (buttonsFlow.isCleanButtonAction(payload?.action) && String(payload?.action || '').trim() !== 'admin_section_buttons') {
+    await acknowledgeCallbackSilently(config, callbackId);
+    const rendered = await renderCleanButtonsCallback({ config, message, payload, userId });
+    return { ok: true, action: payload.action, rendered: Boolean(rendered), resolver: 'buttons-flow-cc8-clean' };
+  }
 
   if (payload?.action === 'gift_claim') {
     const result = await claimGift({
