@@ -26,7 +26,8 @@ function screen(menu, id, title, lines, rows) {
   return { id, text: [title, '', ...(lines || [])].filter(Boolean).join('\n'), attachments: keyboard(menu, rows || footer(menu)) };
 }
 function getSetup(userId = '') { return safeCall(() => store.getSetupState(clean(userId)), {}) || {}; }
-function findPost(commentKey = '') { return basePosts.findPost(clean(commentKey)); }
+function internalPost(post = {}) { return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test([post.channelId, post.requiredChatId, post.channelTitle, post.title, post.originalText, post.postText, post.text, post.caption, post.commentKey].map(clean).join(' ')); }
+function findPost(commentKey = '') { const post = basePosts.findPost(clean(commentKey)); return post && !internalPost(post) ? post : null; }
 function visibleChannelIds(userId = '') {
   const uid = clean(userId);
   if (!uid) return null;
@@ -46,6 +47,7 @@ function listPosts(userId = '') {
   return posts
     .filter((post) => clean(post && post.commentKey))
     .filter((post) => !ids || ids.has(clean(post && post.channelId)))
+    .filter((post) => !internalPost(post))
     .sort((a, b) => n(b.updatedAt || b.createdAt || b.ts) - n(a.updatedAt || a.createdAt || a.ts))
     .slice(0, MAX_POSTS);
 }
