@@ -26,7 +26,7 @@ function screen(menu, id, title, lines, rows) {
   return { id, text: [title, '', ...(lines || [])].filter(Boolean).join('\n'), attachments: keyboard(menu, rows || footer(menu)) };
 }
 function getSetup(userId = '') { return safeCall(() => store.getSetupState(clean(userId)), {}) || {}; }
-function internalPost(post = {}) { return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test([post.channelId, post.requiredChatId, post.channelTitle, post.title, post.originalText, post.postText, post.text, post.caption, post.commentKey].map(clean).join(' ')); }
+function internalPost(post = {}) { const markerFields = [post.channelId, post.requiredChatId, post.channelTitle, post.channelName, post.chatTitle, post.commentKey, post.internalMarker, post.systemMarker, post.serviceMarker, post.debugMarker, post.selftestMarker, post.legacyMarker, post.globalMarker, post.sourceMarker, post.runtimeMarker, post.owner, post.kind, post.type].map(clean).join(' '); return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(markerFields); }
 function findPost(commentKey = '') { const post = basePosts.findPost(clean(commentKey)); return post && !internalPost(post) ? post : null; }
 function visibleChannelIds(userId = '') {
   const uid = clean(userId);

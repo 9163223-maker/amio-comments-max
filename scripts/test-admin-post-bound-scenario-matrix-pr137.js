@@ -36,6 +36,7 @@ const KEY2 = `${CHANNELS[1].id}:post-two`;
 const KEY3 = `${CHANNELS[2].id}:post-three`;
 const KEY4 = `${CHANNELS[3].id}:post-four`;
 const KEY_SELFTEST = `${HIDDEN_SELFTEST.id}:debug-post`;
+const KEY_USER_WORDS = `${CHANNELS[3].id}:post-user-words`;
 const KEY_B = `${TENANT_B_CHANNEL.id}:secret-post`;
 const KEY_GLOBAL = `${GLOBAL_CHANNEL.id}:legacy-post`;
 
@@ -75,7 +76,6 @@ function assertNoRawOrInternal(screen, label) {
   for (const hidden of [HIDDEN_SELFTEST.title, HIDDEN_SELFTEST.id, TENANT_B_CHANNEL.title, TENANT_B_CHANNEL.id, GLOBAL_CHANNEL.title, GLOBAL_CHANNEL.id]) {
     assert.ok(!text.includes(hidden), `${label}: hides ${hidden}`);
   }
-  assert.ok(!/selftest|debug|legacy|internal|global/i.test(text), `${label}: hides internal/selftest/debug/legacy/global wording`);
   assert.ok(!/\b(?:channelId|postId|messageId|commentKey|token|payload|trace)\b/i.test(text), `${label}: hides raw technical keys`);
 }
 function assertPickerSafety(screen, label) {
@@ -160,6 +160,7 @@ function setupFixture() {
   savePost(USER, KEY2, CHANNELS[1], 'Матрица: выбранный пост АК-ТЕСТ 2');
   savePost(USER, KEY3, CHANNELS[2], 'Матрица: пост с существующими объектами');
   savePost(USER, KEY4, CHANNELS[3], 'Матрица: клубный пост');
+  savePost(USER, KEY_USER_WORDS, CHANNELS[3], 'Обычный пользовательский пост: debug legacy global internal', { text: 'Обычный пользовательский text: debug legacy global internal', caption: 'Обычный caption: debug legacy global internal' });
   savePost(USER, KEY_SELFTEST, HIDDEN_SELFTEST, 'selftest debug legacy internal post');
   savePost(USER_B, KEY_B, TENANT_B_CHANNEL, 'Tenant B secret post');
   store.savePost(KEY_GLOBAL, { channelId: GLOBAL_CHANNEL.id, channelTitle: GLOBAL_CHANNEL.title, postId: 'legacy-post', messageId: 'msg-legacy', commentKey: KEY_GLOBAL, originalText: 'Global legacy post' });
@@ -282,6 +283,8 @@ async function testPollsHighlightsArchive() {
   assertNoRawOrInternal(archiveHome, 'archive home');
   const archiveList = await scenario('archive', 'choose post', 'list', (s) => s.id === 'archive_clean_list' && /АК-ТЕСТ 2|АдминКит клуб|Матрица/.test(visible(s)), () => call(archive, { action: 'archive_list' }));
   assertNoRawOrInternal(archiveList, 'archive list');
+  const archiveUserWordsCard = await scenario('archive', 'user text contains internal words', 'archive lookup remains visible', (s) => s.id === 'archive_clean_post_card' && /debug legacy global/.test(visible(s)), () => call(archive, { action: 'archive_post_card', commentKey: KEY_USER_WORDS }));
+  assertNoRawOrInternal(archiveUserWordsCard, 'archive user-word card');
   const archiveCard = await scenario('archive', 'selected post card', 'selected card', (s) => s.id === 'archive_clean_post_card', () => call(archive, { action: 'archive_post_card', commentKey: KEY2 }));
   assertCardScopedPayloads(archiveCard, 'archive');
   await scenario('archive', 'K direct missing source', 'direct callback', (s) => s.id === 'archive_clean_restore_blocked', () => call(archive, { action: 'archive_restore', commentKey: KEY2 }));
@@ -297,8 +300,9 @@ async function testCommentsEditorViaBot() {
   setOnlySetup({ commentTargetPost: null, postEditFlow: null, giftTargetPost: null, buttonTargetPost: null, activeAdminFlowKind: '' });
   const editorHome = await scenario('editor posts', 'A no selected post', 'section home', (screen) => screen.id === 'posts_clean_home' && /Пост не выбран|Сначала выберите/.test(visible(screen)), () => postsFlow.screenForPayload(menu, { action: 'admin_section_posts' }, ctx));
   assertNoRawOrInternal(editorHome, 'editor home');
-  const editorPicker = await scenario('editor posts', 'choose post', 'choose post list', (screen) => screen.id === 'posts_clean_picker' && /Матрица: выбранный/.test(visible(screen)), () => postsFlow.screenForPayload(menu, { action: 'admin_posts_picker' }, ctx));
+  const editorPicker = await scenario('editor posts', 'choose post', 'choose post list', (screen) => screen.id === 'posts_clean_picker' && /Матрица: выбранный/.test(visible(screen)) && /debug legacy global/.test(visible(screen)), () => postsFlow.screenForPayload(menu, { action: 'admin_posts_picker' }, ctx));
   assertNoRawOrInternal(editorPicker, 'editor picker');
+  await scenario('editor posts', 'user text contains internal words', 'editor lookup remains visible', (screen) => /^posts_clean_details?$/.test(screen.id) && /debug legacy global/.test(visible(screen)), () => postsFlow.screenForPayload(menu, { action: 'admin_posts_open', commentKey: KEY_USER_WORDS }, ctx));
   const editorCard = await scenario('editor posts', 'B valid selected post', 'selected card', (screen) => /^posts_clean_details?$/.test(screen.id) && /Матрица: выбранный/.test(visible(screen)), () => postsFlow.screenForPayload(menu, { action: 'admin_posts_open', commentKey: KEY2 }, ctx));
   const editPayload = payloadFor(editorCard, /Изменить текст/);
   assert.strictEqual(editPayload.source, 'editor_card', 'editor edit action carries editor_card source');
