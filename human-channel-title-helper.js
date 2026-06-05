@@ -9,7 +9,7 @@ function clean(value) { return String(value || '').trim(); }
 function array(value) { return Array.isArray(value) ? value : []; }
 function safe(fn, fallback) { try { return fn(); } catch { return fallback; } }
 function looksTechnicalId(value = '') { const text = clean(value); return /^-?\d{6,}$/.test(text) || /^id\d{6,}$/i.test(text); }
-function looksInternalLabel(value = '') { return /\b(?:selftest|debug|test|legacy)\b/i.test(clean(value)); }
+function looksInternalLabel(value = '') { return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|test|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(clean(value)); }
 function humanCandidate(source = {}) { return clean(source.title || source.channelTitle || source.name || source.channelName || source.chatTitle || source.chat_title || ''); }
 function safeHumanTitle(value = '') {
   const title = clean(value);
@@ -40,9 +40,13 @@ function resolveHumanChannelTitle(channelId = '', userId = '', fallbackSource = 
   if (fromStore) return fromStore;
   return UNTITLED_CHANNEL;
 }
+function isIntentionalUserTestTitle(value = '') { return /(^|[^А-Яа-яЁё])(?:ак[\s-]*тест|тест[А-Яа-яЁё\d\s-]*)(?:[^А-Яа-яЁё]|$)/i.test(clean(value)); }
 function hasInternalChannelLabel(channel = {}) {
   const id = clean(channel.channelId || channel.id || channel.chatId);
-  return looksInternalLabel(id) || looksInternalLabel(humanCandidate(channel)) || looksInternalLabel(humanCandidate(storedChannel(id) || {}));
+  const human = [humanCandidate(channel), humanCandidate(storedChannel(id) || {})].join(' ');
+  if (looksInternalLabel(human) && !isIntentionalUserTestTitle(human)) return true;
+  if (looksInternalLabel(id) && (!safeHumanTitle(human) || looksInternalLabel(human))) return true;
+  return false;
 }
 function listTenantVisibleChannels(userId = '') {
   return Array.from(accessChannelMap(userId).values())
@@ -55,4 +59,4 @@ function listTenantVisibleChannels(userId = '') {
     .filter((channel) => channel.channelId && !looksInternalLabel(channel.title));
 }
 
-module.exports = { UNTITLED_CHANNEL, resolveHumanChannelTitle, listTenantVisibleChannels, looksTechnicalId, looksInternalLabel, safeHumanTitle };
+module.exports = { UNTITLED_CHANNEL, resolveHumanChannelTitle, listTenantVisibleChannels, looksTechnicalId, looksInternalLabel, safeHumanTitle, isIntentionalUserTestTitle };

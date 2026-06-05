@@ -194,7 +194,7 @@ async function testGifts() {
   assert.ok(!/Шаг 1|материал подарка/i.test(visible(staleCreate)), 'Gifts stale/cross-section target does not start material step');
   assert.ok(store.getSetupState(TENANT_A_USER)?.giftTargetDiagnostics?.some((item) => /cross_section_target|denied_no_current_card/.test(item.status)), 'Gifts stale/cross-section target records source diagnostic');
 
-  store.setSetupState(TENANT_A_USER, { giftTargetPost: null, commentTargetPost: null, buttonTargetPost: null, giftsCurrentCard: null, giftFlow: null, activeAdminFlowKind: '' });
+  store.setSetupState(TENANT_A_USER, { giftTargetPost: null, commentTargetPost: null, buttonTargetPost: null, giftsCurrentCard: null, giftFlow: null, activeAdminFlowKind: '', giftTargetDiagnostics: [] });
   const home = await call(gifts, { action: 'admin_section_gifts' });
   assert.ok(/Сначала выберите канал и пост/i.test(visible(home)), 'Gifts home with no target explains channel/post selection');
   assert.ok(!/Шаг 1|материал подарка/i.test(visible(home)), 'Gifts home with no target does not start material step silently');
@@ -285,6 +285,94 @@ async function testGiftPatchConfirmed() {
   assert.ok(store.getSetupState(TENANT_A_USER)?.giftPatchDiagnostics?.some((item) => item.status === 'patch_confirmed'), 'Gifts confirmed patch diagnostic recorded');
 }
 
+
+async function testGiftDeleteContinuityAndCleanup() {
+  store.store.gifts = { campaigns: {}, claims: {}, settings: {} };
+  const patchedGifts = reloadGiftsWithPatch(async () => ({ ok: true, patchResult: { ok: true }, giftRowsCount: 0 }));
+  const target = stampFor(TENANT_A_USER, { channelId: CHANNELS_A[1].id, channelTitle: CHANNELS_A[1].title, postId: 'post-reviews-1', messageId: 'msg-post-reviews-1', commentKey: POST_A2, originalText: 'Отзывы клиентов за неделю' });
+  const campaignId = 'gift_delete_cleanup_pr136';
+  store.store.gifts.campaigns[campaignId] = stampFor(TENANT_A_USER, { id: campaignId, title: 'Gift delete cleanup', enabled: true, channelId: target.channelId, postIds: [target.postId], commentKey: target.commentKey, giftUrl: 'https://example.com/gift', giftButtonText: '🎁 Получить подарок' });
+  store.savePost(target.commentKey, {
+    ...target,
+    giftCampaignId: campaignId,
+    lastGiftRowsCount: 1,
+    patchedAttachments: [{ type: 'inline_keyboard', payload: { buttons: [[{ type: 'callback', text: '🎁 Получить подарок', payload: JSON.stringify({ campaignId }) }]] } }],
+    customKeyboard: { rows: [[{ text: '🎁 Получить подарок', payload: JSON.stringify({ campaignId }) }]] }
+  });
+  store.setSetupState(TENANT_A_USER, { giftTargetPost: target, giftsCurrentCard: { ...target, cardId: 'gifts_card_delete_cleanup', source: 'gifts_selected_post_card' }, giftFlow: null, activeAdminFlowKind: '', giftTargetDiagnostics: [] });
+
+  const current = await patchedGifts.screenForPayload(menu, { action: 'gift_admin_show_current' }, { userId: TENANT_A_USER, config: { botToken: 'test-token' } });
+  const confirm = await patchedGifts.screenForPayload(menu, payloadFor(current, /Удалить подарок/), { userId: TENANT_A_USER, config: { botToken: 'test-token' } });
+  const deleted = await patchedGifts.screenForPayload(menu, payloadFor(confirm, /Да, удалить/), { userId: TENANT_A_USER, config: { botToken: 'test-token' } });
+  assert.ok(/Канал: Отзывы/.test(visible(deleted)) && /Пост: Отзывы клиентов за неделю/.test(visible(deleted)), 'Gift delete returns to same selected channel/post');
+  assert.ok(/Кнопка под постом обновлена\/удалена/.test(visible(deleted)), 'Gift delete claims post button cleanup only after confirmed patch');
+  const createPayload = payloadFor(deleted, /Создать подарок/);
+  assert.strictEqual(createPayload.source, 'gift_card', 'Post-selected create after delete keeps gift-card source');
+  assert.strictEqual(createPayload.cardId, 'gifts_card_delete_cleanup', 'Post-selected create after delete keeps current card id');
+  const material = await patchedGifts.screenForPayload(menu, createPayload, { userId: TENANT_A_USER, config: { botToken: 'test-token' } });
+  assert.ok(/gift_step_1_material|start_create/.test(material.id), 'Create after delete starts material step for selected post');
+  assert.ok(!/channel_picker/.test(material.id), 'Create after delete does not route to channel picker');
+  assert.ok(!store.getSetupState(TENANT_A_USER)?.giftTargetDiagnostics?.some((item) => item.status === 'denied_no_current_card' && item.requestedCardId === ''), 'Create after delete does not record empty-current-card denial');
+  assert.ok(!store.store.gifts.campaigns[campaignId], 'Gift campaign is deleted');
+  const post = store.getPost(target.commentKey);
+  assert.strictEqual(post.giftCampaignId, '', 'Deleted campaign id is cleared from post state');
+  assert.strictEqual(post.lastGiftRowsCount, 0, 'Gift row count is zero after delete cleanup');
+  assert.ok(!JSON.stringify(post.patchedAttachments || []).includes(campaignId), 'Deleted campaign id is removed from patched attachments');
+  assert.ok(!JSON.stringify(post.customKeyboard || {}).includes(campaignId), 'Deleted campaign id is removed from custom keyboard');
+}
+
+async function testGiftDeleteUnconfirmedWording() {
+  store.store.gifts = { campaigns: {}, claims: {}, settings: {} };
+  const unconfirmedGifts = reloadGiftsWithPatch(async () => ({ ok: false, reason: 'edit_failed' }));
+  const target = stampFor(TENANT_A_USER, { channelId: CHANNELS_A[0].id, channelTitle: CHANNELS_A[0].title, postId: 'post-style-1', messageId: 'msg-post-style-1', commentKey: POST_A1, originalText: 'Olga Style launch post' });
+  const campaignId = 'gift_delete_unconfirmed_pr136';
+  store.store.gifts.campaigns[campaignId] = stampFor(TENANT_A_USER, { id: campaignId, title: 'Gift delete unconfirmed', enabled: true, channelId: target.channelId, postIds: [target.postId], commentKey: target.commentKey, giftUrl: 'https://example.com/gift' });
+  store.savePost(target.commentKey, { ...target, giftCampaignId: campaignId, lastGiftRowsCount: 1, patchedAttachments: [{ type: 'inline_keyboard', payload: { buttons: [[{ text: '🎁 Получить подарок', payload: JSON.stringify({ campaignId }) }]] } }] });
+  store.setSetupState(TENANT_A_USER, { giftTargetPost: target, giftsCurrentCard: { ...target, cardId: 'gifts_card_unconfirmed', source: 'gifts_selected_post_card' }, giftFlow: null, activeAdminFlowKind: '' });
+  const current = await unconfirmedGifts.screenForPayload(menu, { action: 'gift_admin_show_current' }, { userId: TENANT_A_USER, config: { botToken: 'test-token' } });
+  const confirm = await unconfirmedGifts.screenForPayload(menu, payloadFor(current, /Удалить подарок/), { userId: TENANT_A_USER, config: { botToken: 'test-token' } });
+  const deleted = await unconfirmedGifts.screenForPayload(menu, payloadFor(confirm, /Да, удалить/), { userId: TENANT_A_USER, config: { botToken: 'test-token' } });
+  assert.ok(/Подарок удалён, но обновление кнопки под постом не подтверждено/.test(visible(deleted)), 'Unconfirmed delete uses safe post-update wording');
+  assert.ok(!/Кнопка под постом обновлена\/удалена/.test(visible(deleted)), 'Unconfirmed delete does not claim post button cleanup');
+  const post = store.getPost(target.commentKey);
+  assert.strictEqual(post.giftCampaignId, '', 'Unconfirmed delete still clears deleted campaign id from post state');
+  assert.ok(!JSON.stringify(post.patchedAttachments || []).includes(campaignId), 'Unconfirmed delete removes stale campaign id from local patched attachments');
+}
+
+async function testTitlelessInternalChannelFiltering() {
+  resetState();
+  const tenantA = activateTenant(TENANT_A_USER, 'Tenant A PR136', 8);
+  const channels = [
+    { id: 'ak_test_1_pr136', title: 'АК-ТЕСТ 1' },
+    { id: 'ak_test_2_pr136', title: 'АК-ТЕСТ 2' },
+    { id: 'ak_test_3_pr136', title: 'АК-Тест 3' },
+    { id: 'adminkit_club_pr136', title: 'АдминКит клуб' },
+    { id: 'selftest_comments_matrix_channel', title: '' },
+    { id: 'real_titleless_empty_pr136', title: '' },
+    { id: 'real_titleless_visible_pr136', title: '' }
+  ];
+  channels.forEach((channel) => {
+    assert.strictEqual(access.bindTenantChannel({ tenantId: tenantA.tenantId, channelId: channel.id, channelTitle: channel.title, maxChannels: 8 }).ok, true);
+    store.saveChannel(channel.id, { channelId: channel.id, title: channel.title, channelTitle: channel.title, ownerUserId: TENANT_A_USER });
+  });
+  savePostFor(TENANT_A_USER, 'ak_test_1_pr136:post-1', { id: 'ak_test_1_pr136', title: 'АК-ТЕСТ 1' }, 'Named test channel post');
+  savePostFor(TENANT_A_USER, 'ak_test_2_pr136:post-1', { id: 'ak_test_2_pr136', title: 'АК-ТЕСТ 2' }, 'Named test 2 post');
+  savePostFor(TENANT_A_USER, 'ak_test_3_pr136:post-1', { id: 'ak_test_3_pr136', title: 'АК-Тест 3' }, 'Named test 3 post');
+  savePostFor(TENANT_A_USER, 'adminkit_club_pr136:post-1', { id: 'adminkit_club_pr136', title: 'АдминКит клуб' }, 'Club post');
+  savePostFor(TENANT_A_USER, 'selftest_comments_matrix_channel:post-1', { id: 'selftest_comments_matrix_channel', title: '' }, 'selftest post');
+  savePostFor(TENANT_A_USER, 'real_titleless_visible_pr136:post-1', { id: 'real_titleless_visible_pr136', title: '' }, 'Visible titleless post');
+  const giftsPicker = await gifts.screenForPayload(menu, { action: 'gift_admin_start_create' }, { userId: TENANT_A_USER, config: { botToken: '' } });
+  const buttonsPicker = await buttons.screenForPayload(menu, { action: 'button_admin_start_add' }, { userId: TENANT_A_USER, config: { botToken: '' } });
+  [giftsPicker, buttonsPicker].forEach((screen) => {
+    const text = visible(screen);
+    assert.ok(!/selftest_comments_matrix_channel|selftest/i.test(text), `${screen.id} hides selftest/internal channel`);
+    assert.ok(!/real_titleless_empty_pr136/.test(text), `${screen.id} hides titleless empty raw channel id`);
+    assert.ok(/Канал без названия/.test(text), `${screen.id} may show safe fallback for titleless channel with visible posts`);
+    ['АК-ТЕСТ 1', 'АК-ТЕСТ 2', 'АК-Тест 3', 'АдминКит клуб'].forEach((title) => assert.ok(text.includes(title), `${screen.id} keeps named real channel ${title}`));
+    ['ak_test_1_pr136', 'ak_test_2_pr136', 'ak_test_3_pr136', 'adminkit_club_pr136', 'real_titleless_visible_pr136'].forEach((id) => assert.ok(!text.includes(id), `${screen.id} hides raw id ${id}`));
+  });
+}
+
 function testPostBoundAuditTable() {
   const audit = [
     ['gifts', 'gift_admin_start_create', 'requires giftsCurrentCard/cardId'],
@@ -302,6 +390,9 @@ function testPostBoundAuditTable() {
   await testButtons();
   await testGifts();
   await testGiftPatchConfirmed();
+  await testGiftDeleteContinuityAndCleanup();
+  await testGiftDeleteUnconfirmedWording();
+  await testTitlelessInternalChannelFiltering();
   testPostBoundAuditTable();
   console.log('PR126 Buttons/Gifts product-perfect channel-first UX assertions passed');
 })().catch((error) => {
