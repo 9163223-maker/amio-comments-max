@@ -4,6 +4,7 @@ const path = require('path');
 const storage = require('./services/webPushStorage');
 const pairing = require('./services/pushPairingService');
 const dispatch = require('./services/pushDispatchService');
+const confirmation = require('./services/pushConfirmationService');
 
 let lastTestResult = null;
 let lastSendResult = null;
@@ -280,7 +281,14 @@ function install(app) {
         userAgent: req.get('user-agent'),
         status: 'pending'
       });
-      return res.json({ ok: true, status: saved.status, deviceId: saved.deviceId.slice(0, 16), endpointHash: saved.endpointHash.slice(0, 16), confirmationRequired: true, confirmationAvailable: false, limitation: 'max_confirmation_callback_not_wired_in_pr144' });
+      const prompt = await confirmation.sendConfirmationPrompt({ maxUserId: verified.maxUserId, deviceId: saved.deviceId });
+      return res.json(confirmation.safePublicResult({
+        ok: true,
+        status: saved.status,
+        deviceId: saved.deviceId,
+        confirmationSent: prompt.confirmationSent,
+        confirmationDispatch: prompt.confirmationDispatch
+      }));
     } catch (error) {
       return res.status(400).json({ ok: false, error: safeErrorCode(error, 'push_pair_failed') });
     }

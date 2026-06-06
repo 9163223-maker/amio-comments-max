@@ -33,6 +33,7 @@ const clientAccessService = require("./services/clientAccessService");
 const liveIdentity = require("./services/liveIdentityService");
 const channelTitleHelper = require("./human-channel-title-helper");
 const channelPostPicker = require("./channel-post-picker-core");
+const pushConfirmation = require("./services/pushConfirmationService");
 const buttonsFlow = require("./buttons-flow-cc8-clean");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
 const {
@@ -4493,6 +4494,12 @@ async function handleMessageCallback(update, config) {
     userName,
     payload
   });
+
+  if (payload?.action === pushConfirmation.ACTION) {
+    const result = await pushConfirmation.handleCallback({ callbackId, confirmingUserId: userId, payload, botToken: config.botToken });
+    logInfo(config, 'PUSH CONFIRM DEVICE', { ok: result.ok, status: result.status, userId });
+    return result;
+  }
 
   if (buttonsFlow.isCleanButtonAction(payload?.action) && String(payload?.action || '').trim() !== 'admin_section_buttons') {
     await acknowledgeCallbackSilently(config, callbackId);
