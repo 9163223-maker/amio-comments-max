@@ -1,0 +1,3 @@
+Manual redeploy trigger after PR145 env configuration.
+Timestamp: 2026-06-06T15:22:00Z
+Reason: trigger Northflank redeploy without touching product logic.
