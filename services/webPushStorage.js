@@ -244,6 +244,21 @@ async function listDevicesForUser({ maxUserId, chatId, includePending = false } 
   return readFileStore().subscriptions.map(normalizeRow).filter((item) => item.maxUserId === targetUser && item.chatId === targetChat && statuses.includes(item.status) && !item.disabled);
 }
 
+async function findDeviceByDeviceId(deviceId) {
+  const safeDeviceId = clean(deviceId);
+  if (!safeDeviceId) return null;
+  const p = getPool();
+  if (p) {
+    const client = await p.connect();
+    try {
+      await ensureTable(client);
+      const result = await client.query(`SELECT * FROM ${TABLE_NAME} WHERE device_id = $1 LIMIT 1`, [safeDeviceId]);
+      return result.rows[0] ? normalizeRow(result.rows[0]) : null;
+    } finally { client.release(); }
+  }
+  return readFileStore().subscriptions.map(normalizeRow).find((entry) => entry.deviceId === safeDeviceId) || null;
+}
+
 async function markDeviceActive(deviceId, meta = {}) {
   const safeDeviceId = clean(deviceId);
   const p = getPool();
@@ -255,12 +270,13 @@ async function markDeviceActive(deviceId, meta = {}) {
       let guard = '';
       if (clean(meta.maxUserId)) { params.push(clean(meta.maxUserId)); guard += ` AND max_user_id = $${params.length}`; }
       if (clean(meta.chatId)) { params.push(clean(meta.chatId)); guard += ` AND chat_id = $${params.length}`; }
+      if (clean(meta.requireStatus)) { params.push(clean(meta.requireStatus)); guard += ` AND status = $${params.length}`; }
       const result = await client.query(`UPDATE ${TABLE_NAME} SET status = 'active', disabled = FALSE, confirmed_at = NOW(), updated_at = NOW() WHERE device_id = $1${guard}`, params);
       return { ok: result.rowCount > 0 };
     } finally { client.release(); }
   }
   const payload = readFileStore();
-  const item = payload.subscriptions.map(normalizeRow).find((entry) => entry.deviceId === safeDeviceId && (!clean(meta.maxUserId) || entry.maxUserId === clean(meta.maxUserId)) && (!clean(meta.chatId) || entry.chatId === clean(meta.chatId)));
+  const item = payload.subscriptions.map(normalizeRow).find((entry) => entry.deviceId === safeDeviceId && (!clean(meta.maxUserId) || entry.maxUserId === clean(meta.maxUserId)) && (!clean(meta.chatId) || entry.chatId === clean(meta.chatId)) && (!clean(meta.requireStatus) || entry.status === clean(meta.requireStatus)));
   if (!item) return { ok: false };
   const original = payload.subscriptions.find((entry) => entry && entry.id === item.id);
   Object.assign(original, { status: 'active', disabled: false, confirmedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
@@ -298,4 +314,4 @@ async function listPublicDeviceSummaries() { return (await listActiveSubscriptio
 
 function info() { return { backend: isPostgresConfigured() ? 'postgres' : 'file', persistent: isPostgresConfigured(), table: isPostgresConfigured() ? TABLE_NAME : '', file: isPostgresConfigured() ? '' : DATA_FILE }; }
 
-module.exports = { saveSubscription, savePairedDevice, listActiveSubscriptions, listDevicesForUser, listPublicDeviceSummaries, markDeviceActive, markResult, countSubscriptions, publicSummary, subscriptionId, sanitizeSubscription, info };
+module.exports = { saveSubscription, savePairedDevice, listActiveSubscriptions, listDevicesForUser, listPublicDeviceSummaries, findDeviceByDeviceId, markDeviceActive, markResult, countSubscriptions, publicSummary, subscriptionId, sanitizeSubscription, info };

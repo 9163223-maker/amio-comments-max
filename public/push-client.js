@@ -112,7 +112,14 @@ async function enableNotifications() {
     subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(status.publicKey || status.webPushPublicKey || '') });
   }
   const result = await saveSubscription(subscription);
-  appendResult(state.join.joinMode ? 'Устройство подключено / ожидает подтверждения.' : 'subscription saved', result);
+  if (state.join.joinMode) {
+    const extra = result.confirmationSent
+      ? 'Откройте MAX и нажмите «Подтвердить устройство».'
+      : 'Устройство ожидает подтверждения администратором.';
+    appendResult(`Устройство подключено и ожидает подтверждения в MAX. ${extra}`);
+  } else {
+    appendResult('subscription saved', { ok: Boolean(result.ok) });
+  }
   await refreshStatus();
 }
 
