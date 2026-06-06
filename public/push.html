@@ -22,6 +22,13 @@
     dt { color: #475569; }
     dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
     pre { white-space: pre-wrap; background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 12px; overflow: auto; }
+    .warning { color: #9a3412; background: #fffbeb; border: 1px solid #fed7aa; border-radius: 12px; padding: 10px 12px; }
+    #subscribeSteps { margin: 0; padding-left: 22px; color: #334155; }
+    #subscribeSteps li { margin: 6px 0; }
+    #subscribeSteps li[data-state=done] { color: #166534; }
+    #subscribeSteps li[data-state=running] { color: #1d4ed8; }
+    #subscribeSteps li[data-state=warning] { color: #9a3412; }
+    #subscribeSteps li[data-state=error] { color: #b91c1c; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -38,12 +45,29 @@
       <p><label>Push admin token для теста<br><input id="adminToken" type="password" autocomplete="off" placeholder="PUSH_ADMIN_TOKEN"></label></p>
     </section>
 
+    <section class="card" aria-live="polite">
+      <h2>Шаги подключения</h2>
+      <p class="warning" id="iosPwaWarning">—</p>
+      <ol id="subscribeSteps">
+        <li data-step="checking environment">checking environment: ожидает</li>
+        <li data-step="checking installed/standalone hint">checking installed/standalone hint: ожидает</li>
+        <li data-step="registering service worker">registering service worker: ожидает</li>
+        <li data-step="waiting for service worker active/ready">waiting for service worker active/ready: ожидает</li>
+        <li data-step="requesting notification permission">requesting notification permission: ожидает</li>
+        <li data-step="permission result">permission result: ожидает</li>
+        <li data-step="creating push subscription">creating push subscription: ожидает</li>
+        <li data-step="sending subscription to server">sending subscription to server: ожидает</li>
+        <li data-step="server response">server response: ожидает</li>
+      </ol>
+    </section>
+
     <section class="card">
       <h2>Диагностика</h2>
       <dl>
         <dt>HTTPS / secure context</dt><dd id="secureContext">—</dd>
         <dt>Service Worker supported</dt><dd id="swSupported">—</dd>
         <dt>Push API supported</dt><dd id="pushSupported">—</dd>
+        <dt>Installed / standalone PWA</dt><dd id="standaloneState">—</dd>
         <dt>Notification permission</dt><dd id="notificationPermission">—</dd>
         <dt>Service Worker registration state</dt><dd id="swState">—</dd>
         <dt>Push subscription</dt><dd id="subscriptionExists">—</dd>
@@ -52,6 +76,7 @@
         <dt>Stored subscriptions count</dt><dd id="storedCount">—</dd>
         <dt>Subscribe mode</dt><dd id="subscribeMode">—</dd>
         <dt>Admin token configured</dt><dd id="adminTokenConfigured">—</dd>
+        <dt>Pairing mode</dt><dd id="pairingMode">manual</dd>
         <dt>Personal pairing</dt><dd id="pairingStatus">manual/admin diagnostic</dd>
       </dl>
     </section>
