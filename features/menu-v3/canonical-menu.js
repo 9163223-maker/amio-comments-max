@@ -37,7 +37,8 @@ const sections = [
     featureKey: 'gifts', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'gifts.create', title: 'Создать подарок', section: 'gifts', existingAction: 'gift_admin_start_create' }),
-      action({ id: 'gifts.post_gift', title: 'Подарок под постом', section: 'gifts', existingAction: 'gift_admin_recent_posts', requiresChannel: true, requiresPost: true, payload: { page: 0 } }),
+      action({ id: 'gifts.replace', title: 'Заменить подарок', section: 'gifts', existingAction: 'gift_admin_replace_pick' }),
+      action({ id: 'gifts.current', title: 'Текущий подарок', section: 'gifts', existingAction: 'gift_admin_show_current' }),
       action({ id: 'gifts.list', title: 'Список подарков', section: 'gifts', existingAction: 'gift_admin_show_current' }),
     ],
   },

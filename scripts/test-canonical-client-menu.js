@@ -120,6 +120,25 @@ async function verifyActiveRuntimePath() {
   assert.ok(!/PR115 Tenant B Channel|PR115 Global Hidden Channel/.test(channelsVisible), 'channels:list active callback must hide foreign/global channels');
   assert.ok(!/-pr115-tenant-a-channel|post-a|commentKey|postId|channelId|token|payload|trace/i.test(channelsVisible), 'channels:list active callback must not expose technical identifiers');
 
+
+  const syncGiftsHome = menuCore.screenForPayload({ action: 'gifts:home' });
+  assert.ok(/(^|_)gifts_clean_home$/.test(String(syncGiftsHome?.id || '')), 'sync gifts:home must resolve clean Gifts home before unified route rendering');
+  const syncGiftsVisible = sentTextAndLabels(syncGiftsHome);
+  assertHasAll(labels(syncGiftsHome), ['🎁 Создать подарок', '🔁 Заменить подарок', '🧾 Текущий подарок', '📋 Список подарков', '🏠 Главное меню'], 'sync gifts:home clean actions');
+  assert.ok(!/Подарок под постом|Материал подарка|Шаг 1|commentKey|postId|channelId|token|payload|trace/i.test(syncGiftsVisible), 'sync gifts:home must not render unified/legacy or technical UI');
+
+  const canonicalGiftsRootLabels = labels(adapter.render('gifts:home'));
+  assertHasAll(canonicalGiftsRootLabels, ['Создать подарок', 'Заменить подарок', 'Текущий подарок', 'Список подарков', '🏠 Главное меню'], 'canonical Gifts root clean actions');
+  assert.ok(!canonicalGiftsRootLabels.includes('Подарок под постом'), 'canonical Gifts root must not expose old post gift action');
+
+  const giftsHomeRes = createJsonRes();
+  await activeBot.handleWebhook(callbackUpdate('pr115-tenant-a', { action: 'gifts:home' }), giftsHomeRes, { botToken: 'test-token', menuDeleteTimeoutMs: 1 });
+  assert.strictEqual(giftsHomeRes.statusCode, 200, 'gifts:home active callback must return 200');
+  assert.ok(/(^|_)gifts_clean_home$/.test(String(giftsHomeRes.body?.screenId || '')), 'gifts:home active callback must resolve clean Gifts home');
+  const giftsHomeVisible = sentTextAndLabels(sent.at(-1));
+  assert.ok(/Создать подарок/.test(giftsHomeVisible) && /Заменить подарок/.test(giftsHomeVisible) && /Текущий подарок/.test(giftsHomeVisible) && /Список подарков/.test(giftsHomeVisible) && /Главное меню/.test(giftsHomeVisible), 'gifts:home active callback must expose clean Gifts home actions');
+  assert.ok(!/Подарок под постом|Материал подарка|Шаг 1|commentKey|postId|channelId|token|payload|trace/i.test(giftsHomeVisible), 'gifts:home active callback must not start wizard or expose technical identifiers');
+
   const preservedCallbacks = [
     ['buttons add', { action: 'button_admin_start_add' }],
     ['buttons current', { action: 'button_admin_show_current' }],
@@ -286,7 +305,8 @@ for (const section of ['comments', 'gifts', 'buttons', 'polls', 'highlights', 'e
 }
 const canonicalActionById = Object.fromEntries(canonical.allActions().map((item) => [item.id, item]));
 assert.strictEqual(canonicalActionById['comments.post_comments'].targetAction, 'comments_select_post', 'comments production action must keep existing picker action');
-assert.strictEqual(canonicalActionById['gifts.post_gift'].targetAction, 'gift_admin_recent_posts', 'gifts production action must keep existing picker action');
+assert.strictEqual(canonicalActionById['gifts.replace'].targetAction, 'gift_admin_replace_pick', 'gifts replace production action must use clean replace picker');
+assert.strictEqual(canonicalActionById['gifts.current'].targetAction, 'gift_admin_show_current', 'gifts current production action must keep existing current action');
 assert.strictEqual(canonicalActionById['buttons.add'].targetAction, 'button_admin_start_add', 'buttons add production action must keep existing flow action');
 assert.strictEqual(canonicalActionById['buttons.current'].targetAction, 'button_admin_show_current', 'buttons current production action must keep existing flow action');
 assert.strictEqual(canonicalActionById['polls.create'].targetAction, 'comments_select_post', 'polls production action must keep existing tenant-aware picker action');

@@ -82,6 +82,7 @@ function rewriteScreen(screen = null, ctx = {}) {
   if (/^gifts?_/.test(id)) return { ...screen, id: `adminkit_${id}`, text };
   return { ...screen, text };
 }
+function homeScreen(menu, payload = {}, ctx = {}) { return rewriteScreen(base.homeScreen ? base.homeScreen(menu, payload, ctx) : null, ctx); }
 async function screenForPayload(menu, payload = {}, ctx = {}) {
   const action = clean(payload.action || payload.raw);
   if (action === 'gift_admin_save') return reviewScreen(menu, ctx);
@@ -95,4 +96,4 @@ async function screenForPayload(menu, payload = {}, ctx = {}) {
 async function handleTextInput(menu, ctx = {}) { return rewriteScreen(await base.handleTextInput(menu, ctx), ctx); }
 function isCleanGiftAction(action = '') { return CLEAN_GIFT_ACTIONS.includes(clean(action)) || (base.isCleanGiftAction ? base.isCleanGiftAction(action) : false); }
 
-module.exports = { ...base, RUNTIME, CLEAN_GIFT_ACTIONS, isCleanGiftAction, screenForPayload, handleTextInput, safeLinkLabel, stripRawUrls };
+module.exports = { ...base, RUNTIME, CLEAN_GIFT_ACTIONS, isCleanGiftAction, screenForPayload, handleTextInput, homeScreen, safeLinkLabel, stripRawUrls };
