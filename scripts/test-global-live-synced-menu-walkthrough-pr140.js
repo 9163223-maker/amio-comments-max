@@ -181,6 +181,19 @@ async function verifyAliasParity(bot, sent) {
   assert.ok(/Заменить подарок/.test(visible(giftsAlias)), 'Gifts home includes “Заменить подарок”');
   assert.ok(!/Подарок под постом/.test(visible(giftsAlias)), 'Gifts home does not show legacy “Подарок под постом” root item');
 
+  store.setSetupState(TEST_USER, {
+    giftTargetPost: { channelId: TEST_CHANNEL, channelTitle: 'PR140 Канал', postId: TEST_POST_ID, messageId: 'msg-pr140-post', commentKey: TEST_COMMENT_KEY, originalText: 'PR140 клиентский пост' },
+    giftsCurrentCard: { cardId: 'pr140-stale-card', channelId: TEST_CHANNEL, channelTitle: 'PR140 Канал', postId: TEST_POST_ID, messageId: 'msg-pr140-post', commentKey: TEST_COMMENT_KEY, originalText: 'PR140 клиентский пост' },
+    giftFlow: { mode: 'gift_wizard', stepIndex: 3, awaitingConfirmation: true, targetPost: { channelId: TEST_CHANNEL, channelTitle: 'PR140 Канал', postId: TEST_POST_ID, messageId: 'msg-pr140-post', commentKey: TEST_COMMENT_KEY, originalText: 'PR140 клиентский пост' }, draft: { id: 'gift_pr140_stale', title: 'PR140 stale draft', channelId: TEST_CHANNEL, requiredChatId: TEST_CHANNEL, postIds: [TEST_POST_ID], commentKey: TEST_COMMENT_KEY, giftUrl: 'https://example.test/pr140-stale' } },
+    activeAdminFlowKind: 'gift'
+  });
+  const giftsDirtyResult = await sendActive(bot, callbackUpdate({ action: 'gifts:home' }), sent, 'gifts:home dirty Gifts state');
+  assert.ok(/gifts_clean_home$/.test(String(giftsDirtyResult.res.screenId || '')), 'gifts:home dirty Gifts state still resolves canonical root');
+  assert.strictEqual(giftsDirtyResult.res.resumedFlow, false, 'gifts:home dirty Gifts state is not marked as resumed flow');
+  assert.ok(/Создать подарок/.test(visible(giftsDirtyResult.call)) && /Заменить подарок/.test(visible(giftsDirtyResult.call)) && /Текущий подарок/.test(visible(giftsDirtyResult.call)) && /Список подарков/.test(visible(giftsDirtyResult.call)) && /Главное меню/.test(visible(giftsDirtyResult.call)), 'gifts:home dirty Gifts state keeps fixed root actions');
+  assert.ok(!/Шаг\s*4(?:\/4)?|проверить и сохранить|Материал подарка/i.test(visible(giftsDirtyResult.call)), 'gifts:home dirty Gifts state does not auto-open draft/current card/target post');
+  assertNoUnsafeVisible(giftsDirtyResult.call, 'gifts:home dirty Gifts state');
+
   const buttonsAlias = (await sendActive(bot, callbackUpdate({ action: 'buttons:home', route: 'buttons:home' }), sent, 'buttons:home')).call;
   const buttonsClean = (await sendActive(bot, callbackUpdate({ action: 'admin_section_buttons' }), sent, 'admin_section_buttons')).call;
   assert.deepStrictEqual(primaryActions(buttonsAlias, [/Добавить кнопку/, /Текущие кнопки/]), primaryActions(buttonsClean, [/Добавить кнопку/, /Текущие кнопки/]), 'buttons canonical entry matches clean Buttons home primary actions');

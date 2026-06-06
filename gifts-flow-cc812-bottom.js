@@ -113,9 +113,11 @@ async function handleConfirmDelete(menu, payload = {}, ctx = {}) {
 function patchLine(result = {}, target = null, userId = '') { const targetLine = exactTargetLine(target, userId); if (result.ok) { const status = result.skipped && result.reason === 'already_patched' ? 'Кнопка под постом уже была актуальна.' : 'Кнопка под постом добавлена/обновлена.'; return [targetLine, status].filter(Boolean).join('\n'); } return [targetLine, 'Не удалось подтвердить обновление кнопки под постом. Проверьте подключение канала и повторите сохранение подарка позже.'].filter(Boolean).join('\n'); }
 function appendPatchResult(screen = null, patchResult = null, target = null, ctx = {}) { if (!screen || !patchResult) return screen; return { ...screen, text: [clean(screen.text), '', patchLine(patchResult, target, ctx.userId)].filter(Boolean).join('\n') }; }
 function isStartCreateScreen(screen = null) { const id = clean(screen && screen.id); return /^(gifts_clean_start_create|adminkit_gifts_clean_start_create|adminkit_gift_step_1_material)$/i.test(id); }
-function cleanGiftHome(screen = null, ctx = {}) { if (!screen || clean(screen.id) !== 'gifts_clean_home') return screen; const target = targetFromState(ctx.userId); const text = [
+function cleanGiftHome(screen = null, ctx = {}) { if (!screen || !/(^|_)gifts_clean_home$/.test(clean(screen.id))) return screen; const target = targetFromState(ctx.userId); const sourceText = clean(screen.text); const safeNotice = /Удаление доступно только из карточки текущего подарка/i.test(sourceText) ? 'Удаление доступно только из карточки текущего подарка. Откройте карточку подарка и удалите его оттуда.' : (/Замена материала доступна только из карточки текущего подарка/i.test(sourceText) ? 'Замена материала доступна только из карточки текущего подарка.' : ''); const text = [
   '🎁 Подарки / лид-магниты',
   '',
+  safeNotice,
+  safeNotice ? '' : '',
   target ? 'Выбранный пост:' : 'Сначала выберите канал и пост, к которому нужно привязать подарок.',
   ...(target ? [`Канал: ${channelTitle(target, ctx.userId)}`, `Пост: ${postTitle(target)}`] : []),
   '',
