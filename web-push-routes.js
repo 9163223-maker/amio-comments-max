@@ -2,6 +2,8 @@
 
 const path = require('path');
 const storage = require('./services/webPushStorage');
+const pairing = require('./services/pushPairingService');
+const dispatch = require('./services/pushDispatchService');
 
 let lastTestResult = null;
 let lastSendResult = null;
@@ -49,6 +51,61 @@ function requireAdminToken(req, res, next) {
   return next();
 }
 
+
+function getCookie(req, name) {
+  const header = clean(req.get('cookie'));
+  const prefix = `${name}=`;
+  for (const part of header.split(';')) {
+    const trimmed = part.trim();
+    if (trimmed.startsWith(prefix)) return decodeURIComponent(trimmed.slice(prefix.length));
+  }
+  return '';
+}
+
+function publicBaseUrl(req) {
+  const configured = clean(process.env.ADMINKIT_PUBLIC_BASE_URL || process.env.APP_BASE_URL);
+  if (configured) return configured.replace(/\/+$/, '');
+  return `${req.protocol}://${req.get('host')}`;
+}
+
+function safeErrorCode(error, fallback = 'request_failed') {
+  return clean(error && (error.code || error.message)).slice(0, 80) || fallback;
+}
+
+function isHttpsRequest(req) {
+  if (req && req.secure) return true;
+  const forwardedProto = clean(req && req.get && req.get('x-forwarded-proto')).toLowerCase();
+  if (forwardedProto.split(',').map((item) => item.trim()).includes('https')) return true;
+  const forwardedSsl = clean(req && req.get && req.get('x-forwarded-ssl')).toLowerCase();
+  if (['on', '1', 'true', 'yes'].includes(forwardedSsl)) return true;
+  const forwardedScheme = clean(req && req.get && req.get('x-forwarded-scheme')).toLowerCase();
+  if (forwardedScheme.split(',').map((item) => item.trim()).includes('https')) return true;
+  const forwardedProtocol = clean(req && req.get && req.get('x-forwarded-protocol')).toLowerCase();
+  if (forwardedProtocol.split(',').map((item) => item.trim()).includes('https')) return true;
+  return false;
+}
+
+function pairingCookieMaxAgeSeconds(expiresAt) {
+  const ms = Date.parse(expiresAt) - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return 0;
+  return Math.max(1, Math.floor(ms / 1000));
+}
+
+function sendJoinPage(req, res, tokenContext = {}) {
+  const file = path.join(__dirname, 'public', 'push.html');
+  const fs = require('fs');
+  let html = fs.readFileSync(file, 'utf8');
+  const joinConfig = tokenContext.joinMode ? {
+    joinMode: true,
+    tokenCookie: true,
+    tokenStatus: tokenContext.tokenStatus || 'valid',
+    expiresAt: tokenContext.expiresAt || '',
+    tokenId: tokenContext.tokenId || ''
+  } : { joinMode: false };
+  html = html.replace('</head>', `<script>window.__ADMINKIT_PUSH_JOIN__=${JSON.stringify(joinConfig).replace(/</g, '\\u003c')};</script></head>`);
+  res.type('html').send(html);
+}
+
 function subscribeMode() {
   const tokenConfigured = Boolean(clean(process.env.PUSH_SUBSCRIBE_TOKEN));
   const publicAllowed = clean(process.env.PUSH_ALLOW_PUBLIC_SUBSCRIBE) === '1';
@@ -93,7 +150,7 @@ function safeNotificationPayload(input = {}) {
   };
 }
 
-async function sendToAll(payload) {
+async function sendTestToAllAdminOnly(payload) {
   const config = getConfig();
   if (!config.configured) return { ok: false, error: 'web_push_not_configured', configured: false };
   if (!webPushAvailable()) return { ok: false, error: 'web_push_package_missing', configured: true };
@@ -151,7 +208,20 @@ async function buildStatus(options = {}) {
 
 function install(app) {
   app.get('/push', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'push.html'));
+    sendJoinPage(req, res, { joinMode: false });
+  });
+
+  app.get('/push/join', (req, res) => {
+    const token = clean(req.query && req.query.t);
+    try {
+      const verified = pairing.verifyPairingToken(token);
+      const maxAge = pairingCookieMaxAgeSeconds(verified.expiresAt);
+      const cookie = `push_pairing_token=${encodeURIComponent(token)}; Path=/api/push/pair; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
+      res.set('Set-Cookie', isHttpsRequest(req) ? `${cookie}; Secure` : cookie);
+      return sendJoinPage(req, res, { joinMode: true, tokenStatus: 'valid', expiresAt: verified.expiresAt, tokenId: verified.nonceHash });
+    } catch (error) {
+      return res.status(400).send(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>АдминКИТ Push</title></head><body><main><h1>АдминКИТ Push</h1><p>Ссылка подключения недействительна или истекла.</p><p>Код: ${safeErrorCode(error, 'invalid_push_pairing_token')}</p></main></body></html>`);
+    }
   });
 
   app.get('/push/manifest.json', (req, res) => {
@@ -194,6 +264,67 @@ function install(app) {
     }
   });
 
+  app.post('/api/push/pair', async (req, res) => {
+    const config = getConfig();
+    if (!config.configured) return res.status(503).json({ ok: false, error: 'web_push_not_configured' });
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const token = clean(body.pairingToken) || getCookie(req, 'push_pairing_token');
+    if (!token) return res.status(403).json({ ok: false, error: 'push_pairing_token_required' });
+    try {
+      const verified = pairing.consumePairingToken(token);
+      const subscription = body.subscription || body;
+      const saved = await storage.savePairedDevice(subscription, {
+        maxUserId: verified.maxUserId,
+        chatId: verified.chatId,
+        channelId: verified.channelId,
+        userAgent: req.get('user-agent'),
+        status: 'pending'
+      });
+      return res.json({ ok: true, status: saved.status, deviceId: saved.deviceId.slice(0, 16), endpointHash: saved.endpointHash.slice(0, 16), confirmationRequired: true, confirmationAvailable: false, limitation: 'max_confirmation_callback_not_wired_in_pr144' });
+    } catch (error) {
+      return res.status(400).json({ ok: false, error: safeErrorCode(error, 'push_pair_failed') });
+    }
+  });
+
+  app.post('/internal/push/device/activate', requireAdminToken, async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const result = await storage.markDeviceActive(body.deviceId, { maxUserId: body.maxUserId, chatId: body.chatId });
+    return res.status(result.ok ? 200 : 404).json(result.ok ? { ok: true, status: 'active' } : { ok: false, error: 'push_device_not_found' });
+  });
+
+  app.post('/internal/push/invite', requireAdminToken, async (req, res) => {
+    try {
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const token = pairing.createPairingToken({ maxUserId: body.maxUserId, chatId: body.chatId, channelId: body.channelId, issuedByAdminId: body.issuedByAdminId || 'internal', ttlMinutes: body.ttlMinutes });
+      const verified = pairing.verifyPairingToken(token, { allowUsed: true });
+      return res.json({ ok: true, joinUrl: `${publicBaseUrl(req)}/push/join?t=${encodeURIComponent(token)}`, expiresAt: verified.expiresAt, tokenId: verified.nonceHash });
+    } catch (error) {
+      return res.status(400).json({ ok: false, error: safeErrorCode(error, 'push_invite_failed') });
+    }
+  });
+
+  app.post('/internal/push/invite-chat', requireAdminToken, async (req, res) => {
+    try {
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const userIds = Array.isArray(body.userIds) ? body.userIds.map(clean).filter(Boolean) : [];
+      if (!userIds.length) return res.status(400).json({ ok: false, error: 'member_registry_not_available', hint: 'Provide explicit userIds; reliable chat member discovery is not available in this PR.' });
+      const invites = userIds.map((maxUserId) => {
+        const token = pairing.createPairingToken({ maxUserId, chatId: body.chatId, channelId: body.channelId, issuedByAdminId: body.issuedByAdminId || 'internal', ttlMinutes: body.ttlMinutes });
+        const verified = pairing.verifyPairingToken(token, { allowUsed: true });
+        return { ok: true, joinUrl: `${publicBaseUrl(req)}/push/join?t=${encodeURIComponent(token)}`, expiresAt: verified.expiresAt, tokenId: verified.nonceHash };
+      });
+      return res.json({ ok: true, chatIdHash: require('crypto').createHash('sha256').update(clean(body.chatId)).digest('hex').slice(0, 12), invites });
+    } catch (error) {
+      return res.status(400).json({ ok: false, error: safeErrorCode(error, 'push_invite_chat_failed') });
+    }
+  });
+
+  app.post('/internal/push/targeted', requireAdminToken, async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const result = await dispatch.sendPushToUser({ maxUserId: body.maxUserId, chatId: body.chatId, payload: body.payload });
+    res.status(result.ok ? 200 : 503).json(result);
+  });
+
   app.post('/api/push/test', requireAdminToken, async (req, res) => {
     const payload = safeNotificationPayload({
       title: 'АдминКИТ Push: тест',
@@ -202,24 +333,26 @@ function install(app) {
       tag: 'adminkit-push-test',
       ...(req.body || {})
     });
-    const result = await sendToAll(payload);
+    const result = await sendTestToAllAdminOnly(payload);
     lastTestResult = { ...result, at: new Date().toISOString(), results: undefined };
     res.status(result.ok ? 200 : 503).json(result);
   });
 
   app.post('/internal/push/send', requireAdminToken, async (req, res) => {
     const payload = safeNotificationPayload(req.body || {});
-    const result = await sendToAll(payload);
+    const result = await sendTestToAllAdminOnly(payload);
     lastSendResult = { ...result, at: new Date().toISOString(), results: undefined };
     res.status(result.ok ? 200 : 503).json(result);
   });
 
-  return { ok: true, routes: ['/push', '/push/manifest.json', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/test', '/internal/push/send'] };
+  return { ok: true, routes: ['/push', '/push/join', '/push/manifest.json', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/pair', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted'] };
 }
 
 module.exports = {
   install,
   getConfig,
   buildStatus,
-  sendToAll
+  sendToAll: sendTestToAllAdminOnly,
+  sendTestToAllAdminOnly,
+  isHttpsRequest
 };
