@@ -1,6 +1,5 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const storage = require('./services/webPushStorage');
 
@@ -26,12 +25,13 @@ function getConfig() {
   };
 }
 
-function webPushPackagePath() {
-  return path.join(__dirname, 'node_modules', 'web-push');
-}
-
 function webPushAvailable() {
-  return fs.existsSync(webPushPackagePath());
+  try {
+    require.resolve('web-push');
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function getWebPush(config) {
@@ -44,9 +44,37 @@ function requireAdminToken(req, res, next) {
   const token = clean(process.env.PUSH_ADMIN_TOKEN);
   if (!token) return res.status(403).json({ ok: false, error: 'push_admin_token_required' });
   const bearer = clean(req.get('authorization')).replace(/^Bearer\s+/i, '').trim();
-  const provided = bearer || clean(req.get('x-push-admin-token')) || clean(req.body && req.body.token) || clean(req.query && req.query.token);
+  const provided = bearer || clean(req.get('x-push-admin-token'));
   if (provided !== token) return res.status(403).json({ ok: false, error: 'invalid_push_admin_token' });
   return next();
+}
+
+function subscribeMode() {
+  const tokenConfigured = Boolean(clean(process.env.PUSH_SUBSCRIBE_TOKEN));
+  const publicAllowed = clean(process.env.PUSH_ALLOW_PUBLIC_SUBSCRIBE) === '1';
+  return {
+    tokenConfigured,
+    publicAllowed,
+    allowed: tokenConfigured || publicAllowed,
+    mode: tokenConfigured ? 'token' : (publicAllowed ? 'public-explicit' : 'closed')
+  };
+}
+
+function requireSubscribeAccess(req, res, next) {
+  const token = clean(process.env.PUSH_SUBSCRIBE_TOKEN);
+  if (token) {
+    const bearer = clean(req.get('authorization')).replace(/^Bearer\s+/i, '').trim();
+    const provided = bearer || clean(req.get('x-push-subscribe-token'));
+    if (provided !== token) return res.status(403).json({ ok: false, error: 'invalid_push_subscribe_token', subscribeMode: 'token' });
+    return next();
+  }
+  if (clean(process.env.PUSH_ALLOW_PUBLIC_SUBSCRIBE) === '1') return next();
+  return res.status(403).json({
+    ok: false,
+    error: 'push_subscribe_closed',
+    subscribeMode: 'closed',
+    hint: 'Set PUSH_SUBSCRIBE_TOKEN or PUSH_ALLOW_PUBLIC_SUBSCRIBE=1 to allow new subscriptions.'
+  });
 }
 
 function safeNotificationPayload(input = {}) {
@@ -91,20 +119,31 @@ async function sendToAll(payload) {
   return { ok: failed === 0, configured: true, total: results.length, success, failed, results };
 }
 
-async function buildStatus() {
+async function buildStatus(options = {}) {
   const config = getConfig();
-  const count = await storage.countSubscriptions();
-  return {
+  const mode = subscribeMode();
+  const base = {
     ok: true,
     webPushConfigured: config.configured,
     publicKeyAvailable: Boolean(config.publicKey),
     publicKey: config.publicKey,
+    pushSupported: {
+      webPushPackageAvailable: webPushAvailable(),
+      vapidSubjectConfigured: Boolean(config.subject),
+      subscribeAllowed: mode.allowed,
+      subscribeRequiresToken: mode.tokenConfigured,
+      subscribeMode: mode.mode,
+      adminTokenConfigured: config.adminTokenConfigured
+    }
+  };
+  if (!options.admin) return base;
+  const count = await storage.countSubscriptions();
+  const storageInfo = storage.info();
+  return {
+    ...base,
     privateKeyConfigured: config.privateKeyConfigured,
-    subjectConfigured: Boolean(config.subject),
-    adminTokenConfigured: config.adminTokenConfigured,
-    webPushPackageAvailable: webPushAvailable(),
     storedSubscriptionsCount: count,
-    storage: storage.info(),
+    storage: { backend: storageInfo.backend, persistent: storageInfo.persistent },
     lastTestResult,
     lastSendResult
   };
@@ -115,7 +154,7 @@ function install(app) {
     res.sendFile(path.join(__dirname, 'public', 'push.html'));
   });
 
-  app.get('/manifest.json', (req, res) => {
+  app.get('/push/manifest.json', (req, res) => {
     res.json({
       name: 'АдминКИТ Push',
       short_name: 'AdminKIT Push',
@@ -131,8 +170,7 @@ function install(app) {
     });
   });
 
-  app.get('/sw.js', (req, res) => {
-    res.set('Service-Worker-Allowed', '/');
+  app.get('/push/sw.js', (req, res) => {
     res.type('application/javascript').sendFile(path.join(__dirname, 'public', 'push-sw.js'));
   });
 
@@ -140,7 +178,11 @@ function install(app) {
     res.json(await buildStatus());
   });
 
-  app.post('/api/push/subscribe', async (req, res) => {
+  app.get('/internal/push/status', requireAdminToken, async (req, res) => {
+    res.json(await buildStatus({ admin: true }));
+  });
+
+  app.post('/api/push/subscribe', requireSubscribeAccess, async (req, res) => {
     const config = getConfig();
     if (!config.configured) return res.status(503).json({ ok: false, error: 'web_push_not_configured' });
     try {
@@ -171,7 +213,7 @@ function install(app) {
     res.status(result.ok ? 200 : 503).json(result);
   });
 
-  return { ok: true, routes: ['/push', '/manifest.json', '/sw.js', '/api/push/status', '/api/push/subscribe', '/api/push/test', '/internal/push/send'] };
+  return { ok: true, routes: ['/push', '/push/manifest.json', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/test', '/internal/push/send'] };
 }
 
 module.exports = {

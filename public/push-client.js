@@ -52,12 +52,14 @@ async function refreshStatus() {
   setText('notificationPermission', 'Notification' in window ? Notification.permission : 'unsupported');
   setText('serverConfigured', state.status.webPushConfigured ? 'yes' : 'no');
   setText('publicKeyAvailable', state.status.publicKeyAvailable ? 'yes' : 'no');
-  setText('storedCount', state.status.storedSubscriptionsCount);
-  setText('adminTokenConfigured', state.status.adminTokenConfigured ? 'yes' : 'no');
-  setText('lastServerTest', state.status.lastTestResult ? JSON.stringify(state.status.lastTestResult, null, 2) : '—');
+  setText('storedCount', state.status.storedSubscriptionsCount === undefined ? 'admin-only' : state.status.storedSubscriptionsCount);
+  const serverFlags = state.status.pushSupported || {};
+  setText('subscribeMode', serverFlags.subscribeMode || 'unknown');
+  setText('adminTokenConfigured', serverFlags.adminTokenConfigured ? 'yes' : 'no');
+  setText('lastServerTest', state.status.lastTestResult ? JSON.stringify(state.status.lastTestResult, null, 2) : 'admin-only');
 
   if ('serviceWorker' in navigator) {
-    state.registration = await navigator.serviceWorker.getRegistration('/');
+    state.registration = await navigator.serviceWorker.getRegistration('/push/');
     setText('swState', state.registration ? (state.registration.active ? 'active' : 'registered') : 'not registered');
     state.subscription = state.registration ? await state.registration.pushManager.getSubscription() : null;
     setText('subscriptionExists', state.subscription ? 'exists' : 'not exists');
@@ -70,7 +72,7 @@ async function refreshStatus() {
 
 async function ensureRegistration() {
   if (!('serviceWorker' in navigator)) throw new Error('service_worker_not_supported');
-  state.registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+  state.registration = await navigator.serviceWorker.register('/push/sw.js', { scope: '/push/' });
   await navigator.serviceWorker.ready;
   return state.registration;
 }
@@ -93,7 +95,9 @@ async function enableNotifications() {
       applicationServerKey: urlBase64ToUint8Array(status.publicKey || status.webPushPublicKey || '')
     });
   }
-  await fetchJson('/api/push/subscribe', { method: 'POST', body: JSON.stringify(subscription) });
+  const token = $('subscribeToken').value.trim();
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  await fetchJson('/api/push/subscribe', { method: 'POST', headers, body: JSON.stringify(subscription) });
   appendResult('subscription saved');
   await refreshStatus();
 }

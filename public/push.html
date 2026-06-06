@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111827">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="АдминКИТ Push">
-  <link rel="manifest" href="/manifest.json">
+  <link rel="manifest" href="/push/manifest.json">
   <link rel="apple-touch-icon" href="/public/adminkit_start_logo.png">
   <title>АдминКИТ Push</title>
   <style>
@@ -33,6 +33,7 @@
       <button id="enableBtn" type="button">Включить уведомления</button>
       <button id="testBtn" type="button">Отправить тестовое уведомление</button>
       <button id="statusBtn" type="button">Проверить статус</button>
+      <p><label>Push subscribe token для включения<br><input id="subscribeToken" type="password" autocomplete="off" placeholder="PUSH_SUBSCRIBE_TOKEN"></label></p>
       <p><label>Push admin token для теста<br><input id="adminToken" type="password" autocomplete="off" placeholder="PUSH_ADMIN_TOKEN"></label></p>
     </section>
 
@@ -48,6 +49,7 @@
         <dt>Web push configured</dt><dd id="serverConfigured">—</dd>
         <dt>Public key available</dt><dd id="publicKeyAvailable">—</dd>
         <dt>Stored subscriptions count</dt><dd id="storedCount">—</dd>
+        <dt>Subscribe mode</dt><dd id="subscribeMode">—</dd>
         <dt>Admin token configured</dt><dd id="adminTokenConfigured">—</dd>
       </dl>
     </section>
