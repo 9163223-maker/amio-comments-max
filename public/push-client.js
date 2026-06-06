@@ -4,17 +4,13 @@ const state = {
   registration: null,
   subscription: null,
   status: null,
-  lastResult: ''
+  lastResult: '',
+  join: window.__ADMINKIT_PUSH_JOIN__ || { joinMode: false }
 };
 
-function $(id) {
-  return document.getElementById(id);
-}
-
-function setText(id, value) {
-  const node = $(id);
-  if (node) node.textContent = String(value);
-}
+function $(id) { return document.getElementById(id); }
+function setText(id, value) { const node = $(id); if (node) node.textContent = String(value); }
+function setHidden(id, hidden) { const node = $(id); if (node) node.hidden = Boolean(hidden); }
 
 function appendResult(message, data) {
   state.lastResult = `${new Date().toLocaleTimeString()} — ${message}`;
@@ -33,6 +29,7 @@ function urlBase64ToUint8Array(base64String) {
 async function fetchJson(url, options) {
   const response = await fetch(url, {
     headers: { 'Content-Type': 'application/json', ...(options && options.headers ? options.headers : {}) },
+    credentials: 'same-origin',
     ...options
   });
   const data = await response.json();
@@ -42,6 +39,19 @@ async function fetchJson(url, options) {
     throw error;
   }
   return data;
+}
+
+function applyJoinMode() {
+  if (!state.join.joinMode) {
+    setText('pairingStatus', 'manual/admin diagnostic');
+    return;
+  }
+  if (history && history.replaceState) history.replaceState(null, document.title, '/push');
+  setText('introText', 'Откройте PWA с экрана «Домой», нажмите кнопку и подтвердите системный запрос iOS/браузера. Сервер не может подписать устройство без вашего действия.');
+  setHidden('pairingNotice', false);
+  setHidden('subscribeTokenRow', true);
+  setText('pairingStatus', state.join.tokenStatus === 'valid' ? 'ready' : 'not ready');
+  setText('enableBtn', 'Включить уведомления');
 }
 
 async function refreshStatus() {
@@ -77,6 +87,15 @@ async function ensureRegistration() {
   return state.registration;
 }
 
+async function saveSubscription(subscription) {
+  if (state.join.joinMode) {
+    return fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify({ subscription }) });
+  }
+  const token = $('subscribeToken').value.trim();
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  return fetchJson('/api/push/subscribe', { method: 'POST', headers, body: JSON.stringify(subscription) });
+}
+
 async function enableNotifications() {
   const status = await refreshStatus();
   if (!window.isSecureContext) throw new Error('secure_context_required');
@@ -90,48 +109,34 @@ async function enableNotifications() {
 
   let subscription = await registration.pushManager.getSubscription();
   if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(status.publicKey || status.webPushPublicKey || '')
-    });
+    subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(status.publicKey || status.webPushPublicKey || '') });
   }
-  const token = $('subscribeToken').value.trim();
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  await fetchJson('/api/push/subscribe', { method: 'POST', headers, body: JSON.stringify(subscription) });
-  appendResult('subscription saved');
+  const result = await saveSubscription(subscription);
+  appendResult(state.join.joinMode ? 'Устройство подключено / ожидает подтверждения.' : 'subscription saved', result);
   await refreshStatus();
 }
 
 async function sendTest() {
   const token = $('adminToken').value.trim();
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const result = await fetchJson('/api/push/test', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ body: 'Тестовое уведомление с /push', url: '/push' })
-  });
+  const result = await fetchJson('/api/push/test', { method: 'POST', headers, body: JSON.stringify({ body: 'Тестовое уведомление с /push', url: '/push' }) });
   appendResult('test sent', result);
   await refreshStatus();
 }
 
 function bindButton(id, handler) {
-  $(id).addEventListener('click', async () => {
-    try {
-      appendResult('working...');
-      await handler();
-    } catch (error) {
-      appendResult(error.message || 'failed', error.data || null);
-      await refreshStatus().catch(() => undefined);
-    }
+  const button = $(id);
+  if (!button) return;
+  button.addEventListener('click', async () => {
+    try { appendResult('working...'); await handler(); }
+    catch (error) { appendResult(error.message || 'failed', error.data || null); await refreshStatus().catch(() => undefined); }
   });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  applyJoinMode();
   bindButton('enableBtn', enableNotifications);
   bindButton('testBtn', sendTest);
-  bindButton('statusBtn', async () => {
-    const status = await refreshStatus();
-    appendResult('status refreshed', status);
-  });
+  bindButton('statusBtn', async () => { const status = await refreshStatus(); appendResult('status refreshed', status); });
   refreshStatus().catch((error) => appendResult(error.message || 'status_failed'));
 });
