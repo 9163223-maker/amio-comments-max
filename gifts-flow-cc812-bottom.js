@@ -135,8 +135,9 @@ function rewriteScreen(screen = null, ctx = {}) { if (!screen) return screen; le
   next = cleanTechnicalText(next, ctx);
   return next;
 }
+function homeScreen(menu, payload = {}, ctx = {}) { return rewriteScreen(base.homeScreen ? base.homeScreen(menu, payload, ctx) : null, ctx); }
 async function screenForPayload(menu, payload = {}, ctx = {}) { const action = clean(payload.action || payload.raw); const normalized = action === 'gift_admin_skip_message' ? { ...payload, action: 'gift_admin_message_default' } : payload; const normalizedAction = clean(normalized.action || normalized.raw); if ((normalizedAction === 'gift_admin_start_create' || normalizedAction === 'gift_admin_create_from_target' || normalizedAction === 'gift_admin_pick_file') && !targetFromState(ctx.userId)) { try { store.setSetupState(clean(ctx.userId), { giftTargetPost: null, commentTargetPost: null, giftFlow: null, activeAdminFlowKind: '' }); } catch {} } if (normalizedAction === 'gift_admin_confirm_delete') return handleConfirmDelete(menu, normalized, ctx); if (normalizedAction === 'gift_admin_commit_save') { const target = targetFromState(ctx.userId); const screen = rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); if (/Подарок сохран/i.test(clean(screen && screen.text))) { const patchResult = await patchGiftButton(ctx, target); return appendPatchResult(screen, patchResult, target, ctx); } return screen; } return rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); }
 async function handleTextInput(menu, ctx = {}) { clearActiveGiftScreen(ctx.userId); return rewriteScreen(await base.handleTextInput(menu, ctx), ctx); }
 function isCleanGiftAction(action = '') { return CLEAN_GIFT_ACTIONS.includes(clean(action)) || (base.isCleanGiftAction ? base.isCleanGiftAction(action) : false); }
 
-module.exports = { ...base, RUNTIME, CLEAN_GIFT_ACTIONS, isCleanGiftAction, screenForPayload, handleTextInput, patchGiftButton };
+module.exports = { ...base, RUNTIME, CLEAN_GIFT_ACTIONS, isCleanGiftAction, screenForPayload, handleTextInput, homeScreen, patchGiftButton };
