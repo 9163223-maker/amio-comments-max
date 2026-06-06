@@ -1,6 +1,9 @@
 'use strict';
 
 const assert = require('assert');
+const childProcess = require('child_process');
+const fs = require('fs');
+const path = require('path');
 const liveIdentity = require('../services/liveIdentityService');
 const botAudit = require('../admin-bot-audit-trace');
 const walkthrough = require('../admin-walkthrough-trace');
@@ -40,11 +43,37 @@ async function call(app, path, query = {}) {
 }
 function jsonText(value) { return JSON.stringify(value); }
 
+function withCommitEnv(values, fn) {
+  const keys = liveIdentity.ENV_COMMIT_KEYS;
+  const previous = {};
+  for (const key of keys) {
+    previous[key] = process.env[key];
+    delete process.env[key];
+  }
+  Object.entries(values || {}).forEach(([key, value]) => { process.env[key] = value; });
+  try { return fn(); }
+  finally {
+    for (const key of keys) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+  }
+}
+function localHeadForTest() {
+  try {
+    const root = path.join(__dirname, '..');
+    if (!fs.existsSync(path.join(root, '.git'))) return '';
+    return childProcess.execSync('git rev-parse HEAD', { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    return '';
+  }
+}
+
+
 (async () => {
   process.env.ADMIN_TOKEN = 'super-secret-admin-token-pr141';
   process.env.WEBHOOK_SECRET = 'super-secret-webhook-pr141';
   process.env.GIFT_ADMIN_TOKEN = 'super-secret-gift-token-pr141';
-  process.env.GITHUB_SHA = 'abcdef1234567890abcdef1234567890abcdef12';
   process.env.BUILD_VERSION = process.env.BUILD_VERSION || 'TEST-BUILD';
 
   const id1 = liveIdentity.identity();
@@ -67,6 +96,47 @@ function jsonText(value) { return JSON.stringify(value); }
   assert.ok(!identityJson.includes('super-secret-admin-token-pr141'), 'identity omits ADMIN_TOKEN');
   assert.ok(!identityJson.includes('super-secret-webhook-pr141'), 'identity omits webhook secret');
   assert.ok(!identityJson.includes('super-secret-gift-token-pr141'), 'identity omits gift admin token');
+
+  const githubSha = 'abcdef1234567890abcdef1234567890abcdef12';
+  withCommitEnv({ GITHUB_SHA: githubSha }, () => {
+    const identity = liveIdentity.identity();
+    assert.strictEqual(identity.gitCommit, githubSha, 'GITHUB_SHA overrides stale buildInfo.gitCommit');
+    assert.strictEqual(identity.gitCommitSource, 'GITHUB_SHA', 'GITHUB_SHA is reported as gitCommitSource');
+    assert.strictEqual(identity.runtimeGitCommit, githubSha, 'runtimeGitCommit reports GITHUB_SHA');
+    assert.strictEqual(identity.runtimeGitCommitSource, 'GITHUB_SHA', 'runtimeGitCommitSource reports GITHUB_SHA');
+    assert.strictEqual(liveIdentity.buildDiagnostic({ expectedCommit: githubSha.slice(0, 8) }).commitMatchesExpected, true, 'expected commit matches runtime env commit');
+    assert.strictEqual(liveIdentity.buildDiagnostic({ expectedCommit: '0000000' }).commitMatchesExpected, false, 'expected commit mismatch uses runtime env commit');
+    assert.strictEqual(liveIdentity.buildDiagnostic({}).commitMatchesExpected, null, 'missing expected commit remains null');
+  });
+
+  const commitSha = 'bbbbbbb1234567890abcdef1234567890abcdef1';
+  withCommitEnv({ COMMIT_SHA: commitSha }, () => {
+    const identity = liveIdentity.identity();
+    assert.strictEqual(identity.gitCommit, commitSha, 'COMMIT_SHA overrides stale buildInfo.gitCommit');
+    assert.strictEqual(identity.gitCommitSource, 'COMMIT_SHA', 'COMMIT_SHA is reported as gitCommitSource');
+    assert.strictEqual(identity.runtimeGitCommit, commitSha, 'runtimeGitCommit reports COMMIT_SHA');
+  });
+
+  const selectedFallback = liveIdentity.selectGitCommit({
+    envCandidates: {},
+    localCommit: '',
+    buildInfoGitCommit: 'ccccccc1234567890abcdef1234567890abcdef1',
+    packageGitCommit: 'ddddddd1234567890abcdef1234567890abcdef1'
+  });
+  assert.strictEqual(selectedFallback.gitCommit, 'ccccccc1234567890abcdef1234567890abcdef1', 'build metadata fallback is allowed without runtime/local commit');
+  assert.strictEqual(selectedFallback.gitCommitSource, 'buildInfo.gitCommit', 'build metadata fallback source is explicit');
+
+  withCommitEnv({}, () => {
+    const identity = liveIdentity.identity();
+    const localHead = localHeadForTest();
+    assert.ok(identity.gitCommitSource, 'gitCommitSource is always explicit when gitCommit is present');
+    assert.ok(identity.buildInfoGitCommit, 'buildInfoGitCommit is reported separately');
+    if (localHead) {
+      assert.strictEqual(identity.localGitCommit, localHead, 'localGitCommit reports local git HEAD when available');
+      assert.strictEqual(identity.gitCommit, localHead, 'local git HEAD is preferred before stale build metadata when runtime env commit is absent');
+      assert.strictEqual(identity.gitCommitSource, 'local_git_head', 'local git HEAD source is explicit');
+    }
+  });
 
   assert.strictEqual(liveIdentity.compareExpectedCommit(id1.gitCommit.slice(0, 8), id1.gitCommit), true, 'expected commit prefix matches');
   assert.strictEqual(liveIdentity.compareExpectedCommit('0000000', id1.gitCommit), false, 'expected commit mismatch is false');

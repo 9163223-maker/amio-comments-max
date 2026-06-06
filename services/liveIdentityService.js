@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const childProcess = require('child_process');
 const { getBuildInfo, BUILD_INFO } = require('../buildInfo');
 
 const SERVER_STARTED_AT = BUILD_INFO.serverStartedAt || new Date().toISOString();
@@ -13,12 +14,12 @@ const ENV_COMMIT_KEYS = [
   'VERCEL_GIT_COMMIT_SHA',
   'RAILWAY_GIT_COMMIT_SHA',
   'RENDER_GIT_COMMIT',
-  'PR131_MERGE_COMMIT',
-  'PR140_MERGE_COMMIT',
-  'PR141_MERGE_COMMIT',
   'ADMINKIT_GIT_COMMIT',
   'ADMINKIT_BUILD_COMMIT',
-  'BUILD_GIT_COMMIT'
+  'BUILD_GIT_COMMIT',
+  'PR141_MERGE_COMMIT',
+  'PR140_MERGE_COMMIT',
+  'PR131_MERGE_COMMIT'
 ];
 
 const SAFE_ENV_BUILD_KEYS = [
@@ -63,12 +64,61 @@ function envBuildFields() {
   }
   return out;
 }
-function firstCommit(...values) {
-  for (const value of values) {
-    const text = clean(value);
-    if (text) return text;
+function validCommit(value = '') {
+  const text = clean(value);
+  if (!text) return '';
+  return /^[a-f0-9]{7,64}$/i.test(text) ? text : '';
+}
+function firstCommitCandidate(candidates = []) {
+  for (const item of candidates) {
+    const value = validCommit(item && item.value);
+    if (value) return { value, source: clean(item && item.source) || 'unknown' };
   }
-  return '';
+  return { value: '', source: '' };
+}
+function localGitCommit() {
+  try {
+    const root = path.join(__dirname, '..');
+    if (!fs.existsSync(path.join(root, '.git'))) return '';
+    return validCommit(childProcess.execSync('git rev-parse HEAD', {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 800
+    }));
+  } catch {
+    return '';
+  }
+}
+function selectGitCommit({ envCandidates = {}, localCommit = '', buildInfoGitCommit = '', packageGitCommit = '' } = {}) {
+  const runtime = firstCommitCandidate(ENV_COMMIT_KEYS.map((key) => ({ source: key, value: envCandidates[key] })));
+  if (runtime.value) {
+    return {
+      gitCommit: runtime.value,
+      gitCommitSource: runtime.source,
+      runtimeGitCommit: runtime.value,
+      runtimeGitCommitSource: runtime.source
+    };
+  }
+  const local = validCommit(localCommit);
+  if (local) {
+    return {
+      gitCommit: local,
+      gitCommitSource: 'local_git_head',
+      runtimeGitCommit: '',
+      runtimeGitCommitSource: ''
+    };
+  }
+  const fallback = firstCommitCandidate([
+    { source: 'buildInfo.gitCommit', value: buildInfoGitCommit },
+    { source: 'package.gitCommit', value: packageGitCommit }
+  ]);
+  return {
+    gitCommit: fallback.value,
+    gitCommitSource: fallback.source,
+    runtimeGitCommit: '',
+    runtimeGitCommitSource: ''
+  };
 }
 function activeEntrypoint(packageJson = readPackage()) {
   return clean(process.env.ADMINKIT_CLEAN_ENTRYPOINT)
@@ -84,17 +134,11 @@ function identity() {
   const build = getBuildInfo();
   const pkg = readPackage();
   const candidates = envCommitCandidates();
-  const gitCommit = firstCommit(
-    build.gitCommit,
-    candidates.GIT_COMMIT,
-    candidates.GITHUB_SHA,
-    candidates.COMMIT_SHA,
-    candidates.SOURCE_VERSION,
-    candidates.VERCEL_GIT_COMMIT_SHA,
-    candidates.RAILWAY_GIT_COMMIT_SHA,
-    candidates.RENDER_GIT_COMMIT,
-    pkg.gitCommit
-  );
+  const buildInfoGitCommit = validCommit(build.gitCommit);
+  const packageGitCommit = validCommit(pkg.gitCommit);
+  const localCommit = localGitCommit();
+  const selected = selectGitCommit({ envCandidates: candidates, localCommit, buildInfoGitCommit, packageGitCommit });
+  const gitCommit = selected.gitCommit;
   return {
     generatedAt: new Date().toISOString(),
     generatedAtMs: Date.now(),
@@ -109,6 +153,12 @@ function identity() {
     sourceMarker: clean(process.env.BUILD_SOURCE_MARKER) || build.sourceMarker || '',
     gitCommit,
     gitCommitShort: shortSha(gitCommit),
+    gitCommitSource: selected.gitCommitSource,
+    runtimeGitCommit: selected.runtimeGitCommit,
+    runtimeGitCommitSource: selected.runtimeGitCommitSource,
+    buildInfoGitCommit,
+    packageGitCommit,
+    localGitCommit: localCommit,
     activeEntrypoint: activeEntrypoint(pkg),
     activeBotModule: activeBotModule(),
     envCommitCandidates: candidates,
@@ -123,6 +173,11 @@ function fingerprint() {
     sourceMarker: id.sourceMarker,
     gitCommit: id.gitCommit,
     gitCommitShort: id.gitCommitShort,
+    gitCommitSource: id.gitCommitSource,
+    runtimeGitCommit: id.runtimeGitCommit,
+    runtimeGitCommitSource: id.runtimeGitCommitSource,
+    buildInfoGitCommit: id.buildInfoGitCommit,
+    localGitCommit: id.localGitCommit,
     activeEntrypoint: id.activeEntrypoint,
     activeBotModule: id.activeBotModule,
     serverStartedAt: id.serverStartedAt
@@ -190,6 +245,7 @@ function sanitizeForVisibleCard({ expectedCommit = '', lastAction = '' } = {}) {
   return [
     'Live diagnostic',
     `commit: ${id.gitCommitShort || 'missing'}`,
+    `commitSource: ${id.gitCommitSource || 'missing'}`,
     `runtime: ${id.runtimeVersion || 'missing'}`,
     `source: ${id.sourceMarker || 'missing'}`,
     `entrypoint: ${id.activeEntrypoint || 'unknown'}`,
@@ -211,5 +267,8 @@ module.exports = {
   latestAdminCallback,
   buildDiagnostic,
   sanitizeForVisibleCard,
+  selectGitCommit,
+  validCommit,
+  localGitCommit,
   shortSha
 };
