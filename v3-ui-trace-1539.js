@@ -1,5 +1,7 @@
 'use strict';
 
+const liveIdentity = require('./services/liveIdentityService');
+
 const DEFAULT_LIMIT=20;
 const MAX_LIMIT=500;
 function enabled(){return String(process.env.ADMINKIT_UI_TRACE_DISABLED||'0').trim()!=='1';}
@@ -51,7 +53,7 @@ function log(type,data){
   try{
     if(!enabled()) return null;
     const st=state();
-    const entry={seq:++st.seq,at:new Date().toISOString(),type:String(type||'event'),runtimeVersion:process.env.RUNTIME_VERSION||process.env.BUILD_VERSION||'unknown',...(sanitize(data||{},2)||{})};
+    const entry={seq:++st.seq,at:new Date().toISOString(),type:String(type||'event'),runtimeVersion:process.env.RUNTIME_VERSION||process.env.BUILD_VERSION||'unknown',...(sanitize(data||{},2)||{}),liveIdentity:liveIdentity.fingerprint()};
     st.events.push(entry);
     const cap=limit();
     if(st.events.length>cap) st.events.splice(0,st.events.length-cap);

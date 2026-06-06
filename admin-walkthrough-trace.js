@@ -1,5 +1,7 @@
 'use strict';
 
+const liveIdentity = require('./services/liveIdentityService');
+
 const DEFAULT_LIMIT = 120;
 
 function clean(value) {
@@ -71,7 +73,8 @@ function log(type, payload = {}) {
       at: new Date().toISOString(),
       runtimeVersion: runtime(),
       type: clean(type) || 'event',
-      ...safePayload(payload)
+      ...safePayload(payload),
+      liveIdentity: liveIdentity.fingerprint()
     };
     st.events.push(entry);
     const cap = limit();
