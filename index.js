@@ -70,6 +70,7 @@ const {
 const { listChannelAlerts } = require("./services/alertsService");
 const { listChannels } = require("./services/channelService");
 const { listAdminPosts, buildPostAdminCard, editPostText, savePostKeyboard, replacePostMedia, rollbackPostVersion, listPostVersions } = require("./services/postEditorService");
+const webPushRoutes = require("./web-push-routes");
 
 const app = express();
 const deferredVideoResults = new Map();
@@ -207,6 +208,7 @@ app.use("/public", express.static(path.join(__dirname, "public"), {
   immutable: true,
   setHeaders: setPublicAssetCacheHeaders
 }));
+webPushRoutes.install(app);
 
 function requireGiftAdmin(req, res, next) {
   if (!config.giftAdminToken) return next();
