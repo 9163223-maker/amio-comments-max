@@ -1,10 +1,33 @@
 'use strict';
 
+const STEP_IDS = [
+  'checking environment',
+  'checking installed/standalone hint',
+  'registering service worker',
+  'waiting for service worker active/ready',
+  'requesting notification permission',
+  'permission result',
+  'creating push subscription',
+  'sending subscription to server',
+  'server response'
+];
+
+const TIMEOUTS = {
+  status: 12000,
+  serviceWorkerRegister: 15000,
+  serviceWorkerReady: 20000,
+  permission: 45000,
+  subscription: 30000,
+  serverSave: 20000,
+  serverTest: 20000
+};
+
 const state = {
   registration: null,
   subscription: null,
   status: null,
   lastResult: '',
+  currentSteps: new Map(),
   join: window.__ADMINKIT_PUSH_JOIN__ || { joinMode: false }
 };
 
@@ -15,6 +38,100 @@ function setHidden(id, hidden) { const node = $(id); if (node) node.hidden = Boo
 function appendResult(message, data) {
   state.lastResult = `${new Date().toLocaleTimeString()} — ${message}`;
   setText('lastResult', state.lastResult + (data ? `\n${JSON.stringify(data, null, 2)}` : ''));
+}
+
+function timeoutError(message) {
+  const error = new Error(message);
+  error.code = 'timeout';
+  return error;
+}
+
+function withTimeout(promise, ms, message) {
+  let timer = null;
+  return Promise.race([
+    Promise.resolve(promise).finally(() => { if (timer) clearTimeout(timer); }),
+    new Promise((resolve, reject) => { timer = setTimeout(() => reject(timeoutError(message)), ms); })
+  ]);
+}
+
+function detectStandalone() {
+  const navigatorStandalone = Boolean(window.navigator && window.navigator.standalone === true);
+  const mediaStandalone = Boolean(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  return { navigatorStandalone, mediaStandalone, standalone: navigatorStandalone || mediaStandalone };
+}
+
+function detectIOS() {
+  const ua = window.navigator && window.navigator.userAgent ? window.navigator.userAgent : '';
+  const platform = window.navigator && window.navigator.platform ? window.navigator.platform : '';
+  const touchMac = platform === 'MacIntel' && window.navigator && Number(window.navigator.maxTouchPoints || 0) > 1;
+  return /iPad|iPhone|iPod/.test(ua) || touchMac;
+}
+
+function describeStandalone(info = detectStandalone()) {
+  return `navigator.standalone=${info.navigatorStandalone ? 'yes' : 'no'}, display-mode standalone=${info.mediaStandalone ? 'yes' : 'no'}, installed=${info.standalone ? 'yes' : 'no'}`;
+}
+
+function updateStandaloneDiagnostics() {
+  const standalone = detectStandalone();
+  const isIOS = detectIOS();
+  setText('standaloneState', describeStandalone(standalone));
+  setText('iosPwaWarning', isIOS && !standalone.standalone
+    ? 'На iOS уведомления работают только из приложения, добавленного на экран Домой. Откройте АдминКИТ Push с иконки.'
+    : '—');
+  return { ...standalone, isIOS };
+}
+
+function renderSteps() {
+  const list = $('subscribeSteps');
+  if (!list) return;
+  list.innerHTML = '';
+  for (const id of STEP_IDS) {
+    const item = document.createElement('li');
+    const current = state.currentSteps.get(id) || { state: 'pending', detail: 'ожидает' };
+    item.dataset.step = id;
+    item.dataset.state = current.state;
+    item.textContent = `${id}: ${current.detail}`;
+    list.appendChild(item);
+  }
+}
+
+function resetSteps() {
+  state.currentSteps = new Map(STEP_IDS.map((id) => [id, { state: 'pending', detail: 'ожидает' }]));
+  renderSteps();
+}
+
+function setStep(id, stepState, detail) {
+  state.currentSteps.set(id, { state: stepState, detail });
+  renderSteps();
+}
+
+function failStep(id, error) {
+  setStep(id, 'error', error && error.message ? error.message : String(error || 'failed'));
+}
+
+function safeStatusSummary(status) {
+  const flags = status && status.pushSupported ? status.pushSupported : {};
+  return {
+    ok: Boolean(status && status.ok),
+    webPushConfigured: Boolean(status && status.webPushConfigured),
+    publicKeyAvailable: Boolean(status && status.publicKeyAvailable),
+    subscribeMode: flags.subscribeMode || 'unknown',
+    subscribeRequiresToken: Boolean(flags.subscribeRequiresToken),
+    adminTokenConfigured: Boolean(flags.adminTokenConfigured),
+    pairingMode: state.join.joinMode ? (state.join.tokenStatus === 'valid' ? 'join-ready' : 'join-not-ready') : 'manual'
+  };
+}
+
+function safeServerResult(result) {
+  return {
+    ok: Boolean(result && result.ok),
+    status: result && result.status ? result.status : undefined,
+    confirmationRequired: Boolean(result && result.confirmationRequired),
+    confirmationSent: Boolean(result && result.confirmationSent),
+    confirmationDispatch: result && result.confirmationDispatch ? result.confirmationDispatch : undefined,
+    subscribeMode: result && result.subscribeMode ? result.subscribeMode : undefined,
+    error: result && result.error ? result.error : undefined
+  };
 }
 
 function urlBase64ToUint8Array(base64String) {
@@ -35,7 +152,7 @@ async function fetchJson(url, options) {
   const data = await response.json();
   if (!response.ok) {
     const error = new Error(data.error || 'request_failed');
-    error.data = data;
+    error.data = safeServerResult(data);
     throw error;
   }
   return data;
@@ -50,12 +167,13 @@ function applyJoinMode() {
   setText('introText', 'Откройте PWA с экрана «Домой», нажмите кнопку и подтвердите системный запрос iOS/браузера. Сервер не может подписать устройство без вашего действия.');
   setHidden('pairingNotice', false);
   setHidden('subscribeTokenRow', true);
-  setText('pairingStatus', state.join.tokenStatus === 'valid' ? 'ready' : 'not ready');
+  setText('pairingStatus', state.join.tokenStatus === 'valid' ? 'join-ready: pairing cookie active' : 'join-not-ready');
   setText('enableBtn', 'Включить уведомления');
 }
 
 async function refreshStatus() {
-  state.status = await fetchJson('/api/push/status');
+  const standalone = updateStandaloneDiagnostics();
+  state.status = await withTimeout(fetchJson('/api/push/status'), TIMEOUTS.status, 'status request timed out');
   setText('secureContext', window.isSecureContext ? 'yes' : 'no');
   setText('swSupported', 'serviceWorker' in navigator ? 'yes' : 'no');
   setText('pushSupported', 'PushManager' in window ? 'yes' : 'no');
@@ -66,68 +184,185 @@ async function refreshStatus() {
   const serverFlags = state.status.pushSupported || {};
   setText('subscribeMode', serverFlags.subscribeMode || 'unknown');
   setText('adminTokenConfigured', serverFlags.adminTokenConfigured ? 'yes' : 'no');
+  setText('pairingMode', state.join.joinMode ? 'join/pairing cookie' : 'manual');
   setText('lastServerTest', state.status.lastTestResult ? JSON.stringify(state.status.lastTestResult, null, 2) : 'admin-only');
 
   if ('serviceWorker' in navigator) {
     state.registration = await navigator.serviceWorker.getRegistration('/push/');
-    setText('swState', state.registration ? (state.registration.active ? 'active' : 'registered') : 'not registered');
-    state.subscription = state.registration ? await state.registration.pushManager.getSubscription() : null;
+    const registrationState = describeRegistration(state.registration);
+    setText('swState', registrationState);
+    state.subscription = state.registration && state.registration.pushManager ? await state.registration.pushManager.getSubscription() : null;
     setText('subscriptionExists', state.subscription ? 'exists' : 'not exists');
   } else {
     setText('swState', 'unsupported');
     setText('subscriptionExists', 'unsupported');
   }
+  setText('standaloneState', describeStandalone(standalone));
   return state.status;
+}
+
+function describeWorker(worker) {
+  return worker ? (worker.state || 'present') : 'none';
+}
+
+function describeRegistration(registration) {
+  if (!registration) return 'not registered';
+  return `active=${describeWorker(registration.active)}, installing=${describeWorker(registration.installing)}, waiting=${describeWorker(registration.waiting)}`;
+}
+
+function waitForActiveRegistration(registration) {
+  if (registration && registration.active) return Promise.resolve(registration);
+  return new Promise((resolve, reject) => {
+    if (!registration) {
+      reject(new Error('service_worker_registration_missing'));
+      return;
+    }
+    const candidates = [registration.installing, registration.waiting].filter(Boolean);
+    if (candidates.length === 0) {
+      reject(new Error('service_worker_has_no_active_installing_or_waiting_worker'));
+      return;
+    }
+    const cleanup = [];
+    const done = () => {
+      cleanup.forEach((fn) => fn());
+      if (registration.active) resolve(registration);
+      else reject(new Error(`service_worker_not_active: ${describeRegistration(registration)}`));
+    };
+    candidates.forEach((worker) => {
+      const listener = () => { if (worker.state === 'activated' || registration.active) done(); };
+      worker.addEventListener('statechange', listener);
+      cleanup.push(() => worker.removeEventListener('statechange', listener));
+    });
+  });
 }
 
 async function ensureRegistration() {
   if (!('serviceWorker' in navigator)) throw new Error('service_worker_not_supported');
-  state.registration = await navigator.serviceWorker.register('/push/sw.js', { scope: '/push/' });
-  await navigator.serviceWorker.ready;
+  const existing = await navigator.serviceWorker.getRegistration('/push/');
+  state.registration = existing || await withTimeout(
+    navigator.serviceWorker.register('/push/sw.js', { scope: '/push/' }),
+    TIMEOUTS.serviceWorkerRegister,
+    'service worker registration timed out'
+  );
   return state.registration;
 }
 
-async function saveSubscription(subscription) {
+async function ensureActiveRegistration(registration) {
+  state.registration = await withTimeout(
+    waitForActiveRegistration(registration),
+    TIMEOUTS.serviceWorkerReady,
+    'service worker active/ready timed out'
+  );
+  return state.registration;
+}
+
+async function saveSubscription(subscription, status) {
   if (state.join.joinMode) {
-    return fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify({ subscription }) });
+    return withTimeout(fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify({ subscription }) }), TIMEOUTS.serverSave, 'server pairing save timed out');
   }
+  const flags = status && status.pushSupported ? status.pushSupported : {};
   const token = $('subscribeToken').value.trim();
+  if (flags.subscribeRequiresToken && !token) {
+    throw new Error('Нужен PUSH_SUBSCRIBE_TOKEN для ручного режима.');
+  }
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  return fetchJson('/api/push/subscribe', { method: 'POST', headers, body: JSON.stringify(subscription) });
+  return withTimeout(fetchJson('/api/push/subscribe', { method: 'POST', headers, body: JSON.stringify(subscription) }), TIMEOUTS.serverSave, 'server subscribe save timed out');
 }
 
 async function enableNotifications() {
-  const status = await refreshStatus();
-  if (!window.isSecureContext) throw new Error('secure_context_required');
-  if (!('Notification' in window)) throw new Error('notifications_not_supported');
-  if (!('PushManager' in window)) throw new Error('push_api_not_supported');
-  if (!status.webPushConfigured || !status.publicKeyAvailable) throw new Error('web_push_not_configured');
+  resetSteps();
+  appendResult('subscribe started');
+  let currentStep = 'checking environment';
+  try {
+    setStep(currentStep, 'running', 'checking browser and server support');
+    const status = await refreshStatus();
+    if (!window.isSecureContext) throw new Error('secure_context_required');
+    if (!('Notification' in window)) throw new Error('notifications_not_supported');
+    if (!('PushManager' in window)) throw new Error('push_api_not_supported');
+    if (!status.webPushConfigured || !status.publicKeyAvailable) throw new Error('web_push_not_configured');
+    setStep(currentStep, 'done', `permission before request: ${Notification.permission}; ${JSON.stringify(safeStatusSummary(status))}`);
 
-  const registration = await ensureRegistration();
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') throw new Error(`notification_permission_${permission}`);
+    currentStep = 'checking installed/standalone hint';
+    const standalone = updateStandaloneDiagnostics();
+    if (standalone.isIOS && !standalone.standalone) {
+      setStep(currentStep, 'warning', 'На iOS уведомления работают только из приложения, добавленного на экран Домой. Откройте АдминКИТ Push с иконки.');
+    } else {
+      setStep(currentStep, 'done', describeStandalone(standalone));
+    }
 
-  let subscription = await registration.pushManager.getSubscription();
-  if (!subscription) {
-    subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(status.publicKey || status.webPushPublicKey || '') });
+    currentStep = 'registering service worker';
+    setStep(currentStep, 'running', 'register /push/sw.js with /push/ scope');
+    let registration = await ensureRegistration();
+    setStep(currentStep, 'done', describeRegistration(registration));
+
+    currentStep = 'waiting for service worker active/ready';
+    setStep(currentStep, 'running', describeRegistration(registration));
+    registration = await ensureActiveRegistration(registration);
+    setStep(currentStep, 'done', describeRegistration(registration));
+
+    currentStep = 'requesting notification permission';
+    setStep(currentStep, 'running', `current permission before request: ${Notification.permission}`);
+    const permission = await withTimeout(Notification.requestPermission(), TIMEOUTS.permission, 'notification permission request timed out');
+    setStep(currentStep, 'done', `request returned: ${permission}`);
+
+    currentStep = 'permission result';
+    setText('notificationPermission', permission);
+    if (permission !== 'granted' || Notification.permission !== 'granted') {
+      throw new Error('Разрешение не выдано. Проверьте настройки iOS для АдминКИТ Push.');
+    }
+    setStep(currentStep, 'done', `Notification.permission=${Notification.permission}`);
+
+    currentStep = 'creating push subscription';
+    setStep(currentStep, 'running', 'checking PushManager and browser subscription');
+    const publicKey = status.publicKey || status.webPushPublicKey || '';
+    if (!publicKey) throw new Error('public_key_missing');
+    if (!('PushManager' in window)) throw new Error('push_manager_missing');
+    if (!registration.pushManager) throw new Error('service_worker_push_manager_missing');
+    if (Notification.permission !== 'granted') throw new Error('notification_permission_not_granted_before_subscribe');
+    let subscription = await withTimeout(registration.pushManager.getSubscription(), TIMEOUTS.subscription, 'existing push subscription lookup timed out');
+    if (!subscription) {
+      subscription = await withTimeout(
+        registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) }),
+        TIMEOUTS.subscription,
+        'pushManager.subscribe timed out'
+      );
+      setStep(currentStep, 'done', 'browser subscription created');
+    } else {
+      setStep(currentStep, 'done', 'existing browser subscription found');
+    }
+
+    currentStep = 'sending subscription to server';
+    setStep(currentStep, 'running', state.join.joinMode ? 'saving paired device with pairing cookie' : 'saving subscription');
+    const result = await saveSubscription(subscription, status);
+    setStep(currentStep, 'done', 'server save completed');
+
+    currentStep = 'server response';
+    setStep(currentStep, 'done', JSON.stringify(safeServerResult(result)));
+    if (state.join.joinMode) {
+      const extra = result.confirmationSent
+        ? 'Откройте MAX и нажмите «Подтвердить устройство».'
+        : 'Устройство ожидает подтверждения администратором.';
+      appendResult(`Устройство подключено и ожидает подтверждения в MAX. ${extra}`);
+    } else {
+      appendResult('subscription saved', safeServerResult(result));
+    }
+    await refreshStatus().catch(() => undefined);
+  } catch (error) {
+    failStep(currentStep, error);
+    appendResult(error.message || 'failed', error.data || null);
+    await refreshStatus().catch(() => undefined);
   }
-  const result = await saveSubscription(subscription);
-  if (state.join.joinMode) {
-    const extra = result.confirmationSent
-      ? 'Откройте MAX и нажмите «Подтвердить устройство».'
-      : 'Устройство ожидает подтверждения администратором.';
-    appendResult(`Устройство подключено и ожидает подтверждения в MAX. ${extra}`);
-  } else {
-    appendResult('subscription saved', { ok: Boolean(result.ok) });
-  }
-  await refreshStatus();
 }
 
 async function sendTest() {
   const token = $('adminToken').value.trim();
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const result = await fetchJson('/api/push/test', { method: 'POST', headers, body: JSON.stringify({ body: 'Тестовое уведомление с /push', url: '/push' }) });
-  appendResult('test sent', result);
+  const result = await withTimeout(
+    fetchJson('/api/push/test', { method: 'POST', headers, body: JSON.stringify({ body: 'Тестовое уведомление с /push', url: '/push' }) }),
+    TIMEOUTS.serverTest,
+    'server test send timed out'
+  );
+  appendResult('test sent', safeServerResult(result));
   await refreshStatus();
 }
 
@@ -135,15 +370,19 @@ function bindButton(id, handler) {
   const button = $(id);
   if (!button) return;
   button.addEventListener('click', async () => {
-    try { appendResult('working...'); await handler(); }
+    button.disabled = true;
+    try { await handler(); }
     catch (error) { appendResult(error.message || 'failed', error.data || null); await refreshStatus().catch(() => undefined); }
+    finally { button.disabled = false; }
   });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  resetSteps();
   applyJoinMode();
+  updateStandaloneDiagnostics();
   bindButton('enableBtn', enableNotifications);
   bindButton('testBtn', sendTest);
-  bindButton('statusBtn', async () => { const status = await refreshStatus(); appendResult('status refreshed', status); });
+  bindButton('statusBtn', async () => { const status = await refreshStatus(); appendResult('status refreshed', safeStatusSummary(status)); });
   refreshStatus().catch((error) => appendResult(error.message || 'status_failed'));
 });
