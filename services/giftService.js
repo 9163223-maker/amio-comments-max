@@ -17,7 +17,9 @@ const { evaluateGiftConditions } = require("./giftConditionGate");
 
 function buildGiftDmText(campaign, userName = "") {
   const greeting = userName ? `${userName}, ` : "";
-  return String(campaign?.giftMessage || `${greeting}спасибо за подписку! Забирайте подарок ниже.`).trim();
+  const text = String(campaign?.giftMessage || `${greeting}спасибо за подписку! Забирайте подарок ниже.`).trim();
+  const code = String(campaign?.leadMagnetCode || "").trim();
+  return code ? `${text}\n\nКод: ${code}` : text;
 }
 
 function getDirectGiftUrl(campaign = null) {
@@ -158,5 +160,6 @@ module.exports = {
   normalizeGiftUploadLimits,
   normalizeGiftAttachment,
   buildGiftDeliveryAttachments,
+  buildGiftDmText,
   getDirectGiftUrl
 };
