@@ -12,6 +12,7 @@ const access = require('./services/clientAccessService');
 const accountScreens = require('./features/account-screens-pr106');
 const adminScreens = require('./features/admin-activation-screens-pr108');
 const accessGate = require('./services/accessGateService');
+const liveIdentity = require('./services/liveIdentityService');
 
 const RUNTIME = access.RUNTIME;
 
@@ -163,6 +164,32 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
   return null;
 }
 
+
+function callbackAction(update = {}) {
+  const callback = callbackFromUpdate(update) || {};
+  const payload = callbackPayload(callback);
+  return clean(payload.action || payload.raw || '');
+}
+function requestIdFromReq(req = {}) {
+  return clean(req.get && (req.get('x-request-id') || req.get('X-Request-Id'))) || clean(req.headers?.['x-request-id'] || req.headers?.['x-correlation-id'] || '');
+}
+function recordLiveWebhook(req = {}, meta = {}) {
+  const update = req.body || {};
+  const callback = callbackFromUpdate(update);
+  const message = messageFromUpdate(update);
+  const item = liveIdentity.recordWebhook({
+    requestId: requestIdFromReq(req),
+    userId: userIdFromUpdate(update) || senderId(update, callback, message),
+    action: meta.action || callbackAction(update),
+    screenId: meta.screenId || '',
+    handler: meta.handler || 'clean-bot-campaign-attribution-cc8336.handleWebhook',
+    module: 'clean-bot-campaign-attribution-cc8336',
+    updateType: updateType(update)
+  });
+  audit('live_identity.webhook_fingerprint', { requestId: item.requestId, userId: item.userId, action: item.action, screenId: item.screenId, handler: item.handler, liveIdentity: item.liveIdentity });
+  return item;
+}
+
 async function resolveChannelTitleFromUpdate(update = {}, config = {}) {
   const channelId = channelIdFromUpdate(update);
   if (!channelId || !/^-/i.test(channelId) || !config?.botToken) return null;
@@ -181,6 +208,7 @@ function createCleanBot(legacy) {
     ...legacy,
     ...wrapped,
     handleWebhook: async function handleWebhookWithCampaignAttribution(req, res, config) {
+      recordLiveWebhook(req, { handler: 'clean-bot-campaign-attribution-cc8336.handleWebhookWithCampaignAttribution' });
       const accessResult = await tryHandleAccessRuntime(req, res, config);
       if (accessResult) return accessResult;
       try { await resolveChannelTitleFromUpdate(req.body || {}, config); }

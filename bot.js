@@ -30,6 +30,7 @@ const {
 } = require("./store");
 const { listChannels, registerChannel } = require("./services/channelService");
 const clientAccessService = require("./services/clientAccessService");
+const liveIdentity = require("./services/liveIdentityService");
 const channelTitleHelper = require("./human-channel-title-helper");
 const channelPostPicker = require("./channel-post-picker-core");
 const buttonsFlow = require("./buttons-flow-cc8-clean");
@@ -5479,6 +5480,19 @@ async function handleMessageCallback(update, config) {
   }
 }
 
+
+async function handleLiveDiagnosticCommand({ config, message, userId, text = '' } = {}) {
+  const uid = String(userId || '').trim();
+  if (!uid || !clientAccessService.isAdmin(uid)) return false;
+  const expectedMatch = String(text || '').match(/(?:expectedCommit=|expected=|commit=)([a-f0-9]{7,40})/i) || String(text || '').match(/^\/?(?:debug_live|live)\s+([a-f0-9]{7,40})/i);
+  const expectedCommit = expectedMatch ? expectedMatch[1] : '';
+  const last = liveIdentity.latestAdminCallback();
+  const body = liveIdentity.sanitizeForVisibleCard({ expectedCommit, lastAction: last && last.action });
+  await replyToUser({ config, message, text: body, attachments: [], notify: false });
+  liveIdentity.recordWebhook({ userId: uid, action: '/debug_live', screenId: 'live_diagnostic_card', handler: 'bot.handleLiveDiagnosticCommand', module: 'bot.js' });
+  return true;
+}
+
 async function sendStatsMenuResponse({ config, message, userId, mode = 'channel', editCurrent = true }) {
   const targetPost = getCommentTargetPost(userId) || getGiftTargetPost(userId);
   let text = '';
@@ -5542,6 +5556,13 @@ async function handleWebhook(req, res, config) {
     if (senderUserId) rememberAdminUserMessageIds(senderUserId, getMessageIdCandidates(message));
     const text = getMessageText(message).trim();
     const lowered = text.toLowerCase();
+    if (/^\/?(?:debug_live|live)(?:\s|$)/i.test(text)) {
+      const handledLiveDiagnostic = await handleLiveDiagnosticCommand({ config, message, userId: senderUserId, text });
+      if (handledLiveDiagnostic) {
+        return res.status(200).json({ ok: true, action: 'live_diagnostic_command' });
+      }
+    }
+
     const nativeSlashCommand = getNativeSlashCommand(text)
       || (/^start(?:\s|$)/i.test(lowered) ? '/start' : '');
 
@@ -5698,7 +5719,8 @@ function recordActualProductionScreen({ userId = '', action = '', source = '', t
     warnings: diag?.warnings || [],
     replayMode: 'actual',
     notActualProductionPath: false,
-    recordedAt: Date.now()
+    recordedAt: Date.now(),
+    liveIdentity: liveIdentity.fingerprint()
   };
   uiActualLast.set(`${uid}:${act}`, result);
   uiActualLast.set(uid, result);
@@ -5775,7 +5797,8 @@ async function debugUiReplay({ userId = '', action = '', source = '', channelId 
     selectedTarget: selectedTargetDiagnostics(userId, targetPost, rendered.text),
     wizardStarted,
     channelDiagnostics: explicitDiag ? [explicitDiag] : (diag?.channelDiagnostics || []),
-    warnings: [...warnings, ...(diag?.warnings || [])].filter(Boolean)
+    warnings: [...warnings, ...(diag?.warnings || [])].filter(Boolean),
+    liveIdentity: liveIdentity.fingerprint()
   };
   uiReplayLast.set(`${String(userId || '').trim()}:${safeAction}`, result);
   uiReplayLast.set(String(userId || '').trim() || 'anonymous', result);

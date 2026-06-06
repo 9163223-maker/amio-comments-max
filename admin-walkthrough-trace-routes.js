@@ -11,6 +11,8 @@ const adCampaigns = require('./services/adCampaignService');
 const store = require('./store');
 const config = require('./config');
 const { getBuildInfo } = require('./buildInfo');
+const liveIdentity = require('./services/liveIdentityService');
+const menu = require('./v3-menu-core-1539');
 
 const RUNTIME = 'CC8.3.50-PR131-LIVE-SYNC-AUDIT-ROUTES';
 const STARTED_AT = new Date().toISOString();
@@ -25,7 +27,62 @@ function publicBase() { return clean(config.appBaseUrl || process.env.ADMINKIT_P
 function safeRedirectTarget(value = '') { const raw = clean(value); if (!/^https?:\/\//i.test(raw)) return ''; return raw; }
 function resolveTrackingUserId(req) { return clean(req.query?.userId || req.query?.uid || req.query?.u || ''); }
 function eventLite(event = {}) { return { type: clean(event.type), channelId: clean(event.channelId), userId: clean(event.userId), displayName: clean(event.displayName || event.username || [event.firstName, event.lastName].filter(Boolean).join(' ') || event.userId || 'Пользователь'), source: clean(event.source), attribution: event.attribution || {}, createdAt: event.createdAt || 0 }; }
-function liveVersionPayload() { const build = getBuildInfo(); const runtimeVersion = liveRuntime() || build.runtimeVersion; return { ok: true, runtimeVersion, buildVersion: build.buildVersion || runtimeVersion, displayVersion: build.displayVersion || runtimeVersion, packageVersion: build.packageVersion || runtimeVersion, sourceMarker: liveSourceMarker() || build.sourceMarker, gitCommit: build.gitCommit, pr131MergeCommit: build.pr131MergeCommit, activeEntrypoint: clean(process.argv?.[1] ? path.basename(process.argv[1]) : process.env.ADMINKIT_CLEAN_ENTRYPOINT || build.activeEntrypoint || 'unknown'), expectedRuntimeVersion: build.expectedRuntimeVersion || runtimeVersion, routeRuntimeVersion: RUNTIME, routeRuntimeCurrent: true, generatedAt: Date.now(), serverStartedAt: process.env.ADMINKIT_SERVER_STARTED_AT || build.serverStartedAt || STARTED_AT, staleEndpointDetected: runtimeVersion !== (build.expectedRuntimeVersion || runtimeVersion), debugVersionSource: 'live-env-plus-build-info-pr131-audit', commentsMatrixSelftest: true, productionCommentsMatrixProbe: true, commentsTimingTraceV2: true, pr97ReconciledOnCc8344: true, autoTenantChannelBind: true, tenantChannelBinding: true, channelTitleResolver: true, hybridChannelRegistry: true, getChatChannelTitles: true, campaignAttributionSupported: true, trackingLinksSupported: true, clckShortLinksSupported: true, campaignRedirectRoute: '/r/:slug', safe: true, noDatabaseRead: true, noMaxApiCall: true }; }
+
+function requireDebugAdmin(req, res) {
+  if (clean(req.query?.token) === 'admin') return true;
+  res.status(403).json({ ok: false, error: 'admin_token_required' });
+  return false;
+}
+function buttonLabels(attachments = []) {
+  const buttons = [];
+  for (const attachment of Array.isArray(attachments) ? attachments : []) {
+    const rows = attachment?.payload?.buttons || attachment?.buttons || [];
+    for (const row of Array.isArray(rows) ? rows : []) {
+      for (const btn of Array.isArray(row) ? row : [row]) {
+        const label = clean(btn?.text || btn?.label || btn?.title);
+        if (label) buttons.push(label.slice(0, 80));
+      }
+    }
+  }
+  return buttons.slice(0, 40);
+}
+function routeProbeSource(action = '', screen = null) {
+  const id = clean(screen?.id);
+  if (action === 'gifts:home' && /gift|gifts/i.test(id)) return 'canonical_root';
+  return 'canonical_or_menu_router';
+}
+function summarizeSetupState(userId = '') {
+  const state = store.getSetupState(clean(userId)) || {};
+  const giftFlow = state.giftFlow || null;
+  const adminUi = state.adminUi || {};
+  const activeAdminUi = state.activeAdminUi || {};
+  const selected = state.selectedCard || state.selectedPost || state.commentTargetPost || state.giftTargetPost || state.giftsCurrentCard || null;
+  return {
+    userId: clean(userId),
+    activeAdminFlowKind: clean(state.activeAdminFlowKind),
+    adminUi: { section: clean(adminUi.section || state.adminUiSection) },
+    activeAdminUi: { section: clean(activeAdminUi.section || state.activeAdminUiSection) },
+    giftFlow: {
+      exists: Boolean(giftFlow),
+      mode: clean(giftFlow?.mode),
+      stepIndex: Number.isFinite(Number(giftFlow?.stepIndex)) ? Number(giftFlow.stepIndex) : null,
+      awaitingConfirmation: Boolean(giftFlow?.awaitingConfirmation)
+    },
+    giftsCurrentCard: { exists: Boolean(state.giftsCurrentCard) },
+    giftTargetPost: { exists: Boolean(state.giftTargetPost) },
+    selectedCard: {
+      exists: Boolean(selected),
+      source: selected === state.giftTargetPost ? 'giftTargetPost' : (selected === state.commentTargetPost ? 'commentTargetPost' : (selected === state.giftsCurrentCard ? 'giftsCurrentCard' : (selected ? 'selectedCard' : ''))),
+      hasChannel: Boolean(selected?.channelId),
+      hasPost: Boolean(selected?.postId),
+      hasCommentKey: Boolean(selected?.commentKey),
+      title: clean(selected?.title || selected?.postTitle || selected?.channelTitle || '').slice(0, 80)
+    },
+    updatedAt: clean(state.updatedAt || state.updated_at || giftFlow?.updatedAt || '')
+  };
+}
+
+function liveVersionPayload() { const build = getBuildInfo(); const identity = liveIdentity.identity(); const runtimeVersion = liveRuntime() || build.runtimeVersion; const warning = liveIdentity.warningForExpected('', identity.gitCommit); return { ok: true, runtimeVersion, buildVersion: identity.buildVersion || build.buildVersion || runtimeVersion, displayVersion: identity.displayVersion || build.displayVersion || runtimeVersion, packageVersion: identity.packageVersion || build.packageVersion || runtimeVersion, sourceMarker: identity.sourceMarker || liveSourceMarker() || build.sourceMarker, gitCommit: identity.gitCommit || build.gitCommit, pr131MergeCommit: build.pr131MergeCommit, activeEntrypoint: identity.activeEntrypoint || clean(process.argv?.[1] ? path.basename(process.argv[1]) : process.env.ADMINKIT_CLEAN_ENTRYPOINT || build.activeEntrypoint || 'unknown'), activeBotModule: identity.activeBotModule, expectedRuntimeVersion: build.expectedRuntimeVersion || runtimeVersion, routeRuntimeVersion: RUNTIME, routeRuntimeCurrent: true, generatedAt: Date.now(), serverStartedAt: identity.serverStartedAt || process.env.ADMINKIT_SERVER_STARTED_AT || build.serverStartedAt || STARTED_AT, staleEndpointDetected: runtimeVersion !== (build.expectedRuntimeVersion || runtimeVersion), warning: warning || undefined, liveIdentity: identity, latestWebhookIdentity: liveIdentity.latestWebhookIdentity(), latestAdminCallback: liveIdentity.latestAdminCallback(), debugVersionSource: 'live-identity-service-pr141', commentsMatrixSelftest: true, productionCommentsMatrixProbe: true, commentsTimingTraceV2: true, pr97ReconciledOnCc8344: true, autoTenantChannelBind: true, tenantChannelBinding: true, channelTitleResolver: true, hybridChannelRegistry: true, getChatChannelTitles: true, campaignAttributionSupported: true, trackingLinksSupported: true, clckShortLinksSupported: true, campaignRedirectRoute: '/r/:slug', safe: true, noDatabaseRead: true, noMaxApiCall: true }; }
 
 function install(app) {
   if (!app || app.__adminkitWalkthroughTraceRoutes) return app;
@@ -33,6 +90,48 @@ function install(app) {
 
   app.get('/debug/version', (req, res) => { noCache(res); return res.json(liveVersionPayload()); });
   app.get('/debug/version-live', (req, res) => { noCache(res); return res.json(liveVersionPayload()); });
+
+
+
+  app.get('/debug/live-identity', (req, res) => {
+    noCache(res);
+    if (!requireDebugAdmin(req, res)) return;
+    return res.json(liveIdentity.buildDiagnostic({ expectedCommit: req.query?.expectedCommit || '' }));
+  });
+
+  app.get('/debug/live-route-probe', async (req, res) => {
+    noCache(res);
+    if (!requireDebugAdmin(req, res)) return;
+    const action = clean(req.query?.action || '');
+    const userId = clean(req.query?.userId || '');
+    if (!action) return res.status(400).json({ ok: false, probeSupported: false, error: 'action_required', liveIdentity: liveIdentity.fingerprint() });
+    const safeProbeActions = new Set(['gifts:home', 'admin_section_gifts', 'admin_section_buttons', 'admin_section_comments', 'admin_section_posts', 'admin_section_stats', 'admin_section_archive', 'admin_section_polls', 'admin_section_highlights']);
+    if (!safeProbeActions.has(action)) {
+      return res.json({ ok: true, probeSupported: false, action, explanation: 'Only known non-destructive root/menu actions are supported by this live route probe.', liveIdentity: liveIdentity.fingerprint(), safe: true, noMaxApiCall: true });
+    }
+    try {
+      let screen = null;
+      let handler = 'v3-menu-core-1539.screenForPayload';
+      if (typeof menu.asyncScreenForPayload === 'function') {
+        screen = await menu.asyncScreenForPayload({ action }, { userId, config });
+        handler = 'v3-menu-core-1539.asyncScreenForPayload';
+      } else if (typeof menu.screenForPayload === 'function') {
+        screen = menu.screenForPayload({ action });
+      }
+      if (!screen) return res.json({ ok: true, probeSupported: false, action, explanation: 'No non-destructive screen resolver returned a screen for this action.', liveIdentity: liveIdentity.fingerprint(), safe: true, noMaxApiCall: true });
+      return res.json({ ok: true, probeSupported: true, action, userId, resolved: { screenId: clean(screen.id), visibleButtonLabels: buttonLabels(screen.attachments), handler, module: 'v3-menu-core-1539', routeSource: routeProbeSource(action, screen), canonicalRoot: routeProbeSource(action, screen) === 'canonical_root', resumedFlow: false }, liveIdentity: liveIdentity.fingerprint(), safe: true, noMaxApiCall: true });
+    } catch (error) {
+      return res.json({ ok: true, probeSupported: false, action, explanation: String(error && error.message || error).slice(0, 220), liveIdentity: liveIdentity.fingerprint(), safe: true, noMaxApiCall: true });
+    }
+  });
+
+  app.get('/debug/live-user-state', (req, res) => {
+    noCache(res);
+    if (!requireDebugAdmin(req, res)) return;
+    const userId = clean(req.query?.userId || '');
+    if (!userId) return res.status(400).json({ ok: false, error: 'userId_required' });
+    return res.json({ ok: true, state: summarizeSetupState(userId), liveIdentity: liveIdentity.fingerprint(), sanitized: true, safe: true, noMaxApiCall: true });
+  });
 
   app.get('/debug/admin-walkthrough-trace', (req, res) => {
     noCache(res);
