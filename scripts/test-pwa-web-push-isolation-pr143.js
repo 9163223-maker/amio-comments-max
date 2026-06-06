@@ -87,8 +87,11 @@ function validSubscription() {
 
       const manifest = await request(server, '/push/manifest.json');
       assert.strictEqual(manifest.status, 200, 'isolated manifest route works');
+      assert.strictEqual(manifest.body.id, '/push', 'manifest id is /push');
       assert.strictEqual(manifest.body.start_url, '/push', 'manifest start_url is /push');
-      assert.strictEqual(manifest.body.scope, '/', 'manifest scope remains app metadata only');
+      assert.strictEqual(manifest.body.scope, '/push/', 'manifest scope is isolated to /push/');
+      assert.notStrictEqual(manifest.body.scope, '/', 'manifest scope must not be root');
+      assert.strictEqual(manifest.body.display, 'standalone', 'manifest display is standalone');
 
       const sw = await request(server, '/push/sw.js');
       assert.strictEqual(sw.status, 200, 'isolated service worker route works');

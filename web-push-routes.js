@@ -158,9 +158,10 @@ function install(app) {
     res.json({
       name: 'АдминКИТ Push',
       short_name: 'AdminKIT Push',
+      id: '/push',
       display: 'standalone',
       start_url: '/push',
-      scope: '/',
+      scope: '/push/',
       theme_color: '#111827',
       background_color: '#f8fafc',
       icons: [
