@@ -72,6 +72,25 @@ function safeErrorCode(error, fallback = 'request_failed') {
   return clean(error && (error.code || error.message)).slice(0, 80) || fallback;
 }
 
+function isHttpsRequest(req) {
+  if (req && req.secure) return true;
+  const forwardedProto = clean(req && req.get && req.get('x-forwarded-proto')).toLowerCase();
+  if (forwardedProto.split(',').map((item) => item.trim()).includes('https')) return true;
+  const forwardedSsl = clean(req && req.get && req.get('x-forwarded-ssl')).toLowerCase();
+  if (['on', '1', 'true', 'yes'].includes(forwardedSsl)) return true;
+  const forwardedScheme = clean(req && req.get && req.get('x-forwarded-scheme')).toLowerCase();
+  if (forwardedScheme.split(',').map((item) => item.trim()).includes('https')) return true;
+  const forwardedProtocol = clean(req && req.get && req.get('x-forwarded-protocol')).toLowerCase();
+  if (forwardedProtocol.split(',').map((item) => item.trim()).includes('https')) return true;
+  return false;
+}
+
+function pairingCookieMaxAgeSeconds(expiresAt) {
+  const ms = Date.parse(expiresAt) - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return 0;
+  return Math.max(1, Math.floor(ms / 1000));
+}
+
 function sendJoinPage(req, res, tokenContext = {}) {
   const file = path.join(__dirname, 'public', 'push.html');
   const fs = require('fs');
@@ -196,8 +215,9 @@ function install(app) {
     const token = clean(req.query && req.query.t);
     try {
       const verified = pairing.verifyPairingToken(token);
-      const cookie = `push_pairing_token=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`;
-      res.set('Set-Cookie', req.secure ? `${cookie}; Secure` : cookie);
+      const maxAge = pairingCookieMaxAgeSeconds(verified.expiresAt);
+      const cookie = `push_pairing_token=${encodeURIComponent(token)}; Path=/api/push/pair; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
+      res.set('Set-Cookie', isHttpsRequest(req) ? `${cookie}; Secure` : cookie);
       return sendJoinPage(req, res, { joinMode: true, tokenStatus: 'valid', expiresAt: verified.expiresAt, tokenId: verified.nonceHash });
     } catch (error) {
       return res.status(400).send(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>АдминКИТ Push</title></head><body><main><h1>АдминКИТ Push</h1><p>Ссылка подключения недействительна или истекла.</p><p>Код: ${safeErrorCode(error, 'invalid_push_pairing_token')}</p></main></body></html>`);
@@ -333,5 +353,6 @@ module.exports = {
   getConfig,
   buildStatus,
   sendToAll: sendTestToAllAdminOnly,
-  sendTestToAllAdminOnly
+  sendTestToAllAdminOnly,
+  isHttpsRequest
 };

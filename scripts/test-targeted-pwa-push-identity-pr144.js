@@ -43,6 +43,17 @@ function signPayload(payload) {
   return `${encoded}.${sig}`;
 }
 function decodePayload(token) { return JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString('utf8')); }
+function getSetCookie(headers) {
+  if (headers && typeof headers.getSetCookie === 'function') return headers.getSetCookie().join('; ');
+  return headers.get('set-cookie') || '';
+}
+function assertNarrowPairingCookie(setCookie, messagePrefix = 'pairing cookie') {
+  assert(setCookie.includes('push_pairing_token='), `${messagePrefix} is returned`);
+  assert(setCookie.includes('HttpOnly'), `${messagePrefix} includes HttpOnly`);
+  assert(setCookie.includes('SameSite=Lax'), `${messagePrefix} includes SameSite=Lax`);
+  assert(setCookie.includes('Path=/api/push/pair'), `${messagePrefix} uses narrow /api/push/pair path`);
+  assert(!/(^|;\s*)Path=\/(;|$)/.test(setCookie), `${messagePrefix} does not use broad Path=/`);
+}
 
 (async () => {
   const originalStorage = backup(storageFile);
@@ -80,10 +91,29 @@ function decodePayload(token) { return JSON.parse(Buffer.from(token.split('.')[0
       const joinToken = pairing.createPairingToken({ maxUserId: 'join-user-secret', chatId: 'join-chat-secret', channelId: 'join-channel-secret', issuedByAdminId: 'admin', ttlMinutes: 30 });
       const join = await request(server, `/push/join?t=${encodeURIComponent(joinToken)}`);
       assert.strictEqual(join.status, 200, '/push/join?t=valid works');
+      const joinCookie = getSetCookie(join.headers);
+      assertNarrowPairingCookie(joinCookie);
+      assert(!joinCookie.includes('Secure'), 'local HTTP join cookie can omit Secure for local tests');
+      assert(/Max-Age=\d+/.test(joinCookie), 'pairing cookie includes bounded Max-Age');
       assert(join.text.includes('Подключение уведомлений для вашего чата готово'), 'join page shows safe pairing text');
       for (const forbidden of ['PAIRING_SECRET_MUST_NOT_LEAK_PR144', 'PRIVATE_VAPID_KEY_MUST_NOT_LEAK_PR144', 'ADMIN_TOKEN_MUST_NOT_LEAK_PR144', 'join-user-secret', 'join-chat-secret', 'join-channel-secret', joinToken]) {
         assert(!join.text.includes(forbidden), `join HTML leaked ${forbidden}`);
       }
+      const httpsJoinToken = pairing.createPairingToken({ maxUserId: 'https-user-secret', chatId: 'https-chat-secret', issuedByAdminId: 'admin', ttlMinutes: 30 });
+      const httpsJoin = await request(server, `/push/join?t=${encodeURIComponent(httpsJoinToken)}`, { headers: { 'x-forwarded-proto': 'https' } });
+      assert.strictEqual(httpsJoin.status, 200, '/push/join works behind HTTPS proxy');
+      const httpsJoinCookie = getSetCookie(httpsJoin.headers);
+      assertNarrowPairingCookie(httpsJoinCookie, 'HTTPS proxy pairing cookie');
+      assert(httpsJoinCookie.includes('Secure'), 'x-forwarded-proto:https pairing cookie includes Secure');
+
+      const cookiePair = await request(server, '/api/push/pair', { method: 'POST', headers: { 'content-type': 'application/json', cookie: joinCookie.split(';')[0] }, body: JSON.stringify({ subscription: validSubscription('cookie-bound') }) });
+      assert.strictEqual(cookiePair.status, 200, '/api/push/pair uses the narrow pairing cookie successfully');
+      assert.strictEqual(cookiePair.body.status, 'pending', 'cookie paired device starts pending');
+      const unrelatedPush = await request(server, '/push', { headers: { cookie: joinCookie.split(';')[0] } });
+      assert.strictEqual(unrelatedPush.status, 200, '/push does not need or depend on pairing cookie');
+      const unrelatedStatus = await request(server, '/api/push/status', { headers: { cookie: joinCookie.split(';')[0] } });
+      assert.strictEqual(unrelatedStatus.status, 200, '/api/push/status does not need or depend on pairing cookie');
+
       const invalid = await request(server, '/push/join?t=invalid');
       assert.strictEqual(invalid.status, 400, 'invalid token returns safe error');
       const expired = await request(server, `/push/join?t=${encodeURIComponent(signPayload(expiredPayload))}`);
