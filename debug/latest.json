@@ -9,8 +9,8 @@
   "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
   "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
   "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-  "generatedAt": 1780853572800,
-  "serverStartedAt": "2026-06-07T17:22:31.579Z",
+  "generatedAt": 1780853867638,
+  "serverStartedAt": "2026-06-07T17:33:38.919Z",
   "staleEndpointDetected": false,
   "meta": {
     "runtimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
@@ -22,7 +22,7 @@
     "gitCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
     "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
     "buildGeneratedAt": "2026-06-05T00:00:00Z",
-    "serverStartedAt": "2026-06-07T17:22:31.579Z",
+    "serverStartedAt": "2026-06-07T17:33:38.919Z",
     "buildInfoSource": "build-info.json/package.json/env-fresh-only",
     "staleEnvIgnored": {
       "BUILD_VERSION": false,
@@ -32,7 +32,7 @@
     "staleEndpointDetected": false,
     "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
     "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-    "generatedAt": 1780853572800
+    "generatedAt": 1780853867638
   },
   "mediaDiagnostics": {
     "uploads": [
@@ -381,7 +381,7 @@
       "gitCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
       "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
       "buildGeneratedAt": "2026-06-05T00:00:00Z",
-      "serverStartedAt": "2026-06-07T17:22:31.579Z",
+      "serverStartedAt": "2026-06-07T17:33:38.919Z",
       "buildInfoSource": "build-info.json/package.json/env-fresh-only",
       "staleEnvIgnored": {
         "BUILD_VERSION": false,
@@ -391,7 +391,7 @@
       "staleEndpointDetected": false,
       "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
       "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-      "generatedAt": 1780853571111
+      "generatedAt": 1780853866410
     },
     "posts": {
       "-70251029837230:116709012212747400": {
@@ -5597,6 +5597,171 @@
             "previewUrl": "/public/stickers/adminkit/v1/adminkit_ok.webp"
           }
         ]
+      },
+      "-75643106932142:116710035595802770": {
+        "postId": "116710035595802770",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea328b5693892",
+        "originalText": "/push",
+        "sourceAttachments": [],
+        "nativeReactions": [],
+        "originalLink": null,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachmentsKnown": false,
+        "originalLinkKnown": false,
+        "originalFormatKnown": false,
+        "channelTitle": "-75643106932142",
+        "textOverrideActive": false,
+        "linkedByUserId": "17507246",
+        "linkedByName": "Alex P",
+        "autoMode": true,
+        "handoffToken": "h_035595802770mq42dsc9rn2rwp4j",
+        "stablePayload": "cp_-75643106932142_116710035595802770",
+        "customKeyboard": {},
+        "createdAt": 1780853818332,
+        "lastIngestedAt": 1780853818332,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "commentKey": "-75643106932142:116710035595802770",
+        "updatedAt": 1780853819724,
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "type": "open_app",
+                    "text": "💬 Комментарии",
+                    "web_app": "id781310320690_bot",
+                    "payload": "cp_-75643106932142_116710035595802770"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "lastPatchedText": "/push",
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116710035595802770\"}]]}}],\"text\":\"/push\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastPatchedAt": 1780853819724,
+        "lastPatchError": null,
+        "giftCampaignId": "",
+        "lastCustomRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "lastGiftRowsCount": 0,
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77"
+      },
+      "-75643106932142:116710035900234850": {
+        "postId": "116710035900234850",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea328c78e7c67",
+        "originalText": "Включить уведомления",
+        "sourceAttachments": [],
+        "nativeReactions": [],
+        "originalLink": null,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachmentsKnown": false,
+        "originalLinkKnown": false,
+        "originalFormatKnown": false,
+        "channelTitle": "-75643106932142",
+        "textOverrideActive": false,
+        "linkedByUserId": "17507246",
+        "linkedByName": "Alex P",
+        "autoMode": true,
+        "handoffToken": "h_035900234850mq42dv9lh7m89iis",
+        "stablePayload": "cp_-75643106932142_116710035900234850",
+        "customKeyboard": {},
+        "createdAt": 1780853821935,
+        "lastIngestedAt": 1780853821935,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "commentKey": "-75643106932142:116710035900234850",
+        "updatedAt": 1780853822531,
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "type": "open_app",
+                    "text": "💬 Комментарии",
+                    "web_app": "id781310320690_bot",
+                    "payload": "cp_-75643106932142_116710035900234850"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "lastPatchedText": "Включить уведомления",
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116710035900234850\"}]]}}],\"text\":\"Включить уведомления\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastPatchedAt": 1780853822531,
+        "lastPatchError": null,
+        "giftCampaignId": "",
+        "lastCustomRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "lastGiftRowsCount": 0,
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77"
+      },
+      "-75643106932142:116710036264401040": {
+        "postId": "116710036264401040",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea328dd433892",
+        "originalText": "/push",
+        "sourceAttachments": [],
+        "nativeReactions": [],
+        "originalLink": null,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachmentsKnown": false,
+        "originalLinkKnown": false,
+        "originalFormatKnown": false,
+        "channelTitle": "-75643106932142",
+        "textOverrideActive": false,
+        "linkedByUserId": "17507246",
+        "linkedByName": "Alex P",
+        "autoMode": true,
+        "handoffToken": "h_036264401040mq42dzo2lpaq2nxv",
+        "stablePayload": "cp_-75643106932142_116710036264401040",
+        "customKeyboard": {},
+        "createdAt": 1780853827640,
+        "lastIngestedAt": 1780853827640,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "commentKey": "-75643106932142:116710036264401040",
+        "updatedAt": 1780853828736,
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "type": "open_app",
+                    "text": "💬 Комментарии",
+                    "web_app": "id781310320690_bot",
+                    "payload": "cp_-75643106932142_116710036264401040"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "lastPatchedText": "/push",
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116710036264401040\"}]]}}],\"text\":\"/push\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastPatchedAt": 1780853828736,
+        "lastPatchError": null,
+        "giftCampaignId": "",
+        "lastCustomRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "lastGiftRowsCount": 0,
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77"
       }
     },
     "comments": {
@@ -8755,7 +8920,10 @@
           "attachments": [],
           "runtimeVersion": "CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87"
         }
-      ]
+      ],
+      "-75643106932142:116710035595802770": [],
+      "-75643106932142:116710035900234850": [],
+      "-75643106932142:116710036264401040": []
     },
     "channels": {
       "260767839": {
@@ -9037,14 +9205,14 @@
         "chatType": "channel",
         "channelId": "-75643106932142",
         "isChannel": true,
-        "updatedAt": 1780852894192,
+        "updatedAt": 1780853827836,
         "botAddedAt": 1780848285981,
-        "lastPostId": "116709975010212960",
+        "lastPostId": "116710036264401040",
         "ownerUserId": "17507246",
         "channelTitle": "Alex P",
         "isMaxChannel": true,
         "linkedByName": "Alex P",
-        "lastMessageId": "mid.ffffbb33f77b4a52019ea31a9a3a7c67",
+        "lastMessageId": "mid.ffffbb33f77b4a52019ea328dd433892",
         "audienceEvents": [
           {
             "id": "1780848285382_vyvtqy",
@@ -9489,7 +9657,10 @@
       "-75643106932142:116709975010212960": {},
       "selftest_pr88_1780301418431_p2i0sr": {},
       "selftest_pr88_1780301487396_a47bum": {},
-      "selftest_pr88_1780309105318_je8f8c": {}
+      "selftest_pr88_1780309105318_je8f8c": {},
+      "-75643106932142:116710035595802770": {},
+      "-75643106932142:116710035900234850": {},
+      "-75643106932142:116710036264401040": {}
     },
     "reactions": {
       "-73175958664622:116630034142543730": {
@@ -9606,7 +9777,10 @@
             "selftest_owner": true
           }
         }
-      }
+      },
+      "-75643106932142:116710035595802770": {},
+      "-75643106932142:116710035900234850": {},
+      "-75643106932142:116710036264401040": {}
     },
     "handoffs": {
       "h_001681993680mpf2ov2n3nk29mlx": {
@@ -10202,6 +10376,33 @@
         "updatedAt": 1779541012553,
         "commentKey": "-73175958664622:116623999186137120",
         "stablePayload": "cp_-73175958664622_116623999186137120"
+      },
+      "h_035595802770mq42dsc9rn2rwp4j": {
+        "commentKey": "-75643106932142:116710035595802770",
+        "postId": "116710035595802770",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea328b5693892",
+        "stablePayload": "cp_-75643106932142_116710035595802770",
+        "token": "[redacted]",
+        "updatedAt": 1780853819724
+      },
+      "h_035900234850mq42dv9lh7m89iis": {
+        "commentKey": "-75643106932142:116710035900234850",
+        "postId": "116710035900234850",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea328c78e7c67",
+        "stablePayload": "cp_-75643106932142_116710035900234850",
+        "token": "[redacted]",
+        "updatedAt": 1780853822531
+      },
+      "h_036264401040mq42dzo2lpaq2nxv": {
+        "commentKey": "-75643106932142:116710036264401040",
+        "postId": "116710036264401040",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea328dd433892",
+        "stablePayload": "cp_-75643106932142_116710036264401040",
+        "token": "[redacted]",
+        "updatedAt": 1780853828737
       }
     },
     "uploadDiagnostics": [
@@ -15231,11 +15432,11 @@
     },
     "runtimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
     "counts": {
-      "posts": 69,
-      "commentThreads": 77,
+      "posts": 72,
+      "commentThreads": 80,
       "comments": 186,
-      "handoffs": 66,
-      "likes": 69,
+      "handoffs": 69,
+      "likes": 72,
       "channels": 9,
       "moderationLogs": 50,
       "uploadDiagnostics": 50
@@ -15243,11 +15444,11 @@
     "store": {
       "compact": true,
       "counts": {
-        "posts": 69,
-        "commentThreads": 77,
+        "posts": 72,
+        "commentThreads": 80,
         "comments": 186,
-        "handoffs": 66,
-        "likes": 69,
+        "handoffs": 69,
+        "likes": 72,
         "channels": 9,
         "moderationLogs": 50,
         "uploadDiagnostics": 50
