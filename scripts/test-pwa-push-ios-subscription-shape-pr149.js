@@ -130,8 +130,8 @@ function assertSafeShape(shape, expected = {}) {
     assert(pushClient.includes('getSubscriptionKey(subscription, PUSH_SUBSCRIPTION_FIELDS.authField)'), 'source has getKey auth fallback');
     assert(pushClient.includes('arrayBufferToBase64Url'), 'source encodes ArrayBuffer keys with URL-safe base64');
     assert(pushClient.includes('clientSubscriptionShape'), 'client shows safe subscription shape diagnostics when sending fails');
-    assert(pushClient.includes("fetchJson('/api/push/subscribe'") && pushClient.includes('JSON.stringify({ subscription: normalizedSubscription })'), 'manual subscribe still sends nested normalized subscription');
-    assert(pushClient.includes("fetchJson('/api/push/pair'") && pushClient.includes('JSON.stringify({ subscription: normalizedSubscription })'), 'join/pair still sends nested normalized subscription');
+    assert(pushClient.includes('const requestBody = { subscription: normalizedSubscription };') && pushClient.includes("fetchJson('/api/push/subscribe'") && pushClient.includes('JSON.stringify(requestBody)'), 'manual subscribe still sends nested normalized request body');
+    assert(pushClient.includes('const requestBody = { subscription: normalizedSubscription };') && pushClient.includes("fetchJson('/api/push/pair'") && pushClient.includes('JSON.stringify(requestBody)'), 'join/pair still sends nested normalized request body');
 
     const storage = fresh('../services/webPushStorage');
     await storage.saveSubscription(standardSubscription('storage-standard'));
@@ -169,7 +169,7 @@ function assertSafeShape(shape, expected = {}) {
     assert(pushClient.includes("writeResetResult('reset started')"), 'reset behavior from PR148 remains');
     assert(pushClient.includes('state.forceNewSubscriptionAfterInvalid = true'), 'invalid_push_subscription one-shot recovery remains');
     assert(pushClient.includes('INVALID_SUBSCRIPTION_RESET_INSTRUCTION'), 'invalid_push_subscription recovery instruction remains');
-    assert(routesSource.includes('body.subscription || body'), 'pair route keeps nested/direct compatibility');
+    assert(routesSource.includes('function extractPushSubscriptionFromBody(body)') && routesSource.includes('const extracted = extractPushSubscriptionFromBody(body);'), 'pair route keeps nested/direct compatibility through canonical extraction');
 
     console.log('pwa push ios subscription shape pr149 ok');
   } finally {

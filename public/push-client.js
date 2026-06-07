@@ -185,6 +185,17 @@ function safeSubscriptionShapeDiagnostic(shape) {
   };
 }
 
+function safeRequestShapeDiagnostic(shape) {
+  const source = shape && typeof shape === 'object' ? shape : {};
+  const allowedSources = ['nested', 'direct', 'missing'];
+  const sourceValue = allowedSources.includes(source.extractionSource) ? source.extractionSource : 'missing';
+  return {
+    bodyType: source.bodyType || 'null',
+    hasNestedSubscription: Boolean(source.hasNestedSubscription),
+    extractionSource: sourceValue
+  };
+}
+
 function safeServerResult(result) {
   return {
     ok: Boolean(result && result.ok),
@@ -194,7 +205,8 @@ function safeServerResult(result) {
     confirmationDispatch: result && result.confirmationDispatch ? result.confirmationDispatch : undefined,
     subscribeMode: result && result.subscribeMode ? result.subscribeMode : undefined,
     error: result && result.error ? result.error : undefined,
-    subscriptionShape: result && result.subscriptionShape ? safeSubscriptionShapeDiagnostic(result.subscriptionShape) : undefined
+    subscriptionShape: result && result.subscriptionShape ? safeSubscriptionShapeDiagnostic(result.subscriptionShape) : undefined,
+    requestShape: result && result.requestShape ? safeRequestShapeDiagnostic(result.requestShape) : undefined
   };
 }
 
@@ -253,10 +265,11 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 async function fetchJson(url, options) {
+  const requestOptions = options && typeof options === 'object' ? options : {};
   const response = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...(options && options.headers ? options.headers : {}) },
-    credentials: 'same-origin',
-    ...options
+    ...requestOptions,
+    headers: { 'Content-Type': 'application/json', ...(requestOptions.headers || {}) },
+    credentials: 'same-origin'
   });
   const data = await response.json();
   if (!response.ok) {
@@ -368,9 +381,12 @@ async function ensureActiveRegistration(registration) {
 async function saveSubscription(subscription, status) {
   const normalizedSubscription = normalizePushSubscription(subscription);
   const subscriptionShape = safeSubscriptionShape(normalizedSubscription);
+  const requestBody = { subscription: normalizedSubscription };
+  const requestShape = { hasNestedSubscription: true };
+  setStep('sending subscription to server', 'running', JSON.stringify({ requestShape, clientSubscriptionShape: subscriptionShape }));
   try {
     if (state.join.joinMode) {
-      return await withTimeout(fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify({ subscription: normalizedSubscription }) }), TIMEOUTS.serverSave, 'server pairing save timed out');
+      return await withTimeout(fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify(requestBody) }), TIMEOUTS.serverSave, 'server pairing save timed out');
     }
     const flags = status && status.pushSupported ? status.pushSupported : {};
     const token = $('subscribeToken').value.trim();
@@ -378,7 +394,7 @@ async function saveSubscription(subscription, status) {
       throw new Error('Нужен PUSH_SUBSCRIBE_TOKEN для ручного режима.');
     }
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    return await withTimeout(fetchJson('/api/push/subscribe', { method: 'POST', headers, body: JSON.stringify({ subscription: normalizedSubscription }) }), TIMEOUTS.serverSave, 'server subscribe save timed out');
+    return await withTimeout(fetchJson('/api/push/subscribe', { method: 'POST', headers, body: JSON.stringify(requestBody) }), TIMEOUTS.serverSave, 'server subscribe save timed out');
   } catch (error) {
     error.clientSubscriptionShape = subscriptionShape;
     throw error;

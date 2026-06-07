@@ -60,8 +60,8 @@ async function request(server, target, options = {}) {
     assert(pushClient.includes('function normalizePushSubscription('), 'client defines a push subscription normalizer');
     assert(pushClient.includes('typeof subscription.toJSON === \'function\' ? subscription.toJSON()'), 'normalizer uses PushSubscription.toJSON() when available');
     assert(pushClient.includes('const normalizedSubscription = normalizePushSubscription(subscription);'), 'save flow normalizes before network send');
-    assert(pushClient.includes("fetchJson('/api/push/subscribe'") && pushClient.includes('JSON.stringify({ subscription: normalizedSubscription })'), 'manual subscribe sends normalized subscription to /api/push/subscribe');
-    assert(pushClient.includes("fetchJson('/api/push/pair'") && pushClient.includes('JSON.stringify({ subscription: normalizedSubscription })'), 'join flow sends normalized subscription to /api/push/pair');
+    assert(pushClient.includes('const requestBody = { subscription: normalizedSubscription };') && pushClient.includes("fetchJson('/api/push/subscribe'") && pushClient.includes('JSON.stringify(requestBody)'), 'manual subscribe sends normalized nested requestBody to /api/push/subscribe');
+    assert(pushClient.includes('const requestBody = { subscription: normalizedSubscription };') && pushClient.includes("fetchJson('/api/push/pair'") && pushClient.includes('JSON.stringify(requestBody)'), 'join flow sends normalized nested requestBody to /api/push/pair');
 
     const storage = fresh('../services/webPushStorage');
     await storage.saveSubscription(standardSubscription('storage-accepts-standard'));
@@ -99,8 +99,8 @@ async function request(server, target, options = {}) {
     assert(pushClient.includes("setStep('server response', 'error'"), 'invalid_push_subscription marks server response step failed');
     assert(pushClient.includes('safeServerResult(error.data'), 'invalid_push_subscription shows sanitized server error only');
 
-    assert(routesSource.includes('req.body && req.body.subscription ? req.body.subscription : req.body'), 'subscribe route accepts nested subscription body and existing direct body shape');
-    assert(routesSource.includes('const subscription = body.subscription || body'), 'pair route accepts nested subscription body and existing direct body shape');
+    assert(routesSource.includes('function extractPushSubscriptionFromBody(body)') && routesSource.includes('const extracted = extractPushSubscriptionFromBody(req.body);'), 'subscribe route accepts nested subscription body and existing direct body shape through canonical extraction');
+    assert(routesSource.includes('function extractPushSubscriptionFromBody(body)') && routesSource.includes('const extracted = extractPushSubscriptionFromBody(body);'), 'pair route accepts nested subscription body and existing direct body shape through canonical extraction');
     assert(!routesSource.includes('req.query.token'), 'push routes do not accept admin token from query string');
 
     for (const raw of [

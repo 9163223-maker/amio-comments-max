@@ -73,13 +73,38 @@ function safeErrorCode(error, fallback = 'request_failed') {
   return clean(error && (error.code || error.message)).slice(0, 80) || fallback;
 }
 
-function invalidSubscriptionResponse(error, fallbackSubscription, fallback = 'subscribe_failed') {
+function extractPushSubscriptionFromBody(body) {
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    if (body.subscription && typeof body.subscription === 'object' && !Array.isArray(body.subscription)) {
+      return { subscription: body.subscription, source: 'nested' };
+    }
+    if (body.endpoint || body.keys) {
+      return { subscription: body, source: 'direct' };
+    }
+  }
+  return { subscription: undefined, source: 'missing' };
+}
+
+function requestBodyType(body) {
+  if (body === null || body === undefined) return 'null';
+  if (Array.isArray(body)) return 'array';
+  return typeof body;
+}
+
+function safePushRequestShape(body, extractionSource) {
+  return {
+    bodyType: requestBodyType(body),
+    hasNestedSubscription: Boolean(body && typeof body === 'object' && !Array.isArray(body) && Object.prototype.hasOwnProperty.call(body, 'subscription')),
+    extractionSource: extractionSource || 'missing'
+  };
+}
+
+function invalidSubscriptionResponse(error, subscriptionCandidate, fallback = 'subscribe_failed', requestShape) {
   const code = safeErrorCode(error, fallback);
   const body = { ok: false, error: code };
   if (code === 'invalid_push_subscription') {
-    body.subscriptionShape = error && error.subscriptionShape
-      ? error.subscriptionShape
-      : storage.subscriptionShape(fallbackSubscription);
+    body.subscriptionShape = storage.subscriptionShape(subscriptionCandidate);
+    if (requestShape) body.requestShape = requestShape;
   }
   return body;
 }
@@ -268,12 +293,13 @@ function install(app) {
   app.post('/api/push/subscribe', requireSubscribeAccess, async (req, res) => {
     const config = getConfig();
     if (!config.configured) return res.status(503).json({ ok: false, error: 'web_push_not_configured' });
-    const subscription = req.body && req.body.subscription ? req.body.subscription : req.body;
+    const extracted = extractPushSubscriptionFromBody(req.body);
+    const requestShape = safePushRequestShape(req.body, extracted.source);
     try {
-      const saved = await storage.saveSubscription(subscription, { userAgent: req.get('user-agent') });
+      const saved = await storage.saveSubscription(extracted.subscription, { userAgent: req.get('user-agent') });
       return res.json({ ok: true, id: saved.id.slice(0, 16), backend: saved.backend });
     } catch (error) {
-      return res.status(400).json(invalidSubscriptionResponse(error, subscription));
+      return res.status(400).json(invalidSubscriptionResponse(error, extracted.subscription, 'subscribe_failed', requestShape));
     }
   });
 
@@ -285,8 +311,9 @@ function install(app) {
     if (!token) return res.status(403).json({ ok: false, error: 'push_pairing_token_required' });
     try {
       const verified = pairing.consumePairingToken(token);
-      const subscription = body.subscription || body;
-      const saved = await storage.savePairedDevice(subscription, {
+      const extracted = extractPushSubscriptionFromBody(body);
+      const requestShape = safePushRequestShape(body, extracted.source);
+      const saved = await storage.savePairedDevice(extracted.subscription, {
         maxUserId: verified.maxUserId,
         chatId: verified.chatId,
         channelId: verified.channelId,
@@ -302,7 +329,9 @@ function install(app) {
         confirmationDispatch: prompt.confirmationDispatch
       }));
     } catch (error) {
-      return res.status(400).json(invalidSubscriptionResponse(error, body.subscription || body, 'push_pair_failed'));
+      const extracted = extractPushSubscriptionFromBody(body);
+      const requestShape = safePushRequestShape(body, extracted.source);
+      return res.status(400).json(invalidSubscriptionResponse(error, extracted.subscription, 'push_pair_failed', requestShape));
     }
   });
 
@@ -374,5 +403,6 @@ module.exports = {
   buildStatus,
   sendToAll: sendTestToAllAdminOnly,
   sendTestToAllAdminOnly,
-  isHttpsRequest
+  isHttpsRequest,
+  extractPushSubscriptionFromBody
 };

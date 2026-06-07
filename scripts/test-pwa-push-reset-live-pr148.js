@@ -46,7 +46,7 @@ assert(pushClient.includes('const INVALID_SUBSCRIPTION_RESET_INSTRUCTION'), 'inv
 assert(pushClient.includes('state.forceNewSubscriptionAfterInvalid = true'), 'invalid_push_subscription enables one-shot force-new subscribe recovery');
 assert(pushClient.includes('existing browser subscription force-reset; unsubscribe returned true'), 'subscribe diagnostics report force-reset reuse behavior');
 assert(pushClient.includes('existing browser subscription reused; force-reset not needed'), 'subscribe diagnostics report normal existing subscription reuse');
-assert(pushClient.includes('JSON.stringify({ subscription: normalizedSubscription })'), 'normalized subscription payload shape is preserved');
+assert(pushClient.includes('const requestBody = { subscription: normalizedSubscription };') && pushClient.includes('JSON.stringify(requestBody)'), 'normalized nested subscription payload shape is preserved');
 
 for (const forbiddenVisible of [
   'raw subscription JSON',
