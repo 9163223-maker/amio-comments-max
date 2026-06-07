@@ -22,6 +22,17 @@ const TIMEOUTS = {
   serverTest: 20000
 };
 
+
+const PUSH_SUBSCRIPTION_FIELDS = {
+  endpointField: 'endpoint',
+  expirationTime: 'expirationTime',
+  keys: 'keys',
+  p256dhField: 'p256dh',
+  authField: 'auth'
+};
+
+const INVALID_SUBSCRIPTION_RESET_INSTRUCTION = 'Сервер не принял текущую браузерную подписку. Нажмите «Сбросить push-подписку», затем снова «Включить уведомления».';
+
 const state = {
   registration: null,
   subscription: null,
@@ -132,6 +143,35 @@ function safeServerResult(result) {
     subscribeMode: result && result.subscribeMode ? result.subscribeMode : undefined,
     error: result && result.error ? result.error : undefined
   };
+}
+
+
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function normalizePushSubscription(subscription) {
+  const source = subscription && typeof subscription.toJSON === 'function' ? subscription.toJSON() : subscription;
+  const json = source && typeof source === 'object' ? source : {};
+  const keys = json[PUSH_SUBSCRIPTION_FIELDS.keys] && typeof json[PUSH_SUBSCRIPTION_FIELDS.keys] === 'object'
+    ? json[PUSH_SUBSCRIPTION_FIELDS.keys]
+    : {};
+  return {
+    [PUSH_SUBSCRIPTION_FIELDS.endpointField]: json[PUSH_SUBSCRIPTION_FIELDS.endpointField] || '',
+    [PUSH_SUBSCRIPTION_FIELDS.expirationTime]: hasOwn(json, PUSH_SUBSCRIPTION_FIELDS.expirationTime) ? json[PUSH_SUBSCRIPTION_FIELDS.expirationTime] : null,
+    [PUSH_SUBSCRIPTION_FIELDS.keys]: {
+      [PUSH_SUBSCRIPTION_FIELDS.p256dhField]: keys[PUSH_SUBSCRIPTION_FIELDS.p256dhField] || '',
+      [PUSH_SUBSCRIPTION_FIELDS.authField]: keys[PUSH_SUBSCRIPTION_FIELDS.authField] || ''
+    }
+  };
+}
+
+function isInvalidPushSubscriptionError(error) {
+  return Boolean(error && (error.message === 'invalid_push_subscription' || (error.data && error.data.error === 'invalid_push_subscription')));
+}
+
+function safeRecoveryError(error) {
+  return error && error.data ? safeServerResult(error.data) : null;
 }
 
 function urlBase64ToUint8Array(base64String) {
@@ -257,8 +297,9 @@ async function ensureActiveRegistration(registration) {
 }
 
 async function saveSubscription(subscription, status) {
+  const normalizedSubscription = normalizePushSubscription(subscription);
   if (state.join.joinMode) {
-    return withTimeout(fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify({ subscription }) }), TIMEOUTS.serverSave, 'server pairing save timed out');
+    return withTimeout(fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify({ subscription: normalizedSubscription }) }), TIMEOUTS.serverSave, 'server pairing save timed out');
   }
   const flags = status && status.pushSupported ? status.pushSupported : {};
   const token = $('subscribeToken').value.trim();
@@ -266,7 +307,7 @@ async function saveSubscription(subscription, status) {
     throw new Error('Нужен PUSH_SUBSCRIBE_TOKEN для ручного режима.');
   }
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  return withTimeout(fetchJson('/api/push/subscribe', { method: 'POST', headers, body: JSON.stringify(subscription) }), TIMEOUTS.serverSave, 'server subscribe save timed out');
+  return withTimeout(fetchJson('/api/push/subscribe', { method: 'POST', headers, body: JSON.stringify({ subscription: normalizedSubscription }) }), TIMEOUTS.serverSave, 'server subscribe save timed out');
 }
 
 async function enableNotifications() {
@@ -348,8 +389,43 @@ async function enableNotifications() {
     }
     await refreshStatus().catch(() => undefined);
   } catch (error) {
-    failStep(currentStep, error);
-    appendResult(error.message || 'failed', error.data || null);
+    if (isInvalidPushSubscriptionError(error)) {
+      failStep('sending subscription to server', new Error('invalid_push_subscription'));
+      setStep('server response', 'error', JSON.stringify(safeServerResult(error.data || { ok: false, error: 'invalid_push_subscription' })));
+      appendResult(INVALID_SUBSCRIPTION_RESET_INSTRUCTION, safeRecoveryError(error));
+    } else {
+      failStep(currentStep, error);
+      appendResult(error.message || 'failed', error.data || null);
+    }
+    await refreshStatus().catch(() => undefined);
+  }
+}
+
+
+async function resetPushSubscription() {
+  appendResult('reset started');
+  if (!('serviceWorker' in navigator)) {
+    appendResult('reset failed: service_worker_not_supported');
+    return;
+  }
+  try {
+    const registration = await withTimeout(navigator.serviceWorker.getRegistration('/push/'), TIMEOUTS.status, 'service worker registration lookup timed out');
+    if (!registration || !registration.pushManager) {
+      appendResult('push subscription reset: no subscription found');
+      await refreshStatus().catch(() => undefined);
+      return;
+    }
+    const subscription = await withTimeout(registration.pushManager.getSubscription(), TIMEOUTS.subscription, 'existing push subscription lookup timed out');
+    if (!subscription) {
+      appendResult('push subscription reset: no subscription found');
+      await refreshStatus().catch(() => undefined);
+      return;
+    }
+    const unsubscribed = await withTimeout(subscription.unsubscribe(), TIMEOUTS.subscription, 'push subscription reset timed out');
+    appendResult(unsubscribed ? 'push subscription reset' : 'push subscription reset failed');
+    await refreshStatus().catch(() => undefined);
+  } catch (error) {
+    appendResult(`push subscription reset failed: ${error && error.message ? error.message : 'reset_failed'}`);
     await refreshStatus().catch(() => undefined);
   }
 }
@@ -383,6 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateStandaloneDiagnostics();
   bindButton('enableBtn', enableNotifications);
   bindButton('testBtn', sendTest);
+  bindButton('resetSubscriptionBtn', resetPushSubscription);
   bindButton('statusBtn', async () => { const status = await refreshStatus(); appendResult('status refreshed', safeStatusSummary(status)); });
   refreshStatus().catch((error) => appendResult(error.message || 'status_failed'));
 });
