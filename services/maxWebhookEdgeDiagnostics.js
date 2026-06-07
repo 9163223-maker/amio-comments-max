@@ -44,26 +44,45 @@ function redactKnownSecrets(text) {
   return safe;
 }
 
-function sanitizeTextPreview(text) {
+function sanitizeString(text, max = 80) {
   let safe = redactKnownSecrets(String(text || ''));
   safe = safe.replace(/https?:\/\/[^\s]*\/push\/join\?t=[^\s]+/gi, '[push-join-url-redacted]');
   safe = safe.replace(/\/push\/join\?t=[^\s]+/gi, '/push/join?t=[redacted]');
   safe = safe.replace(/https?:\/\/clck\.ru\/[^\s]+/gi, '[clck-url-redacted]');
-  safe = safe.replace(/(?:endpoint|auth|p256dh)=([^\s&]+)/gi, (match) => match.replace(/=.*/, '=[redacted]'));
-  return truncate(safe.replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim(), 80);
+  safe = safe.replace(/([?&])(?:access_token|token|authorization|secret|password|api[_-]?key|endpoint|auth|p256dh|vapid|private[_-]?key)=([^\s&#]+)/gi, '$1[redacted-query-field]=[redacted]');
+  safe = safe.replace(/\b(?:access_token|token|authorization|secret|password|api[_-]?key|endpoint|auth|p256dh|vapid|private[_-]?key)=([^\s&]+)/gi, (match) => match.replace(/=.*/, '=[redacted]'));
+  return truncate(safe.replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim(), max);
+}
+
+function sanitizeTextPreview(text) {
+  return sanitizeString(text, 80);
+}
+
+function sanitizePath(value) {
+  const raw = clean(value);
+  if (!raw) return '';
+  const queryIndex = raw.indexOf('?');
+  const hashIndex = raw.indexOf('#');
+  let pathname = raw;
+  if (queryIndex >= 0 || hashIndex >= 0) {
+    const cutAt = Math.min(...[queryIndex, hashIndex].filter((index) => index >= 0));
+    pathname = raw.slice(0, cutAt);
+  }
+  const suffix = queryIndex >= 0 ? '?[redacted-query]' : '';
+  return sanitizeString(`${pathname}${suffix}`, 120);
 }
 
 function normalizedCommandText(text) {
   const normalized = clean(text).replace(/\s+/g, ' ').toLowerCase();
   if (!normalized) return '';
-  if (/^\/push(?:@[\w.:-]+)?(?:\s|$)/i.test(normalized)) return truncate(normalized.split(/\s+/)[0], 80);
+  if (/^\/push(?:@[\w.:-]+)?(?:\s|$)/i.test(normalized)) return sanitizeString(normalized.split(/\s+/)[0], 80);
   if (new Set(['пуш', 'уведомления', 'включить уведомления']).has(normalized)) return normalized;
   return '';
 }
 
 function topLevelKeys(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return [];
-  return Object.keys(body).slice(0, 20).map((key) => (SENSITIVE_KEY.test(key) ? '[redacted-key]' : truncate(key, 60)));
+  return Object.keys(body).slice(0, 20).map((key) => (SENSITIVE_KEY.test(key) ? '[redacted-key]' : sanitizeString(key, 60)));
 }
 
 function bodyType(body) {
@@ -131,13 +150,13 @@ function safeEvent(input = {}) {
 
   return {
     at: input.at || new Date().toISOString(),
-    method: truncate(clean(input.method || req.method), 12),
-    path: truncate(clean(input.path || req.originalUrl || req.path || req.url), 120),
-    contentType: truncate(clean(input.contentType || (typeof req.get === 'function' ? req.get('content-type') : '')), 80),
+    method: sanitizeString(input.method || req.method, 12),
+    path: sanitizePath(input.path || req.originalUrl || req.path || req.url),
+    contentType: sanitizeString(input.contentType || (typeof req.get === 'function' ? req.get('content-type') : ''), 80),
     bodyType: bodyType(body),
     topLevelKeys: topLevelKeys(body),
-    updateType: truncate(firstString(body && (body.update_type || body.updateType || body.type)), 80),
-    action: truncate(pickAction(body, callback), 80),
+    updateType: sanitizeString(firstString(body && (body.update_type || body.updateType || body.type)), 80),
+    action: sanitizeString(pickAction(body, callback), 80),
     hasMessage: Boolean(message),
     hasCallback: Boolean(callback),
     hasText: Boolean(clean(text)),
@@ -154,8 +173,8 @@ function safeEvent(input = {}) {
     chatTitlePreview: sanitizeTextPreview(chatTitle),
     routeStage: 'http_webhook_edge',
     handedToBot: Boolean(input.handedToBot),
-    botResultKind: truncate(clean(input.botResultKind), 80),
-    errorCode: truncate(clean(input.errorCode), 80)
+    botResultKind: sanitizeString(input.botResultKind, 80),
+    errorCode: sanitizeString(input.errorCode, 80)
   };
 }
 
@@ -170,8 +189,8 @@ function record(input = {}) {
 function update(event, patch = {}) {
   if (!event || !events.includes(event)) return null;
   if (Object.prototype.hasOwnProperty.call(patch, 'handedToBot')) event.handedToBot = Boolean(patch.handedToBot);
-  if (Object.prototype.hasOwnProperty.call(patch, 'botResultKind')) event.botResultKind = truncate(clean(patch.botResultKind), 80);
-  if (Object.prototype.hasOwnProperty.call(patch, 'errorCode')) event.errorCode = truncate(clean(patch.errorCode), 80);
+  if (Object.prototype.hasOwnProperty.call(patch, 'botResultKind')) event.botResultKind = sanitizeString(patch.botResultKind, 80);
+  if (Object.prototype.hasOwnProperty.call(patch, 'errorCode')) event.errorCode = sanitizeString(patch.errorCode, 80);
   return publicEvent(event);
 }
 
@@ -243,5 +262,7 @@ module.exports = {
   summary,
   renderHtml,
   sanitizeTextPreview,
+  sanitizeString,
+  sanitizePath,
   normalizedCommandText
 };

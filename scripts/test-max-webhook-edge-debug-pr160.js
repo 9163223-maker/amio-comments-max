@@ -35,10 +35,17 @@ function assertSafeNoSecrets(value, secrets) {
     assert(!haystack.includes(secret), `diagnostics must not expose secret value: ${secret}`);
   }
   assert(!haystack.includes('/push/join?t=personal-token-secret'), 'diagnostics redact personal /push/join URL');
+  assert(!haystack.includes('/push/join?t=personal-secret-token'), 'diagnostics redact audit probe /push/join URL');
+  assert(!haystack.includes('personal-secret-token'), 'diagnostics redact audit probe /push/join token');
   assert(!haystack.includes('https://clck.ru/personalSecret'), 'diagnostics redact clck.ru URL');
+  assert(!haystack.includes('https://clck.ru/actionPersonalSecret'), 'diagnostics redact action clck.ru URL');
   assert(!haystack.includes('endpoint=https://push.example/secret'), 'diagnostics redact endpoint value');
+  assert(!haystack.includes('endpoint=https://push.example/action-secret'), 'diagnostics redact action endpoint value');
   assert(!haystack.includes('auth=auth-secret'), 'diagnostics redact auth value');
+  assert(!haystack.includes('auth=action-auth-secret'), 'diagnostics redact action auth value');
   assert(!haystack.includes('p256dh=p256dh-secret'), 'diagnostics redact p256dh value');
+  assert(!haystack.includes('p256dh=action-p256dh-secret'), 'diagnostics redact action p256dh value');
+  assert(!haystack.includes('access_token=secret-token-1234'), 'diagnostics redact raw access_token query');
 }
 
 async function waitForServer(child, port) {
@@ -110,6 +117,41 @@ async function httpJson(port, target, options = {}) {
     assert.strictEqual(event.senderUserIdLast4, '7890', 'sender user id is masked to last4 only');
     assert.strictEqual(event.chatIdLast4, '4321', 'chat id is masked to last4 only');
     assert(event.textPreview.length <= 80, 'long text preview is truncated');
+
+    process.env.BOT_TOKEN = 'secret-token-1234';
+    event = diagnostics.record({
+      method: 'POST',
+      path: '/webhook/max?access_token=secret-token-1234',
+      body: {
+        update_type: 'message_callback',
+        callback: {
+          payload: 'https://example.test/push/join?t=personal-secret-token'
+        }
+      }
+    });
+    assert.strictEqual(event.path, '/webhook/max?[redacted-query]', 'path query string is redacted in summary event');
+    assert(!event.action.includes('/push/join?t=personal-secret-token'), 'action redacts personal push join URLs');
+    assert(!event.action.includes('personal-secret-token'), 'action redacts personal push join token');
+    let snapshot = JSON.stringify(diagnostics.summary());
+    assert(!snapshot.includes('secret-token-1234'), 'audit probe summary redacts env secret value');
+    assert(!snapshot.includes('access_token=secret-token-1234'), 'audit probe summary redacts access_token query');
+    assert(!snapshot.includes('/push/join?t=personal-secret-token'), 'audit probe summary redacts push/join URL');
+    assert(!snapshot.includes('personal-secret-token'), 'audit probe summary redacts personal push token');
+
+    event = diagnostics.record({
+      method: 'POST',
+      path: '/webhook/max?endpoint=https://push.example/path&auth=query-auth-secret&p256dh=query-p256dh-secret',
+      body: {
+        update_type: 'message_callback',
+        callback: {
+          payload: `https://clck.ru/actionPersonalSecret secret-token-1234 endpoint=https://push.example/action-secret auth=action-auth-secret p256dh=action-p256dh-secret`
+        }
+      }
+    });
+    assert.strictEqual(event.path, '/webhook/max?[redacted-query]', 'secret query fields are redacted from path');
+    assertSafeNoSecrets(diagnostics.summary(), ['secret-token-1234', 'query-auth-secret', 'query-p256dh-secret']);
+    assertSafeNoSecrets(diagnostics.renderHtml(diagnostics.summary()), ['secret-token-1234', 'query-auth-secret', 'query-p256dh-secret']);
+
     assertSafeNoSecrets(diagnostics.summary(), [
       'BOT_TOKEN_PR160_SECRET',
       'MAX_BOT_TOKEN_PR160_SECRET',
@@ -147,7 +189,7 @@ async function httpJson(port, target, options = {}) {
         ...process.env,
         PORT: String(port),
         ADMIN_TOKEN: 'ADMIN_TOKEN_PR160_SECRET',
-        BOT_TOKEN: '',
+        BOT_TOKEN: 'secret-token-1234',
         MAX_BOT_TOKEN: '',
         WEBHOOK_PATH: '/webhook/max',
         DEBUG_EXPORT_ALLOW_PUBLIC: '0'
@@ -167,16 +209,29 @@ async function httpJson(port, target, options = {}) {
       assert.strictEqual(webhookRes.status, 200, 'simulated webhook preserves handler 200 return path');
       assert.strictEqual(webhookRes.body && webhookRes.body.reason, 'no_message', 'simulated webhook body comes from bot handler unchanged');
 
+      const redactionWebhookRes = await httpJson(port, '/webhook/max?access_token=secret-token-1234&auth=debug-auth-secret&p256dh=debug-p256dh-secret', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          update_type: 'message_callback',
+          callback: {
+            payload: 'https://example.test/push/join?t=personal-secret-token https://clck.ru/actionPersonalSecret secret-token-1234 endpoint=https://push.example/action-secret auth=action-auth-secret p256dh=action-p256dh-secret'
+          }
+        })
+      });
+      assert.strictEqual(redactionWebhookRes.status, 200, 'redaction probe preserves handler return path');
+
       const jsonRes = await httpJson(port, '/debug/webhook-edge.json?token=ADMIN_TOKEN_PR160_SECRET');
       assert.strictEqual(jsonRes.status, 200, 'JSON endpoint returns 200');
       assert.strictEqual(jsonRes.body.ok, true, 'JSON endpoint returns ok');
       assert(jsonRes.body.maxWebhookEdgeDiagnostics.count >= 1, 'JSON endpoint exposes safe diagnostics');
       assert(jsonRes.body.maxWebhookEdgeDiagnostics.latest.some((item) => item.updateType === 'edge_probe_no_message' && item.handedToBot === true), 'JSON endpoint includes simulated edge request handed to bot');
+      assertSafeNoSecrets(jsonRes.body, ['secret-token-1234', 'debug-auth-secret', 'debug-p256dh-secret', 'personal-secret-token']);
 
       const htmlRes = await httpJson(port, '/debug/webhook-edge?token=ADMIN_TOKEN_PR160_SECRET');
       assert.strictEqual(htmlRes.status, 200, 'HTML endpoint returns 200');
       assert(htmlRes.text.includes('MAX webhook edge debug'), 'HTML endpoint renders safe page');
-      assertSafeNoSecrets(htmlRes.text, ['ADMIN_TOKEN_PR160_SECRET']);
+      assertSafeNoSecrets(htmlRes.text, ['ADMIN_TOKEN_PR160_SECRET', 'secret-token-1234', 'debug-auth-secret', 'debug-p256dh-secret', 'personal-secret-token']);
     } finally {
       child.kill('SIGTERM');
     }
