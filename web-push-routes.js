@@ -5,6 +5,8 @@ const storage = require('./services/webPushStorage');
 const pairing = require('./services/pushPairingService');
 const dispatch = require('./services/pushDispatchService');
 const confirmation = require('./services/pushConfirmationService');
+const groupPush = require('./services/groupPushOnboardingService');
+const { sendMessage } = require('./services/maxApi');
 
 let lastTestResult = null;
 let lastSendResult = null;
@@ -169,7 +171,7 @@ function getCookie(req, name) {
 }
 
 function publicBaseUrl(req) {
-  const configured = clean(process.env.ADMINKIT_PUBLIC_BASE_URL || process.env.APP_BASE_URL);
+  const configured = clean(process.env.PUBLIC_BASE_URL || process.env.ADMINKIT_PUBLIC_BASE_URL || process.env.APP_BASE_URL);
   if (configured) return configured.replace(/\/+$/, '');
   return `${req.protocol}://${req.get('host')}`;
 }
@@ -435,6 +437,25 @@ function install(app) {
     }
   });
 
+  app.post('/internal/max/group-push-invite', requireAdminToken, async (req, res) => {
+    const botToken = getMaxBotToken();
+    if (!botToken) return res.status(503).json({ ok: false, error: 'max_bot_token_not_configured' });
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const chatId = clean(body.chatId);
+    if (!isSafeChatId(chatId)) return res.status(400).json({ ok: false, error: 'invalid_chat_id' });
+    try {
+      await sendMessage({
+        botToken,
+        chatId,
+        text: groupPush.buildGroupInviteText(body.title),
+        attachments: groupPush.buildGroupInviteKeyboard()
+      });
+      return res.json({ ok: true, chatId, sent: true });
+    } catch (error) {
+      return sendSafeMaxError(res, error, 'max_group_push_invite_failed');
+    }
+  });
+
   app.get('/internal/push/status', requireAdminToken, async (req, res) => {
     res.json(await buildStatus({ admin: true }));
   });
@@ -543,7 +564,7 @@ function install(app) {
     res.status(result.ok ? 200 : 503).json(result);
   });
 
-  return { ok: true, routes: ['/push', '/push/admin', '/push/join', '/push/manifest.json', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/pair', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted', '/internal/max/chats', '/internal/max/chat-members'] };
+  return { ok: true, routes: ['/push', '/push/admin', '/push/join', '/push/manifest.json', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/pair', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted', '/internal/max/chats', '/internal/max/chat-members', '/internal/max/group-push-invite'] };
 }
 
 module.exports = {

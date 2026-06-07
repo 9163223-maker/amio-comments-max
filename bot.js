@@ -34,6 +34,7 @@ const liveIdentity = require("./services/liveIdentityService");
 const channelTitleHelper = require("./human-channel-title-helper");
 const channelPostPicker = require("./channel-post-picker-core");
 const pushConfirmation = require("./services/pushConfirmationService");
+const groupPushOnboarding = require("./services/groupPushOnboardingService");
 const buttonsFlow = require("./buttons-flow-cc8-clean");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
 const {
@@ -740,6 +741,44 @@ function getRecipientChatId(message) {
       message?.recipient?.id ||
       message?.chat_id ||
       message?.chat?.id ||
+      ""
+  ).trim();
+}
+
+function getCallbackChatId(update, callback, message) {
+  return String(
+    callback?.message?.recipient?.chat_id ||
+      callback?.message?.recipient?.id ||
+      callback?.message?.chat_id ||
+      callback?.message?.chat?.id ||
+      callback?.chat?.chat_id ||
+      callback?.chat?.id ||
+      callback?.chat_id ||
+      update?.chat?.chat_id ||
+      update?.chat?.id ||
+      update?.data?.chat?.chat_id ||
+      update?.data?.chat?.id ||
+      getRecipientChatId(message) ||
+      findFirstDeepValue(callback || {}, ['chat_id']) ||
+      findFirstDeepValue(message || {}, ['chat_id']) ||
+      ""
+  ).trim();
+}
+
+function getCallbackChatTitle(update, callback, message) {
+  return String(
+    callback?.message?.recipient?.title ||
+      callback?.message?.recipient?.name ||
+      callback?.message?.chat?.title ||
+      callback?.message?.chat?.name ||
+      callback?.chat?.title ||
+      callback?.chat?.name ||
+      update?.chat?.title ||
+      update?.chat?.name ||
+      message?.recipient?.title ||
+      message?.recipient?.name ||
+      message?.chat?.title ||
+      message?.chat?.name ||
       ""
   ).trim();
 }
@@ -4494,6 +4533,39 @@ async function handleMessageCallback(update, config) {
     userName,
     payload
   });
+
+  if (groupPushOnboarding.isGroupPushEnablePayload(payload)) {
+    const chatId = getCallbackChatId(update, callback, message);
+    const chatTitle = getCallbackChatTitle(update, callback, message);
+    if (!userId) {
+      await answerCallback({ botToken: config.botToken, callbackId, notification: 'Не удалось определить пользователя MAX. Откройте бота в личке и нажмите кнопку ещё раз.' });
+      return { ok: false, action: groupPushOnboarding.ACTION_GROUP_PUSH_ENABLE, error: 'callback_user_id_missing' };
+    }
+    if (!chatId) {
+      await answerCallback({ botToken: config.botToken, callbackId, notification: 'Не удалось определить чат MAX. Нажмите кнопку из сообщения в группе.' });
+      return { ok: false, action: groupPushOnboarding.ACTION_GROUP_PUSH_ENABLE, error: 'callback_chat_id_missing' };
+    }
+    let joinUrl = '';
+    try {
+      joinUrl = groupPushOnboarding.createPersonalJoinUrl({ maxUserId: userId, chatId, ttlMinutes: 60, detectedBaseUrl: config.appBaseUrl });
+    } catch (error) {
+      await answerCallback({ botToken: config.botToken, callbackId, notification: 'Не удалось создать ссылку подключения. Попробуйте позже.' });
+      return { ok: false, action: groupPushOnboarding.ACTION_GROUP_PUSH_ENABLE, error: error?.code || error?.message || 'pairing_link_failed' };
+    }
+    try {
+      await sendMessage({
+        botToken: config.botToken,
+        userId,
+        text: groupPushOnboarding.buildPrivateJoinMessage({ chatTitle, joinUrl }),
+        attachments: groupPushOnboarding.buildPrivateJoinKeyboard(joinUrl)
+      });
+      await answerCallback({ botToken: config.botToken, callbackId, notification: 'Ссылка отправлена в личные сообщения.' });
+      return { ok: true, action: groupPushOnboarding.ACTION_GROUP_PUSH_ENABLE, sentPrivate: true, chatId, userId };
+    } catch (error) {
+      await answerCallback({ botToken: config.botToken, callbackId, notification: 'Не удалось отправить ссылку в личные сообщения. Откройте бота в личке и нажмите кнопку ещё раз.' });
+      return { ok: false, action: groupPushOnboarding.ACTION_GROUP_PUSH_ENABLE, error: 'private_dm_failed', chatId, userId };
+    }
+  }
 
   if (payload?.action === pushConfirmation.ACTION) {
     const result = await pushConfirmation.handleCallback({ callbackId, confirmingUserId: userId, payload, botToken: config.botToken });

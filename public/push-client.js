@@ -49,7 +49,8 @@ const state = {
   forceNewSubscriptionAfterInvalid: false,
   currentSteps: new Map(),
   join: window.__ADMINKIT_PUSH_JOIN__ || { joinMode: false },
-  adminMode: Boolean(window.__ADMINKIT_PUSH_JOIN__ && window.__ADMINKIT_PUSH_JOIN__.adminMode)
+  adminMode: Boolean(window.__ADMINKIT_PUSH_JOIN__ && window.__ADMINKIT_PUSH_JOIN__.adminMode),
+  selectedMaxChat: null
 };
 
 function $(id) { return document.getElementById(id); }
@@ -640,6 +641,17 @@ function copyValue(value, label) {
   }
 }
 
+function selectMaxChat(chat) {
+  const chatKey = 'chat' + 'Id';
+  const selectedId = chat && chat[chatKey] ? String(chat[chatKey]) : '';
+  state.selectedMaxChat = selectedId ? { id: selectedId, title: String(chat.title || 'без названия'), type: String(chat.type || chat.rawKind || 'unknown'), participantsCount: chat.participantsCount || null } : null;
+  const input = $('maxChatKey');
+  if (input) input.value = selectedId;
+  const label = state.selectedMaxChat ? `${state.selectedMaxChat.title} (${state.selectedMaxChat.id})` : '—';
+  setText('selectedMaxChatDiagnostic', `Выбран чат: ${label}`);
+  setMaxDiagnosticsResult('MAX chat selected', state.selectedMaxChat || { selected: false });
+}
+
 function renderMaxChats(chats) {
   const node = $('maxChatsOutput');
   if (!node) return;
@@ -649,16 +661,11 @@ function renderMaxChats(chats) {
     const row = document.createElement('p');
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = 'copy MAX chat ID';
-    button.addEventListener('click', () => {
-      const input = $('maxChatKey');
-      const chatKey = 'chat' + 'Id';
-      if (input) input.value = chat[chatKey] || '';
-      copyValue(chat[chatKey], 'MAX chat ID');
-    });
+    button.textContent = 'Выбрать';
+    button.addEventListener('click', () => selectMaxChat(chat));
     const text = document.createElement('span');
     const chatKey = 'chat' + 'Id';
-    text.textContent = ` ${chat[chatKey] || '—'} — ${chat.title || 'без названия'} (${chat.type || chat.rawKind || 'unknown'}, participants=${chat.participantsCount || '—'})`;
+    text.textContent = ` ${chat.title || 'без названия'} — type=${chat.type || chat.rawKind || 'unknown'}, participants=${chat.participantsCount || '—'}, ${chat[chatKey] || '—'}`;
     row.appendChild(button);
     row.appendChild(text);
     list.appendChild(row);
@@ -702,6 +709,20 @@ async function fetchMaxMembers() {
   setMaxDiagnosticsResult('MAX chat members loaded', data);
 }
 
+async function publishMaxGroupPushInvite() {
+  const input = $('maxChatKey');
+  const selected = state.selectedMaxChat || {};
+  const selectedId = selected.id || (input ? input.value.trim() : '');
+  if (!selectedId) throw new Error('Выберите чат из списка MAX.');
+  const chatParam = 'chat' + 'Id';
+  const data = await fetchJsonUnsafeAdmin('/internal/max/group-push-invite', {
+    method: 'POST',
+    headers: adminAuthHeaders(),
+    body: JSON.stringify({ [chatParam]: selectedId, title: selected.title || '' })
+  });
+  setMaxDiagnosticsResult('MAX group push invite published', data);
+}
+
 
 function bindButton(id, handler) {
   const button = $(id);
@@ -734,6 +755,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   bindButton('statusBtn', async () => { const status = await refreshStatus(); appendResult('status refreshed', safeStatusSummary(status)); });
   bindButton('maxChatsBtn', fetchMaxChats);
+  bindButton('maxPublishInviteBtn', publishMaxGroupPushInvite);
   bindButton('maxMembersBtn', fetchMaxMembers);
   refreshStatus().catch((error) => appendResult(error.message || 'status_failed'));
 });
