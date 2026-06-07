@@ -24,8 +24,10 @@ function buildGroupInviteText(title = '') {
     '🔔 Хотите получать уведомления этого чата на iPhone?',
     safeTitle ? `Чат: «${safeTitle}»` : '',
     '',
-    'Нажмите кнопку ниже — бот отправит персональную ссылку подключения в личные сообщения.'
-  ].filter((line, index) => line || index === 2).join('\n').trim();
+    'Нажмите кнопку ниже — бот отправит персональную ссылку подключения в личные сообщения.',
+    '',
+    'Если кнопка не сработала, отправьте в этот чат команду: /push'
+  ].filter((line, index) => line || index === 2 || index === 4).join('\n').trim();
 }
 
 function buildGroupInviteKeyboard() {
@@ -33,12 +35,19 @@ function buildGroupInviteKeyboard() {
     type: 'inline_keyboard',
     payload: {
       buttons: [[{
-        type: 'callback',
+        type: 'message',
         text: 'Включить уведомления',
-        payload: ACTION_GROUP_PUSH_ENABLE
+        payload: '/push'
       }]]
     }
   }];
+}
+
+function isGroupPushCommandText(text) {
+  const normalized = clean(text).replace(/\s+/g, ' ').toLowerCase();
+  if (!normalized) return false;
+  if (/^\/push(?:@[\w.:-]+)?(?:\s|$)/i.test(normalized)) return true;
+  return new Set(['пуш', 'уведомления', 'включить уведомления']).has(normalized);
 }
 
 function isGroupPushEnablePayload(payload) {
@@ -91,6 +100,7 @@ module.exports = {
   DEFAULT_TTL_MINUTES,
   buildGroupInviteText,
   buildGroupInviteKeyboard,
+  isGroupPushCommandText,
   isGroupPushEnablePayload,
   createPersonalJoinUrl,
   createPersonalJoinLinkForMessage,

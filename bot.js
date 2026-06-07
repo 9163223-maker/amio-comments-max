@@ -745,6 +745,17 @@ function getRecipientChatId(message) {
   ).trim();
 }
 
+function getRecipientChatTitle(message) {
+  return String(
+    message?.recipient?.title ||
+      message?.recipient?.name ||
+      message?.recipient?.chat_title ||
+      message?.chat?.title ||
+      message?.chat?.name ||
+      ""
+  ).trim();
+}
+
 function getCallbackChatId(update, callback, message) {
   return String(
     callback?.message?.recipient?.chat_id ||
@@ -808,6 +819,75 @@ function getMessageText(message) {
     message?.message?.caption ||
     ""
   );
+}
+
+async function handleGroupPushCommandMessage(message, config) {
+  const text = getMessageText(message);
+  if (!groupPushOnboarding.isGroupPushCommandText(text)) return false;
+
+  const userId = getSenderUserId(message);
+  const chatId = getRecipientChatId(message);
+  const chatTitle = getRecipientChatTitle(message);
+
+  if (!userId) {
+    if (chatId) {
+      await sendMessage({
+        botToken: config.botToken,
+        chatId,
+        text: 'Не удалось определить пользователя MAX. Откройте бота в личке и попробуйте ещё раз.'
+      });
+    }
+    return { ok: false, action: 'group_push_message_command', error: 'message_user_id_missing', chatId };
+  }
+
+  if (!chatId) {
+    await sendMessage({
+      botToken: config.botToken,
+      userId,
+      text: 'Не удалось определить чат MAX. Отправьте команду /push прямо в нужном чате.'
+    });
+    return { ok: false, action: 'group_push_message_command', error: 'message_chat_id_missing', userId };
+  }
+
+  let joinLink = null;
+  try {
+    joinLink = await groupPushOnboarding.createPersonalJoinLinkForMessage({
+      maxUserId: userId,
+      chatId,
+      ttlMinutes: 60,
+      detectedBaseUrl: config.appBaseUrl
+    });
+  } catch (error) {
+    await sendMessage({
+      botToken: config.botToken,
+      chatId,
+      text: 'Не удалось создать ссылку подключения. Попробуйте позже.'
+    });
+    return { ok: false, action: 'group_push_message_command', error: error?.code || error?.message || 'pairing_link_failed', chatId, userId };
+  }
+
+  try {
+    await sendMessage({
+      botToken: config.botToken,
+      userId,
+      text: groupPushOnboarding.buildPrivateJoinMessage({ chatTitle, joinUrl: joinLink.displayUrl, shortUrlError: joinLink.shortUrlError }),
+      attachments: groupPushOnboarding.buildPrivateJoinKeyboard(joinLink.displayUrl)
+    });
+  } catch (error) {
+    await sendMessage({
+      botToken: config.botToken,
+      chatId,
+      text: 'Не удалось отправить ссылку в личные сообщения. Откройте бота в личке и попробуйте ещё раз.'
+    });
+    return { ok: false, action: 'group_push_message_command', error: 'private_dm_failed', chatId, userId };
+  }
+
+  await sendMessage({
+    botToken: config.botToken,
+    chatId,
+    text: 'Отправил ссылку подключения в личные сообщения.'
+  });
+  return { ok: true, action: 'group_push_message_command', sentPrivate: true, chatId, userId };
 }
 
 function getMessageId(message) {
@@ -5635,6 +5715,11 @@ async function handleWebhook(req, res, config) {
     if (senderUserId) rememberAdminUserMessageIds(senderUserId, getMessageIdCandidates(message));
     const text = getMessageText(message).trim();
     const lowered = text.toLowerCase();
+
+    const groupPushCommandResult = await handleGroupPushCommandMessage(message, config);
+    if (groupPushCommandResult) {
+      return res.status(200).json({ ok: true, action: 'group_push_message_command', result: groupPushCommandResult });
+    }
     if (/^\/?(?:debug_live|live)(?:\s|$)/i.test(text)) {
       const handledLiveDiagnostic = await handleLiveDiagnosticCommand({ config, message, userId: senderUserId, text });
       if (handledLiveDiagnostic) {
