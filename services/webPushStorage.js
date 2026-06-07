@@ -8,11 +8,16 @@ const { Pool } = require('pg');
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const DATA_FILE = path.join(DATA_DIR, 'web-push-subscriptions.json');
 const TABLE_NAME = 'adminkit_web_push_subscriptions';
+const BINDINGS_TABLE_NAME = 'adminkit_web_push_chat_bindings';
 const DEVICE_STATUSES = new Set(['pending', 'active', 'revoked', 'disabled']);
 
 let pool = null;
 
 function clean(value) { return String(value || '').trim(); }
+function nowIso() { return new Date().toISOString(); }
+function bindingKey({ maxUserId, chatId, deviceId, endpointHash } = {}) {
+  return crypto.createHash('sha256').update([clean(maxUserId), clean(chatId), clean(deviceId) || clean(endpointHash)].join(':')).digest('hex');
+}
 
 function connectionString() {
   return clean(process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_URI || process.env.PG_URL || process.env.PGURI || process.env.NF_POSTGRES_URI || process.env.NF_POSTGRES_URL || process.env.DB_URL || process.env.DB_CONNECTION_STRING);
@@ -103,8 +108,8 @@ function publicSummary(row) {
 function readFileStore() {
   try {
     const parsed = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-    return { subscriptions: Array.isArray(parsed.subscriptions) ? parsed.subscriptions : [] };
-  } catch { return { subscriptions: [] }; }
+    return { subscriptions: Array.isArray(parsed.subscriptions) ? parsed.subscriptions : [], chatBindings: Array.isArray(parsed.chatBindings) ? parsed.chatBindings : [] };
+  } catch { return { subscriptions: [], chatBindings: [] }; }
 }
 
 function writeFileStore(payload) {
@@ -139,6 +144,35 @@ async function ensureTable(client) {
   for (const [name, definition] of columns) {
     await client.query(`ALTER TABLE ${TABLE_NAME} ADD COLUMN IF NOT EXISTS ${name} ${definition}`);
   }
+  await client.query(`CREATE TABLE IF NOT EXISTS ${BINDINGS_TABLE_NAME} (
+    id TEXT PRIMARY KEY,
+    device_id TEXT NOT NULL DEFAULT '',
+    endpoint_hash TEXT NOT NULL DEFAULT '',
+    max_user_id TEXT NOT NULL DEFAULT '',
+    chat_id TEXT NOT NULL DEFAULT '',
+    channel_id TEXT NOT NULL DEFAULT '',
+    chat_title TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await client.query(`CREATE INDEX IF NOT EXISTS idx_${BINDINGS_TABLE_NAME}_chat_active ON ${BINDINGS_TABLE_NAME}(chat_id, status)`);
+  await client.query(`CREATE INDEX IF NOT EXISTS idx_${BINDINGS_TABLE_NAME}_user_active ON ${BINDINGS_TABLE_NAME}(max_user_id, status)`);
+}
+
+function normalizeBindingRow(row) {
+  return {
+    id: clean(row.id),
+    deviceId: clean(row.device_id || row.deviceId),
+    endpointHash: clean(row.endpoint_hash || row.endpointHash),
+    maxUserId: clean(row.max_user_id || row.maxUserId),
+    chatId: clean(row.chat_id || row.chatId),
+    channelId: clean(row.channel_id || row.channelId),
+    chatTitle: clean(row.chat_title || row.chatTitle),
+    status: clean(row.status) || 'active',
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : clean(row.createdAt),
+    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : clean(row.updatedAt)
+  };
 }
 
 function normalizeRow(row) {
@@ -188,7 +222,7 @@ async function saveSubscription(subscription, meta = {}) {
   const existing = list.find((item) => item && item.id === id);
   if (existing) Object.assign(existing, { subscription: cleanSubscription, userAgent, disabled: false, updatedAt: now, lastError: '', endpointHash, status: 'active' });
   else list.push({ id, subscription: cleanSubscription, userAgent, disabled: false, createdAt: now, updatedAt: now, lastSuccessAt: '', lastError: '', endpointHash, status: 'active' });
-  writeFileStore({ subscriptions: list });
+  writeFileStore({ ...payload, subscriptions: list });
   return { ok: true, id, endpointHash, backend: 'file' };
 }
 
@@ -217,6 +251,7 @@ async function savePairedDevice(subscription, meta = {}) {
          ON CONFLICT (id) DO UPDATE SET subscription = EXCLUDED.subscription, user_agent = EXCLUDED.user_agent, disabled = EXCLUDED.disabled, updated_at = NOW(), last_seen_at = NOW(), last_error = '', max_user_id = EXCLUDED.max_user_id, chat_id = EXCLUDED.chat_id, channel_id = EXCLUDED.channel_id, device_id = EXCLUDED.device_id, endpoint_hash = EXCLUDED.endpoint_hash, status = EXCLUDED.status, confirmed_at = CASE WHEN EXCLUDED.status = 'active' THEN COALESCE(${TABLE_NAME}.confirmed_at, NOW()) ELSE ${TABLE_NAME}.confirmed_at END`,
         [id, JSON.stringify(cleanSubscription), userAgent, status !== 'active', maxUserId, chatId, clean(meta.channelId), deviceId, endpointHash, status]
       );
+      if (status === 'active') await upsertChatBindingForDevice({ maxUserId, chatId, channelId: clean(meta.channelId), chatTitle: clean(meta.chatTitle), deviceId, endpointHash });
       return { ok: true, id, deviceId, endpointHash, status, backend: 'postgres' };
     } finally { client.release(); }
   }
@@ -228,7 +263,8 @@ async function savePairedDevice(subscription, meta = {}) {
   if (status === 'active') row.confirmedAt = now;
   if (existing) Object.assign(existing, row);
   else list.push({ ...row, createdAt: now, lastSuccessAt: '', lastSendAt: '' });
-  writeFileStore({ subscriptions: list });
+  writeFileStore({ ...payload, subscriptions: list });
+  if (status === 'active') await upsertChatBindingForDevice({ maxUserId, chatId, channelId: clean(meta.channelId), chatTitle: clean(meta.chatTitle), deviceId, endpointHash });
   return { ok: true, id, deviceId, endpointHash, status, backend: 'file' };
 }
 
@@ -249,7 +285,9 @@ async function listDevicesForUser({ maxUserId, chatId, includePending = false } 
   const statuses = includePending ? ['active', 'pending'] : ['active'];
   const targetUser = clean(maxUserId);
   const targetChat = clean(chatId);
-  if (!targetUser || !targetChat) return [];
+  if (!targetUser) return [];
+  if (targetChat && !includePending) return listActiveDevicesForChatAndUser({ chatId: targetChat, maxUserId: targetUser });
+  if (!targetChat) return includePending ? [] : listActiveDevicesForUser(targetUser);
   const p = getPool();
   if (p) {
     const client = await p.connect();
@@ -290,6 +328,18 @@ async function markDeviceActive(deviceId, meta = {}) {
       if (clean(meta.chatId)) { params.push(clean(meta.chatId)); guard += ` AND chat_id = $${params.length}`; }
       if (clean(meta.requireStatus)) { params.push(clean(meta.requireStatus)); guard += ` AND status = $${params.length}`; }
       const result = await client.query(`UPDATE ${TABLE_NAME} SET status = 'active', disabled = FALSE, confirmed_at = NOW(), updated_at = NOW() WHERE device_id = $1${guard}`, params);
+      if (result.rowCount > 0) {
+        const row = await client.query(`SELECT * FROM ${TABLE_NAME} WHERE device_id = $1 LIMIT 1`, [safeDeviceId]);
+        const device = row.rows[0] ? normalizeRow(row.rows[0]) : null;
+        if (device && device.maxUserId && device.chatId) {
+          await client.query(
+            `INSERT INTO ${BINDINGS_TABLE_NAME} (id, device_id, endpoint_hash, max_user_id, chat_id, channel_id, chat_title, status, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, '', 'active', NOW(), NOW())
+             ON CONFLICT (id) DO UPDATE SET status = 'active', updated_at = NOW()`,
+            [bindingKey({ maxUserId: device.maxUserId, chatId: device.chatId, deviceId: device.deviceId, endpointHash: device.endpointHash }), device.deviceId, device.endpointHash, device.maxUserId, device.chatId, device.channelId]
+          );
+        }
+      }
       return { ok: result.rowCount > 0 };
     } finally { client.release(); }
   }
@@ -299,7 +349,111 @@ async function markDeviceActive(deviceId, meta = {}) {
   const original = payload.subscriptions.find((entry) => entry && entry.id === item.id);
   Object.assign(original, { status: 'active', disabled: false, confirmedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
   writeFileStore(payload);
+  await upsertChatBindingForDevice({ maxUserId: item.maxUserId, chatId: item.chatId, channelId: item.channelId, deviceId: item.deviceId, endpointHash: item.endpointHash });
   return { ok: true };
+}
+
+
+async function upsertChatBindingForDevice({ maxUserId, chatId, channelId = '', chatTitle = '', deviceId = '', endpointHash = '' } = {}) {
+  const safeUser = clean(maxUserId);
+  const safeChat = clean(chatId);
+  const safeDevice = clean(deviceId);
+  const safeEndpoint = clean(endpointHash);
+  if (!safeUser || !safeChat || (!safeDevice && !safeEndpoint)) return { ok: false, error: 'push_binding_identity_required' };
+  const id = bindingKey({ maxUserId: safeUser, chatId: safeChat, deviceId: safeDevice, endpointHash: safeEndpoint });
+  const p = getPool();
+  if (p) {
+    const client = await p.connect();
+    try {
+      await ensureTable(client);
+      await client.query(
+        `INSERT INTO ${BINDINGS_TABLE_NAME} (id, device_id, endpoint_hash, max_user_id, chat_id, channel_id, chat_title, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', NOW(), NOW())
+         ON CONFLICT (id) DO UPDATE SET channel_id = EXCLUDED.channel_id, chat_title = COALESCE(NULLIF(EXCLUDED.chat_title, ''), ${BINDINGS_TABLE_NAME}.chat_title), status = 'active', updated_at = NOW()`,
+        [id, safeDevice, safeEndpoint, safeUser, safeChat, clean(channelId), clean(chatTitle).slice(0, 180)]
+      );
+      return { ok: true, id, created: true };
+    } finally { client.release(); }
+  }
+  const payload = readFileStore();
+  const list = payload.chatBindings || [];
+  const existing = list.find((item) => item && item.id === id);
+  const now = nowIso();
+  const row = { id, deviceId: safeDevice, endpointHash: safeEndpoint, maxUserId: safeUser, chatId: safeChat, channelId: clean(channelId), chatTitle: clean(chatTitle).slice(0, 180), status: 'active', updatedAt: now };
+  if (existing) Object.assign(existing, row, { chatTitle: row.chatTitle || clean(existing.chatTitle), createdAt: existing.createdAt || now });
+  else list.push({ ...row, createdAt: now });
+  writeFileStore({ ...payload, chatBindings: list });
+  return { ok: true, id, created: !existing };
+}
+
+async function listActiveDevicesForUser(maxUserId) {
+  const targetUser = clean(maxUserId);
+  if (!targetUser) return [];
+  const p = getPool();
+  if (p) {
+    const client = await p.connect();
+    try {
+      await ensureTable(client);
+      const result = await client.query(`SELECT * FROM ${TABLE_NAME} WHERE max_user_id = $1 AND status = 'active' AND disabled = FALSE ORDER BY updated_at DESC`, [targetUser]);
+      return result.rows.map(normalizeRow);
+    } finally { client.release(); }
+  }
+  return readFileStore().subscriptions.map(normalizeRow).filter((item) => item.maxUserId === targetUser && item.status === 'active' && !item.disabled);
+}
+
+async function upsertChatBindingForUserDevices({ maxUserId, chatId, channelId = '', chatTitle = '' } = {}) {
+  const devices = await listActiveDevicesForUser(maxUserId);
+  const results = [];
+  for (const device of devices) {
+    results.push(await upsertChatBindingForDevice({ maxUserId, chatId, channelId, chatTitle, deviceId: device.deviceId, endpointHash: device.endpointHash }));
+  }
+  return { ok: true, devices: devices.length, bindings: results.filter((item) => item.ok).length, results };
+}
+
+async function listChatBindingsForUser(maxUserId) {
+  const targetUser = clean(maxUserId);
+  if (!targetUser) return [];
+  const p = getPool();
+  if (p) {
+    const client = await p.connect();
+    try {
+      await ensureTable(client);
+      const result = await client.query(`SELECT * FROM ${BINDINGS_TABLE_NAME} WHERE max_user_id = $1 AND status = 'active' ORDER BY updated_at DESC`, [targetUser]);
+      return result.rows.map(normalizeBindingRow);
+    } finally { client.release(); }
+  }
+  return (readFileStore().chatBindings || []).map(normalizeBindingRow).filter((item) => item.maxUserId === targetUser && item.status === 'active');
+}
+
+async function isChatBoundForUser(maxUserId, chatId) {
+  const targetChat = clean(chatId);
+  if (!targetChat) return false;
+  return (await listChatBindingsForUser(maxUserId)).some((item) => item.chatId === targetChat);
+}
+
+async function listActiveDevicesForChat(chatId) {
+  const targetChat = clean(chatId);
+  if (!targetChat) return [];
+  const p = getPool();
+  if (p) {
+    const client = await p.connect();
+    try {
+      await ensureTable(client);
+      const result = await client.query(`SELECT s.* FROM ${TABLE_NAME} s JOIN ${BINDINGS_TABLE_NAME} b ON ((b.device_id <> '' AND b.device_id = s.device_id) OR (b.endpoint_hash <> '' AND b.endpoint_hash = s.endpoint_hash)) WHERE b.chat_id = $1 AND b.status = 'active' AND s.status = 'active' AND s.disabled = FALSE UNION SELECT * FROM ${TABLE_NAME} WHERE chat_id = $1 AND status = 'active' AND disabled = FALSE ORDER BY updated_at DESC`, [targetChat]);
+      const seen = new Set();
+      return result.rows.map(normalizeRow).filter((item) => { const key = item.deviceId || item.endpointHash || item.id; if (seen.has(key)) return false; seen.add(key); return true; });
+    } finally { client.release(); }
+  }
+  const payload = readFileStore();
+  const activeBindings = (payload.chatBindings || []).map(normalizeBindingRow).filter((item) => item.chatId === targetChat && item.status === 'active');
+  const allowed = new Set(activeBindings.map((item) => item.deviceId || item.endpointHash).filter(Boolean));
+  return payload.subscriptions.map(normalizeRow).filter((item) => item.status === 'active' && !item.disabled && (allowed.has(item.deviceId || item.endpointHash) || item.chatId === targetChat));
+}
+
+async function listActiveDevicesForChatAndUser({ chatId, maxUserId } = {}) {
+  const targetUser = clean(maxUserId);
+  if (!targetUser) return [];
+  return (await listActiveDevicesForChat(chatId)).filter((item) => item.maxUserId === targetUser);
 }
 
 async function markResult(id, result = {}) {
@@ -332,4 +486,4 @@ async function listPublicDeviceSummaries() { return (await listActiveSubscriptio
 
 function info() { return { backend: isPostgresConfigured() ? 'postgres' : 'file', persistent: isPostgresConfigured(), table: isPostgresConfigured() ? TABLE_NAME : '', file: isPostgresConfigured() ? '' : DATA_FILE }; }
 
-module.exports = { saveSubscription, savePairedDevice, listActiveSubscriptions, listDevicesForUser, listPublicDeviceSummaries, findDeviceByDeviceId, markDeviceActive, markResult, countSubscriptions, publicSummary, subscriptionId, subscriptionShape, sanitizeSubscription, info };
+module.exports = { saveSubscription, savePairedDevice, listActiveSubscriptions, listDevicesForUser, listActiveDevicesForUser, upsertChatBindingForDevice, upsertChatBindingForUserDevices, listChatBindingsForUser, isChatBoundForUser, listActiveDevicesForChat, listActiveDevicesForChatAndUser, listPublicDeviceSummaries, findDeviceByDeviceId, markDeviceActive, markResult, countSubscriptions, publicSummary, subscriptionId, subscriptionShape, sanitizeSubscription, info };
