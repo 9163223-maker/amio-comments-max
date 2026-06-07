@@ -103,6 +103,8 @@ function extractJoinToken(text) {
     assert(!clientJs.includes('PUSH_PAIRING_SECRET') && !clientJs.includes('BOT_TOKEN') && !clientJs.includes('MAX_BOT_TOKEN'), 'client bundle does not expose server secrets');
     assert(!adminHtml.includes('type="text" autocomplete="off" placeholder="MAX internal chat ID"'), 'admin UI removes visible manual MAX chat ID input from publish flow');
     assert(clientJs.includes("const selectedId = selected.id || '';"), 'admin publish/members use selected chat only');
+    assert(clientJs.includes('Сначала выберите чат из списка.'), 'admin selected-chat missing error uses exact safe copy');
+    assert(!clientJs.includes('Выберите чат из списка MAX.'), 'old selected-chat missing error copy is removed');
     assert(!clientJs.includes("selected.id || (input ? input.value.trim() : '')"), 'admin publish has no manual input fallback');
 
     const sentMessages = [];

@@ -703,7 +703,7 @@ async function fetchMaxChats() {
 async function fetchMaxMembers() {
   const selected = state.selectedMaxChat || {};
   const selectedId = selected.id || '';
-  if (!selectedId) throw new Error('Выберите чат из списка MAX.');
+  if (!selectedId) throw new Error('Сначала выберите чат из списка.');
   const chatParam = 'chat' + 'Id';
   const data = await fetchJsonUnsafeAdmin(`/internal/max/chat-members?count=100&${chatParam}=${encodeURIComponent(selectedId)}`, { headers: adminAuthHeaders() });
   renderMaxMembers(data.members);
@@ -713,7 +713,7 @@ async function fetchMaxMembers() {
 async function publishMaxGroupPushInvite() {
   const selected = state.selectedMaxChat || {};
   const selectedId = selected.id || '';
-  if (!selectedId) throw new Error('Выберите чат из списка MAX.');
+  if (!selectedId) throw new Error('Сначала выберите чат из списка.');
   const chatParam = 'chat' + 'Id';
   const data = await fetchJsonUnsafeAdmin('/internal/max/group-push-invite', {
     method: 'POST',
