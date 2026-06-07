@@ -35,6 +35,7 @@ const channelTitleHelper = require("./human-channel-title-helper");
 const channelPostPicker = require("./channel-post-picker-core");
 const pushConfirmation = require("./services/pushConfirmationService");
 const groupPushOnboarding = require("./services/groupPushOnboardingService");
+const groupPushInboundDiagnostics = require("./services/groupPushInboundDiagnostics");
 const webPushStorage = require("./services/webPushStorage");
 const buttonsFlow = require("./buttons-flow-cc8-clean");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
@@ -820,6 +821,35 @@ function getMessageText(message) {
     message?.message?.caption ||
     ""
   );
+}
+
+function createGroupPushInboundDiagnosticContext(update = {}, message = null, callback = null, updateType = '') {
+  const sourceMessage = message || callback?.message || null;
+  const text = callback && !message ? String(callback?.payload || callback?.data || '') : getMessageText(sourceMessage);
+  const userId = callback ? getCallbackUserId(update, callback) : getSenderUserId(sourceMessage);
+  const chatId = callback ? getCallbackChatId(update, callback, sourceMessage) : getRecipientChatId(sourceMessage);
+  const chatTitle = callback ? getCallbackChatTitle(update, callback, sourceMessage) : getRecipientChatTitle(sourceMessage);
+  const chatType = getRecipientChatType(sourceMessage) || String(callback?.message?.recipient?.chat_type || callback?.message?.recipient?.type || callback?.message?.chat?.type || '').trim().toLowerCase();
+  const matchedPushCommand = groupPushOnboarding.isGroupPushCommandText(text);
+  return {
+    updateType: String(updateType || update?.update_type || update?.type || '').trim() || 'unknown',
+    messageShape: groupPushInboundDiagnostics.messageShape(sourceMessage, callback),
+    text,
+    userId,
+    chatId,
+    chatType,
+    chatTitle,
+    routeCandidate: callback ? 'callback_flow' : (matchedPushCommand ? 'group_push_command' : 'unknown'),
+    routeDecision: matchedPushCommand
+      ? (!userId ? 'missing_user_id' : (!chatId ? 'missing_chat_id' : 'would_route_group_push'))
+      : 'non_command',
+    routeResult: 'observed_only',
+    errorCode: ''
+  };
+}
+
+function recordGroupPushInboundDiagnostic(context = {}, patch = {}) {
+  return groupPushInboundDiagnostics.record({ ...context, ...patch });
 }
 
 async function performGroupPushOnboarding({ userId, chatId, chatTitle, config, callbackId = '' } = {}) {
@@ -5680,25 +5710,36 @@ async function handleWebhook(req, res, config) {
 
     const update = req.body || {};
     const message = getMessage(update);
+    const callback = getCallback(update);
     const updateType = String(update?.update_type || update?.type || "").trim();
+    const groupPushInboundContext = createGroupPushInboundDiagnosticContext(update, message, callback, updateType);
 
     logVerbose(config, "RAW UPDATE", update);
 
     if (updateType === "message_callback") {
-      await handleMessageCallback(update, config);
-      return res.status(200).json({ ok: true });
+      try {
+        await handleMessageCallback(update, config);
+        recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'callback_flow', routeDecision: 'callback_flow', routeResult: 'handled' });
+        return res.status(200).json({ ok: true });
+      } catch (error) {
+        recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'callback_flow', routeDecision: 'callback_flow', routeResult: 'error', errorCode: error?.code || error?.message || 'callback_error' });
+        throw error;
+      }
     }
 
     if (updateType === "bot_started") {
       await handleBotStarted(update, config);
+      recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'normal_product_flow', routeDecision: 'bot_started', routeResult: 'handled' });
       return res.status(200).json({ ok: true });
     }
 
     if (!message) {
+      recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeDecision: 'no_message', routeResult: 'skipped' });
       return res.status(200).json({ ok: true, skipped: true, reason: "no_message" });
     }
 
     if (updateType === "message_edited") {
+      recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeDecision: 'message_edited_ignored', routeResult: 'skipped' });
       return res.status(200).json({ ok: true, skipped: true, reason: "message_edited_ignored" });
     }
 
@@ -5709,11 +5750,13 @@ async function handleWebhook(req, res, config) {
 
     const groupPushCommandResult = await handleGroupPushCommandMessage(message, config);
     if (groupPushCommandResult) {
+      recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'group_push_command', routeDecision: 'would_route_group_push', routeResult: groupPushCommandResult?.ok === false ? 'error' : 'handled', errorCode: groupPushCommandResult?.error || '' });
       return res.status(200).json({ ok: true, action: 'group_push_message_command', result: groupPushCommandResult });
     }
     if (/^\/?(?:debug_live|live)(?:\s|$)/i.test(text)) {
       const handledLiveDiagnostic = await handleLiveDiagnosticCommand({ config, message, userId: senderUserId, text });
       if (handledLiveDiagnostic) {
+        recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'normal_product_flow', routeDecision: 'live_diagnostic_command', routeResult: 'handled' });
         return res.status(200).json({ ok: true, action: 'live_diagnostic_command' });
       }
     }
@@ -5739,6 +5782,7 @@ async function handleWebhook(req, res, config) {
       });
 
       if (handled) {
+        recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'normal_product_flow', routeDecision: 'native_slash_command', routeResult: 'handled' });
         return res.status(200).json({
           ok: true,
           action: 'native_slash_command',
@@ -5758,6 +5802,7 @@ async function handleWebhook(req, res, config) {
     // Otherwise the admin flow can treat the forwarded card as ordinary text and the menu disappears.
     if (isForwardedChannelPost(message) && (currentSection || currentSelectMode || activeFlowKind || currentGiftFlow || currentCommentFlow)) {
       await handleForward(message, config);
+      recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'normal_product_flow', routeDecision: 'forwarded_channel_post_active_flow', routeResult: 'handled' });
       return res.status(200).json({ ok: true });
     }
 
@@ -5766,30 +5811,35 @@ async function handleWebhook(req, res, config) {
     // if we parse them as forwarded posts first, button step 2/3 gets stuck.
     if (text.startsWith('/gift')) {
       await handleGiftAdminCommand(message, config);
+      recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'normal_product_flow', routeDecision: 'gift_flow', routeResult: 'handled' });
       return res.status(200).json({ ok: true });
     }
 
     if (activeFlowKind === 'gift') {
       if (currentCommentFlow) clearCommentAdminFlow(senderUserId);
       await handleGiftAdminCommand(message, config);
+      recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'normal_product_flow', routeDecision: 'gift_flow', routeResult: 'handled' });
       return res.status(200).json({ ok: true });
     }
 
     if (activeFlowKind === 'comment') {
       if (currentGiftFlow) clearGiftFlow(senderUserId);
       await handleCommentAdminInput(message, config);
+      recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'normal_product_flow', routeDecision: 'comment_flow', routeResult: 'handled' });
       return res.status(200).json({ ok: true });
     }
 
     if (currentGiftFlow && !currentCommentFlow) {
       setActiveAdminFlowKind(senderUserId, 'gift');
       await handleGiftAdminCommand(message, config);
+      recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'normal_product_flow', routeDecision: 'gift_flow', routeResult: 'handled' });
       return res.status(200).json({ ok: true });
     }
 
     if (currentCommentFlow && !currentGiftFlow) {
       setActiveAdminFlowKind(senderUserId, 'comment');
       await handleCommentAdminInput(message, config);
+      recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'normal_product_flow', routeDecision: 'comment_flow', routeResult: 'handled' });
       return res.status(200).json({ ok: true });
     }
 
@@ -5803,6 +5853,7 @@ async function handleWebhook(req, res, config) {
 
     if (isForwardedChannelPost(message)) {
       await handleForward(message, config);
+      recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'normal_product_flow', routeDecision: 'forwarded_channel_post_active_flow', routeResult: 'handled' });
       return res.status(200).json({ ok: true });
     }
 
@@ -5827,12 +5878,15 @@ async function handleWebhook(req, res, config) {
           messageId: getMessageId(message),
           postId: getPostId(message)
         });
+        recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'direct_post_patcher', routeDecision: 'direct_channel_post_already_patched', routeResult: 'skipped' });
         return res.status(200).json({ ok: true, skipped: true, reason: "already_patched" });
       }
       await handleDirectChannelPost(message, config);
+      recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'direct_post_patcher', routeDecision: 'direct_channel_post_patcher', routeResult: 'handled' });
       return res.status(200).json({ ok: true });
     }
 
+    recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeDecision: groupPushInboundContext.routeDecision || 'observed_before_product_routing', routeResult: 'skipped' });
     return res.status(200).json({
       ok: true,
       skipped: true,
@@ -5968,6 +6022,14 @@ function debugUiLast({ userId = '', action = '' } = {}) {
   return uiActualLast.get(uid) || { ok: false, error: 'ui_last_not_recorded' };
 }
 
+function getGroupPushInboundDiagnostics(limit = 30) {
+  return groupPushInboundDiagnostics.summary(limit);
+}
+
+function clearGroupPushInboundDiagnostics() {
+  groupPushInboundDiagnostics.clear();
+}
+
 module.exports = {
   handleWebhook,
   getPostPatchTraceEvents,
@@ -5975,5 +6037,7 @@ module.exports = {
   pushPostPatchTrace,
   debugUiReplay,
   debugUiLast,
+  getGroupPushInboundDiagnostics,
+  clearGroupPushInboundDiagnostics,
   __testBuildCommentsPostAdminText: buildCommentsPostAdminText
 };

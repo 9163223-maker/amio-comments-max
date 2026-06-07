@@ -71,6 +71,7 @@ const { listChannelAlerts } = require("./services/alertsService");
 const { listChannels } = require("./services/channelService");
 const { listAdminPosts, buildPostAdminCard, editPostText, savePostKeyboard, replacePostMedia, rollbackPostVersion, listPostVersions } = require("./services/postEditorService");
 const webPushRoutes = require("./web-push-routes");
+const { renderGroupPushInboundDebugHtml } = require("./services/groupPushInboundDebugPage");
 
 const app = express();
 const deferredVideoResults = new Map();
@@ -1045,6 +1046,15 @@ app.get("/health", async (req, res) => {
   }
 });
 
+function getGroupPushInboundDiagnosticsBlock() {
+  if (typeof botModule?.getGroupPushInboundDiagnostics !== 'function') return { count: 0, latest: [] };
+  const diagnostics = botModule.getGroupPushInboundDiagnostics(30) || {};
+  return {
+    count: Number(diagnostics.count || 0) || 0,
+    latest: Array.isArray(diagnostics.latest) ? diagnostics.latest.slice(-30) : []
+  };
+}
+
 function buildLiveDebugPayload() {
   const snapshot = getDebugSnapshot();
   const uploads = Array.isArray(snapshot.uploadDiagnostics) ? snapshot.uploadDiagnostics.slice(0, 20).map(sanitizeUpload) : [];
@@ -1055,6 +1065,7 @@ function buildLiveDebugPayload() {
       uploads,
       lastErrors: uploads.filter((item) => item && item.ok === false).slice(0, 20)
     },
+    groupPushInboundDiagnostics: getGroupPushInboundDiagnosticsBlock(),
     store: snapshot
   };
 }
@@ -1190,6 +1201,7 @@ function buildGithubDebugPayload({ lite = false } = {}) {
   return {
     ...baseDebugPayload(),
     mediaDiagnostics: clean.mediaDiagnostics,
+    groupPushInboundDiagnostics: clean.groupPushInboundDiagnostics || getGroupPushInboundDiagnosticsBlock(),
     channels: clean.store?.channels || {},
     postsCount: Object.keys(clean.store?.posts || {}).length,
     commentsCount: Object.values(clean.store?.comments || {}).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0),
@@ -1241,6 +1253,18 @@ function requireDebugExportAccess(req, res) {
   res.status(403).json({ ok: false, error: "debug_export_token_required" });
   return false;
 }
+
+app.get('/debug/group-push-inbound.json', (req, res) => {
+  setNoCacheHeaders(res);
+  if (!requireDebugExportAccess(req, res)) return;
+  res.json({ ok: true, ...baseDebugPayload(), groupPushInboundDiagnostics: getGroupPushInboundDiagnosticsBlock() });
+});
+
+app.get('/debug/group-push-inbound', (req, res) => {
+  setNoCacheHeaders(res);
+  if (!requireDebugExportAccess(req, res)) return;
+  res.type('html').send(renderGroupPushInboundDebugHtml(getGroupPushInboundDiagnosticsBlock()));
+});
 
 app.all("/debug/export", async (req, res) => {
   setNoCacheHeaders(res);
