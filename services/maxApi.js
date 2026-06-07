@@ -28,6 +28,7 @@ function bodySummary(body) {
 const USE_OPEN_APP_BUTTON = String(process.env.ADMINKIT_USE_OPEN_APP_BUTTON || "1").trim() !== "0";
 const MAX_STARTAPP_PAYLOAD_BYTES = 512;
 const CHAT_INFO_TIMEOUT_MS = Number(process.env.ADMINKIT_CHAT_INFO_TIMEOUT_MS || 350) || 350;
+const WEBHOOK_UPDATE_TYPES = ["message_callback", "message_created", "bot_started", "bot_stopped", "bot_added", "bot_removed", "chat_title_changed", "user_added", "user_removed", "dialog_cleared", "dialog_removed"];
 
 async function readJsonSafe(response) {
   try { return await response.json(); } catch { return null; }
@@ -99,7 +100,7 @@ async function registerWebhook({ botToken, webhookUrl, secret }) {
     method: "POST",
     body: {
       url: webhookUrl,
-      update_types: ["message_callback", "message_created", "bot_started", "bot_stopped", "bot_added", "bot_removed", "chat_title_changed", "user_added", "user_removed", "dialog_cleared", "dialog_removed"],
+      update_types: WEBHOOK_UPDATE_TYPES,
       ...(secret ? { secret } : {})
     }
   });
@@ -363,6 +364,7 @@ function buildCommentsKeyboard({ appBaseUrl, botUsername, maxDeepLinkBase, hando
 
 module.exports = {
   API_BASE_URL,
+  WEBHOOK_UPDATE_TYPES,
   maxApi,
   getSubscriptions,
   registerWebhook,

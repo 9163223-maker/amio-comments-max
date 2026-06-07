@@ -9,7 +9,7 @@ const { getBuildInfo, BUILD_INFO } = require("./buildInfo");
 const execFileAsync = promisify(execFile);
 
 const config = require("./config");
-const { registerWebhook, getSubscriptions, createUpload, uploadBinaryToUrl, buildUploadAttachmentPayload } = require("./services/maxApi");
+const { registerWebhook, getSubscriptions, createUpload, uploadBinaryToUrl, buildUploadAttachmentPayload, WEBHOOK_UPDATE_TYPES } = require("./services/maxApi");
 const botModule = require("./bot");
 const {
   getDebugSnapshot,
@@ -72,6 +72,7 @@ const { listChannels } = require("./services/channelService");
 const { listAdminPosts, buildPostAdminCard, editPostText, savePostKeyboard, replacePostMedia, rollbackPostVersion, listPostVersions } = require("./services/postEditorService");
 const webPushRoutes = require("./web-push-routes");
 const { renderGroupPushInboundDebugHtml } = require("./services/groupPushInboundDebugPage");
+const maxWebhookEdgeDiagnostics = require("./services/maxWebhookEdgeDiagnostics");
 
 const app = express();
 const deferredVideoResults = new Map();
@@ -1055,6 +1056,22 @@ function getGroupPushInboundDiagnosticsBlock() {
   };
 }
 
+function getMaxWebhookEdgeDiagnosticsBlock() {
+  const diagnostics = maxWebhookEdgeDiagnostics.summary(50) || {};
+  return {
+    count: Number(diagnostics.count || 0) || 0,
+    latest: Array.isArray(diagnostics.latest) ? diagnostics.latest.slice(-50) : []
+  };
+}
+
+function getWebhookRouteRegistrationDiagnostics() {
+  return {
+    registered: Boolean(config.webhookPath),
+    paths: config.webhookPath ? [String(config.webhookPath)] : [],
+    desiredUpdateTypesIncludeMessageCreated: Array.isArray(WEBHOOK_UPDATE_TYPES) ? WEBHOOK_UPDATE_TYPES.includes('message_created') : true
+  };
+}
+
 function buildLiveDebugPayload() {
   const snapshot = getDebugSnapshot();
   const uploads = Array.isArray(snapshot.uploadDiagnostics) ? snapshot.uploadDiagnostics.slice(0, 20).map(sanitizeUpload) : [];
@@ -1066,6 +1083,8 @@ function buildLiveDebugPayload() {
       lastErrors: uploads.filter((item) => item && item.ok === false).slice(0, 20)
     },
     groupPushInboundDiagnostics: getGroupPushInboundDiagnosticsBlock(),
+    maxWebhookEdgeDiagnostics: getMaxWebhookEdgeDiagnosticsBlock(),
+    webhookRouteRegistrationDiagnostics: getWebhookRouteRegistrationDiagnostics(),
     store: snapshot
   };
 }
@@ -1202,6 +1221,8 @@ function buildGithubDebugPayload({ lite = false } = {}) {
     ...baseDebugPayload(),
     mediaDiagnostics: clean.mediaDiagnostics,
     groupPushInboundDiagnostics: clean.groupPushInboundDiagnostics || getGroupPushInboundDiagnosticsBlock(),
+    maxWebhookEdgeDiagnostics: clean.maxWebhookEdgeDiagnostics || getMaxWebhookEdgeDiagnosticsBlock(),
+    webhookRouteRegistrationDiagnostics: clean.webhookRouteRegistrationDiagnostics || getWebhookRouteRegistrationDiagnostics(),
     channels: clean.store?.channels || {},
     postsCount: Object.keys(clean.store?.posts || {}).length,
     commentsCount: Object.values(clean.store?.comments || {}).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0),
@@ -1264,6 +1285,18 @@ app.get('/debug/group-push-inbound', (req, res) => {
   setNoCacheHeaders(res);
   if (!requireDebugExportAccess(req, res)) return;
   res.type('html').send(renderGroupPushInboundDebugHtml(getGroupPushInboundDiagnosticsBlock()));
+});
+
+app.get('/debug/webhook-edge.json', (req, res) => {
+  setNoCacheHeaders(res);
+  if (!requireDebugExportAccess(req, res)) return;
+  res.json({ ok: true, ...baseDebugPayload(), maxWebhookEdgeDiagnostics: getMaxWebhookEdgeDiagnosticsBlock() });
+});
+
+app.get('/debug/webhook-edge', (req, res) => {
+  setNoCacheHeaders(res);
+  if (!requireDebugExportAccess(req, res)) return;
+  res.type('html').send(maxWebhookEdgeDiagnostics.renderHtml(getMaxWebhookEdgeDiagnosticsBlock()));
 });
 
 app.all("/debug/export", async (req, res) => {
@@ -2350,7 +2383,24 @@ app.post("/api/gifts/check", async (req, res) => {
   }
 });
 
-app.post(config.webhookPath, async (req, res) => botModule.handleWebhook(req, res, config));
+app.post(config.webhookPath, async (req, res) => {
+  const edgeDiagnostic = maxWebhookEdgeDiagnostics.record({ req, handedToBot: false });
+  try {
+    const result = await botModule.handleWebhook(req, res, config);
+    maxWebhookEdgeDiagnostics.update(edgeDiagnostic, {
+      handedToBot: true,
+      botResultKind: res.headersSent ? `response_sent_${res.statusCode || 200}` : `handler_returned_${res.statusCode || 200}`
+    });
+    return result;
+  } catch (error) {
+    maxWebhookEdgeDiagnostics.update(edgeDiagnostic, {
+      handedToBot: true,
+      botResultKind: 'handler_threw',
+      errorCode: error?.code || error?.message || 'webhook_handler_error'
+    });
+    throw error;
+  }
+});
 
 app.use((req, res) => {
   res.status(404).json({ ok: false, error: "not_found" });
