@@ -11,8 +11,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'АдминКИТ Push';
   const options = {
     body: payload.body || '',
-    icon: payload.icon || '/public/adminkit_start_logo.png',
-    badge: payload.badge || '/public/adminkit_chat_logo.png',
+    icon: payload.icon || '/public/adminkit-push-icon-192.png',
+    badge: payload.badge || '/public/favicon-32.png',
     tag: payload.tag || 'adminkit-push',
     data: payload.data || { url: payload.url || '/push' }
   };
