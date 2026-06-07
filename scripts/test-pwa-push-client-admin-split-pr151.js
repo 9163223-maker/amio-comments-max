@@ -66,12 +66,14 @@ function assertNoLeaks(text, label, extraForbidden = []) {
       assert.strictEqual(join.status, 200, '/push/join?t=valid token renders client UX');
       assert(join.text.includes('Включить уведомления'), 'client UX contains the one-button enable label');
       assert(join.text.includes('Откройте это приложение с экрана Домой и нажмите «Включить уведомления».'), 'client UX contains short human instruction');
+      assert(join.text.includes('id="clientStatus"'), 'client UX contains a visible client-safe status container');
       assert.strictEqual((join.text.match(/<button\b/g) || []).length, 1, 'client UX has one main enable button');
       assert(!join.text.includes('placeholder="PUSH_SUBSCRIBE_TOKEN"'), 'client UX hides subscribe token field');
       assert(!join.text.includes('placeholder="PUSH_ADMIN_TOKEN"'), 'client UX hides admin token field');
       assert(!join.text.includes('Отправить тестовое уведомление'), 'client UX hides test-send button');
       assert(!join.text.includes('id="subscribeSteps"'), 'client UX does not show raw connection diagnostics by default');
       assert(!join.text.includes('<h2>Диагностика</h2>'), 'client UX hides raw diagnostic table by default');
+      assert(join.text.includes('id="clientStatus"') && !join.text.includes('id="subscribeSteps"'), 'client-safe join keeps visible client status while hiding raw diagnostics');
       assert(join.headers.get('set-cookie').includes('Path=/api/push/pair'), 'client UX uses narrow pairing cookie flow');
       assertNoLeaks(join.text, 'client join page', [token]);
 
@@ -80,6 +82,8 @@ function assertNoLeaks(text, label, extraForbidden = []) {
       assert(!publicPush.text.includes('placeholder="PUSH_SUBSCRIBE_TOKEN"'), '/push hides subscribe token field by default');
       assert(!publicPush.text.includes('placeholder="PUSH_ADMIN_TOKEN"'), '/push hides admin token field by default');
       assert(!publicPush.text.includes('Отправить тестовое уведомление'), '/push hides test send by default');
+      assert(publicPush.text.includes('id="clientStatus"'), '/push contains a visible client-safe status container');
+      assert(!publicPush.text.includes('id="subscribeSteps"'), '/push hides raw diagnostics while keeping client status visible');
 
       const admin = await request(server, '/push/admin?token=ADMIN_TOKEN_VALUE_PR151&PUSH_ADMIN_TOKEN=ADMIN_TOKEN_VALUE_PR151');
       assert.strictEqual(admin.status, 200, 'admin diagnostic route exists');
@@ -87,6 +91,7 @@ function assertNoLeaks(text, label, extraForbidden = []) {
       assert(admin.text.includes('placeholder="PUSH_ADMIN_TOKEN"'), 'admin route contains admin-token diagnostic control placeholder');
       assert(admin.text.includes('Отправить тестовое уведомление'), 'admin route contains test-send control');
       assert(admin.text.includes('Проверить статус'), 'admin route contains status check control');
+      assert(admin.text.includes('id="clientStatus"'), 'admin route also contains the safe visible client status container');
       assert(admin.text.includes('id="resetPushButton"'), 'admin route contains reset control');
       assert(!admin.text.includes('ADMIN_TOKEN_VALUE_PR151'), 'admin route does not accept/expose admin token from query string');
       assert(!admin.text.includes('SECRET_VALUE_PR151'), 'admin route does not expose raw pairing secret');
@@ -110,6 +115,15 @@ function assertNoLeaks(text, label, extraForbidden = []) {
     assert(saveSource.indexOf('state.join.joinMode') < saveSource.indexOf("fetchJson('/api/push/pair'"), 'pairing branch is gated by join mode');
     assert(saveSource.indexOf("fetchJson('/api/push/pair'") < saveSource.indexOf("fetchJson('/api/push/subscribe'"), 'join branch returns before manual subscribe branch');
     assert(saveSource.includes("throw new Error('Нужен PUSH_SUBSCRIBE_TOKEN для ручного режима.');"), 'PUSH_SUBSCRIBE_TOKEN is only required in manual/admin mode');
+    const enableStart = pushClient.indexOf('async function enableNotifications()');
+    const enableEnd = pushClient.indexOf('\nasync function resetPushSubscription()', enableStart);
+    assert(enableStart !== -1 && enableEnd > enableStart, 'enableNotifications function exists');
+    const enableSource = pushClient.slice(enableStart, enableEnd);
+    assert(pushClient.includes('function setClientStatus(message') && pushClient.includes('function clearClientStatus()'), 'client script defines visible client status helpers');
+    assert(enableSource.includes("setClientStatus(standaloneMessage, 'warning')"), 'iOS not-standalone warning is written to visible client status');
+    assert(enableSource.includes("if (state.join.joinMode || state.join.landingMode) throw new Error(standaloneMessage);"), 'client/join iOS non-standalone path stops before subscribe/save');
+    assert(enableSource.includes("setClientStatus(permissionMessage, 'error')"), 'permission denied is written to visible client status');
+    assert(enableSource.includes("setClientStatus(successMessage, 'success')"), 'join success statuses are written to visible client status');
     assert(pushClient.includes('normalizePushSubscription(subscription)'), 'client flow normalizes the PushSubscription before sending');
     assert(pushClient.includes('getSubscriptionKey(subscription, PUSH_SUBSCRIPTION_FIELDS.p256dhField)'), 'PR149 p256dh getKey fallback remains');
     assert(pushClient.includes('getSubscriptionKey(subscription, PUSH_SUBSCRIPTION_FIELDS.authField)'), 'PR149 auth getKey fallback remains');

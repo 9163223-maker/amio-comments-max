@@ -56,6 +56,17 @@ function $(id) { return document.getElementById(id); }
 function setText(id, value) { const node = $(id); if (node) node.textContent = String(value); }
 function setHidden(id, hidden) { const node = $(id); if (node) node.hidden = Boolean(hidden); }
 
+function setClientStatus(message, kind = 'info') {
+  const node = $('clientStatus');
+  if (!node) return;
+  node.textContent = String(message || '—');
+  node.dataset.kind = kind;
+}
+
+function clearClientStatus() {
+  setClientStatus('—', 'idle');
+}
+
 function appendResult(message, data) {
   state.lastResult = `${new Date().toLocaleTimeString()} — ${message}`;
   setText('lastResult', state.lastResult + (data ? `\n${JSON.stringify(data, null, 2)}` : ''));
@@ -421,6 +432,7 @@ async function saveSubscription(subscription, status) {
 
 async function enableNotifications() {
   resetSteps();
+  clearClientStatus();
   appendResult('subscribe started');
   let currentStep = 'checking environment';
   try {
@@ -435,7 +447,10 @@ async function enableNotifications() {
     currentStep = 'checking installed/standalone hint';
     const standalone = updateStandaloneDiagnostics();
     if (standalone.isIOS && !standalone.standalone) {
-      setStep(currentStep, 'warning', 'Откройте АдминКИТ Push с иконки на экране Домой.');
+      const standaloneMessage = 'Откройте АдминКИТ Push с иконки на экране Домой.';
+      setClientStatus(standaloneMessage, 'warning');
+      setStep(currentStep, 'warning', standaloneMessage);
+      if (state.join.joinMode || state.join.landingMode) throw new Error(standaloneMessage);
     } else {
       setStep(currentStep, 'done', describeStandalone(standalone));
     }
@@ -458,7 +473,9 @@ async function enableNotifications() {
     currentStep = 'permission result';
     setText('notificationPermission', permission);
     if (permission !== 'granted' || Notification.permission !== 'granted') {
-      throw new Error('Разрешение не выдано. Включите уведомления в настройках iPhone.');
+      const permissionMessage = 'Разрешение не выдано. Включите уведомления в настройках iPhone.';
+      setClientStatus(permissionMessage, 'error');
+      throw new Error(permissionMessage);
     }
     setStep(currentStep, 'done', `Notification.permission=${Notification.permission}`);
 
@@ -497,13 +514,14 @@ async function enableNotifications() {
     currentStep = 'server response';
     setStep(currentStep, 'done', JSON.stringify(safeServerResult(result)));
     if (state.join.joinMode) {
+      let successMessage = 'Уведомления подключены.';
       if (result.confirmationRequired && result.confirmationSent) {
-        appendResult('Устройство подключено. Откройте MAX и нажмите «Подтвердить устройство».');
+        successMessage = 'Устройство подключено. Откройте MAX и нажмите «Подтвердить устройство».';
       } else if (result.confirmationRequired) {
-        appendResult('Устройство подключено. Подтвердите его в MAX.');
-      } else {
-        appendResult('Уведомления подключены.');
+        successMessage = 'Устройство подключено. Подтвердите его в MAX.';
       }
+      setClientStatus(successMessage, 'success');
+      appendResult(successMessage);
     } else {
       appendResult('subscription saved', safeServerResult(result));
     }
