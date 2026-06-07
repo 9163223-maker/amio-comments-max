@@ -2386,6 +2386,28 @@ app.post("/api/gifts/check", async (req, res) => {
 app.post(config.webhookPath, async (req, res) => {
   const edgeDiagnostic = maxWebhookEdgeDiagnostics.record({ req, handedToBot: false });
   try {
+    if (config.webhookSecret) {
+      const headerSecret = req.get("X-Max-Bot-Api-Secret") || "";
+      if (headerSecret !== config.webhookSecret) {
+        maxWebhookEdgeDiagnostics.update(edgeDiagnostic, {
+          handedToBot: false,
+          botResultKind: 'response_sent_403_invalid_secret'
+        });
+        return res.status(403).json({ ok: false, error: "invalid_secret" });
+      }
+    }
+
+    if (typeof botModule.handleGroupPushCommandUpdate === 'function') {
+      const edgeGroupPushResult = await botModule.handleGroupPushCommandUpdate({ update: req.body || {}, config });
+      if (edgeGroupPushResult) {
+        maxWebhookEdgeDiagnostics.update(edgeDiagnostic, {
+          handedToBot: true,
+          botResultKind: 'response_sent_200_edge_group_push'
+        });
+        return res.status(200).json(edgeGroupPushResult);
+      }
+    }
+
     const result = await botModule.handleWebhook(req, res, config);
     maxWebhookEdgeDiagnostics.update(edgeDiagnostic, {
       handedToBot: true,

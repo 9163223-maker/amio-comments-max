@@ -1041,6 +1041,78 @@ async function routeGroupPushCommandMessage({ update = {}, message, config, diag
   }
 }
 
+async function handleGroupPushCommandUpdate({ update = {}, config } = {}) {
+  const message = getMessage(update);
+  const callback = getCallback(update);
+  const updateType = String(update?.update_type || update?.type || '').trim();
+  const diagnosticContext = createGroupPushInboundDiagnosticContext(update, message, callback, updateType);
+  const text = getLiveSafeCommandText(update, message, callback);
+
+  recordGroupPushInboundDiagnostic(diagnosticContext, {
+    text,
+    routeCandidate: 'http_edge_group_push_command',
+    routeDecision: 'entered_edge_pre_route',
+    routeResult: 'observed_only'
+  });
+
+  if (updateType !== 'message_created' || !message) return null;
+
+  const matchedPushCommand = groupPushOnboarding.isGroupPushCommandText(text);
+  if (!matchedPushCommand) {
+    if (isPushLikeCommandCandidateText(text)) {
+      recordGroupPushInboundDiagnostic(diagnosticContext, {
+        text,
+        routeCandidate: 'http_edge_group_push_command',
+        routeDecision: 'command_text_not_matched',
+        routeResult: 'skipped'
+      });
+    }
+    return null;
+  }
+
+  const userId = getSenderUserId(message);
+  const chatId = getRecipientChatId(message);
+  const chatTitle = getRecipientChatTitle(message);
+  const routeDecision = !userId ? 'missing_user_id' : (!chatId ? 'missing_chat_id' : 'matched_group_push_command');
+
+  recordGroupPushInboundDiagnostic(diagnosticContext, {
+    text,
+    userId,
+    chatId,
+    chatTitle,
+    routeCandidate: 'http_edge_group_push_command',
+    routeDecision,
+    routeResult: 'matched_command'
+  });
+
+  try {
+    const result = await handleGroupPushCommandMessage(message, config, text);
+    recordGroupPushInboundDiagnostic(diagnosticContext, {
+      text,
+      userId,
+      chatId,
+      chatTitle,
+      routeCandidate: 'http_edge_group_push_command',
+      routeDecision: result?.error === 'message_user_id_missing' ? 'missing_user_id' : (result?.error === 'message_chat_id_missing' ? 'missing_chat_id' : 'edge_group_push_route'),
+      routeResult: result?.ok === false ? 'error' : 'handled',
+      errorCode: result?.error || ''
+    });
+    return { ok: true, action: 'group_push_message_command', edgePreRouted: true, result };
+  } catch (error) {
+    recordGroupPushInboundDiagnostic(diagnosticContext, {
+      text,
+      userId,
+      chatId,
+      chatTitle,
+      routeCandidate: 'http_edge_group_push_command',
+      routeDecision: routeDecision === 'matched_group_push_command' ? 'edge_group_push_route' : routeDecision,
+      routeResult: 'error',
+      errorCode: error?.code || error?.message || 'edge_group_push_route_error'
+    });
+    throw error;
+  }
+}
+
 function getMessageId(message) {
   return String(
     getMessageBody(message)?.mid ||
@@ -6145,6 +6217,7 @@ function clearGroupPushInboundDiagnostics() {
 
 module.exports = {
   handleWebhook,
+  handleGroupPushCommandUpdate,
   getPostPatchTraceEvents,
   getPostPatchPerfMetrics,
   pushPostPatchTrace,
