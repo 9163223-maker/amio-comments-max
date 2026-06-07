@@ -1,24 +1,28 @@
 {
   "ok": true,
-  "runtimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-  "buildVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-  "displayVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-  "packageVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-  "sourceMarker": "adminkit-cc8-2-4-compressed-final-photo-composer",
+  "runtimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+  "buildVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+  "displayVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+  "packageVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+  "sourceMarker": "adminkit-cc8-3-50-pr131-live-sync-audit-5a39d1f",
+  "gitCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
+  "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
   "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
-  "expectedRuntimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-  "generatedAt": 1780383059409,
-  "serverStartedAt": "2026-06-02T06:44:24.895Z",
+  "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+  "generatedAt": 1780852769525,
+  "serverStartedAt": "2026-06-07T17:03:04.643Z",
   "staleEndpointDetected": false,
   "meta": {
-    "runtimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-    "buildVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-    "displayVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-    "packageVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
+    "runtimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+    "buildVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+    "displayVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+    "packageVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
     "packageName": "amio-comments-max",
-    "sourceMarker": "adminkit-cc8-2-4-compressed-final-photo-composer",
-    "buildGeneratedAt": "2026-05-29T12:00:00Z",
-    "serverStartedAt": "2026-06-02T06:44:24.895Z",
+    "sourceMarker": "adminkit-cc8-3-50-pr131-live-sync-audit-5a39d1f",
+    "gitCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
+    "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
+    "buildGeneratedAt": "2026-06-05T00:00:00Z",
+    "serverStartedAt": "2026-06-07T17:03:04.643Z",
     "buildInfoSource": "build-info.json/package.json/env-fresh-only",
     "staleEnvIgnored": {
       "BUILD_VERSION": false,
@@ -27,43 +31,76 @@
     },
     "staleEndpointDetected": false,
     "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
-    "expectedRuntimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-    "generatedAt": 1780383059409
+    "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+    "generatedAt": 1780852769525
   },
   "mediaDiagnostics": {
     "uploads": [
       {
-        "id": "1780382935507_09jzc0",
-        "createdAt": 1780382935507,
-        "stage": "comment_create_saved",
-        "commentKey": "-75357047862702:116674049272472060",
-        "type": "comment_with_attachments",
-        "fileName": "",
-        "mime": "",
-        "size": 1,
+        "id": "1780423956936_61wsu4",
         "ok": true,
+        "data": "{\"commentId\":\"1780423956746_7xrx74\",\"attachmentCount\":1}",
+        "mime": "",
         "mode": "comment_create",
-        "attachmentCount": 0,
-        "previewUrl": "",
-        "posterUrl": "",
+        "size": 1,
+        "type": "comment_with_attachments",
         "error": "",
-        "data": "{\"commentId\":\"1780382935014_6s0blu\",\"attachmentCount\":1}"
+        "stage": "comment_create_saved",
+        "fileName": "",
+        "createdAt": 1780423956936,
+        "posterUrl": "",
+        "commentKey": "-75357047862702:116674049272472060",
+        "previewUrl": "",
+        "attachmentCount": 0
+      },
+      {
+        "id": "1780423954741_yy2df2",
+        "data": "{\"attachmentCount\":1,\"clientUploadIds\":[]}",
+        "mime": "",
+        "mode": "comment_create",
+        "size": 1,
+        "type": "comment_with_attachments",
+        "error": "",
+        "stage": "comment_create_received",
+        "fileName": "",
+        "createdAt": 1780423954741,
+        "posterUrl": "",
+        "commentKey": "-75357047862702:116674049272472060",
+        "previewUrl": "",
+        "attachmentCount": 0
+      },
+      {
+        "id": "1780382935507_09jzc0",
+        "ok": true,
+        "data": "{\"commentId\":\"1780382935014_6s0blu\",\"attachmentCount\":1}",
+        "mime": "",
+        "mode": "comment_create",
+        "size": 1,
+        "type": "comment_with_attachments",
+        "error": "",
+        "stage": "comment_create_saved",
+        "fileName": "",
+        "createdAt": 1780382935507,
+        "posterUrl": "",
+        "commentKey": "-75357047862702:116674049272472060",
+        "previewUrl": "",
+        "attachmentCount": 0
       },
       {
         "id": "1780382933360_0cwm8d",
-        "createdAt": 1780382933360,
-        "stage": "comment_create_received",
-        "commentKey": "-75357047862702:116674049272472060",
-        "type": "comment_with_attachments",
-        "fileName": "",
+        "data": "{\"attachmentCount\":1,\"clientUploadIds\":[]}",
         "mime": "",
-        "size": 1,
         "mode": "comment_create",
-        "attachmentCount": 0,
-        "previewUrl": "",
-        "posterUrl": "",
+        "size": 1,
+        "type": "comment_with_attachments",
         "error": "",
-        "data": "{\"attachmentCount\":1,\"clientUploadIds\":[]}"
+        "stage": "comment_create_received",
+        "fileName": "",
+        "createdAt": 1780382933360,
+        "posterUrl": "",
+        "commentKey": "-75357047862702:116674049272472060",
+        "previewUrl": "",
+        "attachmentCount": 0
       },
       {
         "id": "1780343827619_ew4oe5",
@@ -328,72 +365,23 @@
         "commentKey": "-75357047862702:116674049272472060",
         "previewUrl": "",
         "attachmentCount": 0
-      },
-      {
-        "id": "1780323901421_hif2q1",
-        "ok": false,
-        "data": "{\"clientUploadIds\":[]}",
-        "mime": "",
-        "mode": "comment_create",
-        "size": 1,
-        "type": "comment_with_attachments",
-        "error": "inline_preview_too_large",
-        "stage": "comment_create_failed",
-        "fileName": "",
-        "createdAt": 1780323901421,
-        "posterUrl": "",
-        "commentKey": "-75357047862702:116674049272472060",
-        "previewUrl": "",
-        "attachmentCount": 0
-      },
-      {
-        "id": "1780323900723_p08bqh",
-        "data": "{\"attachmentCount\":1,\"clientUploadIds\":[]}",
-        "mime": "",
-        "mode": "comment_create",
-        "size": 1,
-        "type": "comment_with_attachments",
-        "error": "",
-        "stage": "comment_create_received",
-        "fileName": "",
-        "createdAt": 1780323900723,
-        "posterUrl": "",
-        "commentKey": "-75357047862702:116674049272472060",
-        "previewUrl": "",
-        "attachmentCount": 0
       }
     ],
-    "lastErrors": [
-      {
-        "id": "1780323901421_hif2q1",
-        "ok": false,
-        "data": "{\"clientUploadIds\":[]}",
-        "mime": "",
-        "mode": "comment_create",
-        "size": 1,
-        "type": "comment_with_attachments",
-        "error": "inline_preview_too_large",
-        "stage": "comment_create_failed",
-        "fileName": "",
-        "createdAt": 1780323901421,
-        "posterUrl": "",
-        "commentKey": "-75357047862702:116674049272472060",
-        "previewUrl": "",
-        "attachmentCount": 0
-      }
-    ]
+    "lastErrors": []
   },
   "store": {
     "ok": true,
     "meta": {
-      "runtimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-      "buildVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-      "displayVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-      "packageVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
+      "runtimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+      "buildVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+      "displayVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+      "packageVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
       "packageName": "amio-comments-max",
-      "sourceMarker": "adminkit-cc8-2-4-compressed-final-photo-composer",
-      "buildGeneratedAt": "2026-05-29T12:00:00Z",
-      "serverStartedAt": "2026-06-02T06:44:24.895Z",
+      "sourceMarker": "adminkit-cc8-3-50-pr131-live-sync-audit-5a39d1f",
+      "gitCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
+      "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
+      "buildGeneratedAt": "2026-06-05T00:00:00Z",
+      "serverStartedAt": "2026-06-07T17:03:04.643Z",
       "buildInfoSource": "build-info.json/package.json/env-fresh-only",
       "staleEnvIgnored": {
         "BUILD_VERSION": false,
@@ -402,10 +390,431 @@
       },
       "staleEndpointDetected": false,
       "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
-      "expectedRuntimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
-      "generatedAt": 1780383059214
+      "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
+      "generatedAt": 1780852768866
     },
     "posts": {
+      "-70251029837230:116709012212747400": {
+        "postId": "116709012212747400",
+        "autoMode": true,
+        "channelId": "-70251029837230",
+        "createdAt": 1780838202612,
+        "messageId": "mid.ffffc01b68524a52019ea23a6f070c82",
+        "updatedAt": 1780838203851,
+        "commentKey": "-70251029837230:116709012212747400",
+        "channelTitle": "-70251029837230",
+        "handoffToken": "h_012212747400mq3t339le5jlxzaz",
+        "linkedByName": "Alex P",
+        "originalLink": null,
+        "originalText": "Привет всем. Тестируем приложение уведомлений в Max.",
+        "lastPatchedAt": 1780838203851,
+        "stablePayload": "cp_-70251029837230_116709012212747400",
+        "customKeyboard": {},
+        "giftCampaignId": "",
+        "lastIngestedAt": 1780838202612,
+        "lastPatchError": null,
+        "linkedByUserId": "17507246",
+        "lastPatchedText": "Привет всем. Тестируем приложение уведомлений в Max.",
+        "nativeReactions": [],
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "lastGiftRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "originalLinkKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachments": [],
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "💬 Комментарии",
+                    "type": "open_app",
+                    "payload": "cp_-70251029837230_116709012212747400",
+                    "web_app": "id781310320690_bot"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "textOverrideActive": false,
+        "lastCustomRowsCount": 0,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "originalFormatKnown": false,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-70251029837230_116709012212747400\"}]]}}],\"text\":\"Привет всем. Тестируем приложение уведомлений в Max.\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+        "sourceAttachmentsKnown": false,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false
+      },
+      "-70251029837230:116709012693540860": {
+        "postId": "116709012693540860",
+        "autoMode": true,
+        "channelId": "-70251029837230",
+        "createdAt": 1780838208018,
+        "messageId": "mid.ffffc01b68524a52019ea23a8baf5ffb",
+        "updatedAt": 1780838209015,
+        "commentKey": "-70251029837230:116709012693540860",
+        "channelTitle": "-70251029837230",
+        "handoffToken": "h_012693540860mq3t37i4d2h7uv8u",
+        "linkedByName": "Alex P",
+        "originalLink": null,
+        "originalText": "Чтобы все были на связи)",
+        "lastPatchedAt": 1780838209015,
+        "stablePayload": "cp_-70251029837230_116709012693540860",
+        "customKeyboard": {},
+        "giftCampaignId": "",
+        "lastIngestedAt": 1780838208018,
+        "lastPatchError": null,
+        "linkedByUserId": "17507246",
+        "lastPatchedText": "Чтобы все были на связи)",
+        "nativeReactions": [],
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "lastGiftRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "originalLinkKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachments": [],
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "💬 Комментарии",
+                    "type": "open_app",
+                    "payload": "cp_-70251029837230_116709012693540860",
+                    "web_app": "id781310320690_bot"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "textOverrideActive": false,
+        "lastCustomRowsCount": 0,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "originalFormatKnown": false,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-70251029837230_116709012693540860\"}]]}}],\"text\":\"Чтобы все были на связи)\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+        "sourceAttachmentsKnown": false,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false
+      },
+      "-70251029837230:116709015834678050": {
+        "postId": "116709015834678050",
+        "autoMode": true,
+        "channelId": "-70251029837230",
+        "createdAt": 1780838256720,
+        "messageId": "mid.ffffc01b68524a52019ea23b46e9531b",
+        "updatedAt": 1780838257742,
+        "commentKey": "-70251029837230:116709015834678050",
+        "channelTitle": "-70251029837230",
+        "handoffToken": "h_015834678050mq3t49425w78e6hd",
+        "linkedByName": "Alex P",
+        "originalLink": null,
+        "originalText": "",
+        "lastPatchedAt": 1780838257742,
+        "stablePayload": "cp_-70251029837230_116709015834678050",
+        "customKeyboard": {},
+        "giftCampaignId": "",
+        "lastIngestedAt": 1780838256720,
+        "lastPatchError": null,
+        "linkedByUserId": "17507246",
+        "lastPatchedText": "",
+        "nativeReactions": [],
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "lastGiftRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "originalLinkKnown": false,
+        "originalTextKnown": false,
+        "sourceAttachments": [
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr84eVEk8sZhzSX48sPXsnj_-WLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 20835766958
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8rCT0FchFOTFK8qbzr7KXt-WLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 20835766702
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr85hi7NgBC-Mmd4kYeGvOQkuWLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 20835767214
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8XrYY-0SPzLlfZIRA1DFkaOWLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 20835767470
+            }
+          }
+        ],
+        "patchedAttachments": [
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr84eVEk8sZhzSX48sPXsnj_-WLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 20835766958
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8rCT0FchFOTFK8qbzr7KXt-WLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 20835766702
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr85hi7NgBC-Mmd4kYeGvOQkuWLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 20835767214
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8XrYY-0SPzLlfZIRA1DFkaOWLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 20835767470
+            }
+          },
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "💬 Комментарии",
+                    "type": "open_app",
+                    "payload": "cp_-70251029837230_116709015834678050",
+                    "web_app": "id781310320690_bot"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "textOverrideActive": false,
+        "lastCustomRowsCount": 0,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "originalFormatKnown": false,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"payload\":{\"photo_id\":20835766958,\"token\":\"c3y8BEoZU+oiRnLRzjw7+1X4Fa3Lp7bjPTdEuFliJeQO8XCHqe7UuAh0K66z4RVbIcYmMofLXqKaZEAYgftmuH4iYum0iV/a/b9UtZCMgeQ=\",\"url\":\"https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr84eVEk8sZhzSX48sP...[1392 chars]",
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+        "sourceAttachmentsKnown": true,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false
+      },
+      "-70251029837230:116709660110190050": {
+        "postId": "116709660110190050",
+        "autoMode": true,
+        "channelId": "-70251029837230",
+        "createdAt": 1780848087982,
+        "messageId": "mid.ffffc01b68524a52019ea2d148b975de",
+        "updatedAt": 1780848089687,
+        "commentKey": "-70251029837230:116709660110190050",
+        "channelTitle": "-70251029837230",
+        "handoffToken": "h_660110190050mq3yyyucht5ao183",
+        "linkedByName": "Alex P",
+        "originalLink": null,
+        "originalText": "Пока не работаем еще. Чиню)",
+        "lastPatchedAt": 1780848089687,
+        "stablePayload": "cp_-70251029837230_116709660110190050",
+        "customKeyboard": {},
+        "giftCampaignId": "",
+        "lastIngestedAt": 1780848087982,
+        "lastPatchError": null,
+        "linkedByUserId": "17507246",
+        "lastPatchedText": "Пока не работаем еще. Чиню)",
+        "nativeReactions": [],
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "lastGiftRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "originalLinkKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachments": [],
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "💬 Комментарии",
+                    "type": "open_app",
+                    "payload": "cp_-70251029837230_116709660110190050",
+                    "web_app": "id781310320690_bot"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "textOverrideActive": false,
+        "lastCustomRowsCount": 0,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "originalFormatKnown": false,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-70251029837230_116709660110190050\"}]]}}],\"text\":\"Пока не работаем еще. Чиню)\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+        "sourceAttachmentsKnown": false,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false
+      },
+      "-70251029837230:116709868421080580": {
+        "postId": "116709868421080580",
+        "autoMode": true,
+        "channelId": "-70251029837230",
+        "createdAt": 1780851266833,
+        "messageId": "mid.ffffc01b68524a52019ea301c90565f8",
+        "updatedAt": 1780851267835,
+        "commentKey": "-70251029837230:116709868421080580",
+        "channelTitle": "-70251029837230",
+        "handoffToken": "h_868421080580mq40v3l82nq5sasl",
+        "linkedByName": "Marina",
+        "originalLink": null,
+        "originalText": "",
+        "lastPatchedAt": 1780851267835,
+        "stablePayload": "cp_-70251029837230_116709868421080580",
+        "customKeyboard": {},
+        "giftCampaignId": "",
+        "lastIngestedAt": 1780851266833,
+        "lastPatchError": null,
+        "linkedByUserId": "72930380",
+        "lastPatchedText": "",
+        "nativeReactions": [],
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "lastGiftRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "originalLinkKnown": false,
+        "originalTextKnown": false,
+        "sourceAttachments": [
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8q2KsH54EnC_D5e25S1cosOWLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 21404800332
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8-HVMVuqABxczYH6wIQ6jEOWLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 21404800588
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8dAvBeEyjqcgzagSla8P_uOWLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 21404800844
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bLpWWF569xEakFOYJehcTeWLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 21404801100
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8p6Mhh98e9e5p1P8hYnhEo-WLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 21404801356
+            }
+          }
+        ],
+        "patchedAttachments": [
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8q2KsH54EnC_D5e25S1cosOWLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 21404800332
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8-HVMVuqABxczYH6wIQ6jEOWLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 21404800588
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8dAvBeEyjqcgzagSla8P_uOWLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 21404800844
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bLpWWF569xEakFOYJehcTeWLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 21404801100
+            }
+          },
+          {
+            "type": "image",
+            "payload": {
+              "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8p6Mhh98e9e5p1P8hYnhEo-WLEtzWgaxOiaO0Xnxon-k",
+              "token": "[redacted]",
+              "photo_id": 21404801356
+            }
+          },
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "💬 Комментарии",
+                    "type": "open_app",
+                    "payload": "cp_-70251029837230_116709868421080580",
+                    "web_app": "id781310320690_bot"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "textOverrideActive": false,
+        "lastCustomRowsCount": 0,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "originalFormatKnown": false,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"payload\":{\"photo_id\":21404800332,\"token\":\"/AAizWKlaCW9NJoQZmaRt3u0kOoLRyUQp55vmeX/Uoe8pEWl83ZWW/XS1iZ7JO9A02dgZUR9KVMOaULbmy6UhG2l/0NgTRFcW/6ReXs29wU=\",\"url\":\"https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8q2KsH54EnC_D5e25...[1662 chars]",
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+        "sourceAttachmentsKnown": true,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false
+      },
       "-73175958664622:116602483154115540": {
         "postId": "116602483154115540",
         "autoMode": true,
@@ -3153,7 +3562,7 @@
           "updatedAt": 1779892768679
         },
         "messageId": "mid.ffffbd7264fa4a52019e6881c8cf6466",
-        "updatedAt": 1780086840189,
+        "updatedAt": 1780728317074,
         "commentKey": "-73175958664622:116645546987316320",
         "activePollId": "34",
         "channelTitle": "-73175958664622",
@@ -3161,15 +3570,18 @@
         "linkedByName": "",
         "originalLink": null,
         "originalText": "Тест всего",
-        "lastPatchedAt": 1779894156664,
+        "lastPatchedAt": 1780728317074,
         "stablePayload": "cp_-73175958664622_116645546987316320",
-        "customKeyboard": {},
-        "giftCampaignId": "gift_mpo6uweq",
+        "customKeyboard": {
+          "rows": [],
+          "enabled": true
+        },
+        "giftCampaignId": "gift_mq1zly70",
         "lastIngestedAt": 1779869799230,
         "lastPatchError": null,
         "linkedByUserId": "",
         "lastPatchedText": "🆕 Новое\n\nТест всего",
-        "lastPollPatchAt": 1780086840189,
+        "lastPollPatchAt": 1780424624171,
         "lastPollPatchId": "34",
         "nativeReactions": [],
         "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
@@ -3211,19 +3623,19 @@
                 ],
                 [
                   {
-                    "text": "🗳 Какой хот-дог вкуснее? · 1",
+                    "text": "🗳 Какой хот-дог вкуснее? · 2",
                     "type": "callback",
                     "payload": "pi:34"
                   }
                 ],
                 [
                   {
-                    "text": "Левый · 0% (0)",
+                    "text": "Левый · 50% (1)",
                     "type": "callback",
                     "payload": "pv:34:_1"
                   },
                   {
-                    "text": "Правый · 100% (1)",
+                    "text": "Правый · 50% (1)",
                     "type": "callback",
                     "payload": "pv:34:_2"
                   }
@@ -3232,7 +3644,7 @@
                   {
                     "text": "🎁 Получить подарок",
                     "type": "callback",
-                    "payload": "{\"action\":\"gift_claim\",\"campaignId\":\"gift_mpo6uweq\",\"commentKey\":\"-73175958664622:116645546987316320\",\"channelId\":\"-73175958664622\",\"postId\":\"116645546987316320\"}"
+                    "payload": "{\"action\":\"gift_claim\",\"campaignId\":\"gift_mq1zly70\",\"commentKey\":\"-73175958664622:116645546987316320\",\"channelId\":\"-73175958664622\",\"postId\":\"116645546987316320\"}"
                   }
                 ]
               ]
@@ -3245,14 +3657,18 @@
         "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
         "originalFormatKnown": false,
         "lastHighlightPatchAt": 1779892770000,
-        "lastPollRowsCheckedAt": 1779894156402,
+        "deletedGiftCampaignAt": 1780684846893,
+        "deletedGiftCampaignId": "gift_mpo6uweq",
+        "lastPollRowsCheckedAt": 1780728316275,
         "lastHighlightPatchMode": "text_mark_no_button",
         "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"image\",\"payload\":{\"url\":\"https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr82FvxipWPGNIVY4tJKgCgJuWLEtzWgaxOiaO0Xnxon-k\",\"token\":\"Glia8lYV4cLfuB3KovizC1gv7S8/gQcW4FsHyP+Bo/G0BOS4uBHDKmGRxoh5IbTAvGmCsA6HxCFumrnVtEI38+aHI...[1066 chars]",
         "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
         "sourceAttachmentsKnown": true,
         "lastHighlightPatchError": null,
         "originalSnapshotCaptured": true,
-        "originalSnapshotEmptyKnown": false
+        "lastCustomKeyboardRuntime": "CC8.3.4-BUTTONS-DIRECT-LINKS-CHANNEL-HYDRATE",
+        "originalSnapshotEmptyKnown": false,
+        "lastCustomKeyboardUpdatedAt": 1780568521266
       },
       "-73175958664622:116651389176151360": {
         "postId": "116651389176151360",
@@ -3315,16 +3731,32 @@
         "channelId": "-73175958664622",
         "createdAt": 1779958979827,
         "messageId": "mid.ffffbd7264fa4a52019e6dd275c12be3",
-        "updatedAt": 1780042726699,
+        "updatedAt": 1780652599834,
         "commentKey": "-73175958664622:116651391044365280",
         "channelTitle": "-73175958664622",
         "handoffToken": "h_391044365280mpp9maof4r38kdwd",
         "linkedByName": "",
         "originalLink": null,
         "originalText": "Тест стикеры 2",
-        "lastPatchedAt": 1780042726698,
+        "lastPatchedAt": 1780652599834,
         "stablePayload": "cp_-73175958664622_116651391044365280",
-        "customKeyboard": {},
+        "customKeyboard": {
+          "rows": [
+            {
+              "id": "custom_button_row_1",
+              "buttons": [
+                {
+                  "id": "btn_mq0qk9wz",
+                  "url": "http://olga.style",
+                  "text": "Кнопка",
+                  "type": "link",
+                  "enabled": true
+                }
+              ]
+            }
+          ],
+          "enabled": true
+        },
         "giftCampaignId": "",
         "lastIngestedAt": 1779958979827,
         "lastPatchError": null,
@@ -3349,29 +3781,41 @@
                     "payload": "cp_-73175958664622_116651391044365280",
                     "web_app": "id781310320690_bot"
                   }
+                ],
+                [
+                  {
+                    "url": "http://olga.style",
+                    "text": "Кнопка",
+                    "type": "link"
+                  }
                 ]
               ]
             }
           }
         ],
         "textOverrideActive": false,
-        "lastCustomRowsCount": 0,
+        "lastCustomRowsCount": 1,
         "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
         "originalFormatKnown": false,
-        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 1 комментарий\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-73175958664622_116651391044365280\"}]]}}],\"text\":\"Тест стикеры 2\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 1 комментарий\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-73175958664622_116651391044365280\"}],[{\"type\":\"link\",\"text\":\"Кнопка\",\"url\":\"http://olga.style\"}]]}}],\"text\":\"Тест стикеры 2\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":1,\"pollRowsCount\":0,\"giftRowsCount\":0}",
         "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
         "sourceAttachmentsKnown": false,
         "originalSnapshotCaptured": true,
-        "originalSnapshotEmptyKnown": false
+        "lastCustomKeyboardRuntime": "CC8.3.4-BUTTONS-DIRECT-LINKS-CHANNEL-HYDRATE",
+        "originalSnapshotEmptyKnown": false,
+        "lastCustomKeyboardUpdatedAt": 1780652599136
       },
       "-73175958664622:116651392763899260": {
+        "pollId": "39",
         "postId": "116651392763899260",
+        "hasPoll": true,
         "autoMode": true,
         "channelId": "-73175958664622",
         "createdAt": 1779959000049,
         "messageId": "mid.ffffbd7264fa4a52019e6dd2dc3f2d84",
-        "updatedAt": 1780043162129,
+        "updatedAt": 1780673099767,
         "commentKey": "-73175958664622:116651392763899260",
+        "activePollId": "39",
         "channelTitle": "-73175958664622",
         "handoffToken": "h_392763899260mpp9mqcq7pztuud5",
         "linkedByName": "",
@@ -3385,13 +3829,16 @@
         "lastPatchError": null,
         "linkedByUserId": "",
         "lastPatchedText": "Тест стикеры 3",
+        "lastPollPatchAt": 1780673099766,
+        "lastPollPatchId": "39",
         "nativeReactions": [],
         "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
         "lastGiftRowsCount": 0,
-        "lastPollRowsCount": 0,
+        "lastPollRowsCount": 2,
         "originalLinkKnown": false,
         "originalTextKnown": true,
         "sourceAttachments": [],
+        "lastPollPatchError": null,
         "patchedAttachments": [
           {
             "type": "inline_keyboard",
@@ -3409,10 +3856,12 @@
             }
           }
         ],
+        "pollRowsKnownEmpty": false,
         "textOverrideActive": false,
         "lastCustomRowsCount": 0,
         "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
         "originalFormatKnown": false,
+        "lastPollRowsCheckedAt": 1780673099360,
         "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 10 комментариев\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-73175958664622_116651392763899260\"}]]}}],\"text\":\"Тест стикеры 3\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
         "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
         "sourceAttachmentsKnown": false,
@@ -3779,7 +4228,7 @@
           "updatedAt": 1780149343114
         },
         "messageId": "mid.ffffbd7264fa4a52019e792983107f30",
-        "updatedAt": 1780149343267,
+        "updatedAt": 1780652661164,
         "commentKey": "-73175958664622:116663859557728050",
         "channelTitle": "-73175958664622",
         "handoffToken": "h_859557728050mpsevyll03m33m02",
@@ -3788,25 +4237,40 @@
         "linkedByName": "",
         "originalLink": null,
         "originalText": "Новый тест всего",
-        "lastPatchedAt": 1780149244827,
+        "lastPatchedAt": 1780652661163,
         "stablePayload": "cp_-73175958664622_116663859557728050",
         "customKeyboard": {},
-        "giftCampaignId": "",
+        "giftCampaignId": "gift_mq0qlel4",
         "lastEditedById": "17507246",
         "lastIngestedAt": 1780149227321,
         "lastPatchError": null,
         "linkedByUserId": "",
-        "lastPatchedText": "Новый тест всего",
+        "lastPatchedText": "🔥 Акция\n\nНовый тест всего",
         "nativeReactions": [],
         "commentsDisabled": true,
         "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
         "lastEditVersionId": "1780149244570_cyqj03",
-        "lastGiftRowsCount": 0,
+        "lastGiftRowsCount": 1,
         "lastPollRowsCount": 0,
         "originalLinkKnown": false,
         "originalTextKnown": true,
         "sourceAttachments": [],
-        "patchedAttachments": [],
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "🎁 Получить подарок",
+                    "type": "callback",
+                    "payload": "{\"action\":\"gift_claim\",\"campaignId\":\"gift_mq0qlel4\",\"commentKey\":\"-73175958664622:116663859557728050\",\"channelId\":\"-73175958664622\",\"postId\":\"116663859557728050\"}"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
         "textOverrideActive": false,
         "lastCommentsEnabled": false,
         "lastCustomRowsCount": 0,
@@ -3815,7 +4279,7 @@
         "lastCommentsToggleAt": 1780149244579,
         "lastHighlightPatchAt": 1780149343267,
         "lastHighlightPatchMode": "text_mark_no_button",
-        "lastPatchedFingerprint": "{\"attachments\":[],\"text\":\"Новый тест всего\",\"link\":null,\"format\":null,\"commentsDisabled\":true,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"callback\",\"text\":\"🎁 Получить подарок\",\"payload\":\"{\\\"action\\\":\\\"gift_claim\\\",\\\"campaignId\\\":\\\"gift_mq0qlel4\\\",\\\"commentKey\\\":\\\"-73175958664622:116663859557728050\\\",\\\"channelId\\\":\\\"-73175958664622\\\",\\\"postId\\\":\\\"116663859557728050\\\"}\"}]]}}],\"text\":\"🔥 Акция\\n\\nНовый тест всего\",\"link\":null,\"format\":null,\"commentsDisabled\":true,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":1}",
         "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
         "sourceAttachmentsKnown": false,
         "lastHighlightPatchError": null,
@@ -4181,14 +4645,14 @@
         "channelId": "-75357047862702",
         "createdAt": 1780304723173,
         "messageId": "mid.ffffbb7691ee4a52019e826dfd646203",
-        "updatedAt": 1780382936905,
+        "updatedAt": 1780423958537,
         "commentKey": "-75357047862702:116674049272472060",
         "channelTitle": "-75357047862702",
         "handoffToken": "h_049272472060mpuzgry30ekxqa55",
         "linkedByName": "",
         "originalLink": null,
         "originalText": "Тест текст медиа",
-        "lastPatchedAt": 1780382936905,
+        "lastPatchedAt": 1780423958536,
         "stablePayload": "cp_-75357047862702_116674049272472060",
         "customKeyboard": {},
         "giftCampaignId": "",
@@ -4227,10 +4691,10 @@
               "buttons": [
                 [
                   {
+                    "text": "💬 14 комментариев",
                     "type": "open_app",
-                    "text": "💬 13 комментариев",
-                    "web_app": "id781310320690_bot",
-                    "payload": "cp_-75357047862702_116674049272472060"
+                    "payload": "cp_-75357047862702_116674049272472060",
+                    "web_app": "id781310320690_bot"
                   }
                 ]
               ]
@@ -4303,13 +4767,16 @@
         "originalSnapshotEmptyKnown": false
       },
       "-75357088691630:116674053614348450": {
+        "pollId": "38",
         "postId": "116674053614348450",
+        "hasPoll": true,
         "autoMode": true,
         "channelId": "-75357088691630",
         "createdAt": 1780304774972,
         "messageId": "mid.ffffbb768f7f4a52019e826f003028a4",
-        "updatedAt": 1780304963282,
+        "updatedAt": 1780673046710,
         "commentKey": "-75357088691630:116674053614348450",
+        "activePollId": "38",
         "channelTitle": "-75357088691630",
         "handoffToken": "h_053614348450mpuzhvy2ts5bg2m8",
         "linkedByName": "",
@@ -4323,10 +4790,12 @@
         "lastPatchError": null,
         "linkedByUserId": "",
         "lastPatchedText": "Тест текст плюс медиа АК тест 2",
+        "lastPollPatchAt": 1780673046710,
+        "lastPollPatchId": "38",
         "nativeReactions": [],
         "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
         "lastGiftRowsCount": 0,
-        "lastPollRowsCount": 0,
+        "lastPollRowsCount": 3,
         "originalLinkKnown": false,
         "originalTextKnown": true,
         "sourceAttachments": [
@@ -4339,6 +4808,7 @@
             }
           }
         ],
+        "lastPollPatchError": null,
         "patchedAttachments": [
           {
             "type": "image",
@@ -4364,10 +4834,12 @@
             }
           }
         ],
+        "pollRowsKnownEmpty": false,
         "textOverrideActive": false,
         "lastCustomRowsCount": 0,
         "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
         "originalFormatKnown": false,
+        "lastPollRowsCheckedAt": 1780673046190,
         "lastPatchedFingerprint": "{\"attachments\":[{\"payload\":{\"photo_id\":19818794414,\"token\":\"XQOdEGuBBGChTxE1z750ziunO+Z+xWrlF5AOyZqiAjEJ5XTD4i4/O9MF8y4592hcR2RAhdvSr8yIYhcwthdh3POU3E2gZ2pZLVHO+AWK+LU=\",\"url\":\"https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8spyu4BBUEuZxhWlq...[616 chars]",
         "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
         "sourceAttachmentsKnown": true,
@@ -4795,9 +5267,234 @@
             "previewUrl": "/public/stickers/adminkit/v1/adminkit_ok.webp"
           }
         ]
+      },
+      "-75643106932142:116709915973007500": {
+        "postId": "116709915973007500",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea30cdb563892",
+        "originalText": "/push",
+        "sourceAttachments": [],
+        "nativeReactions": [],
+        "originalLink": null,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachmentsKnown": false,
+        "originalLinkKnown": false,
+        "originalFormatKnown": false,
+        "channelTitle": "-75643106932142",
+        "textOverrideActive": false,
+        "linkedByUserId": "17507246",
+        "linkedByName": "Alex P",
+        "autoMode": true,
+        "handoffToken": "h_915973007500mq41anosevueltp7",
+        "stablePayload": "cp_-75643106932142_116709915973007500",
+        "customKeyboard": {},
+        "createdAt": 1780851992625,
+        "lastIngestedAt": 1780851992626,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "commentKey": "-75643106932142:116709915973007500",
+        "updatedAt": 1780851993919,
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "type": "open_app",
+                    "text": "💬 Комментарии",
+                    "web_app": "id781310320690_bot",
+                    "payload": "cp_-75643106932142_116709915973007500"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "lastPatchedText": "/push",
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709915973007500\"}]]}}],\"text\":\"/push\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastPatchedAt": 1780851993919,
+        "lastPatchError": null,
+        "giftCampaignId": "",
+        "lastCustomRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "lastGiftRowsCount": 0,
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77"
+      },
+      "-75643106932142:116709936146775140": {
+        "postId": "116709936146775140",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea3118dc97c67",
+        "originalText": "Включить уведомления",
+        "sourceAttachments": [],
+        "nativeReactions": [],
+        "originalLink": null,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachmentsKnown": false,
+        "originalLinkKnown": false,
+        "originalFormatKnown": false,
+        "channelTitle": "-75643106932142",
+        "textOverrideActive": false,
+        "linkedByUserId": "17507246",
+        "linkedByName": "Alex P",
+        "autoMode": true,
+        "handoffToken": "h_936146775140mq41h8j7r8ae03cp",
+        "stablePayload": "cp_-75643106932142_116709936146775140",
+        "customKeyboard": {},
+        "createdAt": 1780852299518,
+        "lastIngestedAt": 1780852299518,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "commentKey": "-75643106932142:116709936146775140",
+        "updatedAt": 1780852300098,
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "type": "open_app",
+                    "text": "💬 Комментарии",
+                    "web_app": "id781310320690_bot",
+                    "payload": "cp_-75643106932142_116709936146775140"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "lastPatchedText": "Включить уведомления",
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709936146775140\"}]]}}],\"text\":\"Включить уведомления\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastPatchedAt": 1780852300098,
+        "lastPatchError": null,
+        "giftCampaignId": "",
+        "lastCustomRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "lastGiftRowsCount": 0,
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77"
+      },
+      "-75643106932142:116709937341758560": {
+        "postId": "116709937341758560",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea311d5037c67",
+        "originalText": "Включить уведомления",
+        "sourceAttachments": [],
+        "nativeReactions": [],
+        "originalLink": null,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachmentsKnown": false,
+        "originalLinkKnown": false,
+        "originalFormatKnown": false,
+        "channelTitle": "-75643106932142",
+        "textOverrideActive": false,
+        "linkedByUserId": "17507246",
+        "linkedByName": "Alex P",
+        "autoMode": true,
+        "handoffToken": "h_937341758560mq41hm3ykhlpf4qc",
+        "stablePayload": "cp_-75643106932142_116709937341758560",
+        "customKeyboard": {},
+        "createdAt": 1780852317026,
+        "lastIngestedAt": 1780852317026,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "commentKey": "-75643106932142:116709937341758560",
+        "updatedAt": 1780852318123,
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "type": "open_app",
+                    "text": "💬 Комментарии",
+                    "web_app": "id781310320690_bot",
+                    "payload": "cp_-75643106932142_116709937341758560"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "lastPatchedText": "Включить уведомления",
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709937341758560\"}]]}}],\"text\":\"Включить уведомления\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastPatchedAt": 1780852318123,
+        "lastPatchError": null,
+        "giftCampaignId": "",
+        "lastCustomRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "lastGiftRowsCount": 0,
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77"
+      },
+      "-75643106932142:116709937858885780": {
+        "postId": "116709937858885780",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea311f3d63892",
+        "originalText": "/push",
+        "sourceAttachments": [],
+        "nativeReactions": [],
+        "originalLink": null,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachmentsKnown": false,
+        "originalLinkKnown": false,
+        "originalFormatKnown": false,
+        "channelTitle": "-75643106932142",
+        "textOverrideActive": false,
+        "linkedByUserId": "17507246",
+        "linkedByName": "Alex P",
+        "autoMode": true,
+        "handoffToken": "h_937858885780mq41ht7flpjsyzy0",
+        "stablePayload": "cp_-75643106932142_116709937858885780",
+        "customKeyboard": {},
+        "createdAt": 1780852326320,
+        "lastIngestedAt": 1780852326320,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "commentKey": "-75643106932142:116709937858885780",
+        "updatedAt": 1780852327140,
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "type": "open_app",
+                    "text": "💬 Комментарии",
+                    "web_app": "id781310320690_bot",
+                    "payload": "cp_-75643106932142_116709937858885780"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "lastPatchedText": "/push",
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709937858885780\"}]]}}],\"text\":\"/push\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastPatchedAt": 1780852327140,
+        "lastPatchError": null,
+        "giftCampaignId": "",
+        "lastCustomRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "lastGiftRowsCount": 0,
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77"
       }
     },
     "comments": {
+      "-70251029837230:116709012212747400": [],
+      "-70251029837230:116709012693540860": [],
+      "-70251029837230:116709015834678050": [],
+      "-70251029837230:116709660110190050": [],
+      "-70251029837230:116709868421080580": [],
       "-73175958664622:116602483154115540": [],
       "-73175958664622:116605345280910160": [],
       "-73175958664622:116605387541346430": [],
@@ -6380,43 +7077,61 @@
         },
         {
           "id": "1780382935014_6s0blu",
+          "text": "",
           "likes": 0,
-          "createdAt": 1780382935015,
-          "clientCommentId": "client_1780382931984_bdjfo0",
           "userId": "17507246",
+          "editedAt": 0,
           "userName": "Alex P",
           "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
-          "text": "",
-          "attachments": [
-            {
-              "id": "inline_1780382932051_8b0xfx",
-              "type": "image",
-              "name": "IMG_8556.jpg",
-              "fileName": "IMG_8556.jpg",
-              "mime": "image/jpeg",
-              "mimeType": "image/jpeg",
-              "size": 70437,
-              "url": "",
-              "previewUrl": "",
-              "posterUrl": "",
-              "thumbDataUrl": "[removed]",
-              "payload": {},
-              "native": false,
-              "storage": "inline-preview-clean-contract",
-              "uploadId": "inline_1780382932051_8b0xfx",
-              "clientUploadId": "inline_1780382932051_8b0xfx",
-              "rawUrl": "",
-              "processing": false,
-              "status": "",
-              "runtimeOnly": false,
-              "runtimeFileExists": false,
-              "inlinePreviewUnavailable": false,
-              "brokenRuntimeOnly": false,
-              "transcodeError": ""
-            }
-          ],
+          "createdAt": 1780382935015,
           "replyToId": "",
-          "editedAt": 0
+          "attachments": [],
+          "clientCommentId": "client_1780382931984_bdjfo0"
+        },
+        {
+          "id": "1780423956746_7xrx74",
+          "text": "",
+          "likes": 0,
+          "userId": "17507246",
+          "editedAt": 0,
+          "userName": "Alex P",
+          "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
+          "createdAt": 1780423956746,
+          "replyToId": "",
+          "attachments": [],
+          "clientCommentId": "client_1780423952823_vf3p27"
+        },
+        {
+          "id": "1780423973136_8rdnmb",
+          "text": "Стикер",
+          "type": "sticker",
+          "likes": 0,
+          "packId": "adminkit_whales_v1",
+          "userId": "17507246",
+          "editedAt": 0,
+          "userName": "Alex P",
+          "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
+          "createdAt": 1780423973136,
+          "replyToId": "",
+          "stickerId": "adminkit_party",
+          "attachments": [],
+          "runtimeVersion": "CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87"
+        },
+        {
+          "id": "1780423998539_62q928",
+          "text": "Стикер",
+          "type": "sticker",
+          "likes": 0,
+          "packId": "adminkit_whales_v1",
+          "userId": "17507246",
+          "editedAt": 0,
+          "userName": "Alex P",
+          "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
+          "createdAt": 1780423998539,
+          "replyToId": "",
+          "stickerId": "adminkit_love",
+          "attachments": [],
+          "runtimeVersion": "CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87"
         }
       ],
       "-75357088691630:116674051715174640": [],
@@ -7924,14 +8639,47 @@
           "attachments": [],
           "runtimeVersion": "CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87"
         }
-      ]
+      ],
+      "-75643106932142:116709915973007500": [],
+      "-75643106932142:116709936146775140": [],
+      "-75643106932142:116709937341758560": [],
+      "-75643106932142:116709937858885780": []
     },
     "channels": {
+      "260767839": {
+        "title": "Ольга",
+        "channelId": "260767839",
+        "updatedAt": 1780478326771,
+        "channelTitle": "Ольга"
+      },
       "261677113": {
         "title": "Alex P",
         "channelId": "261677113",
-        "updatedAt": 1780249917879,
+        "updatedAt": 1780728416629,
         "channelTitle": "Alex P"
+      },
+      "-70251029837230": {
+        "type": "channel",
+        "title": "-70251029837230",
+        "chatType": "channel",
+        "channelId": "-70251029837230",
+        "isChannel": true,
+        "updatedAt": 1780851267137,
+        "botAddedAt": 1780837683211,
+        "lastPostId": "116709868421080580",
+        "ownerUserId": "17507246",
+        "channelTitle": "Alex P",
+        "isMaxChannel": true,
+        "linkedByName": "Marina",
+        "lastMessageId": "mid.ffffc01b68524a52019ea301c90565f8",
+        "linkedByUserId": "72930380",
+        "autoModeEnabled": true,
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "resolvedChannelTitle": "Все свои MAX",
+        "channelRegistryRuntime": "CC8.3.33-CHANNEL-TITLE-NO-USER-NAME",
+        "channelTitleResolvedAt": 1780837682818,
+        "channelTitleResolveError": "",
+        "channelTitleResolverRuntime": "CC8.3.44-AUTO-TENANT-CHANNEL-BIND"
       },
       "-73175958664622": {
         "link": "https://max.ru/join/PX4c-5eFcI3-eS6KB82BeLQpBZqLyDjOZH5ULje21Ew",
@@ -7997,12 +8745,12 @@
       "-75357047862702": {
         "link": "https://max.ru/join/dyoKb-EIzgyIgqDn1hUX_l8eaE_Cnph0i651DdYguwI",
         "type": "channel",
-        "title": "-75357047862702",
+        "title": "АК-ТЕСТ 1",
         "joinUrl": "https://max.ru/join/dyoKb-EIzgyIgqDn1hUX_l8eaE_Cnph0i651DdYguwI",
         "chatType": "channel",
         "channelId": "-75357047862702",
         "isChannel": true,
-        "updatedAt": 1780304723371,
+        "updatedAt": 1780652517204,
         "botAddedAt": 1780248514996,
         "inviteLink": "https://max.ru/join/dyoKb-EIzgyIgqDn1hUX_l8eaE_Cnph0i651DdYguwI",
         "lastPostId": "116674049272472060",
@@ -8076,14 +8824,14 @@
       },
       "-75357088691630": {
         "type": "channel",
-        "title": "-75357088691630",
+        "title": "АК-ТЕСТ 2",
         "chatType": "channel",
         "channelId": "-75357088691630",
         "isChannel": true,
-        "updatedAt": 1780304775077,
+        "updatedAt": 1780652517033,
         "lastPostId": "116674053614348450",
         "ownerUserId": "17507246",
-        "channelTitle": "Откуда Подписки бот",
+        "channelTitle": "АК-ТЕСТ 2",
         "isMaxChannel": true,
         "linkedByName": "",
         "lastMessageId": "mid.ffffbb768f7f4a52019e826f003028a4",
@@ -8150,38 +8898,132 @@
       },
       "-75423245645230": {
         "type": "channel",
-        "title": "-75423245645230",
+        "title": "АК-Тест 3",
         "chatType": "channel",
         "channelId": "-75423245645230",
         "isChannel": true,
-        "updatedAt": 1780306869926,
+        "updatedAt": 1780652516908,
         "botAddedAt": 1780306840927,
         "lastPostId": "116674190698942030",
         "ownerUserId": "17507246",
-        "channelTitle": "Alex P",
+        "channelTitle": "АК-Тест 3",
         "isMaxChannel": true,
         "linkedByName": "",
         "lastMessageId": "mid.ffffbb67283c4a52019e828eeb110e55",
         "linkedByUserId": "",
         "autoModeEnabled": true,
         "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
-        "resolvedChannelTitle": "АК Тест-3",
+        "resolvedChannelTitle": "АК-Тест 3",
         "channelRegistryRuntime": "CC8.3.33-CHANNEL-TITLE-NO-USER-NAME",
         "channelTitleResolvedAt": 1780306840623,
         "channelTitleResolveError": "",
+        "channelTitleResolverRuntime": "CC8.3.44-AUTO-TENANT-CHANNEL-BIND"
+      },
+      "-75643106932142": {
+        "type": "channel",
+        "title": "-75643106932142",
+        "chatType": "channel",
+        "channelId": "-75643106932142",
+        "isChannel": true,
+        "updatedAt": 1780852326721,
+        "botAddedAt": 1780848285981,
+        "ownerUserId": "17507246",
+        "channelTitle": "Alex P",
+        "isMaxChannel": true,
+        "linkedByName": "Alex P",
+        "audienceEvents": [
+          {
+            "id": "1780848285382_vyvtqy",
+            "name": "Ольга",
+            "type": "user_added",
+            "source": "webhook",
+            "userId": "18400200",
+            "lastName": "",
+            "username": "",
+            "channelId": "-75643106932142",
+            "createdAt": 1780848285382,
+            "dedupeKey": "user_added:-75643106932142:18400200:29680804:webhook",
+            "firstName": "Ольга",
+            "attribution": {
+              "source": "Источник неизвестен",
+              "status": "unknown"
+            },
+            "displayName": "Ольга"
+          },
+          {
+            "id": "1780848284786_semzuh",
+            "name": "Ольга",
+            "type": "user_added",
+            "source": "webhook_user_added",
+            "userId": "18400200",
+            "lastName": "",
+            "username": "",
+            "channelId": "-75643106932142",
+            "createdAt": 1780848284786,
+            "dedupeKey": "user_added:-75643106932142:18400200:29680804:webhook_user_added",
+            "firstName": "Ольга",
+            "attribution": {
+              "source": "Источник неизвестен",
+              "status": "unknown"
+            },
+            "displayName": "Ольга"
+          }
+        ],
+        "linkedByUserId": "17507246",
+        "audienceProfiles": {
+          "18400200": {
+            "name": "Ольга",
+            "isBot": false,
+            "userId": "18400200",
+            "lastName": "",
+            "username": "",
+            "firstName": "Ольга",
+            "updatedAt": 1780848285382,
+            "lastEventAt": 1780848285382,
+            "lastEventType": "user_added",
+            "lastActivityTime": 0
+          }
+        },
+        "audienceUpdatedAt": 1780848285479,
+        "resolvedChannelTitle": "Мож•Хвост",
+        "channelRegistryRuntime": "CC8.3.33-CHANNEL-TITLE-NO-USER-NAME",
+        "channelTitleResolvedAt": 1780848284639,
+        "channelTitleResolveError": "",
+        "channelTitleResolverRuntime": "CC8.3.44-AUTO-TENANT-CHANNEL-BIND",
+        "lastPostId": "116709937858885780",
+        "lastMessageId": "mid.ffffbb33f77b4a52019ea311f3d63892",
+        "autoModeEnabled": true,
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84"
+      },
+      "selftest_comments_matrix_channel": {
+        "type": "channel",
+        "title": "",
+        "chatType": "channel",
+        "channelId": "selftest_comments_matrix_channel",
+        "isChannel": true,
+        "updatedAt": 1780423598483,
+        "ownerUserId": "17507246",
+        "channelTitle": "",
+        "isMaxChannel": true,
+        "linkedByName": "",
+        "linkedByUserId": "17507246",
+        "resolvedChannelTitle": "",
+        "channelTitleResolvedAt": 1780423598483,
+        "channelTitleResolveError": "MAX API 404 GET /chats/selftest_comments_matrix_channel",
         "channelTitleResolverRuntime": "CC8.3.44-AUTO-TENANT-CHANNEL-BIND"
       }
     },
     "setupState": {
       "17507246": {
         "adminUi": {
-          "section": "channels",
+          "section": "main",
           "backAction": "admin_section_main",
-          "rootAction": "admin_section_channels",
+          "rootAction": "admin_section_main",
           "selectMode": ""
         },
+        "giftFlow": null,
         "tenantKey": "tenant_17507246",
-        "updatedAt": 1780308410263,
+        "updatedAt": 1780747342201,
         "buttonFlow": null,
         "ownerUserId": "17507246",
         "postEditFlow": null,
@@ -8192,88 +9034,286 @@
           "selectMode": ""
         },
         "giftTargetPost": {
-          "postId": "116657663670426180",
-          "linkedAt": 1780161161114,
-          "channelId": "-73175958664622",
-          "messageId": "mid.ffffbd7264fa4a52019e7386eb671a3b",
-          "commentKey": "-73175958664622:116657663670426180",
-          "channelTitle": "-73175958664622",
-          "originalText": "Perf test"
-        },
-        "adminMessageIds": [
-          "mid.000000000f98e039019e81eab1fb47db"
-        ],
-        "buttonTargetPost": {
-          "postId": "116664611699776700",
-          "linkedAt": 1780160761411,
-          "channelId": "-73175958664622",
-          "createdAt": 1780160714311,
-          "messageId": "mid.ffffbd7264fa4a52019e79d8a2395cbc",
+          "postId": "116670368432986050",
+          "linkedAt": 1780741783756,
+          "channelId": "-75357047862702",
+          "createdAt": 1780248545087,
+          "messageId": "mid.ffffbb7691ee4a52019e7f14fa4317bf",
           "tenantKey": "tenant_17507246",
-          "updatedAt": 1780160761501,
-          "commentKey": "-73175958664622:116664611699776700",
+          "updatedAt": 1780741783756,
+          "commentKey": "-75357047862702:116670368432986050",
+          "ownerUserId": "17507246",
+          "channelTitle": "АК-ТЕСТ 1",
+          "originalText": "Тест",
+          "createdByUserId": "17507246",
+          "updatedByUserId": "17507246",
+          "sourceAttachments": []
+        },
+        "pollTargetPost": {
+          "postId": "116651392763899260",
+          "linkedAt": 1780673096263,
+          "channelId": "-73175958664622",
+          "createdAt": 1779959000049,
+          "messageId": "mid.ffffbd7264fa4a52019e6dd2dc3f2d84",
+          "tenantKey": "tenant_17507246",
+          "updatedAt": 1780673096263,
+          "commentKey": "-73175958664622:116651392763899260",
           "ownerUserId": "17507246",
           "channelTitle": "АдминКит клуб",
-          "originalText": "Тест new plus media",
+          "originalText": "Тест стикеры 3",
+          "createdByUserId": "17507246",
+          "updatedByUserId": "17507246",
+          "sourceAttachments": []
+        },
+        "adminMessageIds": [
+          "mid.000000000f98e039019e9cb7e5ea5e17"
+        ],
+        "buttonTargetPost": null,
+        "commentAdminFlow": null,
+        "giftsCurrentCard": {
+          "cardId": "gifts_card_mq27oiah_7w9poe",
+          "postId": "116670368432986050",
+          "source": "gifts_selected_post_card",
+          "linkedAt": 1780741783961,
+          "channelId": "-75357047862702",
+          "createdAt": 1780741783961,
+          "messageId": "mid.ffffbb7691ee4a52019e7f14fa4317bf",
+          "tenantKey": "tenant_17507246",
+          "updatedAt": 1780741783961,
+          "commentKey": "-75357047862702:116670368432986050",
+          "ownerUserId": "17507246",
+          "channelTitle": "АК-ТЕСТ 1",
+          "originalText": "Тест",
+          "createdByUserId": "17507246",
+          "updatedByUserId": "17507246",
+          "sourceAttachments": []
+        },
+        "commentTargetPost": null,
+        "statsCampaignFlow": null,
+        "buttonsCurrentCard": {
+          "cardId": "buttons_card_mq0unex7_yxunv0",
+          "postId": "116651391044365280",
+          "source": "buttons_selected_post_card",
+          "linkedAt": 1780659431755,
+          "channelId": "-73175958664622",
+          "createdAt": 1780659431755,
+          "messageId": "mid.ffffbd7264fa4a52019e6dd275c12be3",
+          "tenantKey": "tenant_17507246",
+          "updatedAt": 1780659431755,
+          "commentKey": "-73175958664622:116651391044365280",
+          "ownerUserId": "17507246",
+          "channelTitle": "АдминКит клуб",
+          "originalText": "Тест стикеры 2",
           "createdByUserId": "17507246",
           "updatedByUserId": "17507246"
         },
-        "commentTargetPost": {
-          "postId": "116657663670426180",
-          "linkedAt": 1780161161114,
-          "channelId": "-73175958664622",
-          "messageId": "mid.ffffbd7264fa4a52019e7386eb671a3b",
-          "commentKey": "-73175958664622:116657663670426180",
-          "channelTitle": "-73175958664622",
-          "originalText": "Perf test"
-        },
-        "statsCampaignFlow": null,
         "giftActiveScreenAt": 0,
         "giftActiveScreenId": "",
-        "latestBotMessageId": "mid.000000000f98e039019e81eab1fb47db",
+        "latestBotMessageId": "mid.000000000f98e039019e9cd0114a2abe",
+        "activeAdminFlowKind": "",
         "adminUserMessageIds": [
-          "mid.000000000f98e039019e79173a23781e",
-          "mid.000000000f98e039019e791973261070",
-          "mid.000000000f98e039019e79360d2c2a44"
+          "mid.000000000f98e039019e987c72b25894",
+          "mid.000000000f98e039019e9cad157164bf",
+          "mid.000000000f98e039019e9cb7d4c101e1",
+          "mid.000000000f98e039019e9cb88ee42f2e",
+          "mid.000000000f98e039019e9cd008d72f2e"
         ],
         "flowIsolationReason": "posts_screen:admin_section_posts",
         "tenantInitializedAt": 1779475395058,
+        "giftPatchDiagnostics": [
+          {
+            "at": 1780684847495,
+            "status": "patch_attempted",
+            "commentKey": "-73175958664622:116645546987316320"
+          },
+          {
+            "at": 1780684848697,
+            "reason": "",
+            "status": "patch_confirmed",
+            "commentKey": "-73175958664622:116645546987316320"
+          },
+          {
+            "at": 1780728314677,
+            "status": "patch_attempted",
+            "commentKey": "-73175958664622:116645546987316320"
+          },
+          {
+            "at": 1780728317271,
+            "reason": "",
+            "status": "patch_confirmed",
+            "commentKey": "-73175958664622:116645546987316320"
+          }
+        ],
         "tenantRuntimeVersion": "CC8.1.0-CLEAN-GIFTS-BUTTONS-TENANT-FOUNDATION",
         "canReadLegacyUnscoped": true,
-        "nativeStartMenuSentAt": 1780249919583,
-        "nativeStartLastUpdateId": "1780249918373",
-        "pendingDeleteMessageIds": [],
+        "giftTargetDiagnostics": [
+          {
+            "at": 1780671446455,
+            "status": "current_card",
+            "commentKey": "-73175958664622:116664611699776700"
+          },
+          {
+            "at": 1780671474396,
+            "status": "denied_no_current_card",
+            "requestedCardId": ""
+          },
+          {
+            "at": 1780684826219,
+            "status": "denied_no_current_card",
+            "requestedCardId": ""
+          },
+          {
+            "at": 1780684836197,
+            "status": "current_card",
+            "commentKey": "-73175958664622:116645546987316320"
+          },
+          {
+            "at": 1780686314362,
+            "status": "denied_no_current_card",
+            "requestedCardId": ""
+          },
+          {
+            "at": 1780692077965,
+            "status": "denied_no_current_card",
+            "requestedCardId": ""
+          },
+          {
+            "at": 1780692087921,
+            "status": "current_card",
+            "commentKey": "-73175958664622:116663859557728050"
+          },
+          {
+            "at": 1780728215476,
+            "status": "current_card",
+            "commentKey": "-73175958664622:116645546987316320"
+          },
+          {
+            "at": 1780728361480,
+            "status": "current_card",
+            "commentKey": "-73175958664622:116645546987316320"
+          },
+          {
+            "at": 1780741783962,
+            "status": "current_card",
+            "commentKey": "-75357047862702:116670368432986050"
+          }
+        ],
+        "nativeStartMenuSentAt": 1780407732536,
+        "buttonTargetDiagnostics": [
+          {
+            "at": 1780659414593,
+            "status": "denied_no_current_card",
+            "requestedCardId": ""
+          },
+          {
+            "at": 1780659431755,
+            "status": "current_card",
+            "commentKey": "-73175958664622:116651391044365280"
+          },
+          {
+            "at": 1780660249937,
+            "status": "denied_no_current_card",
+            "requestedCardId": ""
+          },
+          {
+            "at": 1780663824326,
+            "status": "denied_no_current_card",
+            "requestedCardId": ""
+          }
+        ],
+        "nativeStartLastUpdateId": "1780407730435",
         "giftActiveScreenMessageId": "",
         "buttonActiveScreenMessageId": ""
       },
-      "244564887": {
-        "updatedAt": 1780308421121,
+      "18400200": {
+        "adminUi": {
+          "section": "gifts",
+          "backAction": "admin_section_gifts",
+          "rootAction": "admin_section_gifts",
+          "selectMode": "gifts"
+        },
+        "giftFlow": null,
+        "tenantKey": "tenant_18400200",
+        "updatedAt": 1780479108860,
+        "ownerUserId": "18400200",
+        "activeAdminUi": {
+          "section": "gifts",
+          "backAction": "admin_section_gifts",
+          "rootAction": "admin_section_gifts",
+          "selectMode": "gifts"
+        },
+        "giftTargetPost": {
+          "postId": "116674190698942030",
+          "linkedAt": 1780479108860,
+          "channelId": "-75423245645230",
+          "createdAt": 1780306869732,
+          "messageId": "mid.ffffbb67283c4a52019e828eeb110e55",
+          "tenantKey": "tenant_18400200",
+          "updatedAt": 1780479108860,
+          "commentKey": "-75423245645230:116674190698942030",
+          "ownerUserId": "18400200",
+          "channelTitle": "-75423245645230",
+          "originalText": "https://max.ru/join/qREn2XQqqYjBKZbfZaEaA0EcNoK4_qE0F23l_QfP7Ec",
+          "createdByUserId": "18400200",
+          "updatedByUserId": "18400200"
+        },
         "adminMessageIds": [
-          "mid.000000000f98e039019e79da15d80297",
-          "mid.000000000f98e039019e79daff406a63",
-          "mid.000000000f98e039019e79dddd4e576e",
-          "mid.000000000f98e039019e79f0c79b5bbc",
-          "mid.000000000f98e039019e7a1d24a91ae0",
-          "mid.000000000f98e039019e7d04c7887da7",
-          "mid.000000000f98e039019e7d065e822d24",
-          "mid.000000000f98e039019e7d20649e33ae",
-          "mid.000000000f98e039019e7d2e3fe31767",
-          "mid.000000000f98e039019e7d2ed8473e7c",
-          "mid.000000000f98e039019e7d6cff57111b",
-          "mid.000000000f98e039019e7edb82082b27",
-          "mid.000000000f98e039019e7eea7b2d6187",
-          "mid.000000000f98e039019e7ef2149f4e07",
-          "mid.000000000f98e039019e7ef2a90604e7",
-          "mid.000000000f98e039019e7f01304342c7",
-          "mid.000000000f98e039019e7f29ffa83ca7",
-          "mid.000000000f98e039019e7f2c89d71507",
-          "mid.000000000f98e039019e7f3ce6f46548",
-          "mid.000000000f98e039019e81eab1fb47db"
+          "mid.000000000f8b005f019e8cceb8f01a44"
         ],
-        "latestBotMessageId": "mid.000000000f98e039019e81eab1fb47db"
+        "commentTargetPost": {
+          "postId": "116674190698942030",
+          "linkedAt": 1780479108860,
+          "channelId": "-75423245645230",
+          "createdAt": 1780306869732,
+          "messageId": "mid.ffffbb67283c4a52019e828eeb110e55",
+          "tenantKey": "tenant_18400200",
+          "updatedAt": 1780479108860,
+          "commentKey": "-75423245645230:116674190698942030",
+          "ownerUserId": "18400200",
+          "channelTitle": "-75423245645230",
+          "originalText": "https://max.ru/join/qREn2XQqqYjBKZbfZaEaA0EcNoK4_qE0F23l_QfP7Ec",
+          "createdByUserId": "18400200",
+          "updatedByUserId": "18400200"
+        },
+        "latestBotMessageId": "mid.000000000f8b005f019e8cceb8f01a44",
+        "activeAdminFlowKind": "",
+        "tenantInitializedAt": 1780479093244,
+        "tenantRuntimeVersion": "CC8.1.0-CLEAN-GIFTS-BUTTONS-TENANT-FOUNDATION",
+        "canReadLegacyUnscoped": true
+      },
+      "244564887": {
+        "updatedAt": 1780747327139,
+        "adminMessageIds": [
+          "mid.000000000f98e039019e898882f21c0e",
+          "mid.000000000f98e039019e898b724232c1",
+          "mid.000000000f98e039019e899308af1fe5",
+          "mid.000000000f8b005f019e8cceb8f01a44",
+          "mid.000000000f98e039019e8f49a09d4c8b",
+          "mid.000000000f98e039019e8f91b9623125",
+          "mid.000000000f98e039019e9222db663125",
+          "mid.000000000f98e039019e9227725134af",
+          "mid.000000000f98e039019e936b90d52425",
+          "mid.000000000f98e039019e971e89c03765",
+          "mid.000000000f98e039019e972a5bbf4f77",
+          "mid.000000000f98e039019e972b1af717b0",
+          "mid.000000000f98e039019e98494cc60065",
+          "mid.000000000f98e039019e987c848521a5",
+          "mid.000000000f98e039019e9baba4c126e5",
+          "mid.000000000f98e039019e9bad4db0497a",
+          "mid.000000000f98e039019e9baeeb714575",
+          "mid.000000000f98e039019e9baf540243e5",
+          "mid.000000000f98e039019e9cb797d53ba5",
+          "mid.000000000f98e039019e9ccfb9e36425"
+        ],
+        "latestBotMessageId": "mid.000000000f98e039019e9ccfb9e36425"
       }
     },
     "likes": {
+      "-70251029837230:116709012212747400": {},
+      "-70251029837230:116709012693540860": {},
+      "-70251029837230:116709015834678050": {},
+      "-70251029837230:116709660110190050": {},
+      "-70251029837230:116709868421080580": {},
       "-73175958664622:116602483154115540": {},
       "-73175958664622:116605345280910160": {},
       "-73175958664622:116605387541346430": {},
@@ -8331,7 +9371,11 @@
       "-75423245645230:116674190698942030": {},
       "selftest_pr88_1780301418431_p2i0sr": {},
       "selftest_pr88_1780301487396_a47bum": {},
-      "selftest_pr88_1780309105318_je8f8c": {}
+      "selftest_pr88_1780309105318_je8f8c": {},
+      "-75643106932142:116709915973007500": {},
+      "-75643106932142:116709936146775140": {},
+      "-75643106932142:116709937341758560": {},
+      "-75643106932142:116709937858885780": {}
     },
     "reactions": {
       "-73175958664622:116630034142543730": {
@@ -8355,6 +9399,18 @@
       },
       "-73175958664622:116657663670426180": {
         "1780054821198_n5c2vt": {
+          "❤️": {
+            "17507246": true
+          }
+        }
+      },
+      "-75357047862702:116674049272472060": {
+        "1780423956746_7xrx74": {
+          "❤️": {
+            "17507246": true
+          }
+        },
+        "1780423973136_8rdnmb": {
           "❤️": {
             "17507246": true
           }
@@ -8437,7 +9493,10 @@
           }
         }
       },
-      "-75357047862702:116674049272472060": {}
+      "-75643106932142:116709915973007500": {},
+      "-75643106932142:116709936146775140": {},
+      "-75643106932142:116709937341758560": {},
+      "-75643106932142:116709937858885780": {}
     },
     "handoffs": {
       "h_001681993680mpf2ov2n3nk29mlx": {
@@ -8458,6 +9517,33 @@
         "commentKey": "-73175958664622:116606008018731780",
         "stablePayload": "cp_-73175958664622_116606008018731780"
       },
+      "h_012212747400mq3t339le5jlxzaz": {
+        "token": "[redacted]",
+        "postId": "116709012212747400",
+        "channelId": "-70251029837230",
+        "messageId": "mid.ffffc01b68524a52019ea23a6f070c82",
+        "updatedAt": 1780838203851,
+        "commentKey": "-70251029837230:116709012212747400",
+        "stablePayload": "cp_-70251029837230_116709012212747400"
+      },
+      "h_012693540860mq3t37i4d2h7uv8u": {
+        "token": "[redacted]",
+        "postId": "116709012693540860",
+        "channelId": "-70251029837230",
+        "messageId": "mid.ffffc01b68524a52019ea23a8baf5ffb",
+        "updatedAt": 1780838209015,
+        "commentKey": "-70251029837230:116709012693540860",
+        "stablePayload": "cp_-70251029837230_116709012693540860"
+      },
+      "h_015834678050mq3t49425w78e6hd": {
+        "token": "[redacted]",
+        "postId": "116709015834678050",
+        "channelId": "-70251029837230",
+        "messageId": "mid.ffffc01b68524a52019ea23b46e9531b",
+        "updatedAt": 1780838257742,
+        "commentKey": "-70251029837230:116709015834678050",
+        "stablePayload": "cp_-70251029837230_116709015834678050"
+      },
       "h_034142543730mpjvlffalo6ue3v5": {
         "token": "[redacted]",
         "postId": "116630034142543730",
@@ -8472,7 +9558,7 @@
         "postId": "116674049272472060",
         "channelId": "-75357047862702",
         "messageId": "mid.ffffbb7691ee4a52019e826dfd646203",
-        "updatedAt": 1780382936906,
+        "updatedAt": 1780423958537,
         "commentKey": "-75357047862702:116674049272472060",
         "stablePayload": "cp_-75357047862702_116674049272472060"
       },
@@ -8490,7 +9576,7 @@
         "postId": "116674053614348450",
         "channelId": "-75357088691630",
         "messageId": "mid.ffffbb768f7f4a52019e826f003028a4",
-        "updatedAt": 1780304963282,
+        "updatedAt": 1780673046711,
         "commentKey": "-75357088691630:116674053614348450",
         "stablePayload": "cp_-75357088691630_116674053614348450"
       },
@@ -8724,7 +9810,7 @@
         "postId": "116651391044365280",
         "channelId": "-73175958664622",
         "messageId": "mid.ffffbd7264fa4a52019e6dd275c12be3",
-        "updatedAt": 1780042726699,
+        "updatedAt": 1780652599834,
         "commentKey": "-73175958664622:116651391044365280",
         "stablePayload": "cp_-73175958664622_116651391044365280"
       },
@@ -8733,7 +9819,7 @@
         "postId": "116651392763899260",
         "channelId": "-73175958664622",
         "messageId": "mid.ffffbd7264fa4a52019e6dd2dc3f2d84",
-        "updatedAt": 1780043162129,
+        "updatedAt": 1780673099767,
         "commentKey": "-73175958664622:116651392763899260",
         "stablePayload": "cp_-73175958664622_116651392763899260"
       },
@@ -8796,7 +9882,7 @@
         "postId": "116645546987316320",
         "channelId": "-73175958664622",
         "messageId": "mid.ffffbd7264fa4a52019e6881c8cf6466",
-        "updatedAt": 1780086840189,
+        "updatedAt": 1780728317074,
         "commentKey": "-73175958664622:116645546987316320",
         "stablePayload": "cp_-73175958664622_116645546987316320"
       },
@@ -8845,6 +9931,15 @@
         "commentKey": "-73175958664622:116664611699776700",
         "stablePayload": "cp_-73175958664622_116664611699776700"
       },
+      "h_660110190050mq3yyyucht5ao183": {
+        "token": "[redacted]",
+        "postId": "116709660110190050",
+        "channelId": "-70251029837230",
+        "messageId": "mid.ffffc01b68524a52019ea2d148b975de",
+        "updatedAt": 1780848089687,
+        "commentKey": "-70251029837230:116709660110190050",
+        "stablePayload": "cp_-70251029837230_116709660110190050"
+      },
       "h_663670426180mpqullitzw9uh2uq": {
         "token": "[redacted]",
         "postId": "116657663670426180",
@@ -8868,9 +9963,18 @@
         "postId": "116663859557728050",
         "channelId": "-73175958664622",
         "messageId": "mid.ffffbd7264fa4a52019e792983107f30",
-        "updatedAt": 1780149343267,
+        "updatedAt": 1780652661164,
         "commentKey": "-73175958664622:116663859557728050",
         "stablePayload": "cp_-73175958664622_116663859557728050"
+      },
+      "h_868421080580mq40v3l82nq5sasl": {
+        "token": "[redacted]",
+        "postId": "116709868421080580",
+        "channelId": "-70251029837230",
+        "messageId": "mid.ffffc01b68524a52019ea301c90565f8",
+        "updatedAt": 1780851267835,
+        "commentKey": "-70251029837230:116709868421080580",
+        "stablePayload": "cp_-70251029837230_116709868421080580"
       },
       "h_878998778800mpn4aayzsonhnphx": {
         "token": "[redacted]",
@@ -8934,41 +10038,110 @@
         "updatedAt": 1779541012553,
         "commentKey": "-73175958664622:116623999186137120",
         "stablePayload": "cp_-73175958664622_116623999186137120"
+      },
+      "h_915973007500mq41anosevueltp7": {
+        "commentKey": "-75643106932142:116709915973007500",
+        "postId": "116709915973007500",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea30cdb563892",
+        "stablePayload": "cp_-75643106932142_116709915973007500",
+        "token": "[redacted]",
+        "updatedAt": 1780851993919
+      },
+      "h_936146775140mq41h8j7r8ae03cp": {
+        "commentKey": "-75643106932142:116709936146775140",
+        "postId": "116709936146775140",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea3118dc97c67",
+        "stablePayload": "cp_-75643106932142_116709936146775140",
+        "token": "[redacted]",
+        "updatedAt": 1780852300098
+      },
+      "h_937341758560mq41hm3ykhlpf4qc": {
+        "commentKey": "-75643106932142:116709937341758560",
+        "postId": "116709937341758560",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea311d5037c67",
+        "stablePayload": "cp_-75643106932142_116709937341758560",
+        "token": "[redacted]",
+        "updatedAt": 1780852318124
+      },
+      "h_937858885780mq41ht7flpjsyzy0": {
+        "commentKey": "-75643106932142:116709937858885780",
+        "postId": "116709937858885780",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea311f3d63892",
+        "stablePayload": "cp_-75643106932142_116709937858885780",
+        "token": "[redacted]",
+        "updatedAt": 1780852327140
       }
     },
     "uploadDiagnostics": [
       {
-        "id": "1780382935507_09jzc0",
-        "createdAt": 1780382935507,
-        "stage": "comment_create_saved",
-        "commentKey": "-75357047862702:116674049272472060",
-        "type": "comment_with_attachments",
-        "fileName": "",
-        "mime": "",
-        "size": 1,
+        "id": "1780423956936_61wsu4",
         "ok": true,
+        "data": "{\"commentId\":\"1780423956746_7xrx74\",\"attachmentCount\":1}",
+        "mime": "",
         "mode": "comment_create",
-        "attachmentCount": 0,
-        "previewUrl": "",
-        "posterUrl": "",
+        "size": 1,
+        "type": "comment_with_attachments",
         "error": "",
-        "data": "{\"commentId\":\"1780382935014_6s0blu\",\"attachmentCount\":1}"
+        "stage": "comment_create_saved",
+        "fileName": "",
+        "createdAt": 1780423956936,
+        "posterUrl": "",
+        "commentKey": "-75357047862702:116674049272472060",
+        "previewUrl": "",
+        "attachmentCount": 0
+      },
+      {
+        "id": "1780423954741_yy2df2",
+        "data": "{\"attachmentCount\":1,\"clientUploadIds\":[]}",
+        "mime": "",
+        "mode": "comment_create",
+        "size": 1,
+        "type": "comment_with_attachments",
+        "error": "",
+        "stage": "comment_create_received",
+        "fileName": "",
+        "createdAt": 1780423954741,
+        "posterUrl": "",
+        "commentKey": "-75357047862702:116674049272472060",
+        "previewUrl": "",
+        "attachmentCount": 0
+      },
+      {
+        "id": "1780382935507_09jzc0",
+        "ok": true,
+        "data": "{\"commentId\":\"1780382935014_6s0blu\",\"attachmentCount\":1}",
+        "mime": "",
+        "mode": "comment_create",
+        "size": 1,
+        "type": "comment_with_attachments",
+        "error": "",
+        "stage": "comment_create_saved",
+        "fileName": "",
+        "createdAt": 1780382935507,
+        "posterUrl": "",
+        "commentKey": "-75357047862702:116674049272472060",
+        "previewUrl": "",
+        "attachmentCount": 0
       },
       {
         "id": "1780382933360_0cwm8d",
-        "createdAt": 1780382933360,
-        "stage": "comment_create_received",
-        "commentKey": "-75357047862702:116674049272472060",
-        "type": "comment_with_attachments",
-        "fileName": "",
+        "data": "{\"attachmentCount\":1,\"clientUploadIds\":[]}",
         "mime": "",
-        "size": 1,
         "mode": "comment_create",
-        "attachmentCount": 0,
-        "previewUrl": "",
-        "posterUrl": "",
+        "size": 1,
+        "type": "comment_with_attachments",
         "error": "",
-        "data": "{\"attachmentCount\":1,\"clientUploadIds\":[]}"
+        "stage": "comment_create_received",
+        "fileName": "",
+        "createdAt": 1780382933360,
+        "posterUrl": "",
+        "commentKey": "-75357047862702:116674049272472060",
+        "previewUrl": "",
+        "attachmentCount": 0
       },
       {
         "id": "1780343827619_ew4oe5",
@@ -9732,40 +10905,6 @@
         "commentKey": "-75357088691630:116674053614348450",
         "previewUrl": "",
         "attachmentCount": 0
-      },
-      {
-        "id": "1780304904471_bdkvpg",
-        "ok": true,
-        "data": "{\"contentType\":\"multipart/form-data; boundary=----WebKitFormBoundaryvunvgGxlbYNSftv4\",\"contentLength\":\"530481\",\"rawBodyLength\":530481,\"isMultipart\":true,\"hasBoundary\":true,\"boundaryLength\":38,\"fieldNames\":[\"commentKey\",\"type\",\"mimeType\"],\"fileFieldNames\":[\"photo\"],\"fileCount\":1,\"partCount\":4,\"serverUploadReceivedAt\":\"2026-06-01T09:08:24.033Z\",\"serverParsedAt\":\"2026-06-01T09:08:24.073Z\",\"serverSave",
-        "mime": "image/jpeg",
-        "mode": "local_fast",
-        "size": 529630,
-        "type": "image",
-        "error": "",
-        "stage": "server_preview_saved",
-        "fileName": "IMG_8474.jpg",
-        "createdAt": 1780304904471,
-        "posterUrl": "",
-        "commentKey": "-75357088691630:116674053614348450",
-        "previewUrl": "/public/comment-uploads/1780304904467_9d25952665ce.jpg",
-        "attachmentCount": 0
-      },
-      {
-        "id": "1780304904267_p5a5ih",
-        "ok": true,
-        "data": "{\"reason\":\"client_already_compressed\",\"noBlockingFfmpeg\":true}",
-        "mime": "image/jpeg",
-        "mode": "client_compressed_fast_save",
-        "size": 529630,
-        "type": "image",
-        "error": "",
-        "stage": "image_fast_saved_without_server_ffmpeg",
-        "fileName": "IMG_8474.jpg",
-        "createdAt": 1780304904267,
-        "posterUrl": "",
-        "commentKey": "-75357088691630:116674053614348450",
-        "previewUrl": "",
-        "attachmentCount": 0
       }
     ],
     "moderation": {
@@ -9794,14 +10933,130 @@
       },
       "logs": [
         {
-          "id": "1780382933506_hpidj1",
-          "createdAt": 1780382933506,
-          "channelId": "-75357047862702",
-          "commentKey": "-75357047862702:116674049272472060",
+          "id": "1780423998239_542piz",
+          "mode": "basic",
+          "text": "Стикер adminkit_love",
+          "action": "allow",
+          "labels": [],
           "userId": "17507246",
+          "reasons": [],
+          "decision": "allowed",
           "userName": "Alex P",
-          "text": "",
           "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
+          "channelId": "-75357047862702",
+          "commentId": "",
+          "createdAt": 1780423998239,
+          "replyToId": "",
+          "commentKey": "-75357047862702:116674049272472060",
+          "confidence": 0,
+          "sourceType": "create",
+          "attachments": [
+            {
+              "type": "file",
+              "name": "Вложение",
+              "size": 0,
+              "native": false,
+              "processing": false,
+              "inlineOnly": false,
+              "inlinePayloadStripped": false
+            }
+          ],
+          "matchedRegex": [],
+          "matchedWords": [],
+          "attachmentCount": 1,
+          "hasInlinePayloadStripped": true
+        },
+        {
+          "id": "1780423972641_l9x7k1",
+          "mode": "basic",
+          "text": "Стикер adminkit_party",
+          "action": "allow",
+          "labels": [],
+          "userId": "17507246",
+          "reasons": [],
+          "decision": "allowed",
+          "userName": "Alex P",
+          "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
+          "channelId": "-75357047862702",
+          "commentId": "",
+          "createdAt": 1780423972641,
+          "replyToId": "",
+          "commentKey": "-75357047862702:116674049272472060",
+          "confidence": 0,
+          "sourceType": "create",
+          "attachments": [
+            {
+              "type": "file",
+              "name": "Вложение",
+              "size": 0,
+              "native": false,
+              "processing": false,
+              "inlineOnly": false,
+              "inlinePayloadStripped": false
+            }
+          ],
+          "matchedRegex": [],
+          "matchedWords": [],
+          "attachmentCount": 1,
+          "hasInlinePayloadStripped": true
+        },
+        {
+          "id": "1780423954936_zon149",
+          "mode": "basic",
+          "text": "",
+          "action": "allow",
+          "labels": [],
+          "userId": "17507246",
+          "reasons": [],
+          "decision": "allowed",
+          "userName": "Alex P",
+          "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
+          "channelId": "-75357047862702",
+          "commentId": "",
+          "createdAt": 1780423954936,
+          "replyToId": "",
+          "commentKey": "-75357047862702:116674049272472060",
+          "confidence": 0,
+          "sourceType": "create",
+          "attachments": [
+            {
+              "id": "inline_1780423952881_0ize59",
+              "type": "image",
+              "name": "IMG_8641.jpg",
+              "mime": "image/jpeg",
+              "size": 71766,
+              "native": false,
+              "storage": "inline-preview-clean-contract",
+              "uploadId": "inline_1780423952881_0ize59",
+              "clientUploadId": "inline_1780423952881_0ize59",
+              "processing": false,
+              "inlineOnly": true,
+              "inlinePayloadStripped": true
+            }
+          ],
+          "matchedRegex": [],
+          "matchedWords": [],
+          "attachmentCount": 1,
+          "hasInlinePayloadStripped": true
+        },
+        {
+          "id": "1780382933506_hpidj1",
+          "mode": "basic",
+          "text": "",
+          "action": "allow",
+          "labels": [],
+          "userId": "17507246",
+          "reasons": [],
+          "decision": "allowed",
+          "userName": "Alex P",
+          "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
+          "channelId": "-75357047862702",
+          "commentId": "",
+          "createdAt": 1780382933506,
+          "replyToId": "",
+          "commentKey": "-75357047862702:116674049272472060",
+          "confidence": 0,
+          "sourceType": "create",
           "attachments": [
             {
               "id": "inline_1780382932051_8b0xfx",
@@ -9818,17 +11073,8 @@
               "inlinePayloadStripped": true
             }
           ],
-          "replyToId": "",
-          "sourceType": "create",
-          "commentId": "",
-          "decision": "allowed",
-          "mode": "basic",
-          "action": "allow",
-          "reasons": [],
-          "labels": [],
-          "confidence": 0,
-          "matchedWords": [],
           "matchedRegex": [],
+          "matchedWords": [],
           "attachmentCount": 1,
           "hasInlinePayloadStripped": true
         },
@@ -11366,83 +12612,6 @@
           "matchedWords": [],
           "attachmentCount": 0,
           "hasInlinePayloadStripped": true
-        },
-        {
-          "id": "1780163852469_k1rha9",
-          "mode": "basic",
-          "text": "1",
-          "action": "allow",
-          "labels": [],
-          "userId": "17507246",
-          "reasons": [],
-          "decision": "allowed",
-          "userName": "Alex P",
-          "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
-          "channelId": "-73175958664622",
-          "commentId": "",
-          "createdAt": 1780163852469,
-          "replyToId": "",
-          "commentKey": "-73175958664622:116664611699776700",
-          "confidence": 0,
-          "sourceType": "create",
-          "attachments": [],
-          "matchedRegex": [],
-          "matchedWords": [],
-          "attachmentCount": 0,
-          "hasInlinePayloadStripped": true
-        },
-        {
-          "id": "1780163849967_40of3f",
-          "mode": "basic",
-          "text": "Привет",
-          "action": "allow",
-          "labels": [],
-          "userId": "17507246",
-          "reasons": [],
-          "decision": "allowed",
-          "userName": "Alex P",
-          "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
-          "channelId": "-73175958664622",
-          "commentId": "",
-          "createdAt": 1780163849967,
-          "replyToId": "",
-          "commentKey": "-73175958664622:116664611699776700",
-          "confidence": 0,
-          "sourceType": "create",
-          "attachments": [],
-          "matchedRegex": [],
-          "matchedWords": [],
-          "attachmentCount": 0,
-          "hasInlinePayloadStripped": true
-        },
-        {
-          "id": "1780119026265_4pe9n0",
-          "mode": "basic",
-          "text": "Длинный текст оооооочень длинный",
-          "action": "reject",
-          "userId": "17507246",
-          "metrics": {
-            "links": 0,
-            "repeatedChars": 6,
-            "uppercaseRatio": 0.034482758620689655
-          },
-          "reasons": [
-            "spam_repeated_chars"
-          ],
-          "decision": "blocked",
-          "userName": "Alex P",
-          "avatarUrl": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8bcO6lx43GRMk6Ch65ADg7P9VXkD0KefRea-RwsKKc9w",
-          "channelId": "-73175958664622",
-          "commentId": "",
-          "createdAt": 1780119026265,
-          "replyToId": "",
-          "commentKey": "-73175958664622:116657663670426180",
-          "sourceType": "create",
-          "attachments": [],
-          "matchedRegex": [],
-          "matchedWords": [],
-          "attachmentCount": 0,
-          "hasInlinePayloadStripped": true
         }
       ],
       "logLimit": 50
@@ -11468,7 +12637,7 @@
           "planTier": "free",
           "brandName": "АдминКит",
           "channelId": "-73175958664622",
-          "updatedAt": 1780220754892,
+          "updatedAt": 1780599785657,
           "agencyMode": false,
           "buttonSets": {
             "-73175958664622:116624969763872720": [
@@ -11504,8 +12673,46 @@
                 "channelId": "-73175958664622",
                 "createdAt": 1779870044136,
                 "tenantKey": "tenant_17507246",
-                "updatedAt": 1779870044136,
+                "updatedAt": 1780568521266,
                 "commentKey": "-73175958664622:116645546987316320",
+                "ownerUserId": "17507246",
+                "createdByUserId": "17507246",
+                "updatedByUserId": "17507246"
+              },
+              {
+                "id": "btn_mpzchtml",
+                "url": "http://olga.style",
+                "text": "Тест кнопки",
+                "order": 2,
+                "style": "primary",
+                "postIds": [
+                  "116645546987316320"
+                ],
+                "channelId": "-73175958664622",
+                "createdAt": 1780568521266,
+                "tenantKey": "tenant_17507246",
+                "updatedAt": 1780568521266,
+                "commentKey": "-73175958664622:116645546987316320",
+                "ownerUserId": "17507246",
+                "createdByUserId": "17507246",
+                "updatedByUserId": "17507246"
+              }
+            ],
+            "-73175958664622:116651391044365280": [
+              {
+                "id": "btn_mq0qk9wz",
+                "url": "http://olga.style",
+                "text": "Кнопка",
+                "order": 1,
+                "style": "primary",
+                "postIds": [
+                  "116651391044365280"
+                ],
+                "channelId": "-73175958664622",
+                "createdAt": 1780652599136,
+                "tenantKey": "tenant_17507246",
+                "updatedAt": 1780652599136,
+                "commentKey": "-73175958664622:116651391044365280",
                 "ownerUserId": "17507246",
                 "createdByUserId": "17507246",
                 "updatedByUserId": "17507246"
@@ -11575,6 +12782,30 @@
           "adCampaigns": [
             {
               "ad": "",
+              "id": "ad_mpzv4z10_s222e5",
+              "name": "Реклама",
+              "slug": "админкит-клуб-реклама-маша",
+              "source": "Маша",
+              "enabled": true,
+              "campaign": "Реклама",
+              "linkMode": "direct_channel_link",
+              "shortUrl": "https://clck.ru/3TzKVw",
+              "channelId": "-73175958664622",
+              "createdAt": 1780599784788,
+              "placement": "",
+              "targetUrl": "https://max.ru/join/PX4c-5eFcI3-eS6KB82BeLQpBZqLyDjOZH5ULje21Ew",
+              "updatedAt": 1780599785657,
+              "channelTitle": "АдминКит клуб",
+              "shortUrlError": "",
+              "runtimeVersion": "CC8.3.23-ADS-INVITE-LINK-INPUT",
+              "shortUrlTarget": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run/r/%D0%B0%D0%B4%D0%BC%D0%B8%D0%BD%D0%BA%D0%B8%D1%82-%D0%BA%D0%BB%D1%83%D0%B1-%D1%80%D0%B5%D0%BA%D0%BB%D0%B0%D0%BC%D0%B0-%D0%BC%D0%B0%D1%88%D0%B0",
+              "createdByUserId": "17507246",
+              "shortUrlRuntime": "CC8.3.26-ADS-CLCK-SHORT-LINKS",
+              "shortUrlProvider": "clck.ru",
+              "shortUrlCreatedAt": 1780599785657
+            },
+            {
+              "ad": "",
               "id": "ad_mptlh1or_bzqc7k",
               "name": "Реклама у Хвоста",
               "slug": "админкит-клуб-реклама-у-хвоста-сайт-ольга-стайл",
@@ -11600,15 +12831,21 @@
               "enabled": true,
               "campaign": "Реклама у Оли",
               "linkMode": "direct_channel_link",
+              "shortUrl": "https://clck.ru/3TySrt",
               "channelId": "-73175958664622",
               "createdAt": 1780216681979,
               "placement": "",
               "targetUrl": "https://max.ru/channel/-73175958664622",
-              "updatedAt": 1780216681979,
+              "updatedAt": 1780525172383,
               "trackingUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run/r/adminkit-klub-reklama-u-oli-sayt",
               "channelTitle": "АдминКит клуб",
+              "shortUrlError": "",
               "runtimeVersion": "CC8.3.20-ADS-CHANNEL-PICKER",
-              "createdByUserId": "17507246"
+              "shortUrlTarget": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run/r/adminkit-klub-reklama-u-oli-sayt",
+              "createdByUserId": "17507246",
+              "shortUrlRuntime": "CC8.3.26-ADS-CLCK-SHORT-LINKS",
+              "shortUrlProvider": "clck.ru",
+              "shortUrlCreatedAt": 1780525172383
             },
             {
               "ad": "",
@@ -11674,9 +12911,57 @@
           "planTier": "free",
           "brandName": "АдминКит",
           "channelId": "-75357047862702",
-          "updatedAt": 1780296101198,
+          "updatedAt": 1780424076694,
           "agencyMode": false,
           "adCampaigns": [
+            {
+              "ad": "",
+              "id": "ad_mpwyiwxw_iqf5bq",
+              "name": "Бюджет неограничен",
+              "slug": "ак-тест-1-бюджет-неограничен-блогера-навигатор",
+              "source": "Блогера Навигатор",
+              "enabled": true,
+              "campaign": "Бюджет неограничен",
+              "linkMode": "direct_channel_link",
+              "shortUrl": "https://clck.ru/3TxB7A",
+              "channelId": "-75357047862702",
+              "createdAt": 1780424075588,
+              "placement": "",
+              "targetUrl": "https://max.ru/join/dyoKb-EIzgyIgqDn1hUX_l8eaE_Cnph0i651DdYguwI",
+              "updatedAt": 1780424076694,
+              "channelTitle": "АК-ТЕСТ 1",
+              "shortUrlError": "",
+              "runtimeVersion": "CC8.3.23-ADS-INVITE-LINK-INPUT",
+              "shortUrlTarget": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run/r/%D0%B0%D0%BA-%D1%82%D0%B5%D1%81%D1%82-1-%D0%B1%D1%8E%D0%B4%D0%B6%D0%B5%D1%82-%D0%BD%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%BD%D0%B8%D1%87%D0%B5%D0%BD-%D0%B1%D0%BB%D0%BE%D0%B3%D0%B5%D1%80%D0%B0-%D0%BD%D0%B0%D0%B2%D0%B8%D0%B3%D0%B0%D1%82%D0%BE%D1%80",
+              "createdByUserId": "17507246",
+              "shortUrlRuntime": "CC8.3.26-ADS-CLCK-SHORT-LINKS",
+              "shortUrlProvider": "clck.ru",
+              "shortUrlCreatedAt": 1780424076693
+            },
+            {
+              "ad": "",
+              "id": "ad_mpwyet1r_ty7c9j",
+              "name": "Реклама",
+              "slug": "ак-тест-1-реклама-турбо-блогер",
+              "source": "Турбо блогер",
+              "enabled": true,
+              "campaign": "Реклама",
+              "linkMode": "direct_channel_link",
+              "shortUrl": "https://clck.ru/3TxAzo",
+              "channelId": "-75357047862702",
+              "createdAt": 1780423883919,
+              "placement": "",
+              "targetUrl": "https://max.ru/join/dyoKb-EIzgyIgqDn1hUX_l8eaE_Cnph0i651DdYguwI",
+              "updatedAt": 1780423884466,
+              "channelTitle": "АК-ТЕСТ 1",
+              "shortUrlError": "",
+              "runtimeVersion": "CC8.3.23-ADS-INVITE-LINK-INPUT",
+              "shortUrlTarget": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run/r/%D0%B0%D0%BA-%D1%82%D0%B5%D1%81%D1%82-1-%D1%80%D0%B5%D0%BA%D0%BB%D0%B0%D0%BC%D0%B0-%D1%82%D1%83%D1%80%D0%B1%D0%BE-%D0%B1%D0%BB%D0%BE%D0%B3%D0%B5%D1%80",
+              "createdByUserId": "17507246",
+              "shortUrlRuntime": "CC8.3.26-ADS-CLCK-SHORT-LINKS",
+              "shortUrlProvider": "clck.ru",
+              "shortUrlCreatedAt": 1780423884466
+            },
             {
               "ad": "",
               "id": "ad_mpuubyui_f96dmg",
@@ -11736,6 +13021,204 @@
         }
       },
       "clicks": [
+        {
+          "ad": "",
+          "id": "1780599860125_n0g8mw",
+          "ref": "админкит-клуб-реклама-маша",
+          "postId": "",
+          "source": "campaign",
+          "userId": "",
+          "utmTerm": "",
+          "buttonId": "ad_mpzv4z10_s222e5",
+          "campaign": "Реклама",
+          "channelId": "-73175958664622",
+          "createdAt": 1780599860125,
+          "placement": "",
+          "sourceRef": "Маша",
+          "targetUrl": "https://max.ru/join/PX4c-5eFcI3-eS6KB82BeLQpBZqLyDjOZH5ULje21Ew",
+          "utmMedium": "campaign",
+          "utmSource": "Маша",
+          "buttonText": "Реклама",
+          "commentKey": "",
+          "utmContent": "",
+          "utmCampaign": "Реклама"
+        },
+        {
+          "ad": "",
+          "id": "1780599857638_plbqkl",
+          "ref": "админкит-клуб-реклама-маша",
+          "postId": "",
+          "source": "campaign",
+          "userId": "",
+          "utmTerm": "",
+          "buttonId": "ad_mpzv4z10_s222e5",
+          "campaign": "Реклама",
+          "channelId": "-73175958664622",
+          "createdAt": 1780599857638,
+          "placement": "",
+          "sourceRef": "Маша",
+          "targetUrl": "https://max.ru/join/PX4c-5eFcI3-eS6KB82BeLQpBZqLyDjOZH5ULje21Ew",
+          "utmMedium": "campaign",
+          "utmSource": "Маша",
+          "buttonText": "Реклама",
+          "commentKey": "",
+          "utmContent": "",
+          "utmCampaign": "Реклама"
+        },
+        {
+          "ad": "",
+          "id": "1780599813061_9sh8jr",
+          "ref": "админкит-клуб-реклама-маша",
+          "postId": "",
+          "source": "campaign",
+          "userId": "",
+          "utmTerm": "",
+          "buttonId": "ad_mpzv4z10_s222e5",
+          "campaign": "Реклама",
+          "channelId": "-73175958664622",
+          "createdAt": 1780599813061,
+          "placement": "",
+          "sourceRef": "Маша",
+          "targetUrl": "https://max.ru/join/PX4c-5eFcI3-eS6KB82BeLQpBZqLyDjOZH5ULje21Ew",
+          "utmMedium": "campaign",
+          "utmSource": "Маша",
+          "buttonText": "Реклама",
+          "commentKey": "",
+          "utmContent": "",
+          "utmCampaign": "Реклама"
+        },
+        {
+          "ad": "",
+          "id": "1780424088267_lhxc31",
+          "ref": "ак-тест-1-бюджет-неограничен-блогера-навигатор",
+          "postId": "",
+          "source": "campaign",
+          "userId": "",
+          "utmTerm": "",
+          "buttonId": "ad_mpwyiwxw_iqf5bq",
+          "campaign": "Бюджет неограничен",
+          "channelId": "-75357047862702",
+          "createdAt": 1780424088267,
+          "placement": "",
+          "sourceRef": "Блогера Навигатор",
+          "targetUrl": "https://max.ru/join/dyoKb-EIzgyIgqDn1hUX_l8eaE_Cnph0i651DdYguwI",
+          "utmMedium": "campaign",
+          "utmSource": "Блогера Навигатор",
+          "buttonText": "Бюджет неограничен",
+          "commentKey": "",
+          "utmContent": "",
+          "utmCampaign": "Бюджет неограничен"
+        },
+        {
+          "ad": "",
+          "id": "1780424080969_21s2dv",
+          "ref": "ак-тест-1-бюджет-неограничен-блогера-навигатор",
+          "postId": "",
+          "source": "campaign",
+          "userId": "",
+          "utmTerm": "",
+          "buttonId": "ad_mpwyiwxw_iqf5bq",
+          "campaign": "Бюджет неограничен",
+          "channelId": "-75357047862702",
+          "createdAt": 1780424080969,
+          "placement": "",
+          "sourceRef": "Блогера Навигатор",
+          "targetUrl": "https://max.ru/join/dyoKb-EIzgyIgqDn1hUX_l8eaE_Cnph0i651DdYguwI",
+          "utmMedium": "campaign",
+          "utmSource": "Блогера Навигатор",
+          "buttonText": "Бюджет неограничен",
+          "commentKey": "",
+          "utmContent": "",
+          "utmCampaign": "Бюджет неограничен"
+        },
+        {
+          "ad": "",
+          "id": "1780423924670_ucg568",
+          "ref": "ак-тест-1-реклама-турбо-блогер",
+          "postId": "",
+          "source": "campaign",
+          "userId": "",
+          "utmTerm": "",
+          "buttonId": "ad_mpwyet1r_ty7c9j",
+          "campaign": "Реклама",
+          "channelId": "-75357047862702",
+          "createdAt": 1780423924670,
+          "placement": "",
+          "sourceRef": "Турбо блогер",
+          "targetUrl": "https://max.ru/join/dyoKb-EIzgyIgqDn1hUX_l8eaE_Cnph0i651DdYguwI",
+          "utmMedium": "campaign",
+          "utmSource": "Турбо блогер",
+          "buttonText": "Реклама",
+          "commentKey": "",
+          "utmContent": "",
+          "utmCampaign": "Реклама"
+        },
+        {
+          "ad": "",
+          "id": "1780423891067_haz5xx",
+          "ref": "ак-тест-1-реклама-турбо-блогер",
+          "postId": "",
+          "source": "campaign",
+          "userId": "",
+          "utmTerm": "",
+          "buttonId": "ad_mpwyet1r_ty7c9j",
+          "campaign": "Реклама",
+          "channelId": "-75357047862702",
+          "createdAt": 1780423891067,
+          "placement": "",
+          "sourceRef": "Турбо блогер",
+          "targetUrl": "https://max.ru/join/dyoKb-EIzgyIgqDn1hUX_l8eaE_Cnph0i651DdYguwI",
+          "utmMedium": "campaign",
+          "utmSource": "Турбо блогер",
+          "buttonText": "Реклама",
+          "commentKey": "",
+          "utmContent": "",
+          "utmCampaign": "Реклама"
+        },
+        {
+          "ad": "",
+          "id": "1780423890637_4rodzl",
+          "ref": "ак-тест-1-реклама-турбо-блогер",
+          "postId": "",
+          "source": "campaign",
+          "userId": "",
+          "utmTerm": "",
+          "buttonId": "ad_mpwyet1r_ty7c9j",
+          "campaign": "Реклама",
+          "channelId": "-75357047862702",
+          "createdAt": 1780423890637,
+          "placement": "",
+          "sourceRef": "Турбо блогер",
+          "targetUrl": "https://max.ru/join/dyoKb-EIzgyIgqDn1hUX_l8eaE_Cnph0i651DdYguwI",
+          "utmMedium": "campaign",
+          "utmSource": "Турбо блогер",
+          "buttonText": "Реклама",
+          "commentKey": "",
+          "utmContent": "",
+          "utmCampaign": "Реклама"
+        },
+        {
+          "ad": "",
+          "id": "1780423889181_ricofs",
+          "ref": "ак-тест-1-реклама-турбо-блогер",
+          "postId": "",
+          "source": "campaign",
+          "userId": "",
+          "utmTerm": "",
+          "buttonId": "ad_mpwyet1r_ty7c9j",
+          "campaign": "Реклама",
+          "channelId": "-75357047862702",
+          "createdAt": 1780423889181,
+          "placement": "",
+          "sourceRef": "Турбо блогер",
+          "targetUrl": "https://max.ru/join/dyoKb-EIzgyIgqDn1hUX_l8eaE_Cnph0i651DdYguwI",
+          "utmMedium": "campaign",
+          "utmSource": "Турбо блогер",
+          "buttonText": "Реклама",
+          "commentKey": "",
+          "utmContent": "",
+          "utmCampaign": "Реклама"
+        },
         {
           "ad": "",
           "id": "1780296431385_or79ok",
@@ -12877,197 +14360,6 @@
           "alreadyClaimedNotification": "Подарок уже был отправлен ранее",
           "dmDeliveryFallbackNotification": "Не удалось отправить подарок в личные сообщения. Откройте бота и нажмите Старт, затем нажмите кнопку ещё раз."
         },
-        "gift_mpo6uweq": {
-          "id": "gift_mpo6uweq",
-          "title": "Подарок к посту (Тест всего)",
-          "enabled": true,
-          "giftUrl": "https://m.sports.ru/basketball/tournament/nba-play-off/",
-          "postIds": [
-            "116645546987316320"
-          ],
-          "onlyOnce": true,
-          "channelId": "-73175958664622",
-          "createdAt": 1779894155893,
-          "tenantKey": "tenant_17507246",
-          "updatedAt": 1779894155993,
-          "commentKey": "-73175958664622:116645546987316320",
-          "conditions": {
-            "keyword": false,
-            "pollVote": true,
-            "reaction": false,
-            "promoCode": false,
-            "timeWindow": false,
-            "subscription": true,
-            "firstTimeOnly": true
-          },
-          "targetPost": {
-            "pollId": "34",
-            "postId": "116645546987316320",
-            "hasPoll": true,
-            "autoMode": true,
-            "channelId": "-73175958664622",
-            "createdAt": 1779869799230,
-            "highlight": {
-              "mode": "text_mark_no_button",
-              "label": "🆕 Новое",
-              "badgeId": "new",
-              "enabled": true,
-              "updatedAt": 1779892768679
-            },
-            "messageId": "mid.ffffbd7264fa4a52019e6881c8cf6466",
-            "updatedAt": 1779892797804,
-            "commentKey": "-73175958664622:116645546987316320",
-            "activePollId": "34",
-            "channelTitle": "-73175958664622",
-            "handoffToken": "h_546987316320mpnsiuhn5t70alp3",
-            "linkedByName": "",
-            "originalLink": null,
-            "originalText": "Тест всего",
-            "lastPatchedAt": 1779872421848,
-            "stablePayload": "cp_-73175958664622_116645546987316320",
-            "customKeyboard": {},
-            "giftCampaignId": "gift_mpntkvuw",
-            "lastIngestedAt": 1779869799230,
-            "lastPatchError": null,
-            "linkedByUserId": "",
-            "lastPatchedText": "⭐ Важно\n\nТест всего",
-            "lastPollPatchAt": 1779892797804,
-            "lastPollPatchId": "34",
-            "nativeReactions": [],
-            "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
-            "lastGiftRowsCount": 1,
-            "lastPollRowsCount": 2,
-            "originalLinkKnown": false,
-            "originalTextKnown": true,
-            "sourceAttachments": [
-              {
-                "type": "image",
-                "payload": {
-                  "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr82FvxipWPGNIVY4tJKgCgJuWLEtzWgaxOiaO0Xnxon-k",
-                  "token": "[redacted]",
-                  "photo_id": 18904855470
-                }
-              }
-            ],
-            "lastPollPatchError": null,
-            "patchedAttachments": [
-              {
-                "type": "image",
-                "payload": {
-                  "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr82FvxipWPGNIVY4tJKgCgJuWLEtzWgaxOiaO0Xnxon-k",
-                  "token": "[redacted]",
-                  "photo_id": 18904855470
-                }
-              },
-              {
-                "type": "inline_keyboard",
-                "payload": {
-                  "buttons": [
-                    [
-                      {
-                        "text": "💬 1 комментарий",
-                        "type": "open_app",
-                        "payload": "cp_-73175958664622_116645546987316320",
-                        "web_app": "id781310320690_bot"
-                      }
-                    ],
-                    [
-                      {
-                        "text": "🗳 Какой хот-дог вкуснее? · 1",
-                        "type": "callback",
-                        "payload": "pi:34"
-                      }
-                    ],
-                    [
-                      {
-                        "text": "Левый · 100% (1)",
-                        "type": "callback",
-                        "payload": "pv:34:_1"
-                      },
-                      {
-                        "text": "Правый · 0% (0)",
-                        "type": "callback",
-                        "payload": "pv:34:_2"
-                      }
-                    ],
-                    [
-                      {
-                        "text": "🎁 Получить подарок",
-                        "type": "callback",
-                        "payload": "{\"action\":\"gift_claim\",\"campaignId\":\"gift_mpntkvuw\",\"commentKey\":\"-73175958664622:116645546987316320\",\"channelId\":\"-73175958664622\",\"postId\":\"116645546987316320\"}"
-                      }
-                    ]
-                  ]
-                }
-              }
-            ],
-            "pollRowsKnownEmpty": false,
-            "textOverrideActive": false,
-            "lastCustomRowsCount": 0,
-            "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
-            "originalFormatKnown": false,
-            "lastHighlightPatchAt": 1779892770000,
-            "lastPollRowsCheckedAt": 1779872421331,
-            "lastHighlightPatchMode": "text_mark_no_button",
-            "lastPatchedFingerprint": "{\"attachments\":[{\"payload\":{\"photo_id\":18904855470,\"token\":\"Glia8lYV4cLfuB3KovizC1gv7S8/gQcW4FsHyP+Bo/G0BOS4uBHDKmGRxoh5IbTAvGmCsA6HxCFumrnVtEI38+aHIZXnbFLCq9sOcMIE3gA=\",\"url\":\"https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr82FvxipWPGNIVY4tJ...[1065 chars]",
-            "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
-            "sourceAttachmentsKnown": true,
-            "lastHighlightPatchError": null,
-            "originalSnapshotCaptured": true,
-            "originalSnapshotEmptyKnown": false
-          },
-          "deliverToDm": true,
-          "description": "",
-          "giftMessage": "На, держи!",
-          "ownerUserId": "17507246",
-          "dmButtonText": "Открыть подарок",
-          "subscribeUrl": "https://max.ru/-73175958664622",
-          "updatedByFlow": "clean_gifts_wizard",
-          "giftAttachment": null,
-          "giftButtonText": "🎁 Получить подарок",
-          "leadMagnetCode": "",
-          "requiredChatId": "-73175958664622",
-          "runtimeVersion": "CC8.1.1-GIFTS-WIZARD-UX-CONDITIONS-CLEANUP",
-          "createdByUserId": "17507246",
-          "updatedByUserId": "17507246",
-          "conditionsConfig": {
-            "items": [
-              {
-                "mode": "all",
-                "type": "subscription",
-                "enabled": true,
-                "channels": [
-                  {
-                    "title": "-73175958664622",
-                    "channelId": "-73175958664622",
-                    "botRequired": true,
-                    "botMembershipChecked": false
-                  }
-                ],
-                "configured": true
-              },
-              {
-                "type": "firstTimeOnly",
-                "scope": "campaign",
-                "enabled": true,
-                "configured": true
-              },
-              {
-                "mode": "any_vote",
-                "type": "pollVote",
-                "source": "adminkit",
-                "enabled": true,
-                "configured": true
-              }
-            ],
-            "logic": "AND"
-          },
-          "subscribeButtonText": "🔔 Подписаться",
-          "successNotification": "Подарок отправлен в личные сообщения",
-          "notSubscribedNotification": "Сначала подпишитесь на канал, затем нажмите кнопку ещё раз",
-          "alreadyClaimedNotification": "Подарок уже был отправлен ранее",
-          "dmDeliveryFallbackNotification": "Не удалось отправить подарок в личные сообщения. Откройте бота и нажмите Старт, затем нажмите кнопку ещё раз."
-        },
         "gift_mpse8qn9": {
           "id": "gift_mpse8qn9",
           "title": "Подарок к посту (Тест кнопок и меню trace)",
@@ -13243,20 +14535,20 @@
           "alreadyClaimedNotification": "Подарок уже был отправлен ранее",
           "dmDeliveryFallbackNotification": "Не удалось отправить подарок в личные сообщения. Откройте бота и нажмите Старт, затем нажмите кнопку ещё раз."
         },
-        "gift_mpslsckk": {
-          "id": "gift_mpslsckk",
-          "title": "Подарок к посту (Тест new plus media)",
+        "gift_mq0qlel4": {
+          "id": "gift_mq0qlel4",
+          "title": "Подарок к посту (Новый тест всего)",
           "enabled": true,
           "giftUrl": "Http://olga.style",
           "postIds": [
-            "116664611699776700"
+            "116663859557728050"
           ],
           "onlyOnce": true,
           "channelId": "-73175958664622",
-          "createdAt": 1780160873134,
+          "createdAt": 1780652659732,
           "tenantKey": "tenant_17507246",
-          "updatedAt": 1780160873202,
-          "commentKey": "-73175958664622:116664611699776700",
+          "updatedAt": 1780652659838,
+          "commentKey": "-73175958664622:116663859557728050",
           "conditions": {
             "keyword": false,
             "pollVote": false,
@@ -13267,65 +14559,215 @@
             "firstTimeOnly": true
           },
           "targetPost": {
-            "postId": "116664611699776700",
+            "postId": "116663859557728050",
             "autoMode": true,
+            "versions": [
+              {
+                "id": "1780149244570_cyqj03",
+                "type": "comments_toggle",
+                "actorId": "17507246",
+                "actorName": "Alex P",
+                "createdAt": 1780149244570,
+                "versionNo": 1,
+                "commentKey": "-73175958664622:116663859557728050",
+                "appliedText": "Новый тест всего",
+                "snapshotText": "Новый тест всего",
+                "appliedKeyboard": {
+                  "rows": [],
+                  "enabled": true,
+                  "commentButtonText": ""
+                },
+                "sourceVersionId": "",
+                "snapshotKeyboard": {
+                  "rows": [],
+                  "enabled": true,
+                  "commentButtonText": ""
+                },
+                "appliedAttachments": [],
+                "snapshotAttachments": []
+              }
+            ],
             "channelId": "-73175958664622",
-            "createdAt": 1780160714311,
-            "messageId": "mid.ffffbd7264fa4a52019e79d8a2395cbc",
-            "updatedAt": 1780160794170,
-            "commentKey": "-73175958664622:116664611699776700",
-            "channelTitle": "АдминКит клуб",
-            "handoffToken": "h_611699776700mpslq618hy81kvro",
+            "createdAt": 1780149227321,
+            "highlight": {
+              "mode": "text_mark_no_button",
+              "label": "🔥 Акция",
+              "badgeId": "promo",
+              "enabled": true,
+              "updatedAt": 1780149343114
+            },
+            "messageId": "mid.ffffbd7264fa4a52019e792983107f30",
+            "updatedAt": 1780149343267,
+            "commentKey": "-73175958664622:116663859557728050",
+            "channelTitle": "-73175958664622",
+            "handoffToken": "h_859557728050mpsevyll03m33m02",
+            "lastEditedAt": 1780149244579,
+            "lastEditedBy": "Alex P",
             "linkedByName": "",
             "originalLink": null,
-            "originalText": "Тест new plus media",
-            "lastPatchedAt": 1780160794170,
-            "stablePayload": "cp_-73175958664622_116664611699776700",
+            "originalText": "Новый тест всего",
+            "lastPatchedAt": 1780149244827,
+            "stablePayload": "cp_-73175958664622_116663859557728050",
+            "customKeyboard": {},
+            "giftCampaignId": "",
+            "lastEditedById": "17507246",
+            "lastIngestedAt": 1780149227321,
+            "lastPatchError": null,
+            "linkedByUserId": "",
+            "lastPatchedText": "Новый тест всего",
+            "nativeReactions": [],
+            "commentsDisabled": true,
+            "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+            "lastEditVersionId": "1780149244570_cyqj03",
+            "lastGiftRowsCount": 0,
+            "lastPollRowsCount": 0,
+            "originalLinkKnown": false,
+            "originalTextKnown": true,
+            "sourceAttachments": [],
+            "patchedAttachments": [],
+            "textOverrideActive": false,
+            "lastCommentsEnabled": false,
+            "lastCustomRowsCount": 0,
+            "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+            "originalFormatKnown": false,
+            "lastCommentsToggleAt": 1780149244579,
+            "lastHighlightPatchAt": 1780149343267,
+            "lastHighlightPatchMode": "text_mark_no_button",
+            "lastPatchedFingerprint": "{\"attachments\":[],\"text\":\"Новый тест всего\",\"link\":null,\"format\":null,\"commentsDisabled\":true,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+            "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+            "sourceAttachmentsKnown": false,
+            "lastHighlightPatchError": null,
+            "originalSnapshotCaptured": true,
+            "originalSnapshotEmptyKnown": false
+          },
+          "deliverToDm": true,
+          "description": "",
+          "giftMessage": "Спасибо за подписку! Забирайте подарок ниже.",
+          "ownerUserId": "17507246",
+          "dmButtonText": "Открыть подарок",
+          "subscribeUrl": "https://max.ru/-73175958664622",
+          "updatedByFlow": "clean_gifts_wizard",
+          "giftAttachment": null,
+          "giftButtonText": "🎁 Получить подарок",
+          "leadMagnetCode": "",
+          "requiredChatId": "-73175958664622",
+          "runtimeVersion": "CC8.1.1-GIFTS-WIZARD-UX-CONDITIONS-CLEANUP",
+          "createdByUserId": "17507246",
+          "updatedByUserId": "17507246",
+          "conditionsConfig": {
+            "items": [
+              {
+                "mode": "all",
+                "type": "subscription",
+                "enabled": true,
+                "channels": [
+                  {
+                    "title": "АдминКит клуб",
+                    "channelId": "-73175958664622",
+                    "botRequired": true,
+                    "botMembershipChecked": false
+                  }
+                ],
+                "configured": true
+              },
+              {
+                "type": "firstTimeOnly",
+                "scope": "campaign",
+                "enabled": true,
+                "configured": true
+              }
+            ],
+            "logic": "AND"
+          },
+          "subscribeButtonText": "🔔 Подписаться",
+          "successNotification": "Подарок отправлен в личные сообщения",
+          "notSubscribedNotification": "Сначала подпишитесь на канал, затем нажмите кнопку ещё раз",
+          "alreadyClaimedNotification": "Подарок уже был отправлен ранее",
+          "dmDeliveryFallbackNotification": "Не удалось отправить подарок в личные сообщения. Откройте бота и нажмите Старт, затем нажмите кнопку ещё раз."
+        },
+        "gift_mq1zly70": {
+          "id": "gift_mq1zly70",
+          "title": "Подарок к посту (Тест всего)",
+          "enabled": true,
+          "giftUrl": "HTTP://sports.ru",
+          "postIds": [
+            "116645546987316320"
+          ],
+          "onlyOnce": true,
+          "channelId": "-73175958664622",
+          "createdAt": 1780728313371,
+          "tenantKey": "tenant_17507246",
+          "updatedAt": 1780728313479,
+          "commentKey": "-73175958664622:116645546987316320",
+          "conditions": {
+            "keyword": false,
+            "pollVote": false,
+            "reaction": false,
+            "promoCode": false,
+            "timeWindow": false,
+            "subscription": true,
+            "firstTimeOnly": true
+          },
+          "targetPost": {
+            "pollId": "34",
+            "postId": "116645546987316320",
+            "hasPoll": true,
+            "autoMode": true,
+            "channelId": "-73175958664622",
+            "createdAt": 1779869799230,
+            "highlight": {
+              "mode": "text_mark_no_button",
+              "label": "🆕 Новое",
+              "badgeId": "new",
+              "enabled": true,
+              "updatedAt": 1779892768679
+            },
+            "messageId": "mid.ffffbd7264fa4a52019e6881c8cf6466",
+            "updatedAt": 1780684848494,
+            "commentKey": "-73175958664622:116645546987316320",
+            "activePollId": "34",
+            "channelTitle": "-73175958664622",
+            "handoffToken": "h_546987316320mpnsiuhn5t70alp3",
+            "linkedByName": "",
+            "originalLink": null,
+            "originalText": "Тест всего",
+            "lastPatchedAt": 1780684848494,
+            "stablePayload": "cp_-73175958664622_116645546987316320",
             "customKeyboard": {
-              "rows": [
-                {
-                  "id": "cta_row_1",
-                  "buttons": [
-                    {
-                      "id": "btn_mpslr91g",
-                      "url": "http://sports.ru",
-                      "text": "Кнопка раз!",
-                      "type": "link",
-                      "enabled": true
-                    }
-                  ]
-                }
-              ],
+              "rows": [],
               "enabled": true
             },
             "giftCampaignId": "",
-            "lastIngestedAt": 1780160714311,
+            "lastIngestedAt": 1779869799230,
             "lastPatchError": null,
             "linkedByUserId": "",
-            "lastPatchedText": "Тест new plus media",
+            "lastPatchedText": "🆕 Новое\n\nТест всего",
+            "lastPollPatchAt": 1780424624171,
+            "lastPollPatchId": "34",
             "nativeReactions": [],
             "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
             "lastGiftRowsCount": 0,
-            "lastPollRowsCount": 0,
+            "lastPollRowsCount": 2,
             "originalLinkKnown": false,
             "originalTextKnown": true,
             "sourceAttachments": [
               {
                 "type": "image",
                 "payload": {
-                  "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8fiUGCjqnMljk5b2rPTxGseWLEtzWgaxOiaO0Xnxon-k",
+                  "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr82FvxipWPGNIVY4tJKgCgJuWLEtzWgaxOiaO0Xnxon-k",
                   "token": "[redacted]",
-                  "photo_id": 19514221486
+                  "photo_id": 18904855470
                 }
               }
             ],
+            "lastPollPatchError": null,
             "patchedAttachments": [
               {
                 "type": "image",
                 "payload": {
-                  "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8fiUGCjqnMljk5b2rPTxGseWLEtzWgaxOiaO0Xnxon-k",
+                  "url": "https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr82FvxipWPGNIVY4tJKgCgJuWLEtzWgaxOiaO0Xnxon-k",
                   "token": "[redacted]",
-                  "photo_id": 19514221486
+                  "photo_id": 18904855470
                 }
               },
               {
@@ -13334,34 +14776,53 @@
                   "buttons": [
                     [
                       {
-                        "text": "💬 Комментарии",
+                        "text": "💬 1 комментарий",
                         "type": "open_app",
-                        "payload": "cp_-73175958664622_116664611699776700",
+                        "payload": "cp_-73175958664622_116645546987316320",
                         "web_app": "id781310320690_bot"
                       }
                     ],
                     [
                       {
-                        "url": "http://sports.ru",
-                        "text": "Кнопка раз!",
-                        "type": "link"
+                        "text": "🗳 Какой хот-дог вкуснее? · 2",
+                        "type": "callback",
+                        "payload": "pi:34"
+                      }
+                    ],
+                    [
+                      {
+                        "text": "Левый · 50% (1)",
+                        "type": "callback",
+                        "payload": "pv:34:_1"
+                      },
+                      {
+                        "text": "Правый · 50% (1)",
+                        "type": "callback",
+                        "payload": "pv:34:_2"
                       }
                     ]
                   ]
                 }
               }
             ],
+            "pollRowsKnownEmpty": false,
             "textOverrideActive": false,
-            "lastCustomRowsCount": 1,
+            "lastCustomRowsCount": 0,
             "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
             "originalFormatKnown": false,
-            "lastPatchedFingerprint": "{\"attachments\":[{\"payload\":{\"photo_id\":19514221486,\"token\":\"DcSylgMEaO3NKxo9K1+aN8fccVAyAUCT9rjnD7ebIKXiGyVeDHivzA0XIHyuw9Mz7+RE9BPIXPM2UfY6qiqkk1lhgp2/R8ejuF4FPoGN/2E=\",\"url\":\"https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8fiUGCjqnMljk5b2r...[665 chars]",
+            "lastHighlightPatchAt": 1779892770000,
+            "deletedGiftCampaignAt": 1780684846893,
+            "deletedGiftCampaignId": "gift_mpo6uweq",
+            "lastPollRowsCheckedAt": 1780684847931,
+            "lastHighlightPatchMode": "text_mark_no_button",
+            "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"image\",\"payload\":{\"url\":\"https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr82FvxipWPGNIVY4tJKgCgJuWLEtzWgaxOiaO0Xnxon-k\",\"token\":\"Glia8lYV4cLfuB3KovizC1gv7S8/gQcW4FsHyP+Bo/G0BOS4uBHDKmGRxoh5IbTAvGmCsA6HxCFumrnVtEI38+aHI...[820 chars]",
             "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
             "sourceAttachmentsKnown": true,
+            "lastHighlightPatchError": null,
             "originalSnapshotCaptured": true,
             "lastCustomKeyboardRuntime": "CC8.3.4-BUTTONS-DIRECT-LINKS-CHANNEL-HYDRATE",
             "originalSnapshotEmptyKnown": false,
-            "lastCustomKeyboardUpdatedAt": 1780160793107
+            "lastCustomKeyboardUpdatedAt": 1780568521266
           },
           "deliverToDm": true,
           "description": "",
@@ -13545,86 +15006,6 @@
           "deliveredAt": 1779545569423,
           "deliveryError": null,
           "pendingInputType": ""
-        },
-        "gift_mpo6uweq:17507246": {
-          "status": "conditions_not_met",
-          "userId": "17507246",
-          "userName": "Alex P",
-          "checkedAt": 1779894258844,
-          "updatedAt": 1779894258844,
-          "campaignId": "gift_mpo6uweq",
-          "conditions": [
-            {
-              "ok": true,
-              "mode": "all",
-              "type": "subscription",
-              "results": [
-                {
-                  "ok": true,
-                  "chatId": "-73175958664622"
-                }
-              ]
-            },
-            {
-              "ok": true,
-              "type": "firstTimeOnly",
-              "reason": ""
-            },
-            {
-              "ok": false,
-              "type": "pollVote",
-              "reason": "poll_id_missing"
-            }
-          ],
-          "pendingInputType": ""
-        },
-        "gift_mpslsckk:17507246": {
-          "status": "delivered_dm",
-          "userId": "17507246",
-          "delivery": {
-            "message": {
-              "body": "[removed]",
-              "sender": {
-                "name": "АдминКит - система управления MAX",
-                "is_bot": true,
-                "user_id": 244564887,
-                "username": "id781310320690_bot",
-                "first_name": "АдминКит - система управления MAX",
-                "last_activity_time": 1780161393178
-              },
-              "recipient": {
-                "chat_id": 261677113,
-                "user_id": 17507246,
-                "chat_type": "dialog"
-              },
-              "timestamp": 1780161393173
-            }
-          },
-          "userName": "Alex P",
-          "checkedAt": 1780161393202,
-          "updatedAt": 1780161393203,
-          "campaignId": "gift_mpslsckk",
-          "conditions": [
-            {
-              "ok": true,
-              "mode": "all",
-              "type": "subscription",
-              "results": [
-                {
-                  "ok": true,
-                  "chatId": "-73175958664622"
-                }
-              ]
-            },
-            {
-              "ok": true,
-              "type": "firstTimeOnly",
-              "reason": ""
-            }
-          ],
-          "deliveredAt": 1780161393202,
-          "deliveryError": null,
-          "pendingInputType": ""
         }
       },
       "settings": {
@@ -13642,26 +15023,104 @@
         }
       }
     },
-    "runtimeVersion": "CC8.2.4-ADMINKIT-COMPRESSED-FINAL-PHOTO-COMPOSER",
+    "clientAccess": {
+      "runtimeVersion": "CC8.3.46-PR106-ACCOUNT-ACCESS-RUNTIME",
+      "clientAccessStorageBackend": "postgres",
+      "clientAccessPersistent": true,
+      "clientAccessNamespaceReady": true,
+      "tenantStorageBackend": "postgres",
+      "tenantTablesReady": true,
+      "postgresConfigured": true,
+      "postgresPersistent": true,
+      "clientAccessFallbackMode": "",
+      "clientAccessStoreFallbackAllowed": true,
+      "adminActivationCodesReady": true,
+      "adminCodeToolsHiddenFromClient": true,
+      "adminAccessRuntimeVersion": "CC8.3.47-PR108-ADMIN-ACTIVATION-CODES",
+      "bootstrapAttempted": true,
+      "bootstrapError": "",
+      "paidProductionBlocker": false,
+      "tenants": 2,
+      "tenantUsers": 0,
+      "tenantChannels": 0,
+      "activationCodes": [
+        {
+          "codeHashPrefix": "7a09bbda88c3",
+          "safeCodeLabel": "AK-7A09…88C3",
+          "planId": "start",
+          "durationDays": 30,
+          "maxChannels": 1,
+          "expiresAt": "2026-07-03T08:41:28.744Z",
+          "status": "used",
+          "singleUse": true,
+          "usedAt": "2026-06-03T08:46:40.056Z",
+          "usedByMaxUserId": "18400200",
+          "tenantId": "tenant_mpxtodwf_co679rgo",
+          "boundChannelId": "",
+          "createdByMaxUserId": "17507246",
+          "note": "",
+          "createdAt": "2026-06-03T08:41:28.744Z",
+          "updatedAt": "2026-06-03T08:46:41.747Z"
+        },
+        {
+          "codeHashPrefix": "6e4f57c34b25",
+          "safeCodeLabel": "AK-6E4F…4B25",
+          "planId": "pro",
+          "durationDays": 90,
+          "maxChannels": 3,
+          "expiresAt": "2026-09-01T09:03:43.073Z",
+          "status": "active",
+          "singleUse": true,
+          "usedAt": "",
+          "usedByMaxUserId": "",
+          "tenantId": "",
+          "boundChannelId": "",
+          "createdByMaxUserId": "17507246",
+          "note": "",
+          "createdAt": "2026-06-03T09:03:43.073Z",
+          "updatedAt": "2026-06-03T09:03:43.859Z"
+        },
+        {
+          "codeHashPrefix": "eff1f04c4bc1",
+          "safeCodeLabel": "AK-EFF1…4BC1",
+          "planId": "business",
+          "durationDays": 90,
+          "maxChannels": 10,
+          "expiresAt": "2026-09-01T09:25:40.110Z",
+          "status": "used",
+          "singleUse": true,
+          "usedAt": "2026-06-03T09:26:57.467Z",
+          "usedByMaxUserId": "18400200",
+          "tenantId": "tenant_mpxv471e_qs42cz7g",
+          "boundChannelId": "",
+          "createdByMaxUserId": "17507246",
+          "note": "",
+          "createdAt": "2026-06-03T09:25:40.110Z",
+          "updatedAt": "2026-06-03T09:26:59.272Z"
+        }
+      ],
+      "accessEvents": 7
+    },
+    "runtimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
     "counts": {
-      "posts": 58,
-      "commentThreads": 66,
-      "comments": 183,
-      "handoffs": 55,
-      "likes": 58,
-      "channels": 5,
+      "posts": 67,
+      "commentThreads": 75,
+      "comments": 186,
+      "handoffs": 64,
+      "likes": 67,
+      "channels": 9,
       "moderationLogs": 50,
       "uploadDiagnostics": 50
     },
     "store": {
       "compact": true,
       "counts": {
-        "posts": 58,
-        "commentThreads": 66,
-        "comments": 183,
-        "handoffs": 55,
-        "likes": 58,
-        "channels": 5,
+        "posts": 67,
+        "commentThreads": 75,
+        "comments": 186,
+        "handoffs": 64,
+        "likes": 67,
+        "channels": 9,
         "moderationLogs": 50,
         "uploadDiagnostics": 50
       },
