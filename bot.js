@@ -35,6 +35,7 @@ const channelTitleHelper = require("./human-channel-title-helper");
 const channelPostPicker = require("./channel-post-picker-core");
 const pushConfirmation = require("./services/pushConfirmationService");
 const groupPushOnboarding = require("./services/groupPushOnboardingService");
+const webPushStorage = require("./services/webPushStorage");
 const buttonsFlow = require("./buttons-flow-cc8-clean");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
 const {
@@ -821,6 +822,53 @@ function getMessageText(message) {
   );
 }
 
+async function performGroupPushOnboarding({ userId, chatId, chatTitle, config, callbackId = '' } = {}) {
+  if (!userId) return { ok: false, error: 'message_user_id_missing' };
+  if (!chatId) return { ok: false, error: 'message_chat_id_missing' };
+
+  const activeDevices = await webPushStorage.listActiveDevicesForUser(userId);
+  if (activeDevices.length > 0) {
+    const alreadyBound = await webPushStorage.isChatBoundForUser(userId, chatId);
+    const binding = await webPushStorage.upsertChatBindingForUserDevices({ maxUserId: userId, chatId, chatTitle });
+    const text = alreadyBound ? 'Уведомления этого чата уже подключены.' : 'Готово. Уведомления этого чата подключены.';
+    if (callbackId) await answerCallback({ botToken: config.botToken, callbackId, notification: text });
+    else await sendMessage({ botToken: config.botToken, chatId, text });
+    return { ok: true, action: 'group_push_bind_existing_device', chatId, userId, devices: binding.devices, alreadyBound };
+  }
+
+  let joinLink = null;
+  try {
+    joinLink = await groupPushOnboarding.createPersonalJoinLinkForMessage({
+      maxUserId: userId,
+      chatId,
+      ttlMinutes: 60,
+      detectedBaseUrl: config.appBaseUrl
+    });
+  } catch (error) {
+    if (callbackId) await answerCallback({ botToken: config.botToken, callbackId, notification: 'Не удалось создать ссылку подключения. Попробуйте позже.' });
+    else await sendMessage({ botToken: config.botToken, chatId, text: 'Не удалось создать ссылку подключения. Попробуйте позже.' });
+    return { ok: false, action: 'group_push_message_command', error: error?.code || error?.message || 'pairing_link_failed', chatId, userId };
+  }
+
+  try {
+    await sendMessage({
+      botToken: config.botToken,
+      userId,
+      text: groupPushOnboarding.buildPrivateJoinMessage({ chatTitle, joinUrl: joinLink.displayUrl, shortUrlError: joinLink.shortUrlError }),
+      attachments: groupPushOnboarding.buildPrivateJoinKeyboard(joinLink.displayUrl)
+    });
+  } catch (error) {
+    const text = 'Не удалось отправить ссылку в личные сообщения. Откройте бота в личке и попробуйте ещё раз.';
+    if (callbackId) await answerCallback({ botToken: config.botToken, callbackId, notification: text });
+    else await sendMessage({ botToken: config.botToken, chatId, text });
+    return { ok: false, action: 'group_push_message_command', error: 'private_dm_failed', chatId, userId };
+  }
+
+  if (callbackId) await answerCallback({ botToken: config.botToken, callbackId, notification: 'Ссылка отправлена в личные сообщения.' });
+  else await sendMessage({ botToken: config.botToken, chatId, text: 'Отправил ссылку подключения в личные сообщения.' });
+  return { ok: true, action: 'group_push_message_command', sentPrivate: true, chatId, userId };
+}
+
 async function handleGroupPushCommandMessage(message, config) {
   const text = getMessageText(message);
   if (!groupPushOnboarding.isGroupPushCommandText(text)) return false;
@@ -849,45 +897,7 @@ async function handleGroupPushCommandMessage(message, config) {
     return { ok: false, action: 'group_push_message_command', error: 'message_chat_id_missing', userId };
   }
 
-  let joinLink = null;
-  try {
-    joinLink = await groupPushOnboarding.createPersonalJoinLinkForMessage({
-      maxUserId: userId,
-      chatId,
-      ttlMinutes: 60,
-      detectedBaseUrl: config.appBaseUrl
-    });
-  } catch (error) {
-    await sendMessage({
-      botToken: config.botToken,
-      chatId,
-      text: 'Не удалось создать ссылку подключения. Попробуйте позже.'
-    });
-    return { ok: false, action: 'group_push_message_command', error: error?.code || error?.message || 'pairing_link_failed', chatId, userId };
-  }
-
-  try {
-    await sendMessage({
-      botToken: config.botToken,
-      userId,
-      text: groupPushOnboarding.buildPrivateJoinMessage({ chatTitle, joinUrl: joinLink.displayUrl, shortUrlError: joinLink.shortUrlError }),
-      attachments: groupPushOnboarding.buildPrivateJoinKeyboard(joinLink.displayUrl)
-    });
-  } catch (error) {
-    await sendMessage({
-      botToken: config.botToken,
-      chatId,
-      text: 'Не удалось отправить ссылку в личные сообщения. Откройте бота в личке и попробуйте ещё раз.'
-    });
-    return { ok: false, action: 'group_push_message_command', error: 'private_dm_failed', chatId, userId };
-  }
-
-  await sendMessage({
-    botToken: config.botToken,
-    chatId,
-    text: 'Отправил ссылку подключения в личные сообщения.'
-  });
-  return { ok: true, action: 'group_push_message_command', sentPrivate: true, chatId, userId };
+  return performGroupPushOnboarding({ userId, chatId, chatTitle, config });
 }
 
 function getMessageId(message) {
@@ -4625,26 +4635,7 @@ async function handleMessageCallback(update, config) {
       await answerCallback({ botToken: config.botToken, callbackId, notification: 'Не удалось определить чат MAX. Нажмите кнопку из сообщения в группе.' });
       return { ok: false, action: groupPushOnboarding.ACTION_GROUP_PUSH_ENABLE, error: 'callback_chat_id_missing' };
     }
-    let joinLink = null;
-    try {
-      joinLink = await groupPushOnboarding.createPersonalJoinLinkForMessage({ maxUserId: userId, chatId, ttlMinutes: 60, detectedBaseUrl: config.appBaseUrl });
-    } catch (error) {
-      await answerCallback({ botToken: config.botToken, callbackId, notification: 'Не удалось создать ссылку подключения. Попробуйте позже.' });
-      return { ok: false, action: groupPushOnboarding.ACTION_GROUP_PUSH_ENABLE, error: error?.code || error?.message || 'pairing_link_failed' };
-    }
-    try {
-      await sendMessage({
-        botToken: config.botToken,
-        userId,
-        text: groupPushOnboarding.buildPrivateJoinMessage({ chatTitle, joinUrl: joinLink.displayUrl, shortUrlError: joinLink.shortUrlError }),
-        attachments: groupPushOnboarding.buildPrivateJoinKeyboard(joinLink.displayUrl)
-      });
-      await answerCallback({ botToken: config.botToken, callbackId, notification: 'Ссылка отправлена в личные сообщения.' });
-      return { ok: true, action: groupPushOnboarding.ACTION_GROUP_PUSH_ENABLE, sentPrivate: true, chatId, userId };
-    } catch (error) {
-      await answerCallback({ botToken: config.botToken, callbackId, notification: 'Не удалось отправить ссылку в личные сообщения. Откройте бота в личке и нажмите кнопку ещё раз.' });
-      return { ok: false, action: groupPushOnboarding.ACTION_GROUP_PUSH_ENABLE, error: 'private_dm_failed', chatId, userId };
-    }
+    return performGroupPushOnboarding({ userId, chatId, chatTitle, config, callbackId });
   }
 
   if (payload?.action === pushConfirmation.ACTION) {
