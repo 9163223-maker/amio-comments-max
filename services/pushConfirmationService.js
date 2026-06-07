@@ -25,7 +25,7 @@ function safePublicResult(result = {}) {
   return {
     ok: Boolean(result.ok),
     status: clean(result.status),
-    confirmationRequired: true,
+    confirmationRequired: result.confirmationRequired === false ? false : true,
     confirmationSent: Boolean(result.confirmationSent),
     confirmationDispatch: clean(result.confirmationDispatch) || (result.confirmationSent ? 'sent' : 'not_available'),
     deviceId: shortId(result.deviceId)

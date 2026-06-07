@@ -35,6 +35,11 @@ const INVALID_SUBSCRIPTION_RESET_INSTRUCTION = 'Сервер не принял �
 const RESET_RESULT_STEPS_LIMIT = 8;
 const LEGACY_RESET_NO_SUBSCRIPTION_RESULT = 'push subscription reset: no subscription found';
 const LEGACY_RESET_FAILED_RESULT = 'push subscription reset failed';
+const PENDING_JOIN_TOKEN_STORAGE_KEY = 'adminkit.push.pendingJoinToken.v1';
+const JOIN_TOKEN_FOUND_MESSAGE = 'Персональная ссылка найдена. Теперь нажмите «Включить уведомления».';
+const JOIN_TOKEN_MISSING_MESSAGE = 'Откройте персональную ссылку подключения из MAX.';
+const JOIN_TOKEN_EXPIRED_MESSAGE = 'Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.';
+const JOIN_SUCCESS_MESSAGE = 'Готово. Уведомления этого чата подключены.';
 
 // Legacy diagnostic test markers retained to prove earlier UX guarantees remain documented:
 // Разрешение не выдано. Проверьте настройки iOS для АдминКИТ Push.
@@ -71,6 +76,78 @@ function clearClientStatus() {
 function appendResult(message, data) {
   state.lastResult = `${new Date().toLocaleTimeString()} — ${message}`;
   setText('lastResult', state.lastResult + (data ? `\n${JSON.stringify(data, null, 2)}` : ''));
+}
+
+function safeStoredJoinToken(value) {
+  const token = String(value || '').trim();
+  return /^[A-Za-z0-9_.~-]{16,4096}$/.test(token) && token.includes('.') ? token : '';
+}
+
+function storageAvailable() {
+  try {
+    if (!window.localStorage) return false;
+    const key = `${PENDING_JOIN_TOKEN_STORAGE_KEY}.probe`;
+    window.localStorage.setItem(key, '1');
+    window.localStorage.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readPendingJoinToken() {
+  if (!storageAvailable()) return '';
+  try { return safeStoredJoinToken(window.localStorage.getItem(PENDING_JOIN_TOKEN_STORAGE_KEY)); } catch { return ''; }
+}
+
+function storePendingJoinToken(token) {
+  const safeToken = safeStoredJoinToken(token);
+  if (!safeToken || !storageAvailable()) return false;
+  try {
+    window.localStorage.setItem(PENDING_JOIN_TOKEN_STORAGE_KEY, safeToken);
+    return true;
+  } catch { return false; }
+}
+
+function clearPendingJoinToken() {
+  if (!storageAvailable()) return;
+  try { window.localStorage.removeItem(PENDING_JOIN_TOKEN_STORAGE_KEY); } catch {}
+}
+
+function clearJoinState() {
+  clearPendingJoinToken();
+  if (state.join) {
+    state.join.token = '';
+    state.join.joinMode = false;
+    state.join.tokenStatus = 'cleared';
+    state.join.recoveredFrom = '';
+  }
+}
+
+function recoverJoinToken() {
+  const urlToken = safeStoredJoinToken(state.join && state.join.token);
+  if (urlToken) {
+    storePendingJoinToken(urlToken);
+    state.join.token = urlToken;
+    state.join.joinMode = true;
+    state.join.tokenStatus = state.join.tokenStatus || 'valid';
+    state.join.recoveredFrom = 'url';
+    return urlToken;
+  }
+  const storedToken = readPendingJoinToken();
+  if (storedToken) {
+    state.join.token = storedToken;
+    state.join.joinMode = true;
+    state.join.tokenStatus = 'stored';
+    state.join.recoveredFrom = 'storage';
+    return storedToken;
+  }
+  return '';
+}
+
+function isExpiredPairingError(error) {
+  const code = error && error.data && error.data.error ? error.data.error : (error && error.message ? error.message : String(error || ''));
+  return /push_pairing_token_(expired|used)|invalid_push_pairing|push_pairing_token_required/.test(code);
 }
 
 function safeErrorMessage(error) {
@@ -298,24 +375,27 @@ async function fetchJson(url, options) {
 }
 
 function applyJoinMode() {
+  const pendingToken = recoverJoinToken();
   if (!state.join.joinMode) {
     if (state.join.landingMode) {
-      setText('introText', 'Откройте это приложение с экрана Домой и нажмите «Включить уведомления».');
+      setText('introText', JOIN_TOKEN_MISSING_MESSAGE);
       setText('pairingStatus', 'client-safe landing');
+      setClientStatus(JOIN_TOKEN_MISSING_MESSAGE, 'warning');
     } else {
       setText('pairingStatus', 'manual/admin diagnostic');
     }
     return;
   }
   if (history && history.replaceState) history.replaceState(null, document.title, '/push');
-  setText('introText', 'Откройте это приложение с экрана Домой и нажмите «Включить уведомления».');
+  setText('introText', JOIN_TOKEN_FOUND_MESSAGE);
   setHidden('pairingNotice', false);
   setHidden('subscribeTokenRow', true);
   setHidden('adminTokenRow', true);
   setHidden('testBtn', true);
   setHidden('statusBtn', true);
   setHidden('resetPushButton', true);
-  setText('pairingStatus', state.join.tokenStatus === 'valid' ? 'join-ready: pairing cookie active' : 'join-not-ready');
+  setClientStatus(JOIN_TOKEN_FOUND_MESSAGE, 'info');
+  setText('pairingStatus', pendingToken ? `join-ready: pending token from ${state.join.recoveredFrom || 'page'}` : 'join-not-ready');
   setText('enableBtn', 'Включить уведомления');
 }
 
@@ -412,11 +492,13 @@ async function saveSubscription(subscription, status) {
   setStep('sending subscription to server', 'running', JSON.stringify({ requestShape, clientSubscriptionShape: subscriptionShape }));
   try {
     if (state.join.joinMode) {
-      return await withTimeout(fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify(requestBody) }), TIMEOUTS.serverSave, 'server pairing save timed out');
+      const pendingToken = recoverJoinToken();
+      const pairBody = pendingToken ? { ...requestBody, pairingToken: pendingToken } : requestBody;
+      return await withTimeout(fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify(pairBody) }), TIMEOUTS.serverSave, 'server pairing save timed out');
     }
     const flags = status && status.pushSupported ? status.pushSupported : {};
     if (state.join.landingMode) {
-      throw new Error('Откройте персональную ссылку подключения из MAX.');
+      throw new Error(JOIN_TOKEN_MISSING_MESSAGE);
     }
     const subscribeTokenInput = $('subscribeToken');
     const token = subscribeTokenInput ? subscribeTokenInput.value.trim() : '';
@@ -515,12 +597,8 @@ async function enableNotifications() {
     currentStep = 'server response';
     setStep(currentStep, 'done', JSON.stringify(safeServerResult(result)));
     if (state.join.joinMode) {
-      let successMessage = 'Уведомления подключены.';
-      if (result.confirmationRequired && result.confirmationSent) {
-        successMessage = 'Устройство подключено. Откройте MAX и нажмите «Подтвердить устройство».';
-      } else if (result.confirmationRequired) {
-        successMessage = 'Устройство подключено. Подтвердите его в MAX.';
-      }
+      let successMessage = JOIN_SUCCESS_MESSAGE;
+      clearJoinState();
       setClientStatus(successMessage, 'success');
       appendResult(successMessage);
     } else {
@@ -534,8 +612,15 @@ async function enableNotifications() {
       state.forceNewSubscriptionAfterInvalid = true;
       appendResult(INVALID_SUBSCRIPTION_RESET_INSTRUCTION, safeRecoveryError(error));
     } else {
-      failStep(currentStep, error);
-      appendResult(error.message || 'failed', error.data || null);
+      if (state.join.joinMode && isExpiredPairingError(error)) {
+        clearJoinState();
+        setClientStatus(JOIN_TOKEN_EXPIRED_MESSAGE, 'error');
+        failStep(currentStep, new Error(JOIN_TOKEN_EXPIRED_MESSAGE));
+        appendResult(JOIN_TOKEN_EXPIRED_MESSAGE, error.data || null);
+      } else {
+        failStep(currentStep, error);
+        appendResult(error.message || 'failed', error.data || null);
+      }
     }
     await refreshStatus().catch(() => undefined);
   }

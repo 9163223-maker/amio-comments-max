@@ -240,6 +240,11 @@ function stripMarkedHtml(html, marker) {
   return html.replace(pattern, '');
 }
 
+function pushManifestHref(token) {
+  const safeToken = clean(token);
+  return safeToken ? `/push/manifest.json?t=${encodeURIComponent(safeToken)}` : '/push/manifest.json';
+}
+
 function sendPushPage(req, res, options = {}) {
   const file = path.join(__dirname, 'public', 'push.html');
   const fs = require('fs');
@@ -249,6 +254,7 @@ function sendPushPage(req, res, options = {}) {
     joinMode: true,
     tokenCookie: true,
     tokenStatus: options.tokenStatus || 'valid',
+    token: clean(options.token),
     adminMode: false
   } : { joinMode: false, landingMode: mode === 'client', adminMode: mode === 'admin' };
   if (mode === 'admin') {
@@ -257,6 +263,7 @@ function sendPushPage(req, res, options = {}) {
       .replace('<meta name="apple-mobile-web-app-title" content="АдминКИТ Push">', '<meta name="apple-mobile-web-app-title" content="Push Admin">')
       .replace('<title>АдминКИТ Push</title>', '<title>АдминКИТ Push Admin</title>');
   } else {
+    html = html.replace('<link rel="manifest" href="/push/manifest.json">', `<link rel="manifest" href="${pushManifestHref(options.token)}">`);
     html = stripMarkedHtml(html, 'admin-diagnostics');
     html = stripMarkedHtml(html, 'raw-diagnostics');
   }
@@ -380,19 +387,21 @@ function install(app) {
       const maxAge = pairingCookieMaxAgeSeconds(verified.expiresAt);
       const cookie = `push_pairing_token=${encodeURIComponent(token)}; Path=/api/push/pair; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
       res.set('Set-Cookie', isHttpsRequest(req) ? `${cookie}; Secure` : cookie);
-      return sendPushPage(req, res, { mode: 'client', joinMode: true, tokenStatus: 'valid' });
+      return sendPushPage(req, res, { mode: 'client', joinMode: true, tokenStatus: 'valid', token });
     } catch (error) {
-      return res.status(400).send(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>АдминКИТ Push</title></head><body><main><h1>АдминКИТ Push</h1><p>Ссылка подключения недействительна или истекла.</p><p>Код: ${safeErrorCode(error, 'invalid_push_pairing_token')}</p></main></body></html>`);
+      return res.status(400).send(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>АдминКИТ Push</title></head><body><main><h1>АдминКИТ Push</h1><p>Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.</p><p>Код: ${safeErrorCode(error, 'invalid_push_pairing_token')}</p></main></body></html>`);
     }
   });
 
   app.get('/push/manifest.json', (req, res) => {
+    const token = clean(req.query && req.query.t);
+    const startUrl = token ? `/push/join?t=${encodeURIComponent(token)}` : '/push';
     res.json({
       name: 'АдминКИТ Push',
       short_name: 'AdminKIT Push',
       id: '/push',
       display: 'standalone',
-      start_url: '/push',
+      start_url: startUrl,
       scope: '/push/',
       theme_color: '#111827',
       background_color: '#f8fafc',
@@ -483,7 +492,20 @@ function install(app) {
       const verified = pairing.consumePairingToken(token);
       const extracted = extractPushSubscriptionFromBody(body);
       const requestShape = safePushRequestShape(body, extracted.source);
-      const saved = await storage.savePairedDevice(extracted.subscription, {
+      const cleanSubscription = storage.sanitizeSubscription(extracted.subscription);
+      const endpointHash = storage.subscriptionId(cleanSubscription);
+      const activeDevice = (await storage.listActiveDevicesForUser(verified.maxUserId)).find((device) => device.endpointHash === endpointHash || device.id === endpointHash);
+      if (activeDevice) {
+        await storage.upsertChatBindingForDevice({
+          maxUserId: verified.maxUserId,
+          chatId: verified.chatId,
+          channelId: verified.channelId,
+          deviceId: activeDevice.deviceId,
+          endpointHash
+        });
+        return res.json(confirmation.safePublicResult({ ok: true, status: 'active', confirmationRequired: false, confirmationSent: false }));
+      }
+      const saved = await storage.savePairedDevice(cleanSubscription, {
         maxUserId: verified.maxUserId,
         chatId: verified.chatId,
         channelId: verified.channelId,
