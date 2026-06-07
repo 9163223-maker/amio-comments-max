@@ -102,13 +102,16 @@ function firstString(...values) {
 function pickMessage(body = {}) {
   if (!body || typeof body !== 'object') return null;
   if (body.message && typeof body.message === 'object') return body.message;
+  if (body.data && typeof body.data === 'object' && body.data.message && typeof body.data.message === 'object') return body.data.message;
   if (body.callback && typeof body.callback === 'object' && body.callback.message && typeof body.callback.message === 'object') return body.callback.message;
+  if (body.data && typeof body.data === 'object' && body.data.callback && typeof body.data.callback === 'object' && body.data.callback.message && typeof body.data.callback.message === 'object') return body.data.callback.message;
   return null;
 }
 
 function pickCallback(body = {}) {
   if (!body || typeof body !== 'object') return null;
-  return body.callback && typeof body.callback === 'object' ? body.callback : null;
+  if (body.callback && typeof body.callback === 'object') return body.callback;
+  return body.data && typeof body.data === 'object' && body.data.callback && typeof body.data.callback === 'object' ? body.data.callback : null;
 }
 
 function pickSender(message = null, callback = null) {
@@ -119,14 +122,24 @@ function pickRecipient(message = null) {
   return message && (message.recipient || message.chat) || null;
 }
 
+function payloadText(payload) {
+  if (typeof payload === 'string' || typeof payload === 'number') return String(payload || '');
+  if (payload && typeof payload === 'object') return firstString(payload.text, payload.command, payload.raw, payload.action);
+  return '';
+}
+
 function pickText(body = {}, message = null, callback = null) {
   return firstString(
     message && message.body && message.body.text,
     message && message.text,
     body && body.text,
+    body && body.message && body.message.text,
+    body && body.message && body.message.body && body.message.body.text,
+    body && body.data && body.data.message && body.data.message.text,
+    body && body.data && body.data.message && body.data.message.body && body.data.message.body.text,
     callback && callback.message && callback.message.body && callback.message.body.text,
     callback && callback.message && callback.message.text,
-    callback && callback.payload
+    payloadText(callback && (callback.payload ?? callback.data))
   );
 }
 
