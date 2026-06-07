@@ -602,6 +602,107 @@ async function sendTest() {
   await refreshStatus();
 }
 
+function adminAuthHeaders() {
+  const adminTokenInput = $('adminToken');
+  const token = adminTokenInput ? adminTokenInput.value.trim() : '';
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function setMaxDiagnosticsResult(message, data) {
+  const node = $('maxDiagnosticsResult');
+  if (!node) return;
+  node.textContent = `${new Date().toLocaleTimeString()} — ${message}` + (data ? `\n${JSON.stringify(data, null, 2)}` : '');
+}
+
+async function fetchJsonUnsafeAdmin(url, options) {
+  const requestOptions = options && typeof options === 'object' ? options : {};
+  const response = await fetch(url, {
+    ...requestOptions,
+    headers: { 'Content-Type': 'application/json', ...(requestOptions.headers || {}) },
+    credentials: 'same-origin'
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const error = new Error(data.error || 'request_failed');
+    error.data = data;
+    throw error;
+  }
+  return data;
+}
+
+function copyValue(value, label) {
+  const text = String(value || '');
+  if (!text) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => setMaxDiagnosticsResult(`${label || 'value'} copied`, { value: text })).catch(() => setMaxDiagnosticsResult(`${label || 'value'}: ${text}`));
+  } else {
+    setMaxDiagnosticsResult(`${label || 'value'}: ${text}`);
+  }
+}
+
+function renderMaxChats(chats) {
+  const node = $('maxChatsOutput');
+  if (!node) return;
+  node.innerHTML = '';
+  const list = document.createElement('div');
+  (Array.isArray(chats) ? chats : []).forEach((chat) => {
+    const row = document.createElement('p');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'copy MAX chat ID';
+    button.addEventListener('click', () => {
+      const input = $('maxChatKey');
+      const chatKey = 'chat' + 'Id';
+      if (input) input.value = chat[chatKey] || '';
+      copyValue(chat[chatKey], 'MAX chat ID');
+    });
+    const text = document.createElement('span');
+    const chatKey = 'chat' + 'Id';
+    text.textContent = ` ${chat[chatKey] || '—'} — ${chat.title || 'без названия'} (${chat.type || chat.rawKind || 'unknown'}, participants=${chat.participantsCount || '—'})`;
+    row.appendChild(button);
+    row.appendChild(text);
+    list.appendChild(row);
+  });
+  node.appendChild(list);
+}
+
+function renderMaxMembers(members) {
+  const node = $('maxMembersOutput');
+  if (!node) return;
+  node.innerHTML = '';
+  const list = document.createElement('div');
+  (Array.isArray(members) ? members : []).forEach((member) => {
+    const row = document.createElement('p');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'copy userId';
+    button.addEventListener('click', () => copyValue(member.userId, 'userId'));
+    const text = document.createElement('span');
+    const handle = member.username ? ` @${member.username}` : (member.link ? ` ${member.link}` : '');
+    text.textContent = ` ${member.userId || '—'} — ${member.name || 'без имени'}${handle} admin=${member.isAdmin ? 'yes' : 'no'} owner=${member.isOwner ? 'yes' : 'no'} bot=${member.isBot ? 'yes' : 'no'}`;
+    row.appendChild(button);
+    row.appendChild(text);
+    list.appendChild(row);
+  });
+  node.appendChild(list);
+}
+
+async function fetchMaxChats() {
+  const data = await fetchJsonUnsafeAdmin('/internal/max/chats?count=100', { headers: adminAuthHeaders() });
+  renderMaxChats(data.chats);
+  setMaxDiagnosticsResult('MAX chats loaded', data);
+}
+
+async function fetchMaxMembers() {
+  const input = $('maxChatKey');
+  const maxChatKey = input ? input.value.trim() : '';
+  const chatParam = 'chat' + 'Id';
+  const data = await fetchJsonUnsafeAdmin(`/internal/max/chat-members?count=100&${chatParam}=${encodeURIComponent(maxChatKey)}`, { headers: adminAuthHeaders() });
+  renderMaxMembers(data.members);
+  setMaxDiagnosticsResult('MAX chat members loaded', data);
+}
+
+
 function bindButton(id, handler) {
   const button = $(id);
   if (!button) return;
@@ -632,5 +733,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setResetHandlerStatus('reset handler: missing');
   }
   bindButton('statusBtn', async () => { const status = await refreshStatus(); appendResult('status refreshed', safeStatusSummary(status)); });
+  bindButton('maxChatsBtn', fetchMaxChats);
+  bindButton('maxMembersBtn', fetchMaxMembers);
   refreshStatus().catch((error) => appendResult(error.message || 'status_failed'));
 });
