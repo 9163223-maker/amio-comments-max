@@ -32,12 +32,17 @@ const PUSH_SUBSCRIPTION_FIELDS = {
 };
 
 const INVALID_SUBSCRIPTION_RESET_INSTRUCTION = 'Сервер не принял текущую браузерную подписку. Нажмите «Сбросить push-подписку», затем снова «Включить уведомления».';
+const RESET_RESULT_STEPS_LIMIT = 8;
+const LEGACY_RESET_NO_SUBSCRIPTION_RESULT = 'push subscription reset: no subscription found';
+const LEGACY_RESET_FAILED_RESULT = 'push subscription reset failed';
 
 const state = {
   registration: null,
   subscription: null,
   status: null,
   lastResult: '',
+  resetSteps: [],
+  forceNewSubscriptionAfterInvalid: false,
   currentSteps: new Map(),
   join: window.__ADMINKIT_PUSH_JOIN__ || { joinMode: false }
 };
@@ -49,6 +54,21 @@ function setHidden(id, hidden) { const node = $(id); if (node) node.hidden = Boo
 function appendResult(message, data) {
   state.lastResult = `${new Date().toLocaleTimeString()} — ${message}`;
   setText('lastResult', state.lastResult + (data ? `\n${JSON.stringify(data, null, 2)}` : ''));
+}
+
+function safeErrorMessage(error) {
+  const raw = error && error.message ? error.message : String(error || 'reset_failed');
+  return raw.replace(/https?:\/\/\S+/g, '[url]').replace(/[A-Za-z0-9_-]{32,}/g, '[redacted]');
+}
+
+function writeResetResult(message) {
+  state.resetSteps.push(message);
+  state.resetSteps = state.resetSteps.slice(-RESET_RESULT_STEPS_LIMIT);
+  setText('lastResult', state.resetSteps.join('\n'));
+}
+
+function setResetHandlerStatus(value) {
+  setText('resetHandlerStatus', value);
 }
 
 function timeoutError(message) {
@@ -361,15 +381,23 @@ async function enableNotifications() {
     if (!registration.pushManager) throw new Error('service_worker_push_manager_missing');
     if (Notification.permission !== 'granted') throw new Error('notification_permission_not_granted_before_subscribe');
     let subscription = await withTimeout(registration.pushManager.getSubscription(), TIMEOUTS.subscription, 'existing push subscription lookup timed out');
+    if (subscription && state.forceNewSubscriptionAfterInvalid) {
+      setStep(currentStep, 'running', 'existing browser subscription found; force-reset after invalid_push_subscription');
+      const resetResult = await withTimeout(subscription.unsubscribe(), TIMEOUTS.subscription, 'existing push subscription force reset timed out');
+      if (!resetResult) throw new Error('force_new_subscription_unsubscribe_failed');
+      subscription = null;
+      setStep(currentStep, 'running', 'existing browser subscription force-reset; unsubscribe returned true');
+    }
     if (!subscription) {
       subscription = await withTimeout(
         registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) }),
         TIMEOUTS.subscription,
         'pushManager.subscribe timed out'
       );
+      state.forceNewSubscriptionAfterInvalid = false;
       setStep(currentStep, 'done', 'browser subscription created');
     } else {
-      setStep(currentStep, 'done', 'existing browser subscription found');
+      setStep(currentStep, 'done', 'existing browser subscription reused; force-reset not needed');
     }
 
     currentStep = 'sending subscription to server';
@@ -392,6 +420,7 @@ async function enableNotifications() {
     if (isInvalidPushSubscriptionError(error)) {
       failStep('sending subscription to server', new Error('invalid_push_subscription'));
       setStep('server response', 'error', JSON.stringify(safeServerResult(error.data || { ok: false, error: 'invalid_push_subscription' })));
+      state.forceNewSubscriptionAfterInvalid = true;
       appendResult(INVALID_SUBSCRIPTION_RESET_INSTRUCTION, safeRecoveryError(error));
     } else {
       failStep(currentStep, error);
@@ -403,30 +432,50 @@ async function enableNotifications() {
 
 
 async function resetPushSubscription() {
-  appendResult('reset started');
+  state.resetSteps = [];
+  writeResetResult('reset started');
   if (!('serviceWorker' in navigator)) {
-    appendResult('reset failed: service_worker_not_supported');
+    writeResetResult('reset failed: service_worker_not_supported');
     return;
   }
   try {
-    const registration = await withTimeout(navigator.serviceWorker.getRegistration('/push/'), TIMEOUTS.status, 'service worker registration lookup timed out');
-    if (!registration || !registration.pushManager) {
-      appendResult('push subscription reset: no subscription found');
+    writeResetResult('looking up /push/ service worker registration');
+    const registration = await withTimeout(navigator.serviceWorker.getRegistration('/push/'), TIMEOUTS.status, 'service_worker_registration_lookup_timed_out');
+    if (!registration) {
+      writeResetResult('registration missing');
+      writeResetResult('reset failed: service_worker_registration_missing');
       await refreshStatus().catch(() => undefined);
+      writeResetResult('status refreshed');
       return;
     }
-    const subscription = await withTimeout(registration.pushManager.getSubscription(), TIMEOUTS.subscription, 'existing push subscription lookup timed out');
+    writeResetResult('registration found');
+    if (!registration.pushManager) {
+      writeResetResult('reset failed: push_manager_missing');
+      await refreshStatus().catch(() => undefined);
+      writeResetResult('status refreshed');
+      return;
+    }
+    const subscription = await withTimeout(registration.pushManager.getSubscription(), TIMEOUTS.subscription, 'existing_push_subscription_lookup_timed_out');
     if (!subscription) {
-      appendResult('push subscription reset: no subscription found');
+      writeResetResult('existing subscription not found');
+      writeResetResult('no subscription found');
       await refreshStatus().catch(() => undefined);
+      writeResetResult('status refreshed');
       return;
     }
-    const unsubscribed = await withTimeout(subscription.unsubscribe(), TIMEOUTS.subscription, 'push subscription reset timed out');
-    appendResult(unsubscribed ? 'push subscription reset' : 'push subscription reset failed');
+    writeResetResult('existing subscription found');
+    const unsubscribed = await withTimeout(subscription.unsubscribe(), TIMEOUTS.subscription, 'push_subscription_reset_timed_out');
+    writeResetResult(`unsubscribe returned ${unsubscribed ? 'true' : 'false'}`);
+    writeResetResult(unsubscribed ? 'subscription reset: yes' : 'subscription reset: no');
     await refreshStatus().catch(() => undefined);
+    writeResetResult('status refreshed');
+    if (state.subscription) {
+      writeResetResult('reset attempted but subscription still exists');
+    }
   } catch (error) {
-    appendResult(`push subscription reset failed: ${error && error.message ? error.message : 'reset_failed'}`);
+    writeResetResult(`reset failed: ${safeErrorMessage(error)}`);
     await refreshStatus().catch(() => undefined);
+    writeResetResult('status refreshed');
   }
 }
 
@@ -459,7 +508,18 @@ document.addEventListener('DOMContentLoaded', () => {
   updateStandaloneDiagnostics();
   bindButton('enableBtn', enableNotifications);
   bindButton('testBtn', sendTest);
-  bindButton('resetSubscriptionBtn', resetPushSubscription);
+  const resetButton = $('resetPushButton');
+  if (resetButton) {
+    resetButton.addEventListener('click', async () => {
+      resetButton.disabled = true;
+      try { await resetPushSubscription(); }
+      catch (error) { writeResetResult(`reset failed: ${safeErrorMessage(error)}`); await refreshStatus().catch(() => undefined); }
+      finally { resetButton.disabled = false; }
+    });
+    setResetHandlerStatus('reset handler: bound');
+  } else {
+    setResetHandlerStatus('reset handler: missing');
+  }
   bindButton('statusBtn', async () => { const status = await refreshStatus(); appendResult('status refreshed', safeStatusSummary(status)); });
   refreshStatus().catch((error) => appendResult(error.message || 'status_failed'));
 });
