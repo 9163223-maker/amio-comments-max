@@ -848,9 +848,50 @@ function getMessageText(message) {
   );
 }
 
+function firstLiveSafeText(...values) {
+  for (const value of values) {
+    const text = String(value || '').trim();
+    if (text && text !== '[object Object]') return text;
+  }
+  return '';
+}
+
+function getCallbackPayloadText(callback = null, update = {}) {
+  const payload = callback?.payload ?? callback?.data ?? update?.callback?.payload ?? update?.data?.callback?.payload;
+  if (typeof payload === 'string' || typeof payload === 'number') return String(payload || '');
+  if (payload && typeof payload === 'object') {
+    return firstLiveSafeText(payload.text, payload.command, payload.raw, payload.action);
+  }
+  return '';
+}
+
+function getLiveSafeCommandText(update = {}, message = null, callback = null) {
+  const sourceMessage = message || update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || null;
+  const callbackMessage = callback?.message || update?.callback?.message || update?.data?.callback?.message || null;
+  return firstLiveSafeText(
+    sourceMessage?.body?.text,
+    sourceMessage?.text,
+    update?.text,
+    update?.message?.text,
+    update?.message?.body?.text,
+    update?.data?.message?.text,
+    update?.data?.message?.body?.text,
+    callbackMessage?.body?.text,
+    callbackMessage?.text,
+    getCallbackPayloadText(callback, update),
+    getMessageText(sourceMessage)
+  );
+}
+
+function isPushLikeCommandCandidateText(text = '') {
+  const normalized = String(text || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  if (!normalized) return false;
+  return /^\/?push/i.test(normalized) || /^(?:пуш|уведомлен)/i.test(normalized);
+}
+
 function createGroupPushInboundDiagnosticContext(update = {}, message = null, callback = null, updateType = '') {
   const sourceMessage = message || callback?.message || null;
-  const text = callback && !message ? String(callback?.payload || callback?.data || '') : getMessageText(sourceMessage);
+  const text = getLiveSafeCommandText(update, sourceMessage, callback);
   const userId = callback ? getCallbackUserId(update, callback) : getSenderUserId(sourceMessage);
   const chatId = callback ? getCallbackChatId(update, callback, sourceMessage) : getRecipientChatId(sourceMessage);
   const chatTitle = callback ? getCallbackChatTitle(update, callback, sourceMessage) : getRecipientChatTitle(sourceMessage);
@@ -924,8 +965,8 @@ async function performGroupPushOnboarding({ userId, chatId, chatTitle, config, c
   return { ok: true, action: 'group_push_message_command', sentPrivate: true, chatId, userId };
 }
 
-async function handleGroupPushCommandMessage(message, config) {
-  const text = getMessageText(message);
+async function handleGroupPushCommandMessage(message, config, commandText = '') {
+  const text = String(commandText || getMessageText(message) || '');
   if (!groupPushOnboarding.isGroupPushCommandText(text)) return false;
 
   const userId = getSenderUserId(message);
@@ -955,16 +996,27 @@ async function handleGroupPushCommandMessage(message, config) {
   return performGroupPushOnboarding({ userId, chatId, chatTitle, config });
 }
 
-async function routeGroupPushCommandMessage({ message, config, diagnosticContext } = {}) {
-  const text = getMessageText(message);
-  if (!groupPushOnboarding.isGroupPushCommandText(text)) return null;
+async function routeGroupPushCommandMessage({ update = {}, message, config, diagnosticContext } = {}) {
+  const text = getLiveSafeCommandText(update, message);
+  const matchedPushCommand = groupPushOnboarding.isGroupPushCommandText(text);
+  if (!matchedPushCommand) {
+    if (isPushLikeCommandCandidateText(text)) {
+      recordGroupPushInboundDiagnostic(diagnosticContext, {
+        text,
+        routeCandidate: 'group_push_command',
+        routeDecision: 'command_text_not_matched',
+        routeResult: 'skipped'
+      });
+    }
+    return null;
+  }
 
   const userId = getSenderUserId(message);
   const chatId = getRecipientChatId(message);
   const routeDecision = !userId ? 'missing_user_id' : (!chatId ? 'missing_chat_id' : 'group_push_route');
 
   try {
-    const result = await handleGroupPushCommandMessage(message, config);
+    const result = await handleGroupPushCommandMessage(message, config, text);
     recordGroupPushInboundDiagnostic(diagnosticContext, {
       text,
       userId,
@@ -5803,7 +5855,7 @@ async function handleWebhook(req, res, config) {
     }
 
     const routedGroupPushCommand = updateType === 'message_created'
-      ? await routeGroupPushCommandMessage({ message, config, diagnosticContext: groupPushInboundContext })
+      ? await routeGroupPushCommandMessage({ update, message, config, diagnosticContext: groupPushInboundContext })
       : null;
     if (routedGroupPushCommand) {
       return res.status(200).json(routedGroupPushCommand);
