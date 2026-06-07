@@ -153,6 +153,38 @@ function safeStatusSummary(status) {
   };
 }
 
+function safeSubscriptionShape(subscription) {
+  const source = subscription && typeof subscription === 'object' ? subscription : {};
+  const keys = source[PUSH_SUBSCRIPTION_FIELDS.keys] && typeof source[PUSH_SUBSCRIPTION_FIELDS.keys] === 'object'
+    ? source[PUSH_SUBSCRIPTION_FIELDS.keys]
+    : {};
+  const endpoint = source[PUSH_SUBSCRIPTION_FIELDS.endpointField] || '';
+  const p256dh = keys[PUSH_SUBSCRIPTION_FIELDS.p256dhField] || '';
+  const auth = keys[PUSH_SUBSCRIPTION_FIELDS.authField] || '';
+  return {
+    hasEndpoint: Boolean(endpoint),
+    hasKeys: Boolean(source[PUSH_SUBSCRIPTION_FIELDS.keys] && typeof source[PUSH_SUBSCRIPTION_FIELDS.keys] === 'object'),
+    hasP256dh: Boolean(p256dh),
+    hasAuth: Boolean(auth),
+    endpointLength: String(endpoint).length,
+    p256dhLength: String(p256dh).length,
+    authLength: String(auth).length
+  };
+}
+
+function safeSubscriptionShapeDiagnostic(shape) {
+  const source = shape && typeof shape === 'object' ? shape : {};
+  return {
+    hasEndpoint: Boolean(source.hasEndpoint),
+    hasKeys: Boolean(source.hasKeys),
+    hasP256dh: Boolean(source.hasP256dh),
+    hasAuth: Boolean(source.hasAuth),
+    endpointLength: Number(source.endpointLength || 0),
+    p256dhLength: Number(source.p256dhLength || 0),
+    authLength: Number(source.authLength || 0)
+  };
+}
+
 function safeServerResult(result) {
   return {
     ok: Boolean(result && result.ok),
@@ -161,7 +193,8 @@ function safeServerResult(result) {
     confirmationSent: Boolean(result && result.confirmationSent),
     confirmationDispatch: result && result.confirmationDispatch ? result.confirmationDispatch : undefined,
     subscribeMode: result && result.subscribeMode ? result.subscribeMode : undefined,
-    error: result && result.error ? result.error : undefined
+    error: result && result.error ? result.error : undefined,
+    subscriptionShape: result && result.subscriptionShape ? safeSubscriptionShapeDiagnostic(result.subscriptionShape) : undefined
   };
 }
 
@@ -170,18 +203,34 @@ function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object, key);
 }
 
+function arrayBufferToBase64Url(buffer) {
+  if (!buffer) return '';
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i += 1) binary += String.fromCharCode(bytes[i]);
+  return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function getSubscriptionKey(subscription, name) {
+  if (!subscription || typeof subscription.getKey !== 'function') return '';
+  const key = subscription.getKey(name);
+  return key ? arrayBufferToBase64Url(key) : '';
+}
+
 function normalizePushSubscription(subscription) {
   const source = subscription && typeof subscription.toJSON === 'function' ? subscription.toJSON() : subscription;
   const json = source && typeof source === 'object' ? source : {};
   const keys = json[PUSH_SUBSCRIPTION_FIELDS.keys] && typeof json[PUSH_SUBSCRIPTION_FIELDS.keys] === 'object'
     ? json[PUSH_SUBSCRIPTION_FIELDS.keys]
     : {};
+  const p256dh = keys[PUSH_SUBSCRIPTION_FIELDS.p256dhField] || getSubscriptionKey(subscription, PUSH_SUBSCRIPTION_FIELDS.p256dhField);
+  const auth = keys[PUSH_SUBSCRIPTION_FIELDS.authField] || getSubscriptionKey(subscription, PUSH_SUBSCRIPTION_FIELDS.authField);
   return {
     [PUSH_SUBSCRIPTION_FIELDS.endpointField]: json[PUSH_SUBSCRIPTION_FIELDS.endpointField] || '',
     [PUSH_SUBSCRIPTION_FIELDS.expirationTime]: hasOwn(json, PUSH_SUBSCRIPTION_FIELDS.expirationTime) ? json[PUSH_SUBSCRIPTION_FIELDS.expirationTime] : null,
     [PUSH_SUBSCRIPTION_FIELDS.keys]: {
-      [PUSH_SUBSCRIPTION_FIELDS.p256dhField]: keys[PUSH_SUBSCRIPTION_FIELDS.p256dhField] || '',
-      [PUSH_SUBSCRIPTION_FIELDS.authField]: keys[PUSH_SUBSCRIPTION_FIELDS.authField] || ''
+      [PUSH_SUBSCRIPTION_FIELDS.p256dhField]: p256dh,
+      [PUSH_SUBSCRIPTION_FIELDS.authField]: auth
     }
   };
 }
@@ -318,16 +367,22 @@ async function ensureActiveRegistration(registration) {
 
 async function saveSubscription(subscription, status) {
   const normalizedSubscription = normalizePushSubscription(subscription);
-  if (state.join.joinMode) {
-    return withTimeout(fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify({ subscription: normalizedSubscription }) }), TIMEOUTS.serverSave, 'server pairing save timed out');
+  const subscriptionShape = safeSubscriptionShape(normalizedSubscription);
+  try {
+    if (state.join.joinMode) {
+      return await withTimeout(fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify({ subscription: normalizedSubscription }) }), TIMEOUTS.serverSave, 'server pairing save timed out');
+    }
+    const flags = status && status.pushSupported ? status.pushSupported : {};
+    const token = $('subscribeToken').value.trim();
+    if (flags.subscribeRequiresToken && !token) {
+      throw new Error('Нужен PUSH_SUBSCRIBE_TOKEN для ручного режима.');
+    }
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    return await withTimeout(fetchJson('/api/push/subscribe', { method: 'POST', headers, body: JSON.stringify({ subscription: normalizedSubscription }) }), TIMEOUTS.serverSave, 'server subscribe save timed out');
+  } catch (error) {
+    error.clientSubscriptionShape = subscriptionShape;
+    throw error;
   }
-  const flags = status && status.pushSupported ? status.pushSupported : {};
-  const token = $('subscribeToken').value.trim();
-  if (flags.subscribeRequiresToken && !token) {
-    throw new Error('Нужен PUSH_SUBSCRIBE_TOKEN для ручного режима.');
-  }
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  return withTimeout(fetchJson('/api/push/subscribe', { method: 'POST', headers, body: JSON.stringify({ subscription: normalizedSubscription }) }), TIMEOUTS.serverSave, 'server subscribe save timed out');
 }
 
 async function enableNotifications() {
@@ -418,7 +473,7 @@ async function enableNotifications() {
     await refreshStatus().catch(() => undefined);
   } catch (error) {
     if (isInvalidPushSubscriptionError(error)) {
-      failStep('sending subscription to server', new Error('invalid_push_subscription'));
+      setStep('sending subscription to server', 'error', JSON.stringify({ error: 'invalid_push_subscription', clientSubscriptionShape: error.clientSubscriptionShape || null }));
       setStep('server response', 'error', JSON.stringify(safeServerResult(error.data || { ok: false, error: 'invalid_push_subscription' })));
       state.forceNewSubscriptionAfterInvalid = true;
       appendResult(INVALID_SUBSCRIPTION_RESET_INSTRUCTION, safeRecoveryError(error));

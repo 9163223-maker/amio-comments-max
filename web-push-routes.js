@@ -73,6 +73,17 @@ function safeErrorCode(error, fallback = 'request_failed') {
   return clean(error && (error.code || error.message)).slice(0, 80) || fallback;
 }
 
+function invalidSubscriptionResponse(error, fallbackSubscription, fallback = 'subscribe_failed') {
+  const code = safeErrorCode(error, fallback);
+  const body = { ok: false, error: code };
+  if (code === 'invalid_push_subscription') {
+    body.subscriptionShape = error && error.subscriptionShape
+      ? error.subscriptionShape
+      : storage.subscriptionShape(fallbackSubscription);
+  }
+  return body;
+}
+
 function isHttpsRequest(req) {
   if (req && req.secure) return true;
   const forwardedProto = clean(req && req.get && req.get('x-forwarded-proto')).toLowerCase();
@@ -257,11 +268,12 @@ function install(app) {
   app.post('/api/push/subscribe', requireSubscribeAccess, async (req, res) => {
     const config = getConfig();
     if (!config.configured) return res.status(503).json({ ok: false, error: 'web_push_not_configured' });
+    const subscription = req.body && req.body.subscription ? req.body.subscription : req.body;
     try {
-      const saved = await storage.saveSubscription(req.body && req.body.subscription ? req.body.subscription : req.body, { userAgent: req.get('user-agent') });
+      const saved = await storage.saveSubscription(subscription, { userAgent: req.get('user-agent') });
       return res.json({ ok: true, id: saved.id.slice(0, 16), backend: saved.backend });
     } catch (error) {
-      return res.status(400).json({ ok: false, error: clean(error && (error.code || error.message)) || 'subscribe_failed' });
+      return res.status(400).json(invalidSubscriptionResponse(error, subscription));
     }
   });
 
@@ -290,7 +302,7 @@ function install(app) {
         confirmationDispatch: prompt.confirmationDispatch
       }));
     } catch (error) {
-      return res.status(400).json({ ok: false, error: safeErrorCode(error, 'push_pair_failed') });
+      return res.status(400).json(invalidSubscriptionResponse(error, body.subscription || body, 'push_pair_failed'));
     }
   });
 

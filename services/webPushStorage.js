@@ -42,6 +42,23 @@ function deviceIdFor(subscription, meta = {}) {
   return crypto.createHash('sha256').update(source).digest('hex');
 }
 
+function subscriptionShape(input) {
+  const source = input && typeof input === 'object' ? input : {};
+  const keys = source.keys && typeof source.keys === 'object' ? source.keys : {};
+  const endpoint = clean(source.endpoint);
+  const p256dh = clean(keys.p256dh);
+  const auth = clean(keys.auth);
+  return {
+    hasEndpoint: Boolean(endpoint),
+    hasKeys: Boolean(source.keys && typeof source.keys === 'object'),
+    hasP256dh: Boolean(p256dh),
+    hasAuth: Boolean(auth),
+    endpointLength: endpoint.length,
+    p256dhLength: p256dh.length,
+    authLength: auth.length
+  };
+}
+
 function sanitizeSubscription(input) {
   const source = input && typeof input === 'object' ? input : {};
   const endpoint = clean(source.endpoint);
@@ -51,6 +68,7 @@ function sanitizeSubscription(input) {
   if (!endpoint || !p256dh || !auth) {
     const err = new Error('invalid_push_subscription');
     err.code = 'invalid_push_subscription';
+    err.subscriptionShape = subscriptionShape(source);
     throw err;
   }
   return { endpoint, expirationTime: source.expirationTime || null, keys: { p256dh, auth } };
@@ -314,4 +332,4 @@ async function listPublicDeviceSummaries() { return (await listActiveSubscriptio
 
 function info() { return { backend: isPostgresConfigured() ? 'postgres' : 'file', persistent: isPostgresConfigured(), table: isPostgresConfigured() ? TABLE_NAME : '', file: isPostgresConfigured() ? '' : DATA_FILE }; }
 
-module.exports = { saveSubscription, savePairedDevice, listActiveSubscriptions, listDevicesForUser, listPublicDeviceSummaries, findDeviceByDeviceId, markDeviceActive, markResult, countSubscriptions, publicSummary, subscriptionId, sanitizeSubscription, info };
+module.exports = { saveSubscription, savePairedDevice, listActiveSubscriptions, listDevicesForUser, listPublicDeviceSummaries, findDeviceByDeviceId, markDeviceActive, markResult, countSubscriptions, publicSummary, subscriptionId, subscriptionShape, sanitizeSubscription, info };
