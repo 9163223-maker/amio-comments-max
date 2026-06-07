@@ -50,6 +50,19 @@
       <!-- admin-diagnostics-end -->
     </section>
 
+    <!-- admin-diagnostics-start -->
+    <section class="card" id="maxChatDiagnostics">
+      <h2>MAX group chat diagnostics</h2>
+      <p>Админская диагностика чатов MAX, где бот уже добавлен. Токен MAX хранится только на сервере.</p>
+      <button id="maxChatsBtn" type="button">Получить чаты бота</button>
+      <p><label>MAX internal chat ID<br><input id="maxChatKey" type="text" autocomplete="off" placeholder="MAX internal chat ID"></label></p>
+      <button id="maxMembersBtn" type="button">Получить участников</button>
+      <div id="maxChatsOutput" aria-live="polite"></div>
+      <div id="maxMembersOutput" aria-live="polite"></div>
+      <pre id="maxDiagnosticsResult">—</pre>
+    </section>
+    <!-- admin-diagnostics-end -->
+
     <!-- raw-diagnostics-start -->
     <section class="card" aria-live="polite">
       <h2>Шаги подключения</h2>

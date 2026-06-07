@@ -53,6 +53,111 @@ function requireAdminToken(req, res, next) {
 }
 
 
+const MAX_API_BASE_URL = 'https://platform-api.max.ru';
+
+function getMaxBotToken() {
+  return clean(process.env.BOT_TOKEN || process.env.MAX_BOT_TOKEN);
+}
+
+function safePageCount(value) {
+  const parsed = Number.parseInt(clean(value), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 100;
+  return Math.min(parsed, 100);
+}
+
+function safeMarker(value) {
+  return clean(value).slice(0, 300);
+}
+
+function isSafeChatId(value) {
+  return /^[A-Za-z0-9_.:@-]{1,200}$/.test(clean(value));
+}
+
+function firstValue(source, keys) {
+  if (!source || typeof source !== 'object') return '';
+  for (const key of keys) {
+    if (source[key] !== undefined && source[key] !== null && source[key] !== '') return source[key];
+  }
+  return '';
+}
+
+function normalizeMaxList(data, keys) {
+  if (Array.isArray(data)) return data;
+  if (!data || typeof data !== 'object') return [];
+  for (const key of keys) {
+    if (Array.isArray(data[key])) return data[key];
+  }
+  return [];
+}
+
+function normalizeMarker(data) {
+  return clean(data && typeof data === 'object' && (data.marker || data.next_marker || data.nextMarker)).slice(0, 300) || undefined;
+}
+
+function sanitizePermissionNames(value) {
+  const list = Array.isArray(value) ? value : (value && typeof value === 'object' ? Object.keys(value).filter((key) => value[key]) : []);
+  return list.map(clean).filter((item) => /^[A-Za-z0-9_.:-]{1,80}$/.test(item)).slice(0, 60);
+}
+
+function sanitizeChat(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const chat = source.chat && typeof source.chat === 'object' ? source.chat : source;
+  const rawKind = clean(firstValue(chat, ['type', 'kind', 'chat_type', 'chatType'])).slice(0, 60);
+  const loweredKind = rawKind.toLowerCase();
+  return {
+    chatId: clean(firstValue(chat, ['chat_id', 'chatId', 'id'])).slice(0, 200),
+    title: clean(firstValue(chat, ['title', 'name', 'chat_title'])).slice(0, 160),
+    type: rawKind,
+    status: clean(firstValue(chat, ['status', 'membership_status', 'membershipStatus'])).slice(0, 80),
+    participantsCount: Number(firstValue(chat, ['participants_count', 'participantsCount', 'members_count', 'membersCount'])) || undefined,
+    isChannel: Boolean(chat.is_channel || chat.isChannel || loweredKind.includes('channel')),
+    isGroup: Boolean(chat.is_group || chat.isGroup || loweredKind.includes('group') || loweredKind.includes('chat')),
+    rawKind
+  };
+}
+
+function sanitizeMember(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const user = source.user && typeof source.user === 'object' ? source.user : source;
+  const role = clean(firstValue(source, ['role', 'member_role', 'memberRole'])).toLowerCase();
+  return {
+    userId: clean(firstValue(user, ['user_id', 'userId', 'id'])).slice(0, 200),
+    name: clean(firstValue(user, ['name', 'display_name', 'displayName', 'first_name', 'firstName'])).slice(0, 160),
+    username: clean(firstValue(user, ['username', 'login', 'handle'])).slice(0, 120),
+    link: clean(firstValue(user, ['link', 'url', 'profile_link', 'profileLink'])).slice(0, 300),
+    isAdmin: Boolean(source.is_admin || source.isAdmin || user.is_admin || user.isAdmin || role === 'admin' || role === 'administrator' || role === 'owner'),
+    isOwner: Boolean(source.is_owner || source.isOwner || user.is_owner || user.isOwner || role === 'owner'),
+    isBot: Boolean(user.is_bot || user.isBot || source.is_bot || source.isBot),
+    lastActivityTime: clean(firstValue(source, ['last_activity_time', 'lastActivityTime', 'last_activity_at', 'lastActivityAt'])).slice(0, 80) || undefined,
+    permissions: sanitizePermissionNames(source.permissions || source.permission_names || source.permissionNames)
+  };
+}
+
+async function callMaxApiSafe(pathname, query, botToken) {
+  const url = new URL(`${MAX_API_BASE_URL}${pathname}`);
+  for (const [key, value] of Object.entries(query || {})) {
+    if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+  }
+  const response = await fetch(url, { method: 'GET', headers: { Authorization: botToken } });
+  let data = null;
+  try { data = await response.json(); } catch {}
+  if (!response.ok) {
+    const error = new Error('max_api_request_failed');
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+  return data || {};
+}
+
+function sendSafeMaxError(res, error, fallback) {
+  const status = Number(error && error.status) || 500;
+  let code = fallback || 'max_api_request_failed';
+  if (status === 401 || status === 403) code = fallback === 'max_bot_not_chat_admin_or_no_access' ? fallback : 'max_api_forbidden_or_unauthorized';
+  return res.status(status === 401 || status === 403 ? 403 : 502).json({ ok: false, error: code, statusCode: status || undefined });
+}
+
+
 function getCookie(req, name) {
   const header = clean(req.get('cookie'));
   const prefix = `${name}=`;
@@ -141,8 +246,9 @@ function sendPushPage(req, res, options = {}) {
   const joinConfig = options.joinMode ? {
     joinMode: true,
     tokenCookie: true,
-    tokenStatus: options.tokenStatus || 'valid'
-  } : { joinMode: false, landingMode: mode === 'client' };
+    tokenStatus: options.tokenStatus || 'valid',
+    adminMode: false
+  } : { joinMode: false, landingMode: mode === 'client', adminMode: mode === 'admin' };
   if (mode === 'admin') {
     html = html
       .replace('<link rel="manifest" href="/push/manifest.json">', '<link rel="manifest" href="/public/push-admin-manifest.json">')
@@ -303,6 +409,32 @@ function install(app) {
     res.json(await buildStatus());
   });
 
+  app.get('/internal/max/chats', requireAdminToken, async (req, res) => {
+    const botToken = getMaxBotToken();
+    if (!botToken) return res.status(503).json({ ok: false, error: 'max_bot_token_not_configured' });
+    try {
+      const data = await callMaxApiSafe('/chats', { count: safePageCount(req.query && req.query.count), marker: safeMarker(req.query && req.query.marker) }, botToken);
+      const chats = normalizeMaxList(data, ['chats', 'items', 'data']).map(sanitizeChat).filter((chat) => chat.chatId);
+      return res.json({ ok: true, chats, marker: normalizeMarker(data) });
+    } catch (error) {
+      return sendSafeMaxError(res, error, 'max_api_request_failed');
+    }
+  });
+
+  app.get('/internal/max/chat-members', requireAdminToken, async (req, res) => {
+    const botToken = getMaxBotToken();
+    if (!botToken) return res.status(503).json({ ok: false, error: 'max_bot_token_not_configured' });
+    const chatId = clean(req.query && req.query.chatId);
+    if (!isSafeChatId(chatId)) return res.status(400).json({ ok: false, error: 'invalid_chat_id' });
+    try {
+      const data = await callMaxApiSafe(`/chats/${encodeURIComponent(chatId)}/members`, { count: safePageCount(req.query && req.query.count), marker: safeMarker(req.query && req.query.marker) }, botToken);
+      const members = normalizeMaxList(data, ['members', 'items', 'users', 'data']).map(sanitizeMember).filter((member) => member.userId);
+      return res.json({ ok: true, chatId, members, marker: normalizeMarker(data) });
+    } catch (error) {
+      return sendSafeMaxError(res, error, 'max_bot_not_chat_admin_or_no_access');
+    }
+  });
+
   app.get('/internal/push/status', requireAdminToken, async (req, res) => {
     res.json(await buildStatus({ admin: true }));
   });
@@ -411,7 +543,7 @@ function install(app) {
     res.status(result.ok ? 200 : 503).json(result);
   });
 
-  return { ok: true, routes: ['/push', '/push/admin', '/push/join', '/push/manifest.json', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/pair', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted'] };
+  return { ok: true, routes: ['/push', '/push/admin', '/push/join', '/push/manifest.json', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/pair', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted', '/internal/max/chats', '/internal/max/chat-members'] };
 }
 
 module.exports = {
