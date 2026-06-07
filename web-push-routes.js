@@ -128,17 +128,25 @@ function pairingCookieMaxAgeSeconds(expiresAt) {
   return Math.max(1, Math.floor(ms / 1000));
 }
 
-function sendJoinPage(req, res, tokenContext = {}) {
+function stripMarkedHtml(html, marker) {
+  const pattern = new RegExp(`\\s*<!-- ${marker}-start -->[\\s\\S]*?<!-- ${marker}-end -->`, 'g');
+  return html.replace(pattern, '');
+}
+
+function sendPushPage(req, res, options = {}) {
   const file = path.join(__dirname, 'public', 'push.html');
   const fs = require('fs');
   let html = fs.readFileSync(file, 'utf8');
-  const joinConfig = tokenContext.joinMode ? {
+  const mode = options.mode === 'admin' ? 'admin' : 'client';
+  const joinConfig = options.joinMode ? {
     joinMode: true,
     tokenCookie: true,
-    tokenStatus: tokenContext.tokenStatus || 'valid',
-    expiresAt: tokenContext.expiresAt || '',
-    tokenId: tokenContext.tokenId || ''
-  } : { joinMode: false };
+    tokenStatus: options.tokenStatus || 'valid'
+  } : { joinMode: false, landingMode: mode === 'client' };
+  if (mode !== 'admin') {
+    html = stripMarkedHtml(html, 'admin-diagnostics');
+    html = stripMarkedHtml(html, 'raw-diagnostics');
+  }
   html = html.replace('</head>', `<script>window.__ADMINKIT_PUSH_JOIN__=${JSON.stringify(joinConfig).replace(/</g, '\\u003c')};</script></head>`);
   res.type('html').send(html);
 }
@@ -245,7 +253,11 @@ async function buildStatus(options = {}) {
 
 function install(app) {
   app.get('/push', (req, res) => {
-    sendJoinPage(req, res, { joinMode: false });
+    sendPushPage(req, res, { mode: 'client', joinMode: false });
+  });
+
+  app.get('/push/admin', (req, res) => {
+    sendPushPage(req, res, { mode: 'admin', joinMode: false });
   });
 
   app.get('/push/join', (req, res) => {
@@ -255,7 +267,7 @@ function install(app) {
       const maxAge = pairingCookieMaxAgeSeconds(verified.expiresAt);
       const cookie = `push_pairing_token=${encodeURIComponent(token)}; Path=/api/push/pair; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
       res.set('Set-Cookie', isHttpsRequest(req) ? `${cookie}; Secure` : cookie);
-      return sendJoinPage(req, res, { joinMode: true, tokenStatus: 'valid', expiresAt: verified.expiresAt, tokenId: verified.nonceHash });
+      return sendPushPage(req, res, { mode: 'client', joinMode: true, tokenStatus: 'valid' });
     } catch (error) {
       return res.status(400).send(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>АдминКИТ Push</title></head><body><main><h1>АдминКИТ Push</h1><p>Ссылка подключения недействительна или истекла.</p><p>Код: ${safeErrorCode(error, 'invalid_push_pairing_token')}</p></main></body></html>`);
     }
@@ -394,7 +406,7 @@ function install(app) {
     res.status(result.ok ? 200 : 503).json(result);
   });
 
-  return { ok: true, routes: ['/push', '/push/join', '/push/manifest.json', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/pair', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted'] };
+  return { ok: true, routes: ['/push', '/push/admin', '/push/join', '/push/manifest.json', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/pair', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted'] };
 }
 
 module.exports = {

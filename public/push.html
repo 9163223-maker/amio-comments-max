@@ -34,19 +34,23 @@
 <body>
   <main>
     <h1>АдминКИТ Push</h1>
-    <p id="introText">Минимальный PWA-приёмник резервных web-push уведомлений. Откройте страницу по HTTPS, добавьте на экран «Домой» и запускайте с иконки.</p>
+    <p id="introText">Откройте это приложение с экрана Домой и нажмите «Включить уведомления».</p>
     <p id="pairingNotice" hidden>Подключение уведомлений для вашего чата готово.</p>
+    <p id="clientStatus" class="warning" aria-live="polite">—</p>
 
     <section class="card">
       <button id="enableBtn" type="button">Включить уведомления</button>
+      <!-- admin-diagnostics-start -->
       <button id="testBtn" type="button">Отправить тестовое уведомление</button>
       <button id="statusBtn" type="button">Проверить статус</button>
       <button id="resetPushButton" type="button">Сбросить push-подписку</button>
       <!-- Legacy test marker: id="resetSubscriptionBtn"; active reset button id is resetPushButton. -->
       <p id="subscribeTokenRow"><label>Push subscribe token для включения<br><input id="subscribeToken" type="password" autocomplete="off" placeholder="PUSH_SUBSCRIBE_TOKEN"></label></p>
-      <p><label>Push admin token для теста<br><input id="adminToken" type="password" autocomplete="off" placeholder="PUSH_ADMIN_TOKEN"></label></p>
+      <p id="adminTokenRow"><label>Push admin token для теста<br><input id="adminToken" type="password" autocomplete="off" placeholder="PUSH_ADMIN_TOKEN"></label></p>
+      <!-- admin-diagnostics-end -->
     </section>
 
+    <!-- raw-diagnostics-start -->
     <section class="card" aria-live="polite">
       <h2>Шаги подключения</h2>
       <p class="warning" id="iosPwaWarning">—</p>
@@ -84,11 +88,15 @@
       </dl>
     </section>
 
+    <!-- raw-diagnostics-end -->
+
     <section class="card">
       <h2>Последний результат</h2>
       <pre id="lastResult">—</pre>
+      <!-- admin-diagnostics-start -->
       <h2>Последний серверный тест</h2>
       <pre id="lastServerTest">—</pre>
+      <!-- admin-diagnostics-end -->
     </section>
   </main>
   <script src="/public/push-client.js"></script>

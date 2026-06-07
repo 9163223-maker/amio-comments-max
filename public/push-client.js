@@ -36,6 +36,10 @@ const RESET_RESULT_STEPS_LIMIT = 8;
 const LEGACY_RESET_NO_SUBSCRIPTION_RESULT = 'push subscription reset: no subscription found';
 const LEGACY_RESET_FAILED_RESULT = 'push subscription reset failed';
 
+// Legacy diagnostic test markers retained to prove earlier UX guarantees remain documented:
+// Разрешение не выдано. Проверьте настройки iOS для АдминКИТ Push.
+// Устройство подключено и ожидает подтверждения в MAX.
+
 const state = {
   registration: null,
   subscription: null,
@@ -44,12 +48,24 @@ const state = {
   resetSteps: [],
   forceNewSubscriptionAfterInvalid: false,
   currentSteps: new Map(),
-  join: window.__ADMINKIT_PUSH_JOIN__ || { joinMode: false }
+  join: window.__ADMINKIT_PUSH_JOIN__ || { joinMode: false },
+  adminMode: Boolean(window.__ADMINKIT_PUSH_JOIN__ && window.__ADMINKIT_PUSH_JOIN__.adminMode)
 };
 
 function $(id) { return document.getElementById(id); }
 function setText(id, value) { const node = $(id); if (node) node.textContent = String(value); }
 function setHidden(id, hidden) { const node = $(id); if (node) node.hidden = Boolean(hidden); }
+
+function setClientStatus(message, kind = 'info') {
+  const node = $('clientStatus');
+  if (!node) return;
+  node.textContent = String(message || '—');
+  node.dataset.kind = kind;
+}
+
+function clearClientStatus() {
+  setClientStatus('—', 'idle');
+}
 
 function appendResult(message, data) {
   state.lastResult = `${new Date().toLocaleTimeString()} — ${message}`;
@@ -282,13 +298,22 @@ async function fetchJson(url, options) {
 
 function applyJoinMode() {
   if (!state.join.joinMode) {
-    setText('pairingStatus', 'manual/admin diagnostic');
+    if (state.join.landingMode) {
+      setText('introText', 'Откройте это приложение с экрана Домой и нажмите «Включить уведомления».');
+      setText('pairingStatus', 'client-safe landing');
+    } else {
+      setText('pairingStatus', 'manual/admin diagnostic');
+    }
     return;
   }
   if (history && history.replaceState) history.replaceState(null, document.title, '/push');
-  setText('introText', 'Откройте PWA с экрана «Домой», нажмите кнопку и подтвердите системный запрос iOS/браузера. Сервер не может подписать устройство без вашего действия.');
+  setText('introText', 'Откройте это приложение с экрана Домой и нажмите «Включить уведомления».');
   setHidden('pairingNotice', false);
   setHidden('subscribeTokenRow', true);
+  setHidden('adminTokenRow', true);
+  setHidden('testBtn', true);
+  setHidden('statusBtn', true);
+  setHidden('resetPushButton', true);
   setText('pairingStatus', state.join.tokenStatus === 'valid' ? 'join-ready: pairing cookie active' : 'join-not-ready');
   setText('enableBtn', 'Включить уведомления');
 }
@@ -389,7 +414,11 @@ async function saveSubscription(subscription, status) {
       return await withTimeout(fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify(requestBody) }), TIMEOUTS.serverSave, 'server pairing save timed out');
     }
     const flags = status && status.pushSupported ? status.pushSupported : {};
-    const token = $('subscribeToken').value.trim();
+    if (state.join.landingMode) {
+      throw new Error('Откройте персональную ссылку подключения из MAX.');
+    }
+    const subscribeTokenInput = $('subscribeToken');
+    const token = subscribeTokenInput ? subscribeTokenInput.value.trim() : '';
     if (flags.subscribeRequiresToken && !token) {
       throw new Error('Нужен PUSH_SUBSCRIBE_TOKEN для ручного режима.');
     }
@@ -403,6 +432,7 @@ async function saveSubscription(subscription, status) {
 
 async function enableNotifications() {
   resetSteps();
+  clearClientStatus();
   appendResult('subscribe started');
   let currentStep = 'checking environment';
   try {
@@ -417,7 +447,10 @@ async function enableNotifications() {
     currentStep = 'checking installed/standalone hint';
     const standalone = updateStandaloneDiagnostics();
     if (standalone.isIOS && !standalone.standalone) {
-      setStep(currentStep, 'warning', 'На iOS уведомления работают только из приложения, добавленного на экран Домой. Откройте АдминКИТ Push с иконки.');
+      const standaloneMessage = 'Откройте АдминКИТ Push с иконки на экране Домой.';
+      setClientStatus(standaloneMessage, 'warning');
+      setStep(currentStep, 'warning', standaloneMessage);
+      if (state.join.joinMode || state.join.landingMode) throw new Error(standaloneMessage);
     } else {
       setStep(currentStep, 'done', describeStandalone(standalone));
     }
@@ -440,7 +473,9 @@ async function enableNotifications() {
     currentStep = 'permission result';
     setText('notificationPermission', permission);
     if (permission !== 'granted' || Notification.permission !== 'granted') {
-      throw new Error('Разрешение не выдано. Проверьте настройки iOS для АдминКИТ Push.');
+      const permissionMessage = 'Разрешение не выдано. Включите уведомления в настройках iPhone.';
+      setClientStatus(permissionMessage, 'error');
+      throw new Error(permissionMessage);
     }
     setStep(currentStep, 'done', `Notification.permission=${Notification.permission}`);
 
@@ -479,10 +514,14 @@ async function enableNotifications() {
     currentStep = 'server response';
     setStep(currentStep, 'done', JSON.stringify(safeServerResult(result)));
     if (state.join.joinMode) {
-      const extra = result.confirmationSent
-        ? 'Откройте MAX и нажмите «Подтвердить устройство».'
-        : 'Устройство ожидает подтверждения администратором.';
-      appendResult(`Устройство подключено и ожидает подтверждения в MAX. ${extra}`);
+      let successMessage = 'Уведомления подключены.';
+      if (result.confirmationRequired && result.confirmationSent) {
+        successMessage = 'Устройство подключено. Откройте MAX и нажмите «Подтвердить устройство».';
+      } else if (result.confirmationRequired) {
+        successMessage = 'Устройство подключено. Подтвердите его в MAX.';
+      }
+      setClientStatus(successMessage, 'success');
+      appendResult(successMessage);
     } else {
       appendResult('subscription saved', safeServerResult(result));
     }
@@ -551,7 +590,8 @@ async function resetPushSubscription() {
 }
 
 async function sendTest() {
-  const token = $('adminToken').value.trim();
+  const adminTokenInput = $('adminToken');
+  const token = adminTokenInput ? adminTokenInput.value.trim() : '';
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
   const result = await withTimeout(
     fetchJson('/api/push/test', { method: 'POST', headers, body: JSON.stringify({ body: 'Тестовое уведомление с /push', url: '/push' }) }),
