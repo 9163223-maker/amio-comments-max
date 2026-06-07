@@ -683,23 +683,32 @@ function findFirstDeepValue(value, keys = [], seen = new Set()) {
 }
 
 function getSenderUserId(message) {
+  const body = getMessageBody(message);
   return String(
     message?.__senderUserId ||
       message?.sender?.user_id ||
       message?.sender?.id ||
+      body?.sender?.user_id ||
+      body?.sender?.id ||
+      body?.user_id ||
       message?.user_id ||
       message?.from?.id ||
+      body?.from?.id ||
       ""
   ).trim();
 }
 
 function getSenderFirstName(message) {
+  const body = getMessageBody(message);
   return String(
     message?.__senderFirstName ||
       message?.sender?.first_name ||
       message?.sender?.name ||
+      body?.sender?.first_name ||
+      body?.sender?.name ||
       message?.first_name ||
       message?.from?.first_name ||
+      body?.from?.first_name ||
       "Пользователь"
   ).trim();
 }
@@ -738,22 +747,33 @@ function getCallbackUserName(update, callback) {
 }
 
 function getRecipientChatId(message) {
+  const body = getMessageBody(message);
   return String(
     message?.recipient?.chat_id ||
       message?.recipient?.id ||
+      body?.recipient?.chat_id ||
+      body?.recipient?.id ||
       message?.chat_id ||
+      body?.chat_id ||
       message?.chat?.id ||
+      body?.chat?.id ||
       ""
   ).trim();
 }
 
 function getRecipientChatTitle(message) {
+  const body = getMessageBody(message);
   return String(
     message?.recipient?.title ||
       message?.recipient?.name ||
       message?.recipient?.chat_title ||
+      body?.recipient?.title ||
+      body?.recipient?.name ||
+      body?.recipient?.chat_title ||
       message?.chat?.title ||
       message?.chat?.name ||
+      body?.chat?.title ||
+      body?.chat?.name ||
       ""
   ).trim();
 }
@@ -797,11 +817,16 @@ function getCallbackChatTitle(update, callback, message) {
 }
 
 function getRecipientChatType(message) {
+  const body = getMessageBody(message);
   return String(
     message?.recipient?.chat_type ||
       message?.recipient?.type ||
+      body?.recipient?.chat_type ||
+      body?.recipient?.type ||
       message?.chat_type ||
+      body?.chat_type ||
       message?.chat?.type ||
+      body?.chat?.type ||
       ""
   )
     .trim()
@@ -928,6 +953,40 @@ async function handleGroupPushCommandMessage(message, config) {
   }
 
   return performGroupPushOnboarding({ userId, chatId, chatTitle, config });
+}
+
+async function routeGroupPushCommandMessage({ message, config, diagnosticContext } = {}) {
+  const text = getMessageText(message);
+  if (!groupPushOnboarding.isGroupPushCommandText(text)) return null;
+
+  const userId = getSenderUserId(message);
+  const chatId = getRecipientChatId(message);
+  const routeDecision = !userId ? 'missing_user_id' : (!chatId ? 'missing_chat_id' : 'group_push_route');
+
+  try {
+    const result = await handleGroupPushCommandMessage(message, config);
+    recordGroupPushInboundDiagnostic(diagnosticContext, {
+      text,
+      userId,
+      chatId,
+      routeCandidate: 'group_push_command',
+      routeDecision,
+      routeResult: result?.ok === false ? 'error' : 'handled',
+      errorCode: result?.error || ''
+    });
+    return { ok: true, action: 'group_push_message_command', result };
+  } catch (error) {
+    recordGroupPushInboundDiagnostic(diagnosticContext, {
+      text,
+      userId,
+      chatId,
+      routeCandidate: 'group_push_command',
+      routeDecision,
+      routeResult: 'error',
+      errorCode: error?.code || error?.message || 'group_push_route_error'
+    });
+    throw error;
+  }
 }
 
 function getMessageId(message) {
@@ -5743,16 +5802,18 @@ async function handleWebhook(req, res, config) {
       return res.status(200).json({ ok: true, skipped: true, reason: "message_edited_ignored" });
     }
 
+    const routedGroupPushCommand = updateType === 'message_created'
+      ? await routeGroupPushCommandMessage({ message, config, diagnosticContext: groupPushInboundContext })
+      : null;
+    if (routedGroupPushCommand) {
+      return res.status(200).json(routedGroupPushCommand);
+    }
+
     const senderUserId = getSenderUserId(message);
     if (senderUserId) rememberAdminUserMessageIds(senderUserId, getMessageIdCandidates(message));
     const text = getMessageText(message).trim();
     const lowered = text.toLowerCase();
 
-    const groupPushCommandResult = await handleGroupPushCommandMessage(message, config);
-    if (groupPushCommandResult) {
-      recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'group_push_command', routeDecision: 'would_route_group_push', routeResult: groupPushCommandResult?.ok === false ? 'error' : 'handled', errorCode: groupPushCommandResult?.error || '' });
-      return res.status(200).json({ ok: true, action: 'group_push_message_command', result: groupPushCommandResult });
-    }
     if (/^\/?(?:debug_live|live)(?:\s|$)/i.test(text)) {
       const handledLiveDiagnostic = await handleLiveDiagnosticCommand({ config, message, userId: senderUserId, text });
       if (handledLiveDiagnostic) {
