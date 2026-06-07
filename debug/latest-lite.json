@@ -9,8 +9,8 @@
   "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
   "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
   "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-  "generatedAt": 1780852770421,
-  "serverStartedAt": "2026-06-07T17:03:04.643Z",
+  "generatedAt": 1780852903685,
+  "serverStartedAt": "2026-06-07T17:20:14.069Z",
   "staleEndpointDetected": false,
   "mediaDiagnostics": {
     "uploads": [
@@ -627,12 +627,14 @@
       "chatType": "channel",
       "channelId": "-75643106932142",
       "isChannel": true,
-      "updatedAt": 1780852326721,
+      "updatedAt": 1780852894192,
       "botAddedAt": 1780848285981,
+      "lastPostId": "116709975010212960",
       "ownerUserId": "17507246",
       "channelTitle": "Alex P",
       "isMaxChannel": true,
       "linkedByName": "Alex P",
+      "lastMessageId": "mid.ffffbb33f77b4a52019ea31a9a3a7c67",
       "audienceEvents": [
         {
           "id": "1780848285382_vyvtqy",
@@ -672,6 +674,7 @@
         }
       ],
       "linkedByUserId": "17507246",
+      "autoModeEnabled": true,
       "audienceProfiles": {
         "18400200": {
           "name": "Ольга",
@@ -686,16 +689,13 @@
           "lastActivityTime": 0
         }
       },
+      "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
       "audienceUpdatedAt": 1780848285479,
       "resolvedChannelTitle": "Мож•Хвост",
       "channelRegistryRuntime": "CC8.3.33-CHANNEL-TITLE-NO-USER-NAME",
       "channelTitleResolvedAt": 1780848284639,
       "channelTitleResolveError": "",
-      "channelTitleResolverRuntime": "CC8.3.44-AUTO-TENANT-CHANNEL-BIND",
-      "lastPostId": "116709937858885780",
-      "lastMessageId": "mid.ffffbb33f77b4a52019ea311f3d63892",
-      "autoModeEnabled": true,
-      "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84"
+      "channelTitleResolverRuntime": "CC8.3.44-AUTO-TENANT-CHANNEL-BIND"
     },
     "selftest_comments_matrix_channel": {
       "type": "channel",
@@ -715,6 +715,6 @@
       "channelTitleResolverRuntime": "CC8.3.44-AUTO-TENANT-CHANNEL-BIND"
     }
   },
-  "postsCount": 67,
+  "postsCount": 69,
   "commentsCount": 186
 }
