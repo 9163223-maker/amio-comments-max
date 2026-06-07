@@ -1,6 +1,7 @@
 'use strict';
 
 const pairing = require('./pushPairingService');
+const shortLinks = require('./shortLinkService');
 
 const ACTION_GROUP_PUSH_ENABLE = 'group_push_enable';
 const DEFAULT_TTL_MINUTES = 60;
@@ -57,9 +58,14 @@ function createPersonalJoinUrl({ maxUserId, chatId, channelId = '', issuedByAdmi
   return `${base}/push/join?t=${encodeURIComponent(token)}`;
 }
 
-function buildPrivateJoinMessage({ chatTitle = '', joinUrl = '' } = {}) {
+async function createPersonalJoinLinkForMessage(options = {}) {
+  const longUrl = createPersonalJoinUrl(options);
+  return shortLinks.createShortUrlOrFallback(longUrl);
+}
+
+function buildPrivateJoinMessage({ chatTitle = '', joinUrl = '', shortUrlError = '' } = {}) {
   const safeTitle = clean(chatTitle).slice(0, 120);
-  return [
+  const lines = [
     `🔔 Подключение уведомлений для чата «${safeTitle}»`,
     '',
     '1. Откройте ссылку на iPhone.',
@@ -67,9 +73,10 @@ function buildPrivateJoinMessage({ chatTitle = '', joinUrl = '' } = {}) {
     '3. Откройте и нажмите «Включить уведомления».',
     '',
     clean(joinUrl)
-  ].join('\n');
+  ];
+  if (clean(shortUrlError)) lines.push('', 'Короткая ссылка временно недоступна, отправляю прямую ссылку.');
+  return lines.join('\n');
 }
-
 function buildPrivateJoinKeyboard(joinUrl = '') {
   const url = clean(joinUrl);
   if (!url) return undefined;
@@ -86,6 +93,7 @@ module.exports = {
   buildGroupInviteKeyboard,
   isGroupPushEnablePayload,
   createPersonalJoinUrl,
+  createPersonalJoinLinkForMessage,
   buildPrivateJoinMessage,
   buildPrivateJoinKeyboard,
   publicBaseUrl

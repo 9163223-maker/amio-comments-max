@@ -701,18 +701,18 @@ async function fetchMaxChats() {
 }
 
 async function fetchMaxMembers() {
-  const input = $('maxChatKey');
-  const maxChatKey = input ? input.value.trim() : '';
+  const selected = state.selectedMaxChat || {};
+  const selectedId = selected.id || '';
+  if (!selectedId) throw new Error('Выберите чат из списка MAX.');
   const chatParam = 'chat' + 'Id';
-  const data = await fetchJsonUnsafeAdmin(`/internal/max/chat-members?count=100&${chatParam}=${encodeURIComponent(maxChatKey)}`, { headers: adminAuthHeaders() });
+  const data = await fetchJsonUnsafeAdmin(`/internal/max/chat-members?count=100&${chatParam}=${encodeURIComponent(selectedId)}`, { headers: adminAuthHeaders() });
   renderMaxMembers(data.members);
   setMaxDiagnosticsResult('MAX chat members loaded', data);
 }
 
 async function publishMaxGroupPushInvite() {
-  const input = $('maxChatKey');
   const selected = state.selectedMaxChat || {};
-  const selectedId = selected.id || (input ? input.value.trim() : '');
+  const selectedId = selected.id || '';
   if (!selectedId) throw new Error('Выберите чат из списка MAX.');
   const chatParam = 'chat' + 'Id';
   const data = await fetchJsonUnsafeAdmin('/internal/max/group-push-invite', {

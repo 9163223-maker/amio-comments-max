@@ -4545,9 +4545,9 @@ async function handleMessageCallback(update, config) {
       await answerCallback({ botToken: config.botToken, callbackId, notification: 'Не удалось определить чат MAX. Нажмите кнопку из сообщения в группе.' });
       return { ok: false, action: groupPushOnboarding.ACTION_GROUP_PUSH_ENABLE, error: 'callback_chat_id_missing' };
     }
-    let joinUrl = '';
+    let joinLink = null;
     try {
-      joinUrl = groupPushOnboarding.createPersonalJoinUrl({ maxUserId: userId, chatId, ttlMinutes: 60, detectedBaseUrl: config.appBaseUrl });
+      joinLink = await groupPushOnboarding.createPersonalJoinLinkForMessage({ maxUserId: userId, chatId, ttlMinutes: 60, detectedBaseUrl: config.appBaseUrl });
     } catch (error) {
       await answerCallback({ botToken: config.botToken, callbackId, notification: 'Не удалось создать ссылку подключения. Попробуйте позже.' });
       return { ok: false, action: groupPushOnboarding.ACTION_GROUP_PUSH_ENABLE, error: error?.code || error?.message || 'pairing_link_failed' };
@@ -4556,8 +4556,8 @@ async function handleMessageCallback(update, config) {
       await sendMessage({
         botToken: config.botToken,
         userId,
-        text: groupPushOnboarding.buildPrivateJoinMessage({ chatTitle, joinUrl }),
-        attachments: groupPushOnboarding.buildPrivateJoinKeyboard(joinUrl)
+        text: groupPushOnboarding.buildPrivateJoinMessage({ chatTitle, joinUrl: joinLink.displayUrl, shortUrlError: joinLink.shortUrlError }),
+        attachments: groupPushOnboarding.buildPrivateJoinKeyboard(joinLink.displayUrl)
       });
       await answerCallback({ botToken: config.botToken, callbackId, notification: 'Ссылка отправлена в личные сообщения.' });
       return { ok: true, action: groupPushOnboarding.ACTION_GROUP_PUSH_ENABLE, sentPrivate: true, chatId, userId };

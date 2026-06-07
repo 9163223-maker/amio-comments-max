@@ -96,10 +96,14 @@ function extractJoinToken(text) {
     });
 
     const clientJs = fs.readFileSync(path.join(repoRoot, 'public', 'push-client.js'), 'utf8');
+    const adminHtml = fs.readFileSync(path.join(repoRoot, 'public', 'push.html'), 'utf8');
     assert(clientJs.includes('/internal/max/group-push-invite'), 'admin client publishes through group invite endpoint');
     assert(clientJs.includes('Authorization: `Bearer ${token}`'), 'admin client uses Authorization bearer header');
     assert(!clientJs.includes('platform-api.max.ru'), 'client bundle does not expose MAX API base URL');
     assert(!clientJs.includes('PUSH_PAIRING_SECRET') && !clientJs.includes('BOT_TOKEN') && !clientJs.includes('MAX_BOT_TOKEN'), 'client bundle does not expose server secrets');
+    assert(!adminHtml.includes('type="text" autocomplete="off" placeholder="MAX internal chat ID"'), 'admin UI removes visible manual MAX chat ID input from publish flow');
+    assert(clientJs.includes("const selectedId = selected.id || '';"), 'admin publish/members use selected chat only');
+    assert(!clientJs.includes("selected.id || (input ? input.value.trim() : '')"), 'admin publish has no manual input fallback');
 
     const sentMessages = [];
     const answers = [];
@@ -122,18 +126,49 @@ function extractJoinToken(text) {
     };
     delete require.cache[require.resolve('../bot')];
     const bot = require('../bot');
+
+    const clckCalls = [];
+    global.fetch = async (url, options = {}) => {
+      clckCalls.push({ url: String(url), options });
+      assert(String(url).startsWith('https://clck.ru/--?'), 'callback flow attempts to shorten through clck.ru helper');
+      assert(!String(url).includes('BOT_TOKEN_PR155') && !String(url).includes('PAIRING_SECRET_PR155') && !String(url).includes('ADMIN_TOKEN_PR155'), 'shortener request does not leak server secrets');
+      return { ok: true, status: 200, async text() { return 'https://clck.ru/pr155short'; } };
+    };
     const res = { statusCode: 0, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
     await bot.handleWebhook({ get: () => '', body: { update_type: 'message_callback', callback: { id: 'cb-pr155', payload: 'group_push_enable', user: { user_id: 'callback-user-pr155' }, message: { recipient: { chat_id: 'callback-chat-pr155', title: 'Все свои MAX', chat_type: 'chat' } } } } }, res, { botToken: 'BOT_TOKEN_PR155', appBaseUrl: 'https://push.example.test' });
     assert.strictEqual(res.statusCode, 200, 'callback handler returns 200');
     assert.strictEqual(sentMessages.length, 1, 'callback sends one private message');
     assert.strictEqual(sentMessages[0].userId, 'callback-user-pr155', 'callback handler uses callback userId');
     assert(!sentMessages[0].chatId, 'callback handler does not post personal link publicly into group');
-    const personalToken = extractJoinToken(sentMessages[0].text);
-    assert(personalToken, 'callback private DM contains /push/join?t= personal link');
+    assert(sentMessages[0].text.includes('https://clck.ru/pr155short'), 'private DM contains short clck.ru link');
+    assert(!sentMessages[0].text.includes('/push/join?t='), 'private DM does not show long join URL when short URL exists');
+    const shortenedTarget = new URL(clckCalls[0].url).searchParams.get('url');
+    const personalToken = extractJoinToken(shortenedTarget);
+    assert(personalToken, 'callback shortening target contains personal /push/join?t= link');
     const verified = pairing.verifyPairingToken(personalToken, { allowUsed: true });
     assert.strictEqual(verified.maxUserId, 'callback-user-pr155', 'pairing token uses callback userId');
     assert.strictEqual(verified.chatId, 'callback-chat-pr155', 'pairing token uses callback chatId');
     assert(answers.some((answer) => answer.notification === 'Ссылка отправлена в личные сообщения.'), 'callback success notification is safe');
+
+    sentMessages.length = 0; answers.length = 0; clckCalls.length = 0;
+    global.fetch = async (url, options = {}) => {
+      clckCalls.push({ url: String(url), options });
+      return { ok: false, status: 503, async text() { return 'temporarily unavailable'; } };
+    };
+    const fallbackRes = { statusCode: 0, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await bot.handleWebhook({ get: () => '', body: { update_type: 'message_callback', callback: { id: 'cb-pr155-fallback', payload: 'group_push_enable', user: { user_id: 'callback-user-fallback-pr155' }, message: { recipient: { chat_id: 'callback-chat-fallback-pr155', title: 'Все свои MAX', chat_type: 'chat' } } } } }, fallbackRes, { botToken: 'BOT_TOKEN_PR155', appBaseUrl: 'https://push.example.test' });
+    assert.strictEqual(fallbackRes.statusCode, 200, 'shortener failure still returns callback 200');
+    assert.strictEqual(sentMessages.length, 1, 'shortener failure still sends private message');
+    assert(sentMessages[0].text.includes('/push/join?t='), 'shortener failure falls back to long join URL');
+    assert(sentMessages[0].text.includes('Короткая ссылка временно недоступна'), 'shortener failure includes safe fallback note');
+    assert(answers.some((answer) => answer.notification === 'Ссылка отправлена в личные сообщения.'), 'shortener failure does not block callback success');
+
+    global.fetch = async (url, options = {}) => {
+      assert(String(url).startsWith('https://clck.ru/--?'), 'existing ad clck helper still calls clck endpoint');
+      return { ok: true, status: 200, async text() { return 'https://clck.ru/adpr155'; } };
+    };
+    const adCopyClck = require('../ad-copy-link-patch-pr94').createClckShortUrl;
+    assert.strictEqual(await adCopyClck('https://push.example.test/r/ad-pr155'), 'https://clck.ru/adpr155', 'existing advertising clck.ru helper remains intact');
 
     sentMessages.length = 0; answers.length = 0;
     const missingUserRes = { statusCode: 0, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
