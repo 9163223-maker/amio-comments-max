@@ -143,7 +143,12 @@ function sendPushPage(req, res, options = {}) {
     tokenCookie: true,
     tokenStatus: options.tokenStatus || 'valid'
   } : { joinMode: false, landingMode: mode === 'client' };
-  if (mode !== 'admin') {
+  if (mode === 'admin') {
+    html = html
+      .replace('<link rel="manifest" href="/push/manifest.json">', '<link rel="manifest" href="/public/push-admin-manifest.json">')
+      .replace('<meta name="apple-mobile-web-app-title" content="АдминКИТ Push">', '<meta name="apple-mobile-web-app-title" content="Push Admin">')
+      .replace('<title>АдминКИТ Push</title>', '<title>АдминКИТ Push Admin</title>');
+  } else {
     html = stripMarkedHtml(html, 'admin-diagnostics');
     html = stripMarkedHtml(html, 'raw-diagnostics');
   }
