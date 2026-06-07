@@ -9,8 +9,8 @@
   "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
   "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
   "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-  "generatedAt": 1780852769525,
-  "serverStartedAt": "2026-06-07T17:03:04.643Z",
+  "generatedAt": 1780852902287,
+  "serverStartedAt": "2026-06-07T17:20:14.069Z",
   "staleEndpointDetected": false,
   "meta": {
     "runtimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
@@ -22,7 +22,7 @@
     "gitCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
     "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
     "buildGeneratedAt": "2026-06-05T00:00:00Z",
-    "serverStartedAt": "2026-06-07T17:03:04.643Z",
+    "serverStartedAt": "2026-06-07T17:20:14.069Z",
     "buildInfoSource": "build-info.json/package.json/env-fresh-only",
     "staleEnvIgnored": {
       "BUILD_VERSION": false,
@@ -32,7 +32,7 @@
     "staleEndpointDetected": false,
     "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
     "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-    "generatedAt": 1780852769525
+    "generatedAt": 1780852902287
   },
   "mediaDiagnostics": {
     "uploads": [
@@ -381,7 +381,7 @@
       "gitCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
       "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
       "buildGeneratedAt": "2026-06-05T00:00:00Z",
-      "serverStartedAt": "2026-06-07T17:03:04.643Z",
+      "serverStartedAt": "2026-06-07T17:20:14.069Z",
       "buildInfoSource": "build-info.json/package.json/env-fresh-only",
       "staleEnvIgnored": {
         "BUILD_VERSION": false,
@@ -391,7 +391,7 @@
       "staleEndpointDetected": false,
       "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
       "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-      "generatedAt": 1780852768866
+      "generatedAt": 1780852901587
     },
     "posts": {
       "-70251029837230:116709012212747400": {
@@ -4920,6 +4920,226 @@
         "originalSnapshotCaptured": true,
         "originalSnapshotEmptyKnown": false
       },
+      "-75643106932142:116709915973007500": {
+        "postId": "116709915973007500",
+        "autoMode": true,
+        "channelId": "-75643106932142",
+        "createdAt": 1780851992625,
+        "messageId": "mid.ffffbb33f77b4a52019ea30cdb563892",
+        "updatedAt": 1780851993919,
+        "commentKey": "-75643106932142:116709915973007500",
+        "channelTitle": "-75643106932142",
+        "handoffToken": "h_915973007500mq41anosevueltp7",
+        "linkedByName": "Alex P",
+        "originalLink": null,
+        "originalText": "/push",
+        "lastPatchedAt": 1780851993919,
+        "stablePayload": "cp_-75643106932142_116709915973007500",
+        "customKeyboard": {},
+        "giftCampaignId": "",
+        "lastIngestedAt": 1780851992626,
+        "lastPatchError": null,
+        "linkedByUserId": "17507246",
+        "lastPatchedText": "/push",
+        "nativeReactions": [],
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "lastGiftRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "originalLinkKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachments": [],
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "💬 Комментарии",
+                    "type": "open_app",
+                    "payload": "cp_-75643106932142_116709915973007500",
+                    "web_app": "id781310320690_bot"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "textOverrideActive": false,
+        "lastCustomRowsCount": 0,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "originalFormatKnown": false,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709915973007500\"}]]}}],\"text\":\"/push\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+        "sourceAttachmentsKnown": false,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false
+      },
+      "-75643106932142:116709936146775140": {
+        "postId": "116709936146775140",
+        "autoMode": true,
+        "channelId": "-75643106932142",
+        "createdAt": 1780852299518,
+        "messageId": "mid.ffffbb33f77b4a52019ea3118dc97c67",
+        "updatedAt": 1780852300098,
+        "commentKey": "-75643106932142:116709936146775140",
+        "channelTitle": "-75643106932142",
+        "handoffToken": "h_936146775140mq41h8j7r8ae03cp",
+        "linkedByName": "Alex P",
+        "originalLink": null,
+        "originalText": "Включить уведомления",
+        "lastPatchedAt": 1780852300098,
+        "stablePayload": "cp_-75643106932142_116709936146775140",
+        "customKeyboard": {},
+        "giftCampaignId": "",
+        "lastIngestedAt": 1780852299518,
+        "lastPatchError": null,
+        "linkedByUserId": "17507246",
+        "lastPatchedText": "Включить уведомления",
+        "nativeReactions": [],
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "lastGiftRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "originalLinkKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachments": [],
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "💬 Комментарии",
+                    "type": "open_app",
+                    "payload": "cp_-75643106932142_116709936146775140",
+                    "web_app": "id781310320690_bot"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "textOverrideActive": false,
+        "lastCustomRowsCount": 0,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "originalFormatKnown": false,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709936146775140\"}]]}}],\"text\":\"Включить уведомления\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+        "sourceAttachmentsKnown": false,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false
+      },
+      "-75643106932142:116709937341758560": {
+        "postId": "116709937341758560",
+        "autoMode": true,
+        "channelId": "-75643106932142",
+        "createdAt": 1780852317026,
+        "messageId": "mid.ffffbb33f77b4a52019ea311d5037c67",
+        "updatedAt": 1780852318123,
+        "commentKey": "-75643106932142:116709937341758560",
+        "channelTitle": "-75643106932142",
+        "handoffToken": "h_937341758560mq41hm3ykhlpf4qc",
+        "linkedByName": "Alex P",
+        "originalLink": null,
+        "originalText": "Включить уведомления",
+        "lastPatchedAt": 1780852318123,
+        "stablePayload": "cp_-75643106932142_116709937341758560",
+        "customKeyboard": {},
+        "giftCampaignId": "",
+        "lastIngestedAt": 1780852317026,
+        "lastPatchError": null,
+        "linkedByUserId": "17507246",
+        "lastPatchedText": "Включить уведомления",
+        "nativeReactions": [],
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "lastGiftRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "originalLinkKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachments": [],
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "💬 Комментарии",
+                    "type": "open_app",
+                    "payload": "cp_-75643106932142_116709937341758560",
+                    "web_app": "id781310320690_bot"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "textOverrideActive": false,
+        "lastCustomRowsCount": 0,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "originalFormatKnown": false,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709937341758560\"}]]}}],\"text\":\"Включить уведомления\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+        "sourceAttachmentsKnown": false,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false
+      },
+      "-75643106932142:116709937858885780": {
+        "postId": "116709937858885780",
+        "autoMode": true,
+        "channelId": "-75643106932142",
+        "createdAt": 1780852326320,
+        "messageId": "mid.ffffbb33f77b4a52019ea311f3d63892",
+        "updatedAt": 1780852327140,
+        "commentKey": "-75643106932142:116709937858885780",
+        "channelTitle": "-75643106932142",
+        "handoffToken": "h_937858885780mq41ht7flpjsyzy0",
+        "linkedByName": "Alex P",
+        "originalLink": null,
+        "originalText": "/push",
+        "lastPatchedAt": 1780852327140,
+        "stablePayload": "cp_-75643106932142_116709937858885780",
+        "customKeyboard": {},
+        "giftCampaignId": "",
+        "lastIngestedAt": 1780852326320,
+        "lastPatchError": null,
+        "linkedByUserId": "17507246",
+        "lastPatchedText": "/push",
+        "nativeReactions": [],
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "lastGiftRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "originalLinkKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachments": [],
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "💬 Комментарии",
+                    "type": "open_app",
+                    "payload": "cp_-75643106932142_116709937858885780",
+                    "web_app": "id781310320690_bot"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "textOverrideActive": false,
+        "lastCustomRowsCount": 0,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "originalFormatKnown": false,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709937858885780\"}]]}}],\"text\":\"/push\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+        "sourceAttachmentsKnown": false,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false
+      },
       "selftest_pr88_1780301418431_p2i0sr": {
         "raw": {
           "title": "Production comments matrix selftest post",
@@ -5268,10 +5488,10 @@
           }
         ]
       },
-      "-75643106932142:116709915973007500": {
-        "postId": "116709915973007500",
+      "-75643106932142:116709974753687700": {
+        "postId": "116709974753687700",
         "channelId": "-75643106932142",
-        "messageId": "mid.ffffbb33f77b4a52019ea30cdb563892",
+        "messageId": "mid.ffffbb33f77b4a52019ea31a8af03892",
         "originalText": "/push",
         "sourceAttachments": [],
         "nativeReactions": [],
@@ -5287,15 +5507,15 @@
         "linkedByUserId": "17507246",
         "linkedByName": "Alex P",
         "autoMode": true,
-        "handoffToken": "h_915973007500mq41anosevueltp7",
-        "stablePayload": "cp_-75643106932142_116709915973007500",
+        "handoffToken": "h_974753687700mq41tv8thpclrcmn",
+        "stablePayload": "cp_-75643106932142_116709974753687700",
         "customKeyboard": {},
-        "createdAt": 1780851992625,
-        "lastIngestedAt": 1780851992626,
+        "createdAt": 1780852888884,
+        "lastIngestedAt": 1780852888884,
         "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
         "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
-        "commentKey": "-75643106932142:116709915973007500",
-        "updatedAt": 1780851993919,
+        "commentKey": "-75643106932142:116709974753687700",
+        "updatedAt": 1780852890016,
         "patchedAttachments": [
           {
             "type": "inline_keyboard",
@@ -5306,7 +5526,7 @@
                     "type": "open_app",
                     "text": "💬 Комментарии",
                     "web_app": "id781310320690_bot",
-                    "payload": "cp_-75643106932142_116709915973007500"
+                    "payload": "cp_-75643106932142_116709974753687700"
                   }
                 ]
               ]
@@ -5314,8 +5534,8 @@
           }
         ],
         "lastPatchedText": "/push",
-        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709915973007500\"}]]}}],\"text\":\"/push\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
-        "lastPatchedAt": 1780851993919,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709974753687700\"}]]}}],\"text\":\"/push\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastPatchedAt": 1780852890016,
         "lastPatchError": null,
         "giftCampaignId": "",
         "lastCustomRowsCount": 0,
@@ -5323,10 +5543,10 @@
         "lastGiftRowsCount": 0,
         "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77"
       },
-      "-75643106932142:116709936146775140": {
-        "postId": "116709936146775140",
+      "-75643106932142:116709975010212960": {
+        "postId": "116709975010212960",
         "channelId": "-75643106932142",
-        "messageId": "mid.ffffbb33f77b4a52019ea3118dc97c67",
+        "messageId": "mid.ffffbb33f77b4a52019ea31a9a3a7c67",
         "originalText": "Включить уведомления",
         "sourceAttachments": [],
         "nativeReactions": [],
@@ -5342,15 +5562,15 @@
         "linkedByUserId": "17507246",
         "linkedByName": "Alex P",
         "autoMode": true,
-        "handoffToken": "h_936146775140mq41h8j7r8ae03cp",
-        "stablePayload": "cp_-75643106932142_116709936146775140",
+        "handoffToken": "h_975010212960mq41tz0x038utd3o",
+        "stablePayload": "cp_-75643106932142_116709975010212960",
         "customKeyboard": {},
-        "createdAt": 1780852299518,
-        "lastIngestedAt": 1780852299518,
+        "createdAt": 1780852893884,
+        "lastIngestedAt": 1780852893884,
         "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
         "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
-        "commentKey": "-75643106932142:116709936146775140",
-        "updatedAt": 1780852300098,
+        "commentKey": "-75643106932142:116709975010212960",
+        "updatedAt": 1780852894682,
         "patchedAttachments": [
           {
             "type": "inline_keyboard",
@@ -5361,7 +5581,7 @@
                     "type": "open_app",
                     "text": "💬 Комментарии",
                     "web_app": "id781310320690_bot",
-                    "payload": "cp_-75643106932142_116709936146775140"
+                    "payload": "cp_-75643106932142_116709975010212960"
                   }
                 ]
               ]
@@ -5369,118 +5589,8 @@
           }
         ],
         "lastPatchedText": "Включить уведомления",
-        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709936146775140\"}]]}}],\"text\":\"Включить уведомления\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
-        "lastPatchedAt": 1780852300098,
-        "lastPatchError": null,
-        "giftCampaignId": "",
-        "lastCustomRowsCount": 0,
-        "lastPollRowsCount": 0,
-        "lastGiftRowsCount": 0,
-        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77"
-      },
-      "-75643106932142:116709937341758560": {
-        "postId": "116709937341758560",
-        "channelId": "-75643106932142",
-        "messageId": "mid.ffffbb33f77b4a52019ea311d5037c67",
-        "originalText": "Включить уведомления",
-        "sourceAttachments": [],
-        "nativeReactions": [],
-        "originalLink": null,
-        "originalSnapshotCaptured": true,
-        "originalSnapshotEmptyKnown": false,
-        "originalTextKnown": true,
-        "sourceAttachmentsKnown": false,
-        "originalLinkKnown": false,
-        "originalFormatKnown": false,
-        "channelTitle": "-75643106932142",
-        "textOverrideActive": false,
-        "linkedByUserId": "17507246",
-        "linkedByName": "Alex P",
-        "autoMode": true,
-        "handoffToken": "h_937341758560mq41hm3ykhlpf4qc",
-        "stablePayload": "cp_-75643106932142_116709937341758560",
-        "customKeyboard": {},
-        "createdAt": 1780852317026,
-        "lastIngestedAt": 1780852317026,
-        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
-        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
-        "commentKey": "-75643106932142:116709937341758560",
-        "updatedAt": 1780852318123,
-        "patchedAttachments": [
-          {
-            "type": "inline_keyboard",
-            "payload": {
-              "buttons": [
-                [
-                  {
-                    "type": "open_app",
-                    "text": "💬 Комментарии",
-                    "web_app": "id781310320690_bot",
-                    "payload": "cp_-75643106932142_116709937341758560"
-                  }
-                ]
-              ]
-            }
-          }
-        ],
-        "lastPatchedText": "Включить уведомления",
-        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709937341758560\"}]]}}],\"text\":\"Включить уведомления\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
-        "lastPatchedAt": 1780852318123,
-        "lastPatchError": null,
-        "giftCampaignId": "",
-        "lastCustomRowsCount": 0,
-        "lastPollRowsCount": 0,
-        "lastGiftRowsCount": 0,
-        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77"
-      },
-      "-75643106932142:116709937858885780": {
-        "postId": "116709937858885780",
-        "channelId": "-75643106932142",
-        "messageId": "mid.ffffbb33f77b4a52019ea311f3d63892",
-        "originalText": "/push",
-        "sourceAttachments": [],
-        "nativeReactions": [],
-        "originalLink": null,
-        "originalSnapshotCaptured": true,
-        "originalSnapshotEmptyKnown": false,
-        "originalTextKnown": true,
-        "sourceAttachmentsKnown": false,
-        "originalLinkKnown": false,
-        "originalFormatKnown": false,
-        "channelTitle": "-75643106932142",
-        "textOverrideActive": false,
-        "linkedByUserId": "17507246",
-        "linkedByName": "Alex P",
-        "autoMode": true,
-        "handoffToken": "h_937858885780mq41ht7flpjsyzy0",
-        "stablePayload": "cp_-75643106932142_116709937858885780",
-        "customKeyboard": {},
-        "createdAt": 1780852326320,
-        "lastIngestedAt": 1780852326320,
-        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
-        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
-        "commentKey": "-75643106932142:116709937858885780",
-        "updatedAt": 1780852327140,
-        "patchedAttachments": [
-          {
-            "type": "inline_keyboard",
-            "payload": {
-              "buttons": [
-                [
-                  {
-                    "type": "open_app",
-                    "text": "💬 Комментарии",
-                    "web_app": "id781310320690_bot",
-                    "payload": "cp_-75643106932142_116709937858885780"
-                  }
-                ]
-              ]
-            }
-          }
-        ],
-        "lastPatchedText": "/push",
-        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709937858885780\"}]]}}],\"text\":\"/push\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
-        "lastPatchedAt": 1780852327140,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116709975010212960\"}]]}}],\"text\":\"Включить уведомления\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastPatchedAt": 1780852894682,
         "lastPatchError": null,
         "giftCampaignId": "",
         "lastCustomRowsCount": 0,
@@ -7298,6 +7408,10 @@
         }
       ],
       "-75423245645230:116674190698942030": [],
+      "-75643106932142:116709915973007500": [],
+      "-75643106932142:116709936146775140": [],
+      "-75643106932142:116709937341758560": [],
+      "-75643106932142:116709937858885780": [],
       "selftest_pr88_1779989436513_pqespk": [
         {
           "id": "1779989440516_m5o960",
@@ -8640,10 +8754,8 @@
           "runtimeVersion": "CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87"
         }
       ],
-      "-75643106932142:116709915973007500": [],
-      "-75643106932142:116709936146775140": [],
-      "-75643106932142:116709937341758560": [],
-      "-75643106932142:116709937858885780": []
+      "-75643106932142:116709974753687700": [],
+      "-75643106932142:116709975010212960": []
     },
     "channels": {
       "260767839": {
@@ -8925,12 +9037,14 @@
         "chatType": "channel",
         "channelId": "-75643106932142",
         "isChannel": true,
-        "updatedAt": 1780852326721,
+        "updatedAt": 1780852894192,
         "botAddedAt": 1780848285981,
+        "lastPostId": "116709975010212960",
         "ownerUserId": "17507246",
         "channelTitle": "Alex P",
         "isMaxChannel": true,
         "linkedByName": "Alex P",
+        "lastMessageId": "mid.ffffbb33f77b4a52019ea31a9a3a7c67",
         "audienceEvents": [
           {
             "id": "1780848285382_vyvtqy",
@@ -8970,6 +9084,7 @@
           }
         ],
         "linkedByUserId": "17507246",
+        "autoModeEnabled": true,
         "audienceProfiles": {
           "18400200": {
             "name": "Ольга",
@@ -8984,16 +9099,13 @@
             "lastActivityTime": 0
           }
         },
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
         "audienceUpdatedAt": 1780848285479,
         "resolvedChannelTitle": "Мож•Хвост",
         "channelRegistryRuntime": "CC8.3.33-CHANNEL-TITLE-NO-USER-NAME",
         "channelTitleResolvedAt": 1780848284639,
         "channelTitleResolveError": "",
-        "channelTitleResolverRuntime": "CC8.3.44-AUTO-TENANT-CHANNEL-BIND",
-        "lastPostId": "116709937858885780",
-        "lastMessageId": "mid.ffffbb33f77b4a52019ea311f3d63892",
-        "autoModeEnabled": true,
-        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84"
+        "channelTitleResolverRuntime": "CC8.3.44-AUTO-TENANT-CHANNEL-BIND"
       },
       "selftest_comments_matrix_channel": {
         "type": "channel",
@@ -9369,13 +9481,15 @@
       "-75357088691630:116674051715174640": {},
       "-75357088691630:116674053614348450": {},
       "-75423245645230:116674190698942030": {},
-      "selftest_pr88_1780301418431_p2i0sr": {},
-      "selftest_pr88_1780301487396_a47bum": {},
-      "selftest_pr88_1780309105318_je8f8c": {},
       "-75643106932142:116709915973007500": {},
       "-75643106932142:116709936146775140": {},
       "-75643106932142:116709937341758560": {},
-      "-75643106932142:116709937858885780": {}
+      "-75643106932142:116709937858885780": {},
+      "selftest_pr88_1780301418431_p2i0sr": {},
+      "selftest_pr88_1780301487396_a47bum": {},
+      "selftest_pr88_1780309105318_je8f8c": {},
+      "-75643106932142:116709974753687700": {},
+      "-75643106932142:116709975010212960": {}
     },
     "reactions": {
       "-73175958664622:116630034142543730": {
@@ -9493,10 +9607,8 @@
           }
         }
       },
-      "-75643106932142:116709915973007500": {},
-      "-75643106932142:116709936146775140": {},
-      "-75643106932142:116709937341758560": {},
-      "-75643106932142:116709937858885780": {}
+      "-75643106932142:116709974753687700": {},
+      "-75643106932142:116709975010212960": {}
     },
     "handoffs": {
       "h_001681993680mpf2ov2n3nk29mlx": {
@@ -10012,6 +10124,42 @@
         "commentKey": "-73175958664622:116640913106894140",
         "stablePayload": "cp_-73175958664622_116640913106894140"
       },
+      "h_915973007500mq41anosevueltp7": {
+        "token": "[redacted]",
+        "postId": "116709915973007500",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea30cdb563892",
+        "updatedAt": 1780851993919,
+        "commentKey": "-75643106932142:116709915973007500",
+        "stablePayload": "cp_-75643106932142_116709915973007500"
+      },
+      "h_936146775140mq41h8j7r8ae03cp": {
+        "token": "[redacted]",
+        "postId": "116709936146775140",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea3118dc97c67",
+        "updatedAt": 1780852300098,
+        "commentKey": "-75643106932142:116709936146775140",
+        "stablePayload": "cp_-75643106932142_116709936146775140"
+      },
+      "h_937341758560mq41hm3ykhlpf4qc": {
+        "token": "[redacted]",
+        "postId": "116709937341758560",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea311d5037c67",
+        "updatedAt": 1780852318124,
+        "commentKey": "-75643106932142:116709937341758560",
+        "stablePayload": "cp_-75643106932142_116709937341758560"
+      },
+      "h_937858885780mq41ht7flpjsyzy0": {
+        "token": "[redacted]",
+        "postId": "116709937858885780",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea311f3d63892",
+        "updatedAt": 1780852327140,
+        "commentKey": "-75643106932142:116709937858885780",
+        "stablePayload": "cp_-75643106932142_116709937858885780"
+      },
       "h_969763872720mpill3w6g5zqmn3b": {
         "token": "[redacted]",
         "postId": "116624969763872720",
@@ -10039,41 +10187,23 @@
         "commentKey": "-73175958664622:116623999186137120",
         "stablePayload": "cp_-73175958664622_116623999186137120"
       },
-      "h_915973007500mq41anosevueltp7": {
-        "commentKey": "-75643106932142:116709915973007500",
-        "postId": "116709915973007500",
+      "h_974753687700mq41tv8thpclrcmn": {
+        "commentKey": "-75643106932142:116709974753687700",
+        "postId": "116709974753687700",
         "channelId": "-75643106932142",
-        "messageId": "mid.ffffbb33f77b4a52019ea30cdb563892",
-        "stablePayload": "cp_-75643106932142_116709915973007500",
+        "messageId": "mid.ffffbb33f77b4a52019ea31a8af03892",
+        "stablePayload": "cp_-75643106932142_116709974753687700",
         "token": "[redacted]",
-        "updatedAt": 1780851993919
+        "updatedAt": 1780852890017
       },
-      "h_936146775140mq41h8j7r8ae03cp": {
-        "commentKey": "-75643106932142:116709936146775140",
-        "postId": "116709936146775140",
+      "h_975010212960mq41tz0x038utd3o": {
+        "commentKey": "-75643106932142:116709975010212960",
+        "postId": "116709975010212960",
         "channelId": "-75643106932142",
-        "messageId": "mid.ffffbb33f77b4a52019ea3118dc97c67",
-        "stablePayload": "cp_-75643106932142_116709936146775140",
+        "messageId": "mid.ffffbb33f77b4a52019ea31a9a3a7c67",
+        "stablePayload": "cp_-75643106932142_116709975010212960",
         "token": "[redacted]",
-        "updatedAt": 1780852300098
-      },
-      "h_937341758560mq41hm3ykhlpf4qc": {
-        "commentKey": "-75643106932142:116709937341758560",
-        "postId": "116709937341758560",
-        "channelId": "-75643106932142",
-        "messageId": "mid.ffffbb33f77b4a52019ea311d5037c67",
-        "stablePayload": "cp_-75643106932142_116709937341758560",
-        "token": "[redacted]",
-        "updatedAt": 1780852318124
-      },
-      "h_937858885780mq41ht7flpjsyzy0": {
-        "commentKey": "-75643106932142:116709937858885780",
-        "postId": "116709937858885780",
-        "channelId": "-75643106932142",
-        "messageId": "mid.ffffbb33f77b4a52019ea311f3d63892",
-        "stablePayload": "cp_-75643106932142_116709937858885780",
-        "token": "[redacted]",
-        "updatedAt": 1780852327140
+        "updatedAt": 1780852894682
       }
     },
     "uploadDiagnostics": [
@@ -15103,11 +15233,11 @@
     },
     "runtimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
     "counts": {
-      "posts": 67,
-      "commentThreads": 75,
+      "posts": 69,
+      "commentThreads": 77,
       "comments": 186,
-      "handoffs": 64,
-      "likes": 67,
+      "handoffs": 66,
+      "likes": 69,
       "channels": 9,
       "moderationLogs": 50,
       "uploadDiagnostics": 50
@@ -15115,11 +15245,11 @@
     "store": {
       "compact": true,
       "counts": {
-        "posts": 67,
-        "commentThreads": 75,
+        "posts": 69,
+        "commentThreads": 77,
         "comments": 186,
-        "handoffs": 64,
-        "likes": 67,
+        "handoffs": 66,
+        "likes": 69,
         "channels": 9,
         "moderationLogs": 50,
         "uploadDiagnostics": 50
