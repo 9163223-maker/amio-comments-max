@@ -297,8 +297,8 @@ function safeNotificationPayload(input = {}) {
   return {
     title: clean(source.title).slice(0, 120) || 'АдминКИТ Push',
     body: clean(source.body).slice(0, 500) || 'Тестовое резервное уведомление',
-    icon: clean(source.icon).slice(0, 300) || '/public/adminkit_start_logo.png',
-    badge: clean(source.badge).slice(0, 300) || '/public/adminkit_chat_logo.png',
+    icon: clean(source.icon).slice(0, 300) || '/public/adminkit-push-icon-192.png',
+    badge: clean(source.badge).slice(0, 300) || '/public/favicon-32.png',
     tag: clean(source.tag).slice(0, 120) || (source.important ? 'adminkit-important' : 'adminkit-test'),
     data: {
       url: clean(source.url).slice(0, 500) || '/push',
@@ -397,8 +397,8 @@ function install(app) {
       theme_color: '#111827',
       background_color: '#f8fafc',
       icons: [
-        { src: '/public/adminkit_start_logo.png', sizes: '192x192', type: 'image/png' },
-        { src: '/public/adminkit_chat_logo.png', sizes: '512x512', type: 'image/png' }
+        { src: '/public/adminkit-push-icon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/public/adminkit-push-icon-512.png', sizes: '512x512', type: 'image/png' }
       ]
     });
   });
