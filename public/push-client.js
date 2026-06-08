@@ -42,6 +42,8 @@ const JOIN_TOKEN_FOUND_MESSAGE = 'Нажмите «Включить уведом
 const JOIN_TOKEN_MISSING_MESSAGE = 'Откройте ссылку из MAX или нажмите кнопку подключения в чате.';
 const JOIN_TOKEN_EXPIRED_MESSAGE = 'Ссылка истекла. Откройте новую ссылку из MAX или нажмите кнопку подключения в чате.';
 const JOIN_SUCCESS_MESSAGE = 'Готово. Уведомления подключены.';
+const LINK_CHAT_SUCCESS_MESSAGE = 'Готово. Уведомления этого чата подключены.';
+const LINK_CHAT_EXPLAIN_MESSAGE = 'Можно подключить этот чат к уже установленному AdminKIT Push.';
 const JOIN_READY_MESSAGE = 'Уведомления подключены.';
 
 // Legacy diagnostic test markers retained to prove earlier UX guarantees remain documented:
@@ -208,6 +210,21 @@ function isPairedRelaunchMode() {
   return Boolean((state.join && (state.join.landingMode || state.join.joinMode)) || context.paired);
 }
 
+function applyChatLinkMode() {
+  const title = String(state.join && state.join.chatTitle || '').trim().slice(0, 120);
+  setText('introText', LINK_CHAT_EXPLAIN_MESSAGE);
+  setHidden('pairingNotice', false);
+  setText('pairingNotice', title ? `Чат: «${title}»` : 'Чат MAX готов к подключению.');
+  setHidden('subscribeTokenRow', true);
+  setHidden('adminTokenRow', true);
+  setHidden('testBtn', true);
+  setHidden('statusBtn', true);
+  setHidden('resetPushButton', true);
+  setClientStatus(LINK_CHAT_EXPLAIN_MESSAGE, 'info');
+  setText('pairingStatus', 'link-chat-ready');
+  setText('enableBtn', 'Подключить этот чат');
+}
+
 function applyPairedReadyState(message = JOIN_READY_MESSAGE) {
   setText('introText', message);
   setHidden('pairingNotice', false);
@@ -234,6 +251,7 @@ function clearJoinState() {
 }
 
 function recoverJoinToken() {
+  if (state.join && state.join.chatLinkMode) return '';
   const urlToken = safeStoredJoinToken(state.join && state.join.token);
   if (urlToken) {
     if (!state.join || state.join.tokenStatus !== 'used') storePendingJoinToken(urlToken);
@@ -485,6 +503,10 @@ async function fetchJson(url, options) {
 
 function applyJoinMode() {
   const pendingToken = recoverJoinToken();
+  if (state.join && state.join.chatLinkMode) {
+    applyChatLinkMode();
+    return;
+  }
   if (isPairedRelaunchMode()) {
     if (history && history.replaceState) history.replaceState(null, document.title, '/push');
     applyPairedReadyState();
@@ -519,6 +541,24 @@ function applyJoinMode() {
   setClientStatus(JOIN_TOKEN_FOUND_MESSAGE, 'info');
   setText('pairingStatus', pendingToken ? `join-ready: pending token from ${state.join.recoveredFrom || 'page'}` : 'join-not-ready');
   setText('enableBtn', 'Включить уведомления');
+}
+
+async function linkExistingChat() {
+  const result = await withTimeout(fetchJson('/api/push/link-chat', { method: 'POST', body: JSON.stringify({}) }), TIMEOUTS.serverSave, 'link chat request timed out');
+  storePairedContext({ ok: true, status: 'active', chats: result && Array.isArray(result.chats) ? result.chats : [] });
+  renderConnectedChats(result && Array.isArray(result.chats) ? result.chats : []);
+  setText('introText', LINK_CHAT_SUCCESS_MESSAGE);
+  setText('pairingNotice', LINK_CHAT_SUCCESS_MESSAGE);
+  setClientStatus(LINK_CHAT_SUCCESS_MESSAGE, 'success');
+  setText('pairingStatus', `link-chat-done: ${Number(result && result.linkedExistingDevicesCount) || 0}`);
+  setText('enableBtn', 'Уведомления подключены');
+  clearJoinState();
+  appendResult(LINK_CHAT_SUCCESS_MESSAGE, { ok: true, existingActiveDevicesFound: Boolean(result && result.existingActiveDevicesFound), linkedExistingDevicesCount: Number(result && result.linkedExistingDevicesCount) || 0, chatBindingUpserted: Boolean(result && result.chatBindingUpserted) });
+}
+
+async function handlePrimaryButton() {
+  if (state.join && state.join.chatLinkMode) return linkExistingChat();
+  return enableNotifications();
 }
 
 async function refreshStatus() {
@@ -979,7 +1019,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderStoredConnectedChats();
   applyJoinMode();
   updateStandaloneDiagnostics();
-  bindButton('enableBtn', enableNotifications);
+  bindButton('enableBtn', handlePrimaryButton);
   bindButton('testBtn', sendTest);
   const resetButton = $('resetPushButton');
   if (resetButton) {

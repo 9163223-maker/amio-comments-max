@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.52-PR166-PRIVATE-PUSH-ONBOARDING-PR167-PUSH-PRODUCT-UX",
+  "version": "CC8.3.52-PR166-PR168-REAL-ADMIN-PUSH-INVITE-LINK-CHAT",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node clean-entrypoint-1.53.10-pr89.js",
@@ -18,9 +18,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.52-PR166-PRIVATE-PUSH-ONBOARDING-PR167-PUSH-PRODUCT-UX",
-  "displayVersion": "CC8.3.52-PR166-PRIVATE-PUSH-ONBOARDING-PR167-PUSH-PRODUCT-UX",
-  "sourceMarker": "adminkit-pr167-push-product-ux-admin-invite",
+  "buildVersion": "CC8.3.52-PR166-PR168-REAL-ADMIN-PUSH-INVITE-LINK-CHAT",
+  "displayVersion": "CC8.3.52-PR166-PR168-REAL-ADMIN-PUSH-INVITE-LINK-CHAT",
+  "sourceMarker": "adminkit-pr168-real-admin-push-invite-link-chat",
   "gitCommit": "",
   "pr165RuntimeWired": true
 }

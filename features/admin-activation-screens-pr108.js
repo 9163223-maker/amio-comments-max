@@ -24,9 +24,13 @@ function manualDeferredScreen(maxUserId = '') {
   return { id: 'pr108_admin_manual_deferred', text: 'Ручной ввод будет добавлен позже. Создайте код через фиксированные варианты.', attachments: keyboard([[button('Создать код', 'admin_code_create')], [button('Админ-панель', 'admin_panel')]]) };
 }
 function assertAdmin(maxUserId = '') { return access.isAdmin(maxUserId); }
+function adminPushInviteScreen(maxUserId = '') {
+  if (!assertAdmin(maxUserId)) return denyScreen();
+  return { id: 'pr168_admin_push_invite', text: ['АдминКИТ Push', '', 'Опубликовать приглашение Push в чат можно из раздела «Каналы и подключение»: выберите чат из списка бота. PUSH_ADMIN_TOKEN вводить не нужно.'].join('\n'), attachments: keyboard([[button('Каналы и подключение', 'admin_section_channels')], [button('Админ-панель', 'admin_panel')]]) };
+}
 function adminPanel(maxUserId = '') {
   if (!assertAdmin(maxUserId)) return denyScreen();
-  return { id: 'pr108_admin_panel', text: ['🛠 Админ-панель', '', 'Управление доступами АдминКИТ.'].join('\n'), attachments: keyboard([[button('Создать код', 'admin_code_create')], [button('Коды доступа', 'admin_codes_list')], [button('Клиенты / tenants', 'admin_tenants_list')], [button('Главное меню', 'admin_section_main')]]) };
+  return { id: 'pr108_admin_panel', text: ['🛠 Админ-панель', '', 'Управление доступами АдминКИТ.'].join('\n'), attachments: keyboard([[button('Создать код', 'admin_code_create')], [button('Коды доступа', 'admin_codes_list')], [button('Клиенты / tenants', 'admin_tenants_list')], [button('Опубликовать приглашение Push в чат', 'admin_push_publish_invite')], [button('Главное меню', 'admin_section_main')]]) };
 }
 function createPlanScreen(maxUserId = '') {
   if (!assertAdmin(maxUserId)) return denyScreen();
@@ -121,6 +125,7 @@ function tenantDetailsScreen(maxUserId = '', tenantId = '') {
 function screenForAction(action = '', maxUserId = '', payload = {}) {
   const a = clean(action);
   if (a === 'admin_panel') return adminPanel(maxUserId);
+  if (a === 'admin_push_publish_invite') return adminPushInviteScreen(maxUserId);
   if (a === 'admin_code_duration_manual' || a === 'admin_code_channels_manual' || a === 'admin_code_bind_manual') return manualDeferredScreen(maxUserId);
   if (a === 'admin_code_create') return createPlanScreen(maxUserId);
   if (a.startsWith('admin_code_plan_')) return createDurationScreen(maxUserId, a.replace('admin_code_plan_', ''));
@@ -142,4 +147,4 @@ function screenForAction(action = '', maxUserId = '', payload = {}) {
   return null;
 }
 
-module.exports = { ADMIN_RUNTIME, denyScreen, manualDeferredScreen, adminPanel, screenForAction, createdScreen, codesListScreen, codeDetailsScreen, tenantsListScreen, tenantDetailsScreen };
+module.exports = { ADMIN_RUNTIME, denyScreen, manualDeferredScreen, adminPanel, adminPushInviteScreen, screenForAction, createdScreen, codesListScreen, codeDetailsScreen, tenantsListScreen, tenantDetailsScreen };
