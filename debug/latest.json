@@ -9,8 +9,8 @@
   "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
   "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
   "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-  "generatedAt": 1780909707365,
-  "serverStartedAt": "2026-06-08T09:03:16.952Z",
+  "generatedAt": 1780909865121,
+  "serverStartedAt": "2026-06-08T09:09:16.903Z",
   "staleEndpointDetected": false,
   "meta": {
     "runtimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
@@ -22,7 +22,7 @@
     "gitCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
     "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
     "buildGeneratedAt": "2026-06-05T00:00:00Z",
-    "serverStartedAt": "2026-06-08T09:03:16.952Z",
+    "serverStartedAt": "2026-06-08T09:09:16.903Z",
     "buildInfoSource": "build-info.json/package.json/env-fresh-only",
     "staleEnvIgnored": {
       "BUILD_VERSION": false,
@@ -32,7 +32,7 @@
     "staleEndpointDetected": false,
     "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
     "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-    "generatedAt": 1780909707365
+    "generatedAt": 1780909865121
   },
   "mediaDiagnostics": {
     "uploads": [
@@ -370,150 +370,12 @@
     "lastErrors": []
   },
   "groupPushInboundDiagnostics": {
-    "count": 4,
-    "latest": [
-      {
-        "at": "2026-06-08T09:06:35.766Z",
-        "updateType": "message_created",
-        "messageShape": "body+sender+recipient",
-        "textPreview": "/push",
-        "normalizedText": "/push",
-        "matchedPushCommand": true,
-        "hasUserId": true,
-        "userIdLast4": "7246",
-        "hasChatId": true,
-        "chatIdLast4": "2142",
-        "chatType": "chat",
-        "chatTitlePreview": "",
-        "routeCandidate": "http_edge_group_push_command",
-        "routeDecision": "entered_edge_pre_route",
-        "routeResult": "observed_only",
-        "errorCode": ""
-      },
-      {
-        "at": "2026-06-08T09:06:35.766Z",
-        "updateType": "message_created",
-        "messageShape": "body+sender+recipient",
-        "textPreview": "/push",
-        "normalizedText": "/push",
-        "matchedPushCommand": true,
-        "hasUserId": true,
-        "userIdLast4": "7246",
-        "hasChatId": true,
-        "chatIdLast4": "2142",
-        "chatType": "chat",
-        "chatTitlePreview": "",
-        "routeCandidate": "http_edge_group_push_command",
-        "routeDecision": "matched_group_push_command",
-        "routeResult": "matched_command",
-        "errorCode": ""
-      },
-      {
-        "at": "2026-06-08T09:06:36.528Z",
-        "updateType": "message_created",
-        "messageShape": "body+sender+recipient",
-        "textPreview": "/push",
-        "normalizedText": "/push",
-        "matchedPushCommand": true,
-        "hasUserId": true,
-        "userIdLast4": "7246",
-        "hasChatId": true,
-        "chatIdLast4": "2142",
-        "chatType": "chat",
-        "chatTitlePreview": "",
-        "routeCandidate": "http_edge_group_push_command",
-        "routeDecision": "edge_group_push_route",
-        "routeResult": "handled",
-        "errorCode": ""
-      },
-      {
-        "at": "2026-06-08T09:07:04.384Z",
-        "updateType": "message_created",
-        "messageShape": "body+sender+recipient",
-        "textPreview": "Привет",
-        "normalizedText": "",
-        "matchedPushCommand": false,
-        "hasUserId": true,
-        "userIdLast4": "7246",
-        "hasChatId": true,
-        "chatIdLast4": "2142",
-        "chatType": "chat",
-        "chatTitlePreview": "",
-        "routeCandidate": "http_edge_group_push_command",
-        "routeDecision": "entered_edge_pre_route",
-        "routeResult": "observed_only",
-        "errorCode": ""
-      }
-    ]
+    "count": 0,
+    "latest": []
   },
   "maxWebhookEdgeDiagnostics": {
-    "count": 2,
-    "latest": [
-      {
-        "at": "2026-06-08T09:06:35.679Z",
-        "method": "POST",
-        "path": "/webhook/max",
-        "contentType": "application/json; charset=UTF-8",
-        "bodyType": "object",
-        "topLevelKeys": [
-          "timestamp",
-          "message",
-          "update_type"
-        ],
-        "updateType": "message_created",
-        "action": "",
-        "hasMessage": true,
-        "hasCallback": false,
-        "hasText": true,
-        "textPreview": "/push",
-        "normalizedText": "/push",
-        "matchedPushCommand": true,
-        "hasSender": true,
-        "hasSenderUserId": true,
-        "senderUserIdLast4": "7246",
-        "hasRecipient": true,
-        "hasChat": true,
-        "hasChatId": true,
-        "chatIdLast4": "2142",
-        "chatTitlePreview": "",
-        "routeStage": "http_webhook_edge",
-        "handedToBot": true,
-        "botResultKind": "response_sent_200_edge_group_push",
-        "errorCode": ""
-      },
-      {
-        "at": "2026-06-08T09:07:04.383Z",
-        "method": "POST",
-        "path": "/webhook/max",
-        "contentType": "application/json; charset=UTF-8",
-        "bodyType": "object",
-        "topLevelKeys": [
-          "timestamp",
-          "message",
-          "update_type"
-        ],
-        "updateType": "message_created",
-        "action": "",
-        "hasMessage": true,
-        "hasCallback": false,
-        "hasText": true,
-        "textPreview": "Привет",
-        "normalizedText": "",
-        "matchedPushCommand": false,
-        "hasSender": true,
-        "hasSenderUserId": true,
-        "senderUserIdLast4": "7246",
-        "hasRecipient": true,
-        "hasChat": true,
-        "hasChatId": true,
-        "chatIdLast4": "2142",
-        "chatTitlePreview": "",
-        "routeStage": "http_webhook_edge",
-        "handedToBot": true,
-        "botResultKind": "response_sent_200",
-        "errorCode": ""
-      }
-    ]
+    "count": 0,
+    "latest": []
   },
   "pushDispatchDiagnostics": {
     "count": 0,
@@ -538,7 +400,7 @@
       "gitCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
       "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
       "buildGeneratedAt": "2026-06-05T00:00:00Z",
-      "serverStartedAt": "2026-06-08T09:03:16.952Z",
+      "serverStartedAt": "2026-06-08T09:09:16.903Z",
       "buildInfoSource": "build-info.json/package.json/env-fresh-only",
       "staleEnvIgnored": {
         "BUILD_VERSION": false,
@@ -548,7 +410,7 @@
       "staleEndpointDetected": false,
       "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
       "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-      "generatedAt": 1780909706207
+      "generatedAt": 1780909863817
     },
     "posts": {
       "-70251029837230:116709012212747400": {
@@ -6617,6 +6479,61 @@
         "originalSnapshotCaptured": true,
         "originalSnapshotEmptyKnown": false
       },
+      "-75643106932142:116713692956861100": {
+        "postId": "116713692956861100",
+        "autoMode": true,
+        "channelId": "-75643106932142",
+        "createdAt": 1780909624870,
+        "messageId": "mid.ffffbb33f77b4a52019ea67c411e22b4",
+        "updatedAt": 1780909626461,
+        "commentKey": "-75643106932142:116713692956861100",
+        "channelTitle": "-75643106932142",
+        "handoffToken": "h_692956861100mq4zlwxhr38ytrja",
+        "linkedByName": "Alex P",
+        "originalLink": null,
+        "originalText": "Привет",
+        "lastPatchedAt": 1780909626461,
+        "stablePayload": "cp_-75643106932142_116713692956861100",
+        "customKeyboard": {},
+        "giftCampaignId": "",
+        "lastIngestedAt": 1780909624870,
+        "lastPatchError": null,
+        "linkedByUserId": "17507246",
+        "lastPatchedText": "Привет",
+        "nativeReactions": [],
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "lastGiftRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "originalLinkKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachments": [],
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "💬 Комментарии",
+                    "type": "open_app",
+                    "payload": "cp_-75643106932142_116713692956861100",
+                    "web_app": "id781310320690_bot"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "textOverrideActive": false,
+        "lastCustomRowsCount": 0,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "originalFormatKnown": false,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116713692956861100\"}]]}}],\"text\":\"Привет\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+        "sourceAttachmentsKnown": false,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false
+      },
       "selftest_pr88_1780301418431_p2i0sr": {
         "raw": {
           "title": "Production comments matrix selftest post",
@@ -6964,61 +6881,6 @@
             "previewUrl": "/public/stickers/adminkit/v1/adminkit_ok.webp"
           }
         ]
-      },
-      "-75643106932142:116713692956861100": {
-        "postId": "116713692956861100",
-        "channelId": "-75643106932142",
-        "messageId": "mid.ffffbb33f77b4a52019ea67c411e22b4",
-        "originalText": "Привет",
-        "sourceAttachments": [],
-        "nativeReactions": [],
-        "originalLink": null,
-        "originalSnapshotCaptured": true,
-        "originalSnapshotEmptyKnown": false,
-        "originalTextKnown": true,
-        "sourceAttachmentsKnown": false,
-        "originalLinkKnown": false,
-        "originalFormatKnown": false,
-        "channelTitle": "-75643106932142",
-        "textOverrideActive": false,
-        "linkedByUserId": "17507246",
-        "linkedByName": "Alex P",
-        "autoMode": true,
-        "handoffToken": "h_692956861100mq4zlwxhr38ytrja",
-        "stablePayload": "cp_-75643106932142_116713692956861100",
-        "customKeyboard": {},
-        "createdAt": 1780909624870,
-        "lastIngestedAt": 1780909624870,
-        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
-        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
-        "commentKey": "-75643106932142:116713692956861100",
-        "updatedAt": 1780909626461,
-        "patchedAttachments": [
-          {
-            "type": "inline_keyboard",
-            "payload": {
-              "buttons": [
-                [
-                  {
-                    "type": "open_app",
-                    "text": "💬 Комментарии",
-                    "web_app": "id781310320690_bot",
-                    "payload": "cp_-75643106932142_116713692956861100"
-                  }
-                ]
-              ]
-            }
-          }
-        ],
-        "lastPatchedText": "Привет",
-        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116713692956861100\"}]]}}],\"text\":\"Привет\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
-        "lastPatchedAt": 1780909626461,
-        "lastPatchError": null,
-        "giftCampaignId": "",
-        "lastCustomRowsCount": 0,
-        "lastPollRowsCount": 0,
-        "lastGiftRowsCount": 0,
-        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77"
       }
     },
     "comments": {
@@ -8858,6 +8720,7 @@
       "-75643106932142:116711283811174340": [],
       "-75643106932142:116711299071809470": [],
       "-75643106932142:116711299868870600": [],
+      "-75643106932142:116713692956861100": [],
       "selftest_pr88_1779989436513_pqespk": [
         {
           "id": "1779989440516_m5o960",
@@ -10199,8 +10062,7 @@
           "attachments": [],
           "runtimeVersion": "CC8.2.0-ADMINKIT-STICKERS-COMMENTS-PR87"
         }
-      ],
-      "-75643106932142:116713692956861100": []
+      ]
     },
     "channels": {
       "260767839": {
@@ -10954,10 +10816,10 @@
       "-75643106932142:116711283811174340": {},
       "-75643106932142:116711299071809470": {},
       "-75643106932142:116711299868870600": {},
+      "-75643106932142:116713692956861100": {},
       "selftest_pr88_1780301418431_p2i0sr": {},
       "selftest_pr88_1780301487396_a47bum": {},
-      "selftest_pr88_1780309105318_je8f8c": {},
-      "-75643106932142:116713692956861100": {}
+      "selftest_pr88_1780309105318_je8f8c": {}
     },
     "reactions": {
       "-73175958664622:116630034142543730": {
@@ -11074,8 +10936,7 @@
             "selftest_owner": true
           }
         }
-      },
-      "-75643106932142:116713692956861100": {}
+      }
     },
     "handoffs": {
       "h_001681993680mpf2ov2n3nk29mlx": {
@@ -11672,6 +11533,15 @@
         "commentKey": "-73175958664622:116657663670426180",
         "stablePayload": "cp_-73175958664622_116657663670426180"
       },
+      "h_692956861100mq4zlwxhr38ytrja": {
+        "token": "[redacted]",
+        "postId": "116713692956861100",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea67c411e22b4",
+        "updatedAt": 1780909626461,
+        "commentKey": "-75643106932142:116713692956861100",
+        "stablePayload": "cp_-75643106932142_116713692956861100"
+      },
       "h_735250077840mq48qllb4otrfutc": {
         "token": "[redacted]",
         "postId": "116710735250077840",
@@ -11869,15 +11739,6 @@
         "updatedAt": 1779541012553,
         "commentKey": "-73175958664622:116623999186137120",
         "stablePayload": "cp_-73175958664622_116623999186137120"
-      },
-      "h_692956861100mq4zlwxhr38ytrja": {
-        "commentKey": "-75643106932142:116713692956861100",
-        "postId": "116713692956861100",
-        "channelId": "-75643106932142",
-        "messageId": "mid.ffffbb33f77b4a52019ea67c411e22b4",
-        "stablePayload": "cp_-75643106932142_116713692956861100",
-        "token": "[redacted]",
-        "updatedAt": 1780909626461
       }
     },
     "uploadDiagnostics": [
