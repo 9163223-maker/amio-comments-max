@@ -6301,6 +6301,10 @@ function clearPushDispatchDiagnostics() {
 module.exports = {
   handleWebhook,
   handleGroupPushCommandUpdate,
+  getMessage,
+  getMessageText,
+  liveChatPushSkipReason,
+  dispatchLiveChatPushNotification,
   getPostPatchTraceEvents,
   getPostPatchPerfMetrics,
   pushPostPatchTrace,
