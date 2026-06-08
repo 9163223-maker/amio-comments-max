@@ -1,10 +1,10 @@
 {
-  "runtimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-  "buildVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-  "displayVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-  "packageVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-  "sourceMarker": "adminkit-cc8-3-50-pr131-live-sync-audit-5a39d1f",
-  "buildGeneratedAt": "2026-06-05T00:00:00Z",
+  "runtimeVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
+  "buildVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
+  "displayVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
+  "packageVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
+  "sourceMarker": "adminkit-pr165-push-runtime-wired",
+  "buildGeneratedAt": "2026-06-08T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
     "version": "1.53.11",
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F"
+    "activeRuntimeVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED"
   },
   "persistentStore": {
     "enabled": true,
@@ -90,7 +90,9 @@
     "Open Голосовалки / опросы → choose post → create quick poll → vote by callback button under post",
     "Open Архив / восстановление and verify archive counts survived the same update"
   ],
-  "gitCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
-  "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
-  "liveSyncAudit": "PR131 live deploy sync audit marker; expected on /debug/version-live after redeploy"
+  "gitCommit": "",
+  "pr131MergeCommit": "",
+  "liveSyncAudit": "PR165 wires PR164 push behavior into active Northflank production runtime",
+  "pr165RuntimeWired": true,
+  "pr165LiveChatPushRuntime": "clean-bot-live-chat-push-pr165.js"
 }

@@ -14,12 +14,12 @@ const { getBuildInfo } = require('./buildInfo');
 const liveIdentity = require('./services/liveIdentityService');
 const menu = require('./v3-menu-core-1539');
 
-const RUNTIME = 'CC8.3.50-PR131-LIVE-SYNC-AUDIT-ROUTES';
+const RUNTIME = 'CC8.3.51-PR165-PUSH-RUNTIME-WIRED-ROUTES';
 const STARTED_AT = new Date().toISOString();
 
 function clean(value) { return String(value || '').trim(); }
 function liveRuntime() { return clean(process.env.RUNTIME_VERSION || process.env.BUILD_VERSION || RUNTIME) || RUNTIME; }
-function liveSourceMarker() { return clean(process.env.BUILD_SOURCE_MARKER) || 'adminkit-cc8-3-50-pr131-live-sync-audit-5a39d1f'; }
+function liveSourceMarker() { return clean(process.env.BUILD_SOURCE_MARKER) || 'adminkit-pr165-push-runtime-wired'; }
 function noCache(res) { try { res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0', Pragma: 'no-cache', Expires: '0', 'Surrogate-Control': 'no-store' }); } catch {} }
 function safeInt(value, fallback = 100, min = 1, max = 1000) { const n = Number(value); if (!Number.isFinite(n)) return fallback; return Math.max(min, Math.min(Math.floor(n), max)); }
 function take(list, limit) { return (Array.isArray(list) ? list : []).slice(0, limit); }
