@@ -7,23 +7,39 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="АдминКИТ Push">
   <link rel="manifest" href="/push/manifest.json">
-  <link rel="apple-touch-icon" href="/public/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/public/favicon-32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/public/adminkit-push-icon-192.png?v=pr167">
+  <link rel="icon" type="image/png" sizes="192x192" href="/public/adminkit-push-icon-192.png?v=pr167">
+  <link rel="icon" type="image/png" sizes="512x512" href="/public/adminkit-push-icon-512.png?v=pr167">
   <title>АдминКИТ Push</title>
   <style>
-    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8fafc; color: #111827; }
-    main { max-width: 720px; margin: 0 auto; padding: 20px; }
-    h1 { font-size: 24px; margin: 8px 0 4px; }
-    p { color: #475569; }
-    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; margin: 14px 0; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
-    button, input { font: inherit; border-radius: 12px; border: 1px solid #cbd5e1; padding: 12px 14px; }
-    button { background: #111827; color: #fff; margin: 6px 6px 6px 0; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at top, #eff6ff 0, #f8fafc 42%, #fff 100%); color: #111827; }
+    main { max-width: 720px; margin: 0 auto; padding: max(20px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom)); }
+    h1 { font-size: 30px; margin: 14px 0 8px; letter-spacing: -.03em; }
+    h2 { font-size: 18px; margin: 0 0 12px; }
+    p { color: #475569; line-height: 1.5; }
+    .brand { text-align: center; padding: 20px 8px 8px; }
+    .brand-logo { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 18px 40px rgba(37, 99, 235, .18); }
+    .card { background: rgba(255,255,255,.92); border: 1px solid #e5e7eb; border-radius: 24px; padding: 18px; margin: 14px 0; box-shadow: 0 12px 30px rgba(15, 23, 42, .06); }
+    .primary-card { text-align: center; }
+    button, input { font: inherit; border-radius: 14px; border: 1px solid #cbd5e1; padding: 12px 14px; }
+    button { background: #2563eb; color: #fff; margin: 6px 6px 6px 0; border-color: #2563eb; font-weight: 700; }
+    #enableBtn { width: min(100%, 360px); font-size: 17px; padding: 15px 18px; }
     input { width: min(100%, 420px); box-sizing: border-box; }
     dl { display: grid; grid-template-columns: minmax(180px, 1fr) 1fr; gap: 8px 12px; }
     dt { color: #475569; }
     dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
     pre { white-space: pre-wrap; background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 12px; overflow: auto; }
-    .warning { color: #9a3412; background: #fffbeb; border: 1px solid #fed7aa; border-radius: 12px; padding: 10px 12px; }
+    .warning { color: #92400e; background: #fffbeb; border: 1px solid #fed7aa; border-radius: 14px; padding: 10px 12px; }
+    #clientStatus[data-kind="success"] { color: #166534; background: #f0fdf4; border-color: #bbf7d0; }
+    #clientStatus[data-kind="info"], #clientStatus[data-kind="idle"] { color: #334155; background: #f8fafc; border-color: #e2e8f0; }
+    #clientStatus[data-kind="error"] { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
+    .chat-list { display: grid; gap: 10px; margin-top: 12px; }
+    .chat-card { border: 1px solid #dbeafe; background: #eff6ff; border-radius: 18px; padding: 14px; }
+    .chat-card strong { display: block; color: #0f172a; margin-bottom: 4px; }
+    .chat-card span { color: #166534; font-size: 14px; }
+    .empty-state { color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 18px; padding: 14px; }
+    .admin-success { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 10px 12px; }
+    .admin-error { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; border-radius: 14px; padding: 10px 12px; }
     #subscribeSteps { margin: 0; padding-left: 22px; color: #334155; }
     #subscribeSteps li { margin: 6px 0; }
     #subscribeSteps li[data-state=done] { color: #166534; }
@@ -34,12 +50,15 @@
 </head>
 <body>
   <main>
-    <h1>АдминКИТ Push</h1>
-    <p id="introText">Откройте это приложение с экрана Домой и нажмите «Включить уведомления».</p>
-    <p id="pairingNotice" hidden>Подключение уведомлений для вашего чата готово.</p>
+    <header class="brand">
+      <img class="brand-logo" src="/public/adminkit-push-icon-192.png?v=pr167" width="96" height="96" alt="AdminKIT Push">
+      <h1>АдминКИТ Push</h1>
+      <p id="introText">Откройте приложение с экрана Домой и нажмите «Включить уведомления».</p>
+    </header>
+    <p id="pairingNotice" hidden>Готово. Уведомления подключены.</p>
     <p id="clientStatus" class="warning" aria-live="polite">—</p>
 
-    <section class="card">
+    <section class="card primary-card">
       <button id="enableBtn" type="button">Включить уведомления</button>
       <!-- admin-diagnostics-start -->
       <button id="testBtn" type="button">Отправить тестовое уведомление</button>
@@ -51,17 +70,25 @@
       <!-- admin-diagnostics-end -->
     </section>
 
+    <section class="card" id="connectedChatsSection">
+      <h2>Подключённые чаты</h2>
+      <div id="connectedChatsList" class="chat-list" aria-live="polite">
+        <div class="empty-state">Откройте ссылку из MAX или нажмите кнопку подключения в чате.</div>
+      </div>
+    </section>
+
     <!-- admin-diagnostics-start -->
     <section class="card" id="maxChatDiagnostics">
-      <h2>MAX group chat diagnostics</h2>
-      <p>Админская диагностика чатов MAX, где бот уже добавлен. Токен MAX хранится только на сервере.</p>
+      <h2>Публикация приглашения Push</h2>
+      <p>Выберите чат, где бот уже добавлен, и опубликуйте безопасное приглашение с callback-кнопкой.</p>
       <button id="maxChatsBtn" type="button">Получить чаты бота</button>
       <input id="maxChatKey" type="hidden" autocomplete="off" placeholder="MAX internal chat ID">
       <p id="selectedMaxChatDiagnostic">Выбран чат: —</p>
-      <button id="maxPublishInviteBtn" type="button">Опубликовать приглашение в чат</button>
+      <button id="maxPublishInviteBtn" type="button" title="Опубликовать приглашение в чат">Опубликовать приглашение Push в чат</button>
       <button id="maxMembersBtn" type="button">Получить участников</button>
       <div id="maxChatsOutput" aria-live="polite"></div>
       <div id="maxMembersOutput" aria-live="polite"></div>
+      <p id="maxInviteStatus" aria-live="polite">—</p>
       <pre id="maxDiagnosticsResult">—</pre>
     </section>
     <!-- admin-diagnostics-end -->
@@ -106,6 +133,7 @@
 
     <!-- raw-diagnostics-end -->
 
+    <!-- raw-diagnostics-start -->
     <section class="card">
       <h2>Последний результат</h2>
       <pre id="lastResult">—</pre>
@@ -114,6 +142,7 @@
       <pre id="lastServerTest">—</pre>
       <!-- admin-diagnostics-end -->
     </section>
+    <!-- raw-diagnostics-end -->
   </main>
   <script src="/public/push-client.js"></script>
 </body>

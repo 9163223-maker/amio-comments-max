@@ -9,6 +9,16 @@ const PROMPT_BUTTON_TEXT = '✅ Подтвердить устройство';
 
 function clean(value) { return String(value || '').trim(); }
 function shortId(value) { return clean(value).slice(0, 16); }
+function safeChatItem(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const title = clean(source.chatTitle || source.title).slice(0, 120);
+  const chatId = clean(source.chatId).replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
+  if (!title && !chatId) return null;
+  return { chatId, title: title || 'Чат MAX', status: 'Уведомления включены' };
+}
+function safeChats(value) {
+  return Array.isArray(value) ? value.map(safeChatItem).filter(Boolean).slice(0, 20) : [];
+}
 
 function buildCallbackPayload(deviceId) {
   return JSON.stringify({ action: ACTION, d: clean(deviceId) });
@@ -28,7 +38,8 @@ function safePublicResult(result = {}) {
     confirmationRequired: result.confirmationRequired === false ? false : true,
     confirmationSent: Boolean(result.confirmationSent),
     confirmationDispatch: clean(result.confirmationDispatch) || (result.confirmationSent ? 'sent' : 'not_available'),
-    deviceId: shortId(result.deviceId)
+    deviceId: shortId(result.deviceId),
+    chats: safeChats(result.chats)
   };
 }
 

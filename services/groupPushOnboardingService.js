@@ -21,13 +21,10 @@ function publicBaseUrl(detectedBaseUrl = '') {
 function buildGroupInviteText(title = '') {
   const safeTitle = clean(title).slice(0, 120);
   return [
-    '🔔 Хотите получать уведомления этого чата на iPhone?',
+    'Включите уведомления этого чата на iPhone. Нажмите кнопку — бот отправит персональную ссылку в личные сообщения.',
     safeTitle ? `Чат: «${safeTitle}»` : '',
-    '',
-    'Нажмите кнопку — бот отправит персональную ссылку в личные сообщения.',
-    '',
     'Если кнопка недоступна, можно написать /push в этом чате — бот всё равно отправит ссылку только в личку.'
-  ].filter((line, index) => line || index === 2 || index === 4).join('\n').trim();
+  ].filter(Boolean).join('\n').trim();
 }
 
 function buildGroupInviteKeyboard() {

@@ -393,7 +393,7 @@ function install(app) {
       if (code === 'push_pairing_token_used') {
         return sendPushPage(req, res, { mode: 'client', joinMode: true, tokenStatus: 'used', token });
       }
-      return res.status(400).send(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>АдминКИТ Push</title></head><body><main><h1>АдминКИТ Push</h1><p>Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.</p><p>Код: ${code}</p></main></body></html>`);
+      return res.status(400).send(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="apple-touch-icon" sizes="180x180" href="/public/adminkit-push-icon-192.png?v=pr167"><title>АдминКИТ Push</title></head><body><main><h1>АдминКИТ Push</h1><p>Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.</p><p>Подключённые чаты появятся здесь после включения уведомлений.</p></main></body></html>`);
     }
   });
 
@@ -410,8 +410,8 @@ function install(app) {
       theme_color: '#111827',
       background_color: '#f8fafc',
       icons: [
-        { src: '/public/adminkit-push-icon-192.png', sizes: '192x192', type: 'image/png' },
-        { src: '/public/adminkit-push-icon-512.png', sizes: '512x512', type: 'image/png' }
+        { src: '/public/adminkit-push-icon-192.png?v=pr167', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+        { src: '/public/adminkit-push-icon-512.png?v=pr167', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
       ]
     });
   });
@@ -499,13 +499,15 @@ function install(app) {
       if (!device || device.disabled || !['active', 'pending'].includes(device.status)) {
         return res.status(404).json({ ok: false, error: 'push_device_not_paired', requestShape });
       }
+      const chats = await storage.listChatBindingsForUser(device.maxUserId);
       return res.json(confirmation.safePublicResult({
         ok: true,
         status: device.status,
         confirmationRequired: device.status !== 'active',
         confirmationSent: false,
         confirmationDispatch: 'not_needed',
-        deviceId: device.deviceId
+        deviceId: device.deviceId,
+        chats
       }));
     } catch (error) {
       const extracted = extractPushSubscriptionFromBody(body);
@@ -535,7 +537,8 @@ function install(app) {
           deviceId: activeDevice.deviceId,
           endpointHash
         });
-        return res.json(confirmation.safePublicResult({ ok: true, status: 'active', confirmationRequired: false, confirmationSent: false }));
+        const chats = await storage.listChatBindingsForUser(verified.maxUserId);
+        return res.json(confirmation.safePublicResult({ ok: true, status: 'active', confirmationRequired: false, confirmationSent: false, chats }));
       }
       const saved = await storage.savePairedDevice(cleanSubscription, {
         maxUserId: verified.maxUserId,
@@ -545,12 +548,14 @@ function install(app) {
         status: 'pending'
       });
       const prompt = await confirmation.sendConfirmationPrompt({ maxUserId: verified.maxUserId, deviceId: saved.deviceId });
+      const chats = await storage.listChatBindingsForUser(verified.maxUserId);
       return res.json(confirmation.safePublicResult({
         ok: true,
         status: saved.status,
         deviceId: saved.deviceId,
         confirmationSent: prompt.confirmationSent,
-        confirmationDispatch: prompt.confirmationDispatch
+        confirmationDispatch: prompt.confirmationDispatch,
+        chats
       }));
     } catch (error) {
       const extracted = extractPushSubscriptionFromBody(body);
