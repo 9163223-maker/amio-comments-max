@@ -7,7 +7,12 @@ const gate = require('../services/accessGateService');
 
 function clean(value) { return String(value || '').trim(); }
 function button(text, action, extra = {}) { return menu.button(text, action, extra); }
+function link(text, url) { return menu.link(text, url); }
 function keyboard(rows) { return menu.keyboard(rows); }
+function publicPushUrl() {
+  const base = clean(process.env.PUBLIC_BASE_URL || process.env.ADMINKIT_PUBLIC_BASE_URL || process.env.APP_BASE_URL || menu.BASE || 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run').replace(/\/+$/, '');
+  return `${base}/push`;
+}
 function dateRu(value = '') { if (!value) return 'без даты окончания'; const d = new Date(value); return Number.isNaN(d.getTime()) ? 'без даты окончания' : d.toLocaleDateString('ru-RU', { timeZone: 'UTC' }); }
 function channelTitle(channel = {}) { return clean(channel.title || channel.channelTitle || channel.name || channel.channelName || channel.channelId || 'Канал'); }
 
@@ -16,6 +21,7 @@ function activationScreen() {
     id: 'pr106_activation_required',
     text: ['АдминКИТ', '', 'Для работы с АдминКИТ активируйте доступ. Если у вас уже есть код — нажмите «Активировать код».'].join('\n'),
     attachments: keyboard([
+      [button('🔔 Уведомления чатов', 'account_push_notifications')],
       [button('Активировать код', 'account_activate_code')],
       [button('Что умеет АдминКИТ', 'account_capabilities')],
       [button('Поддержка', 'account_support')]
@@ -29,6 +35,7 @@ function expiredScreen(maxUserId = '') {
     id: 'pr106_access_expired',
     text: ['АдминКИТ', '', 'Доступ истёк. Вы можете посмотреть личный кабинет, продлить доступ или написать в поддержку.', '', `Тариф: ${state.tariff?.name || state.planId || '—'}`, `Дата окончания: ${dateRu(state.expiresAt)}`].join('\n'),
     attachments: keyboard([
+      [button('🔔 Уведомления чатов', 'account_push_notifications')],
       [button('Мой доступ', 'account_my_access')],
       [button('Оплата / продление', 'account_payment')],
       [button('Поддержка', 'account_support')]
@@ -77,6 +84,7 @@ function activationPrompt(maxUserId = '') {
     id: 'account_activate_code',
     text: ['🔐 Активировать код', '', 'Отправьте код доступа одним сообщением.', 'Если кода нет — нажмите «Поддержка».'].join('\n'),
     attachments: keyboard([
+      [button('🔔 Уведомления чатов', 'account_push_notifications')],
       [button('Попробовать снова', 'account_activate_code')],
       [button('Поддержка', 'account_support')]
     ])
@@ -199,6 +207,54 @@ function capabilitiesScreen() {
 }
 
 
+
+function pushNotificationsScreen(maxUserId = '') {
+  const state = access.getAccessState(maxUserId);
+  return {
+    id: 'account_push_notifications',
+    text: [
+      '🔔 Уведомления чатов',
+      '',
+      'Получайте уведомления из MAX-чата на iPhone через AdminKIT Push.',
+      '',
+      'Как подключить:',
+      '1. Откройте нужный MAX-чат, где установлен бот.',
+      '2. Нажмите «Подключить уведомления» или напишите /push.',
+      '3. Бот пришлёт личную ссылку. Откройте её и включите уведомления.',
+      '',
+      'Это бесплатная функция. Код доступа и регистрация в админке не требуются.'
+    ].join('\n'),
+    attachments: keyboard([
+      [link('Открыть AdminKIT Push', publicPushUrl())],
+      [button('Как подключить чат', 'account_push_notifications_help')],
+      [button('Активировать код', 'account_activate_code')],
+      [button(state.active || state.admin ? 'Главное меню' : 'Поддержка', state.active || state.admin ? 'admin_section_main' : 'account_support')]
+    ])
+  };
+}
+
+function pushNotificationsHelpScreen(maxUserId = '') {
+  const state = access.getAccessState(maxUserId);
+  return {
+    id: 'account_push_notifications_help',
+    text: [
+      '🔔 Как подключить чат',
+      '',
+      '1. Откройте MAX-чат, где установлен бот.',
+      '2. Нажмите «Подключить уведомления» или отправьте команду /push.',
+      '3. Откройте личную ссылку из сообщения бота и включите уведомления в AdminKIT Push.',
+      '',
+      'Подключение бесплатное. Активация доступа, регистрация в админке и владение каналом не нужны.'
+    ].join('\n'),
+    attachments: keyboard([
+      [link('Открыть AdminKIT Push', publicPushUrl())],
+      [button('Уведомления чатов', 'account_push_notifications')],
+      [button('Активировать код', 'account_activate_code')],
+      [button(state.active || state.admin ? 'Главное меню' : 'Поддержка', state.active || state.admin ? 'admin_section_main' : 'account_support')]
+    ])
+  };
+}
+
 function deniedFeatureScreen(decision = {}, maxUserId = '') {
   const state = decision.state || access.getAccessState(maxUserId);
   if (state.status === 'expired') return expiredScreen(maxUserId);
@@ -239,6 +295,7 @@ function accountHome(maxUserId = '') {
 
 function accountKeyboard(current = '', state = {}) {
   const rows = [];
+  if (current !== 'account_push_notifications') rows.push([button('🔔 Уведомления чатов', 'account_push_notifications')]);
   if (current !== 'account_my_access') rows.push([button('Мой доступ', 'account_my_access')]);
   if (current !== 'account_activate_code') rows.push([button('Активировать код', 'account_activate_code')]);
   if (current !== 'account_payment') rows.push([button('Оплата / продление', 'account_payment')]);
@@ -253,6 +310,8 @@ function screenForAction(action = '', maxUserId = '') {
   const a = clean(action);
   if (a === 'admin_section_tariffs' || a === 'account_home') return accountHome(maxUserId);
   if (a === 'account_my_access' || a === 'billing_current_plan') return myAccessScreen(maxUserId);
+  if (a === 'account_push_notifications') return pushNotificationsScreen(maxUserId);
+  if (a === 'account_push_notifications_help') return pushNotificationsHelpScreen(maxUserId);
   if (a === 'account_activate_code') return activationPrompt(maxUserId);
   if (a === 'account_payment' || a === 'billing_upgrade') return paymentScreen(maxUserId);
   if (a === 'account_limits' || a === 'billing_limits') return limitsScreen(maxUserId);
@@ -262,4 +321,4 @@ function screenForAction(action = '', maxUserId = '') {
   return null;
 }
 
-module.exports = { activationScreen, expiredScreen, deniedFeatureScreen, screenForGateDecision, accessGateScreen, gateMenuForUser, accountHome, myAccessScreen, activationPrompt, activationResultScreen, paymentScreen, limitsScreen, channelsScreen, supportScreen, capabilitiesScreen, screenForAction };
+module.exports = { activationScreen, expiredScreen, pushNotificationsScreen, pushNotificationsHelpScreen, deniedFeatureScreen, screenForGateDecision, accessGateScreen, gateMenuForUser, accountHome, myAccessScreen, activationPrompt, activationResultScreen, paymentScreen, limitsScreen, channelsScreen, supportScreen, capabilitiesScreen, screenForAction };

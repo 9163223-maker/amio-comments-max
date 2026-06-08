@@ -13,6 +13,8 @@ const ACCOUNT_ACTIONS = new Set([
   'billing_upgrade',
   'account_home',
   'account_my_access',
+  'account_push_notifications',
+  'account_push_notifications_help',
   'account_activate_code',
   'account_payment',
   'account_limits',

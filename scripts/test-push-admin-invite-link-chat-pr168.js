@@ -65,7 +65,7 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
     assert(pushClient.includes('Готово. Уведомления этого чата подключены.') && pushClient.includes('Можно подключить этот чат к уже установленному AdminKIT Push.'), 'add-chat flow has product copy');
     assert(!pushHtml.replace(/[\s\S]*<!-- raw-diagnostics-start -->[\s\S]*/m, '').includes('Последний результат'), 'normal PWA shell hides raw diagnostics before marker strip');
     assert(!/appendResult\([^)]*(endpoint|p256dh|auth|PUSH_ADMIN_TOKEN|BOT_TOKEN|pairingToken)/.test(pushClient), 'client does not append raw push or secret fields');
-    assert(entrypoint.includes('adminkit-pr168-real-admin-push-invite-link-chat') && pkg.sourceMarker === 'adminkit-pr168-real-admin-push-invite-link-chat', 'active runtime marker is PR168');
+    assert(entrypoint.includes('PR168-PR169-PUBLIC-PUSH-ENTRYPOINT') && pkg.sourceMarker === 'adminkit-pr169-public-push-entrypoint', 'active runtime keeps PR168 lineage under the PR169 marker');
 
     const pairing = fresh('../services/pushPairingService');
     const storage = fresh('../services/webPushStorage');
