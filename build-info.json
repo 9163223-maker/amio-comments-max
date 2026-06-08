@@ -1,9 +1,9 @@
 {
-  "runtimeVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
-  "buildVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
-  "displayVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
-  "packageVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
-  "sourceMarker": "adminkit-pr165-push-runtime-wired",
+  "runtimeVersion": "CC8.3.52-PR172-VISIBLE-PUSH-ADMIN-FLOW",
+  "buildVersion": "CC8.3.52-PR172-VISIBLE-PUSH-ADMIN-FLOW",
+  "displayVersion": "CC8.3.52-PR172-VISIBLE-PUSH-ADMIN-FLOW",
+  "packageVersion": "CC8.3.52-PR172-VISIBLE-PUSH-ADMIN-FLOW",
+  "sourceMarker": "adminkit-pr172-visible-push-admin-flow",
   "buildGeneratedAt": "2026-06-08T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED"
+    "activeRuntimeVersion": "CC8.3.52-PR172-VISIBLE-PUSH-ADMIN-FLOW"
   },
   "persistentStore": {
     "enabled": true,
@@ -74,6 +74,7 @@
     "Архив / восстановление",
     "Модерация",
     "Статистика",
+    "Push-уведомления",
     "Тарифы / кабинет",
     "Debug / GitHub export"
   ],
@@ -92,7 +93,7 @@
   ],
   "gitCommit": "",
   "pr131MergeCommit": "",
-  "liveSyncAudit": "PR165 wires PR164 push behavior into active Northflank production runtime",
+  "liveSyncAudit": "PR172 exposes the chat-scoped AdminKIT Push publishing flow while preserving PR168/PR170 behavior",
   "pr165RuntimeWired": true,
   "pr165LiveChatPushRuntime": "clean-bot-live-chat-push-pr165.js"
 }

@@ -68,6 +68,14 @@ const sections = [
     ],
   },
   {
+    id: 'push', title: '🔔 Push-уведомления', route: 'push:home', clientVisible: true, adminOnly: false,
+    featureKey: 'channels', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
+    actions: [
+      action({ id: 'push.publish', title: 'Опубликовать приглашение в чат', section: 'push', existingAction: 'admin_push_select_chat', featureKey: 'channels' }),
+      action({ id: 'push.help', title: 'Как это работает', section: 'push', existingAction: 'admin_push_help', featureKey: 'channels' }),
+    ],
+  },
+  {
     id: 'ad_links', title: 'Рекламные ссылки', route: 'ad_links:home', aliases: ['ads:home'], clientVisible: true, adminOnly: false,
     featureKey: 'ad_links', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
@@ -172,7 +180,7 @@ function validate() {
   const banned = [/\bCTA\b/i, /Debug/i, /trace/i, /GitHub export/i, /production checklist/i, /postId/i, /channelId/i, /commentKey/i, /token/i, /payload/i, /видео/i, /файл/i];
   const flowSteps = ['Выбрать канал', 'Выбрать пост', 'Материал подарка', 'Текст получателю', 'Условия'];
   const errors = [];
-  if (clientSections.length !== 12) errors.push(`client_sections_count:${clientSections.length}`);
+  if (clientSections.length !== 13) errors.push(`client_sections_count:${clientSections.length}`);
   for (const pattern of banned) if (pattern.test(joined)) errors.push(`banned_label:${pattern}`);
   for (const step of flowSteps) if (labels.some((label) => label.toLowerCase() === step.toLowerCase())) errors.push(`flow_step_root:${step}`);
   for (const item of allActions().filter((entry) => entry.clientVisible && entry.requiresPost && !entry.requiresChannel)) errors.push(`post_without_channel:${item.id}`);

@@ -71,7 +71,7 @@ function isPrivateUserChat(message = {}) {
 }
 function isAdminRuntimeAction(action = '') {
   const a = clean(action);
-  return a === 'admin_panel' || a === 'admin_push_publish_invite' || a === 'admin_codes_list' || a === 'admin_tenants_list' || a.startsWith('admin_code_') || a.startsWith('admin_tenant_');
+  return a === 'admin_panel' || a === 'admin_codes_list' || a === 'admin_tenants_list' || a.startsWith('admin_code_') || a.startsWith('admin_tenant_');
 }
 function adminPrivateChatScreen() { return { id: 'pr108_admin_private_chat_required', text: 'Админ-панель доступна только в личном чате с ботом.', attachments: [] }; }
 function callbackId(callback = {}) { return clean(callback?.callback_id || callback?.callbackId || callback?.id); }

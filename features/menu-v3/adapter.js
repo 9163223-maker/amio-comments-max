@@ -237,6 +237,20 @@ function postScreen(owner, context = {}) {
   return { ok: true, route: `${owner}:post`, owner, pickerContract: postPickerContract(owner), text: `${sectionTitle(owner)}\n\nПост: ${title}\n\nВыберите действие.`, attachments: keyboard([...(rowsByOwner[owner] || []), ...sectionNavRows(owner, { currentRoute: `${owner}:post`, backAction: `${owner}:choose_post` })]) };
 }
 
+function pushHome() {
+  return {
+    ok: true,
+    route: 'push:home',
+    owner: 'push',
+    text: ['🔔 Push-уведомления', '', 'Опубликуйте кнопку подключения в MAX-чат, чтобы участники могли получать уведомления на iPhone через AdminKIT Push.'].join('\n'),
+    attachments: keyboard([
+      [button('Опубликовать приглашение в чат', 'admin_push_select_chat')],
+      [button('Как это работает', 'admin_push_help')],
+      [navButton('Главное меню', 'main:home')]
+    ])
+  };
+}
+
 function placeholderScreen(route, context = {}) {
   const owner = ownerOf(route);
   return { ok: true, route, owner, text: `${sectionTitle(owner)}\n\nРаздел подготовлен. Действие будет включено после безопасной реализации.`, attachments: keyboard(sectionNavRows(owner, { currentRoute: route, backAction: safeSectionHomeAction(owner) })) };
@@ -267,6 +281,7 @@ function render(route, context = {}) {
     const section = canonical.resolveSectionByRoute(safeRoute);
     const owner = section ? section.id : ownerOf(safeRoute);
     if (safeRoute.endsWith(':help')) return sectionHelpScreen(owner);
+    if (owner === 'push' && safeRoute === 'push:home') return pushHome();
     if (owner === 'settings' && safeRoute !== 'settings:home') return settingsDetailScreen(safeRoute);
     if (owner === 'account') return accountSectionScreen(safeRoute, context);
     if (owner === 'channels') {
@@ -301,7 +316,11 @@ function selfTest() {
   const bannedHits = banned.filter((pattern) => pattern.test(labelText)).map(String);
   const rootNavOk = rootScreens.every((screen) => {
     const texts = visibleButtonTexts(screen);
-    return texts.includes('❓ Помощь по разделу') && texts.includes('🏠 Главное меню') && !texts.includes('↩️ В начало раздела') && !texts.includes('⬅️ Назад');
+    const pushRoot = screen.route === 'push:home';
+    const requiredNavigation = pushRoot
+      ? texts.includes('Как это работает') && texts.includes('Главное меню')
+      : texts.includes('❓ Помощь по разделу') && texts.includes('🏠 Главное меню');
+    return requiredNavigation && !texts.includes('↩️ В начало раздела') && !texts.includes('⬅️ Назад');
   });
   const deepScreens = ['channels:list', 'channels:connect', 'settings:clear_chat', 'settings:notifications', 'settings:language_format', 'settings:privacy_terms', 'settings:navigation', 'comments:choose_channel', 'comments:choose_post', 'comments:post'].map((route) => render(route, route === 'comments:post' ? { payload: { postTitle: 'Тестовый пост' } } : sampleContext));
   const deepNavOk = deepScreens.every((screen) => {
@@ -313,7 +332,7 @@ function selfTest() {
     return texts.includes('↩️ В начало раздела') && texts.includes('🏠 Главное меню') && !texts.includes('❓ Помощь по разделу');
   });
   const picker = postPickerAudit();
-  return { ok: validation.ok && screensOk && canonical.clientSections.length === 12 && bannedHits.length === 0 && rootNavOk && deepNavOk && helpNavOk && picker.ok && !/"route":"main:home".*"route":"main:home"/.test(payloadText), version: VERSION, sourceMarker: SOURCE, canonicalVersion: canonical.VERSION, safeCoreFreeze: true, touchesBoot: false, patchesExpress: false, patchesModuleLoad: false, patchesAppPost: false, touchesDebugStore: false, touchesDebugPing: false, clientSections: canonical.clientSections.length, routesChecked: routes.length, validation, bannedHits, rootNavOk, deepNavOk, helpNavOk, postPickerAudit: picker, failures: results.filter(result => !result || !result.text).map(result => result && result.route) };
+  return { ok: validation.ok && screensOk && canonical.clientSections.length === 13 && bannedHits.length === 0 && rootNavOk && deepNavOk && helpNavOk && picker.ok && !/"route":"main:home".*"route":"main:home"/.test(payloadText), version: VERSION, sourceMarker: SOURCE, canonicalVersion: canonical.VERSION, safeCoreFreeze: true, touchesBoot: false, patchesExpress: false, patchesModuleLoad: false, patchesAppPost: false, touchesDebugStore: false, touchesDebugPing: false, clientSections: canonical.clientSections.length, routesChecked: routes.length, validation, bannedHits, rootNavOk, deepNavOk, helpNavOk, postPickerAudit: picker, failures: results.filter(result => !result || !result.text).map(result => result && result.route) };
 }
 
 module.exports = { VERSION, SOURCE, render, selfTest, mainHome, sectionHome, sectionNavRows, sectionHelpScreen, safeSectionHomeAction, postPickerContract, postPickerAudit };
