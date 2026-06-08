@@ -217,15 +217,17 @@ function pushNotificationsScreen(maxUserId = '') {
       '',
       'Получайте уведомления из MAX-чата на iPhone через AdminKIT Push.',
       '',
+      'Подключение конкретного чата начинается из самого MAX-чата, где установлен бот.',
+      '',
       'Как подключить:',
-      '1. Откройте нужный MAX-чат, где установлен бот.',
+      '1. Откройте нужный MAX-чат.',
       '2. Нажмите «Подключить уведомления» или напишите /push.',
       '3. Бот пришлёт личную ссылку. Откройте её и включите уведомления.',
       '',
       'Это бесплатная функция. Код доступа и регистрация в админке не требуются.'
     ].join('\n'),
     attachments: keyboard([
-      [link('Открыть AdminKIT Push', publicPushUrl())],
+      [link('Открыть приложение / проверить чаты', publicPushUrl())],
       [button('Как подключить чат', 'account_push_notifications_help')],
       [button('Активировать код', 'account_activate_code')],
       [button(state.active || state.admin ? 'Главное меню' : 'Поддержка', state.active || state.admin ? 'admin_section_main' : 'account_support')]
@@ -240,14 +242,16 @@ function pushNotificationsHelpScreen(maxUserId = '') {
     text: [
       '🔔 Как подключить чат',
       '',
-      '1. Откройте MAX-чат, где установлен бот.',
+      'Подключение конкретного чата начинается из самого MAX-чата, где установлен бот.',
+      '',
+      '1. Откройте этот MAX-чат.',
       '2. Нажмите «Подключить уведомления» или отправьте команду /push.',
       '3. Откройте личную ссылку из сообщения бота и включите уведомления в AdminKIT Push.',
       '',
       'Подключение бесплатное. Активация доступа, регистрация в админке и владение каналом не нужны.'
     ].join('\n'),
     attachments: keyboard([
-      [link('Открыть AdminKIT Push', publicPushUrl())],
+      [link('Открыть приложение / проверить чаты', publicPushUrl())],
       [button('Уведомления чатов', 'account_push_notifications')],
       [button('Активировать код', 'account_activate_code')],
       [button(state.active || state.admin ? 'Главное меню' : 'Поддержка', state.active || state.admin ? 'admin_section_main' : 'account_support')]

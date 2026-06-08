@@ -62,7 +62,7 @@ function actionOf(item = {}) {
     assert(result.screen.text.includes('Код доступа и регистрация в админке не требуются.'), 'public Push screen states that access and registration are not required');
 
     const pushButtons = buttonsOf(result.screen);
-    const openPush = pushButtons.find((item) => item.text === 'Открыть AdminKIT Push');
+    const openPush = pushButtons.find((item) => ['Открыть AdminKIT Push', 'Открыть приложение / проверить чаты'].includes(item.text));
     assert(openPush && openPush.type === 'link', 'public Push screen has a direct link button');
     assert(openPush.url.startsWith('https://'), 'public Push link uses an absolute HTTPS URL');
     assert(openPush.url.endsWith('/push'), 'public Push link ends with the public /push route');
@@ -70,7 +70,7 @@ function actionOf(item = {}) {
     assert(!/PUSH_ADMIN_TOKEN|(?:bot|BOT)[ _-]?token|endpoint|p256dh|access_token|auth|VAPID|private[_ -]?key/i.test(openPush.url), 'public Push link exposes no token, endpoint, auth, or private key material');
     assert.strictEqual(openPush.url, 'https://public-push.example.test/push', 'public Push button links to the configured public /push route');
     delete process.env.ADMINKIT_PUBLIC_BASE_URL;
-    const fallbackOpenPush = buttonsOf(accountScreens.pushNotificationsScreen(maxUserId)).find((item) => item.text === 'Открыть AdminKIT Push');
+    const fallbackOpenPush = buttonsOf(accountScreens.pushNotificationsScreen(maxUserId)).find((item) => ['Открыть AdminKIT Push', 'Открыть приложение / проверить чаты'].includes(item.text));
     assert.strictEqual(fallbackOpenPush.url, 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run/push', 'public Push button uses the required safe fallback /push URL');
     process.env.ADMINKIT_PUBLIC_BASE_URL = 'https://public-push.example.test';
     assert(pushButtons.some((item) => actionOf(item) === 'account_push_notifications_help'), 'public Push screen includes chat connection help');
@@ -86,10 +86,10 @@ function actionOf(item = {}) {
 
     const pkg = require('../package.json');
     const entrypoint = fs.readFileSync(path.join(repoRoot, 'clean-entrypoint-1.53.10-pr89.js'), 'utf8');
-    assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR166-PR168-PR169-PUBLIC-PUSH-ENTRYPOINT', 'package build marker is PR169');
-    assert.strictEqual(pkg.sourceMarker, 'adminkit-pr169-public-push-entrypoint', 'package source marker is PR169');
-    assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR166-PR168-PR169-PUBLIC-PUSH-ENTRYPOINT'"), 'active entrypoint runtime marker is PR169');
-    assert(entrypoint.includes("const SOURCE='adminkit-pr169-public-push-entrypoint'"), 'active entrypoint source marker is PR169');
+    assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR171-VISIBLE-PUSH-ADMIN-FLOW', 'package build marker advances to PR171');
+    assert.strictEqual(pkg.sourceMarker, 'adminkit-pr171-visible-push-admin-flow', 'package source marker advances to PR171');
+    assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR171-VISIBLE-PUSH-ADMIN-FLOW'"), 'active entrypoint runtime marker is PR171');
+    assert(entrypoint.includes("const SOURCE='adminkit-pr171-visible-push-admin-flow'"), 'active entrypoint source marker is PR171');
 
     console.log('public push entrypoint pr169 ok');
   } finally {

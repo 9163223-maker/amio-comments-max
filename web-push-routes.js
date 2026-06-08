@@ -6,6 +6,7 @@ const pairing = require('./services/pushPairingService');
 const dispatch = require('./services/pushDispatchService');
 const confirmation = require('./services/pushConfirmationService');
 const groupPush = require('./services/groupPushOnboardingService');
+const pushInvitePermission = require('./services/pushInvitePermissionService');
 const { sendMessage } = require('./services/maxApi');
 
 let lastTestResult = null;
@@ -479,7 +480,19 @@ function install(app) {
     if (!botToken) return res.status(503).json({ ok: false, error: 'max_bot_token_not_configured' });
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const chatId = clean(body.chatId);
+    const requesterUserId = clean(body.requesterUserId);
     if (!isSafeChatId(chatId)) return res.status(400).json({ ok: false, error: 'invalid_chat_id' });
+    const permission = await pushInvitePermission.verifyPushInvitePermission({ requesterUserId, targetChatId: chatId, botToken });
+    if (!permission.allowed) {
+      const notAdmin = permission.result === pushInvitePermission.RESULT_NOT_ADMIN;
+      return res.status(403).json({
+        ok: false,
+        error: notAdmin ? 'selected_chat_admin_required' : 'selected_chat_admin_verification_failed',
+        message: notAdmin
+          ? 'Опубликовать приглашение может только администратор этого чата или канала.'
+          : 'Не удалось проверить права администратора. Проверьте, что бот добавлен в чат и имеет нужные права.'
+      });
+    }
     try {
       await sendMessage({
         botToken,

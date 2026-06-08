@@ -48,7 +48,7 @@ function messageUpdate({ text = 'Тест PR165', id = 'msg-pr165' } = {}) {
     entrypoint.applyEnv();
     const install = entrypoint.installCleanBot();
     assert.strictEqual(install.pr165LiveChatPushRuntime, true, 'active entrypoint installs PR165 live push wrapper');
-    assert(entrypoint.RUNTIME.includes('PR166') || entrypoint.RUNTIME.includes('PR165'), 'active entrypoint exposes PR165/PR166 runtime marker');
+    assert(entrypoint.RUNTIME.includes('PR171'), 'active entrypoint advances to PR171 while retaining PR165 runtime wiring');
 
     const bot = require('../bot');
     assert.strictEqual(bot.pr165LiveChatPushRuntime, true, 'production bot export is wrapped by PR165 runtime');

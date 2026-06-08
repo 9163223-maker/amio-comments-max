@@ -35,6 +35,7 @@ const channelTitleHelper = require("./human-channel-title-helper");
 const channelPostPicker = require("./channel-post-picker-core");
 const pushConfirmation = require("./services/pushConfirmationService");
 const groupPushOnboarding = require("./services/groupPushOnboardingService");
+const pushInvitePermission = require("./services/pushInvitePermissionService");
 const groupPushInboundDiagnostics = require("./services/groupPushInboundDiagnostics");
 const webPushStorage = require("./services/webPushStorage");
 const pushDispatch = require("./services/pushDispatchService");
@@ -380,7 +381,7 @@ function getTargetChannelName(targetPost = null, fallback = 'Название к
 }
 
 function getSingleVisibleChannel(userId = '') {
-  const unique = getVisibleStoredChannelsForUser(userId).filter((item) => String(item?.channelId || '').trim());
+  const unique = getVisibleStoredChannelsForUser(userId).filter((item) => sanitizePushChatId(item?.channelId));
   return unique.length === 1 ? unique[0] : null;
 }
 
@@ -2907,6 +2908,7 @@ function buildAdminSectionsKeyboard(config = null) {
         [{ type: 'callback', text: '🎁 Подарки / лид-магниты', payload: buildAdminCallbackPayload('admin_section_gifts') }],
         [{ type: 'callback', text: '📊 Статистика', payload: buildAdminCallbackPayload('admin_section_stats') }],
         [{ type: 'callback', text: '📺 Каналы и подключение', payload: buildAdminCallbackPayload('admin_section_channels') }],
+        [{ type: 'callback', text: '🔔 Push-уведомления', payload: buildAdminCallbackPayload('admin_section_push') }],
         [{ type: 'callback', text: '❓ Помощь', payload: buildAdminCallbackPayload('admin_section_help') }]
       ]
     }
@@ -3419,23 +3421,50 @@ function buildChannelsSectionKeyboard(config = null, channels = []) {
   let rows = [
     [{ type: 'callback', text: '✅ Подключить канал', payload: buildAdminCallbackPayload('admin_bind_channel') }]
   ];
-  const safeChannels = (Array.isArray(channels) ? channels : []).filter((item) => String(item?.channelId || '').trim()).slice(0, 8);
-  if (safeChannels.length) {
-    safeChannels.forEach((item) => {
-      rows.push([{ type: 'callback', text: 'Опубликовать приглашение Push в чат', payload: buildAdminCallbackPayload('admin_push_publish_invite', { chatId: String(item.channelId || '').trim(), title: getChannelDisplayName(item).slice(0, 80) }) }]);
-    });
-  } else {
-    rows.push([{ type: 'callback', text: 'Опубликовать приглашение Push в чат', payload: buildAdminCallbackPayload('admin_push_publish_invite') }]);
-  }
+  rows.push([{ type: 'callback', text: '🔔 Push-уведомления', payload: buildAdminCallbackPayload('admin_section_push') }]);
   rows.push([{ type: 'callback', text: '❓ Как подключить', payload: buildAdminCallbackPayload('admin_section_help', { context: 'admin_section_channels' }) }]);
   rows = appendAdminFooterRows(rows, { backAction: 'admin_section_main', rootAction: 'admin_section_channels' });
   return [{ type: 'inline_keyboard', payload: { buttons: rows } }];
 }
 
+function buildPushAdminKeyboard() {
+  return [{ type: 'inline_keyboard', payload: { buttons: [
+    [{ type: 'callback', text: 'Опубликовать приглашение в чат', payload: buildAdminCallbackPayload('admin_push_select_chat') }],
+    [{ type: 'callback', text: 'Как это работает', payload: buildAdminCallbackPayload('admin_push_how_it_works') }],
+    [{ type: 'callback', text: 'Главное меню', payload: buildAdminCallbackPayload('admin_section_main') }]
+  ] } }];
+}
+
+function sanitizePushChatId(value = '') {
+  return String(value || '').trim().replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 100);
+}
+
+function buildPushChatSelectionKeyboard(channels = []) {
+  const rows = (Array.isArray(channels) ? channels : [])
+    .filter((item) => String(item?.channelId || '').trim())
+    .slice(0, 12)
+    .map((item) => [{
+      type: 'callback',
+      text: getChannelDisplayName(item).slice(0, 80) || 'MAX-чат',
+      payload: buildAdminCallbackPayload('admin_push_publish_invite', {
+        chatId: sanitizePushChatId(item.channelId),
+        title: getChannelDisplayName(item).slice(0, 80)
+      })
+    }]);
+  rows.push([{ type: 'callback', text: 'Назад', payload: buildAdminCallbackPayload('admin_section_push') }]);
+  rows.push([{ type: 'callback', text: 'Главное меню', payload: buildAdminCallbackPayload('admin_section_main') }]);
+  return [{ type: 'inline_keyboard', payload: { buttons: rows } }];
+}
+
 async function publishAdminGroupPushInvite({ config, userId = '', chatId = '', title = '' } = {}) {
-  if (!clientAccessService.isAdmin(userId)) return { ok: false, error: 'admin_required' };
-  const safeChatId = String(chatId || '').trim();
-  if (!safeChatId) return { ok: false, error: 'chat_required' };
+  const safeUserId = String(userId || '').trim();
+  const safeChatId = sanitizePushChatId(chatId);
+  const permission = await pushInvitePermission.verifyPushInvitePermission({
+    requesterUserId: safeUserId,
+    targetChatId: safeChatId,
+    botToken: config?.botToken
+  });
+  if (!permission.allowed) return { ok: false, error: permission.result };
   await sendMessage({
     botToken: config.botToken,
     chatId: safeChatId,
@@ -3719,6 +3748,25 @@ async function sendSectionMenu({ section = 'main', config, message, note = '', e
     attachments,
     editCurrent
   });
+}
+
+async function sendPushAdminSection({ config, message, note = '', editCurrent = false }) {
+  const text = [
+    note ? String(note).trim() : '',
+    '🔔 Push-уведомления',
+    '',
+    'Опубликуйте кнопку подключения в MAX-чат, чтобы участники могли получать уведомления на iPhone через AdminKIT Push.'
+  ].filter((line, index) => line || index === 2).join('\n');
+  return upsertBotMessage({ config, message, text, attachments: buildPushAdminKeyboard(), editCurrent });
+}
+
+async function sendPushChatSelection({ config, message, editCurrent = false }) {
+  const userId = getSenderUserId(message);
+  const channels = await getVisibleChannelsForUser(config, userId, { adminView: clientAccessService.isAdmin(userId) });
+  const text = channels.length
+    ? 'Выберите чат или канал, где установлен бот. Перед публикацией бот проверит ваши права администратора именно в выбранном чате.'
+    : 'Не найдено чатов или каналов, где установлен бот. Сначала добавьте и подключите бота.';
+  return upsertBotMessage({ config, message, text, attachments: buildPushChatSelectionKeyboard(channels), editCurrent });
 }
 
 async function sendChannelsSection({ config, message, note = '', editCurrent = false }) {
@@ -5034,6 +5082,9 @@ async function handleMessageCallback(update, config) {
     'admin_section_info',
     'admin_section_help',
     'admin_section_channels',
+    'admin_section_push',
+    'admin_push_select_chat',
+    'admin_push_how_it_works',
     'admin_section_posts',
     'admin_section_buttons',
     'admin_section_stats',
@@ -5137,6 +5188,24 @@ async function handleMessageCallback(update, config) {
       return { ok: true, action: 'admin_section_help' };
     }
 
+    if (payload.action === 'admin_section_push') {
+      await acknowledgeCallbackSilently(config, callbackId);
+      if (message) await sendPushAdminSection({ config, message, editCurrent: true });
+      return { ok: true, action: 'admin_section_push' };
+    }
+
+    if (payload.action === 'admin_push_select_chat') {
+      await acknowledgeCallbackSilently(config, callbackId);
+      if (message) await sendPushChatSelection({ config, message, editCurrent: true });
+      return { ok: true, action: 'admin_push_select_chat' };
+    }
+
+    if (payload.action === 'admin_push_how_it_works') {
+      await acknowledgeCallbackSilently(config, callbackId);
+      if (message) await sendPushAdminSection({ config, message, note: 'Публикация доступна только администратору или владельцу выбранного чата. Участники нажимают кнопку и получают персональную ссылку только в личных сообщениях бота.', editCurrent: true });
+      return { ok: true, action: 'admin_push_how_it_works' };
+    }
+
     if (payload.action === 'admin_section_channels') {
       await acknowledgeCallbackSilently(config, callbackId);
       if (message) await sendChannelsSection({ config, message, editCurrent: true });
@@ -5192,14 +5261,15 @@ async function handleMessageCallback(update, config) {
       await acknowledgeCallbackSilently(config, callbackId);
       const selectedChatId = String(payload.chatId || getRecipientChatId(message) || '').trim();
       const selectedTitle = String(payload.title || getRecipientChatTitle(message) || '').trim();
-      let note = 'Не удалось опубликовать приглашение. Проверьте, что бот добавлен в чат и выбран правильный чат.';
+      let note = 'Не удалось проверить права администратора. Проверьте, что бот добавлен в чат и имеет нужные права.';
       try {
         const result = await publishAdminGroupPushInvite({ config, userId, chatId: selectedChatId, title: selectedTitle });
         if (result && result.ok) note = 'Приглашение опубликовано в чат.';
+        else if (result?.error === pushInvitePermission.RESULT_NOT_ADMIN) note = 'Опубликовать приглашение может только администратор этого чата или канала.';
       } catch (error) {
-        note = 'Не удалось опубликовать приглашение. Проверьте, что бот добавлен в чат и выбран правильный чат.';
+        note = 'Не удалось проверить права администратора. Проверьте, что бот добавлен в чат и имеет нужные права.';
       }
-      if (message) await sendChannelsSection({ config, message, note, editCurrent: true });
+      if (message) await sendPushAdminSection({ config, message, note, editCurrent: true });
       return { ok: note === 'Приглашение опубликовано в чат.', action: 'admin_push_publish_invite' };
     }
 
@@ -6410,5 +6480,6 @@ module.exports = {
   clearGroupPushInboundDiagnostics,
   getPushDispatchDiagnostics,
   clearPushDispatchDiagnostics,
-  __testBuildCommentsPostAdminText: buildCommentsPostAdminText
+  __testBuildCommentsPostAdminText: buildCommentsPostAdminText,
+  __testPublishAdminGroupPushInvite: publishAdminGroupPushInvite
 };
