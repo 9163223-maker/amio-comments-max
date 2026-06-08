@@ -54,6 +54,7 @@ function visiblePayloads(screen) {
 }
 
 const HELP_TEXT = {
+  push_notifications: ['🔔 Как это работает', '', 'Администратор или владелец выбранного MAX-чата публикует безопасную кнопку подключения. После нажатия участник получает персональную ссылку только в личных сообщениях бота.', 'Для публикации бот отдельно проверяет права запросившего пользователя именно в выбранном чате или канале.'],
   channels: ['Помощь: Каналы', '', 'Раздел подключает MAX-каналы к АдминКИТ и показывает только каналы, доступные вашему клиентскому профилю.', 'Обычный сценарий: откройте «Подключить канал», добавьте бота администратором в канал, перешлите любой пост, затем проверьте права бота и откройте «Мои каналы».', 'Если каналов нет, вы увидите безопасное пустое состояние и кнопку подключения. Названия каналов показываются человекочитаемо, без технических идентификаторов.', 'Ограничения: проверка прав зависит от доступности MAX API и прав бота в самом канале. Управление каналом пока открывает безопасный экран без рискованных действий.'],
   comments: ['Помощь: Комментарии', '', 'Раздел помогает управлять обсуждением под конкретным постом.', 'Обычный сценарий: выберите канал, выберите пост, включите или проверьте комментарии, затем смотрите список комментариев, фото, реакции и ответы.', 'Комментарии поддерживают текст, фото, реакции и ответы.', 'Если каналов или постов нет, сначала подключите канал или перешлите пост боту.'],
   gifts: ['Помощь: Подарки / лид-магниты', '', 'Раздел выдаёт подарок подписчику после проверки условий.', 'Обычный сценарий: выберите канал и пост, создайте подарок, добавьте материал, текст получателю, условия выдачи и проверьте выдачу.', 'Отключение, удаление и замена материала выполняются из карточки подарка. Часть возможностей может зависеть от тарифа.', 'Если данных нет, подключите канал и перешлите пост, к которому нужен подарок.'],
@@ -85,7 +86,22 @@ function privacyHome() {
   return { ok: true, route: 'privacy:home', owner: 'privacy', text: ['🔐 Политика конфиденциальности АдминКИТ', '', 'АдминКИТ — бот для управления MAX-каналами.', 'Бот: @id781310320690_bot', 'Адрес бота: https://max.ru/id781310320690_bot', '', 'Бот обрабатывает только данные, необходимые для работы функций: профиль MAX, подключённые каналы, посты, комментарии, кнопки, подарки, статистику и технические события.', '', 'Данные используются для подключения каналов, комментариев под постами, подарков, кнопок, статистики и работы сервиса.', '', 'АдминКИТ не передаёт данные для сторонней рекламы. Технические данные используются только для работы и поддержки сервиса.'].join('\n'), attachments: keyboard(docNav('privacy:home')) };
 }
 
+function pushNotificationsHome() {
+  return {
+    ok: true,
+    route: 'push_notifications:home',
+    owner: 'push_notifications',
+    text: ['🔔 Push-уведомления', '', 'Опубликуйте кнопку подключения в MAX-чат, чтобы участники могли получать уведомления на iPhone через AdminKIT Push.'].join('\n'),
+    attachments: keyboard([
+      [actionButton('Опубликовать приглашение в чат', 'admin_push_select_chat')],
+      [button('Как это работает', 'push_notifications:help')],
+      [button('Главное меню', 'main:home')]
+    ])
+  };
+}
+
 function sectionHome(owner) {
+  if (owner === 'push_notifications') return pushNotificationsHome();
   const section = canonical.sectionById[owner];
   if (!section || !section.clientVisible || section.adminOnly) return mainHome();
   const actions = canonical.clientActions(section.id).map(buttonForAction);
@@ -301,7 +317,7 @@ function selfTest() {
   const bannedHits = banned.filter((pattern) => pattern.test(labelText)).map(String);
   const rootNavOk = rootScreens.every((screen) => {
     const texts = visibleButtonTexts(screen);
-    return texts.includes('❓ Помощь по разделу') && texts.includes('🏠 Главное меню') && !texts.includes('↩️ В начало раздела') && !texts.includes('⬅️ Назад');
+    return (screen.owner === 'push_notifications' ? texts.includes('Как это работает') && texts.includes('Главное меню') : texts.includes('❓ Помощь по разделу') && texts.includes('🏠 Главное меню')) && !texts.includes('↩️ В начало раздела') && !texts.includes('⬅️ Назад');
   });
   const deepScreens = ['channels:list', 'channels:connect', 'settings:clear_chat', 'settings:notifications', 'settings:language_format', 'settings:privacy_terms', 'settings:navigation', 'comments:choose_channel', 'comments:choose_post', 'comments:post'].map((route) => render(route, route === 'comments:post' ? { payload: { postTitle: 'Тестовый пост' } } : sampleContext));
   const deepNavOk = deepScreens.every((screen) => {
@@ -313,7 +329,7 @@ function selfTest() {
     return texts.includes('↩️ В начало раздела') && texts.includes('🏠 Главное меню') && !texts.includes('❓ Помощь по разделу');
   });
   const picker = postPickerAudit();
-  return { ok: validation.ok && screensOk && canonical.clientSections.length === 12 && bannedHits.length === 0 && rootNavOk && deepNavOk && helpNavOk && picker.ok && !/"route":"main:home".*"route":"main:home"/.test(payloadText), version: VERSION, sourceMarker: SOURCE, canonicalVersion: canonical.VERSION, safeCoreFreeze: true, touchesBoot: false, patchesExpress: false, patchesModuleLoad: false, patchesAppPost: false, touchesDebugStore: false, touchesDebugPing: false, clientSections: canonical.clientSections.length, routesChecked: routes.length, validation, bannedHits, rootNavOk, deepNavOk, helpNavOk, postPickerAudit: picker, failures: results.filter(result => !result || !result.text).map(result => result && result.route) };
+  return { ok: validation.ok && screensOk && canonical.clientSections.length === 13 && bannedHits.length === 0 && rootNavOk && deepNavOk && helpNavOk && picker.ok && !/"route":"main:home".*"route":"main:home"/.test(payloadText), version: VERSION, sourceMarker: SOURCE, canonicalVersion: canonical.VERSION, safeCoreFreeze: true, touchesBoot: false, patchesExpress: false, patchesModuleLoad: false, patchesAppPost: false, touchesDebugStore: false, touchesDebugPing: false, clientSections: canonical.clientSections.length, routesChecked: routes.length, validation, bannedHits, rootNavOk, deepNavOk, helpNavOk, postPickerAudit: picker, failures: results.filter(result => !result || !result.text).map(result => result && result.route) };
 }
 
 module.exports = { VERSION, SOURCE, render, selfTest, mainHome, sectionHome, sectionNavRows, sectionHelpScreen, safeSectionHomeAction, postPickerContract, postPickerAudit };

@@ -21,9 +21,10 @@ function publicBaseUrl(detectedBaseUrl = '') {
 function buildGroupInviteText(title = '') {
   const safeTitle = clean(title).slice(0, 120);
   return [
+    '🔔 Уведомления этого чата на iPhone',
     'Включите уведомления этого чата на iPhone. Нажмите кнопку — бот отправит персональную ссылку в личные сообщения.',
-    safeTitle ? `Чат: «${safeTitle}»` : '',
-    'Если кнопка недоступна, можно написать /push в этом чате — бот всё равно отправит ссылку только в личку.'
+    'Личная ссылка приходит только вам в сообщения бота для подключения AdminKIT Push.',
+    safeTitle ? `Чат: «${safeTitle}»` : ''
   ].filter(Boolean).join('\n').trim();
 }
 
