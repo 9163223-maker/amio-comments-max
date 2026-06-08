@@ -70,7 +70,7 @@ function nonceHash(nonce) {
   return crypto.createHash('sha256').update(String(nonce || '')).digest('hex').slice(0, 16);
 }
 
-function createPairingToken({ maxUserId, chatId, channelId, issuedByAdminId, ttlMinutes } = {}) {
+function createPairingToken({ maxUserId, chatId, channelId, chatTitle, issuedByAdminId, ttlMinutes } = {}) {
   requireSecret();
   const safeMaxUserId = clean(maxUserId);
   const safeChatId = clean(chatId);
@@ -85,6 +85,7 @@ function createPairingToken({ maxUserId, chatId, channelId, issuedByAdminId, ttl
     maxUserId: safeMaxUserId,
     chatId: safeChatId,
     channelId: clean(channelId),
+    chatTitle: clean(chatTitle).slice(0, 120),
     issuedByAdminId: clean(issuedByAdminId),
     expiresAt: new Date(Date.now() + ttl * 60 * 1000).toISOString(),
     nonce: crypto.randomBytes(18).toString('base64url')
@@ -145,6 +146,7 @@ function verifyPairingToken(token, options = {}) {
     maxUserId: clean(payload.maxUserId),
     chatId: clean(payload.chatId),
     channelId: clean(payload.channelId),
+    chatTitle: clean(payload.chatTitle).slice(0, 120),
     issuedByAdminId: clean(payload.issuedByAdminId),
     expiresAt: new Date(expiresAtMs).toISOString(),
     nonce: clean(payload.nonce),

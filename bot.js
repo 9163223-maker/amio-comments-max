@@ -938,6 +938,7 @@ async function performGroupPushOnboarding({ userId, chatId, chatTitle, config, c
     joinLink = await groupPushOnboarding.createPersonalJoinLinkForMessage({
       maxUserId: userId,
       chatId,
+      chatTitle,
       ttlMinutes: 60,
       detectedBaseUrl: config.appBaseUrl
     });
@@ -3414,13 +3415,34 @@ function buildModerationSectionKeyboard(targetPost = null) {
 }
 
 
-function buildChannelsSectionKeyboard(config = null) {
+function buildChannelsSectionKeyboard(config = null, channels = []) {
   let rows = [
-    [{ type: 'callback', text: '✅ Подключить канал', payload: buildAdminCallbackPayload('admin_bind_channel') }],
-    [{ type: 'callback', text: '❓ Как подключить', payload: buildAdminCallbackPayload('admin_section_help', { context: 'admin_section_channels' }) }]
+    [{ type: 'callback', text: '✅ Подключить канал', payload: buildAdminCallbackPayload('admin_bind_channel') }]
   ];
+  const safeChannels = (Array.isArray(channels) ? channels : []).filter((item) => String(item?.channelId || '').trim()).slice(0, 8);
+  if (safeChannels.length) {
+    safeChannels.forEach((item) => {
+      rows.push([{ type: 'callback', text: 'Опубликовать приглашение Push в чат', payload: buildAdminCallbackPayload('admin_push_publish_invite', { chatId: String(item.channelId || '').trim(), title: getChannelDisplayName(item).slice(0, 80) }) }]);
+    });
+  } else {
+    rows.push([{ type: 'callback', text: 'Опубликовать приглашение Push в чат', payload: buildAdminCallbackPayload('admin_push_publish_invite') }]);
+  }
+  rows.push([{ type: 'callback', text: '❓ Как подключить', payload: buildAdminCallbackPayload('admin_section_help', { context: 'admin_section_channels' }) }]);
   rows = appendAdminFooterRows(rows, { backAction: 'admin_section_main', rootAction: 'admin_section_channels' });
   return [{ type: 'inline_keyboard', payload: { buttons: rows } }];
+}
+
+async function publishAdminGroupPushInvite({ config, userId = '', chatId = '', title = '' } = {}) {
+  if (!clientAccessService.isAdmin(userId)) return { ok: false, error: 'admin_required' };
+  const safeChatId = String(chatId || '').trim();
+  if (!safeChatId) return { ok: false, error: 'chat_required' };
+  await sendMessage({
+    botToken: config.botToken,
+    chatId: safeChatId,
+    text: groupPushOnboarding.buildGroupInviteText(title),
+    attachments: groupPushOnboarding.buildGroupInviteKeyboard()
+  });
+  return { ok: true, sent: true };
 }
 
 function buildCommentsButtonSavedKeyboard(targetPost = null, savedButton = null) {
@@ -3722,7 +3744,7 @@ async function sendChannelsSection({ config, message, note = '', editCurrent = f
     config,
     message,
     text: lines.join('\n'),
-    attachments: buildChannelsSectionKeyboard(config),
+    attachments: buildChannelsSectionKeyboard(config, channels),
     editCurrent
   });
 }
@@ -5022,6 +5044,7 @@ async function handleMessageCallback(update, config) {
     'admin_stats_subscribers_week',
     'admin_stats_post',
     'admin_bind_channel',
+    'admin_push_publish_invite',
     'admin_clear_chat',
     'gift_admin_open_menu',
     'gift_admin_back',
@@ -5163,6 +5186,21 @@ async function handleMessageCallback(update, config) {
       const targetPost = getCommentTargetPost(userId) || getGiftTargetPost(userId);
       if (message) await upsertBotMessage({ config, message, text: buildCurrentPostStatsText({ targetPost, userId }), attachments: buildStatsSectionKeyboard(targetPost, userId), editCurrent: true });
       return { ok: true, action: 'admin_stats_post' };
+    }
+
+    if (payload.action === 'admin_push_publish_invite') {
+      await acknowledgeCallbackSilently(config, callbackId);
+      const selectedChatId = String(payload.chatId || getRecipientChatId(message) || '').trim();
+      const selectedTitle = String(payload.title || getRecipientChatTitle(message) || '').trim();
+      let note = 'Не удалось опубликовать приглашение. Проверьте, что бот добавлен в чат и выбран правильный чат.';
+      try {
+        const result = await publishAdminGroupPushInvite({ config, userId, chatId: selectedChatId, title: selectedTitle });
+        if (result && result.ok) note = 'Приглашение опубликовано в чат.';
+      } catch (error) {
+        note = 'Не удалось опубликовать приглашение. Проверьте, что бот добавлен в чат и выбран правильный чат.';
+      }
+      if (message) await sendChannelsSection({ config, message, note, editCurrent: true });
+      return { ok: note === 'Приглашение опубликовано в чат.', action: 'admin_push_publish_invite' };
     }
 
     if (payload.action === 'admin_bind_channel') {

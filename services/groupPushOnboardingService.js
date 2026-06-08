@@ -54,14 +54,14 @@ function isGroupPushEnablePayload(payload) {
   return action === ACTION_GROUP_PUSH_ENABLE;
 }
 
-function createPersonalJoinUrl({ maxUserId, chatId, channelId = '', issuedByAdminId = '', ttlMinutes = DEFAULT_TTL_MINUTES, detectedBaseUrl = '' } = {}) {
+function createPersonalJoinUrl({ maxUserId, chatId, channelId = '', chatTitle = '', issuedByAdminId = '', ttlMinutes = DEFAULT_TTL_MINUTES, detectedBaseUrl = '' } = {}) {
   const base = publicBaseUrl(detectedBaseUrl);
   if (!base) {
     const error = new Error('public_base_url_required');
     error.code = 'public_base_url_required';
     throw error;
   }
-  const token = pairing.createPairingToken({ maxUserId, chatId, channelId, issuedByAdminId, ttlMinutes });
+  const token = pairing.createPairingToken({ maxUserId, chatId, channelId, chatTitle, issuedByAdminId, ttlMinutes });
   return `${base}/push/join?t=${encodeURIComponent(token)}`;
 }
 
@@ -75,7 +75,7 @@ function buildPrivateJoinMessage({ chatTitle = '', joinUrl = '', shortUrlError =
   const lines = [
     `🔔 Подключение уведомлений для чата «${safeTitle}»`,
     '',
-    alreadyHadActiveDevice ? 'У вас уже есть подключённое устройство для этого чата. Ниже новая ссылка для подключения ещё одного устройства.' : '',
+    alreadyHadActiveDevice ? 'У вас уже есть подключённое устройство. Откройте ссылку и нажмите «Подключить этот чат», чтобы добавить чат без переустановки PWA.' : '',
     alreadyHadActiveDevice ? '' : '',
     '1. Откройте ссылку на iPhone или iPad.',
     '2. Добавьте АдминКИТ Push на экран Домой.',

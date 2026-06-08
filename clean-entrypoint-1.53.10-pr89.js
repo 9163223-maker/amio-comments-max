@@ -1,6 +1,6 @@
 'use strict';
-const RUNTIME='CC8.3.52-PR166-PRIVATE-PUSH-ONBOARDING-PR167-PUSH-PRODUCT-UX';
-const SOURCE='adminkit-pr167-push-product-ux-admin-invite';
+const RUNTIME='CC8.3.52-PR166-PR168-REAL-ADMIN-PUSH-INVITE-LINK-CHAT';
+const SOURCE='adminkit-pr168-real-admin-push-invite-link-chat';
 const BASE='https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run';
 let persistentStoreState=null;
 let debugStoreSanitizerState=null;
@@ -13,7 +13,7 @@ let adChannelPickerFilterState=null;
 let strictAdChannelPickerState=null;
 let channelTitleResolverState=null;
 let clientAccessBootstrapState=null;
-function applyEnv(){process.env.BUILD_VERSION=RUNTIME;process.env.RUNTIME_VERSION=RUNTIME;process.env.BUILD_SOURCE_MARKER=SOURCE;process.env.ADMINKIT_PUBLIC_BASE_URL=BASE;process.env.ADMINKIT_CLEAN_MENU_CORE='1';process.env.ADMINKIT_CLEAN_ENTRYPOINT='1.53.10-pr89-pr167-push-product-ux-admin-invite';process.env.GIT_COMMIT=process.env.GIT_COMMIT||'';process.env.PR165_RUNTIME_WIRED='1';process.env.ADMINKIT_BOT_STARTED_MENU_ENABLED='1';process.env.ADMINKIT_UI_TRACE='1';if(process.env.ADMINKIT_UI_TRACE_LIMIT===undefined)process.env.ADMINKIT_UI_TRACE_LIMIT='120';if(process.env.ADMINKIT_UI_TIMING_LIMIT===undefined)process.env.ADMINKIT_UI_TIMING_LIMIT='120';if(process.env.ADMINKIT_WALKTHROUGH_TRACE_LIMIT===undefined)process.env.ADMINKIT_WALKTHROUGH_TRACE_LIMIT='120';if(process.env.ADMINKIT_BOT_AUDIT_TRACE_LIMIT===undefined)process.env.ADMINKIT_BOT_AUDIT_TRACE_LIMIT='1000';if(process.env.ADMINKIT_STICKERS_ENABLED===undefined)process.env.ADMINKIT_STICKERS_ENABLED='1';if(process.env.ADMINKIT_STICKERS_PACKS===undefined)process.env.ADMINKIT_STICKERS_PACKS='adminkit_whales_v1';}
+function applyEnv(){process.env.BUILD_VERSION=RUNTIME;process.env.RUNTIME_VERSION=RUNTIME;process.env.BUILD_SOURCE_MARKER=SOURCE;process.env.ADMINKIT_PUBLIC_BASE_URL=BASE;process.env.ADMINKIT_CLEAN_MENU_CORE='1';process.env.ADMINKIT_CLEAN_ENTRYPOINT='1.53.10-pr89-pr168-real-admin-push-invite-link-chat';process.env.GIT_COMMIT=process.env.GIT_COMMIT||'';process.env.PR165_RUNTIME_WIRED='1';process.env.ADMINKIT_BOT_STARTED_MENU_ENABLED='1';process.env.ADMINKIT_UI_TRACE='1';if(process.env.ADMINKIT_UI_TRACE_LIMIT===undefined)process.env.ADMINKIT_UI_TRACE_LIMIT='120';if(process.env.ADMINKIT_UI_TIMING_LIMIT===undefined)process.env.ADMINKIT_UI_TIMING_LIMIT='120';if(process.env.ADMINKIT_WALKTHROUGH_TRACE_LIMIT===undefined)process.env.ADMINKIT_WALKTHROUGH_TRACE_LIMIT='120';if(process.env.ADMINKIT_BOT_AUDIT_TRACE_LIMIT===undefined)process.env.ADMINKIT_BOT_AUDIT_TRACE_LIMIT='1000';if(process.env.ADMINKIT_STICKERS_ENABLED===undefined)process.env.ADMINKIT_STICKERS_ENABLED='1';if(process.env.ADMINKIT_STICKERS_PACKS===undefined)process.env.ADMINKIT_STICKERS_PACKS='adminkit_whales_v1';}
 async function installPersistentStore(){const bootstrap=require('./persistent-store-bootstrap');persistentStoreState=await bootstrap.install({runtimeVersion:RUNTIME});return persistentStoreState;}
 function installDebugStoreSanitizer(){const sanitizer=require('./debug-store-sanitizer-pr85');debugStoreSanitizerState=sanitizer.install();return debugStoreSanitizerState;}
 function installPostEditorTrace(){const patch=require('./post-editor-walkthrough-trace-patch');postEditorTraceState=patch.install();return postEditorTraceState;}
