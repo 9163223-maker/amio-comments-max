@@ -9,8 +9,8 @@
   "pr131MergeCommit": "5a39d1f1b63670293e21a244e22e8a159bc9cc7a",
   "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
   "expectedRuntimeVersion": "CC8.3.50-PR131-LIVE-SYNC-AUDIT-5A39D1F",
-  "generatedAt": 1780853869232,
-  "serverStartedAt": "2026-06-07T17:33:38.919Z",
+  "generatedAt": 1780909708765,
+  "serverStartedAt": "2026-06-08T09:03:16.952Z",
   "staleEndpointDetected": false,
   "mediaDiagnostics": {
     "uploads": [
@@ -347,6 +347,163 @@
     ],
     "lastErrors": []
   },
+  "groupPushInboundDiagnostics": {
+    "count": 4,
+    "latest": [
+      {
+        "at": "2026-06-08T09:06:35.766Z",
+        "updateType": "message_created",
+        "messageShape": "body+sender+recipient",
+        "textPreview": "/push",
+        "normalizedText": "/push",
+        "matchedPushCommand": true,
+        "hasUserId": true,
+        "userIdLast4": "7246",
+        "hasChatId": true,
+        "chatIdLast4": "2142",
+        "chatType": "chat",
+        "chatTitlePreview": "",
+        "routeCandidate": "http_edge_group_push_command",
+        "routeDecision": "entered_edge_pre_route",
+        "routeResult": "observed_only",
+        "errorCode": ""
+      },
+      {
+        "at": "2026-06-08T09:06:35.766Z",
+        "updateType": "message_created",
+        "messageShape": "body+sender+recipient",
+        "textPreview": "/push",
+        "normalizedText": "/push",
+        "matchedPushCommand": true,
+        "hasUserId": true,
+        "userIdLast4": "7246",
+        "hasChatId": true,
+        "chatIdLast4": "2142",
+        "chatType": "chat",
+        "chatTitlePreview": "",
+        "routeCandidate": "http_edge_group_push_command",
+        "routeDecision": "matched_group_push_command",
+        "routeResult": "matched_command",
+        "errorCode": ""
+      },
+      {
+        "at": "2026-06-08T09:06:36.528Z",
+        "updateType": "message_created",
+        "messageShape": "body+sender+recipient",
+        "textPreview": "/push",
+        "normalizedText": "/push",
+        "matchedPushCommand": true,
+        "hasUserId": true,
+        "userIdLast4": "7246",
+        "hasChatId": true,
+        "chatIdLast4": "2142",
+        "chatType": "chat",
+        "chatTitlePreview": "",
+        "routeCandidate": "http_edge_group_push_command",
+        "routeDecision": "edge_group_push_route",
+        "routeResult": "handled",
+        "errorCode": ""
+      },
+      {
+        "at": "2026-06-08T09:07:04.384Z",
+        "updateType": "message_created",
+        "messageShape": "body+sender+recipient",
+        "textPreview": "Привет",
+        "normalizedText": "",
+        "matchedPushCommand": false,
+        "hasUserId": true,
+        "userIdLast4": "7246",
+        "hasChatId": true,
+        "chatIdLast4": "2142",
+        "chatType": "chat",
+        "chatTitlePreview": "",
+        "routeCandidate": "http_edge_group_push_command",
+        "routeDecision": "entered_edge_pre_route",
+        "routeResult": "observed_only",
+        "errorCode": ""
+      }
+    ]
+  },
+  "maxWebhookEdgeDiagnostics": {
+    "count": 2,
+    "latest": [
+      {
+        "at": "2026-06-08T09:06:35.679Z",
+        "method": "POST",
+        "path": "/webhook/max",
+        "contentType": "application/json; charset=UTF-8",
+        "bodyType": "object",
+        "topLevelKeys": [
+          "timestamp",
+          "message",
+          "update_type"
+        ],
+        "updateType": "message_created",
+        "action": "",
+        "hasMessage": true,
+        "hasCallback": false,
+        "hasText": true,
+        "textPreview": "/push",
+        "normalizedText": "/push",
+        "matchedPushCommand": true,
+        "hasSender": true,
+        "hasSenderUserId": true,
+        "senderUserIdLast4": "7246",
+        "hasRecipient": true,
+        "hasChat": true,
+        "hasChatId": true,
+        "chatIdLast4": "2142",
+        "chatTitlePreview": "",
+        "routeStage": "http_webhook_edge",
+        "handedToBot": true,
+        "botResultKind": "response_sent_200_edge_group_push",
+        "errorCode": ""
+      },
+      {
+        "at": "2026-06-08T09:07:04.383Z",
+        "method": "POST",
+        "path": "/webhook/max",
+        "contentType": "application/json; charset=UTF-8",
+        "bodyType": "object",
+        "topLevelKeys": [
+          "timestamp",
+          "message",
+          "update_type"
+        ],
+        "updateType": "message_created",
+        "action": "",
+        "hasMessage": true,
+        "hasCallback": false,
+        "hasText": true,
+        "textPreview": "Привет",
+        "normalizedText": "",
+        "matchedPushCommand": false,
+        "hasSender": true,
+        "hasSenderUserId": true,
+        "senderUserIdLast4": "7246",
+        "hasRecipient": true,
+        "hasChat": true,
+        "hasChatId": true,
+        "chatIdLast4": "2142",
+        "chatTitlePreview": "",
+        "routeStage": "http_webhook_edge",
+        "handedToBot": true,
+        "botResultKind": "response_sent_200",
+        "errorCode": ""
+      }
+    ]
+  },
+  "pushDispatchDiagnostics": {
+    "count": 0,
+    "latest": []
+  },
+  "webhookRouteRegistrationDiagnostics": {
+    "registered": true,
+    "paths": [
+      "/webhook/max"
+    ],
+    "desiredUpdateTypesIncludeMessageCreated": true
+  },
   "channels": {
     "260767839": {
       "title": "Ольга",
@@ -386,21 +543,21 @@
     "-73175958664622": {
       "link": "https://max.ru/join/PX4c-5eFcI3-eS6KB82BeLQpBZqLyDjOZH5ULje21Ew",
       "type": "channel",
-      "title": "АдминКит клуб",
+      "title": "-73175958664622",
       "joinUrl": "https://max.ru/join/PX4c-5eFcI3-eS6KB82BeLQpBZqLyDjOZH5ULje21Ew",
       "chatType": "channel",
       "channelId": "-73175958664622",
       "chatTitle": "АдминКит клуб",
       "isChannel": true,
-      "updatedAt": 1780259449779,
+      "updatedAt": 1780863211409,
       "inviteLink": "https://max.ru/join/PX4c-5eFcI3-eS6KB82BeLQpBZqLyDjOZH5ULje21Ew",
-      "lastPostId": "116664611699776700",
+      "lastPostId": "116710651283716240",
       "publicLink": "https://max.ru/join/PX4c-5eFcI3-eS6KB82BeLQpBZqLyDjOZH5ULje21Ew",
       "ownerUserId": "17507246",
       "channelTitle": "АдминКит клуб",
       "isMaxChannel": true,
       "linkedByName": "",
-      "lastMessageId": "mid.ffffbd7264fa4a52019e79d8a2395cbc",
+      "lastMessageId": "mid.ffffbd7264fa4a52019ea3b80f453892",
       "audienceEvents": [
         {
           "id": "1780226314590_wg5taa",
@@ -421,7 +578,7 @@
           "displayName": "Ольга"
         }
       ],
-      "linkedByUserId": "17507246",
+      "linkedByUserId": "",
       "autoModeEnabled": true,
       "audienceProfiles": {
         "18400200": {
@@ -627,14 +784,14 @@
       "chatType": "channel",
       "channelId": "-75643106932142",
       "isChannel": true,
-      "updatedAt": 1780853827836,
+      "updatedAt": 1780909625171,
       "botAddedAt": 1780848285981,
-      "lastPostId": "116710036264401040",
+      "lastPostId": "116713692956861100",
       "ownerUserId": "17507246",
       "channelTitle": "Alex P",
       "isMaxChannel": true,
       "linkedByName": "Alex P",
-      "lastMessageId": "mid.ffffbb33f77b4a52019ea328dd433892",
+      "lastMessageId": "mid.ffffbb33f77b4a52019ea67c411e22b4",
       "audienceEvents": [
         {
           "id": "1780848285382_vyvtqy",
@@ -715,6 +872,6 @@
       "channelTitleResolverRuntime": "CC8.3.44-AUTO-TENANT-CHANNEL-BIND"
     }
   },
-  "postsCount": 72,
+  "postsCount": 92,
   "commentsCount": 186
 }
