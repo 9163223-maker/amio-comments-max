@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
+  "version": "CC8.3.52-PR166-PRIVATE-PUSH-ONBOARDING",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node clean-entrypoint-1.53.10-pr89.js",
@@ -18,9 +18,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
-  "displayVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
-  "sourceMarker": "adminkit-pr165-push-runtime-wired",
+  "buildVersion": "CC8.3.52-PR166-PRIVATE-PUSH-ONBOARDING",
+  "displayVersion": "CC8.3.52-PR166-PRIVATE-PUSH-ONBOARDING",
+  "sourceMarker": "adminkit-pr166-private-push-onboarding",
   "gitCommit": "",
   "pr165RuntimeWired": true
 }

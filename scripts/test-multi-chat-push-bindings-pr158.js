@@ -61,11 +61,11 @@ async function request(server, target, options = {}) { const res = await origina
     let res = responseStub();
     await bot.handleWebhook({ get: () => '', body: messageUpdate({ userId: 'first-user', chatId: 'first-chat', title: 'Первый чат' }) }, res, { botToken: 'BOT_TOKEN_PR158', appBaseUrl: 'https://push.example.test' });
     assert.strictEqual(res.statusCode, 200, 'first /push webhook succeeds');
-    assert.strictEqual(sentMessages.length, 2, 'first /push sends private setup link and safe group reply');
+    assert.strictEqual(sentMessages.length, 1, 'first /push sends private setup link only');
     const privateSetup = sentMessages.find((msg) => msg.userId === 'first-user');
     const publicReply = sentMessages.find((msg) => msg.chatId === 'first-chat');
     assert(privateSetup && privateSetup.text.includes('https://clck.ru/pr158'), 'first-time user gets private shortened setup link');
-    assert(publicReply && !publicReply.text.includes('/push/join?t=') && !publicReply.text.includes('clck.ru'), 'first /push does not post personal link publicly');
+    assert(!publicReply, 'first /push does not post publicly on success');
 
     resetStores(); sentMessages.length = 0; answers.length = 0;
     const pending = await storage.savePairedDevice(validSubscription('pair-initial'), { maxUserId: 'pair-user', chatId: 'pair-chat', status: 'pending' });
@@ -78,15 +78,15 @@ async function request(server, target, options = {}) { const res = await origina
     await storage.savePairedDevice(validSubscription('active-one'), { maxUserId: 'multi-user', chatId: 'chat-one', status: 'active' });
     res = responseStub();
     await bot.handleWebhook({ get: () => '', body: messageUpdate({ userId: 'multi-user', chatId: 'chat-two', title: 'Второй чат' }) }, res, { botToken: 'BOT_TOKEN_PR158', appBaseUrl: 'https://push.example.test' });
-    assert.strictEqual(sentMessages.filter((msg) => msg.userId === 'multi-user').length, 0, 'second /push with active device does not send private setup link');
+    assert.strictEqual(sentMessages.filter((msg) => msg.userId === 'multi-user').length, 1, 'second /push with active device sends private setup link for another device');
     const secondReply = sentMessages.find((msg) => msg.chatId === 'chat-two');
-    assert(secondReply && secondReply.text.includes('Готово. Уведомления этого чата подключены.'), 'second /push replies safe success in group');
+    assert(!secondReply, 'second /push posts no group success text');
     assert.strictEqual(await storage.isChatBoundForUser('multi-user', 'chat-two'), true, 'second /push creates new chat binding');
     assert.strictEqual((await storage.listChatBindingsForUser('multi-user')).filter((b) => b.chatId === 'chat-two').length, 1, 'new chat binding has no duplicates');
     res = responseStub(); sentMessages.length = 0;
     await bot.handleWebhook({ get: () => '', body: messageUpdate({ userId: 'multi-user', chatId: 'chat-two', title: 'Второй чат' }) }, res, { botToken: 'BOT_TOKEN_PR158', appBaseUrl: 'https://push.example.test' });
     assert.strictEqual((await storage.listChatBindingsForUser('multi-user')).filter((b) => b.chatId === 'chat-two').length, 1, 'repeated /push is idempotent');
-    assert(sentMessages[0].text.includes('уже подключены') || sentMessages[0].text.includes('Готово'), 'repeated /push replies safely');
+    assert(sentMessages.some((message) => message.userId === 'multi-user' && String(message.text || '').includes('уже есть подключённое устройство')), 'repeated /push sends private multi-device link safely');
 
     await storage.savePairedDevice(validSubscription('active-two'), { maxUserId: 'multi-user', chatId: 'chat-one', status: 'active' });
     await storage.upsertChatBindingForUserDevices({ maxUserId: 'multi-user', chatId: 'chat-three', chatTitle: 'Третий чат' });
@@ -104,8 +104,8 @@ async function request(server, target, options = {}) { const res = await origina
     res = responseStub();
     await bot.handleWebhook({ get: () => '', body: callbackUpdate({ userId: 'multi-user', chatId: 'callback-chat', title: 'Callback Chat' }) }, res, { botToken: 'BOT_TOKEN_PR158', appBaseUrl: 'https://push.example.test' });
     assert.strictEqual(await storage.isChatBoundForUser('multi-user', 'callback-chat'), true, 'callback fallback uses same multi-chat binding logic');
-    assert.strictEqual(sentMessages.length, 0, 'callback fallback with active device sends no private setup link');
-    assert(answers.some((answer) => String(answer.notification || '').includes('Готово')), 'callback fallback answers safely');
+    assert.strictEqual(sentMessages.filter((message) => message.userId === 'multi-user').length, 1, 'callback fallback with active device sends private setup link for another device');
+    assert(answers.some((answer) => String(answer.notification || '') === 'Ссылка отправлена в личные сообщения.'), 'callback fallback answers safely without link');
 
     await withServer(async (server) => {
       const token = pairing.createPairingToken({ maxUserId: 'route-user', chatId: 'route-chat', ttlMinutes: 30 });

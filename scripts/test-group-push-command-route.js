@@ -172,8 +172,7 @@ function assertNoPersonalLink(message, label) {
     const firstPrivate = sentMessages.find((message) => message.userId && String(message.text || '').includes('Откройте ссылку на iPhone'));
     const firstGroup = sentMessages.find((message) => message.chatId && String(message.text || '').includes('Отправил ссылку подключения'));
     assert(firstPrivate && /https:\/\/clck\.ru\/route-short/.test(firstPrivate.text), 'first-time user receives private setup link');
-    assert(firstGroup, 'first-time user receives safe group acknowledgement');
-    assertNoPersonalLink(firstGroup, 'first-time group acknowledgement');
+    assert(!firstGroup, 'first-time user gets no public group acknowledgement on success');
 
     const beforeNormalPosts = store.getPostsList().length;
     const beforeNormalEdits = editedMessages.length;
@@ -184,14 +183,16 @@ function assertNoPersonalLink(message, label) {
     await storage.savePairedDevice(validSubscription('active-route'), { maxUserId: 'active-user', chatId: 'old-chat', status: 'active' });
     sentMessages.length = 0;
     await webhook(bot, messageUpdate({ text: '/push', userId: 'active-user', chatId: 'active-chat', title: 'Active Chat' }), sentMessages);
-    assert.strictEqual(await storage.isChatBoundForUser('active-user', 'active-chat'), true, 'existing active user gets direct chat binding');
-    assert.strictEqual(sentMessages.filter((message) => message.userId === 'active-user').length, 0, 'existing active user gets no setup link');
-    assert(sentMessages.some((message) => message.chatId === 'active-chat' && message.text === 'Готово. Уведомления этого чата подключены.'), 'existing active user gets safe group success reply');
+    assert.strictEqual(await storage.isChatBoundForUser('active-user', 'active-chat'), true, 'existing active user keeps direct chat binding');
+    assert.strictEqual(sentMessages.filter((message) => message.userId === 'active-user').length, 1, 'existing active user gets a fresh setup link for another device');
+    assert(sentMessages.some((message) => message.userId === 'active-user' && String(message.text || '').includes('уже есть подключённое устройство')), 'existing active user gets private multi-device explanation');
+    assert.strictEqual(sentMessages.filter((message) => message.chatId === 'active-chat').length, 0, 'existing active user gets no public group success reply');
 
     sentMessages.length = 0;
     await webhook(bot, messageUpdate({ text: '/push', userId: 'active-user', chatId: 'active-chat', title: 'Active Chat' }), sentMessages);
-    assert.strictEqual((await storage.listChatBindingsForUser('active-user')).filter((binding) => binding.chatId === 'active-chat').length, 1, 'repeated /push remains idempotent');
-    assert(!texts(sentMessages).includes('/push/join?t='), 'repeated /push sends no personal setup link');
+    assert.strictEqual((await storage.listChatBindingsForUser('active-user')).filter((binding) => binding.chatId === 'active-chat').length, 1, 'repeated /push keeps existing binding idempotent');
+    assert(sentMessages.some((message) => message.userId === 'active-user' && /https:\/\/clck\.ru\/route-short/.test(String(message.text || ''))), 'repeated /push sends another private setup link');
+    assert.strictEqual(sentMessages.filter((message) => message.chatId === 'active-chat').length, 0, 'repeated /push sends no public group reply');
 
     sentMessages.length = 0;
     await webhook(bot, messageUpdate({ text: '/push', userId: '', chatId: 'missing-user-chat' }), sentMessages);

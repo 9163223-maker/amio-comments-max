@@ -24,9 +24,9 @@ function buildGroupInviteText(title = '') {
     '🔔 Хотите получать уведомления этого чата на iPhone?',
     safeTitle ? `Чат: «${safeTitle}»` : '',
     '',
-    'Нажмите кнопку ниже — бот отправит персональную ссылку подключения в личные сообщения.',
+    'Нажмите кнопку — бот отправит персональную ссылку в личные сообщения.',
     '',
-    'Если кнопка не сработала, отправьте в этот чат команду: /push'
+    'Если кнопка недоступна, можно написать /push в этом чате — бот всё равно отправит ссылку только в личку.'
   ].filter((line, index) => line || index === 2 || index === 4).join('\n').trim();
 }
 
@@ -35,9 +35,10 @@ function buildGroupInviteKeyboard() {
     type: 'inline_keyboard',
     payload: {
       buttons: [[{
-        type: 'message',
-        text: 'Включить уведомления',
-        payload: '/push'
+        type: 'callback',
+        text: '🔔 Подключить уведомления',
+        payload: ACTION_GROUP_PUSH_ENABLE,
+        action: ACTION_GROUP_PUSH_ENABLE
       }]]
     }
   }];
@@ -72,17 +73,19 @@ async function createPersonalJoinLinkForMessage(options = {}) {
   return shortLinks.createShortUrlOrFallback(longUrl);
 }
 
-function buildPrivateJoinMessage({ chatTitle = '', joinUrl = '', shortUrlError = '' } = {}) {
+function buildPrivateJoinMessage({ chatTitle = '', joinUrl = '', shortUrlError = '', alreadyHadActiveDevice = false } = {}) {
   const safeTitle = clean(chatTitle).slice(0, 120);
   const lines = [
     `🔔 Подключение уведомлений для чата «${safeTitle}»`,
     '',
-    '1. Откройте ссылку на iPhone.',
+    alreadyHadActiveDevice ? 'У вас уже есть подключённое устройство для этого чата. Ниже новая ссылка для подключения ещё одного устройства.' : '',
+    alreadyHadActiveDevice ? '' : '',
+    '1. Откройте ссылку на iPhone или iPad.',
     '2. Добавьте АдминКИТ Push на экран Домой.',
     '3. Откройте и нажмите «Включить уведомления».',
     '',
     clean(joinUrl)
-  ];
+  ].filter((line, index) => line || index === 1 || index === 3 || index === 7);
   if (clean(shortUrlError)) lines.push('', 'Короткая ссылка временно недоступна, отправляю прямую ссылку.');
   return lines.join('\n');
 }

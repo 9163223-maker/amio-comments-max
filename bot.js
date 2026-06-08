@@ -925,13 +925,12 @@ async function performGroupPushOnboarding({ userId, chatId, chatTitle, config, c
   if (!chatId) return { ok: false, error: 'message_chat_id_missing' };
 
   const activeDevices = await webPushStorage.listActiveDevicesForUser(userId);
-  if (activeDevices.length > 0) {
-    const alreadyBound = await webPushStorage.isChatBoundForUser(userId, chatId);
+  const alreadyHadActiveDevice = activeDevices.length > 0;
+  const alreadyBound = alreadyHadActiveDevice ? await webPushStorage.isChatBoundForUser(userId, chatId) : false;
+  let boundExistingDevices = 0;
+  if (alreadyHadActiveDevice) {
     const binding = await webPushStorage.upsertChatBindingForUserDevices({ maxUserId: userId, chatId, chatTitle });
-    const text = alreadyBound ? 'Уведомления этого чата уже подключены.' : 'Готово. Уведомления этого чата подключены.';
-    if (callbackId) await answerCallback({ botToken: config.botToken, callbackId, notification: text });
-    else await sendMessage({ botToken: config.botToken, chatId, text });
-    return { ok: true, action: 'group_push_bind_existing_device', chatId, userId, devices: binding.devices, alreadyBound };
+    boundExistingDevices = Number(binding?.devices || 0) || 0;
   }
 
   let joinLink = null;
@@ -944,46 +943,84 @@ async function performGroupPushOnboarding({ userId, chatId, chatTitle, config, c
     });
   } catch (error) {
     if (callbackId) await answerCallback({ botToken: config.botToken, callbackId, notification: 'Не удалось создать ссылку подключения. Попробуйте позже.' });
-    else await sendMessage({ botToken: config.botToken, chatId, text: 'Не удалось создать ссылку подключения. Попробуйте позже.' });
-    return { ok: false, action: 'group_push_message_command', error: error?.code || error?.message || 'pairing_link_failed', chatId, userId };
+    return {
+      ok: false,
+      action: 'group_push_message_command',
+      error: error?.code || error?.message || 'pairing_link_failed',
+      chatId,
+      userId,
+      freshLinkIssued: false,
+      alreadyHadActiveDevice
+    };
   }
 
   try {
     await sendMessage({
       botToken: config.botToken,
       userId,
-      text: groupPushOnboarding.buildPrivateJoinMessage({ chatTitle, joinUrl: joinLink.displayUrl, shortUrlError: joinLink.shortUrlError }),
+      text: groupPushOnboarding.buildPrivateJoinMessage({
+        chatTitle,
+        joinUrl: joinLink.displayUrl,
+        shortUrlError: joinLink.shortUrlError,
+        alreadyHadActiveDevice
+      }),
       attachments: groupPushOnboarding.buildPrivateJoinKeyboard(joinLink.displayUrl)
     });
   } catch (error) {
-    const text = 'Не удалось отправить ссылку в личные сообщения. Откройте бота в личке и попробуйте ещё раз.';
+    const text = callbackId
+      ? 'Откройте бота в личке и нажмите «Подключить уведомления».'
+      : 'Откройте бота в личке и нажмите «Подключить уведомления».';
     if (callbackId) await answerCallback({ botToken: config.botToken, callbackId, notification: text });
     else await sendMessage({ botToken: config.botToken, chatId, text });
-    return { ok: false, action: 'group_push_message_command', error: 'private_dm_failed', chatId, userId };
+    return {
+      ok: false,
+      action: 'group_push_message_command',
+      error: 'private_dm_failed',
+      chatId,
+      userId,
+      sentPrivate: false,
+      freshLinkIssued: true,
+      alreadyHadActiveDevice,
+      alreadyBound
+    };
   }
 
   if (callbackId) await answerCallback({ botToken: config.botToken, callbackId, notification: 'Ссылка отправлена в личные сообщения.' });
-  else await sendMessage({ botToken: config.botToken, chatId, text: 'Отправил ссылку подключения в личные сообщения.' });
-  return { ok: true, action: 'group_push_message_command', sentPrivate: true, chatId, userId };
+  return {
+    ok: true,
+    action: 'group_push_message_command',
+    sentPrivate: true,
+    freshLinkIssued: true,
+    alreadyHadActiveDevice,
+    alreadyBound,
+    boundExistingDevices,
+    chatId,
+    userId
+  };
+}
+
+async function deleteGroupPushCommandMessage(message, config) {
+  const messageId = getMessageId(message);
+  if (!messageId) return { commandDeleteAttempted: false, commandDeleteOk: false, commandDeleteFailedReason: 'message_id_missing' };
+  try {
+    await deleteMessage({ botToken: config.botToken, messageId, timeoutMs: config.groupPushCommandDeleteTimeoutMs || config.menuDeleteTimeoutMs || 1800 });
+    return { commandDeleteAttempted: true, commandDeleteOk: true, commandDeleteFailedReason: '' };
+  } catch (error) {
+    return { commandDeleteAttempted: true, commandDeleteOk: false, commandDeleteFailedReason: String(error?.code || error?.message || 'delete_failed').slice(0, 80) };
+  }
 }
 
 async function handleGroupPushCommandMessage(message, config, commandText = '') {
   const text = String(commandText || getMessageText(message) || '');
   if (!groupPushOnboarding.isGroupPushCommandText(text)) return false;
 
+  const deleteResult = await deleteGroupPushCommandMessage(message, config);
   const userId = getSenderUserId(message);
   const chatId = getRecipientChatId(message);
   const chatTitle = getRecipientChatTitle(message);
 
   if (!userId) {
-    if (chatId) {
-      await sendMessage({
-        botToken: config.botToken,
-        chatId,
-        text: 'Не удалось определить пользователя MAX. Откройте бота в личке и попробуйте ещё раз.'
-      });
-    }
-    return { ok: false, action: 'group_push_message_command', error: 'message_user_id_missing', chatId };
+    return { ok: false, action: 'group_push_message_command', error: 'message_user_id_missing', chatId, ...deleteResult };
   }
 
   if (!chatId) {
@@ -992,10 +1029,11 @@ async function handleGroupPushCommandMessage(message, config, commandText = '') 
       userId,
       text: 'Не удалось определить чат MAX. Отправьте команду /push прямо в нужном чате.'
     });
-    return { ok: false, action: 'group_push_message_command', error: 'message_chat_id_missing', userId };
+    return { ok: false, action: 'group_push_message_command', error: 'message_chat_id_missing', userId, ...deleteResult };
   }
 
-  return performGroupPushOnboarding({ userId, chatId, chatTitle, config });
+  const result = await performGroupPushOnboarding({ userId, chatId, chatTitle, config });
+  return { ...result, ...deleteResult };
 }
 
 
@@ -1097,7 +1135,13 @@ async function routeGroupPushCommandMessage({ update = {}, message, config, diag
       routeCandidate: 'group_push_command',
       routeDecision,
       routeResult: result?.ok === false ? 'error' : 'handled',
-      errorCode: result?.error || ''
+      errorCode: result?.error || '',
+      sentPrivate: result?.sentPrivate,
+      freshLinkIssued: result?.freshLinkIssued,
+      alreadyHadActiveDevice: result?.alreadyHadActiveDevice,
+      commandDeleteAttempted: result?.commandDeleteAttempted,
+      commandDeleteOk: result?.commandDeleteOk,
+      commandDeleteFailedReason: result?.commandDeleteFailedReason
     });
     return { ok: true, action: 'group_push_message_command', result };
   } catch (error) {
@@ -1168,7 +1212,13 @@ async function handleGroupPushCommandUpdate({ update = {}, config } = {}) {
       routeCandidate: 'http_edge_group_push_command',
       routeDecision: result?.error === 'message_user_id_missing' ? 'missing_user_id' : (result?.error === 'message_chat_id_missing' ? 'missing_chat_id' : 'edge_group_push_route'),
       routeResult: result?.ok === false ? 'error' : 'handled',
-      errorCode: result?.error || ''
+      errorCode: result?.error || '',
+      sentPrivate: result?.sentPrivate,
+      freshLinkIssued: result?.freshLinkIssued,
+      alreadyHadActiveDevice: result?.alreadyHadActiveDevice,
+      commandDeleteAttempted: result?.commandDeleteAttempted,
+      commandDeleteOk: result?.commandDeleteOk,
+      commandDeleteFailedReason: result?.commandDeleteFailedReason
     });
     return { ok: true, action: 'group_push_message_command', edgePreRouted: true, result };
   } catch (error) {
@@ -5974,8 +6024,16 @@ async function handleWebhook(req, res, config) {
 
     if (updateType === "message_callback") {
       try {
-        await handleMessageCallback(update, config);
-        recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'callback_flow', routeDecision: 'callback_flow', routeResult: 'handled' });
+        const callbackResult = await handleMessageCallback(update, config);
+        recordGroupPushInboundDiagnostic(groupPushInboundContext, {
+          routeCandidate: 'callback_flow',
+          routeDecision: 'callback_flow',
+          routeResult: callbackResult?.ok === false ? 'error' : 'handled',
+          errorCode: callbackResult?.error || '',
+          sentPrivate: callbackResult?.sentPrivate,
+          freshLinkIssued: callbackResult?.freshLinkIssued,
+          alreadyHadActiveDevice: callbackResult?.alreadyHadActiveDevice
+        });
         return res.status(200).json({ ok: true });
       } catch (error) {
         recordGroupPushInboundDiagnostic(groupPushInboundContext, { routeCandidate: 'callback_flow', routeDecision: 'callback_flow', routeResult: 'error', errorCode: error?.code || error?.message || 'callback_error' });
