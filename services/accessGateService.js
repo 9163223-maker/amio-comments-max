@@ -8,7 +8,7 @@ const COMMAND_FEATURES = {
   '/channels': 'channels', '/comments': 'comments', '/gifts': 'gifts', '/buttons': 'buttons', '/highlight': 'highlights', '/polls': 'polls', '/posts': 'post_editor', '/archive': 'archive', '/moderation': 'moderation', '/stats': 'basic_stats', '/debug': 'debug'
 };
 const ROUTE_FEATURES = {
-  channels: 'channels', comments: 'comments', gifts: 'gifts', buttons: 'buttons', stats: 'basic_stats', ad_links: 'ad_links', ads: 'ad_links', polls: 'polls', highlight: 'highlights', highlights: 'highlights', editor: 'post_editor', posts: 'post_editor', archive: 'archive', moderation: 'moderation', settings: 'settings'
+  channels: 'channels', comments: 'comments', gifts: 'gifts', buttons: 'buttons', stats: 'basic_stats', ad_links: 'ad_links', ads: 'ad_links', polls: 'polls', highlight: 'highlights', highlights: 'highlights', editor: 'post_editor', posts: 'post_editor', archive: 'archive', moderation: 'moderation', push: 'channels', settings: 'settings'
 };
 
 const BASIC_STATS_ACTIONS = new Set([
@@ -63,6 +63,7 @@ function featureForAction(action = '', payload = {}) {
   if (a === 'admin_section_debug' || /^debug[:_]/i.test(a)) return 'debug';
   if (a === 'admin_section_main' || route === 'main.home') return 'main';
   if (a === 'admin_section_channels') return 'channels';
+  if (a === 'admin_section_push' || /^admin_push_/.test(a)) return 'channels';
   if (a === 'admin_section_comments') return 'comments';
   if (a === 'admin_section_gifts' || /^gift_/i.test(a)) return 'gifts';
   if (a === 'admin_section_buttons' || /^button_/i.test(a)) return 'buttons';

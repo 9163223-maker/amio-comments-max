@@ -44,12 +44,12 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
     process.env.WEB_PUSH_SUBJECT = 'mailto:pr168@example.test';
     process.env.BOT_TOKEN = 'BOT_TOKEN_PR168_MUST_NOT_LEAK';
 
-    assert(adminSource.includes('Опубликовать приглашение Push в чат'), 'real AdminKIT admin panel exposes Push invite action');
-    assert(botSource.includes('Опубликовать приглашение Push в чат') && botSource.includes('admin_push_publish_invite'), 'active bot admin channels UI exposes Push invite action outside /push/admin');
-    assert(adapterSource.includes("a === 'admin_push_publish_invite'") && adminSource.includes('assertAdmin(maxUserId)') && botSource.includes('clientAccessService.isAdmin(userId)'), 'admin action uses existing AdminKIT admin context/auth gate');
+    assert(adminSource.includes('🔔 Push-уведомления') && adminSource.includes('admin_section_push'), 'real AdminKIT admin panel links to the visible Push section');
+    assert(botSource.includes('🔔 Push-уведомления') && botSource.includes('admin_push_publish_invite'), 'active bot exposes visible Push publishing outside /push/admin');
+    assert(!adapterSource.includes("a === 'admin_push_publish_invite'") && botSource.includes('groupPushAdminPublishing.publishGroupPushInvite'), 'publish action bypasses global support-admin interception and uses chat-scoped authorization');
     assert(!/admin_push_publish_invite[\s\S]{0,400}PUSH_ADMIN_TOKEN/.test(botSource), 'product admin action does not require manual PUSH_ADMIN_TOKEN');
     assert(botSource.includes('publishAdminGroupPushInvite') && botSource.includes('groupPushOnboarding.buildGroupInviteText') && botSource.includes('groupPushOnboarding.buildGroupInviteKeyboard'), 'product admin action publishes group invite server-side');
-    assert(botSource.includes('Приглашение опубликовано в чат.') && botSource.includes('Не удалось опубликовать приглашение. Проверьте, что бот добавлен в чат и выбран правильный чат.'), 'admin action has safe success/failure copy');
+    assert(botSource.includes('Приглашение опубликовано в чат.') && botSource.includes('VERIFICATION_FAILURE_MESSAGE'), 'admin action has safe success/failure copy');
 
     const inviteText = groupPush.buildGroupInviteText('PR168 Group');
     const keyboard = groupPush.buildGroupInviteKeyboard();
@@ -65,7 +65,7 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
     assert(pushClient.includes('Готово. Уведомления этого чата подключены.') && pushClient.includes('Можно подключить этот чат к уже установленному AdminKIT Push.'), 'add-chat flow has product copy');
     assert(!pushHtml.replace(/[\s\S]*<!-- raw-diagnostics-start -->[\s\S]*/m, '').includes('Последний результат'), 'normal PWA shell hides raw diagnostics before marker strip');
     assert(!/appendResult\([^)]*(endpoint|p256dh|auth|PUSH_ADMIN_TOKEN|BOT_TOKEN|pairingToken)/.test(pushClient), 'client does not append raw push or secret fields');
-    assert(entrypoint.includes('PR168-PR169-PUBLIC-PUSH-ENTRYPOINT') && pkg.sourceMarker === 'adminkit-pr169-public-push-entrypoint', 'active runtime keeps PR168 lineage under the PR169 marker');
+    assert(entrypoint.includes('PR172-VISIBLE-PUSH-ADMIN-FLOW') && pkg.sourceMarker === 'adminkit-pr172-visible-push-admin-flow', 'active PR172 runtime keeps the PR168 link-chat behavior');
 
     const pairing = fresh('../services/pushPairingService');
     const storage = fresh('../services/webPushStorage');

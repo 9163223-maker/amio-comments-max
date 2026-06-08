@@ -166,7 +166,7 @@ async function verifyActiveRuntimePath() {
 
   const audit = menuCore.audit('');
   assert.strictEqual(audit.canonicalVersion, canonical.VERSION, 'menu core audit canonicalVersion must match PR105 canonical menu');
-  assert.strictEqual(audit.visibleMainMenuTotal, 12, 'menu core audit must report 12 visible client sections');
+  assert.strictEqual(audit.visibleMainMenuTotal, 13, 'menu core audit must report 13 visible client sections');
 
   const registered = {};
   const fakeApp = { get(route, handler) { registered[route] = handler; return this; } };
@@ -176,7 +176,7 @@ async function verifyActiveRuntimePath() {
   registered['/debug/menu/audit']({}, routeRes);
   const routeAudit = JSON.parse(routeRes.body);
   assert.strictEqual(routeAudit.canonicalVersion, canonical.VERSION, '/debug/menu/audit canonicalVersion must match PR105 canonical menu');
-  assert.strictEqual(routeAudit.visibleMainMenuTotal, 12, '/debug/menu/audit must report 12 visible client sections');
+  assert.strictEqual(routeAudit.visibleMainMenuTotal, 13, '/debug/menu/audit must report 13 visible client sections');
 }
 
 const expectedSections = [
@@ -185,6 +185,7 @@ const expectedSections = [
   'Подарки / лид-магниты',
   'Кнопки под постами',
   'Статистика',
+  '🔔 Push-уведомления',
   'Рекламные ссылки',
   'Опросы / голосования',
   'Выделение постов',
@@ -196,7 +197,7 @@ const expectedSections = [
 
 const validation = canonical.validate();
 assert.strictEqual(validation.ok, true, `canonical menu validation failed: ${validation.errors.join(', ')}`);
-assert.strictEqual(canonical.clientSections.length, 12, 'client production menu must have exactly 12 top-level sections');
+assert.strictEqual(canonical.clientSections.length, 13, 'client production menu must have exactly 13 top-level sections');
 assert.deepStrictEqual(canonical.clientSections.map((section) => section.title), expectedSections, 'client top-level sections must match PR105 approved order');
 
 const main = adapter.render('main:home');
@@ -247,7 +248,7 @@ for (const item of canonical.allActions().filter((action) => action.clientVisibl
 for (const section of canonical.clientSections) {
   const root = adapter.render(section.route);
   const rootLabels = labels(root);
-  assertHasAll(rootLabels, ['❓ Помощь по разделу', '🏠 Главное меню'], `${section.id} root navigation`);
+  assertHasAll(rootLabels, section.id === 'push' ? ['Как это работает', 'Главное меню'] : ['❓ Помощь по разделу', '🏠 Главное меню'], `${section.id} root navigation`);
   assert.ok(!rootLabels.includes('↩️ В начало раздела'), `${section.id} root must not include section-home self-click`);
   assert.ok(!rootLabels.includes('⬅️ Назад'), `${section.id} root must not include back without context`);
   assertNoSelfRoute(root, section.route);
@@ -322,7 +323,7 @@ assert.strictEqual(adapterSelfTest.ok, true, `adapter selfTest failed: ${JSON.st
 
 const coreAudit = menuCore.audit('');
 assert.strictEqual(coreAudit.ok, true, `menu core audit failed: ${JSON.stringify(coreAudit.canonicalValidation || coreAudit)}`);
-assert.strictEqual(coreAudit.visibleMainMenuTotal, 12, 'debug menu audit must report 12 client sections');
+assert.strictEqual(coreAudit.visibleMainMenuTotal, 13, 'debug menu audit must report 13 client sections');
 assert.strictEqual(coreAudit.checks.noDebugTopLevel, true, 'debug must be hidden from client top-level audit');
 assert.strictEqual(coreAudit.checks.noCtaLabel, true, 'audit must reject CTA labels');
 
