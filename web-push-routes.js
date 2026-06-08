@@ -389,7 +389,11 @@ function install(app) {
       res.set('Set-Cookie', isHttpsRequest(req) ? `${cookie}; Secure` : cookie);
       return sendPushPage(req, res, { mode: 'client', joinMode: true, tokenStatus: 'valid', token });
     } catch (error) {
-      return res.status(400).send(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>АдминКИТ Push</title></head><body><main><h1>АдминКИТ Push</h1><p>Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.</p><p>Код: ${safeErrorCode(error, 'invalid_push_pairing_token')}</p></main></body></html>`);
+      const code = safeErrorCode(error, 'invalid_push_pairing_token');
+      if (code === 'push_pairing_token_used') {
+        return sendPushPage(req, res, { mode: 'client', joinMode: true, tokenStatus: 'used', token });
+      }
+      return res.status(400).send(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>АдминКИТ Push</title></head><body><main><h1>АдминКИТ Push</h1><p>Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.</p><p>Код: ${code}</p></main></body></html>`);
     }
   });
 
@@ -479,6 +483,34 @@ function install(app) {
       return res.json({ ok: true, id: saved.id.slice(0, 16), backend: saved.backend });
     } catch (error) {
       return res.status(400).json(invalidSubscriptionResponse(error, extracted.subscription, 'subscribe_failed', requestShape));
+    }
+  });
+
+  app.post('/api/push/device/status', async (req, res) => {
+    const config = getConfig();
+    if (!config.configured) return res.status(503).json({ ok: false, error: 'web_push_not_configured' });
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    try {
+      const extracted = extractPushSubscriptionFromBody(body);
+      const requestShape = safePushRequestShape(body, extracted.source);
+      const cleanSubscription = storage.sanitizeSubscription(extracted.subscription);
+      const endpointHash = storage.subscriptionId(cleanSubscription);
+      const device = await storage.findDeviceByEndpointHash(endpointHash);
+      if (!device || device.disabled || !['active', 'pending'].includes(device.status)) {
+        return res.status(404).json({ ok: false, error: 'push_device_not_paired', requestShape });
+      }
+      return res.json(confirmation.safePublicResult({
+        ok: true,
+        status: device.status,
+        confirmationRequired: device.status !== 'active',
+        confirmationSent: false,
+        confirmationDispatch: 'not_needed',
+        deviceId: device.deviceId
+      }));
+    } catch (error) {
+      const extracted = extractPushSubscriptionFromBody(body);
+      const requestShape = safePushRequestShape(body, extracted.source);
+      return res.status(400).json(invalidSubscriptionResponse(error, extracted.subscription, 'push_device_status_failed', requestShape));
     }
   });
 
@@ -586,7 +618,7 @@ function install(app) {
     res.status(result.ok ? 200 : 503).json(result);
   });
 
-  return { ok: true, routes: ['/push', '/push/admin', '/push/join', '/push/manifest.json', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/pair', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted', '/internal/max/chats', '/internal/max/chat-members', '/internal/max/group-push-invite'] };
+  return { ok: true, routes: ['/push', '/push/admin', '/push/join', '/push/manifest.json', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/device/status', '/api/push/pair', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted', '/internal/max/chats', '/internal/max/chat-members', '/internal/max/group-push-invite'] };
 }
 
 module.exports = {

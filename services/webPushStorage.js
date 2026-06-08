@@ -300,6 +300,22 @@ async function listDevicesForUser({ maxUserId, chatId, includePending = false } 
   return readFileStore().subscriptions.map(normalizeRow).filter((item) => item.maxUserId === targetUser && item.chatId === targetChat && statuses.includes(item.status) && !item.disabled);
 }
 
+
+async function findDeviceByEndpointHash(endpointHash) {
+  const target = clean(endpointHash);
+  if (!target) return null;
+  const p = getPool();
+  if (p) {
+    const client = await p.connect();
+    try {
+      await ensureTable(client);
+      const result = await client.query(`SELECT * FROM ${TABLE_NAME} WHERE endpoint_hash = $1 OR id = $1 LIMIT 1`, [target]);
+      return result.rows[0] ? normalizeRow(result.rows[0]) : null;
+    } finally { client.release(); }
+  }
+  return readFileStore().subscriptions.map(normalizeRow).find((entry) => entry.endpointHash === target || entry.id === target) || null;
+}
+
 async function findDeviceByDeviceId(deviceId) {
   const safeDeviceId = clean(deviceId);
   if (!safeDeviceId) return null;
@@ -486,4 +502,4 @@ async function listPublicDeviceSummaries() { return (await listActiveSubscriptio
 
 function info() { return { backend: isPostgresConfigured() ? 'postgres' : 'file', persistent: isPostgresConfigured(), table: isPostgresConfigured() ? TABLE_NAME : '', file: isPostgresConfigured() ? '' : DATA_FILE }; }
 
-module.exports = { saveSubscription, savePairedDevice, listActiveSubscriptions, listDevicesForUser, listActiveDevicesForUser, upsertChatBindingForDevice, upsertChatBindingForUserDevices, listChatBindingsForUser, isChatBoundForUser, listActiveDevicesForChat, listActiveDevicesForChatAndUser, listPublicDeviceSummaries, findDeviceByDeviceId, markDeviceActive, markResult, countSubscriptions, publicSummary, subscriptionId, subscriptionShape, sanitizeSubscription, info };
+module.exports = { saveSubscription, savePairedDevice, listActiveSubscriptions, listDevicesForUser, listActiveDevicesForUser, upsertChatBindingForDevice, upsertChatBindingForUserDevices, listChatBindingsForUser, isChatBoundForUser, listActiveDevicesForChat, listActiveDevicesForChatAndUser, listPublicDeviceSummaries, findDeviceByEndpointHash, findDeviceByDeviceId, markDeviceActive, markResult, countSubscriptions, publicSummary, subscriptionId, subscriptionShape, sanitizeSubscription, info };

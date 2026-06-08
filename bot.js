@@ -37,6 +37,7 @@ const pushConfirmation = require("./services/pushConfirmationService");
 const groupPushOnboarding = require("./services/groupPushOnboardingService");
 const groupPushInboundDiagnostics = require("./services/groupPushInboundDiagnostics");
 const webPushStorage = require("./services/webPushStorage");
+const pushDispatch = require("./services/pushDispatchService");
 const buttonsFlow = require("./buttons-flow-cc8-clean");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
 const {
@@ -994,6 +995,41 @@ async function handleGroupPushCommandMessage(message, config, commandText = '') 
   }
 
   return performGroupPushOnboarding({ userId, chatId, chatTitle, config });
+}
+
+
+function shouldDispatchChatPushNotification(updateType = '', message = null, text = '') {
+  if (String(updateType || '').trim() !== 'message_created') return false;
+  const chatId = getRecipientChatId(message);
+  if (!chatId) return false;
+  const normalized = String(text || getMessageText(message) || '').trim();
+  if (groupPushOnboarding.isGroupPushCommandText(normalized)) return false;
+  return Boolean(normalized);
+}
+
+async function dispatchLiveChatPushNotification({ updateType = '', message = null, text = '', config = {} } = {}) {
+  if (!shouldDispatchChatPushNotification(updateType, message, text)) return { ok: true, skipped: true, reason: 'not_live_chat_push_candidate' };
+  const chatId = getRecipientChatId(message);
+  const chatTitle = getRecipientChatTitle(message);
+  const senderName = getSenderFirstName(message);
+  const messageId = getMessageId(message);
+  try {
+    return await pushDispatch.sendPushToChat({
+      chatId,
+      payload: {
+        source: 'max_group',
+        chatId,
+        chatTitle,
+        senderName,
+        messageText: text || getMessageText(message),
+        messageId
+      },
+      webPushClient: config && config.webPushClient
+    });
+  } catch (error) {
+    logVerbose(config, 'LIVE CHAT PUSH DISPATCH FAILED', { chatId, error: error?.code || error?.message || String(error) });
+    return { ok: false, error: error?.code || error?.message || 'live_chat_push_dispatch_failed' };
+  }
 }
 
 async function routeGroupPushCommandMessage({ update = {}, message, config, diagnosticContext } = {}) {
@@ -5936,6 +5972,7 @@ async function handleWebhook(req, res, config) {
     const senderUserId = getSenderUserId(message);
     if (senderUserId) rememberAdminUserMessageIds(senderUserId, getMessageIdCandidates(message));
     const text = getMessageText(message).trim();
+    await dispatchLiveChatPushNotification({ updateType, message, text, config });
     const lowered = text.toLowerCase();
 
     if (/^\/?(?:debug_live|live)(?:\s|$)/i.test(text)) {

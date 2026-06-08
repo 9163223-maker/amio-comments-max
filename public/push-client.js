@@ -36,10 +36,12 @@ const RESET_RESULT_STEPS_LIMIT = 8;
 const LEGACY_RESET_NO_SUBSCRIPTION_RESULT = 'push subscription reset: no subscription found';
 const LEGACY_RESET_FAILED_RESULT = 'push subscription reset failed';
 const PENDING_JOIN_TOKEN_STORAGE_KEY = 'adminkit.push.pendingJoinToken.v1';
+const PAIRED_CONTEXT_STORAGE_KEY = 'adminkit.push.pairedContext.v1';
 const JOIN_TOKEN_FOUND_MESSAGE = 'Персональная ссылка найдена. Теперь нажмите «Включить уведомления».';
 const JOIN_TOKEN_MISSING_MESSAGE = 'Откройте персональную ссылку подключения из MAX.';
 const JOIN_TOKEN_EXPIRED_MESSAGE = 'Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.';
 const JOIN_SUCCESS_MESSAGE = 'Готово. Уведомления этого чата подключены.';
+const JOIN_READY_MESSAGE = 'Готово. Уведомления этого чата уже подключены.';
 
 // Legacy diagnostic test markers retained to prove earlier UX guarantees remain documented:
 // Разрешение не выдано. Проверьте настройки iOS для АдминКИТ Push.
@@ -114,6 +116,65 @@ function clearPendingJoinToken() {
   try { window.localStorage.removeItem(PENDING_JOIN_TOKEN_STORAGE_KEY); } catch {}
 }
 
+function safePairedContext(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const status = ['active', 'pending'].includes(String(source.status || '')) ? String(source.status) : 'active';
+  const deviceId = String(source.deviceId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 16);
+  const pairedAt = String(source.pairedAt || '').slice(0, 40);
+  return source.paired === true ? { paired: true, status, deviceId, pairedAt } : null;
+}
+
+function readPairedContext() {
+  if (!storageAvailable()) return null;
+  try { return safePairedContext(JSON.parse(window.localStorage.getItem(PAIRED_CONTEXT_STORAGE_KEY) || 'null')); } catch { return null; }
+}
+
+function storePairedContext(result) {
+  if (!storageAvailable()) return false;
+  const context = safePairedContext({
+    paired: true,
+    status: result && result.status ? result.status : 'active',
+    deviceId: result && result.deviceId ? result.deviceId : '',
+    pairedAt: new Date().toISOString()
+  });
+  if (!context) return false;
+  try {
+    window.localStorage.setItem(PAIRED_CONTEXT_STORAGE_KEY, JSON.stringify(context));
+    return true;
+  } catch { return false; }
+}
+
+function clearPairedContext() {
+  if (!storageAvailable()) return;
+  try { window.localStorage.removeItem(PAIRED_CONTEXT_STORAGE_KEY); } catch {}
+}
+
+function hasPairedContext() {
+  return Boolean(readPairedContext());
+}
+
+function isPairedRelaunchMode() {
+  const context = readPairedContext();
+  if (!context) return false;
+  const tokenStatus = state.join && state.join.tokenStatus ? state.join.tokenStatus : '';
+  if (tokenStatus === 'valid' && safeStoredJoinToken(state.join && state.join.token)) return false;
+  return Boolean((state.join && (state.join.landingMode || state.join.joinMode)) || context.paired);
+}
+
+function applyPairedReadyState(message = JOIN_READY_MESSAGE) {
+  setText('introText', message);
+  setHidden('pairingNotice', false);
+  setHidden('subscribeTokenRow', true);
+  setHidden('adminTokenRow', true);
+  setHidden('testBtn', true);
+  setHidden('statusBtn', true);
+  setHidden('resetPushButton', true);
+  setClientStatus(message, 'success');
+  setText('pairingStatus', 'paired-ready');
+  setText('enableBtn', 'Проверить уведомления');
+}
+
+
 function clearJoinState() {
   clearPendingJoinToken();
   if (state.join) {
@@ -127,7 +188,7 @@ function clearJoinState() {
 function recoverJoinToken() {
   const urlToken = safeStoredJoinToken(state.join && state.join.token);
   if (urlToken) {
-    storePendingJoinToken(urlToken);
+    if (!state.join || state.join.tokenStatus !== 'used') storePendingJoinToken(urlToken);
     state.join.token = urlToken;
     state.join.joinMode = true;
     state.join.tokenStatus = state.join.tokenStatus || 'valid';
@@ -376,6 +437,19 @@ async function fetchJson(url, options) {
 
 function applyJoinMode() {
   const pendingToken = recoverJoinToken();
+  if (isPairedRelaunchMode()) {
+    if (history && history.replaceState) history.replaceState(null, document.title, '/push');
+    applyPairedReadyState();
+    return;
+  }
+  if (state.join.joinMode && state.join.tokenStatus === 'used') {
+    clearPendingJoinToken();
+    setText('introText', JOIN_TOKEN_EXPIRED_MESSAGE);
+    setHidden('pairingNotice', false);
+    setClientStatus(JOIN_TOKEN_EXPIRED_MESSAGE, 'error');
+    setText('pairingStatus', 'join-token-used');
+    return;
+  }
   if (!state.join.joinMode) {
     if (state.join.landingMode) {
       setText('introText', JOIN_TOKEN_MISSING_MESSAGE);
@@ -421,6 +495,14 @@ async function refreshStatus() {
     setText('swState', registrationState);
     state.subscription = state.registration && state.registration.pushManager ? await state.registration.pushManager.getSubscription() : null;
     setText('subscriptionExists', state.subscription ? 'exists' : 'not exists');
+    if (state.subscription && hasPairedContext()) {
+      try {
+        const deviceStatus = await confirmPairedSubscription(state.subscription);
+        if (deviceStatus && deviceStatus.ok) applyPairedReadyState();
+      } catch (error) {
+        if (error && error.data && error.data.error === 'push_device_not_paired') clearPairedContext();
+      }
+    }
   } else {
     setText('swState', 'unsupported');
     setText('subscriptionExists', 'unsupported');
@@ -484,6 +566,14 @@ async function ensureActiveRegistration(registration) {
   return state.registration;
 }
 
+async function confirmPairedSubscription(subscription) {
+  const normalizedSubscription = normalizePushSubscription(subscription);
+  const requestBody = { subscription: normalizedSubscription };
+  const result = await withTimeout(fetchJson('/api/push/device/status', { method: 'POST', body: JSON.stringify(requestBody) }), TIMEOUTS.serverSave, 'paired device status timed out');
+  storePairedContext(result);
+  return result;
+}
+
 async function saveSubscription(subscription, status) {
   const normalizedSubscription = normalizePushSubscription(subscription);
   const subscriptionShape = safeSubscriptionShape(normalizedSubscription);
@@ -491,6 +581,9 @@ async function saveSubscription(subscription, status) {
   const requestShape = { hasNestedSubscription: true };
   setStep('sending subscription to server', 'running', JSON.stringify({ requestShape, clientSubscriptionShape: subscriptionShape }));
   try {
+    if (isPairedRelaunchMode()) {
+      return await confirmPairedSubscription(subscription);
+    }
     if (state.join.joinMode) {
       const pendingToken = recoverJoinToken();
       const pairBody = pendingToken ? { ...requestBody, pairingToken: pendingToken } : requestBody;
@@ -596,10 +689,11 @@ async function enableNotifications() {
 
     currentStep = 'server response';
     setStep(currentStep, 'done', JSON.stringify(safeServerResult(result)));
-    if (state.join.joinMode) {
-      let successMessage = JOIN_SUCCESS_MESSAGE;
+    if (state.join.joinMode || isPairedRelaunchMode()) {
+      let successMessage = isPairedRelaunchMode() ? JOIN_READY_MESSAGE : JOIN_SUCCESS_MESSAGE;
+      storePairedContext(result);
       clearJoinState();
-      setClientStatus(successMessage, 'success');
+      applyPairedReadyState(successMessage);
       appendResult(successMessage);
     } else {
       appendResult('subscription saved', safeServerResult(result));
@@ -613,10 +707,10 @@ async function enableNotifications() {
       appendResult(INVALID_SUBSCRIPTION_RESET_INSTRUCTION, safeRecoveryError(error));
     } else {
       if (state.join.joinMode && isExpiredPairingError(error)) {
-        clearJoinState();
-        setClientStatus(JOIN_TOKEN_EXPIRED_MESSAGE, 'error');
-        failStep(currentStep, new Error(JOIN_TOKEN_EXPIRED_MESSAGE));
-        appendResult(JOIN_TOKEN_EXPIRED_MESSAGE, error.data || null);
+        if (!hasPairedContext()) clearJoinState();
+        setClientStatus(hasPairedContext() ? JOIN_READY_MESSAGE : JOIN_TOKEN_EXPIRED_MESSAGE, hasPairedContext() ? 'success' : 'error');
+        failStep(currentStep, new Error(hasPairedContext() ? JOIN_READY_MESSAGE : JOIN_TOKEN_EXPIRED_MESSAGE));
+        appendResult(hasPairedContext() ? JOIN_READY_MESSAGE : JOIN_TOKEN_EXPIRED_MESSAGE, error.data || null);
       } else {
         failStep(currentStep, error);
         appendResult(error.message || 'failed', error.data || null);
