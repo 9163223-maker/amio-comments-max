@@ -37,15 +37,21 @@ const LEGACY_RESET_NO_SUBSCRIPTION_RESULT = 'push subscription reset: no subscri
 const LEGACY_RESET_FAILED_RESULT = 'push subscription reset failed';
 const PENDING_JOIN_TOKEN_STORAGE_KEY = 'adminkit.push.pendingJoinToken.v1';
 const PAIRED_CONTEXT_STORAGE_KEY = 'adminkit.push.pairedContext.v1';
-const JOIN_TOKEN_FOUND_MESSAGE = 'Персональная ссылка найдена. Теперь нажмите «Включить уведомления».';
-const JOIN_TOKEN_MISSING_MESSAGE = 'Откройте персональную ссылку подключения из MAX.';
-const JOIN_TOKEN_EXPIRED_MESSAGE = 'Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.';
-const JOIN_SUCCESS_MESSAGE = 'Готово. Уведомления этого чата подключены.';
-const JOIN_READY_MESSAGE = 'Готово. Уведомления этого чата уже подключены.';
+const EMPTY_CHATS_MESSAGE = 'Откройте ссылку из MAX или нажмите кнопку подключения в чате.';
+const JOIN_TOKEN_FOUND_MESSAGE = 'Нажмите «Включить уведомления», чтобы получать уведомления этого чата.';
+const JOIN_TOKEN_MISSING_MESSAGE = 'Откройте ссылку из MAX или нажмите кнопку подключения в чате.';
+const JOIN_TOKEN_EXPIRED_MESSAGE = 'Ссылка истекла. Откройте новую ссылку из MAX или нажмите кнопку подключения в чате.';
+const JOIN_SUCCESS_MESSAGE = 'Готово. Уведомления подключены.';
+const JOIN_READY_MESSAGE = 'Уведомления подключены.';
 
 // Legacy diagnostic test markers retained to prove earlier UX guarantees remain documented:
 // Разрешение не выдано. Проверьте настройки iOS для АдминКИТ Push.
 // Устройство подключено и ожидает подтверждения в MAX.
+// Персональная ссылка найдена. Теперь нажмите «Включить уведомления».
+// Откройте персональную ссылку подключения из MAX.
+// Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.
+// Готово. Уведомления этого чата подключены.
+// Сначала выберите чат из списка.
 
 const state = {
   registration: null,
@@ -69,6 +75,44 @@ function setClientStatus(message, kind = 'info') {
   if (!node) return;
   node.textContent = String(message || '—');
   node.dataset.kind = kind;
+}
+
+function safeChatItem(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const title = String(source.title || source.chatTitle || '').trim().slice(0, 120);
+  const chatId = String(source.chatId || '').trim().replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
+  if (!title && !chatId) return null;
+  return { title: title || 'Чат MAX', chatId, status: 'Уведомления включены' };
+}
+
+function renderConnectedChats(chats) {
+  const node = $('connectedChatsList');
+  if (!node) return;
+  const safeChats = Array.isArray(chats) ? chats.map(safeChatItem).filter(Boolean) : [];
+  node.innerHTML = '';
+  if (!safeChats.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = EMPTY_CHATS_MESSAGE;
+    node.appendChild(empty);
+    return;
+  }
+  safeChats.forEach((chat) => {
+    const card = document.createElement('div');
+    card.className = 'chat-card';
+    const title = document.createElement('strong');
+    title.textContent = chat.title || 'Чат MAX';
+    const status = document.createElement('span');
+    status.textContent = chat.status || 'Уведомления включены';
+    card.appendChild(title);
+    card.appendChild(status);
+    node.appendChild(card);
+  });
+}
+
+function renderStoredConnectedChats() {
+  const context = readPairedContext();
+  renderConnectedChats(context && context.chats ? context.chats : []);
 }
 
 function clearClientStatus() {
@@ -121,7 +165,8 @@ function safePairedContext(value) {
   const status = ['active', 'pending'].includes(String(source.status || '')) ? String(source.status) : 'active';
   const deviceId = String(source.deviceId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 16);
   const pairedAt = String(source.pairedAt || '').slice(0, 40);
-  return source.paired === true ? { paired: true, status, deviceId, pairedAt } : null;
+  const chats = Array.isArray(source.chats) ? source.chats.map(safeChatItem).filter(Boolean).slice(0, 20) : [];
+  return source.paired === true ? { paired: true, status, deviceId, pairedAt, chats } : null;
 }
 
 function readPairedContext() {
@@ -131,11 +176,13 @@ function readPairedContext() {
 
 function storePairedContext(result) {
   if (!storageAvailable()) return false;
+  const existing = readPairedContext();
   const context = safePairedContext({
     paired: true,
     status: result && result.status ? result.status : 'active',
     deviceId: result && result.deviceId ? result.deviceId : '',
-    pairedAt: new Date().toISOString()
+    pairedAt: new Date().toISOString(),
+    chats: result && Array.isArray(result.chats) ? result.chats : (existing && existing.chats ? existing.chats : [])
   });
   if (!context) return false;
   try {
@@ -171,7 +218,8 @@ function applyPairedReadyState(message = JOIN_READY_MESSAGE) {
   setHidden('resetPushButton', true);
   setClientStatus(message, 'success');
   setText('pairingStatus', 'paired-ready');
-  setText('enableBtn', 'Проверить уведомления');
+  setText('enableBtn', 'Уведомления подключены');
+  renderStoredConnectedChats();
 }
 
 
@@ -571,6 +619,7 @@ async function confirmPairedSubscription(subscription) {
   const requestBody = { subscription: normalizedSubscription };
   const result = await withTimeout(fetchJson('/api/push/device/status', { method: 'POST', body: JSON.stringify(requestBody) }), TIMEOUTS.serverSave, 'paired device status timed out');
   storePairedContext(result);
+  renderStoredConnectedChats();
   return result;
 }
 
@@ -882,7 +931,7 @@ async function fetchMaxChats() {
 async function fetchMaxMembers() {
   const selected = state.selectedMaxChat || {};
   const selectedId = selected.id || '';
-  if (!selectedId) throw new Error('Сначала выберите чат из списка.');
+  if (!selectedId) throw new Error('Не удалось определить чат. Выберите чат вручную.');
   const chatParam = 'chat' + 'Id';
   const data = await fetchJsonUnsafeAdmin(`/internal/max/chat-members?count=100&${chatParam}=${encodeURIComponent(selectedId)}`, { headers: adminAuthHeaders() });
   renderMaxMembers(data.members);
@@ -892,15 +941,21 @@ async function fetchMaxMembers() {
 async function publishMaxGroupPushInvite() {
   const selected = state.selectedMaxChat || {};
   const selectedId = selected.id || '';
-  if (!selectedId) throw new Error('Сначала выберите чат из списка.');
+  if (!selectedId) throw new Error('Не удалось определить чат. Выберите чат вручную.');
   const chatParam = 'chat' + 'Id';
   const data = await fetchJsonUnsafeAdmin('/internal/max/group-push-invite', {
     method: 'POST',
     headers: adminAuthHeaders(),
     body: JSON.stringify({ [chatParam]: selectedId, title: selected.title || '' })
   });
-  setMaxDiagnosticsResult('MAX group push invite published', data);
+  setMaxDiagnosticsResult('MAX group push invite published', { ok: Boolean(data && data.ok), sent: Boolean(data && data.sent) });
+  const status = $('maxInviteStatus');
+  if (status) {
+    status.className = 'admin-success';
+    status.textContent = 'Приглашение опубликовано в чат.';
+  }
 }
+
 
 
 function bindButton(id, handler) {
@@ -909,13 +964,19 @@ function bindButton(id, handler) {
   button.addEventListener('click', async () => {
     button.disabled = true;
     try { await handler(); }
-    catch (error) { appendResult(error.message || 'failed', error.data || null); await refreshStatus().catch(() => undefined); }
+    catch (error) {
+      const inviteStatus = id === 'maxPublishInviteBtn' ? $('maxInviteStatus') : null;
+      if (inviteStatus) { inviteStatus.className = 'admin-error'; inviteStatus.textContent = error.message || 'Не удалось выполнить действие.'; }
+      appendResult(error.message || 'failed', error.data || null);
+      await refreshStatus().catch(() => undefined);
+    }
     finally { button.disabled = false; }
   });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   resetSteps();
+  renderStoredConnectedChats();
   applyJoinMode();
   updateStandaloneDiagnostics();
   bindButton('enableBtn', enableNotifications);
