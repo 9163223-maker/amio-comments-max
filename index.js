@@ -73,6 +73,7 @@ const { listAdminPosts, buildPostAdminCard, editPostText, savePostKeyboard, repl
 const webPushRoutes = require("./web-push-routes");
 const { renderGroupPushInboundDebugHtml } = require("./services/groupPushInboundDebugPage");
 const maxWebhookEdgeDiagnostics = require("./services/maxWebhookEdgeDiagnostics");
+const pushDispatchDiagnostics = require("./services/pushDispatchDiagnostics");
 
 const app = express();
 const deferredVideoResults = new Map();
@@ -1064,6 +1065,16 @@ function getMaxWebhookEdgeDiagnosticsBlock() {
   };
 }
 
+function getPushDispatchDiagnosticsBlock() {
+  const diagnostics = typeof botModule?.getPushDispatchDiagnostics === 'function'
+    ? botModule.getPushDispatchDiagnostics(50)
+    : pushDispatchDiagnostics.summary(50);
+  return {
+    count: Number(diagnostics.count || 0) || 0,
+    latest: Array.isArray(diagnostics.latest) ? diagnostics.latest.slice(-50) : []
+  };
+}
+
 function getWebhookRouteRegistrationDiagnostics() {
   return {
     registered: Boolean(config.webhookPath),
@@ -1084,6 +1095,7 @@ function buildLiveDebugPayload() {
     },
     groupPushInboundDiagnostics: getGroupPushInboundDiagnosticsBlock(),
     maxWebhookEdgeDiagnostics: getMaxWebhookEdgeDiagnosticsBlock(),
+    pushDispatchDiagnostics: getPushDispatchDiagnosticsBlock(),
     webhookRouteRegistrationDiagnostics: getWebhookRouteRegistrationDiagnostics(),
     store: snapshot
   };
@@ -1222,6 +1234,7 @@ function buildGithubDebugPayload({ lite = false } = {}) {
     mediaDiagnostics: clean.mediaDiagnostics,
     groupPushInboundDiagnostics: clean.groupPushInboundDiagnostics || getGroupPushInboundDiagnosticsBlock(),
     maxWebhookEdgeDiagnostics: clean.maxWebhookEdgeDiagnostics || getMaxWebhookEdgeDiagnosticsBlock(),
+    pushDispatchDiagnostics: clean.pushDispatchDiagnostics || getPushDispatchDiagnosticsBlock(),
     webhookRouteRegistrationDiagnostics: clean.webhookRouteRegistrationDiagnostics || getWebhookRouteRegistrationDiagnostics(),
     channels: clean.store?.channels || {},
     postsCount: Object.keys(clean.store?.posts || {}).length,
@@ -1291,6 +1304,12 @@ app.get('/debug/webhook-edge.json', (req, res) => {
   setNoCacheHeaders(res);
   if (!requireDebugExportAccess(req, res)) return;
   res.json({ ok: true, ...baseDebugPayload(), maxWebhookEdgeDiagnostics: getMaxWebhookEdgeDiagnosticsBlock() });
+});
+
+app.get('/debug/push-dispatch.json', (req, res) => {
+  setNoCacheHeaders(res);
+  if (!requireDebugExportAccess(req, res)) return;
+  res.json({ ok: true, ...baseDebugPayload(), pushDispatchDiagnostics: getPushDispatchDiagnosticsBlock() });
 });
 
 app.get('/debug/webhook-edge', (req, res) => {

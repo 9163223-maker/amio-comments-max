@@ -38,6 +38,7 @@ const groupPushOnboarding = require("./services/groupPushOnboardingService");
 const groupPushInboundDiagnostics = require("./services/groupPushInboundDiagnostics");
 const webPushStorage = require("./services/webPushStorage");
 const pushDispatch = require("./services/pushDispatchService");
+const pushDispatchDiagnostics = require("./services/pushDispatchDiagnostics");
 const buttonsFlow = require("./buttons-flow-cc8-clean");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
 const {
@@ -998,23 +999,55 @@ async function handleGroupPushCommandMessage(message, config, commandText = '') 
 }
 
 
-function shouldDispatchChatPushNotification(updateType = '', message = null, text = '') {
-  if (String(updateType || '').trim() !== 'message_created') return false;
+function liveChatPushSkipReason(updateType = '', message = null, text = '') {
+  if (String(updateType || '').trim() !== 'message_created') return 'not_message_created';
   const chatId = getRecipientChatId(message);
-  if (!chatId) return false;
+  if (!chatId) return 'missing_chat_id';
   const normalized = String(text || getMessageText(message) || '').trim();
-  if (groupPushOnboarding.isGroupPushCommandText(normalized)) return false;
-  return Boolean(normalized);
+  if (groupPushOnboarding.isGroupPushCommandText(normalized)) return 'push_command';
+  if (!normalized) return 'empty_message';
+  return '';
+}
+
+function shouldDispatchChatPushNotification(updateType = '', message = null, text = '') {
+  return !liveChatPushSkipReason(updateType, message, text);
+}
+
+function recordLiveChatPushDiagnostic({ message = null, text = '', result = {}, skippedReason = '', errorCode = '' } = {}) {
+  const chatId = getRecipientChatId(message);
+  return pushDispatchDiagnostics.record({
+    source: 'live_chat_push',
+    chatId,
+    channelId: getRecipientChatId(message),
+    messageId: getMessageId(message),
+    totalDevices: result && result.total,
+    activeDeviceCount: result && result.total,
+    success: result && result.success,
+    failed: result && result.failed,
+    skippedReason: skippedReason || (result && result.total === 0 ? 'no_bound_devices' : ''),
+    errorCode: errorCode || (result && result.error) || '',
+    titlePreview: getRecipientChatTitle(message),
+    bodyPreview: text || getMessageText(message)
+  });
+}
+
+function recordSkippedLiveChatPushNotification({ updateType = '', message = null, text = '', skippedReason = '' } = {}) {
+  const reason = skippedReason || liveChatPushSkipReason(updateType, message, text) || 'skipped';
+  return recordLiveChatPushDiagnostic({ message, text, skippedReason: reason });
 }
 
 async function dispatchLiveChatPushNotification({ updateType = '', message = null, text = '', config = {} } = {}) {
-  if (!shouldDispatchChatPushNotification(updateType, message, text)) return { ok: true, skipped: true, reason: 'not_live_chat_push_candidate' };
+  const skippedReason = liveChatPushSkipReason(updateType, message, text);
+  if (skippedReason) {
+    recordSkippedLiveChatPushNotification({ updateType, message, text, skippedReason });
+    return { ok: true, skipped: true, reason: skippedReason };
+  }
   const chatId = getRecipientChatId(message);
   const chatTitle = getRecipientChatTitle(message);
   const senderName = getSenderFirstName(message);
   const messageId = getMessageId(message);
   try {
-    return await pushDispatch.sendPushToChat({
+    const result = await pushDispatch.sendPushToChat({
       chatId,
       payload: {
         source: 'max_group',
@@ -1026,9 +1059,13 @@ async function dispatchLiveChatPushNotification({ updateType = '', message = nul
       },
       webPushClient: config && config.webPushClient
     });
+    recordLiveChatPushDiagnostic({ message, text, result });
+    return result;
   } catch (error) {
-    logVerbose(config, 'LIVE CHAT PUSH DISPATCH FAILED', { chatId, error: error?.code || error?.message || String(error) });
-    return { ok: false, error: error?.code || error?.message || 'live_chat_push_dispatch_failed' };
+    const errorCode = error?.code || error?.message || 'live_chat_push_dispatch_failed';
+    logVerbose(config, 'LIVE CHAT PUSH DISPATCH FAILED', { chatId, error: errorCode });
+    recordLiveChatPushDiagnostic({ message, text, result: { ok: false, total: 0, success: 0, failed: 0 }, errorCode });
+    return { ok: false, error: errorCode };
   }
 }
 
@@ -5966,6 +6003,7 @@ async function handleWebhook(req, res, config) {
       ? await routeGroupPushCommandMessage({ update, message, config, diagnosticContext: groupPushInboundContext })
       : null;
     if (routedGroupPushCommand) {
+      recordSkippedLiveChatPushNotification({ updateType, message, text: getLiveSafeCommandText(update, message), skippedReason: 'push_command' });
       return res.status(200).json(routedGroupPushCommand);
     }
 
@@ -6252,6 +6290,14 @@ function clearGroupPushInboundDiagnostics() {
   groupPushInboundDiagnostics.clear();
 }
 
+function getPushDispatchDiagnostics(limit = 50) {
+  return pushDispatchDiagnostics.summary(limit);
+}
+
+function clearPushDispatchDiagnostics() {
+  pushDispatchDiagnostics.clear();
+}
+
 module.exports = {
   handleWebhook,
   handleGroupPushCommandUpdate,
@@ -6262,5 +6308,7 @@ module.exports = {
   debugUiLast,
   getGroupPushInboundDiagnostics,
   clearGroupPushInboundDiagnostics,
+  getPushDispatchDiagnostics,
+  clearPushDispatchDiagnostics,
   __testBuildCommentsPostAdminText: buildCommentsPostAdminText
 };

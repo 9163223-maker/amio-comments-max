@@ -8,6 +8,7 @@ const repoRoot = path.join(__dirname, '..');
 const storageFile = path.join(repoRoot, 'data', 'web-push-subscriptions.json');
 const usedFile = path.join(repoRoot, 'data', 'push-pairing-used.json');
 const dispatch = require('../services/pushDispatchService');
+const pushDispatchDiagnostics = require('../services/pushDispatchDiagnostics');
 const edgeDiagnostics = fs.readFileSync(path.join(repoRoot, 'services', 'maxWebhookEdgeDiagnostics.js'), 'utf8');
 const inboundDiagnostics = fs.readFileSync(path.join(repoRoot, 'services', 'groupPushInboundDiagnostics.js'), 'utf8');
 
@@ -33,10 +34,22 @@ async function webhook(bot, update, webPushClient) {
   await bot.handleWebhook({ get: () => '', body: update }, res, { botToken: 'BOT_TOKEN_PR164_SECRET', appBaseUrl: 'https://push.example.test', botUsername: 'adminkit_bot', webPushClient });
   return res;
 }
-function assertNoDiagnosticLeak() {
+function assertNoDiagnosticLeak(extra = []) {
   assert(edgeDiagnostics.includes('/push/join?t=[redacted]') && inboundDiagnostics.includes('/push/join?t=[redacted]'), 'diagnostics redact join URLs');
   for (const source of [edgeDiagnostics, inboundDiagnostics]) {
     assert(!/p256dh-[a-z0-9-]+|auth-[a-z0-9-]+|https:\/\/push\.example\.test\/send\//i.test(source), 'diagnostic source does not contain fixture endpoint/auth/p256dh values');
+  }
+  for (const source of extra.map((item) => JSON.stringify(item))) {
+    assert(!/p256dh-[a-z0-9-]+|auth-[a-z0-9-]+|https:\/\/push\.example\.test\/send\//i.test(source), 'push dispatch diagnostics do not contain fixture endpoint/auth/p256dh values');
+    assert(!/PAIRING_SECRET|PRIVATE_KEY|BOT_TOKEN|MAX_BOT_TOKEN|\/push\/join\?t=[A-Za-z0-9_.~-]+|clck\.ru\//i.test(source), 'push dispatch diagnostics do not contain tokens, secrets, personal links, or short links');
+  }
+}
+
+function assertSafePushDispatchDiagnosticShape(summary) {
+  const allowed = new Set(['source', 'chatIdLast4', 'channelIdLast4', 'messageIdLast4', 'totalDevices', 'activeDeviceCount', 'success', 'failed', 'skippedReason', 'errorCode', 'titlePreview', 'bodyPreview', 'timestamp']);
+  assert(summary && Array.isArray(summary.latest), 'push dispatch diagnostics summary has latest array');
+  for (const item of summary.latest) {
+    for (const key of Object.keys(item)) assert(allowed.has(key), `unexpected push dispatch diagnostic field: ${key}`);
   }
 }
 
@@ -50,6 +63,11 @@ function assertNoDiagnosticLeak() {
     process.env.WEB_PUSH_PRIVATE_KEY = 'PRIVATE_KEY_LIVE_PR164_MUST_NOT_LEAK';
     process.env.WEB_PUSH_SUBJECT = 'mailto:live-pr164@example.test';
     process.env.BOT_TOKEN = 'BOT_TOKEN_LIVE_PR164_MUST_NOT_LEAK';
+
+    assert(pushDispatchDiagnostics && typeof pushDispatchDiagnostics.record === 'function', 'pushDispatchDiagnostics service exists');
+    assert.strictEqual(typeof pushDispatchDiagnostics.summary, 'function', 'pushDispatchDiagnostics exposes summary');
+    assert.strictEqual(typeof pushDispatchDiagnostics.clear, 'function', 'pushDispatchDiagnostics exposes clear');
+    pushDispatchDiagnostics.clear();
 
     const maxApi = fresh('../services/maxApi');
     const sentMessages = [];
@@ -90,7 +108,16 @@ function assertNoDiagnosticLeak() {
     assert.strictEqual(pushResponse.body.action, 'group_push_message_command', '/push command routes to onboarding');
     assert.strictEqual(botSent.length, beforePushCommand, '/push command messages do not trigger chat push notifications');
 
-    assertNoDiagnosticLeak();
+    const noDeviceResponse = await webhook(bot, messageUpdate({ text: 'Сообщение без подписчиков', chatId: 'empty-chat-pr164', id: 'bot-empty-pr164' }), botClient);
+    assert.strictEqual(noDeviceResponse.statusCode, 200, 'no-device chat webhook is accepted');
+
+    const pushDispatchSummary = pushDispatchDiagnostics.summary(10);
+    assertSafePushDispatchDiagnosticShape(pushDispatchSummary);
+    assert(pushDispatchSummary.latest.some((item) => item.source === 'live_chat_push' && item.success === 1 && item.failed === 0 && item.totalDevices === 1), 'diagnostics record normal live chat dispatch success safely');
+    assert(pushDispatchSummary.latest.some((item) => item.source === 'live_chat_push' && item.skippedReason === 'push_command'), 'diagnostics record skipped /push command safely');
+    assert(pushDispatchSummary.latest.some((item) => item.source === 'live_chat_push' && item.skippedReason === 'no_bound_devices' && item.totalDevices === 0), 'diagnostics record no-bound-device dispatch safely');
+
+    assertNoDiagnosticLeak([pushDispatchSummary]);
     assert(!JSON.stringify(directResult).includes('p256dh-active') && !JSON.stringify(directResult).includes('auth-active'), 'dispatch result does not leak subscription keys');
     assert(!JSON.stringify(pending).includes('PAIRING_SECRET_LIVE_PR164'), 'storage public save result does not leak secrets');
 
