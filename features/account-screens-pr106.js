@@ -10,13 +10,7 @@ function button(text, action, extra = {}) { return menu.button(text, action, ext
 function link(text, url) { return menu.link(text, url); }
 function keyboard(rows) { return menu.keyboard(rows); }
 function publicPushUrl() {
-  const fallback = 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run';
-  const configured = clean(process.env.ADMINKIT_PUBLIC_BASE_URL || fallback);
-  let base = fallback;
-  try {
-    const parsed = new URL(configured);
-    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') base = parsed.origin;
-  } catch {}
+  const base = clean(process.env.PUBLIC_BASE_URL || process.env.ADMINKIT_PUBLIC_BASE_URL || process.env.APP_BASE_URL || menu.BASE || 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run').replace(/\/+$/, '');
   return `${base}/push`;
 }
 function dateRu(value = '') { if (!value) return 'без даты окончания'; const d = new Date(value); return Number.isNaN(d.getTime()) ? 'без даты окончания' : d.toLocaleDateString('ru-RU', { timeZone: 'UTC' }); }

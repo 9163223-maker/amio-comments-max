@@ -64,6 +64,10 @@ function actionOf(item = {}) {
     const pushButtons = buttonsOf(result.screen);
     const openPush = pushButtons.find((item) => item.text === 'Открыть AdminKIT Push');
     assert(openPush && openPush.type === 'link', 'public Push screen has a direct link button');
+    assert(openPush.url.startsWith('https://'), 'public Push link uses an absolute HTTPS URL');
+    assert(openPush.url.endsWith('/push'), 'public Push link ends with the public /push route');
+    assert(!openPush.url.includes('/push/join?t='), 'public Push link is not a personal join link');
+    assert(!/PUSH_ADMIN_TOKEN|(?:bot|BOT)[ _-]?token|endpoint|p256dh|access_token|auth|VAPID|private[_ -]?key/i.test(openPush.url), 'public Push link exposes no token, endpoint, auth, or private key material');
     assert.strictEqual(openPush.url, 'https://public-push.example.test/push', 'public Push button links to the configured public /push route');
     delete process.env.ADMINKIT_PUBLIC_BASE_URL;
     const fallbackOpenPush = buttonsOf(accountScreens.pushNotificationsScreen(maxUserId)).find((item) => item.text === 'Открыть AdminKIT Push');
