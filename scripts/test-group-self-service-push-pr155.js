@@ -89,7 +89,9 @@ function extractJoinToken(text) {
       const groupSend = maxCalls.find((call) => call.url.includes('/messages') && call.url.includes('chat_id=chat-pr155'));
       assert(groupSend, 'group invite endpoint sends group message to selected chatId');
       const messageText = JSON.stringify(groupSend.body);
-      assert(messageText.includes('Включить уведомления'), 'group invite message contains enable button');
+      assert(messageText.includes('🔔 Подключить уведомления'), 'group invite message contains private enable button');
+      assert(messageText.includes('group_push_enable'), 'group invite message uses callback payload');
+      assert(!messageText.includes('"payload":"/push"'), 'group invite button does not send /push into group');
       assert(!messageText.includes('must-not-use') && !messageText.includes('userId'), 'group invite message does not contain userId');
       assert(!messageText.includes('/push/join?t='), 'group invite message does not contain personal join link');
       assertNoSecrets(messageText, 'group invite MAX payload');

@@ -97,7 +97,13 @@ function safeEvent(input = {}) {
     routeCandidate: truncate(clean(input.routeCandidate) || (matchedPushCommand ? 'group_push_command' : 'unknown'), 80),
     routeDecision: truncate(routeDecision, 80),
     routeResult: truncate(clean(input.routeResult) || 'observed_only', 80),
-    errorCode: truncate(clean(input.errorCode), 80)
+    errorCode: truncate(clean(input.errorCode), 80),
+    sentPrivate: Boolean(input.sentPrivate),
+    freshLinkIssued: Boolean(input.freshLinkIssued),
+    alreadyHadActiveDevice: Boolean(input.alreadyHadActiveDevice),
+    commandDeleteAttempted: Boolean(input.commandDeleteAttempted),
+    commandDeleteOk: Boolean(input.commandDeleteOk),
+    commandDeleteFailedReason: truncate(sanitizeTextPreview(clean(input.commandDeleteFailedReason)), 80)
   };
 }
 

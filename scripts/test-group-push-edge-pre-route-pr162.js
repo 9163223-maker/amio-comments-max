@@ -191,10 +191,9 @@ async function postWebhook(port, update) {
       assert.strictEqual(first.body && first.body.edgePreRouted, true, 'index webhook response marks /push as edge pre-routed');
       const firstSent = readSent(sentFile);
       const firstPrivate = firstSent.find((message) => message.userId === 'edge-first-user' && String(message.text || '').includes('Откройте ссылку на iPhone'));
-      const firstGroup = firstSent.find((message) => message.chatId === 'edge-first-chat' && String(message.text || '').includes('Отправил ссылку подключения'));
+      const firstGroup = firstSent.find((message) => message.chatId === 'edge-first-chat');
       assert(firstPrivate && /https:\/\/clck\.ru\/pr162-short/.test(firstPrivate.text), 'first-time user gets private setup link');
-      assert(firstGroup, 'first-time group gets safe status reply');
-      assertNoPersonalLink(firstGroup, 'first-time public group response');
+      assert(!firstGroup, 'first-time group gets no public status reply on success');
 
       const inbound = await httpJson(port, '/debug/group-push-inbound.json?token=ADMIN_TOKEN_PR162_SECRET');
       assert.strictEqual(inbound.status, 200, 'group push inbound debug returns 200');
@@ -220,14 +219,15 @@ async function postWebhook(port, update) {
       assert.strictEqual(active.status, 200, 'active user /push returns 200');
       assert.strictEqual(await storage.isChatBoundForUser('active-edge-user', 'active-edge-chat'), true, 'active user gets direct chat binding at edge');
       let activeSent = readSent(sentFile);
-      assert(!activeSent.some((message) => message.userId === 'active-edge-user'), 'active user gets no private setup link');
-      assert(activeSent.some((message) => message.chatId === 'active-edge-chat' && message.text === 'Готово. Уведомления этого чата подключены.'), 'active user gets safe group success text');
+      assert(activeSent.some((message) => message.userId === 'active-edge-user'), 'active user gets private setup link for another device');
+      assert(!activeSent.some((message) => message.chatId === 'active-edge-chat'), 'active user gets no group success text');
 
       fs.writeFileSync(sentFile, '[]', 'utf8');
       const repeated = await postWebhook(port, messageUpdate({ text: '/push', userId: 'active-edge-user', chatId: 'active-edge-chat', title: 'Active Edge Chat' }));
       assert.strictEqual(repeated.status, 200, 'repeated active user /push returns 200');
       assert.strictEqual((await storage.listChatBindingsForUser('active-edge-user')).filter((binding) => binding.chatId === 'active-edge-chat').length, 1, 'repeated /push remains idempotent');
-      assert(!/\/push\/join\?t=|https?:\/\/clck\.ru\//i.test(texts(readSent(sentFile))), 'repeated /push sends no personal link');
+      assert(readSent(sentFile).some((message) => message.userId === 'active-edge-user' && /https?:\/\/clck\.ru\//i.test(String(message.text || ''))), 'repeated /push sends another private personal link');
+      assert(!readSent(sentFile).some((message) => message.chatId === 'active-edge-chat'), 'repeated /push posts no public group link/status');
 
       for (const command of ['/push@adminkit_bot', 'пуш', 'уведомления', 'Включить уведомления']) {
         const res = await postWebhook(port, messageUpdate({ text: command, userId: `edge-${command}`, chatId: `edge-chat-${command}` }));
