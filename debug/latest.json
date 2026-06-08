@@ -3,7 +3,7 @@
   "runtimeVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
   "buildVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
   "displayVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
-  "packageVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
+  "packageVersion": "CC8.3.52-PR166-PRIVATE-PUSH-ONBOARDING",
   "sourceMarker": "adminkit-pr165-push-runtime-wired",
   "gitCommit": "",
   "pr131MergeCommit": "",
@@ -11,20 +11,20 @@
   "expectedRuntimeVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
   "pr165RuntimeWired": true,
   "pr165LiveChatPushRuntime": "clean-bot-live-chat-push-pr165.js",
-  "generatedAt": 1780913632211,
-  "serverStartedAt": "2026-06-08T10:09:20.199Z",
+  "generatedAt": 1780920209961,
+  "serverStartedAt": "2026-06-08T12:00:44.847Z",
   "staleEndpointDetected": false,
   "meta": {
     "runtimeVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
     "buildVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
     "displayVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
-    "packageVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
+    "packageVersion": "CC8.3.52-PR166-PRIVATE-PUSH-ONBOARDING",
     "packageName": "amio-comments-max",
     "sourceMarker": "adminkit-pr165-push-runtime-wired",
     "gitCommit": "",
     "pr131MergeCommit": "",
     "buildGeneratedAt": "2026-06-08T00:00:00Z",
-    "serverStartedAt": "2026-06-08T10:09:20.199Z",
+    "serverStartedAt": "2026-06-08T12:00:44.847Z",
     "buildInfoSource": "build-info.json/package.json/env-fresh-only",
     "staleEnvIgnored": {
       "BUILD_VERSION": false,
@@ -36,7 +36,7 @@
     "expectedRuntimeVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
     "pr165RuntimeWired": true,
     "pr165LiveChatPushRuntime": "clean-bot-live-chat-push-pr165.js",
-    "generatedAt": 1780913632211
+    "generatedAt": 1780920209962
   },
   "mediaDiagnostics": {
     "uploads": [
@@ -398,13 +398,13 @@
       "runtimeVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
       "buildVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
       "displayVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
-      "packageVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
+      "packageVersion": "CC8.3.52-PR166-PRIVATE-PUSH-ONBOARDING",
       "packageName": "amio-comments-max",
       "sourceMarker": "adminkit-pr165-push-runtime-wired",
       "gitCommit": "",
       "pr131MergeCommit": "",
       "buildGeneratedAt": "2026-06-08T00:00:00Z",
-      "serverStartedAt": "2026-06-08T10:09:20.199Z",
+      "serverStartedAt": "2026-06-08T12:00:44.847Z",
       "buildInfoSource": "build-info.json/package.json/env-fresh-only",
       "staleEnvIgnored": {
         "BUILD_VERSION": false,
@@ -416,7 +416,7 @@
       "expectedRuntimeVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
       "pr165RuntimeWired": true,
       "pr165LiveChatPushRuntime": "clean-bot-live-chat-push-pr165.js",
-      "generatedAt": 1780913631210
+      "generatedAt": 1780920208657
     },
     "posts": {
       "-70251029837230:116709012212747400": {
@@ -6540,6 +6540,171 @@
         "originalSnapshotCaptured": true,
         "originalSnapshotEmptyKnown": false
       },
+      "-75643106932142:116713958834640830": {
+        "postId": "116713958834640830",
+        "autoMode": true,
+        "channelId": "-75643106932142",
+        "createdAt": 1780913743360,
+        "messageId": "mid.ffffbb33f77b4a52019ea6ba28ab17bf",
+        "updatedAt": 1780913745063,
+        "commentKey": "-75643106932142:116713958834640830",
+        "channelTitle": "-75643106932142",
+        "handoffToken": "h_958834640830mq5226s5xu6s74wo",
+        "linkedByName": "Alex P",
+        "originalLink": null,
+        "originalText": "Тест",
+        "lastPatchedAt": 1780913745063,
+        "stablePayload": "cp_-75643106932142_116713958834640830",
+        "customKeyboard": {},
+        "giftCampaignId": "",
+        "lastIngestedAt": 1780913743360,
+        "lastPatchError": null,
+        "linkedByUserId": "17507246",
+        "lastPatchedText": "Тест",
+        "nativeReactions": [],
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "lastGiftRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "originalLinkKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachments": [],
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "💬 Комментарии",
+                    "type": "open_app",
+                    "payload": "cp_-75643106932142_116713958834640830",
+                    "web_app": "id781310320690_bot"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "textOverrideActive": false,
+        "lastCustomRowsCount": 0,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "originalFormatKnown": false,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116713958834640830\"}]]}}],\"text\":\"Тест\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+        "sourceAttachmentsKnown": false,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false
+      },
+      "-75643106932142:116713968121628600": {
+        "postId": "116713968121628600",
+        "autoMode": true,
+        "channelId": "-75643106932142",
+        "createdAt": 1780913823168,
+        "messageId": "mid.ffffbb33f77b4a52019ea6bc523747bb",
+        "updatedAt": 1780913824401,
+        "commentKey": "-75643106932142:116713968121628600",
+        "channelTitle": "-75643106932142",
+        "handoffToken": "h_968121628600mq523wg4b3no5oda",
+        "linkedByName": "Alex P",
+        "originalLink": null,
+        "originalText": "Тест 2",
+        "lastPatchedAt": 1780913824401,
+        "stablePayload": "cp_-75643106932142_116713968121628600",
+        "customKeyboard": {},
+        "giftCampaignId": "",
+        "lastIngestedAt": 1780913823168,
+        "lastPatchError": null,
+        "linkedByUserId": "17507246",
+        "lastPatchedText": "Тест 2",
+        "nativeReactions": [],
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "lastGiftRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "originalLinkKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachments": [],
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "💬 Комментарии",
+                    "type": "open_app",
+                    "payload": "cp_-75643106932142_116713968121628600",
+                    "web_app": "id781310320690_bot"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "textOverrideActive": false,
+        "lastCustomRowsCount": 0,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "originalFormatKnown": false,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116713968121628600\"}]]}}],\"text\":\"Тест 2\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+        "sourceAttachmentsKnown": false,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false
+      },
+      "-75643106932142:116713969792006260": {
+        "postId": "116713969792006260",
+        "autoMode": true,
+        "channelId": "-75643106932142",
+        "createdAt": 1780913849167,
+        "messageId": "mid.ffffbb33f77b4a52019ea6bcb5c7386a",
+        "updatedAt": 1780913850364,
+        "commentKey": "-75643106932142:116713969792006260",
+        "channelTitle": "-75643106932142",
+        "handoffToken": "h_969792006260mq524gil4nhoju4i",
+        "linkedByName": "Alex P",
+        "originalLink": null,
+        "originalText": "Тест 3",
+        "lastPatchedAt": 1780913850364,
+        "stablePayload": "cp_-75643106932142_116713969792006260",
+        "customKeyboard": {},
+        "giftCampaignId": "",
+        "lastIngestedAt": 1780913849167,
+        "lastPatchError": null,
+        "linkedByUserId": "17507246",
+        "lastPatchedText": "Тест 3",
+        "nativeReactions": [],
+        "fastPatchRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "lastGiftRowsCount": 0,
+        "lastPollRowsCount": 0,
+        "originalLinkKnown": false,
+        "originalTextKnown": true,
+        "sourceAttachments": [],
+        "patchedAttachments": [
+          {
+            "type": "inline_keyboard",
+            "payload": {
+              "buttons": [
+                [
+                  {
+                    "text": "💬 Комментарии",
+                    "type": "open_app",
+                    "payload": "cp_-75643106932142_116713969792006260",
+                    "web_app": "id781310320690_bot"
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "textOverrideActive": false,
+        "lastCustomRowsCount": 0,
+        "lastIngestedRuntime": "CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84",
+        "originalFormatKnown": false,
+        "lastPatchedFingerprint": "{\"attachments\":[{\"type\":\"inline_keyboard\",\"payload\":{\"buttons\":[[{\"type\":\"open_app\",\"text\":\"💬 Комментарии\",\"web_app\":\"id781310320690_bot\",\"payload\":\"cp_-75643106932142_116713969792006260\"}]]}}],\"text\":\"Тест 3\",\"link\":null,\"format\":null,\"commentsDisabled\":false,\"customRowsCount\":0,\"pollRowsCount\":0,\"giftRowsCount\":0}",
+        "lastSafeComposeRuntime": "CC8.1.16-POST-PATCHER-CLEAN-CORE-PR77",
+        "sourceAttachmentsKnown": false,
+        "originalSnapshotCaptured": true,
+        "originalSnapshotEmptyKnown": false
+      },
       "selftest_pr88_1780301418431_p2i0sr": {
         "raw": {
           "title": "Production comments matrix selftest post",
@@ -8727,6 +8892,9 @@
       "-75643106932142:116711299071809470": [],
       "-75643106932142:116711299868870600": [],
       "-75643106932142:116713692956861100": [],
+      "-75643106932142:116713958834640830": [],
+      "-75643106932142:116713968121628600": [],
+      "-75643106932142:116713969792006260": [],
       "selftest_pr88_1779989436513_pqespk": [
         {
           "id": "1779989440516_m5o960",
@@ -10350,14 +10518,14 @@
         "chatType": "channel",
         "channelId": "-75643106932142",
         "isChannel": true,
-        "updatedAt": 1780909625171,
+        "updatedAt": 1780913849463,
         "botAddedAt": 1780848285981,
-        "lastPostId": "116713692956861100",
+        "lastPostId": "116713969792006260",
         "ownerUserId": "17507246",
         "channelTitle": "Alex P",
         "isMaxChannel": true,
         "linkedByName": "Alex P",
-        "lastMessageId": "mid.ffffbb33f77b4a52019ea67c411e22b4",
+        "lastMessageId": "mid.ffffbb33f77b4a52019ea6bcb5c7386a",
         "audienceEvents": [
           {
             "id": "1780848285382_vyvtqy",
@@ -10823,6 +10991,9 @@
       "-75643106932142:116711299071809470": {},
       "-75643106932142:116711299868870600": {},
       "-75643106932142:116713692956861100": {},
+      "-75643106932142:116713958834640830": {},
+      "-75643106932142:116713968121628600": {},
+      "-75643106932142:116713969792006260": {},
       "selftest_pr88_1780301418431_p2i0sr": {},
       "selftest_pr88_1780301487396_a47bum": {},
       "selftest_pr88_1780309105318_je8f8c": {}
@@ -11701,6 +11872,24 @@
         "commentKey": "-75643106932142:116709937858885780",
         "stablePayload": "cp_-75643106932142_116709937858885780"
       },
+      "h_958834640830mq5226s5xu6s74wo": {
+        "token": "[redacted]",
+        "postId": "116713958834640830",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea6ba28ab17bf",
+        "updatedAt": 1780913745064,
+        "commentKey": "-75643106932142:116713958834640830",
+        "stablePayload": "cp_-75643106932142_116713958834640830"
+      },
+      "h_968121628600mq523wg4b3no5oda": {
+        "token": "[redacted]",
+        "postId": "116713968121628600",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea6bc523747bb",
+        "updatedAt": 1780913824401,
+        "commentKey": "-75643106932142:116713968121628600",
+        "stablePayload": "cp_-75643106932142_116713968121628600"
+      },
       "h_969763872720mpill3w6g5zqmn3b": {
         "token": "[redacted]",
         "postId": "116624969763872720",
@@ -11709,6 +11898,15 @@
         "updatedAt": 1779561823191,
         "commentKey": "-73175958664622:116624969763872720",
         "stablePayload": "cp_-73175958664622_116624969763872720"
+      },
+      "h_969792006260mq524gil4nhoju4i": {
+        "token": "[redacted]",
+        "postId": "116713969792006260",
+        "channelId": "-75643106932142",
+        "messageId": "mid.ffffbb33f77b4a52019ea6bcb5c7386a",
+        "updatedAt": 1780913850364,
+        "commentKey": "-75643106932142:116713969792006260",
+        "stablePayload": "cp_-75643106932142_116713969792006260"
       },
       "h_974753687700mq41tv8thpclrcmn": {
         "token": "[redacted]",
@@ -16774,11 +16972,11 @@
     },
     "runtimeVersion": "CC8.3.51-PR165-PUSH-RUNTIME-WIRED",
     "counts": {
-      "posts": 92,
-      "commentThreads": 100,
+      "posts": 95,
+      "commentThreads": 103,
       "comments": 186,
-      "handoffs": 89,
-      "likes": 92,
+      "handoffs": 92,
+      "likes": 95,
       "channels": 9,
       "moderationLogs": 50,
       "uploadDiagnostics": 50
@@ -16786,11 +16984,11 @@
     "store": {
       "compact": true,
       "counts": {
-        "posts": 92,
-        "commentThreads": 100,
+        "posts": 95,
+        "commentThreads": 103,
         "comments": 186,
-        "handoffs": 89,
-        "likes": 92,
+        "handoffs": 92,
+        "likes": 95,
         "channels": 9,
         "moderationLogs": 50,
         "uploadDiagnostics": 50
