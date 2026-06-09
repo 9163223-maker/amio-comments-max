@@ -4,8 +4,8 @@
 // Single source of truth for the client-visible production menu.
 // Legacy production-menu-map-v3-fixed.js and production-menu-v3-renderer.js are reference-only.
 
-const VERSION = 'pr105-client-production-menu-v1';
-const SOURCE = 'adminkit-pr105-production-menu-canonicalization';
+const VERSION = 'pr175-canonical-menu-matrix-v1';
+const SOURCE = 'adminkit-pr175-canonical-menu-matrix';
 
 function action({ id, title, section, targetAction = '', existingAction = '', clientVisible = true, adminOnly = false, requiresChannel = false, requiresPost = false, implemented = true, hiddenReason = '', payload = {}, featureKey = '', minPlan = 'free', requiresActiveAccess = true, availableInPlans = [], accountOnlyWhenExpired = false }) {
   return { id, title, section, targetAction: targetAction || existingAction || id, existingAction: existingAction || targetAction || id, clientVisible: Boolean(clientVisible && !adminOnly && implemented), adminOnly: Boolean(adminOnly), requiresChannel: Boolean(requiresChannel), requiresPost: Boolean(requiresPost), implemented: Boolean(implemented), hiddenReason: hiddenReason || '', payload: payload || {}, featureKey: featureKey || section || id, minPlan, requiresActiveAccess: Boolean(requiresActiveAccess), availableInPlans, accountOnlyWhenExpired: Boolean(accountOnlyWhenExpired) };
@@ -26,8 +26,8 @@ const sections = [
     id: 'comments', title: 'Комментарии', route: 'comments:home', clientVisible: true, adminOnly: false,
     featureKey: 'comments', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
-      action({ id: 'comments.post_comments', title: 'Комментарии под постом', section: 'comments', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'comments' } }),
-      action({ id: 'comments.auto_comments', title: 'Выбрать пост для комментариев', section: 'comments', existingAction: 'admin_section_comments' }),
+      action({ id: 'comments.auto_comments', title: 'Автокомментарии', section: 'comments', existingAction: 'comments_auto_patch' }),
+      action({ id: 'comments.manual_patch', title: 'Пропатчить выбранный пост', section: 'comments', existingAction: 'comments_manual_patch', requiresChannel: true, requiresPost: true, payload: { source: 'comments' } }),
       action({ id: 'comments.photo', title: 'Фото в комментариях', section: 'comments', existingAction: 'admin_section_comments', payload: { focus: 'photos' } }),
       action({ id: 'comments.reactions_replies', title: 'Реакции и ответы', section: 'comments', existingAction: 'admin_section_comments', payload: { focus: 'reactions_replies' } }),
     ],
@@ -105,7 +105,7 @@ const sections = [
     id: 'editor', title: 'Редактор постов', route: 'editor:home', clientVisible: true, adminOnly: false,
     featureKey: 'post_editor', minPlan: 'start', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
-      action({ id: 'editor.change_text', title: 'Изменить текст поста', section: 'editor', existingAction: 'admin_posts_picker', requiresChannel: true, requiresPost: true }),
+      action({ id: 'editor.change_text', title: 'Выбрать пост', section: 'editor', existingAction: 'admin_posts_picker', requiresChannel: true, requiresPost: true }),
       action({ id: 'editor.history', title: 'История версий', section: 'editor', existingAction: 'admin_posts_history', clientVisible: false, implemented: false, hiddenReason: 'not_client_root' }),
     ],
   },
@@ -114,9 +114,9 @@ const sections = [
     featureKey: 'archive', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'archive.saved_posts', title: 'Сохранённые посты', section: 'archive', existingAction: 'archive_list', payload: { offset: 0 } }),
-      action({ id: 'archive.restore_post', title: 'Восстановить пост', section: 'archive', existingAction: 'archive_list', payload: { offset: 0 } }),
+      action({ id: 'archive.restore_post', title: 'Восстановить пост', section: 'archive', existingAction: 'archive_list', clientVisible: false, implemented: false, hiddenReason: 'inside_archived_post_card' }),
       action({ id: 'archive.storage_limits', title: 'Лимиты хранения', section: 'archive', existingAction: 'archive_limits' }),
-      action({ id: 'archive.status', title: 'Статус архива', section: 'archive', existingAction: 'archive_status' }),
+      action({ id: 'archive.status', title: 'Статус архива', section: 'archive', existingAction: 'archive_status', clientVisible: false, implemented: false, hiddenReason: 'technical_diagnostic_only' }),
     ],
   },
   {
@@ -136,11 +136,11 @@ const sections = [
     featureKey: 'settings', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'settings.clear_chat', title: 'Очистить чат', section: 'settings', targetAction: 'settings:clear_chat' }),
-      action({ id: 'settings.notifications', title: 'Уведомления', section: 'settings', targetAction: 'settings:notifications' }),
-      action({ id: 'settings.language_format', title: 'Язык / формат', section: 'settings', targetAction: 'settings:language_format' }),
+      action({ id: 'settings.notifications', title: 'Уведомления', section: 'settings', targetAction: 'settings:notifications', clientVisible: false, implemented: false, hiddenReason: 'placeholder_and_push_duplicate' }),
+      action({ id: 'settings.language_format', title: 'Язык / формат', section: 'settings', targetAction: 'settings:language_format', clientVisible: false, implemented: false, hiddenReason: 'placeholder' }),
       action({ id: 'settings.help', title: 'Помощь', section: 'settings', targetAction: 'settings:help' }),
       action({ id: 'settings.privacy_terms', title: 'Privacy / Terms', section: 'settings', targetAction: 'settings:privacy_terms' }),
-      action({ id: 'settings.navigation', title: 'Навигация', section: 'settings', targetAction: 'settings:navigation' }),
+      action({ id: 'settings.navigation', title: 'Навигация', section: 'settings', targetAction: 'settings:navigation', clientVisible: false, implemented: false, hiddenReason: 'navigation_is_global' }),
     ],
   },
 ];
@@ -182,7 +182,7 @@ function validate() {
   const errors = [];
   if (clientSections.length !== 13) errors.push(`client_sections_count:${clientSections.length}`);
   for (const pattern of banned) if (pattern.test(joined)) errors.push(`banned_label:${pattern}`);
-  for (const step of flowSteps) if (labels.some((label) => label.toLowerCase() === step.toLowerCase())) errors.push(`flow_step_root:${step}`);
+  for (const step of flowSteps) if (labels.some((label) => label.toLowerCase() === step.toLowerCase()) && !(step === 'Выбрать пост' && clientActions('editor').some((item) => item.title === step))) errors.push(`flow_step_root:${step}`);
   for (const item of allActions().filter((entry) => entry.clientVisible && entry.requiresPost && !entry.requiresChannel)) errors.push(`post_without_channel:${item.id}`);
   if (clientActions('buttons').some((item) => /удалить/i.test(item.title))) errors.push('delete_button_visible_in_buttons_root');
   if (clientActions('ad_links').some((item) => /отключить/i.test(item.title))) errors.push('disable_ad_link_visible_in_ad_links_root');

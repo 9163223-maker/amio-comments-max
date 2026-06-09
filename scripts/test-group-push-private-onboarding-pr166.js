@@ -162,7 +162,7 @@ function messageUpdate({ id = 'cmd-pr166', text = '/push', userId = 'typed-user-
     entrypoint.applyEnv();
     const install = entrypoint.installCleanBot();
     assert.strictEqual(install.pr165LiveChatPushRuntime, true, 'active production entrypoint still wires PR165 push runtime');
-    assert(entrypoint.RUNTIME.includes('PR173'), 'active production entrypoint advances to PR173 while preserving PR166 onboarding');
+    assert(entrypoint.RUNTIME.includes('PR175'), 'active production entrypoint advances to PR175 while preserving PR166 onboarding');
 
     console.log('group push private onboarding pr166 ok');
   } finally {

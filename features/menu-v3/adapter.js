@@ -2,8 +2,8 @@
 
 const canonical = require('./canonical-menu');
 
-const VERSION = 'menu-v3-feature-adapter-pr115-navigation-contract';
-const SOURCE = 'adminkit-menu-v3-feature-adapter-pr115-navigation-contract';
+const VERSION = 'menu-v3-feature-adapter-pr175-canonical-menu-matrix';
+const SOURCE = 'adminkit-pr175-canonical-menu-matrix';
 
 const POST_PICKER_SEQUENCE = ['section', 'channel', 'post', 'action'];
 const POST_SCOPED_SECTIONS = ['comments', 'gifts', 'buttons', 'polls', 'highlights', 'editor'];
@@ -155,7 +155,7 @@ function accountSectionScreen(route, context = {}) {
     const isRoot = route === 'account:home';
     const mappedRows = (screen.attachments?.[0]?.payload?.buttons || []).map((row) => row.filter((item) => {
       const text = normalize(item.text);
-      return text !== 'Главное меню' && text !== '🏠 Главное меню';
+      return text !== 'Главное меню' && text !== '🏠 Главное меню' && !(isRoot && text === '🔔 Уведомления чатов');
     }));
     return { ok: true, route, owner: 'account', text: screen.text, attachments: keyboard([...mappedRows, ...sectionNavRows('account', { isRoot, currentRoute: route, backAction: isRoot ? '' : 'account:home' })]) };
   } catch (error) {
@@ -167,9 +167,9 @@ function channelsHome(context = {}) {
   const channels = Array.isArray(context.channels || context.dataContext?.channels) ? (context.channels || context.dataContext.channels) : [];
   const rows = [
     [button('Подключить канал', 'channels:connect')],
-    [button('Инструкция по подключению', 'channels:instructions')],
-    [button('Проверить права бота', 'channels:check')],
     [button('Мои каналы', 'channels:list')],
+    [button('Проверить права бота', 'channels:check')],
+    [button('Инструкция по подключению', 'channels:instructions')],
   ];
   const lines = ['Каналы', '', 'Подключите канал, проверьте права бота или откройте список ваших каналов.'];
   if (channels.length) lines.push('', `Подключено каналов: ${channels.length}`);
@@ -226,8 +226,8 @@ function postScreen(owner, context = {}) {
   const highlightRows = [[actionButton('Применить', 'highlight_apply', highlightPayload)]];
   if (payload.highlight?.enabled || payload.hasHighlight === true) highlightRows.push([actionButton('Снять выделение', 'highlight_remove', highlightPayload)]);
   const rowsByOwner = {
-    comments: [[button('Проверить комментарии', 'comments:toggle', payload)], [button('Список комментариев', 'comments:list', payload)], [button('Фото в комментариях', 'comments:photos', payload)], [button('Реакции и ответы', 'comments:reactions', payload)], [button('Настройки кнопки комментариев', 'comments:button', payload)]],
-    editor: [[actionButton('Изменить текст', 'admin_posts_edit_text', payload)], [button('История версий', 'editor:history', payload)]],
+    comments: [[actionButton('Пропатчить выбранный пост', 'comments_manual_patch', { ...payload, source: 'comments_post_card' })], [button('Фото в комментариях', 'comments:photos', payload)], [button('Реакции и ответы', 'comments:reactions', payload)]],
+    editor: [[actionButton('Изменить текст выбранного поста', 'admin_posts_edit_text', payload)], [button('Выбрать другой пост', 'editor:choose_post', payload)]],
     buttons: [[actionButton('Добавить кнопку', 'button_admin_start_add', payload), actionButton('Текущие кнопки', 'button_admin_show_current', payload)]],
     gifts: [[actionButton('Создать подарок', 'gift_admin_start_create', payload), actionButton('Список подарков', 'gift_admin_show_current', payload)]],
     highlights: highlightRows,
@@ -282,6 +282,10 @@ function render(route, context = {}) {
     const owner = section ? section.id : ownerOf(safeRoute);
     if (safeRoute.endsWith(':help')) return sectionHelpScreen(owner);
     if (owner === 'push' && safeRoute === 'push:home') return pushHome();
+    if (owner === 'comments' && safeRoute === 'comments:auto') {
+      const enabled = context.autoCommentsEnabled !== false;
+      return { ok: true, route: safeRoute, owner, text: ['Автокомментарии', '', `Автоматическая установка комментариев для новых постов: ${enabled ? 'включена' : 'выключена'}.`, 'Ручная установка для выбранного поста доступна независимо от этой настройки.'].join('\n'), attachments: keyboard([[actionButton(enabled ? 'Выключить автокомментарии' : 'Включить автокомментарии', enabled ? 'comments_auto_patch_disable' : 'comments_auto_patch_enable')], ...sectionNavRows(owner, { currentRoute: safeRoute, backAction: 'comments:home' })]) };
+    }
     if (owner === 'settings' && safeRoute !== 'settings:home') return settingsDetailScreen(safeRoute);
     if (owner === 'account') return accountSectionScreen(safeRoute, context);
     if (owner === 'channels') {

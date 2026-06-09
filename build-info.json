@@ -1,9 +1,9 @@
 {
-  "runtimeVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
-  "buildVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
-  "displayVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
-  "packageVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
-  "sourceMarker": "adminkit-pr173-production-push-audit",
+  "runtimeVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
+  "buildVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
+  "displayVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
+  "packageVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
+  "sourceMarker": "adminkit-pr175-canonical-menu-matrix",
   "buildGeneratedAt": "2026-06-08T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT"
+    "activeRuntimeVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX"
   },
   "persistentStore": {
     "enabled": true,
