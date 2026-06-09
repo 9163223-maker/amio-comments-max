@@ -7,8 +7,8 @@ const DEFAULT_REPO = '9163223-maker/amio-comments-max';
 const DEFAULT_BRANCH = 'runtime-status';
 const DEFAULT_PATH = 'runtime/push-pairing-log.json';
 const DEFAULT_LIMIT = 100;
-const USER_AGENT = 'adminkit-push-pairing-log-pr183';
-const ALLOWED_ROUTES = new Set(['/push', '/push/join', '/api/push/pair', '/api/push/device/status']);
+const USER_AGENT = 'adminkit-push-pairing-log-pr184';
+const ALLOWED_ROUTES = new Set(['/push', '/push/join', '/api/push/pair', '/api/push/device/status', '/api/push/link-chat']);
 const ALLOWED_TOKEN_SOURCES = new Set(['query', 'cookie', 'body', 'manifest-start-url', 'handoff', 'missing']);
 const ALLOWED_OPENED_AS = new Set(['safari', 'standalone-pwa', 'unknown']);
 const ALLOWED_RESULTS = new Set(['link_opened', 'pwa_opened', 'handoff_created', 'handoff_found', 'handoff_missing', 'handoff_expired', 'handoff_consumed', 'pair_started', 'pair_success', 'pair_failed', 'status_success', 'binding_created', 'binding_missing']);
@@ -53,6 +53,9 @@ function sanitizeEvent(input = {}) {
     route: allowed(input.route, ALLOWED_ROUTES, '/push'),
     result: allowed(input.result, ALLOWED_RESULTS, 'pair_failed'),
     chatsCount: Math.max(0, Math.min(Number.parseInt(input.chatsCount, 10) || 0, 10000)),
+    rawBindingsCount: Math.max(0, Math.min(Number.parseInt(input.rawBindingsCount, 10) || 0, 10000)),
+    uniqueChatsCount: Math.max(0, Math.min(Number.parseInt(input.uniqueChatsCount, 10) || 0, 10000)),
+    missingTitleCount: Math.max(0, Math.min(Number.parseInt(input.missingTitleCount, 10) || 0, 10000)),
     error: /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/.test(short(input.errorCode || input.error, 80)) ? short(input.errorCode || input.error, 80) : (clean(input.errorCode || input.error) ? 'sanitized_error' : '')
   };
   return Object.fromEntries(Object.entries(event).filter(([, value]) => value !== ''));

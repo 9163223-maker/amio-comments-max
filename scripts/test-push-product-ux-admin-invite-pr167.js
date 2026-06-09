@@ -78,7 +78,7 @@ function request(server, pathname, options = {}) {
     assert.strictEqual(button.action, 'group_push_enable', 'published group invite action is group_push_enable');
 
     assert(routesSource.includes("app.post('/internal/max/group-push-invite'"), 'existing server endpoint remains active');
-    assert(routesSource.includes('storage.listChatBindingsForUser'), 'client status returns safe connected chat list');
+    assert(routesSource.includes('connectedChats.resolveConnectedChats'), 'client status returns normalized connected chat list');
     assert(pushHtml.includes('connectedChatsList') && pushClient.includes('renderConnectedChats'), 'PWA renders connected chat list without secrets');
     assert(!/access_token|VAPID private key|pairing secret/i.test(normalPush.text), 'normal PWA shell does not expose secret labels');
     console.log('push product ux admin invite pr167 ok');

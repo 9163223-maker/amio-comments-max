@@ -134,6 +134,7 @@ async function ensureTable(client) {
     ['max_user_id', 'TEXT NOT NULL DEFAULT \'\''],
     ['chat_id', 'TEXT NOT NULL DEFAULT \'\''],
     ['channel_id', 'TEXT NOT NULL DEFAULT \'\''],
+    ['chat_title', 'TEXT NOT NULL DEFAULT \'\''],
     ['device_id', 'TEXT NOT NULL DEFAULT \'\''],
     ['endpoint_hash', 'TEXT NOT NULL DEFAULT \'\''],
     ['status', 'TEXT NOT NULL DEFAULT \'active\''],
@@ -188,6 +189,7 @@ function normalizeRow(row) {
     maxUserId: row.max_user_id || row.maxUserId || '',
     chatId: row.chat_id || row.chatId || '',
     channelId: row.channel_id || row.channelId || '',
+    chatTitle: row.chat_title || row.chatTitle || '',
     deviceId: row.device_id || row.deviceId || '',
     endpointHash: row.endpoint_hash || row.endpointHash || '',
     status: row.status || (row.disabled ? 'disabled' : 'active'),
@@ -246,10 +248,10 @@ async function savePairedDevice(subscription, meta = {}) {
     try {
       await ensureTable(client);
       await client.query(
-        `INSERT INTO ${TABLE_NAME} (id, subscription, user_agent, disabled, created_at, updated_at, last_error, max_user_id, chat_id, channel_id, device_id, endpoint_hash, status, confirmed_at, last_seen_at)
-         VALUES ($1, $2::jsonb, $3, $4, NOW(), NOW(), '', $5, $6, $7, $8, $9, $10, CASE WHEN $10 = 'active' THEN NOW() ELSE NULL END, NOW())
-         ON CONFLICT (id) DO UPDATE SET subscription = EXCLUDED.subscription, user_agent = EXCLUDED.user_agent, disabled = EXCLUDED.disabled, updated_at = NOW(), last_seen_at = NOW(), last_error = '', max_user_id = EXCLUDED.max_user_id, chat_id = EXCLUDED.chat_id, channel_id = EXCLUDED.channel_id, device_id = EXCLUDED.device_id, endpoint_hash = EXCLUDED.endpoint_hash, status = EXCLUDED.status, confirmed_at = CASE WHEN EXCLUDED.status = 'active' THEN COALESCE(${TABLE_NAME}.confirmed_at, NOW()) ELSE ${TABLE_NAME}.confirmed_at END`,
-        [id, JSON.stringify(cleanSubscription), userAgent, status !== 'active', maxUserId, chatId, clean(meta.channelId), deviceId, endpointHash, status]
+        `INSERT INTO ${TABLE_NAME} (id, subscription, user_agent, disabled, created_at, updated_at, last_error, max_user_id, chat_id, channel_id, chat_title, device_id, endpoint_hash, status, confirmed_at, last_seen_at)
+         VALUES ($1, $2::jsonb, $3, $4, NOW(), NOW(), '', $5, $6, $7, $8, $9, $10, $11, CASE WHEN $11 = 'active' THEN NOW() ELSE NULL END, NOW())
+         ON CONFLICT (id) DO UPDATE SET subscription = EXCLUDED.subscription, user_agent = EXCLUDED.user_agent, disabled = EXCLUDED.disabled, updated_at = NOW(), last_seen_at = NOW(), last_error = '', max_user_id = EXCLUDED.max_user_id, chat_id = EXCLUDED.chat_id, channel_id = EXCLUDED.channel_id, chat_title = COALESCE(NULLIF(EXCLUDED.chat_title, ''), ${TABLE_NAME}.chat_title), device_id = EXCLUDED.device_id, endpoint_hash = EXCLUDED.endpoint_hash, status = EXCLUDED.status, confirmed_at = CASE WHEN EXCLUDED.status = 'active' THEN COALESCE(${TABLE_NAME}.confirmed_at, NOW()) ELSE ${TABLE_NAME}.confirmed_at END`,
+        [id, JSON.stringify(cleanSubscription), userAgent, status !== 'active', maxUserId, chatId, clean(meta.channelId), clean(meta.chatTitle).slice(0, 180), deviceId, endpointHash, status]
       );
       if (status === 'active') await upsertChatBindingForDevice({ maxUserId, chatId, channelId: clean(meta.channelId), chatTitle: clean(meta.chatTitle), deviceId, endpointHash });
       return { ok: true, id, deviceId, endpointHash, status, backend: 'postgres' };
@@ -259,7 +261,7 @@ async function savePairedDevice(subscription, meta = {}) {
   const now = new Date().toISOString();
   const list = payload.subscriptions;
   const existing = list.find((item) => item && item.id === id);
-  const row = { id, subscription: cleanSubscription, userAgent, disabled: status !== 'active', updatedAt: now, lastError: '', maxUserId, chatId, channelId: clean(meta.channelId), deviceId, endpointHash, status, lastSeenAt: now };
+  const row = { id, subscription: cleanSubscription, userAgent, disabled: status !== 'active', updatedAt: now, lastError: '', maxUserId, chatId, channelId: clean(meta.channelId), chatTitle: clean(meta.chatTitle).slice(0, 180), deviceId, endpointHash, status, lastSeenAt: now };
   if (status === 'active') row.confirmedAt = now;
   if (existing) Object.assign(existing, row);
   else list.push({ ...row, createdAt: now, lastSuccessAt: '', lastSendAt: '' });
@@ -350,9 +352,9 @@ async function markDeviceActive(deviceId, meta = {}) {
         if (device && device.maxUserId && device.chatId) {
           await client.query(
             `INSERT INTO ${BINDINGS_TABLE_NAME} (id, device_id, endpoint_hash, max_user_id, chat_id, channel_id, chat_title, status, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, '', 'active', NOW(), NOW())
-             ON CONFLICT (id) DO UPDATE SET status = 'active', updated_at = NOW()`,
-            [bindingKey({ maxUserId: device.maxUserId, chatId: device.chatId, deviceId: device.deviceId, endpointHash: device.endpointHash }), device.deviceId, device.endpointHash, device.maxUserId, device.chatId, device.channelId]
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', NOW(), NOW())
+             ON CONFLICT (id) DO UPDATE SET chat_title = COALESCE(NULLIF(EXCLUDED.chat_title, ''), ${BINDINGS_TABLE_NAME}.chat_title), status = 'active', updated_at = NOW()`,
+            [bindingKey({ maxUserId: device.maxUserId, chatId: device.chatId, deviceId: device.deviceId, endpointHash: device.endpointHash }), device.deviceId, device.endpointHash, device.maxUserId, device.chatId, device.channelId, clean(device.chatTitle).slice(0, 180)]
           );
         }
       }
@@ -365,7 +367,7 @@ async function markDeviceActive(deviceId, meta = {}) {
   const original = payload.subscriptions.find((entry) => entry && entry.id === item.id);
   Object.assign(original, { status: 'active', disabled: false, confirmedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
   writeFileStore(payload);
-  await upsertChatBindingForDevice({ maxUserId: item.maxUserId, chatId: item.chatId, channelId: item.channelId, deviceId: item.deviceId, endpointHash: item.endpointHash });
+  await upsertChatBindingForDevice({ maxUserId: item.maxUserId, chatId: item.chatId, channelId: item.channelId, chatTitle: item.chatTitle, deviceId: item.deviceId, endpointHash: item.endpointHash });
   return { ok: true };
 }
 
@@ -426,7 +428,33 @@ async function upsertChatBindingForUserDevices({ maxUserId, chatId, channelId = 
   return { ok: true, devices: devices.length, bindings: results.filter((item) => item.ok).length, results };
 }
 
-async function listChatBindingsForUser(maxUserId) {
+function bindingTimestamp(binding) {
+  const value = Date.parse(clean(binding && (binding.updatedAt || binding.createdAt)));
+  return Number.isFinite(value) ? value : 0;
+}
+
+function normalizeChatBindings(bindings) {
+  const ordered = (Array.isArray(bindings) ? bindings : []).map(normalizeBindingRow).filter((item) => item.status === 'active').sort((a, b) => bindingTimestamp(b) - bindingTimestamp(a));
+  const unique = [];
+  const indexes = new Map();
+  for (const binding of ordered) {
+    const key = binding.chatId
+      ? `chat:${binding.chatId}`
+      : (binding.channelId ? `channel:${binding.channelId}` : (binding.chatTitle ? `title:${binding.chatTitle.toLocaleLowerCase()}` : ''));
+    if (!key) continue;
+    const existingIndex = indexes.get(key);
+    if (existingIndex === undefined) {
+      indexes.set(key, unique.push({ ...binding }) - 1);
+      continue;
+    }
+    const existing = unique[existingIndex];
+    if (!existing.channelId && binding.channelId) existing.channelId = binding.channelId;
+    if (!existing.chatTitle && binding.chatTitle) existing.chatTitle = binding.chatTitle;
+  }
+  return unique;
+}
+
+async function listRawChatBindingsForUser(maxUserId) {
   const targetUser = clean(maxUserId);
   if (!targetUser) return [];
   const p = getPool();
@@ -438,7 +466,23 @@ async function listChatBindingsForUser(maxUserId) {
       return result.rows.map(normalizeBindingRow);
     } finally { client.release(); }
   }
-  return (readFileStore().chatBindings || []).map(normalizeBindingRow).filter((item) => item.maxUserId === targetUser && item.status === 'active');
+  return (readFileStore().chatBindings || []).map(normalizeBindingRow).filter((item) => item.maxUserId === targetUser && item.status === 'active').sort((a, b) => bindingTimestamp(b) - bindingTimestamp(a));
+}
+
+async function listChatBindingsSnapshot(maxUserId) {
+  const rawBindings = await listRawChatBindingsForUser(maxUserId);
+  const chats = normalizeChatBindings(rawBindings);
+  return {
+    rawBindings,
+    chats,
+    rawBindingsCount: rawBindings.length,
+    uniqueChatsCount: chats.length,
+    missingTitleCount: chats.filter((item) => !clean(item.chatTitle)).length
+  };
+}
+
+async function listChatBindingsForUser(maxUserId) {
+  return (await listChatBindingsSnapshot(maxUserId)).chats;
 }
 
 async function isChatBoundForUser(maxUserId, chatId) {
@@ -502,4 +546,4 @@ async function listPublicDeviceSummaries() { return (await listActiveSubscriptio
 
 function info() { return { backend: isPostgresConfigured() ? 'postgres' : 'file', persistent: isPostgresConfigured(), table: isPostgresConfigured() ? TABLE_NAME : '', file: isPostgresConfigured() ? '' : DATA_FILE }; }
 
-module.exports = { saveSubscription, savePairedDevice, listActiveSubscriptions, listDevicesForUser, listActiveDevicesForUser, upsertChatBindingForDevice, upsertChatBindingForUserDevices, listChatBindingsForUser, isChatBoundForUser, listActiveDevicesForChat, listActiveDevicesForChatAndUser, listPublicDeviceSummaries, findDeviceByEndpointHash, findDeviceByDeviceId, markDeviceActive, markResult, countSubscriptions, publicSummary, subscriptionId, subscriptionShape, sanitizeSubscription, info };
+module.exports = { saveSubscription, savePairedDevice, listActiveSubscriptions, listDevicesForUser, listActiveDevicesForUser, upsertChatBindingForDevice, upsertChatBindingForUserDevices, normalizeChatBindings, listRawChatBindingsForUser, listChatBindingsSnapshot, listChatBindingsForUser, isChatBoundForUser, listActiveDevicesForChat, listActiveDevicesForChatAndUser, listPublicDeviceSummaries, findDeviceByEndpointHash, findDeviceByDeviceId, markDeviceActive, markResult, countSubscriptions, publicSummary, subscriptionId, subscriptionShape, sanitizeSubscription, info };
