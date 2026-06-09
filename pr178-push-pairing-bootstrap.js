@@ -1,6 +1,6 @@
 'use strict';
 
-// PR178: runtime-safe patch for the AdminKIT Push client pairing flow.
+// PR183: runtime-safe patch for the AdminKIT Push client pairing flow.
 // The patch is loaded before the production entrypoint and replaces only the
 // /api/push/pair and /api/push/device/status route handlers while preserving
 // the rest of web-push-routes.js unchanged.
@@ -12,18 +12,39 @@ const storage = require('./services/webPushStorage');
 const pairing = require('./services/pushPairingService');
 const confirmation = require('./services/pushConfirmationService');
 const pushPairingLog = require('./services/pushPairingLogService');
+const pushPairingHandoff = require('./services/pushPairingHandoffService');
 
 const originalLoad = Module._load;
 let patched = false;
 
 function clean(value) { return String(value || '').trim(); }
 function logPairing(event) { pushPairingLog.record(event).catch(() => undefined); }
-function tokenDetails(req, body) {
+function pairingContext(req, body) {
   const bodyToken = clean(body && body.pairingToken);
   const cookieToken = getCookie(req, 'push_pairing_token');
-  return { token: bodyToken || cookieToken, tokenSource: bodyToken ? 'body' : (cookieToken ? 'cookie' : 'missing'), hasPairingCookie: Boolean(cookieToken) };
+  const bodyHandoff = clean(body && body.handoffId);
+  const cookieHandoff = getCookie(req, 'push_pairing_handoff');
+  const handoffId = bodyHandoff || cookieHandoff;
+  if (bodyToken || cookieToken) return {
+    token: bodyToken || cookieToken,
+    verified: null,
+    handoffId,
+    handoffStatus: '',
+    tokenSource: bodyToken ? 'body' : 'cookie',
+    hasPairingCookie: Boolean(cookieToken),
+    hasHandoffCookie: Boolean(cookieHandoff)
+  };
+  const recovered = pushPairingHandoff.resolve(handoffId);
+  return {
+    token: recovered.pairingToken || '',
+    verified: recovered.context || null,
+    handoffId,
+    handoffStatus: recovered.status,
+    tokenSource: ['found', 'consumed'].includes(recovered.status) ? 'handoff' : 'missing',
+    hasPairingCookie: Boolean(cookieToken),
+    hasHandoffCookie: Boolean(cookieHandoff)
+  };
 }
-
 function getCookie(req, name) {
   const header = clean(req && req.get && req.get('cookie'));
   const prefix = `${name}=`;
@@ -43,9 +64,12 @@ function isHttpsRequest(req) {
   return false;
 }
 
-function expirePairingCookie(res, req) {
-  const cookie = 'push_pairing_token=; Path=/api/push; HttpOnly; SameSite=Lax; Max-Age=0';
-  res.set('Set-Cookie', isHttpsRequest(req) ? `${cookie}; Secure` : cookie);
+function expirePairingCookies(res, req) {
+  const secure = isHttpsRequest(req) ? '; Secure' : '';
+  res.set('Set-Cookie', [
+    `push_pairing_token=; Path=/api/push; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,
+    `push_pairing_handoff=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`
+  ]);
 }
 
 function safeErrorCode(error, fallback = 'request_failed') {
@@ -119,7 +143,7 @@ function buildHandlers(routes) {
         bindingCreated = chats.length > 0;
       }
 
-      logPairing({ event: bindingCreated ? 'device_status_binding_recovered' : 'device_status', route: '/api/push/device/status', result: chats.length ? (bindingCreated ? 'binding_created' : 'status_success') : 'binding_missing', tokenSource: 'missing', hasPairingToken: false, hasPairingCookie: Boolean(getCookie(req, 'push_pairing_token')), maxUserId: device.maxUserId, chatId: device.chatId, deviceId: device.deviceId, chatsCount: chats.length });
+      logPairing({ event: bindingCreated ? 'device_status_binding_recovered' : 'device_status', route: '/api/push/device/status', result: chats.length ? (bindingCreated ? 'binding_created' : 'status_success') : 'binding_missing', tokenSource: 'missing', hasPairingToken: false, hasPairingCookie: Boolean(getCookie(req, 'push_pairing_token')), hasHandoffCookie: Boolean(getCookie(req, 'push_pairing_handoff')), hasHandoff: Boolean(getCookie(req, 'push_pairing_handoff')), maxUserId: device.maxUserId, chatId: device.chatId, deviceId: device.deviceId, chatsCount: chats.length });
       return res.json(safePublicResult({
         ok: true,
         status: device.status,
@@ -139,60 +163,74 @@ function buildHandlers(routes) {
     const config = routes.getConfig();
     if (!config.configured) return res.status(503).json({ ok: false, error: 'web_push_not_configured' });
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const tokenContext = tokenDetails(req, body);
-    const token = tokenContext.token;
-    logPairing({ event: 'pair_started', route: '/api/push/pair', result: 'pair_started', pairingToken: token, tokenSource: tokenContext.tokenSource, hasPairingToken: Boolean(token), hasPairingCookie: tokenContext.hasPairingCookie });
-    if (!token) {
-      logPairing({ event: 'pair_failed', route: '/api/push/pair', result: 'pair_failed', tokenSource: 'missing', hasPairingToken: false, hasPairingCookie: tokenContext.hasPairingCookie, errorCode: 'push_pairing_token_required' });
-      return res.status(403).json({ ok: false, error: 'push_pairing_token_required' });
+    const context = pairingContext(req, body);
+    const logBase = {
+      route: '/api/push/pair', tokenSource: context.tokenSource,
+      pairingToken: context.tokenSource === 'handoff' ? '' : context.token,
+      handoffId: context.handoffId,
+      hasPairingToken: context.tokenSource !== 'handoff' && Boolean(context.token), hasHandoff: Boolean(context.handoffId),
+      hasPairingCookie: context.hasPairingCookie, hasHandoffCookie: context.hasHandoffCookie
+    };
+    logPairing({ ...logBase, event: 'pair_started', result: 'pair_started' });
+    if (!context.token) {
+      const code = context.handoffStatus === 'expired' ? 'handoff_expired' : 'handoff_missing';
+      logPairing({ ...logBase, event: code, result: code, errorCode: code });
+      return res.status(403).json({ ok: false, error: code });
+    }
+    if (context.tokenSource === 'handoff') {
+      logPairing({ ...logBase, event: 'handoff_recovered', result: context.handoffStatus === 'consumed' ? 'handoff_consumed' : 'handoff_found' });
     }
     let extracted = { subscription: undefined, source: 'missing' };
     try {
-      const verified = pairing.consumePairingToken(token);
+      const verified = context.verified && context.verified.maxUserId
+        ? context.verified
+        : pairing.verifyPairingToken(context.token, { allowUsed: context.handoffStatus === 'consumed' });
       extracted = routes.extractPushSubscriptionFromBody(body);
       const requestShape = safePushRequestShape(body, extracted.source);
       const cleanSubscription = storage.sanitizeSubscription(extracted.subscription);
       const endpointHash = storage.subscriptionId(cleanSubscription);
       const activeDevice = (await storage.listActiveDevicesForUser(verified.maxUserId)).find((device) => device.endpointHash === endpointHash || device.id === endpointHash);
 
-      if (activeDevice) {
-        await storage.upsertChatBindingForDevice({
+      if (context.handoffStatus === 'consumed' && !activeDevice) {
+        logPairing({ ...logBase, event: 'handoff_consumed', result: 'handoff_consumed', maxUserId: verified.maxUserId, chatId: verified.chatId, errorCode: 'handoff_consumed' });
+        return res.status(409).json({ ok: false, error: 'handoff_consumed' });
+      }
+
+      let device = activeDevice;
+      if (!device) {
+        device = await storage.savePairedDevice(cleanSubscription, {
           maxUserId: verified.maxUserId,
           chatId: verified.chatId,
           channelId: verified.channelId,
           chatTitle: verified.chatTitle,
-          deviceId: activeDevice.deviceId,
-          endpointHash
+          userAgent: req.get('user-agent'),
+          status: 'active'
         });
-        const chats = await storage.listChatBindingsForUser(verified.maxUserId);
-        expirePairingCookie(res, req);
-        logPairing({ event: 'pair_success', route: '/api/push/pair', result: chats.length ? 'binding_created' : 'binding_missing', pairingToken: token, tokenSource: tokenContext.tokenSource, hasPairingToken: true, hasPairingCookie: tokenContext.hasPairingCookie, maxUserId: verified.maxUserId, chatId: verified.chatId, deviceId: activeDevice.deviceId, chatsCount: chats.length });
-        return res.json(safePublicResult({ ok: true, status: 'active', confirmationRequired: false, confirmationSent: false, confirmationDispatch: 'not_needed', deviceId: activeDevice.deviceId, chats, requestShape }));
       }
-
-      const saved = await storage.savePairedDevice(cleanSubscription, {
-        maxUserId: verified.maxUserId,
-        chatId: verified.chatId,
-        channelId: verified.channelId,
-        chatTitle: verified.chatTitle,
-        userAgent: req.get('user-agent'),
-        status: 'active'
-      });
       await storage.upsertChatBindingForDevice({
         maxUserId: verified.maxUserId,
         chatId: verified.chatId,
         channelId: verified.channelId,
         chatTitle: verified.chatTitle,
-        deviceId: saved.deviceId,
-        endpointHash: saved.endpointHash || endpointHash
+        deviceId: device.deviceId,
+        endpointHash: device.endpointHash || endpointHash
       });
       const chats = await storage.listChatBindingsForUser(verified.maxUserId);
-      expirePairingCookie(res, req);
-      logPairing({ event: 'pair_success', route: '/api/push/pair', result: chats.length ? 'binding_created' : 'binding_missing', pairingToken: token, tokenSource: tokenContext.tokenSource, hasPairingToken: true, hasPairingCookie: tokenContext.hasPairingCookie, maxUserId: verified.maxUserId, chatId: verified.chatId, deviceId: saved.deviceId, chatsCount: chats.length });
-      return res.json(safePublicResult({ ok: true, status: 'active', deviceId: saved.deviceId, confirmationRequired: false, confirmationSent: false, confirmationDispatch: 'not_needed', chats }));
+      if (context.handoffStatus !== 'consumed') {
+        try { pairing.consumePairingToken(context.token); } catch (error) {
+          if (safeErrorCode(error) !== 'push_pairing_token_used') throw error;
+        }
+        if (context.tokenSource === 'handoff' && context.handoffId) pushPairingHandoff.consume(context.handoffId);
+      }
+      expirePairingCookies(res, req);
+      logPairing({ ...logBase, event: 'pair_success', result: 'pair_success', maxUserId: verified.maxUserId, chatId: verified.chatId, deviceId: device.deviceId, chatsCount: chats.length });
+      logPairing({ ...logBase, event: 'binding_created', result: chats.length ? 'binding_created' : 'binding_missing', maxUserId: verified.maxUserId, chatId: verified.chatId, deviceId: device.deviceId, chatsCount: chats.length });
+      if (context.tokenSource === 'handoff' && context.handoffId) logPairing({ ...logBase, event: 'handoff_consumed', result: 'handoff_consumed', maxUserId: verified.maxUserId, chatId: verified.chatId, deviceId: device.deviceId, chatsCount: chats.length });
+      return res.json(safePublicResult({ ok: true, status: 'active', confirmationRequired: false, confirmationSent: false, confirmationDispatch: 'not_needed', deviceId: device.deviceId, chats, requestShape }));
     } catch (error) {
       const requestShape = safePushRequestShape(body, extracted.source);
-      logPairing({ event: 'pair_failed', route: '/api/push/pair', result: 'pair_failed', pairingToken: token, tokenSource: tokenContext.tokenSource, hasPairingToken: true, hasPairingCookie: tokenContext.hasPairingCookie, errorCode: safeErrorCode(error, 'push_pair_failed') });
+      const code = safeErrorCode(error, 'push_pair_failed');
+      logPairing({ ...logBase, event: code === 'push_pairing_token_expired' ? 'handoff_expired' : 'pair_failed', result: code === 'push_pairing_token_expired' ? 'handoff_expired' : 'pair_failed', errorCode: code });
       return res.status(400).json(invalidSubscriptionResponse(error, extracted.subscription, 'push_pair_failed', requestShape));
     }
   }
@@ -229,4 +267,4 @@ Module._load = function patchedModuleLoad(request, parent, isMain) {
   return loaded;
 };
 
-module.exports = { ok: true, marker: 'adminkit-pr178-push-pairing-binding' };
+module.exports = { ok: true, marker: 'adminkit-pr183-push-pairing-handoff' };

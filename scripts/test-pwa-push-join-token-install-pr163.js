@@ -9,6 +9,7 @@ const express = require('express');
 const repoRoot = path.join(__dirname, '..');
 const storageFile = path.join(repoRoot, 'data', 'web-push-subscriptions.json');
 const usedFile = path.join(repoRoot, 'data', 'push-pairing-used.json');
+const handoffFile = path.join(repoRoot, 'data', 'push-pairing-handoffs.json');
 const pushClient = fs.readFileSync(path.join(repoRoot, 'public', 'push-client.js'), 'utf8');
 const pushRoutes = fs.readFileSync(path.join(repoRoot, 'web-push-routes.js'), 'utf8');
 const edgeDiagnostics = fs.readFileSync(path.join(repoRoot, 'services', 'maxWebhookEdgeDiagnostics.js'), 'utf8');
@@ -18,7 +19,7 @@ const ENV_KEYS = ['WEB_PUSH_PUBLIC_KEY', 'WEB_PUSH_PRIVATE_KEY', 'WEB_PUSH_SUBJE
 function cleanEnv() { for (const key of ENV_KEYS) delete process.env[key]; }
 function backup(file) { try { return fs.readFileSync(file, 'utf8'); } catch { return null; } }
 function restore(file, content) { if (content === null) { try { fs.unlinkSync(file); } catch {} } else { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, content, 'utf8'); } }
-function resetStores() { try { fs.unlinkSync(storageFile); } catch {} try { fs.unlinkSync(usedFile); } catch {} }
+function resetStores() { try { fs.unlinkSync(storageFile); } catch {} try { fs.unlinkSync(usedFile); } catch {} try { fs.unlinkSync(handoffFile); } catch {} }
 function fresh(modulePath) { delete require.cache[require.resolve(modulePath)]; return require(modulePath); }
 function makeApp() { const app = express(); app.use(express.json({ limit: '1mb' })); fresh('../web-push-routes').install(app); return app; }
 function listen(app) { return new Promise((resolve) => { const server = app.listen(0, '127.0.0.1', () => resolve(server)); }); }
@@ -31,6 +32,7 @@ function body(token, suffix) { return { method: 'POST', headers: { 'content-type
 (async () => {
   const originalStorage = backup(storageFile);
   const originalUsed = backup(usedFile);
+  const originalHandoffs = backup(handoffFile);
   try {
     cleanEnv();
     resetStores();
@@ -41,15 +43,15 @@ function body(token, suffix) { return { method: 'POST', headers: { 'content-type
     process.env.PUSH_ADMIN_TOKEN = 'ADMIN_TOKEN_PR163_MUST_NOT_LEAK';
     process.env.BOT_TOKEN = 'BOT_TOKEN_PR163_MUST_NOT_LEAK';
 
-    assert(pushClient.includes("const PENDING_JOIN_TOKEN_STORAGE_KEY = 'adminkit.push.pendingJoinToken.v1';"), '/push/join stores pending token in origin localStorage');
-    assert(pushClient.includes('storePendingJoinToken(urlToken)') && pushClient.includes('readPendingJoinToken()'), '/push can recover pending token after standalone launch');
-    assert(pushClient.includes('const urlToken = safeStoredJoinToken(state.join && state.join.token);') && pushClient.indexOf('const urlToken = safeStoredJoinToken') < pushClient.indexOf('const storedToken = readPendingJoinToken()'), 'URL token wins over stored token');
-    assert(pushClient.includes('clearJoinState();') && pushClient.includes('clearPendingJoinToken();'), 'successful pairing clears pending token');
+    assert(pushClient.includes("const PENDING_HANDOFF_STORAGE_KEY = 'adminkit.push.pendingHandoff.v1';"), '/push/join stores only the opaque handoff id in origin localStorage');
+    assert(pushClient.includes('storePendingHandoffId(pageHandoff)') && pushClient.includes('readPendingHandoffId()'), '/push can recover pending handoff after standalone launch');
+    assert(pushClient.includes('const pageHandoff = safeHandoffId(state.join && state.join.handoffId);'), 'page handoff wins over stored handoff');
+    assert(pushClient.includes('clearJoinState();') && pushClient.includes('clearPendingHandoffId();'), 'successful pairing clears pending handoff');
     assert(pushClient.includes('JOIN_TOKEN_FOUND_MESSAGE') && pushClient.includes('Персональная ссылка найдена. Теперь нажмите «Включить уведомления».'), 'token-found UX is present');
     assert(pushClient.includes('Откройте персональную ссылку подключения из MAX.'), 'missing token UX remains safe');
     assert(pushClient.includes('Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.'), 'expired token UX is safe');
     assert(pushClient.includes('Готово. Уведомления этого чата подключены.'), 'success UX is clear');
-    assert(pushClient.includes('pairingToken: pendingToken'), 'recovered token is sent explicitly to /api/push/pair');
+    assert(pushClient.includes('handoffId: pendingHandoff'), 'recovered opaque handoff is sent explicitly to /api/push/pair');
     assert(pushRoutes.includes('pushManifestHref(options.token)') && pushRoutes.includes('start_url: startUrl') && pushRoutes.includes("const startUrl = token ? `/push/join/${encodeURIComponent(token)}?source=manifest-start-url` : '/push';"), 'dynamic join manifest/start_url preserves token while normal manifest stays /push');
     assert(edgeDiagnostics.includes("/push/join?t=[redacted]") && inboundDiagnostics.includes("/push/join?t=[redacted]"), 'public diagnostics redact personal join URLs');
 
@@ -62,7 +64,7 @@ function body(token, suffix) { return { method: 'POST', headers: { 'content-type
       assert.strictEqual(join.status, 200, '/push/join?t=TOKEN renders client page');
       assert(join.text.includes(`href="/push/manifest/${encodeURIComponent(token)}.json"`), '/push/join points Add to Home Screen at token-carrying manifest');
       assert(join.text.includes('"joinMode":true') && join.text.includes('"tokenStatus":"valid"'), '/push/join initializes join mode');
-      assert(join.text.includes(token), '/push/join makes the private URL token available to same-origin client storage');
+      assert(join.text.includes('\"handoffId\":') && !join.text.includes(`\"token\":\"${token}\"`), '/push/join exposes only an opaque handoff to client storage');
 
       const manifest = await request(server, `/push/manifest/${encodeURIComponent(token)}.json`);
       assert.strictEqual(manifest.status, 200, 'dynamic join manifest is available');
@@ -122,5 +124,6 @@ function body(token, suffix) { return { method: 'POST', headers: { 'content-type
     cleanEnv();
     restore(storageFile, originalStorage);
     restore(usedFile, originalUsed);
+    restore(handoffFile, originalHandoffs);
   }
 })().catch((error) => { console.error(error && error.stack || error); process.exit(1); });

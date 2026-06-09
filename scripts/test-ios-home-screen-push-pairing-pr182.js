@@ -90,7 +90,7 @@ function postJson(body, headers = {}) { return { method: 'POST', headers: { 'con
       events.length = 0;
       const missingPair = await request(server, '/api/push/pair', postJson({ subscription: subscription('missing') }));
       assert.strictEqual(missingPair.status, 403);
-      assert(events.some((event) => event.result === 'pair_failed' && event.tokenSource === 'missing' && !event.hasPairingToken), 'missing token source is logged safely');
+      assert(events.some((event) => event.result === 'handoff_missing' && event.tokenSource === 'missing' && !event.hasPairingToken), 'missing token source is logged safely');
 
       const safe = logService.sanitizeEvent({
         event: 'pair_failed', pairingToken: token, maxUserId: 'raw-user', chatId: 'raw-chat', deviceId: 'raw-device',
