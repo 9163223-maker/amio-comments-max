@@ -1,24 +1,40 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-09T19:07:35.559Z",
+  "updatedAt": "2026-06-09T19:58:12.589Z",
   "limit": 100,
   "latest": {
-    "timestamp": "2026-06-09T19:07:34.832Z",
-    "event": "device_status",
-    "maxUserIdHash": "1ef3d3317311c3f724ef",
-    "chatIdHash": "eeefd1e52698fddb3ec5",
-    "deviceIdHash": "d64a6ef129f19efa8b4b",
+    "timestamp": "2026-06-09T19:58:12.205Z",
+    "event": "push_opened",
     "hasPairingToken": false,
     "hasHandoff": false,
     "tokenSource": "missing",
     "hasPairingCookie": false,
     "hasHandoffCookie": false,
-    "openedAs": "unknown",
-    "route": "/api/push/device/status",
-    "result": "status_success",
-    "chatsCount": 5
+    "openedAs": "standalone-pwa",
+    "route": "/push",
+    "result": "binding_missing",
+    "chatsCount": 0,
+    "rawBindingsCount": 0,
+    "uniqueChatsCount": 0,
+    "missingTitleCount": 0
   },
   "items": [
+    {
+      "timestamp": "2026-06-09T19:58:12.205Z",
+      "event": "push_opened",
+      "hasPairingToken": false,
+      "hasHandoff": false,
+      "tokenSource": "missing",
+      "hasPairingCookie": false,
+      "hasHandoffCookie": false,
+      "openedAs": "standalone-pwa",
+      "route": "/push",
+      "result": "binding_missing",
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
+    },
     {
       "timestamp": "2026-06-09T19:07:34.832Z",
       "event": "device_status",
@@ -33,7 +49,10 @@
       "openedAs": "unknown",
       "route": "/api/push/device/status",
       "result": "status_success",
-      "chatsCount": 5
+      "chatsCount": 5,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T19:07:33.895Z",
@@ -46,7 +65,10 @@
       "openedAs": "standalone-pwa",
       "route": "/push",
       "result": "binding_missing",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:59:50.692Z",
@@ -62,7 +84,10 @@
       "openedAs": "unknown",
       "route": "/api/push/device/status",
       "result": "status_success",
-      "chatsCount": 5
+      "chatsCount": 5,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:59:49.802Z",
@@ -80,7 +105,10 @@
       "openedAs": "unknown",
       "route": "/api/push/pair",
       "result": "binding_created",
-      "chatsCount": 5
+      "chatsCount": 5,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:59:49.801Z",
@@ -98,7 +126,10 @@
       "openedAs": "unknown",
       "route": "/api/push/pair",
       "result": "pair_success",
-      "chatsCount": 5
+      "chatsCount": 5,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:59:48.886Z",
@@ -113,7 +144,10 @@
       "openedAs": "unknown",
       "route": "/api/push/pair",
       "result": "pair_started",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:59:32.106Z",
@@ -129,7 +163,10 @@
       "openedAs": "standalone-pwa",
       "route": "/push",
       "result": "handoff_found",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:59:32.106Z",
@@ -143,7 +180,10 @@
       "openedAs": "standalone-pwa",
       "route": "/push",
       "result": "handoff_found",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:58:39.800Z",
@@ -160,7 +200,10 @@
       "openedAs": "safari",
       "route": "/push/join",
       "result": "handoff_created",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:58:39.797Z",
@@ -174,7 +217,10 @@
       "openedAs": "safari",
       "route": "/push/join",
       "result": "link_opened",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:58:31.368Z",
@@ -191,7 +237,10 @@
       "openedAs": "safari",
       "route": "/push/join",
       "result": "handoff_created",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:58:31.365Z",
@@ -205,7 +254,10 @@
       "openedAs": "safari",
       "route": "/push/join",
       "result": "link_opened",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:58:30.512Z",
@@ -222,7 +274,10 @@
       "openedAs": "safari",
       "route": "/push/join",
       "result": "handoff_created",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:58:30.509Z",
@@ -236,7 +291,10 @@
       "openedAs": "safari",
       "route": "/push/join",
       "result": "link_opened",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:58:21.273Z",
@@ -253,7 +311,10 @@
       "openedAs": "safari",
       "route": "/push/join",
       "result": "handoff_created",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:58:21.269Z",
@@ -267,7 +328,10 @@
       "openedAs": "safari",
       "route": "/push/join",
       "result": "link_opened",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T18:57:13.396Z",
@@ -281,7 +345,10 @@
       "openedAs": "safari",
       "route": "/push/join",
       "result": "link_opened",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T17:57:17.576Z",
@@ -294,7 +361,10 @@
       "openedAs": "unknown",
       "route": "/push",
       "result": "binding_missing",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T17:56:48.586Z",
@@ -308,7 +378,10 @@
       "openedAs": "safari",
       "route": "/push/join",
       "result": "link_opened",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T17:56:48.428Z",
@@ -322,7 +395,10 @@
       "openedAs": "safari",
       "route": "/push/join",
       "result": "link_opened",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T17:56:48.076Z",
@@ -336,7 +412,10 @@
       "openedAs": "safari",
       "route": "/push/join",
       "result": "link_opened",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     },
     {
       "timestamp": "2026-06-09T17:56:42.691Z",
@@ -350,7 +429,10 @@
       "openedAs": "safari",
       "route": "/push/join",
       "result": "link_opened",
-      "chatsCount": 0
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
     }
   ]
 }
