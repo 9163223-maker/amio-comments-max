@@ -7,7 +7,8 @@ const DEFAULT_REPO = '9163223-maker/amio-comments-max';
 const DEFAULT_BRANCH = 'runtime-status';
 const DEFAULT_PATH = 'runtime/startup-log.json';
 const DEFAULT_LIMIT = 50;
-const USER_AGENT = 'adminkit-startup-log-pr180';
+const DEFAULT_MAIN_BRANCH = 'main';
+const USER_AGENT = 'adminkit-startup-log-pr181';
 
 const state = {
   enabled: false,
@@ -18,7 +19,9 @@ const state = {
   branch: DEFAULT_BRANCH,
   path: DEFAULT_PATH,
   limit: DEFAULT_LIMIT,
-  latest: null
+  latest: null,
+  githubMainHeadSha: '',
+  githubMainHeadCheckedAt: ''
 };
 
 function clean(value) { return String(value || '').trim(); }
@@ -39,6 +42,10 @@ function sanitizeEntry(input = {}) {
     sourceMarker: short(input.sourceMarker, 160),
     entrypoint: short(input.entrypoint || 'clean-entrypoint-1.53.10-pr89.js', 120),
     gitCommit: short(input.gitCommit || process.env.GIT_COMMIT || process.env.COMMIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION, 80),
+    githubMainBranch: short(input.githubMainBranch || DEFAULT_MAIN_BRANCH, 80),
+    githubMainHeadSha: short(input.githubMainHeadSha, 80),
+    githubMainHeadCheckedAt: short(input.githubMainHeadCheckedAt, 64),
+    commitSource: short(input.commitSource, 80),
     nodeEnv: short(process.env.NODE_ENV || '', 40),
     pr178PushPairingBinding: sanitizeBool(input.pr178PushPairingBinding),
     pushPairingRuntimeVersion: short(input.pushPairingRuntimeVersion, 120),
@@ -48,6 +55,7 @@ function sanitizeEntry(input = {}) {
     canonicalPublicBaseUrl: short(input.canonicalPublicBaseUrl || process.env.ADMINKIT_PUBLIC_BASE_URL, 200),
     safe: true
   };
+  if (!safe.commitSource) safe.commitSource = safe.gitCommit ? 'runtime-env' : (safe.githubMainHeadSha ? 'github-main-head' : 'unknown');
   return safe;
 }
 
@@ -90,6 +98,17 @@ function requestJson({ method = 'GET', path, token, body }) {
   });
 }
 
+async function getBranchHead({ repo, branch, token }) {
+  const checkedAt = nowIso();
+  try {
+    const ref = await requestJson({ path: `/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`, token });
+    const sha = ref && ref.object && ref.object.sha;
+    return { ok: Boolean(sha), branch, sha: short(sha, 80), checkedAt };
+  } catch (error) {
+    return { ok: false, branch, sha: '', checkedAt, error: safeError(error) };
+  }
+}
+
 async function ensureBranch({ repo, branch, token }) {
   try {
     await requestJson({ path: `/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`, token });
@@ -98,7 +117,7 @@ async function ensureBranch({ repo, branch, token }) {
     if (error.status !== 404) throw error;
   }
   const repoInfo = await requestJson({ path: `/repos/${repo}`, token });
-  const baseBranch = clean(repoInfo.default_branch || 'main');
+  const baseBranch = clean(repoInfo.default_branch || DEFAULT_MAIN_BRANCH);
   const baseRef = await requestJson({ path: `/repos/${repo}/git/ref/heads/${encodeURIComponent(baseBranch)}`, token });
   const sha = baseRef && baseRef.object && baseRef.object.sha;
   if (!sha) throw new Error('startup_log_base_ref_missing');
@@ -144,8 +163,17 @@ async function recordStartup(input = {}) {
   state.branch = branch;
   state.path = path;
   state.limit = limit;
-  const entry = sanitizeEntry(input);
   try {
+    const mainHead = await getBranchHead({ repo, branch: DEFAULT_MAIN_BRANCH, token });
+    const entry = sanitizeEntry({
+      ...input,
+      githubMainBranch: DEFAULT_MAIN_BRANCH,
+      githubMainHeadSha: mainHead.sha,
+      githubMainHeadCheckedAt: mainHead.checkedAt,
+      commitSource: clean(input.gitCommit || process.env.GIT_COMMIT || process.env.COMMIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION) ? 'runtime-env' : (mainHead.sha ? 'github-main-head' : 'unknown')
+    });
+    state.githubMainHeadSha = mainHead.sha;
+    state.githubMainHeadCheckedAt = mainHead.checkedAt;
     await ensureBranch({ repo, branch, token });
     const current = await readLog({ repo, branch, path, token });
     const oldItems = Array.isArray(current.log.items) ? current.log.items : [];
@@ -156,7 +184,7 @@ async function recordStartup(input = {}) {
     state.lastError = '';
     state.lastSyncedAt = log.updatedAt;
     state.latest = entry;
-    console.log('[startup-log] synced', JSON.stringify({ branch, path, runtimeVersion: entry.runtimeVersion, gitCommit: entry.gitCommit }));
+    console.log('[startup-log] synced', JSON.stringify({ branch, path, runtimeVersion: entry.runtimeVersion, gitCommit: entry.gitCommit, githubMainHeadSha: entry.githubMainHeadSha }));
     return { ok: true, branch, path, latest: entry };
   } catch (error) {
     state.lastOk = false;
@@ -176,8 +204,10 @@ function info() {
     branch: state.branch,
     path: state.path,
     limit: state.limit,
+    githubMainHeadSha: state.githubMainHeadSha,
+    githubMainHeadCheckedAt: state.githubMainHeadCheckedAt,
     latest: state.latest
   };
 }
 
-module.exports = { recordStartup, info, sanitizeEntry, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT };
+module.exports = { recordStartup, info, sanitizeEntry, getBranchHead, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
