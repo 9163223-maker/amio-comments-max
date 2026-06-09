@@ -27,6 +27,7 @@ const envBuildVersion = clean(process.env.BUILD_VERSION);
 const envRuntimeVersion = clean(process.env.RUNTIME_VERSION);
 const envSourceMarker = clean(process.env.BUILD_SOURCE_MARKER);
 const envGitCommit = clean(process.env.GIT_COMMIT || process.env.COMMIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION);
+const pr178PushPairingBinding = packageJson.pr178PushPairingBinding === true;
 
 const runtimeVersion = firstFresh(packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.runtimeVersion, markerJson.displayVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
 const buildVersion = firstFresh(packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.buildVersion, markerJson.runtimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
@@ -50,9 +51,12 @@ const BUILD_INFO = Object.freeze({
     RUNTIME_VERSION: Boolean(envRuntimeVersion && isStaleDiagnosticVersion(envRuntimeVersion)),
     BUILD_SOURCE_MARKER: Boolean(envSourceMarker && isStaleDiagnosticVersion(envSourceMarker))
   },
-  staleEndpointDetected: isStaleDiagnosticVersion(runtimeVersion) || runtimeVersion !== CURRENT_RUNTIME,
+  staleEndpointDetected: isStaleDiagnosticVersion(runtimeVersion) || (runtimeVersion !== CURRENT_RUNTIME && !pr178PushPairingBinding),
   activeEntrypoint: clean(process.argv?.[1] ? path.basename(process.argv[1]) : process.env.npm_package_main || packageJson.main || 'index.js'),
   expectedRuntimeVersion: CURRENT_RUNTIME,
+  pr178PushPairingBinding,
+  pushPairingRuntimeVersion: pr178PushPairingBinding ? CURRENT_RUNTIME : '',
+  pushPairingSourceMarker: pr178PushPairingBinding ? 'adminkit-pr178-push-pairing-binding' : '',
   pr165RuntimeWired: Boolean(markerJson.pr165RuntimeWired || process.env.PR165_RUNTIME_WIRED === '1'),
   pr165LiveChatPushRuntime: clean(markerJson.pr165LiveChatPushRuntime || '')
 });
