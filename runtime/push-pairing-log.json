@@ -1,21 +1,40 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-09T19:07:34.281Z",
+  "updatedAt": "2026-06-09T19:07:35.559Z",
   "limit": 100,
   "latest": {
-    "timestamp": "2026-06-09T19:07:33.895Z",
-    "event": "push_opened",
+    "timestamp": "2026-06-09T19:07:34.832Z",
+    "event": "device_status",
+    "maxUserIdHash": "1ef3d3317311c3f724ef",
+    "chatIdHash": "eeefd1e52698fddb3ec5",
+    "deviceIdHash": "d64a6ef129f19efa8b4b",
     "hasPairingToken": false,
     "hasHandoff": false,
     "tokenSource": "missing",
     "hasPairingCookie": false,
     "hasHandoffCookie": false,
-    "openedAs": "standalone-pwa",
-    "route": "/push",
-    "result": "binding_missing",
-    "chatsCount": 0
+    "openedAs": "unknown",
+    "route": "/api/push/device/status",
+    "result": "status_success",
+    "chatsCount": 5
   },
   "items": [
+    {
+      "timestamp": "2026-06-09T19:07:34.832Z",
+      "event": "device_status",
+      "maxUserIdHash": "1ef3d3317311c3f724ef",
+      "chatIdHash": "eeefd1e52698fddb3ec5",
+      "deviceIdHash": "d64a6ef129f19efa8b4b",
+      "hasPairingToken": false,
+      "hasHandoff": false,
+      "tokenSource": "missing",
+      "hasPairingCookie": false,
+      "hasHandoffCookie": false,
+      "openedAs": "unknown",
+      "route": "/api/push/device/status",
+      "result": "status_success",
+      "chatsCount": 5
+    },
     {
       "timestamp": "2026-06-09T19:07:33.895Z",
       "event": "push_opened",
