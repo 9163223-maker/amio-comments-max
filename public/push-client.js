@@ -35,10 +35,11 @@ const INVALID_SUBSCRIPTION_RESET_INSTRUCTION = 'Сервер не принял �
 const RESET_RESULT_STEPS_LIMIT = 8;
 const LEGACY_RESET_NO_SUBSCRIPTION_RESULT = 'push subscription reset: no subscription found';
 const LEGACY_RESET_FAILED_RESULT = 'push subscription reset failed';
-const PENDING_JOIN_TOKEN_STORAGE_KEY = 'adminkit.push.pendingJoinToken.v1';
+const PENDING_HANDOFF_STORAGE_KEY = 'adminkit.push.pendingHandoff.v1';
 const PAIRED_CONTEXT_STORAGE_KEY = 'adminkit.push.pairedContext.v1';
 const EMPTY_CHATS_MESSAGE = 'Откройте ссылку из MAX или нажмите кнопку подключения в чате.';
-const JOIN_TOKEN_FOUND_MESSAGE = 'Нажмите «Включить уведомления», чтобы получать уведомления этого чата.';
+const HANDOFF_FOUND_MESSAGE = 'Чат найден. Нажмите, чтобы подключить уведомления.';
+const JOIN_TOKEN_FOUND_MESSAGE = 'Чат найден. Нажмите, чтобы подключить уведомления.';
 const JOIN_TOKEN_MISSING_MESSAGE = 'Откройте ссылку из MAX или нажмите кнопку подключения в чате.';
 const JOIN_TOKEN_EXPIRED_MESSAGE = 'Ссылка истекла. Откройте новую ссылку из MAX или нажмите кнопку подключения в чате.';
 const JOIN_SUCCESS_MESSAGE = 'Готово. Уведомления подключены.';
@@ -95,7 +96,8 @@ function renderConnectedChats(chats) {
   if (!safeChats.length) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.textContent = EMPTY_CHATS_MESSAGE;
+    const hasPendingHandoff = Boolean(safeHandoffId(state.join && state.join.handoffId) || readPendingHandoffId());
+    empty.textContent = hasPendingHandoff ? HANDOFF_FOUND_MESSAGE : EMPTY_CHATS_MESSAGE;
     node.appendChild(empty);
     return;
   }
@@ -131,35 +133,38 @@ function safeStoredJoinToken(value) {
   return /^[A-Za-z0-9_.~-]{16,4096}$/.test(token) && token.includes('.') ? token : '';
 }
 
+function safeHandoffId(value) {
+  const handoffId = String(value || '').trim();
+  return /^[A-Za-z0-9_-]{24,160}$/.test(handoffId) ? handoffId : '';
+}
+
 function storageAvailable() {
   try {
     if (!window.localStorage) return false;
-    const key = `${PENDING_JOIN_TOKEN_STORAGE_KEY}.probe`;
+    const key = `${PENDING_HANDOFF_STORAGE_KEY}.probe`;
     window.localStorage.setItem(key, '1');
     window.localStorage.removeItem(key);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function readPendingJoinToken() {
-  if (!storageAvailable()) return '';
-  try { return safeStoredJoinToken(window.localStorage.getItem(PENDING_JOIN_TOKEN_STORAGE_KEY)); } catch { return ''; }
-}
-
-function storePendingJoinToken(token) {
-  const safeToken = safeStoredJoinToken(token);
-  if (!safeToken || !storageAvailable()) return false;
-  try {
-    window.localStorage.setItem(PENDING_JOIN_TOKEN_STORAGE_KEY, safeToken);
     return true;
   } catch { return false; }
 }
 
-function clearPendingJoinToken() {
+function readPendingHandoffId() {
+  if (!storageAvailable()) return '';
+  try { return safeHandoffId(window.localStorage.getItem(PENDING_HANDOFF_STORAGE_KEY)); } catch { return ''; }
+}
+
+function storePendingHandoffId(value) {
+  const handoffId = safeHandoffId(value);
+  if (!handoffId || !storageAvailable()) return false;
+  try {
+    window.localStorage.setItem(PENDING_HANDOFF_STORAGE_KEY, handoffId);
+    return true;
+  } catch { return false; }
+}
+
+function clearPendingHandoffId() {
   if (!storageAvailable()) return;
-  try { window.localStorage.removeItem(PENDING_JOIN_TOKEN_STORAGE_KEY); } catch {}
+  try { window.localStorage.removeItem(PENDING_HANDOFF_STORAGE_KEY); } catch {}
 }
 
 function safePairedContext(value) {
@@ -206,13 +211,15 @@ function isPairedRelaunchMode() {
   const context = readPairedContext();
   if (!context) return false;
   const tokenStatus = state.join && state.join.tokenStatus ? state.join.tokenStatus : '';
+  if (state.join && state.join.handoffStatus === 'consumed' && context.paired) return true;
+  if (safeHandoffId(state.join && state.join.handoffId) || readPendingHandoffId()) return false;
   if (tokenStatus === 'valid' && safeStoredJoinToken(state.join && state.join.token)) return false;
   return Boolean((state.join && (state.join.relaunchMode || state.join.landingMode || state.join.joinMode)) || context.paired);
 }
 
 function applyChatLinkMode() {
   const title = String(state.join && state.join.chatTitle || '').trim().slice(0, 120);
-  setText('introText', LINK_CHAT_EXPLAIN_MESSAGE);
+  setText('introText', 'Найден новый чат. Нажмите, чтобы подключить этот чат.');
   setHidden('pairingNotice', false);
   setText('pairingNotice', title ? `Чат: «${title}»` : 'Чат MAX готов к подключению.');
   setHidden('subscribeTokenRow', true);
@@ -220,7 +227,7 @@ function applyChatLinkMode() {
   setHidden('testBtn', true);
   setHidden('statusBtn', true);
   setHidden('resetPushButton', true);
-  setClientStatus(LINK_CHAT_EXPLAIN_MESSAGE, 'info');
+  setClientStatus('Найден новый чат. Нажмите, чтобы подключить этот чат.', 'info');
   setText('pairingStatus', 'link-chat-ready');
   setText('enableBtn', 'Подключить этот чат');
 }
@@ -241,40 +248,45 @@ function applyPairedReadyState(message = JOIN_READY_MESSAGE) {
 
 
 function clearJoinState() {
-  clearPendingJoinToken();
+  clearPendingHandoffId();
   if (state.join) {
     state.join.token = '';
     state.join.joinMode = false;
     state.join.tokenStatus = 'cleared';
     state.join.recoveredFrom = '';
+    state.join.handoffId = '';
+    state.join.handoffStatus = 'cleared';
   }
 }
 
-function recoverJoinToken() {
-  if (state.join && state.join.chatLinkMode) return '';
-  const urlToken = safeStoredJoinToken(state.join && state.join.token);
-  if (urlToken) {
-    if (!state.join || state.join.tokenStatus !== 'used') storePendingJoinToken(urlToken);
-    state.join.token = urlToken;
+function recoverJoinHandoff() {
+  const pageHandoff = safeHandoffId(state.join && state.join.handoffId);
+  if (pageHandoff) {
+    if (!state.join || state.join.handoffStatus !== 'consumed') storePendingHandoffId(pageHandoff);
+    state.join.handoffId = pageHandoff;
     state.join.joinMode = true;
-    state.join.tokenStatus = state.join.tokenStatus || 'valid';
-    state.join.recoveredFrom = 'url';
-    return urlToken;
+    state.join.handoffStatus = state.join.handoffStatus || 'found';
+    state.join.recoveredFrom = 'page';
+    return pageHandoff;
   }
-  const storedToken = readPendingJoinToken();
-  if (storedToken) {
-    state.join.token = storedToken;
+  const storedHandoff = readPendingHandoffId();
+  if (storedHandoff) {
+    state.join.handoffId = storedHandoff;
     state.join.joinMode = true;
-    state.join.tokenStatus = 'stored';
+    state.join.handoffStatus = 'stored';
     state.join.recoveredFrom = 'storage';
-    return storedToken;
+    return storedHandoff;
   }
   return '';
 }
 
+function recoverJoinToken() {
+  return safeStoredJoinToken(state.join && state.join.token);
+}
+
 function isExpiredPairingError(error) {
   const code = error && error.data && error.data.error ? error.data.error : (error && error.message ? error.message : String(error || ''));
-  return /push_pairing_token_(expired|used)|invalid_push_pairing|push_pairing_token_required/.test(code);
+  return /push_pairing_token_(expired|used)|invalid_push_pairing|push_pairing_token_required|handoff_(missing|expired|consumed)/.test(code);
 }
 
 function safeErrorMessage(error) {
@@ -502,8 +514,10 @@ async function fetchJson(url, options) {
 }
 
 function applyJoinMode() {
+  const pendingHandoff = recoverJoinHandoff();
   const pendingToken = recoverJoinToken();
-  if (state.join && state.join.chatLinkMode) {
+  if (pendingHandoff) renderStoredConnectedChats();
+  if (state.join && state.join.chatLinkMode && (pendingHandoff || pendingToken)) {
     applyChatLinkMode();
     return;
   }
@@ -513,7 +527,7 @@ function applyJoinMode() {
     return;
   }
   if (state.join.joinMode && state.join.tokenStatus === 'used') {
-    clearPendingJoinToken();
+    clearPendingHandoffId();
     setText('introText', JOIN_TOKEN_EXPIRED_MESSAGE);
     setHidden('pairingNotice', false);
     setClientStatus(JOIN_TOKEN_EXPIRED_MESSAGE, 'error');
@@ -539,7 +553,7 @@ function applyJoinMode() {
   setHidden('statusBtn', true);
   setHidden('resetPushButton', true);
   setClientStatus(JOIN_TOKEN_FOUND_MESSAGE, 'info');
-  setText('pairingStatus', pendingToken ? `join-ready: pending token from ${state.join.recoveredFrom || 'page'}` : 'join-not-ready');
+  setText('pairingStatus', (pendingHandoff || pendingToken) ? `join-ready: pending handoff from ${state.join.recoveredFrom || 'page'}` : 'join-not-ready');
   setText('enableBtn', 'Включить уведомления');
 }
 
@@ -557,7 +571,6 @@ async function linkExistingChat() {
 }
 
 async function handlePrimaryButton() {
-  if (state.join && state.join.chatLinkMode) return linkExistingChat();
   return enableNotifications();
 }
 
@@ -674,8 +687,9 @@ async function saveSubscription(subscription, status) {
       return await confirmPairedSubscription(subscription);
     }
     if (state.join.joinMode) {
+      const pendingHandoff = recoverJoinHandoff();
       const pendingToken = recoverJoinToken();
-      const pairBody = pendingToken ? { ...requestBody, pairingToken: pendingToken } : requestBody;
+      const pairBody = pendingHandoff ? { ...requestBody, handoffId: pendingHandoff } : (pendingToken ? { ...requestBody, pairingToken: pendingToken } : requestBody);
       return await withTimeout(fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify(pairBody) }), TIMEOUTS.serverSave, 'server pairing save timed out');
     }
     const flags = status && status.pushSupported ? status.pushSupported : {};

@@ -6,6 +6,7 @@ const pairing = require('./services/pushPairingService');
 const dispatch = require('./services/pushDispatchService');
 const confirmation = require('./services/pushConfirmationService');
 const pushPairingLog = require('./services/pushPairingLogService');
+const pushPairingHandoff = require('./services/pushPairingHandoffService');
 const groupPush = require('./services/groupPushOnboardingService');
 const { sendMessage } = require('./services/maxApi');
 
@@ -230,6 +231,17 @@ function isHttpsRequest(req) {
   return false;
 }
 
+function appendCookie(res, cookie) {
+  const current = res.getHeader && res.getHeader('Set-Cookie');
+  const values = Array.isArray(current) ? current : (current ? [current] : []);
+  res.set('Set-Cookie', [...values, cookie]);
+}
+
+function handoffCookie(req, handoffId, maxAge = 15 * 60) {
+  const cookie = `push_pairing_handoff=${encodeURIComponent(handoffId)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
+  return isHttpsRequest(req) ? `${cookie}; Secure` : cookie;
+}
+
 function pairingCookieMaxAgeSeconds(expiresAt) {
   const ms = Date.parse(expiresAt) - Date.now();
   if (!Number.isFinite(ms) || ms <= 0) return 0;
@@ -276,15 +288,17 @@ function sendPushPage(req, res, options = {}) {
   const mode = options.mode === 'admin' ? 'admin' : 'client';
   const joinConfig = options.joinMode ? {
     joinMode: true,
-    tokenCookie: true,
+    tokenCookie: Boolean(options.tokenCookie),
     tokenStatus: options.tokenStatus || 'valid',
-    token: options.linkChatMode || options.tokenStatus === 'used' ? '' : clean(options.token),
-    relaunchMode: options.tokenStatus === 'used',
+    token: clean(options.clientToken),
+    handoffId: clean(options.handoffId),
+    handoffStatus: clean(options.handoffStatus) || (options.handoffId ? 'found' : 'missing'),
+    relaunchMode: options.tokenStatus === 'used' && !options.handoffId,
     adminMode: false,
-    chatLinkMode: Boolean(options.linkChatMode),
+    chatLinkMode: Boolean(options.existingActiveDevicesFound),
     existingActiveDevicesFound: Boolean(options.existingActiveDevicesFound),
     chatTitle: safeChatTitle(options.chatTitle)
-  } : { joinMode: false, landingMode: mode === 'client', adminMode: mode === 'admin' };
+  } : { joinMode: false, landingMode: mode === 'client', adminMode: mode === 'admin', handoffId: clean(options.handoffId), handoffStatus: clean(options.handoffStatus) };
   if (mode === 'admin') {
     html = html
       .replace('<link rel="manifest" href="/push/manifest.json">', '<link rel="manifest" href="/public/push-admin-manifest.json">')
@@ -402,8 +416,13 @@ async function buildStatus(options = {}) {
 
 function install(app) {
   app.get('/push', (req, res) => {
-    recordPushPairingEvent({ event: 'push_opened', route: '/push', result: 'binding_missing', tokenSource: 'missing', hasPairingToken: false, hasPairingCookie: Boolean(getCookie(req, 'push_pairing_token')), openedAs: 'unknown' });
-    sendPushPage(req, res, { mode: 'client', joinMode: false });
+    const handoffId = getCookie(req, 'push_pairing_handoff');
+    const recovered = pushPairingHandoff.resolve(handoffId);
+    const hasHandoff = ['found', 'consumed'].includes(recovered.status);
+    const result = recovered.status === 'expired' ? 'handoff_expired' : (hasHandoff ? (recovered.status === 'consumed' ? 'handoff_consumed' : 'handoff_found') : 'binding_missing');
+    recordPushPairingEvent({ event: 'push_opened', route: '/push', result, tokenSource: hasHandoff ? 'handoff' : 'missing', hasPairingToken: false, handoffId, hasHandoff, hasPairingCookie: Boolean(getCookie(req, 'push_pairing_token')), hasHandoffCookie: Boolean(handoffId), openedAs: 'standalone-pwa' });
+    if (hasHandoff) recordPushPairingEvent({ event: 'handoff_recovered', route: '/push', result, tokenSource: 'handoff', handoffId, hasHandoff: true, hasHandoffCookie: Boolean(handoffId), openedAs: 'standalone-pwa', maxUserId: recovered.context.maxUserId, chatId: recovered.context.chatId });
+    sendPushPage(req, res, { mode: 'client', joinMode: hasHandoff, handoffId: hasHandoff ? handoffId : '', handoffStatus: recovered.status, tokenStatus: recovered.status === 'consumed' ? 'used' : 'valid', chatTitle: recovered.context && recovered.context.chatTitle });
   });
 
   app.get('/push/admin', (req, res) => {
@@ -418,14 +437,20 @@ function install(app) {
       const verified = pairing.verifyPairingToken(token);
       const maxAge = pairingCookieMaxAgeSeconds(verified.expiresAt);
       const cookie = `push_pairing_token=${encodeURIComponent(token)}; Path=/api/push; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
-      res.set('Set-Cookie', isHttpsRequest(req) ? `${cookie}; Secure` : cookie);
+      appendCookie(res, isHttpsRequest(req) ? `${cookie}; Secure` : cookie);
+      const handoff = pushPairingHandoff.create({ pairingToken: token, context: verified });
+      appendCookie(res, handoffCookie(req, handoff.handoffId));
+      recordPushPairingEvent({ event: 'handoff_created', route: '/push/join', result: 'handoff_created', tokenSource: fromManifest ? 'manifest-start-url' : 'query', pairingToken: token, handoffId: handoff.handoffId, hasPairingToken: true, hasHandoff: true, hasPairingCookie: true, hasHandoffCookie: true, openedAs: pairingOpenedAs(req), maxUserId: verified.maxUserId, chatId: verified.chatId });
       const activeDevices = await storage.listActiveDevicesForUser(verified.maxUserId);
       const existingActiveDevicesFound = activeDevices.length > 0;
       return sendPushPage(req, res, {
         mode: 'client',
         joinMode: true,
+        tokenCookie: true,
         tokenStatus: 'valid',
         token,
+        handoffId: handoff.handoffId,
+        handoffStatus: 'found',
         linkChatMode: existingActiveDevicesFound,
         existingActiveDevicesFound,
         chatTitle: verified.chatTitle
@@ -433,7 +458,10 @@ function install(app) {
     } catch (error) {
       const code = safeErrorCode(error, 'invalid_push_pairing_token');
       if (code === 'push_pairing_token_used') {
-        return sendPushPage(req, res, { mode: 'client', joinMode: true, tokenStatus: 'used', token });
+        const handoffId = getCookie(req, 'push_pairing_handoff');
+        const recovered = pushPairingHandoff.resolve(handoffId);
+        const hasHandoff = recovered.status === 'consumed';
+        return sendPushPage(req, res, { mode: 'client', joinMode: true, tokenStatus: 'used', handoffId: hasHandoff ? handoffId : '', handoffStatus: recovered.status });
       }
       return res.status(400).send(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="apple-touch-icon" sizes="180x180" href="/public/adminkit-push-icon-192.png?v=pr167"><title>АдминКИТ Push</title></head><body><main><h1>АдминКИТ Push</h1><p>Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.</p><p>Подключённые чаты появятся здесь после включения уведомлений.</p></main></body></html>`);
     }

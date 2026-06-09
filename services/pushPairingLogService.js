@@ -7,11 +7,11 @@ const DEFAULT_REPO = '9163223-maker/amio-comments-max';
 const DEFAULT_BRANCH = 'runtime-status';
 const DEFAULT_PATH = 'runtime/push-pairing-log.json';
 const DEFAULT_LIMIT = 100;
-const USER_AGENT = 'adminkit-push-pairing-log-pr182';
+const USER_AGENT = 'adminkit-push-pairing-log-pr183';
 const ALLOWED_ROUTES = new Set(['/push', '/push/join', '/api/push/pair', '/api/push/device/status']);
-const ALLOWED_TOKEN_SOURCES = new Set(['query', 'cookie', 'body', 'manifest-start-url', 'missing']);
+const ALLOWED_TOKEN_SOURCES = new Set(['query', 'cookie', 'body', 'manifest-start-url', 'handoff', 'missing']);
 const ALLOWED_OPENED_AS = new Set(['safari', 'standalone-pwa', 'unknown']);
-const ALLOWED_RESULTS = new Set(['link_opened', 'pwa_opened', 'pair_started', 'pair_success', 'pair_failed', 'status_success', 'binding_created', 'binding_missing']);
+const ALLOWED_RESULTS = new Set(['link_opened', 'pwa_opened', 'handoff_created', 'handoff_found', 'handoff_missing', 'handoff_expired', 'handoff_consumed', 'pair_started', 'pair_success', 'pair_failed', 'status_success', 'binding_created', 'binding_missing']);
 
 const state = {
   enabled: Boolean(String(process.env.GITHUB_DEBUG_TOKEN || '').trim()),
@@ -40,12 +40,15 @@ function sanitizeEvent(input = {}) {
     timestamp: short(input.timestamp || nowIso(), 40),
     event: short(input.event, 80),
     flowId: short(input.flowId || hash(input.pairingToken || input.token), 20),
+    handoffIdHash: short(input.handoffIdHash || hash(input.handoffId), 20),
     maxUserIdHash: short(input.maxUserIdHash || hash(input.maxUserId), 20),
     chatIdHash: short(input.chatIdHash || hash(input.chatId), 20),
     deviceIdHash: short(input.deviceIdHash || hash(input.deviceId), 20),
     hasPairingToken: input.hasPairingToken === true || Boolean(clean(input.pairingToken || input.token)),
+    hasHandoff: input.hasHandoff === true || Boolean(clean(input.handoffId)),
     tokenSource: allowed(input.tokenSource, ALLOWED_TOKEN_SOURCES, 'missing'),
     hasPairingCookie: input.hasPairingCookie === true,
+    hasHandoffCookie: input.hasHandoffCookie === true,
     openedAs: allowed(input.openedAs, ALLOWED_OPENED_AS, 'unknown'),
     route: allowed(input.route, ALLOWED_ROUTES, '/push'),
     result: allowed(input.result, ALLOWED_RESULTS, 'pair_failed'),
