@@ -84,14 +84,27 @@ function safeChatItem(value) {
   const source = value && typeof value === 'object' ? value : {};
   const title = String(source.title || source.chatTitle || '').trim().slice(0, 120);
   const chatId = String(source.chatId || '').trim().replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
-  if (!title && !chatId) return null;
-  return { title: title || 'Чат MAX', chatId, status: 'Уведомления включены' };
+  const channelId = String(source.channelId || '').trim().replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
+  if (!title && !chatId && !channelId) return null;
+  return { title: title || 'Чат MAX', chatId, channelId, status: 'Уведомления включены' };
+}
+
+function uniqueChatItems(values) {
+  const unique = [];
+  const seen = new Set();
+  for (const chat of (Array.isArray(values) ? values : []).map(safeChatItem).filter(Boolean)) {
+    const key = chat.chatId ? `chat:${chat.chatId}` : (chat.channelId ? `channel:${chat.channelId}` : `title:${chat.title.toLocaleLowerCase()}`);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(chat);
+  }
+  return unique;
 }
 
 function renderConnectedChats(chats) {
   const node = $('connectedChatsList');
   if (!node) return;
-  const safeChats = Array.isArray(chats) ? chats.map(safeChatItem).filter(Boolean) : [];
+  const safeChats = uniqueChatItems(chats);
   node.innerHTML = '';
   if (!safeChats.length) {
     const empty = document.createElement('div');
@@ -172,7 +185,7 @@ function safePairedContext(value) {
   const status = ['active', 'pending'].includes(String(source.status || '')) ? String(source.status) : 'active';
   const deviceId = String(source.deviceId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 16);
   const pairedAt = String(source.pairedAt || '').slice(0, 40);
-  const chats = Array.isArray(source.chats) ? source.chats.map(safeChatItem).filter(Boolean).slice(0, 20) : [];
+  const chats = uniqueChatItems(source.chats).slice(0, 20);
   return source.paired === true ? { paired: true, status, deviceId, pairedAt, chats } : null;
 }
 

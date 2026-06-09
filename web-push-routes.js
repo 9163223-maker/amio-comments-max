@@ -7,6 +7,7 @@ const dispatch = require('./services/pushDispatchService');
 const confirmation = require('./services/pushConfirmationService');
 const pushPairingLog = require('./services/pushPairingLogService');
 const pushPairingHandoff = require('./services/pushPairingHandoffService');
+const connectedChats = require('./services/pushConnectedChatsService');
 const groupPush = require('./services/groupPushOnboardingService');
 const { sendMessage } = require('./services/maxApi');
 
@@ -276,8 +277,9 @@ function safePublicChatItem(value) {
   const source = value && typeof value === 'object' ? value : {};
   const title = safeChatTitle(source.chatTitle || source.title);
   const chatId = clean(source.chatId).replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
-  if (!title && !chatId) return null;
-  return { chatId, title: title || 'Чат MAX', status: 'Уведомления включены' };
+  const channelId = clean(source.channelId).replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
+  if (!title && !chatId && !channelId) return null;
+  return { chatId, channelId, title: title || 'Чат MAX', status: 'Уведомления включены' };
 }
 function safePublicChats(value) { return Array.isArray(value) ? value.map(safePublicChatItem).filter(Boolean).slice(0, 20) : []; }
 
@@ -579,7 +581,9 @@ function install(app) {
       if (!device || device.disabled || !['active', 'pending'].includes(device.status)) {
         return res.status(404).json({ ok: false, error: 'push_device_not_paired', requestShape });
       }
-      const chats = await storage.listChatBindingsForUser(device.maxUserId);
+      const chatSnapshot = await connectedChats.resolveConnectedChats(device.maxUserId, { botToken: getMaxBotToken() });
+      const chats = chatSnapshot.chats;
+      recordPushPairingEvent({ event: 'device_status', route: '/api/push/device/status', result: chats.length ? 'status_success' : 'binding_missing', maxUserId: device.maxUserId, chatId: device.chatId, deviceId: device.deviceId, chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
       return res.json(confirmation.safePublicResult({
         ok: true,
         status: device.status,
@@ -614,21 +618,23 @@ function install(app) {
           maxUserId: verified.maxUserId,
           chatId: verified.chatId,
           channelId: verified.channelId,
+          chatTitle: verified.chatTitle,
           deviceId: activeDevice.deviceId,
           endpointHash
         });
-        const chats = await storage.listChatBindingsForUser(verified.maxUserId);
+        const chats = (await connectedChats.resolveConnectedChats(verified.maxUserId, { botToken: getMaxBotToken() })).chats;
         return res.json(confirmation.safePublicResult({ ok: true, status: 'active', confirmationRequired: false, confirmationSent: false, chats }));
       }
       const saved = await storage.savePairedDevice(cleanSubscription, {
         maxUserId: verified.maxUserId,
         chatId: verified.chatId,
         channelId: verified.channelId,
+        chatTitle: verified.chatTitle,
         userAgent: req.get('user-agent'),
         status: 'pending'
       });
       const prompt = await confirmation.sendConfirmationPrompt({ maxUserId: verified.maxUserId, deviceId: saved.deviceId });
-      const chats = await storage.listChatBindingsForUser(verified.maxUserId);
+      const chats = (await connectedChats.resolveConnectedChats(verified.maxUserId, { botToken: getMaxBotToken() })).chats;
       return res.json(confirmation.safePublicResult({
         ok: true,
         status: saved.status,
@@ -661,7 +667,9 @@ function install(app) {
         channelId: verified.channelId,
         chatTitle: verified.chatTitle
       });
-      const chats = await storage.listChatBindingsForUser(verified.maxUserId);
+      const chatSnapshot = await connectedChats.resolveConnectedChats(verified.maxUserId, { botToken: getMaxBotToken() });
+      const chats = chatSnapshot.chats;
+      recordPushPairingEvent({ event: 'binding_created', route: '/api/push/link-chat', result: chats.length ? 'binding_created' : 'binding_missing', maxUserId: verified.maxUserId, chatId: verified.chatId, chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
       return res.json({
         ok: true,
         existingActiveDevicesFound: true,

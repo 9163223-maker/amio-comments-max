@@ -13,8 +13,9 @@ function safeChatItem(value) {
   const source = value && typeof value === 'object' ? value : {};
   const title = clean(source.chatTitle || source.title).slice(0, 120);
   const chatId = clean(source.chatId).replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
-  if (!title && !chatId) return null;
-  return { chatId, title: title || 'Чат MAX', status: 'Уведомления включены' };
+  const channelId = clean(source.channelId).replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
+  if (!title && !chatId && !channelId) return null;
+  return { chatId, channelId, title: title || 'Чат MAX', status: 'Уведомления включены' };
 }
 function safeChats(value) {
   return Array.isArray(value) ? value.map(safeChatItem).filter(Boolean).slice(0, 20) : [];
