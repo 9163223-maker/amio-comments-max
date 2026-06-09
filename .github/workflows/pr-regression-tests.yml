@@ -49,7 +49,11 @@ jobs:
 
       - name: Run AdminKIT regression tests
         run: |
-          node scripts/test-production-push-audit-pr173.js
+          if [ -f scripts/test-production-push-audit-pr173.js ]; then
+            node scripts/test-production-push-audit-pr173.js
+          else
+            echo "skip PR173 audit test: file not present on this branch"
+          fi
           node scripts/test-visible-push-admin-flow-pr172.js
           node scripts/test-public-push-entrypoint-pr169.js
           node scripts/test-push-admin-invite-link-chat-pr168.js
