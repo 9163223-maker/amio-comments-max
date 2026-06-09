@@ -4,6 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const adapter = require('../features/menu-v3/adapter');
+const canonicalMenu = require('../features/menu-v3/canonical-menu');
 
 const ROOT = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -42,6 +43,12 @@ assert.ok(/Когда включено, АдминКИТ сам добавляе
 assert.ok(/text: enabled \? 'Выключить' : 'Включить'/.test(bot), 'auto-comments screen has clean toggle controls');
 assert.ok(/comments_option_channel/.test(bot) && /Отдельного переключателя для канала сейчас нет/.test(bot), 'photo option is a product-safe capability screen, not a debug placeholder');
 
+const commentsHelp = adapter.render('comments:help');
+for (const label of ['Автокомментарии', 'Включить к посту', 'Фото', 'Ответы', 'Реакции']) {
+  assert.ok(commentsHelp.text.includes(label), `Comments help explains ${label}`);
+}
+assert.ok(/Выберите нужную функцию/.test(commentsHelp.text), 'Comments help follows function-first logic');
+
 assert.ok(/resetContext: true/.test(bot), 'top-level Gifts button explicitly requests a clean entry');
 assert.ok(/if \(payload\.resetContext === true\)[\s\S]*clearGiftFlow\(userId\);[\s\S]*clearGiftTargetPost\(userId\);/.test(bot), 'clean Gifts entry clears stale flow and target context');
 assert.ok(/'Подарки \/ лид-магниты'[\s\S]*'Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку\.'[\s\S]*'Сначала выберите действие\.'/m.test(bot), 'Gifts root uses approved clean text');
@@ -50,6 +57,12 @@ for (const label of ['Создать подарок', 'Текущий подар
 for (const forbidden of ['Выбранный пост', 'Выбрать другой пост', 'промокод', 'файл', 'картинку', 'ссылку']) assert.ok(!giftRootBlock.includes(`text: '${forbidden}'`), `Gifts clean root has no ${forbidden} button`);
 assert.ok(/if \(hasTarget && existingCampaign\)/.test(bot) && /Выбрать другой пост/.test(bot), 'selected-post context remains available only after Gifts has a target');
 assert.ok(/GIFT_WIZARD_STEPS/.test(bot) && /giftAsset/.test(bot), 'gift material handling remains inside the creation wizard');
+
+const canonicalGiftList = canonicalMenu.allActions().find((item) => item.id === 'gifts.list');
+assert.strictEqual(canonicalGiftList?.existingAction, 'gift_admin_list_campaigns', 'canonical Gifts list uses the list campaigns action');
+const adapterGiftListButton = rows(adapter.render('gifts:home')).flat().find((item) => item.text === 'Список подарков');
+assert.ok(adapterGiftListButton, 'adapter Gifts root renders the list button');
+assert.strictEqual(JSON.parse(adapterGiftListButton.payload).action, 'gift_admin_list_campaigns', 'adapter Gifts list routes to gift_admin_list_campaigns');
 
 const pkg = JSON.parse(read('package.json'));
 assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET');

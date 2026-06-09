@@ -40,7 +40,7 @@ const sections = [
       action({ id: 'gifts.create', title: 'Создать подарок', section: 'gifts', existingAction: 'gift_admin_start_create' }),
       action({ id: 'gifts.replace', title: 'Заменить подарок', section: 'gifts', existingAction: 'gift_admin_replace_pick', clientVisible: false, implemented: false, hiddenReason: 'available_after_post_selection' }),
       action({ id: 'gifts.current', title: 'Текущий подарок', section: 'gifts', existingAction: 'gift_admin_show_current' }),
-      action({ id: 'gifts.list', title: 'Список подарков', section: 'gifts', existingAction: 'gift_admin_show_current' }),
+      action({ id: 'gifts.list', title: 'Список подарков', section: 'gifts', existingAction: 'gift_admin_list_campaigns' }),
     ],
   },
   {

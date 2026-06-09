@@ -315,6 +315,7 @@ assert.strictEqual(canonicalActionById['comments.auto_comments'].targetAction, '
 assert.strictEqual(canonicalActionById['comments.manual_enable'].targetAction, 'comments_select_post', 'comments manual enable must choose channel/post before action');
 assert.strictEqual(canonicalActionById['gifts.replace'].targetAction, 'gift_admin_replace_pick', 'gifts replace production action must use clean replace picker');
 assert.strictEqual(canonicalActionById['gifts.current'].targetAction, 'gift_admin_show_current', 'gifts current production action must keep existing current action');
+assert.strictEqual(canonicalActionById['gifts.list'].targetAction, 'gift_admin_list_campaigns', 'gifts list production action must use the campaign list action');
 assert.strictEqual(canonicalActionById['buttons.add'].targetAction, 'button_admin_start_add', 'buttons add production action must keep existing flow action');
 assert.strictEqual(canonicalActionById['buttons.current'].targetAction, 'button_admin_show_current', 'buttons current production action must keep existing flow action');
 assert.strictEqual(canonicalActionById['polls.create'].targetAction, 'comments_select_post', 'polls production action must keep existing tenant-aware picker action');
