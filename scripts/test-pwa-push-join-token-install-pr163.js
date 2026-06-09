@@ -50,7 +50,7 @@ function body(token, suffix) { return { method: 'POST', headers: { 'content-type
     assert(pushClient.includes('Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.'), 'expired token UX is safe');
     assert(pushClient.includes('Готово. Уведомления этого чата подключены.'), 'success UX is clear');
     assert(pushClient.includes('pairingToken: pendingToken'), 'recovered token is sent explicitly to /api/push/pair');
-    assert(pushRoutes.includes('pushManifestHref(options.token)') && pushRoutes.includes('start_url: startUrl') && pushRoutes.includes("const startUrl = token ? `/push/join?t=${encodeURIComponent(token)}` : '/push';"), 'dynamic join manifest/start_url preserves token while normal manifest stays /push');
+    assert(pushRoutes.includes('pushManifestHref(options.token)') && pushRoutes.includes('start_url: startUrl') && pushRoutes.includes("const startUrl = token ? `/push/join/${encodeURIComponent(token)}?source=manifest-start-url` : '/push';"), 'dynamic join manifest/start_url preserves token while normal manifest stays /push');
     assert(edgeDiagnostics.includes("/push/join?t=[redacted]") && inboundDiagnostics.includes("/push/join?t=[redacted]"), 'public diagnostics redact personal join URLs');
 
     const pairing = fresh('../services/pushPairingService');
@@ -60,13 +60,13 @@ function body(token, suffix) { return { method: 'POST', headers: { 'content-type
       const token = pairing.createPairingToken({ maxUserId: 'user-pr163', chatId: 'chat-pr163', channelId: 'channel-pr163', ttlMinutes: 30 });
       const join = await request(server, `/push/join?t=${encodeURIComponent(token)}`);
       assert.strictEqual(join.status, 200, '/push/join?t=TOKEN renders client page');
-      assert(join.text.includes(`href="/push/manifest.json?t=${encodeURIComponent(token)}"`), '/push/join points Add to Home Screen at token-carrying manifest');
+      assert(join.text.includes(`href="/push/manifest/${encodeURIComponent(token)}.json"`), '/push/join points Add to Home Screen at token-carrying manifest');
       assert(join.text.includes('"joinMode":true') && join.text.includes('"tokenStatus":"valid"'), '/push/join initializes join mode');
       assert(join.text.includes(token), '/push/join makes the private URL token available to same-origin client storage');
 
-      const manifest = await request(server, `/push/manifest.json?t=${encodeURIComponent(token)}`);
+      const manifest = await request(server, `/push/manifest/${encodeURIComponent(token)}.json`);
       assert.strictEqual(manifest.status, 200, 'dynamic join manifest is available');
-      assert.strictEqual(manifest.body.start_url, `/push/join?t=${encodeURIComponent(token)}`, 'dynamic manifest start_url preserves token');
+      assert.strictEqual(manifest.body.start_url, `/push/join/${encodeURIComponent(token)}?source=manifest-start-url`, 'dynamic manifest start_url preserves token');
       assert.strictEqual(manifest.body.scope, '/push/', 'dynamic manifest keeps /push scope');
       const normalManifest = await request(server, '/push/manifest.json');
       assert.strictEqual(normalManifest.body.start_url, '/push', 'normal /push manifest behavior is unchanged');

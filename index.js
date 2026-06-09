@@ -176,7 +176,7 @@ function sanitizeUpload(item = {}) {
 }
 function baseDebugPayload() {
   const b = getBuildInfo();
-  return { ok:true, runtimeVersion:b.runtimeVersion, buildVersion:b.buildVersion, displayVersion:b.displayVersion, packageVersion:b.packageVersion, sourceMarker:b.sourceMarker, gitCommit:b.gitCommit, pr131MergeCommit:b.pr131MergeCommit, activeEntrypoint:b.activeEntrypoint, expectedRuntimeVersion:b.expectedRuntimeVersion, pr165RuntimeWired:Boolean(b.pr165RuntimeWired), pr165LiveChatPushRuntime:b.pr165LiveChatPushRuntime, generatedAt:b.generatedAt, serverStartedAt:b.serverStartedAt, staleEndpointDetected:Boolean(b.staleEndpointDetected) };
+  return { ok:true, runtimeVersion:b.runtimeVersion, buildVersion:b.buildVersion, displayVersion:b.displayVersion, packageVersion:b.packageVersion, sourceMarker:b.sourceMarker, gitCommit:b.gitCommit, pr131MergeCommit:b.pr131MergeCommit, activeEntrypoint:b.activeEntrypoint, expectedRuntimeVersion:b.expectedRuntimeVersion, pr165RuntimeWired:Boolean(b.pr165RuntimeWired), pr165LiveChatPushRuntime:b.pr165LiveChatPushRuntime, generatedAt:b.generatedAt, serverStartedAt:b.serverStartedAt, staleEndpointDetected:Boolean(b.staleEndpointDetected), pushPairingLog:require('./services/pushPairingLogService').info() };
 }
 
 function setNoCacheHeaders(res) {

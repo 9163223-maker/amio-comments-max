@@ -11,11 +11,18 @@ const path = require('path');
 const storage = require('./services/webPushStorage');
 const pairing = require('./services/pushPairingService');
 const confirmation = require('./services/pushConfirmationService');
+const pushPairingLog = require('./services/pushPairingLogService');
 
 const originalLoad = Module._load;
 let patched = false;
 
 function clean(value) { return String(value || '').trim(); }
+function logPairing(event) { pushPairingLog.record(event).catch(() => undefined); }
+function tokenDetails(req, body) {
+  const bodyToken = clean(body && body.pairingToken);
+  const cookieToken = getCookie(req, 'push_pairing_token');
+  return { token: bodyToken || cookieToken, tokenSource: bodyToken ? 'body' : (cookieToken ? 'cookie' : 'missing'), hasPairingCookie: Boolean(cookieToken) };
+}
 
 function getCookie(req, name) {
   const header = clean(req && req.get && req.get('cookie'));
@@ -98,6 +105,7 @@ function buildHandlers(routes) {
       }
 
       let chats = await storage.listChatBindingsForUser(device.maxUserId);
+      let bindingCreated = false;
       // PR178 recovery for legacy active devices created before binding was upserted.
       if (device.status === 'active' && !chats.length && device.maxUserId && device.chatId) {
         await storage.upsertChatBindingForDevice({
@@ -108,8 +116,10 @@ function buildHandlers(routes) {
           endpointHash: device.endpointHash
         });
         chats = await storage.listChatBindingsForUser(device.maxUserId);
+        bindingCreated = chats.length > 0;
       }
 
+      logPairing({ event: bindingCreated ? 'device_status_binding_recovered' : 'device_status', route: '/api/push/device/status', result: chats.length ? (bindingCreated ? 'binding_created' : 'status_success') : 'binding_missing', tokenSource: 'missing', hasPairingToken: false, hasPairingCookie: Boolean(getCookie(req, 'push_pairing_token')), maxUserId: device.maxUserId, chatId: device.chatId, deviceId: device.deviceId, chatsCount: chats.length });
       return res.json(safePublicResult({
         ok: true,
         status: device.status,
@@ -129,8 +139,13 @@ function buildHandlers(routes) {
     const config = routes.getConfig();
     if (!config.configured) return res.status(503).json({ ok: false, error: 'web_push_not_configured' });
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const token = clean(body.pairingToken) || getCookie(req, 'push_pairing_token');
-    if (!token) return res.status(403).json({ ok: false, error: 'push_pairing_token_required' });
+    const tokenContext = tokenDetails(req, body);
+    const token = tokenContext.token;
+    logPairing({ event: 'pair_started', route: '/api/push/pair', result: 'pair_started', pairingToken: token, tokenSource: tokenContext.tokenSource, hasPairingToken: Boolean(token), hasPairingCookie: tokenContext.hasPairingCookie });
+    if (!token) {
+      logPairing({ event: 'pair_failed', route: '/api/push/pair', result: 'pair_failed', tokenSource: 'missing', hasPairingToken: false, hasPairingCookie: tokenContext.hasPairingCookie, errorCode: 'push_pairing_token_required' });
+      return res.status(403).json({ ok: false, error: 'push_pairing_token_required' });
+    }
     let extracted = { subscription: undefined, source: 'missing' };
     try {
       const verified = pairing.consumePairingToken(token);
@@ -151,6 +166,7 @@ function buildHandlers(routes) {
         });
         const chats = await storage.listChatBindingsForUser(verified.maxUserId);
         expirePairingCookie(res, req);
+        logPairing({ event: 'pair_success', route: '/api/push/pair', result: chats.length ? 'binding_created' : 'binding_missing', pairingToken: token, tokenSource: tokenContext.tokenSource, hasPairingToken: true, hasPairingCookie: tokenContext.hasPairingCookie, maxUserId: verified.maxUserId, chatId: verified.chatId, deviceId: activeDevice.deviceId, chatsCount: chats.length });
         return res.json(safePublicResult({ ok: true, status: 'active', confirmationRequired: false, confirmationSent: false, confirmationDispatch: 'not_needed', deviceId: activeDevice.deviceId, chats, requestShape }));
       }
 
@@ -172,9 +188,11 @@ function buildHandlers(routes) {
       });
       const chats = await storage.listChatBindingsForUser(verified.maxUserId);
       expirePairingCookie(res, req);
+      logPairing({ event: 'pair_success', route: '/api/push/pair', result: chats.length ? 'binding_created' : 'binding_missing', pairingToken: token, tokenSource: tokenContext.tokenSource, hasPairingToken: true, hasPairingCookie: tokenContext.hasPairingCookie, maxUserId: verified.maxUserId, chatId: verified.chatId, deviceId: saved.deviceId, chatsCount: chats.length });
       return res.json(safePublicResult({ ok: true, status: 'active', deviceId: saved.deviceId, confirmationRequired: false, confirmationSent: false, confirmationDispatch: 'not_needed', chats }));
     } catch (error) {
       const requestShape = safePushRequestShape(body, extracted.source);
+      logPairing({ event: 'pair_failed', route: '/api/push/pair', result: 'pair_failed', pairingToken: token, tokenSource: tokenContext.tokenSource, hasPairingToken: true, hasPairingCookie: tokenContext.hasPairingCookie, errorCode: safeErrorCode(error, 'push_pair_failed') });
       return res.status(400).json(invalidSubscriptionResponse(error, extracted.subscription, 'push_pair_failed', requestShape));
     }
   }
