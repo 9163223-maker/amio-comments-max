@@ -93,10 +93,10 @@ function apiFor({ role = 'administrator', requesterId = 'user-pr172', members = 
   assert(linkChatSource.includes("app.post('/api/push/link-chat'"), 'PR168 /api/push/link-chat remains unchanged and present');
   assert(publicEntrySource.includes('🔔 Уведомления чатов'), 'PR170 public B2C entrypoint remains visible');
   assert(publicEntrySource.includes('Откройте нужный MAX-чат, где установлен бот.') && publicEntrySource.includes('Откройте MAX-чат, где установлен бот.'), 'PR170 chat-specific connection copy remains unchanged');
-  assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR175-CANONICAL-MENU-MATRIX', 'runtime marker advances to PR173');
-  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr175-canonical-menu-matrix', 'source marker advances to PR173');
-  assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR175-CANONICAL-MENU-MATRIX'"), 'active entrypoint has PR173 runtime marker');
-  assert(entrypoint.includes("const SOURCE='adminkit-pr175-canonical-menu-matrix'"), 'active entrypoint has PR173 source marker');
+  assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET', 'runtime marker advances to PR173');
+  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr176-comments-ux-gifts-reset', 'source marker advances to PR173');
+  assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET'"), 'active entrypoint has PR173 runtime marker');
+  assert(entrypoint.includes("const SOURCE='adminkit-pr176-comments-ux-gifts-reset'"), 'active entrypoint has PR173 source marker');
 
   console.log('visible push admin flow pr172 ok');
 })().catch((error) => { console.error(error && error.stack || error); process.exit(1); });

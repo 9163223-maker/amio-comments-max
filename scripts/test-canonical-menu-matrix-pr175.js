@@ -21,8 +21,8 @@ const expectedTop = [
 ];
 const expectedItems = {
   channels: ['Подключить канал', 'Мои каналы', 'Проверить права бота', 'Инструкция по подключению'],
-  comments: ['Автокомментарии', 'Пропатчить выбранный пост', 'Фото в комментариях', 'Реакции и ответы'],
-  gifts: ['Создать подарок', 'Заменить подарок', 'Текущий подарок', 'Список подарков'],
+  comments: ['Автокомментарии', 'Включить к посту', 'Фото', 'Ответы', 'Реакции', 'Помощь'],
+  gifts: ['Создать подарок', 'Текущий подарок', 'Список подарков'],
   buttons: ['Добавить кнопку', 'Текущие кнопки'],
   stats: ['Обзор', 'Подписчики', 'Посты', 'Комментарии', 'Реакции', 'Подарки', 'Кнопки под постами / клики', 'Рекламные ссылки', 'Источники подписчиков', 'Обновить данные'],
   push: ['Опубликовать приглашение в чат', 'Как это работает'],
@@ -74,16 +74,16 @@ const commentsRoot = adapter.render('comments:home');
 assert.strictEqual(new Set(businessLabels(commentsRoot)).size, businessLabels(commentsRoot).length, 'Comments root actions are non-duplicative');
 const commentsAutoOn = adapter.render('comments:auto', { autoCommentsEnabled: true });
 const commentsAutoOff = adapter.render('comments:auto', { autoCommentsEnabled: false });
-assert.ok(labels(commentsAutoOn).includes('Выключить автокомментарии'), 'auto-comments disable action exists');
-assert.ok(labels(commentsAutoOff).includes('Включить автокомментарии'), 'auto-comments enable action exists');
+assert.ok(labels(commentsAutoOn).includes('Выключить'), 'auto-comments disable action exists');
+assert.ok(labels(commentsAutoOff).includes('Включить'), 'auto-comments enable action exists');
 const botSource = read('bot.js');
 for (const action of ['comments_auto_patch', 'comments_auto_patch_enable', 'comments_auto_patch_disable', 'comments_manual_patch', 'comments_photos', 'comments_reactions']) {
   assert.ok(botSource.includes(action), `${action}: production handler/callback is wired`);
 }
 assert.ok(/autoCommentsEnabled/.test(botSource), 'auto-comments preference is persisted in setup state');
-assert.ok(/direct_channel_post_auto_patch_disabled/.test(botSource) && /!getAutoCommentsEnabled\(channelOwnerId\)/.test(botSource), 'disabled preference stops automatic patching of future channel posts');
+assert.ok(/direct_channel_post_auto_patch_disabled/.test(botSource) && /!getAutoCommentsEnabled\(channelOwnerId, channelId\)/.test(botSource), 'disabled preference stops automatic patching of future channel posts');
 assert.ok(/patchStoredPost\(/.test(botSource), 'manual selected-post patch calls the real post patcher');
-assert.ok(/independently|независимо/i.test(`${commentsAutoOn.text}\n${botSource}`), 'manual patch is independent from auto setting');
+assert.ok(/comments_manual_patch[\s\S]*patchStoredPost/.test(botSource), 'manual enable is independent from auto setting');
 
 assert.deepStrictEqual(businessLabels(adapter.render('archive:home')), ['Сохранённые посты', 'Лимиты хранения'], 'Archive root hides restore/status technical clutter');
 assert.deepStrictEqual(businessLabels(adapter.render('settings:home')), ['Очистить чат', 'Помощь', 'Privacy / Terms'], 'Settings root hides placeholders and navigation duplicate');
@@ -96,9 +96,9 @@ for (const payload of visibleScreens.flatMap(payloads)) assert.ok(!/production_c
 
 const entrypoint = read('clean-entrypoint-1.53.10-pr89.js');
 const pkg = JSON.parse(read('package.json'));
-assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR175-CANONICAL-MENU-MATRIX');
-assert.strictEqual(pkg.sourceMarker, 'adminkit-pr175-canonical-menu-matrix');
-assert.ok(entrypoint.includes("const RUNTIME='CC8.3.52-PR175-CANONICAL-MENU-MATRIX'"));
-assert.ok(entrypoint.includes("const SOURCE='adminkit-pr175-canonical-menu-matrix'"));
+assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET');
+assert.strictEqual(pkg.sourceMarker, 'adminkit-pr176-comments-ux-gifts-reset');
+assert.ok(entrypoint.includes("const RUNTIME='CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET'"));
+assert.ok(entrypoint.includes("const SOURCE='adminkit-pr176-comments-ux-gifts-reset'"));
 
 console.log('PR175 canonical menu matrix assertions passed');

@@ -122,8 +122,8 @@ async function main() {
 
   const root = await sendBot(bot, { action: 'admin_section_comments' }, sent);
   assertNoCommentsUnsafeUi(root, 'comments root/home');
-  assert.ok(/Комментарии под постом|Выбрать пост/.test(visible(root)), 'comments root/home must route through post selection');
-  assert.ok(/Фото в комментариях/.test(visible(root)) || /Комментарии под постом/.test(visible(root)), 'photo comments wording is allowed');
+  assert.ok(/Настройте комментарии в каналах/.test(visible(root)), 'comments root/home is function-first');
+  assert.ok(labels(root).includes('Фото') && labels(root).includes('Ответы'), 'comments root exposes short photo/replies labels');
 
   const rawList = await sendBot(bot, { action: 'comments_list' }, sent);
   assert.ok(/Сначала выберите пост/i.test(visible(rawList)), 'raw comments list without selected post is blocked or routes to selection');

@@ -4,8 +4,8 @@
 // Single source of truth for the client-visible production menu.
 // Legacy production-menu-map-v3-fixed.js and production-menu-v3-renderer.js are reference-only.
 
-const VERSION = 'pr175-canonical-menu-matrix-v1';
-const SOURCE = 'adminkit-pr175-canonical-menu-matrix';
+const VERSION = 'pr176-comments-ux-gifts-reset-v1';
+const SOURCE = 'adminkit-pr176-comments-ux-gifts-reset';
 
 function action({ id, title, section, targetAction = '', existingAction = '', clientVisible = true, adminOnly = false, requiresChannel = false, requiresPost = false, implemented = true, hiddenReason = '', payload = {}, featureKey = '', minPlan = 'free', requiresActiveAccess = true, availableInPlans = [], accountOnlyWhenExpired = false }) {
   return { id, title, section, targetAction: targetAction || existingAction || id, existingAction: existingAction || targetAction || id, clientVisible: Boolean(clientVisible && !adminOnly && implemented), adminOnly: Boolean(adminOnly), requiresChannel: Boolean(requiresChannel), requiresPost: Boolean(requiresPost), implemented: Boolean(implemented), hiddenReason: hiddenReason || '', payload: payload || {}, featureKey: featureKey || section || id, minPlan, requiresActiveAccess: Boolean(requiresActiveAccess), availableInPlans, accountOnlyWhenExpired: Boolean(accountOnlyWhenExpired) };
@@ -26,10 +26,11 @@ const sections = [
     id: 'comments', title: 'Комментарии', route: 'comments:home', clientVisible: true, adminOnly: false,
     featureKey: 'comments', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
-      action({ id: 'comments.auto_comments', title: 'Автокомментарии', section: 'comments', existingAction: 'comments_auto_patch' }),
-      action({ id: 'comments.manual_patch', title: 'Пропатчить выбранный пост', section: 'comments', existingAction: 'comments_manual_patch', requiresChannel: true, requiresPost: true, payload: { source: 'comments' } }),
-      action({ id: 'comments.photo', title: 'Фото в комментариях', section: 'comments', existingAction: 'admin_section_comments', payload: { focus: 'photos' } }),
-      action({ id: 'comments.reactions_replies', title: 'Реакции и ответы', section: 'comments', existingAction: 'admin_section_comments', payload: { focus: 'reactions_replies' } }),
+      action({ id: 'comments.auto_comments', title: 'Автокомментарии', section: 'comments', existingAction: 'comments_auto_patch', requiresChannel: true }),
+      action({ id: 'comments.manual_enable', title: 'Включить к посту', section: 'comments', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'comments_manual' } }),
+      action({ id: 'comments.photo', title: 'Фото', section: 'comments', existingAction: 'comments_option_channel', requiresChannel: true, payload: { source: 'comments_photos' } }),
+      action({ id: 'comments.replies', title: 'Ответы', section: 'comments', existingAction: 'comments_option_channel', requiresChannel: true, payload: { source: 'comments_replies' } }),
+      action({ id: 'comments.reactions', title: 'Реакции', section: 'comments', existingAction: 'comments_option_channel', requiresChannel: true, payload: { source: 'comments_reactions' } }),
     ],
   },
   {
@@ -37,7 +38,7 @@ const sections = [
     featureKey: 'gifts', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'gifts.create', title: 'Создать подарок', section: 'gifts', existingAction: 'gift_admin_start_create' }),
-      action({ id: 'gifts.replace', title: 'Заменить подарок', section: 'gifts', existingAction: 'gift_admin_replace_pick' }),
+      action({ id: 'gifts.replace', title: 'Заменить подарок', section: 'gifts', existingAction: 'gift_admin_replace_pick', clientVisible: false, implemented: false, hiddenReason: 'available_after_post_selection' }),
       action({ id: 'gifts.current', title: 'Текущий подарок', section: 'gifts', existingAction: 'gift_admin_show_current' }),
       action({ id: 'gifts.list', title: 'Список подарков', section: 'gifts', existingAction: 'gift_admin_show_current' }),
     ],

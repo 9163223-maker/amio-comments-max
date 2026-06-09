@@ -124,11 +124,11 @@ async function verifyActiveRuntimePath() {
   const syncGiftsHome = menuCore.screenForPayload({ action: 'gifts:home' });
   assert.ok(/(^|_)gifts_clean_home$/.test(String(syncGiftsHome?.id || '')), 'sync gifts:home must resolve clean Gifts home before unified route rendering');
   const syncGiftsVisible = sentTextAndLabels(syncGiftsHome);
-  assertHasAll(labels(syncGiftsHome), ['🎁 Создать подарок', '🔁 Заменить подарок', '🧾 Текущий подарок', '📋 Список подарков', '🏠 Главное меню'], 'sync gifts:home clean actions');
+  assertHasAll(labels(syncGiftsHome), ['Создать подарок', 'Текущий подарок', 'Список подарков', 'Главное меню'], 'sync gifts:home clean actions');
   assert.ok(!/Подарок под постом|Материал подарка|Шаг 1|commentKey|postId|channelId|token|payload|trace/i.test(syncGiftsVisible), 'sync gifts:home must not render unified/legacy or technical UI');
 
   const canonicalGiftsRootLabels = labels(adapter.render('gifts:home'));
-  assertHasAll(canonicalGiftsRootLabels, ['Создать подарок', 'Заменить подарок', 'Текущий подарок', 'Список подарков', '🏠 Главное меню'], 'canonical Gifts root clean actions');
+  assertHasAll(canonicalGiftsRootLabels, ['Создать подарок', 'Текущий подарок', 'Список подарков', 'Главное меню'], 'canonical Gifts root clean actions');
   assert.ok(!canonicalGiftsRootLabels.includes('Подарок под постом'), 'canonical Gifts root must not expose old post gift action');
 
   const giftsHomeRes = createJsonRes();
@@ -136,7 +136,7 @@ async function verifyActiveRuntimePath() {
   assert.strictEqual(giftsHomeRes.statusCode, 200, 'gifts:home active callback must return 200');
   assert.ok(/(^|_)gifts_clean_home$/.test(String(giftsHomeRes.body?.screenId || '')), 'gifts:home active callback must resolve clean Gifts home');
   const giftsHomeVisible = sentTextAndLabels(sent.at(-1));
-  assert.ok(/Создать подарок/.test(giftsHomeVisible) && /Заменить подарок/.test(giftsHomeVisible) && /Текущий подарок/.test(giftsHomeVisible) && /Список подарков/.test(giftsHomeVisible) && /Главное меню/.test(giftsHomeVisible), 'gifts:home active callback must expose clean Gifts home actions');
+  assert.ok(/Создать подарок/.test(giftsHomeVisible) && /Текущий подарок/.test(giftsHomeVisible) && /Список подарков/.test(giftsHomeVisible) && /Главное меню/.test(giftsHomeVisible), 'gifts:home active callback must expose clean Gifts home actions');
   assert.ok(!/Подарок под постом|Материал подарка|Шаг 1|commentKey|postId|channelId|token|payload|trace/i.test(giftsHomeVisible), 'gifts:home active callback must not start wizard or expose technical identifiers');
 
   const preservedCallbacks = [
@@ -251,7 +251,10 @@ for (const item of canonical.allActions().filter((action) => action.clientVisibl
 for (const section of canonical.clientSections) {
   const root = adapter.render(section.route);
   const rootLabels = labels(root);
-  assertHasAll(rootLabels, section.id === 'push' ? ['Как это работает', 'Главное меню'] : ['❓ Помощь по разделу', '🏠 Главное меню'], `${section.id} root navigation`);
+  const expectedRootNavigation = section.id === 'push'
+    ? ['Как это работает', 'Главное меню']
+    : (section.id === 'comments' ? ['Помощь', 'Главное меню'] : (section.id === 'gifts' ? ['Главное меню'] : ['❓ Помощь по разделу', '🏠 Главное меню']));
+  assertHasAll(rootLabels, expectedRootNavigation, `${section.id} root navigation`);
   assert.ok(!rootLabels.includes('↩️ В начало раздела'), `${section.id} root must not include section-home self-click`);
   assert.ok(!rootLabels.includes('⬅️ Назад'), `${section.id} root must not include back without context`);
   assertNoSelfRoute(root, section.route);
@@ -309,7 +312,7 @@ for (const section of ['comments', 'gifts', 'buttons', 'polls', 'highlights', 'e
 }
 const canonicalActionById = Object.fromEntries(canonical.allActions().map((item) => [item.id, item]));
 assert.strictEqual(canonicalActionById['comments.auto_comments'].targetAction, 'comments_auto_patch', 'comments auto-management action must be wired');
-assert.strictEqual(canonicalActionById['comments.manual_patch'].targetAction, 'comments_manual_patch', 'comments manual patch action must be wired independently');
+assert.strictEqual(canonicalActionById['comments.manual_enable'].targetAction, 'comments_select_post', 'comments manual enable must choose channel/post before action');
 assert.strictEqual(canonicalActionById['gifts.replace'].targetAction, 'gift_admin_replace_pick', 'gifts replace production action must use clean replace picker');
 assert.strictEqual(canonicalActionById['gifts.current'].targetAction, 'gift_admin_show_current', 'gifts current production action must keep existing current action');
 assert.strictEqual(canonicalActionById['buttons.add'].targetAction, 'button_admin_start_add', 'buttons add production action must keep existing flow action');
