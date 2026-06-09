@@ -1,9 +1,9 @@
 {
-  "runtimeVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
-  "buildVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
-  "displayVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
-  "packageVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
-  "sourceMarker": "adminkit-pr175-canonical-menu-matrix",
+  "runtimeVersion": "CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET",
+  "buildVersion": "CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET",
+  "displayVersion": "CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET",
+  "packageVersion": "CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET",
+  "sourceMarker": "adminkit-pr176-comments-ux-gifts-reset",
   "buildGeneratedAt": "2026-06-08T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX"
+    "activeRuntimeVersion": "CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET"
   },
   "persistentStore": {
     "enabled": true,

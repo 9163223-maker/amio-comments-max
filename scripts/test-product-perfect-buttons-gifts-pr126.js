@@ -196,7 +196,7 @@ async function testGifts() {
 
   store.setSetupState(TENANT_A_USER, { giftTargetPost: null, commentTargetPost: null, buttonTargetPost: null, giftsCurrentCard: null, giftFlow: null, activeAdminFlowKind: '', giftTargetDiagnostics: [] });
   const home = await call(gifts, { action: 'admin_section_gifts' });
-  assert.ok(/Сначала выберите канал и пост/i.test(visible(home)), 'Gifts home with no target explains channel/post selection');
+  assert.ok(/Сначала выберите действие/i.test(visible(home)), 'Gifts home with no target opens clean action-first root');
   assert.ok(!/Шаг 1|материал подарка/i.test(visible(home)), 'Gifts home with no target does not start material step silently');
   assertNoUnsafeUi(home, 'gifts empty home');
 

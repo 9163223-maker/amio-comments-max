@@ -1,6 +1,6 @@
 'use strict';
-const RUNTIME='CC8.3.52-PR175-CANONICAL-MENU-MATRIX';
-const SOURCE='adminkit-pr175-canonical-menu-matrix';
+const RUNTIME='CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET';
+const SOURCE='adminkit-pr176-comments-ux-gifts-reset';
 const BASE='https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run';
 let persistentStoreState=null;
 let debugStoreSanitizerState=null;

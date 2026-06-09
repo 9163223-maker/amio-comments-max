@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
+  "version": "CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node clean-entrypoint-1.53.10-pr89.js",
@@ -18,9 +18,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
-  "displayVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
-  "sourceMarker": "adminkit-pr175-canonical-menu-matrix",
+  "buildVersion": "CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET",
+  "displayVersion": "CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET",
+  "sourceMarker": "adminkit-pr176-comments-ux-gifts-reset",
   "gitCommit": "",
   "pr165RuntimeWired": true
 }

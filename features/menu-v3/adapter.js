@@ -2,8 +2,8 @@
 
 const canonical = require('./canonical-menu');
 
-const VERSION = 'menu-v3-feature-adapter-pr175-canonical-menu-matrix';
-const SOURCE = 'adminkit-pr175-canonical-menu-matrix';
+const VERSION = 'menu-v3-feature-adapter-pr176-comments-ux-gifts-reset';
+const SOURCE = 'adminkit-pr176-comments-ux-gifts-reset';
 
 const POST_PICKER_SEQUENCE = ['section', 'channel', 'post', 'action'];
 const POST_SCOPED_SECTIONS = ['comments', 'gifts', 'buttons', 'polls', 'highlights', 'editor'];
@@ -55,7 +55,7 @@ function visiblePayloads(screen) {
 
 const HELP_TEXT = {
   channels: ['Помощь: Каналы', '', 'Раздел подключает MAX-каналы к АдминКИТ и показывает только каналы, доступные вашему клиентскому профилю.', 'Обычный сценарий: откройте «Подключить канал», добавьте бота администратором в канал, перешлите любой пост, затем проверьте права бота и откройте «Мои каналы».', 'Если каналов нет, вы увидите безопасное пустое состояние и кнопку подключения. Названия каналов показываются человекочитаемо, без технических идентификаторов.', 'Ограничения: проверка прав зависит от доступности MAX API и прав бота в самом канале. Управление каналом пока открывает безопасный экран без рискованных действий.'],
-  comments: ['Помощь: Комментарии', '', 'Раздел помогает управлять обсуждением под конкретным постом.', 'Обычный сценарий: выберите канал, выберите пост, включите или проверьте комментарии, затем смотрите список комментариев, фото, реакции и ответы.', 'Комментарии поддерживают текст, фото, реакции и ответы.', 'Если каналов или постов нет, сначала подключите канал или перешлите пост боту.'],
+  comments: ['Помощь: Комментарии', '', 'Выберите нужную функцию, а затем канал или пост, если это потребуется.', '', '• Автокомментарии — включают или выключают комментарии для новых постов выбранного канала.', '• Включить к посту — добавляет комментарии к выбранной публикации независимо от автокомментариев.', '• Фото — показывает возможность прикреплять фотографии в комментариях канала.', '• Ответы — показывает возможность отвечать на комментарии.', '• Реакции — показывает возможность ставить реакции на комментарии.', '', 'Если нужного канала или поста нет, сначала подключите канал или перешлите публикацию боту.'],
   gifts: ['Помощь: Подарки / лид-магниты', '', 'Раздел выдаёт подарок подписчику после проверки условий.', 'Обычный сценарий: выберите канал и пост, создайте подарок, добавьте материал, текст получателю, условия выдачи и проверьте выдачу.', 'Отключение, удаление и замена материала выполняются из карточки подарка. Часть возможностей может зависеть от тарифа.', 'Если данных нет, подключите канал и перешлите пост, к которому нужен подарок.'],
   buttons: ['Помощь: Кнопки под постами', '', 'Раздел управляет пользовательскими кнопками под конкретным постом.', 'Обычный сценарий: выберите канал и пост, откройте текущие кнопки или добавьте новую кнопку, задайте текст, ссылку или действие, проверьте предпросмотр и сохраните.', 'Изменение и удаление доступны только из карточки текущих кнопок, чтобы не задеть другой пост.', 'Если постов нет, перешлите нужный пост боту.'],
   stats: ['Помощь: Статистика', '', 'Раздел показывает обзор канала: подписчики, динамику, посты, просмотры, комментарии, реакции, подарки, клики, рекламные ссылки и источники.', 'Обычный сценарий: откройте обзор, выберите нужный срез и при необходимости обновите данные.', 'Некоторые числа зависят от того, какие события и данные отдаёт MAX. Если данных нет, экран покажет честное пустое состояние.'],
@@ -89,6 +89,38 @@ function sectionHome(owner) {
   const section = canonical.sectionById[owner];
   if (!section || !section.clientVisible || section.adminOnly) return mainHome();
   const actions = canonical.clientActions(section.id).map(buttonForAction);
+  if (section.id === 'comments') {
+    const byTitle = Object.fromEntries(actions.map((item) => [item.text, item]));
+    return {
+      ok: true,
+      route: section.route,
+      owner: section.id,
+      text: ['Комментарии', '', 'Настройте комментарии в каналах:', 'автоматически для новых постов или вручную для нужной публикации.'].join('\n'),
+      attachments: keyboard([
+        [byTitle['Автокомментарии']],
+        [byTitle['Включить к посту']],
+        [byTitle['Фото'], byTitle['Ответы']],
+        [byTitle['Реакции']],
+        [navButton('Помощь', 'comments:help')],
+        [navButton('Главное меню', 'main:home')]
+      ])
+    };
+  }
+  if (section.id === 'gifts') {
+    const byTitle = Object.fromEntries(actions.map((item) => [item.text, item]));
+    return {
+      ok: true,
+      route: section.route,
+      owner: section.id,
+      text: ['Подарки / лид-магниты', '', 'Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку.', '', 'Сначала выберите действие.'].join('\n'),
+      attachments: keyboard([
+        [byTitle['Создать подарок']],
+        [byTitle['Текущий подарок']],
+        [byTitle['Список подарков']],
+        [navButton('Главное меню', 'main:home')]
+      ])
+    };
+  }
   return { ok: true, route: section.route, owner: section.id, text: `${section.title}\n\nВыберите действие.`, attachments: keyboard([...rowsOfTwo(actions), ...sectionNavRows(section.id, { isRoot: true, currentRoute: section.route })]) };
 }
 
@@ -226,7 +258,7 @@ function postScreen(owner, context = {}) {
   const highlightRows = [[actionButton('Применить', 'highlight_apply', highlightPayload)]];
   if (payload.highlight?.enabled || payload.hasHighlight === true) highlightRows.push([actionButton('Снять выделение', 'highlight_remove', highlightPayload)]);
   const rowsByOwner = {
-    comments: [[actionButton('Пропатчить выбранный пост', 'comments_manual_patch', { ...payload, source: 'comments_post_card' })], [button('Фото в комментариях', 'comments:photos', payload)], [button('Реакции и ответы', 'comments:reactions', payload)]],
+    comments: [[actionButton('Включить', 'comments_manual_patch', { ...payload, source: 'comments_manual_confirmation' })], [button('Фото', 'comments:photos', payload), button('Ответы', 'comments:replies', payload)], [button('Реакции', 'comments:reactions', payload)]],
     editor: [[actionButton('Изменить текст выбранного поста', 'admin_posts_edit_text', payload)], [button('Выбрать другой пост', 'editor:choose_post', payload)]],
     buttons: [[actionButton('Добавить кнопку', 'button_admin_start_add', payload), actionButton('Текущие кнопки', 'button_admin_show_current', payload)]],
     gifts: [[actionButton('Создать подарок', 'gift_admin_start_create', payload), actionButton('Список подарков', 'gift_admin_show_current', payload)]],
@@ -284,7 +316,7 @@ function render(route, context = {}) {
     if (owner === 'push' && safeRoute === 'push:home') return pushHome();
     if (owner === 'comments' && safeRoute === 'comments:auto') {
       const enabled = context.autoCommentsEnabled !== false;
-      return { ok: true, route: safeRoute, owner, text: ['Автокомментарии', '', `Автоматическая установка комментариев для новых постов: ${enabled ? 'включена' : 'выключена'}.`, 'Ручная установка для выбранного поста доступна независимо от этой настройки.'].join('\n'), attachments: keyboard([[actionButton(enabled ? 'Выключить автокомментарии' : 'Включить автокомментарии', enabled ? 'comments_auto_patch_disable' : 'comments_auto_patch_enable')], ...sectionNavRows(owner, { currentRoute: safeRoute, backAction: 'comments:home' })]) };
+      return { ok: true, route: safeRoute, owner, text: ['Автокомментарии', '', 'Когда включено, АдминКИТ сам добавляет комментарии к новым постам этого канала.', 'Когда выключено, новые посты остаются без комментариев, но вы можете включить их вручную для нужного поста.', '', `Сейчас: ${enabled ? 'включено' : 'выключено'}.`].join('\n'), attachments: keyboard([[actionButton(enabled ? 'Выключить' : 'Включить', enabled ? 'comments_auto_patch_disable' : 'comments_auto_patch_enable')], ...sectionNavRows(owner, { currentRoute: safeRoute, backAction: 'comments:home' })]) };
     }
     if (owner === 'settings' && safeRoute !== 'settings:home') return settingsDetailScreen(safeRoute);
     if (owner === 'account') return accountSectionScreen(safeRoute, context);
@@ -321,9 +353,13 @@ function selfTest() {
   const rootNavOk = rootScreens.every((screen) => {
     const texts = visibleButtonTexts(screen);
     const pushRoot = screen.route === 'push:home';
+    const commentsRoot = screen.route === 'comments:home';
+    const giftsRoot = screen.route === 'gifts:home';
     const requiredNavigation = pushRoot
       ? texts.includes('Как это работает') && texts.includes('Главное меню')
-      : texts.includes('❓ Помощь по разделу') && texts.includes('🏠 Главное меню');
+      : (commentsRoot
+        ? texts.includes('Помощь') && texts.includes('Главное меню')
+        : (giftsRoot ? texts.includes('Главное меню') : texts.includes('❓ Помощь по разделу') && texts.includes('🏠 Главное меню')));
     return requiredNavigation && !texts.includes('↩️ В начало раздела') && !texts.includes('⬅️ Назад');
   });
   const deepScreens = ['channels:list', 'channels:connect', 'settings:clear_chat', 'settings:notifications', 'settings:language_format', 'settings:privacy_terms', 'settings:navigation', 'comments:choose_channel', 'comments:choose_post', 'comments:post'].map((route) => render(route, route === 'comments:post' ? { payload: { postTitle: 'Тестовый пост' } } : sampleContext));

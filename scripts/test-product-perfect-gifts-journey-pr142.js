@@ -21,7 +21,7 @@ const OTHER_COMMENT_KEY = `${OTHER_CHANNEL}:${OTHER_POST_ID}`;
 
 const PRIVATE_URL = /https?:\/\/(?:private|internal|token|raw)\.|https?:\/\/[^\s]+\/(?:private|raw|token)(?:\b|\/)/i;
 const RAW_VISIBLE = /\b(?:channelId|postId|commentKey|payload|trace|file_token|rawFileToken|privateUrl|private URL|attachment URL)\b|gift_[a-z0-9:_-]{6,}|(?:photo|file)-token-|cp_-?\d/i;
-const ROOT_BUTTONS = ['🎁 Создать подарок', '🔁 Заменить подарок', '🧾 Текущий подарок', '📋 Список подарков', '🏠 Главное меню'];
+const ROOT_BUTTONS = ['Создать подарок', 'Текущий подарок', 'Список подарков', 'Главное меню'];
 
 function resetState() {
   access._resetForTests();
@@ -133,7 +133,7 @@ function assertCanonicalGiftRoot(result, label) {
   assert.strictEqual(result.res?.resumedFlow, false, `${label}: top-level entry is not an auto-resumed flow`);
   const text = visible(result.call);
   for (const expected of ROOT_BUTTONS) assert.ok(labels(result.call).includes(expected), `${label}: root button ${expected} is present`);
-  assert.ok(labels(result.call).some((item) => /Выбрать пост|Выбрать другой пост/.test(item)), `${label}: choose-post root action is present`);
+  assert.ok(!labels(result.call).some((item) => /Выбрать пост|Выбрать другой пост/.test(item)), `${label}: clean root has no stale post-selection action`);
   assert.ok(!/Шаг\s*(?:1|2|3|4)(?:\/4)?|материал подарка|проверить и сохранить/i.test(text), `${label}: wizard step is not the main screen`);
   assertNoRawLeaks(result.call, label);
 }
@@ -190,7 +190,7 @@ async function verifyTopLevelMatrix(bot, sent) {
   for (const [label, setup] of cases) {
     store.setSetupState(TEST_USER, { giftTargetPost: null, giftFlow: null, giftsCurrentCard: null, activeAdminFlowKind: '', selectedCard: null, buttonTargetPost: null, giftTargetDiagnostics: [], ...setup });
     assertCanonicalGiftRoot(await sendActive(bot, sent, { action: 'gifts:home' }, `gifts:home ${label}`), `gifts:home ${label}`);
-    assertCanonicalGiftRoot(await sendActive(bot, sent, { action: 'admin_section_gifts' }, `admin_section_gifts ${label}`), `admin_section_gifts ${label}`);
+    assertCanonicalGiftRoot(await sendActive(bot, sent, { action: 'admin_section_gifts', resetContext: true }, `admin_section_gifts ${label}`), `admin_section_gifts ${label}`);
   }
 }
 
@@ -199,10 +199,8 @@ async function verifyRootButtons(bot, sent) {
   const root = (await sendActive(bot, sent, { action: 'gifts:home' }, 'root buttons entry')).call;
   const expectations = [
     [/Создать подарок/, /Выберите канал|Выберите пост|Сначала выберите/i, 'create'],
-    [/Заменить подарок/, /Выберите канал|Выберите пост|Сначала выберите/i, 'replace'],
     [/Текущий подарок/, /Выберите канал|Выберите пост|Сначала выберите|подарок/i, 'current'],
     [/Список подарков/, /Выберите канал|Выберите пост|Сначала выберите|подарок|Список/i, 'list'],
-    [/Выбрать пост/, /Выберите канал|Выберите пост/i, 'choose post'],
     [/Главное меню/, /АдминКИТ|Главное меню|Панель управления/i, 'main menu']
   ];
   for (const [matcher, screenMatcher, label] of expectations) {
@@ -225,33 +223,15 @@ async function verifyWizard(bot, sent) {
   const invalid = await sendText(bot, sent, 'не ссылка', 'wizard invalid input');
   assert.ok(/Нужна ссылка|https:\/\//i.test(visible(invalid.call)), 'wizard invalid input stays safe');
   assertNoRawLeaks(invalid.call, 'wizard invalid input');
-  const rootDuringStep1 = await sendActive(bot, sent, { action: 'gifts:home' }, 'top-level during wizard step 1');
-  assertCanonicalGiftRoot(rootDuringStep1, 'top-level during wizard step 1');
-  const continued = await sendActive(bot, sent, payloadFor(rootDuringStep1.call, /Продолжить черновик/), 'continue draft after root');
-  assert.ok(/Шаг\s*1|материал подарка|Создание подарка/i.test(visible(continued.call)), 'explicit continue opens draft safely');
-
   const linkStep = await sendText(bot, sent, 'https://example.test/safe-download', 'wizard valid link');
   assert.ok(/Шаг\s*2|текст получателю/i.test(visible(linkStep.call)), 'wizard advances to text step');
   assertNoRawLeaks(linkStep.call, 'wizard text step');
-  const rootDuringStep2 = await sendActive(bot, sent, { action: 'gifts:home' }, 'top-level during wizard step 2');
-  assertCanonicalGiftRoot(rootDuringStep2, 'top-level during wizard step 2');
-  await sendActive(bot, sent, payloadFor(rootDuringStep2.call, /Продолжить черновик/), 'continue draft step 2');
-
   const textStep = await sendText(bot, sent, 'Спасибо за подписку!', 'wizard valid message');
   assert.ok(/Шаг\s*3|условия/i.test(visible(textStep.call)), 'wizard advances to conditions step');
   assertNoRawLeaks(textStep.call, 'wizard conditions step');
-  const rootDuringStep3 = await sendActive(bot, sent, { action: 'gifts:home' }, 'top-level during wizard step 3');
-  assertCanonicalGiftRoot(rootDuringStep3, 'top-level during wizard step 3');
-  const conditions = await sendActive(bot, sent, payloadFor(rootDuringStep3.call, /Продолжить черновик/), 'continue draft step 3');
-  assert.ok(/подар|условия|Сохранить|черновик/i.test(visible(conditions.call)), 'continue draft returns to a safe Gifts screen');
-  assertNoRawLeaks(conditions.call, 'continue draft step 3');
-
   const review = await sendActive(bot, sent, { action: 'gift_admin_save' }, 'wizard review');
   assert.ok(/Шаг\s*4|проверить|сохранить|Проверьте/i.test(visible(review.call)), 'wizard reaches step 4/4 confirmation/review');
   assertNoRawLeaks(review.call, 'wizard review step');
-  const rootDuringStep4 = await sendActive(bot, sent, { action: 'gifts:home' }, 'top-level during wizard step 4');
-  assertCanonicalGiftRoot(rootDuringStep4, 'top-level during wizard step 4');
-
   const replayOld = await sendActive(bot, sent, { action: 'gift_admin_message_default' }, 'replay old callback');
   assert.ok(/условия|черновик|подар/i.test(visible(replayOld.call)), 'old callback replay is handled without dead-end');
   assertNoRawLeaks(replayOld.call, 'replay old callback');
@@ -380,7 +360,7 @@ async function main() {
     topLevelGiftsRootDeterministic: true,
     activeGiftFlowStep4CanInterceptTopLevel: false,
     selectedGiftTargetPostOrCurrentCardCanInterceptTopLevel: false,
-    wizardCoverage: ['valid input', 'invalid input', 'cancel', 'main menu', 'replay old callback', 'top-level re-entry at steps 1-4', 'back if supported by visible keyboard'],
+    wizardCoverage: ['valid input', 'invalid input', 'cancel', 'main menu', 'replay old callback', 'clean top-level entry resets stale flow context', 'back if supported by visible keyboard'],
     materialMatrixCovered: materials
   }, null, 2));
 }
