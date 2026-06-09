@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "updatedAt": "2026-06-09T17:56:42.949Z",
+  "limit": 100,
+  "latest": {
+    "timestamp": "2026-06-09T17:56:42.691Z",
+    "event": "link_opened",
+    "flowId": "bcf49ccc40cdd1063906",
+    "hasPairingToken": true,
+    "tokenSource": "query",
+    "hasPairingCookie": false,
+    "openedAs": "safari",
+    "route": "/push/join",
+    "result": "link_opened",
+    "chatsCount": 0
+  },
+  "items": [
+    {
+      "timestamp": "2026-06-09T17:56:42.691Z",
+      "event": "link_opened",
+      "flowId": "bcf49ccc40cdd1063906",
+      "hasPairingToken": true,
+      "tokenSource": "query",
+      "hasPairingCookie": false,
+      "openedAs": "safari",
+      "route": "/push/join",
+      "result": "link_opened",
+      "chatsCount": 0
+    }
+  ]
+}
