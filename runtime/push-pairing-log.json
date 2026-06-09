@@ -1,9 +1,9 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-09T19:58:18.044Z",
+  "updatedAt": "2026-06-09T19:58:37.660Z",
   "limit": 100,
   "latest": {
-    "timestamp": "2026-06-09T19:58:17.020Z",
+    "timestamp": "2026-06-09T19:58:37.417Z",
     "event": "device_status",
     "maxUserIdHash": "1ef3d3317311c3f724ef",
     "chatIdHash": "eeefd1e52698fddb3ec5",
@@ -22,6 +22,25 @@
     "missingTitleCount": 0
   },
   "items": [
+    {
+      "timestamp": "2026-06-09T19:58:37.417Z",
+      "event": "device_status",
+      "maxUserIdHash": "1ef3d3317311c3f724ef",
+      "chatIdHash": "eeefd1e52698fddb3ec5",
+      "deviceIdHash": "d64a6ef129f19efa8b4b",
+      "hasPairingToken": false,
+      "hasHandoff": false,
+      "tokenSource": "missing",
+      "hasPairingCookie": false,
+      "hasHandoffCookie": false,
+      "openedAs": "unknown",
+      "route": "/api/push/device/status",
+      "result": "status_success",
+      "chatsCount": 2,
+      "rawBindingsCount": 5,
+      "uniqueChatsCount": 2,
+      "missingTitleCount": 0
+    },
     {
       "timestamp": "2026-06-09T19:58:17.020Z",
       "event": "device_status",
