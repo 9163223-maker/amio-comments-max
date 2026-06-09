@@ -978,7 +978,10 @@ async function fetchMaxMembers() {
   setMaxDiagnosticsResult('MAX chat members loaded', data);
 }
 
+// Operator diagnostic only. Normal users publish through the verified MAX bot
+// admin callback flow; /push strips the corresponding diagnostic controls.
 async function publishMaxGroupPushInvite() {
+  if (!state.adminMode) throw new Error('Публикация доступна только в диагностическом режиме администратора.');
   const selected = state.selectedMaxChat || {};
   const selectedId = selected.id || '';
   if (!selectedId) throw new Error('Не удалось определить чат. Выберите чат вручную.');
