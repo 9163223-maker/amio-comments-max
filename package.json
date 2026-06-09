@@ -3,7 +3,7 @@
   "version": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
-    "start": "node clean-entrypoint-1.53.10-pr89.js",
+    "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
     "test": "node scripts/smoke-test.js"
   },
   "dependencies": {
@@ -22,5 +22,6 @@
   "displayVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
   "sourceMarker": "adminkit-pr177-channels-push-ux",
   "gitCommit": "",
-  "pr165RuntimeWired": true
+  "pr165RuntimeWired": true,
+  "pr178PushPairingBinding": true
 }

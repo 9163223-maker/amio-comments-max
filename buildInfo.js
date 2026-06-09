@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const SERVER_STARTED_AT = new Date().toISOString();
-const CURRENT_RUNTIME = 'CC8.3.52-PR177-CHANNELS-PUSH-UX';
+const CURRENT_RUNTIME = 'CC8.3.52-PR178-PUSH-PAIRING-BINDING';
 
 function clean(value) { return String(value || '').trim(); }
 function readJsonSafe(filePath) {
@@ -27,11 +27,12 @@ const envBuildVersion = clean(process.env.BUILD_VERSION);
 const envRuntimeVersion = clean(process.env.RUNTIME_VERSION);
 const envSourceMarker = clean(process.env.BUILD_SOURCE_MARKER);
 const envGitCommit = clean(process.env.GIT_COMMIT || process.env.COMMIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION);
+const pr178PushPairingBinding = packageJson.pr178PushPairingBinding === true;
 
-const runtimeVersion = firstFresh(markerJson.runtimeVersion, markerJson.displayVersion, packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
-const buildVersion = firstFresh(markerJson.buildVersion, markerJson.runtimeVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
-const displayVersion = firstFresh(markerJson.displayVersion, markerJson.runtimeVersion, packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
-const sourceMarker = firstFresh(markerJson.sourceMarker, packageJson.sourceMarker, envSourceMarker, `adminkit-${displayVersion}-local`) || `adminkit-${CURRENT_RUNTIME.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+const runtimeVersion = firstFresh(packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.runtimeVersion, markerJson.displayVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
+const buildVersion = firstFresh(packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.buildVersion, markerJson.runtimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
+const displayVersion = firstFresh(packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.displayVersion, markerJson.runtimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
+const sourceMarker = firstFresh(packageJson.sourceMarker, envSourceMarker, markerJson.sourceMarker, `adminkit-${displayVersion}-local`) || `adminkit-${CURRENT_RUNTIME.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
 const BUILD_INFO = Object.freeze({
   runtimeVersion,
@@ -44,15 +45,18 @@ const BUILD_INFO = Object.freeze({
   pr131MergeCommit: firstFresh(markerJson.pr165MergeCommit, markerJson.pr131MergeCommit, '') || '',
   buildGeneratedAt: clean(markerJson.buildGeneratedAt),
   serverStartedAt: SERVER_STARTED_AT,
-  buildInfoSource: 'build-info.json/package.json/env-fresh-only',
+  buildInfoSource: 'package.json/build-info.json/env-fresh-only-pr178',
   staleEnvIgnored: {
     BUILD_VERSION: Boolean(envBuildVersion && isStaleDiagnosticVersion(envBuildVersion)),
     RUNTIME_VERSION: Boolean(envRuntimeVersion && isStaleDiagnosticVersion(envRuntimeVersion)),
     BUILD_SOURCE_MARKER: Boolean(envSourceMarker && isStaleDiagnosticVersion(envSourceMarker))
   },
-  staleEndpointDetected: isStaleDiagnosticVersion(runtimeVersion) || runtimeVersion !== CURRENT_RUNTIME,
+  staleEndpointDetected: isStaleDiagnosticVersion(runtimeVersion) || (runtimeVersion !== CURRENT_RUNTIME && !pr178PushPairingBinding),
   activeEntrypoint: clean(process.argv?.[1] ? path.basename(process.argv[1]) : process.env.npm_package_main || packageJson.main || 'index.js'),
   expectedRuntimeVersion: CURRENT_RUNTIME,
+  pr178PushPairingBinding,
+  pushPairingRuntimeVersion: pr178PushPairingBinding ? CURRENT_RUNTIME : '',
+  pushPairingSourceMarker: pr178PushPairingBinding ? 'adminkit-pr178-push-pairing-binding' : '',
   pr165RuntimeWired: Boolean(markerJson.pr165RuntimeWired || process.env.PR165_RUNTIME_WIRED === '1'),
   pr165LiveChatPushRuntime: clean(markerJson.pr165LiveChatPushRuntime || '')
 });
