@@ -1,0 +1,69 @@
+name: PR regression tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - 'codex/**'
+
+permissions:
+  contents: read
+
+jobs:
+  regression-tests:
+    name: AdminKIT regression tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the exact event commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check key JavaScript files
+        run: |
+          node --check bot.js
+          node --check buildInfo.js
+          node --check clean-bot-campaign-attribution-cc8336.js
+          node --check clean-entrypoint-1.53.10-pr89.js
+          node --check features/admin-activation-screens-pr108.js
+          node --check features/account-screens-pr106.js
+          node --check features/menu-v3/adapter.js
+          node --check features/menu-v3/canonical-menu.js
+          node --check public/push-client.js
+          node --check services/accessGateService.js
+          node --check services/groupPushAdminPublishingService.js
+          node --check services/groupPushOnboardingService.js
+          node --check services/pushPairingService.js
+          node --check v3-menu-core-1539.js
+          node --check web-push-routes.js
+
+      - name: Run AdminKIT regression tests
+        run: |
+          if [ -f scripts/test-production-push-audit-pr173.js ]; then
+            node scripts/test-production-push-audit-pr173.js
+          else
+            echo "skip PR173 audit test: file not present on this branch"
+          fi
+          node scripts/test-visible-push-admin-flow-pr172.js
+          node scripts/test-public-push-entrypoint-pr169.js
+          node scripts/test-push-admin-invite-link-chat-pr168.js
+          node scripts/test-push-product-ux-admin-invite-pr167.js
+          node scripts/test-group-push-private-onboarding-pr166.js
+          node scripts/test-production-runtime-push-wiring-pr165.js
+          npm test
+          node scripts/test-product-perfect-gifts-journey-pr142.js
+          node scripts/test-product-perfect-buttons-gifts-pr126.js
+          node scripts/test-product-perfect-polls-highlights-pr127.js
+          node scripts/test-comments-pr125.js
+          node scripts/test-canonical-client-menu.js
+          git diff --check
