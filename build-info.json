@@ -1,9 +1,9 @@
 {
-  "runtimeVersion": "CC8.3.52-PR172-VISIBLE-PUSH-ADMIN-FLOW",
-  "buildVersion": "CC8.3.52-PR172-VISIBLE-PUSH-ADMIN-FLOW",
-  "displayVersion": "CC8.3.52-PR172-VISIBLE-PUSH-ADMIN-FLOW",
-  "packageVersion": "CC8.3.52-PR172-VISIBLE-PUSH-ADMIN-FLOW",
-  "sourceMarker": "adminkit-pr172-visible-push-admin-flow",
+  "runtimeVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
+  "buildVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
+  "displayVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
+  "packageVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
+  "sourceMarker": "adminkit-pr173-production-push-audit",
   "buildGeneratedAt": "2026-06-08T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.52-PR172-VISIBLE-PUSH-ADMIN-FLOW"
+    "activeRuntimeVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT"
   },
   "persistentStore": {
     "enabled": true,
@@ -93,7 +93,7 @@
   ],
   "gitCommit": "",
   "pr131MergeCommit": "",
-  "liveSyncAudit": "PR172 exposes the chat-scoped AdminKIT Push publishing flow while preserving PR168/PR170 behavior",
+  "liveSyncAudit": "PR173 audits and hardens the production AdminKIT Push flow while preserving PR168/PR170 behavior",
   "pr165RuntimeWired": true,
   "pr165LiveChatPushRuntime": "clean-bot-live-chat-push-pr165.js"
 }

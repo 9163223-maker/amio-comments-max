@@ -474,6 +474,10 @@ function install(app) {
     }
   });
 
+  // Diagnostic/operator-only endpoint for /push/admin. The normal product UI publishes
+  // through bot callbacks and groupPushAdminPublishingService, which verifies the
+  // requester's admin/owner role in the selected chat. Never use this endpoint for
+  // user-originated product actions or include personal join links/tokens in its payload.
   app.post('/internal/max/group-push-invite', requireAdminToken, async (req, res) => {
     const botToken = getMaxBotToken();
     if (!botToken) return res.status(503).json({ ok: false, error: 'max_bot_token_not_configured' });

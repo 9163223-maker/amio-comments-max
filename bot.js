@@ -3424,7 +3424,8 @@ function buildChannelsSectionKeyboard(config = null, channels = []) {
   const safeChannels = (Array.isArray(channels) ? channels : []).filter((item) => String(item?.channelId || '').trim()).slice(0, 8);
   if (safeChannels.length) {
     safeChannels.forEach((item) => {
-      rows.push([{ type: 'callback', text: 'Опубликовать приглашение Push в чат', payload: buildAdminCallbackPayload('admin_push_publish_invite', { chatId: String(item.channelId || '').trim(), title: getChannelDisplayName(item).slice(0, 80) }) }]);
+      const chatTitle = getChannelDisplayName(item) || 'Чат или канал';
+      rows.push([{ type: 'callback', text: `🔔 ${truncateText(chatTitle, 52)}`, payload: buildAdminCallbackPayload('admin_push_publish_invite', { chatId: String(item.channelId || '').trim(), title: chatTitle.slice(0, 80) }) }]);
     });
   } else {
     rows.push([{ type: 'callback', text: 'Опубликовать приглашение Push в чат', payload: buildAdminCallbackPayload('admin_push_publish_invite') }]);

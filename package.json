@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.52-PR172-VISIBLE-PUSH-ADMIN-FLOW",
+  "version": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node clean-entrypoint-1.53.10-pr89.js",
@@ -18,9 +18,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.52-PR172-VISIBLE-PUSH-ADMIN-FLOW",
-  "displayVersion": "CC8.3.52-PR172-VISIBLE-PUSH-ADMIN-FLOW",
-  "sourceMarker": "adminkit-pr172-visible-push-admin-flow",
+  "buildVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
+  "displayVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
+  "sourceMarker": "adminkit-pr173-production-push-audit",
   "gitCommit": "",
   "pr165RuntimeWired": true
 }
