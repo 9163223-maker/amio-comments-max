@@ -1,20 +1,30 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-09T17:56:50.370Z",
+  "updatedAt": "2026-06-09T17:57:17.831Z",
   "limit": 100,
   "latest": {
-    "timestamp": "2026-06-09T17:56:48.586Z",
-    "event": "link_opened",
-    "flowId": "bcf49ccc40cdd1063906",
-    "hasPairingToken": true,
-    "tokenSource": "query",
+    "timestamp": "2026-06-09T17:57:17.576Z",
+    "event": "push_opened",
+    "hasPairingToken": false,
+    "tokenSource": "missing",
     "hasPairingCookie": false,
-    "openedAs": "safari",
-    "route": "/push/join",
-    "result": "link_opened",
+    "openedAs": "unknown",
+    "route": "/push",
+    "result": "binding_missing",
     "chatsCount": 0
   },
   "items": [
+    {
+      "timestamp": "2026-06-09T17:57:17.576Z",
+      "event": "push_opened",
+      "hasPairingToken": false,
+      "tokenSource": "missing",
+      "hasPairingCookie": false,
+      "openedAs": "unknown",
+      "route": "/push",
+      "result": "binding_missing",
+      "chatsCount": 0
+    },
     {
       "timestamp": "2026-06-09T17:56:48.586Z",
       "event": "link_opened",
