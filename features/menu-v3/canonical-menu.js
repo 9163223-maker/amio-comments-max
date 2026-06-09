@@ -4,8 +4,8 @@
 // Single source of truth for the client-visible production menu.
 // Legacy production-menu-map-v3-fixed.js and production-menu-v3-renderer.js are reference-only.
 
-const VERSION = 'pr176-comments-ux-gifts-reset-v1';
-const SOURCE = 'adminkit-pr176-comments-ux-gifts-reset';
+const VERSION = 'pr177-channels-push-ux-v1';
+const SOURCE = 'adminkit-pr177-channels-push-ux';
 
 function action({ id, title, section, targetAction = '', existingAction = '', clientVisible = true, adminOnly = false, requiresChannel = false, requiresPost = false, implemented = true, hiddenReason = '', payload = {}, featureKey = '', minPlan = 'free', requiresActiveAccess = true, availableInPlans = [], accountOnlyWhenExpired = false }) {
   return { id, title, section, targetAction: targetAction || existingAction || id, existingAction: existingAction || targetAction || id, clientVisible: Boolean(clientVisible && !adminOnly && implemented), adminOnly: Boolean(adminOnly), requiresChannel: Boolean(requiresChannel), requiresPost: Boolean(requiresPost), implemented: Boolean(implemented), hiddenReason: hiddenReason || '', payload: payload || {}, featureKey: featureKey || section || id, minPlan, requiresActiveAccess: Boolean(requiresActiveAccess), availableInPlans, accountOnlyWhenExpired: Boolean(accountOnlyWhenExpired) };
@@ -18,8 +18,7 @@ const sections = [
     actions: [
       action({ id: 'channels.connect', title: 'Подключить канал', section: 'channels', targetAction: 'channels:connect', existingAction: 'admin_section_channels' }),
       action({ id: 'channels.mine', title: 'Мои каналы', section: 'channels', targetAction: 'channels:list', existingAction: 'admin_section_channels' }),
-      action({ id: 'channels.verify_bot', title: 'Проверить права бота', section: 'channels', targetAction: 'channels:check', existingAction: 'admin_section_channels' }),
-      action({ id: 'channels.instructions', title: 'Инструкция по подключению', section: 'channels', targetAction: 'channels:instructions', existingAction: 'admin_section_help', payload: { context: 'admin_section_channels' } }),
+      action({ id: 'channels.instructions', title: 'Инструкция', section: 'channels', targetAction: 'channels:instructions', existingAction: 'admin_section_help', payload: { context: 'admin_section_channels' } }),
     ],
   },
   {
@@ -72,7 +71,7 @@ const sections = [
     id: 'push', title: '🔔 Push-уведомления', route: 'push:home', clientVisible: true, adminOnly: false,
     featureKey: 'channels', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
-      action({ id: 'push.publish', title: 'Опубликовать приглашение в чат', section: 'push', existingAction: 'admin_push_select_chat', featureKey: 'channels' }),
+      action({ id: 'push.publish', title: 'Опубликовать приглашение', section: 'push', existingAction: 'admin_push_select_chat', featureKey: 'channels' }),
       action({ id: 'push.help', title: 'Как это работает', section: 'push', existingAction: 'admin_push_help', featureKey: 'channels' }),
     ],
   },

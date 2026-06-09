@@ -49,7 +49,7 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
     assert(!adapterSource.includes("a === 'admin_push_publish_invite'") && botSource.includes('groupPushAdminPublishing.publishGroupPushInvite'), 'publish action bypasses global support-admin interception and uses chat-scoped authorization');
     assert(!/admin_push_publish_invite[\s\S]{0,400}PUSH_ADMIN_TOKEN/.test(botSource), 'product admin action does not require manual PUSH_ADMIN_TOKEN');
     assert(botSource.includes('publishAdminGroupPushInvite') && botSource.includes('groupPushOnboarding.buildGroupInviteText') && botSource.includes('groupPushOnboarding.buildGroupInviteKeyboard'), 'product admin action publishes group invite server-side');
-    assert(botSource.includes('Приглашение опубликовано в чат.') && botSource.includes('VERIFICATION_FAILURE_MESSAGE'), 'admin action has safe success/failure copy');
+    assert(botSource.includes('Приглашение опубликовано.') && botSource.includes('Не удалось проверить права в выбранном чате/канале.'), 'admin action has safe success/failure copy');
 
     const inviteText = groupPush.buildGroupInviteText('PR168 Group');
     const keyboard = groupPush.buildGroupInviteKeyboard();
@@ -65,7 +65,7 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
     assert(pushClient.includes('Готово. Уведомления этого чата подключены.') && pushClient.includes('Можно подключить этот чат к уже установленному AdminKIT Push.'), 'add-chat flow has product copy');
     assert(!pushHtml.replace(/[\s\S]*<!-- raw-diagnostics-start -->[\s\S]*/m, '').includes('Последний результат'), 'normal PWA shell hides raw diagnostics before marker strip');
     assert(!/appendResult\([^)]*(endpoint|p256dh|auth|PUSH_ADMIN_TOKEN|BOT_TOKEN|pairingToken)/.test(pushClient), 'client does not append raw push or secret fields');
-    assert(entrypoint.includes('PR176-COMMENTS-UX-GIFTS-RESET') && pkg.sourceMarker === 'adminkit-pr176-comments-ux-gifts-reset', 'active PR173 runtime keeps the PR168 link-chat behavior');
+    assert(entrypoint.includes('PR177-CHANNELS-PUSH-UX') && pkg.sourceMarker === 'adminkit-pr177-channels-push-ux', 'active PR173 runtime keeps the PR168 link-chat behavior');
 
     const pairing = fresh('../services/pushPairingService');
     const storage = fresh('../services/webPushStorage');

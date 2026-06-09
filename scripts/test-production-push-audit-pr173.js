@@ -30,8 +30,8 @@ function apiFor({ role = 'owner', fail = '' } = {}) {
   const buildInfo = require('../buildInfo').getBuildInfo();
 
   assert(bot.includes("text: '🔔 Push-уведомления'") && bot.includes("buildAdminCallbackPayload('admin_section_push')"), 'real admin menu exposes visible Push section');
-  for (const label of ['Опубликовать приглашение в чат', 'Как это работает', 'Главное меню']) assert(bot.includes(`text: '${label}'`), `visible Push section contains ${label}`);
-  assert(bot.includes('text: `🔔 ${truncateText(chatTitle, 52)}`'), 'multi-chat publish choices include a safe chat/channel title');
+  for (const label of ['Опубликовать приглашение', 'Как это работает', 'Главное меню']) assert(bot.includes(`text: '${label}'`), `visible Push section contains ${label}`);
+  assert(bot.includes('const title = getSafeClientDestinationTitle(item, index);') && bot.includes('text: truncateText(title, 56)'), 'multi-chat publish choices include a safe chat/channel title');
   assert(bot.includes("const selectedChatId = String(payload.chatId || '').trim()"), 'product publish callback requires an explicitly selected chat');
   assert(bot.includes('groupPushAdminPublishing.publishGroupPushInvite({'), 'product UI uses chat-scoped publishing service');
 
@@ -54,8 +54,8 @@ function apiFor({ role = 'owner', fail = '' } = {}) {
     const result = await publishing.verifyRequesterCanPublish({ botToken: 'test-bot-token', requesterId: 'requester-pr173', chatId: 'chat-pr173', api: apiFor({ fail }) });
     assert.strictEqual(result.error, 'verification_failed', `${fail} failure fails closed`);
   }
-  assert.strictEqual(publishing.NON_ADMIN_MESSAGE, 'Опубликовать приглашение может только администратор этого чата или канала.');
-  assert.strictEqual(publishing.VERIFICATION_FAILURE_MESSAGE, 'Не удалось проверить права администратора. Проверьте, что бот добавлен в чат и имеет нужные права.');
+  assert.strictEqual(publishing.NON_ADMIN_MESSAGE, 'Не удалось опубликовать приглашение. Публиковать кнопку может только администратор или владелец выбранного чата/канала.');
+  assert.strictEqual(publishing.VERIFICATION_FAILURE_MESSAGE, 'Не удалось проверить права в выбранном чате/канале. Проверьте, что бот добавлен туда администратором, и попробуйте ещё раз.');
 
   assert(routes.includes('Diagnostic/operator-only endpoint for /push/admin'), 'internal group invite endpoint is explicitly diagnostic-only');
   assert(routes.includes("app.post('/internal/max/group-push-invite', requireAdminToken"), 'diagnostic endpoint requires admin token');
@@ -80,13 +80,13 @@ function apiFor({ role = 'owner', fail = '' } = {}) {
   assert(client.includes("fetchJson('/api/push/link-chat', { method: 'POST', body: JSON.stringify({}) })"), 'existing-device add-chat client path remains unchanged');
   assert(client.includes('Подключить этот чат'), 'link-chat product label remains present');
 
-  assert.strictEqual(pkg.version, 'CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET');
-  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr176-comments-ux-gifts-reset');
+  assert.strictEqual(pkg.version, 'CC8.3.52-PR177-CHANNELS-PUSH-UX');
+  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr177-channels-push-ux');
   assert.strictEqual(buildInfo.runtimeVersion, pkg.version);
   assert.strictEqual(buildInfo.buildVersion, pkg.version);
   assert.strictEqual(buildInfo.sourceMarker, pkg.sourceMarker);
-  assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET'"));
-  assert(entrypoint.includes("const SOURCE='adminkit-pr176-comments-ux-gifts-reset'"));
+  assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR177-CHANNELS-PUSH-UX'"));
+  assert(entrypoint.includes("const SOURCE='adminkit-pr177-channels-push-ux'"));
 
   console.log('production push audit pr173 ok');
 })().catch((error) => { console.error(error && error.stack || error); process.exit(1); });

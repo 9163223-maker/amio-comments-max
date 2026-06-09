@@ -1,10 +1,10 @@
 {
-  "runtimeVersion": "CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET",
-  "buildVersion": "CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET",
-  "displayVersion": "CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET",
-  "packageVersion": "CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET",
-  "sourceMarker": "adminkit-pr176-comments-ux-gifts-reset",
-  "buildGeneratedAt": "2026-06-08T00:00:00Z",
+  "runtimeVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
+  "buildVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
+  "displayVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
+  "packageVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
+  "sourceMarker": "adminkit-pr177-channels-push-ux",
+  "buildGeneratedAt": "2026-06-09T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
     "version": "1.53.11",
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET"
+    "activeRuntimeVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX"
   },
   "persistentStore": {
     "enabled": true,

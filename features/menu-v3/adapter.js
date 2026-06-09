@@ -2,8 +2,8 @@
 
 const canonical = require('./canonical-menu');
 
-const VERSION = 'menu-v3-feature-adapter-pr176-comments-ux-gifts-reset';
-const SOURCE = 'adminkit-pr176-comments-ux-gifts-reset';
+const VERSION = 'menu-v3-feature-adapter-pr177-channels-push-ux';
+const SOURCE = 'adminkit-pr177-channels-push-ux';
 
 const POST_PICKER_SEQUENCE = ['section', 'channel', 'post', 'action'];
 const POST_SCOPED_SECTIONS = ['comments', 'gifts', 'buttons', 'polls', 'highlights', 'editor'];
@@ -32,9 +32,14 @@ function sectionNavRows(sectionId, options = {}) {
 }
 function helpNavRows(sectionId) { return [[navButton('↩️ В начало раздела', safeSectionHomeAction(sectionId))], [navButton('🏠 Главное меню', 'main:home')]]; }
 function docNav(currentRoute = '') { return mainMenuRow(currentRoute); }
+function looksRawClientId(value = '') { const text = normalize(value); return /^-?\d{6,}$/.test(text) || /\b\d{10,}\b/.test(text); }
+function isConfirmedChannel(channel = {}) {
+  const type = normalize(channel.type || channel.chatType || channel.chat_type || channel.kind).toLowerCase();
+  return !type || type === 'channel' || channel.isChannel === true;
+}
 function channelTitle(channel, index = 0) {
   const title = normalize(channel && (channel.title || channel.channelTitle || channel.name || channel.channelName));
-  return title || `Канал ${index + 1}`;
+  return title && !looksRawClientId(title) ? title : `Канал ${index + 1}`;
 }
 function postTitle(post, index) {
   const title = normalize(post && (post.title || post.preview || post.originalText));
@@ -54,7 +59,8 @@ function visiblePayloads(screen) {
 }
 
 const HELP_TEXT = {
-  channels: ['Помощь: Каналы', '', 'Раздел подключает MAX-каналы к АдминКИТ и показывает только каналы, доступные вашему клиентскому профилю.', 'Обычный сценарий: откройте «Подключить канал», добавьте бота администратором в канал, перешлите любой пост, затем проверьте права бота и откройте «Мои каналы».', 'Если каналов нет, вы увидите безопасное пустое состояние и кнопку подключения. Названия каналов показываются человекочитаемо, без технических идентификаторов.', 'Ограничения: проверка прав зависит от доступности MAX API и прав бота в самом канале. Управление каналом пока открывает безопасный экран без рискованных действий.'],
+  channels: ['Помощь: Каналы', '', 'Здесь вы подключаете MAX-каналы к АдминКИТ.', '', 'Как подключить:', '1. Добавьте бота АдминКИТ администратором в ваш MAX-канал.', '2. Перешлите боту любой пост из этого канала.', '3. Откройте «Мои каналы» и выберите нужный канал.', '', 'Если канал не появился, проверьте, что бот добавлен именно администратором, и перешлите пост ещё раз.'],
+  push: ['Как это работает', '', '1. Выберите чат или канал, где установлен бот.', '2. АдминКИТ опубликует кнопку «🔔 Подключить уведомления».', '3. Участник нажмёт кнопку и получит личную ссылку от бота.', '4. После подключения уведомления будут приходить через AdminKIT Push.', '', 'Публиковать кнопку может только администратор или владелец выбранного чата/канала.'],
   comments: ['Помощь: Комментарии', '', 'Выберите нужную функцию, а затем канал или пост, если это потребуется.', '', '• Автокомментарии — включают или выключают комментарии для новых постов выбранного канала.', '• Включить к посту — добавляет комментарии к выбранной публикации независимо от автокомментариев.', '• Фото — показывает возможность прикреплять фотографии в комментариях канала.', '• Ответы — показывает возможность отвечать на комментарии.', '• Реакции — показывает возможность ставить реакции на комментарии.', '', 'Если нужного канала или поста нет, сначала подключите канал или перешлите публикацию боту.'],
   gifts: ['Помощь: Подарки / лид-магниты', '', 'Раздел выдаёт подарок подписчику после проверки условий.', 'Обычный сценарий: выберите канал и пост, создайте подарок, добавьте материал, текст получателю, условия выдачи и проверьте выдачу.', 'Отключение, удаление и замена материала выполняются из карточки подарка. Часть возможностей может зависеть от тарифа.', 'Если данных нет, подключите канал и перешлите пост, к которому нужен подарок.'],
   buttons: ['Помощь: Кнопки под постами', '', 'Раздел управляет пользовательскими кнопками под конкретным постом.', 'Обычный сценарий: выберите канал и пост, откройте текущие кнопки или добавьте новую кнопку, задайте текст, ссылку или действие, проверьте предпросмотр и сохраните.', 'Изменение и удаление доступны только из карточки текущих кнопок, чтобы не задеть другой пост.', 'Если постов нет, перешлите нужный пост боту.'],
@@ -195,42 +201,41 @@ function accountSectionScreen(route, context = {}) {
   }
 }
 
-function channelsHome(context = {}) {
-  const channels = Array.isArray(context.channels || context.dataContext?.channels) ? (context.channels || context.dataContext.channels) : [];
+function channelsHome() {
   const rows = [
     [button('Подключить канал', 'channels:connect')],
     [button('Мои каналы', 'channels:list')],
-    [button('Проверить права бота', 'channels:check')],
-    [button('Инструкция по подключению', 'channels:instructions')],
+    [button('Инструкция', 'channels:instructions')],
+    [button('Помощь', 'channels:help')],
+    [button('Главное меню', 'main:home')]
   ];
-  const lines = ['Каналы', '', 'Подключите канал, проверьте права бота или откройте список ваших каналов.'];
-  if (channels.length) lines.push('', `Подключено каналов: ${channels.length}`);
-  return { ok: true, route: 'channels:home', owner: 'channels', text: lines.join('\n'), attachments: keyboard([...rows, ...sectionNavRows('channels', { isRoot: true, currentRoute: 'channels:home' })]) };
+  return { ok: true, route: 'channels:home', owner: 'channels', text: ['Каналы', '', 'Подключите канал, чтобы управлять комментариями, подарками, кнопками и статистикой через АдминКИТ.'].join('\n'), attachments: keyboard(rows) };
 }
 function channelsConnect(route) {
-  return { ok: true, route, owner: 'channels', text: ['Подключить канал', '', '1. Откройте ваш MAX-канал.', '2. Добавьте бота АдминКИТ администратором.', '3. Перешлите боту любой пост из этого канала.', '', 'После этого вернитесь в раздел и нажмите «Проверить права бота» или «Мои каналы».'].join('\n'), attachments: keyboard(sectionNavRows('channels', { currentRoute: route, backAction: 'channels:home' })) };
+  return { ok: true, route, owner: 'channels', text: ['Подключить канал', '', '1. Откройте ваш MAX-канал.', '2. Добавьте бота АдминКИТ администратором.', '3. Перешлите боту любой пост из этого канала.', '', 'После этого канал появится в разделе «Мои каналы».'].join('\n'), attachments: keyboard([[button('Назад', 'channels:home')], [button('Главное меню', 'main:home')]]) };
 }
 function channelsList(context = {}) {
-  const channels = Array.isArray(context.channels || context.dataContext?.channels) ? (context.channels || context.dataContext.channels) : [];
-  if (!channels.length) return { ok: true, route: 'channels:list', owner: 'channels', text: 'У вас пока нет подключённых каналов.', attachments: keyboard([[button('Подключить канал', 'channels:connect')], [button('Инструкция по подключению', 'channels:instructions')], ...sectionNavRows('channels', { currentRoute: 'channels:list', backAction: 'channels:home' })]) };
-  const rows = channels.slice(0, 12).map((channel, index) => [button(channelTitle(channel, index), 'channels:card', { channelId: normalize(channel.channelId || channel.id), channelTitle: channelTitle(channel, index) })]);
-  return { ok: true, route: 'channels:list', owner: 'channels', text: ['Мои каналы', '', 'Выберите канал, чтобы открыть карточку.'].join('\n'), attachments: keyboard([...rows, ...sectionNavRows('channels', { currentRoute: 'channels:list', backAction: 'channels:home' })]) };
+  const channels = (Array.isArray(context.channels || context.dataContext?.channels) ? (context.channels || context.dataContext.channels) : []).filter(isConfirmedChannel);
+  if (!channels.length) return { ok: true, route: 'channels:list', owner: 'channels', text: ['Мои каналы', '', 'Каналы пока не подключены.', 'Добавьте бота администратором в MAX-канал и перешлите сюда любой пост.'].join('\n'), attachments: keyboard([[button('Подключить канал', 'channels:connect')], [button('Назад', 'channels:home')], [button('Главное меню', 'main:home')]]) };
+  const rows = channels.slice(0, 12).map((channel, index) => {
+    const title = channelTitle(channel, index);
+    return [button(title, 'channels:card', { channelId: normalize(channel.channelId || channel.id), channelTitle: title, botAccess: channel.botAccess !== false })];
+  });
+  return { ok: true, route: 'channels:list', owner: 'channels', text: ['Мои каналы', '', 'Выберите канал.'].join('\n'), attachments: keyboard([...rows, [button('Назад', 'channels:home')], [button('Главное меню', 'main:home')]]) };
 }
 function channelsCard(context = {}) {
   const payload = context.payload || context.channel || {};
-  const title = normalize(payload.channelTitle || payload.title) || 'Канал';
-  return { ok: true, route: 'channels:card', owner: 'channels', text: ['Карточка канала', '', `Канал: ${title}`, 'Статус подключения: канал виден в вашем кабинете.', 'Права бота: нажмите «Статус подключения», чтобы проверить доступные сведения.', '', 'Управление каналом пока доступно как безопасный экран без рискованных действий.'].join('\n'), attachments: keyboard([[button('Статус подключения', 'channels:status', { channelTitle: title })], [button('Управление каналом', 'channels:manage', { channelTitle: title })], ...sectionNavRows('channels', { currentRoute: 'channels:card', backAction: 'channels:list' })]) };
+  const title = channelTitle(payload, 0);
+  const status = payload.botAccess === false ? 'требуется проверка' : 'подключён';
+  return { ok: true, route: 'channels:card', owner: 'channels', text: [`Канал: ${title}`, `Статус: ${status}`].join('\n'), attachments: keyboard([[button('Обновить статус', 'channels:status', { channelId: normalize(payload.channelId), channelTitle: title })], [button('Назад', 'channels:list')], [button('Главное меню', 'main:home')]]) };
 }
 function channelsStatus(route, context = {}) {
   const payload = context.payload || context.channel || {};
-  const title = normalize(payload.channelTitle || payload.title) || 'Канал';
-  return { ok: true, route, owner: 'channels', text: ['Статус подключения', '', `Канал: ${title}`, 'Канал отображается среди ваших подключённых каналов.', 'Проверка прав бота зависит от ответа MAX API. Если бот не видит канал, добавьте его администратором и перешлите пост ещё раз.'].join('\n'), attachments: keyboard(sectionNavRows('channels', { currentRoute: route, backAction: 'channels:card', backPayload: { channelTitle: title } })) };
+  const title = channelTitle(payload, 0);
+  const status = payload.botAccess === false ? 'требуется проверка' : 'подключён';
+  return { ok: true, route, owner: 'channels', text: [`Канал: ${title}`, `Статус: ${status}`].join('\n'), attachments: keyboard([[button('Обновить статус', 'channels:status', { channelId: normalize(payload.channelId), channelTitle: title })], [button('Назад', 'channels:list')], [button('Главное меню', 'main:home')]]) };
 }
-function channelsManage(route, context = {}) {
-  const payload = context.payload || context.channel || {};
-  const title = normalize(payload.channelTitle || payload.title) || 'Канал';
-  return { ok: true, route, owner: 'channels', text: ['Управление каналом', '', `Канал: ${title}`, 'Безопасная заглушка: действия управления будут включены после отдельной проверки. Сейчас здесь нет удаления, переноса или рискованных операций.'].join('\n'), attachments: keyboard(sectionNavRows('channels', { currentRoute: route, backAction: 'channels:card', backPayload: { channelTitle: title } })) };
-}
+function channelsManage(route, context = {}) { return channelsCard(context); }
 
 function chooseChannel(owner, context = {}) {
   const section = canonical.sectionById[owner] || { title: sectionTitle(owner) };
@@ -274,9 +279,9 @@ function pushHome() {
     ok: true,
     route: 'push:home',
     owner: 'push',
-    text: ['🔔 Push-уведомления', '', 'Опубликуйте кнопку подключения в MAX-чат, чтобы участники могли получать уведомления на iPhone через AdminKIT Push.'].join('\n'),
+    text: ['🔔 Push-уведомления', '', 'Опубликуйте кнопку подключения в MAX-чат или канал, чтобы участники могли получать уведомления на iPhone через AdminKIT Push.'].join('\n'),
     attachments: keyboard([
-      [button('Опубликовать приглашение в чат', 'admin_push_select_chat')],
+      [button('Опубликовать приглашение', 'admin_push_select_chat')],
       [button('Как это работает', 'admin_push_help')],
       [navButton('Главное меню', 'main:home')]
     ])
@@ -353,18 +358,22 @@ function selfTest() {
   const rootNavOk = rootScreens.every((screen) => {
     const texts = visibleButtonTexts(screen);
     const pushRoot = screen.route === 'push:home';
+    const channelsRoot = screen.route === 'channels:home';
     const commentsRoot = screen.route === 'comments:home';
     const giftsRoot = screen.route === 'gifts:home';
     const requiredNavigation = pushRoot
       ? texts.includes('Как это работает') && texts.includes('Главное меню')
-      : (commentsRoot
+      : (channelsRoot
         ? texts.includes('Помощь') && texts.includes('Главное меню')
-        : (giftsRoot ? texts.includes('Главное меню') : texts.includes('❓ Помощь по разделу') && texts.includes('🏠 Главное меню')));
+        : (commentsRoot
+        ? texts.includes('Помощь') && texts.includes('Главное меню')
+        : (giftsRoot ? texts.includes('Главное меню') : texts.includes('❓ Помощь по разделу') && texts.includes('🏠 Главное меню'))));
     return requiredNavigation && !texts.includes('↩️ В начало раздела') && !texts.includes('⬅️ Назад');
   });
   const deepScreens = ['channels:list', 'channels:connect', 'settings:clear_chat', 'settings:notifications', 'settings:language_format', 'settings:privacy_terms', 'settings:navigation', 'comments:choose_channel', 'comments:choose_post', 'comments:post'].map((route) => render(route, route === 'comments:post' ? { payload: { postTitle: 'Тестовый пост' } } : sampleContext));
   const deepNavOk = deepScreens.every((screen) => {
     const texts = visibleButtonTexts(screen);
+    if (screen.route === 'channels:list' || screen.route === 'channels:connect') return texts.includes('Назад') && texts.includes('Главное меню');
     return texts.includes('↩️ В начало раздела') && texts.includes('❓ Помощь по разделу') && texts.includes('🏠 Главное меню') && texts.includes('⬅️ Назад');
   });
   const helpNavOk = helpScreens.every((screen) => {
