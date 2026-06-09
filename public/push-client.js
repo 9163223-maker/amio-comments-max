@@ -207,7 +207,7 @@ function isPairedRelaunchMode() {
   if (!context) return false;
   const tokenStatus = state.join && state.join.tokenStatus ? state.join.tokenStatus : '';
   if (tokenStatus === 'valid' && safeStoredJoinToken(state.join && state.join.token)) return false;
-  return Boolean((state.join && (state.join.landingMode || state.join.joinMode)) || context.paired);
+  return Boolean((state.join && (state.join.relaunchMode || state.join.landingMode || state.join.joinMode)) || context.paired);
 }
 
 function applyChatLinkMode() {

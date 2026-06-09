@@ -5,6 +5,7 @@ const storage = require('./services/webPushStorage');
 const pairing = require('./services/pushPairingService');
 const dispatch = require('./services/pushDispatchService');
 const confirmation = require('./services/pushConfirmationService');
+const pushPairingLog = require('./services/pushPairingLogService');
 const groupPush = require('./services/groupPushOnboardingService');
 const { sendMessage } = require('./services/maxApi');
 
@@ -242,8 +243,21 @@ function stripMarkedHtml(html, marker) {
 
 function pushManifestHref(token) {
   const safeToken = clean(token);
-  return safeToken ? `/push/manifest.json?t=${encodeURIComponent(safeToken)}` : '/push/manifest.json';
+  return safeToken ? `/push/manifest/${encodeURIComponent(safeToken)}.json` : '/push/manifest.json';
 }
+
+function pairingTokenFromRequest(req) {
+  return clean(req && req.params && req.params.token) || clean(req && req.query && req.query.t);
+}
+
+function pairingOpenedAs(req) {
+  return clean(req && req.query && req.query.source) === 'manifest-start-url' ? 'standalone-pwa' : 'safari';
+}
+
+function recordPushPairingEvent(event) {
+  pushPairingLog.record(event).catch(() => undefined);
+}
+
 
 function safeChatTitle(value) { return clean(value).slice(0, 120); }
 function safePublicChatItem(value) {
@@ -264,7 +278,8 @@ function sendPushPage(req, res, options = {}) {
     joinMode: true,
     tokenCookie: true,
     tokenStatus: options.tokenStatus || 'valid',
-    token: options.linkChatMode ? '' : clean(options.token),
+    token: options.linkChatMode || options.tokenStatus === 'used' ? '' : clean(options.token),
+    relaunchMode: options.tokenStatus === 'used',
     adminMode: false,
     chatLinkMode: Boolean(options.linkChatMode),
     existingActiveDevicesFound: Boolean(options.existingActiveDevicesFound),
@@ -387,6 +402,7 @@ async function buildStatus(options = {}) {
 
 function install(app) {
   app.get('/push', (req, res) => {
+    recordPushPairingEvent({ event: 'push_opened', route: '/push', result: 'binding_missing', tokenSource: 'missing', hasPairingToken: false, hasPairingCookie: Boolean(getCookie(req, 'push_pairing_token')), openedAs: 'unknown' });
     sendPushPage(req, res, { mode: 'client', joinMode: false });
   });
 
@@ -394,8 +410,10 @@ function install(app) {
     sendPushPage(req, res, { mode: 'admin', joinMode: false });
   });
 
-  app.get('/push/join', async (req, res) => {
-    const token = clean(req.query && req.query.t);
+  async function handlePushJoin(req, res) {
+    const token = pairingTokenFromRequest(req);
+    const fromManifest = clean(req.query && req.query.source) === 'manifest-start-url';
+    recordPushPairingEvent({ event: fromManifest ? 'pwa_opened' : 'link_opened', pairingToken: token, route: '/push/join', result: fromManifest ? 'pwa_opened' : 'link_opened', tokenSource: fromManifest ? 'manifest-start-url' : 'query', hasPairingToken: Boolean(token), hasPairingCookie: Boolean(getCookie(req, 'push_pairing_token')), openedAs: pairingOpenedAs(req) });
     try {
       const verified = pairing.verifyPairingToken(token);
       const maxAge = pairingCookieMaxAgeSeconds(verified.expiresAt);
@@ -419,15 +437,19 @@ function install(app) {
       }
       return res.status(400).send(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="apple-touch-icon" sizes="180x180" href="/public/adminkit-push-icon-192.png?v=pr167"><title>АдминКИТ Push</title></head><body><main><h1>АдминКИТ Push</h1><p>Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.</p><p>Подключённые чаты появятся здесь после включения уведомлений.</p></main></body></html>`);
     }
-  });
+  }
+  app.get('/push/join', handlePushJoin);
+  app.get('/push/join/:token', handlePushJoin);
 
-  app.get('/push/manifest.json', (req, res) => {
-    const token = clean(req.query && req.query.t);
-    const startUrl = token ? `/push/join?t=${encodeURIComponent(token)}` : '/push';
+  function sendPushManifest(req, res) {
+    const token = pairingTokenFromRequest(req).replace(/\.json$/i, '');
+    const flowId = pushPairingLog.hash(token);
+    const startUrl = token ? `/push/join/${encodeURIComponent(token)}?source=manifest-start-url` : '/push';
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({
       name: 'АдминКИТ Push',
       short_name: 'AdminKIT Push',
-      id: '/push',
+      id: token ? `/push/install/${flowId}` : '/push',
       display: 'standalone',
       start_url: startUrl,
       scope: '/push/',
@@ -438,7 +460,9 @@ function install(app) {
         { src: '/public/adminkit-push-icon-512.png?v=pr167', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
       ]
     });
-  });
+  }
+  app.get('/push/manifest.json', sendPushManifest);
+  app.get('/push/manifest/:token', sendPushManifest);
 
   app.get('/push/sw.js', (req, res) => {
     res.type('application/javascript').sendFile(path.join(__dirname, 'public', 'push-sw.js'));
@@ -682,7 +706,7 @@ function install(app) {
     res.status(result.ok ? 200 : 503).json(result);
   });
 
-  return { ok: true, routes: ['/push', '/push/admin', '/push/join', '/push/manifest.json', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/device/status', '/api/push/pair', '/api/push/link-chat', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted', '/internal/max/chats', '/internal/max/chat-members', '/internal/max/group-push-invite'] };
+  return { ok: true, routes: ['/push', '/push/admin', '/push/join', '/push/join/:token', '/push/manifest.json', '/push/manifest/:token', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/device/status', '/api/push/pair', '/api/push/link-chat', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted', '/internal/max/chats', '/internal/max/chat-members', '/internal/max/group-push-invite'] };
 }
 
 module.exports = {
