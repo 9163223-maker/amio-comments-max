@@ -1,9 +1,9 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
+  "version": "CC8.3.52-PR178-PUSH-PAIRING-BINDING",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
-    "start": "node clean-entrypoint-1.53.10-pr89.js",
+    "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
     "test": "node scripts/smoke-test.js"
   },
   "dependencies": {
@@ -18,9 +18,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
-  "displayVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
-  "sourceMarker": "adminkit-pr177-channels-push-ux",
+  "buildVersion": "CC8.3.52-PR178-PUSH-PAIRING-BINDING",
+  "displayVersion": "CC8.3.52-PR178-PUSH-PAIRING-BINDING",
+  "sourceMarker": "adminkit-pr178-push-pairing-binding",
   "gitCommit": "",
   "pr165RuntimeWired": true
 }
