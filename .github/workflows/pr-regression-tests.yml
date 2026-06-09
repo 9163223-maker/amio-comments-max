@@ -49,6 +49,11 @@ jobs:
 
       - name: Run AdminKIT regression tests
         run: |
+          if [ -f scripts/test-channels-push-ux-pr177.js ]; then
+            node scripts/test-channels-push-ux-pr177.js
+          else
+            echo "skip PR177 channels/push UX test: file not present on this branch"
+          fi
           if [ -f scripts/test-production-push-audit-pr173.js ]; then
             node scripts/test-production-push-audit-pr173.js
           else

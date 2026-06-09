@@ -35,11 +35,11 @@ function apiFor({ role = 'administrator', requesterId = 'user-pr172', members = 
   assert(canonicalMenu.clientSections.some((section) => section.title === '🔔 Push-уведомления' && section.route === 'push:home'), 'active canonical menu exposes visible Push section');
   const activePushScreen = menuAdapter.render('push:home');
   const activePushLabels = activePushScreen.attachments[0].payload.buttons.flat().map((button) => button.text);
-  assert.deepStrictEqual(activePushLabels, ['Опубликовать приглашение в чат', 'Как это работает', 'Главное меню'], 'active Push section has the required three buttons');
-  assert(activePushScreen.text.includes('Опубликуйте кнопку подключения в MAX-чат, чтобы участники могли получать уведомления на iPhone через AdminKIT Push.'), 'active canonical Push screen has required product copy');
+  assert.deepStrictEqual(activePushLabels, ['Опубликовать приглашение', 'Как это работает', 'Главное меню'], 'active Push section has the required three buttons');
+  assert(activePushScreen.text.includes('Опубликуйте кнопку подключения в MAX-чат или канал, чтобы участники могли получать уведомления на iPhone через AdminKIT Push.'), 'active canonical Push screen has required product copy');
   assert(botSource.includes("text: '🔔 Push-уведомления'") && botSource.includes("buildAdminCallbackPayload('admin_section_push')"), 'legacy activated/admin main menu also exposes visible Push section');
-  assert(botSource.includes("'🔔 Push-уведомления'") && botSource.includes('Опубликуйте кнопку подключения в MAX-чат, чтобы участники могли получать уведомления на iPhone через AdminKIT Push.'), 'Push section has required title and product copy');
-  for (const label of ['Опубликовать приглашение в чат', 'Как это работает', 'Главное меню']) assert(botSource.includes(`text: '${label}'`), `Push section includes ${label}`);
+  assert(botSource.includes("'🔔 Push-уведомления'") && botSource.includes('Опубликуйте кнопку подключения в MAX-чат или канал, чтобы участники могли получать уведомления на iPhone через AdminKIT Push.'), 'Push section has required title and product copy');
+  for (const label of ['Опубликовать приглашение', 'Как это работает', 'Главное меню']) assert(botSource.includes(`text: '${label}'`), `Push section includes ${label}`);
   assert(botSource.includes("buildAdminCallbackPayload('admin_push_select_chat')"), 'publish action opens a chat/channel picker');
   assert(botSource.includes("buildAdminCallbackPayload('admin_push_publish_invite', {"), 'selected chat id is embedded in scoped publish callback');
   assert(botSource.includes("const selectedChatId = String(payload.chatId || '').trim()"), 'publish handler never falls back to the current/public chat');
@@ -67,7 +67,7 @@ function apiFor({ role = 'administrator', requesterId = 'user-pr172', members = 
   });
   assert.strictEqual(denied.error, 'requester_not_admin', 'ordinary member cannot publish');
   assert(!ordinaryApi.calls.some((call) => call[0] === 'sendMessage'), 'ordinary member denial publishes nothing');
-  assert.strictEqual(publishing.NON_ADMIN_MESSAGE, 'Опубликовать приглашение может только администратор этого чата или канала.', 'non-admin sees required copy');
+  assert.strictEqual(publishing.NON_ADMIN_MESSAGE, 'Не удалось опубликовать приглашение. Публиковать кнопку может только администратор или владелец выбранного чата/канала.', 'non-admin sees required copy');
 
   for (const scenario of [
     { name: 'missing requester', requesterId: '' },
@@ -83,7 +83,7 @@ function apiFor({ role = 'administrator', requesterId = 'user-pr172', members = 
     const result = await publishing.verifyRequesterCanPublish({ botToken: 'safe-test-token', requesterId: scenario.requesterId === undefined ? 'user-pr172' : scenario.requesterId, chatId: scenario.chatId === undefined ? 'selected-chat-pr172' : scenario.chatId, api });
     assert.strictEqual(result.error, 'verification_failed', `${scenario.name} fails closed`);
   }
-  assert.strictEqual(publishing.VERIFICATION_FAILURE_MESSAGE, 'Не удалось проверить права администратора. Проверьте, что бот добавлен в чат и имеет нужные права.', 'verification failure has required copy');
+  assert.strictEqual(publishing.VERIFICATION_FAILURE_MESSAGE, 'Не удалось проверить права в выбранном чате/канале. Проверьте, что бот добавлен туда администратором, и попробуйте ещё раз.', 'verification failure has required copy');
 
   assert(onboarding.isGroupPushCommandText('/push'), 'ordinary members retain /push');
   assert(onboarding.isGroupPushEnablePayload('group_push_enable'), 'ordinary members retain group_push_enable callback');
@@ -93,10 +93,10 @@ function apiFor({ role = 'administrator', requesterId = 'user-pr172', members = 
   assert(linkChatSource.includes("app.post('/api/push/link-chat'"), 'PR168 /api/push/link-chat remains unchanged and present');
   assert(publicEntrySource.includes('🔔 Уведомления чатов'), 'PR170 public B2C entrypoint remains visible');
   assert(publicEntrySource.includes('Откройте нужный MAX-чат, где установлен бот.') && publicEntrySource.includes('Откройте MAX-чат, где установлен бот.'), 'PR170 chat-specific connection copy remains unchanged');
-  assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET', 'runtime marker advances to PR173');
-  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr176-comments-ux-gifts-reset', 'source marker advances to PR173');
-  assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET'"), 'active entrypoint has PR173 runtime marker');
-  assert(entrypoint.includes("const SOURCE='adminkit-pr176-comments-ux-gifts-reset'"), 'active entrypoint has PR173 source marker');
+  assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR177-CHANNELS-PUSH-UX', 'runtime marker advances to PR173');
+  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr177-channels-push-ux', 'source marker advances to PR173');
+  assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR177-CHANNELS-PUSH-UX'"), 'active entrypoint has PR173 runtime marker');
+  assert(entrypoint.includes("const SOURCE='adminkit-pr177-channels-push-ux'"), 'active entrypoint has PR173 source marker');
 
   console.log('visible push admin flow pr172 ok');
 })().catch((error) => { console.error(error && error.stack || error); process.exit(1); });

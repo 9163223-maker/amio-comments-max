@@ -1,6 +1,6 @@
 'use strict';
-const RUNTIME='CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET';
-const SOURCE='adminkit-pr176-comments-ux-gifts-reset';
+const RUNTIME='CC8.3.52-PR177-CHANNELS-PUSH-UX';
+const SOURCE='adminkit-pr177-channels-push-ux';
 const BASE='https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run';
 let persistentStoreState=null;
 let debugStoreSanitizerState=null;

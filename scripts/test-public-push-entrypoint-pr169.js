@@ -86,10 +86,10 @@ function actionOf(item = {}) {
 
     const pkg = require('../package.json');
     const entrypoint = fs.readFileSync(path.join(repoRoot, 'clean-entrypoint-1.53.10-pr89.js'), 'utf8');
-    assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET', 'package build marker advances to PR173');
-    assert.strictEqual(pkg.sourceMarker, 'adminkit-pr176-comments-ux-gifts-reset', 'package source marker advances to PR173');
-    assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET'"), 'active entrypoint runtime marker is PR173');
-    assert(entrypoint.includes("const SOURCE='adminkit-pr176-comments-ux-gifts-reset'"), 'active entrypoint source marker is PR173');
+    assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR177-CHANNELS-PUSH-UX', 'package build marker advances to PR173');
+    assert.strictEqual(pkg.sourceMarker, 'adminkit-pr177-channels-push-ux', 'package source marker advances to PR173');
+    assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR177-CHANNELS-PUSH-UX'"), 'active entrypoint runtime marker is PR173');
+    assert(entrypoint.includes("const SOURCE='adminkit-pr177-channels-push-ux'"), 'active entrypoint source marker is PR173');
 
     console.log('public push entrypoint pr169 ok');
   } finally {

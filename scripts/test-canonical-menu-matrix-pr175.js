@@ -20,12 +20,12 @@ const expectedTop = [
   'Редактор постов', 'Архив постов', 'Личный кабинет', 'Настройки'
 ];
 const expectedItems = {
-  channels: ['Подключить канал', 'Мои каналы', 'Проверить права бота', 'Инструкция по подключению'],
+  channels: ['Подключить канал', 'Мои каналы', 'Инструкция'],
   comments: ['Автокомментарии', 'Включить к посту', 'Фото', 'Ответы', 'Реакции', 'Помощь'],
   gifts: ['Создать подарок', 'Текущий подарок', 'Список подарков'],
   buttons: ['Добавить кнопку', 'Текущие кнопки'],
   stats: ['Обзор', 'Подписчики', 'Посты', 'Комментарии', 'Реакции', 'Подарки', 'Кнопки под постами / клики', 'Рекламные ссылки', 'Источники подписчиков', 'Обновить данные'],
-  push: ['Опубликовать приглашение в чат', 'Как это работает'],
+  push: ['Опубликовать приглашение', 'Как это работает'],
   ad_links: ['Создать рекламную ссылку', 'Мои рекламные ссылки'],
   polls: ['Создать опрос', 'Результаты опросов'],
   highlights: ['Поставить выделение', 'Снять выделение'],
@@ -43,8 +43,9 @@ assert.ok(expectedTop.includes('🔔 Push-уведомления'), 'Push remain
 
 for (const section of canonical.clientSections) {
   const screen = adapter.render(section.route);
-  assert.deepStrictEqual(businessLabels(screen), expectedItems[section.id], `${section.id}: exact visible business items`);
-  for (const item of buttons(screen).filter((button) => businessLabels(screen).includes(String(button.text || '').trim()))) {
+  const actualBusinessLabels = section.id === 'channels' ? businessLabels(screen).filter((label) => label !== 'Помощь') : businessLabels(screen);
+  assert.deepStrictEqual(actualBusinessLabels, expectedItems[section.id], `${section.id}: exact visible business items`);
+  for (const item of buttons(screen).filter((button) => actualBusinessLabels.includes(String(button.text || '').trim()))) {
     assert.ok(item.payload && String(item.payload).trim(), `${section.id}/${item.text}: non-empty callback`);
     const parsed = JSON.parse(item.payload);
     assert.ok(parsed.action || parsed.route, `${section.id}/${item.text}: reachable action or route`);
@@ -96,9 +97,9 @@ for (const payload of visibleScreens.flatMap(payloads)) assert.ok(!/production_c
 
 const entrypoint = read('clean-entrypoint-1.53.10-pr89.js');
 const pkg = JSON.parse(read('package.json'));
-assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET');
-assert.strictEqual(pkg.sourceMarker, 'adminkit-pr176-comments-ux-gifts-reset');
-assert.ok(entrypoint.includes("const RUNTIME='CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET'"));
-assert.ok(entrypoint.includes("const SOURCE='adminkit-pr176-comments-ux-gifts-reset'"));
+assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR177-CHANNELS-PUSH-UX');
+assert.strictEqual(pkg.sourceMarker, 'adminkit-pr177-channels-push-ux');
+assert.ok(entrypoint.includes("const RUNTIME='CC8.3.52-PR177-CHANNELS-PUSH-UX'"));
+assert.ok(entrypoint.includes("const SOURCE='adminkit-pr177-channels-push-ux'"));
 
 console.log('PR175 canonical menu matrix assertions passed');

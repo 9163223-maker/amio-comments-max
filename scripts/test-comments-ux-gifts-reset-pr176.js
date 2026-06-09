@@ -65,7 +65,7 @@ assert.ok(adapterGiftListButton, 'adapter Gifts root renders the list button');
 assert.strictEqual(JSON.parse(adapterGiftListButton.payload).action, 'gift_admin_list_campaigns', 'adapter Gifts list routes to gift_admin_list_campaigns');
 
 const pkg = JSON.parse(read('package.json'));
-assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR176-COMMENTS-UX-GIFTS-RESET');
-assert.strictEqual(pkg.sourceMarker, 'adminkit-pr176-comments-ux-gifts-reset');
+assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR177-CHANNELS-PUSH-UX');
+assert.strictEqual(pkg.sourceMarker, 'adminkit-pr177-channels-push-ux');
 
 console.log('PR176 Comments UX and Gifts reset assertions passed');

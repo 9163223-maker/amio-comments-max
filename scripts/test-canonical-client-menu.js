@@ -253,7 +253,7 @@ for (const section of canonical.clientSections) {
   const rootLabels = labels(root);
   const expectedRootNavigation = section.id === 'push'
     ? ['Как это работает', 'Главное меню']
-    : (section.id === 'comments' ? ['Помощь', 'Главное меню'] : (section.id === 'gifts' ? ['Главное меню'] : ['❓ Помощь по разделу', '🏠 Главное меню']));
+    : (section.id === 'channels' ? ['Помощь', 'Главное меню'] : (section.id === 'comments' ? ['Помощь', 'Главное меню'] : (section.id === 'gifts' ? ['Главное меню'] : ['❓ Помощь по разделу', '🏠 Главное меню'])));
   assertHasAll(rootLabels, expectedRootNavigation, `${section.id} root navigation`);
   assert.ok(!rootLabels.includes('↩️ В начало раздела'), `${section.id} root must not include section-home self-click`);
   assert.ok(!rootLabels.includes('⬅️ Назад'), `${section.id} root must not include back without context`);
@@ -264,9 +264,13 @@ for (const section of canonical.clientSections) {
   assert.ok(!/postId|channelId|commentKey|token|payload|trace/i.test(help.text), `${section.id} help must not expose technical identifiers`);
 }
 
+const channelDeepCases = [adapter.render('channels:list'), adapter.render('channels:connect')];
+for (const screen of channelDeepCases) {
+  assertHasAll(labels(screen), ['Назад', 'Главное меню'], `${screen.route || screen.id} channel navigation`);
+  assertNoSelfRoute(screen, screen.route || screen.id);
+}
+
 const deepCases = [
-  adapter.render('channels:list'),
-  adapter.render('channels:connect'),
   adapter.render('comments:choose_channel', { dataContext: { channels: [{ channelId: 'internal-channel-1', title: 'Новости' }] } }),
   adapter.render('comments:choose_post', { dataContext: { channelId: 'internal-channel-1', channelTitle: 'Новости', posts: [{ postId: 'post-1', commentKey: 'comment-key-1', title: 'Анонс недели' }] } }),
   adapter.render('comments:post', { payload: { postTitle: 'Анонс недели' } }),
@@ -278,8 +282,8 @@ for (const screen of deepCases) {
 }
 
 const zeroChannels = adapter.render('channels:list', { channels: [] });
-assert.ok(/У вас пока нет подключённых каналов\./.test(zeroChannels.text), 'zero-channel channels list must show safe empty state');
-assertHasAll(labels(zeroChannels), ['Подключить канал', '❓ Помощь по разделу', '🏠 Главное меню'], 'zero-channel channels list navigation');
+assert.ok(/Каналы пока не подключены\./.test(zeroChannels.text), 'zero-channel channels list must show safe empty state');
+assertHasAll(labels(zeroChannels), ['Подключить канал', 'Назад', 'Главное меню'], 'zero-channel channels list navigation');
 
 const accountActive = adapter.render('account:home', { maxUserId: 'pr105-start-user' });
 assert.strictEqual(labels(accountActive).filter((label) => label === '🏠 Главное меню' || label === 'Главное меню').length, 1, 'active account screen must show one main-menu button');
