@@ -1,0 +1,43 @@
+{
+  "ok": true,
+  "updatedAt": "2026-06-09T15:22:44.774Z",
+  "limit": 50,
+  "latest": {
+    "startedAt": "2026-06-09T15:22:33.985Z",
+    "bootId": "mq6sgpsh-1f2c69d2",
+    "runtimeVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
+    "buildVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
+    "displayVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
+    "sourceMarker": "adminkit-pr177-channels-push-ux",
+    "entrypoint": "clean-entrypoint-1.53.10-pr89.js",
+    "gitCommit": "",
+    "nodeEnv": "",
+    "pr178PushPairingBinding": true,
+    "pushPairingRuntimeVersion": "CC8.3.52-PR178-PUSH-PAIRING-BINDING",
+    "pushPairingSourceMarker": "adminkit-pr178-push-pairing-binding",
+    "pr165RuntimeWired": true,
+    "postgresConfigured": true,
+    "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
+    "safe": true
+  },
+  "items": [
+    {
+      "startedAt": "2026-06-09T15:22:33.985Z",
+      "bootId": "mq6sgpsh-1f2c69d2",
+      "runtimeVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
+      "buildVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
+      "displayVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
+      "sourceMarker": "adminkit-pr177-channels-push-ux",
+      "entrypoint": "clean-entrypoint-1.53.10-pr89.js",
+      "gitCommit": "",
+      "nodeEnv": "",
+      "pr178PushPairingBinding": true,
+      "pushPairingRuntimeVersion": "CC8.3.52-PR178-PUSH-PAIRING-BINDING",
+      "pushPairingSourceMarker": "adminkit-pr178-push-pairing-binding",
+      "pr165RuntimeWired": true,
+      "postgresConfigured": true,
+      "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
+      "safe": true
+    }
+  ]
+}
