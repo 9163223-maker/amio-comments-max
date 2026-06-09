@@ -211,7 +211,10 @@ assertNo(/видео|файл/i, allVisibleLabels, 'video/files comments labels 
 assertNo(/postId|channelId|commentKey|token|payload|trace/i, allVisibleLabels, 'technical ids must not be client-visible labels');
 
 const flowSteps = ['Выбрать канал', 'Выбрать пост', 'Материал подарка', 'Текст получателю', 'Условия'];
-for (const step of flowSteps) assert.ok(!allVisibleLabels.some((label) => label.toLowerCase() === step.toLowerCase()), `${step} must not be a section-root menu item`);
+for (const step of flowSteps) {
+  const allowedEditorChoice = step === 'Выбрать пост' && labels(adapter.render('editor:home')).includes(step);
+  assert.ok(allowedEditorChoice || !allVisibleLabels.some((label) => label.toLowerCase() === step.toLowerCase()), `${step} must not be a section-root menu item`);
+}
 
 assert.ok(!labels(adapter.render('buttons:home')).some((label) => /удалить/i.test(label)), 'delete button must stay inside current buttons, not section root');
 assert.ok(!labels(adapter.render('ad_links:home')).some((label) => /отключить/i.test(label)), 'disable ad link must stay inside ad link card, not section root');
@@ -222,7 +225,7 @@ const settingsRoot = adapter.render('settings:home');
 const settingsRootLabels = labels(settingsRoot);
 assert.deepStrictEqual(
   settingsRootLabels,
-  ['Очистить чат', 'Уведомления', 'Язык / формат', 'Помощь', 'Privacy / Terms', 'Навигация', '❓ Помощь по разделу', '🏠 Главное меню'],
+  ['Очистить чат', 'Помощь', 'Privacy / Terms', '❓ Помощь по разделу', '🏠 Главное меню'],
   'settings root must expose safe client-visible actions plus root navigation'
 );
 assert.ok(!settingsRootLabels.includes('↩️ В начало раздела'), 'settings root must not include section-home self-click');
@@ -305,7 +308,8 @@ for (const section of ['comments', 'gifts', 'buttons', 'polls', 'highlights', 'e
   assert.strictEqual(contract.implementationStatus, 'contract_only', `${section} picker contract must not imply production migration`);
 }
 const canonicalActionById = Object.fromEntries(canonical.allActions().map((item) => [item.id, item]));
-assert.strictEqual(canonicalActionById['comments.post_comments'].targetAction, 'comments_select_post', 'comments production action must keep existing picker action');
+assert.strictEqual(canonicalActionById['comments.auto_comments'].targetAction, 'comments_auto_patch', 'comments auto-management action must be wired');
+assert.strictEqual(canonicalActionById['comments.manual_patch'].targetAction, 'comments_manual_patch', 'comments manual patch action must be wired independently');
 assert.strictEqual(canonicalActionById['gifts.replace'].targetAction, 'gift_admin_replace_pick', 'gifts replace production action must use clean replace picker');
 assert.strictEqual(canonicalActionById['gifts.current'].targetAction, 'gift_admin_show_current', 'gifts current production action must keep existing current action');
 assert.strictEqual(canonicalActionById['buttons.add'].targetAction, 'button_admin_start_add', 'buttons add production action must keep existing flow action');

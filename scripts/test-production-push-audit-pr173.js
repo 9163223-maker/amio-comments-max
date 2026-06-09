@@ -80,13 +80,13 @@ function apiFor({ role = 'owner', fail = '' } = {}) {
   assert(client.includes("fetchJson('/api/push/link-chat', { method: 'POST', body: JSON.stringify({}) })"), 'existing-device add-chat client path remains unchanged');
   assert(client.includes('Подключить этот чат'), 'link-chat product label remains present');
 
-  assert.strictEqual(pkg.version, 'CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT');
-  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr173-production-push-audit');
+  assert.strictEqual(pkg.version, 'CC8.3.52-PR175-CANONICAL-MENU-MATRIX');
+  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr175-canonical-menu-matrix');
   assert.strictEqual(buildInfo.runtimeVersion, pkg.version);
   assert.strictEqual(buildInfo.buildVersion, pkg.version);
   assert.strictEqual(buildInfo.sourceMarker, pkg.sourceMarker);
-  assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT'"));
-  assert(entrypoint.includes("const SOURCE='adminkit-pr173-production-push-audit'"));
+  assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR175-CANONICAL-MENU-MATRIX'"));
+  assert(entrypoint.includes("const SOURCE='adminkit-pr175-canonical-menu-matrix'"));
 
   console.log('production push audit pr173 ok');
 })().catch((error) => { console.error(error && error.stack || error); process.exit(1); });

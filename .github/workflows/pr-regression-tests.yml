@@ -54,6 +54,11 @@ jobs:
           else
             echo "skip PR173 audit test: file not present on this branch"
           fi
+          if [ -f scripts/test-canonical-menu-matrix-pr175.js ]; then
+            node scripts/test-canonical-menu-matrix-pr175.js
+          else
+            echo "skip PR175 menu matrix test: file not present on this branch"
+          fi
           node scripts/test-visible-push-admin-flow-pr172.js
           node scripts/test-public-push-entrypoint-pr169.js
           node scripts/test-push-admin-invite-link-chat-pr168.js

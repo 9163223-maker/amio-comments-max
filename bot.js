@@ -2955,26 +2955,43 @@ function buildGiftMainMenuKeyboard(config = null, options = {}) {
 }
 
 
-function buildCommentsSectionKeyboard(config = null, targetPost = null) {
+function getAutoCommentsEnabled(userId = '') {
+  return getSetupState(userId)?.autoCommentsEnabled !== false;
+}
+
+function setAutoCommentsEnabled(userId = '', enabled = true) {
+  return setSetupState(userId, { autoCommentsEnabled: Boolean(enabled), autoCommentsUpdatedAt: Date.now() });
+}
+
+function buildCommentsSectionKeyboard(config = null, targetPost = null, userId = '') {
   const freshTargetPost = getFreshTargetPost(targetPost);
-  let rows = [];
-
+  const selectedPayload = { source: 'comments_post_card' };
+  let rows = [
+    [{ type: 'callback', text: 'Автокомментарии', payload: buildAdminCallbackPayload('comments_auto_patch') }],
+    [{ type: 'callback', text: 'Пропатчить выбранный пост', payload: buildAdminCallbackPayload('comments_manual_patch', freshTargetPost?.commentKey ? selectedPayload : { source: 'comments' }) }],
+    [{ type: 'callback', text: 'Фото в комментариях', payload: buildAdminCallbackPayload(freshTargetPost?.commentKey ? 'comments_photos' : 'comments_select_post', freshTargetPost?.commentKey ? selectedPayload : { source: 'comments', afterSelect: 'comments_photos' }) }],
+    [{ type: 'callback', text: 'Реакции и ответы', payload: buildAdminCallbackPayload(freshTargetPost?.commentKey ? 'comments_reactions' : 'comments_select_post', freshTargetPost?.commentKey ? selectedPayload : { source: 'comments', afterSelect: 'comments_reactions' }) }]
+  ];
   if (freshTargetPost?.commentKey) {
-    const cardPayload = { source: 'comments_post_card' };
-    rows.push([{ type: 'callback', text: 'Проверить комментарии', payload: buildAdminCallbackPayload('comments_check', cardPayload) }]);
-    rows.push([{ type: 'callback', text: 'Список комментариев', payload: buildAdminCallbackPayload('comments_list', cardPayload) }]);
-    rows.push([{ type: 'callback', text: 'Фото в комментариях', payload: buildAdminCallbackPayload('comments_photos', cardPayload) }]);
-    rows.push([{ type: 'callback', text: 'Реакции и ответы', payload: buildAdminCallbackPayload('comments_reactions', cardPayload) }]);
-    rows.push([{ type: 'callback', text: 'Настройки кнопки комментариев', payload: buildAdminCallbackPayload('comments_button_settings', cardPayload) }]);
+    rows.push([{ type: 'callback', text: 'Проверить комментарии', payload: buildAdminCallbackPayload('comments_check', selectedPayload) }]);
+    rows.push([{ type: 'callback', text: 'Список комментариев', payload: buildAdminCallbackPayload('comments_list', selectedPayload) }]);
+    rows.push([{ type: 'callback', text: 'Настройки кнопки комментариев', payload: buildAdminCallbackPayload('comments_button_settings', selectedPayload) }]);
     rows.push([{ type: 'callback', text: 'Выбрать другой пост', payload: buildAdminCallbackPayload('comments_select_post', { source: 'comments' }) }]);
-  } else {
-    rows.push([{ type: 'callback', text: 'Выбрать пост', payload: buildAdminCallbackPayload('comments_select_post', { source: 'comments' }) }]);
   }
-
   rows.push([{ type: 'callback', text: 'Помощь по разделу', payload: buildAdminCallbackPayload('comments_how_it_works') }]);
-
   rows = appendAdminFooterRows(rows, { backAction: 'admin_section_main', rootAction: 'admin_section_comments' });
   return [{ type: 'inline_keyboard', payload: { buttons: rows } }];
+}
+
+function buildAutoCommentsText(userId = '') {
+  const enabled = getAutoCommentsEnabled(userId);
+  return ['Автокомментарии', '', `Автоматическая установка комментариев для новых постов: ${enabled ? 'включена' : 'выключена'}.`, '', 'Отключение влияет только на будущие публикации и не удаляет комментарии с уже обработанных постов.', 'Выбранный пост можно пропатчить вручную независимо от этой настройки.'].join('\n');
+}
+
+function buildAutoCommentsKeyboard(userId = '') {
+  const enabled = getAutoCommentsEnabled(userId);
+  const rows = [[{ type: 'callback', text: enabled ? 'Выключить автокомментарии' : 'Включить автокомментарии', payload: buildAdminCallbackPayload(enabled ? 'comments_auto_patch_disable' : 'comments_auto_patch_enable') }]];
+  return [{ type: 'inline_keyboard', payload: { buttons: appendAdminFooterRows(rows, { backAction: 'admin_section_comments', rootAction: 'admin_section_comments' }) } }];
 }
 
 function buildContentSectionText(targetPost = null) {
@@ -3736,7 +3753,7 @@ async function sendSectionMenu({ section = 'main', config, message, note = '', e
     attachments = buildGiftMainMenuKeyboard(config, { flow: currentFlow, targetPost });
     text = currentFlow ? buildGiftFlowGuidance(currentFlow, config, { targetPost }) : buildSectionIntro('gifts', { userName, userId, targetPost });
   } else if (section === 'comments') {
-    attachments = buildCommentsSectionKeyboard(config, targetPost);
+    attachments = buildCommentsSectionKeyboard(config, targetPost, userId);
     text = buildSectionIntro('comments', { userName, userId, targetPost });
   } else if (section === 'moderation') {
     attachments = buildModerationSectionKeyboard(targetPost);
@@ -4951,6 +4968,12 @@ async function handleDirectChannelPost(message, config) {
     } catch {}
   }
 
+  const channelOwnerId = String(getChannelsList().find((channel) => String(channel?.channelId || '') === String(channelId || ''))?.linkedByUserId || getSenderUserId(message) || '').trim();
+  if (channelOwnerId && !getAutoCommentsEnabled(channelOwnerId)) {
+    pushPostPatchTrace('direct_channel_post_auto_patch_disabled', { channelId, postId, messageId, messageIdCandidates });
+    return { ok: true, action: 'channel_post_auto_patch_disabled', channelId, postId };
+  }
+
   const patchStartedAt = Date.now();
   pushPostPatchTrace("direct_channel_post_patch_started", { channelId, postId, messageId, messageIdCandidates });
   const result = await tryPatchChannelPost({
@@ -5111,6 +5134,10 @@ async function handleMessageCallback(update, config) {
     'gift_admin_open_menu',
     'gift_admin_back',
     'comments_enable_new',
+    'comments_auto_patch',
+    'comments_auto_patch_enable',
+    'comments_auto_patch_disable',
+    'comments_manual_patch',
     'comments_old_post',
     'comments_edit_post',
     'comments_manage_buttons',
@@ -5323,6 +5350,31 @@ async function handleMessageCallback(update, config) {
         });
       }
       return { ok: true, action: 'admin_bind_channel' };
+    }
+
+    if (payload.action === 'comments_auto_patch' || payload.action === 'comments_auto_patch_enable' || payload.action === 'comments_auto_patch_disable') {
+      await acknowledgeCallbackSilently(config, callbackId);
+      if (payload.action === 'comments_auto_patch_enable') setAutoCommentsEnabled(userId, true);
+      if (payload.action === 'comments_auto_patch_disable') setAutoCommentsEnabled(userId, false);
+      if (message) await upsertBotMessage({ config, message, text: buildAutoCommentsText(userId), attachments: buildAutoCommentsKeyboard(userId), editCurrent: true });
+      return { ok: true, action: payload.action, autoCommentsEnabled: getAutoCommentsEnabled(userId) };
+    }
+
+    if (payload.action === 'comments_manual_patch') {
+      await acknowledgeCallbackSilently(config, callbackId);
+      const targetPost = getTenantVisibleCommentTargetPost(userId, getCommentTargetPost(userId) || getGiftTargetPost(userId));
+      if (!targetPost?.commentKey) {
+        if (message) await upsertBotMessage({ config, message, text: 'Сначала выберите канал и пост для ручной установки комментариев.', attachments: buildCommentsSectionKeyboard(config, null, userId), editCurrent: true });
+        return { ok: true, action: 'comments_manual_patch_requires_post' };
+      }
+      try {
+        await patchStoredPost({ botToken: config.botToken, appBaseUrl: config.appBaseUrl, botUsername: config.botUsername, maxDeepLinkBase: config.maxDeepLinkBase, commentKey: targetPost.commentKey });
+        if (message) await upsertBotMessage({ config, message, text: 'Комментарии установлены для выбранного поста.', attachments: buildCommentsSectionKeyboard(config, targetPost, userId), editCurrent: true });
+        return { ok: true, action: 'comments_manual_patch', autoCommentsEnabled: getAutoCommentsEnabled(userId) };
+      } catch (error) {
+        if (message) await upsertBotMessage({ config, message, text: 'Не удалось установить комментарии. Проверьте права бота и повторите попытку.', attachments: buildCommentsSectionKeyboard(config, targetPost, userId), editCurrent: true });
+        return { ok: true, action: 'comments_manual_patch_failed' };
+      }
     }
 
     if (payload.action === 'comments_enable_new') {

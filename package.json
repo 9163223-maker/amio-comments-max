@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
+  "version": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node clean-entrypoint-1.53.10-pr89.js",
@@ -18,9 +18,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
-  "displayVersion": "CC8.3.52-PR173-PRODUCTION-PUSH-AUDIT",
-  "sourceMarker": "adminkit-pr173-production-push-audit",
+  "buildVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
+  "displayVersion": "CC8.3.52-PR175-CANONICAL-MENU-MATRIX",
+  "sourceMarker": "adminkit-pr175-canonical-menu-matrix",
   "gitCommit": "",
   "pr165RuntimeWired": true
 }
