@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const SERVER_STARTED_AT = new Date().toISOString();
-const CURRENT_RUNTIME = 'CC8.3.52-PR177-CHANNELS-PUSH-UX';
+const CURRENT_RUNTIME = 'CC8.3.52-PR178-PUSH-PAIRING-BINDING';
 
 function clean(value) { return String(value || '').trim(); }
 function readJsonSafe(filePath) {
@@ -28,10 +28,10 @@ const envRuntimeVersion = clean(process.env.RUNTIME_VERSION);
 const envSourceMarker = clean(process.env.BUILD_SOURCE_MARKER);
 const envGitCommit = clean(process.env.GIT_COMMIT || process.env.COMMIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION);
 
-const runtimeVersion = firstFresh(markerJson.runtimeVersion, markerJson.displayVersion, packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
-const buildVersion = firstFresh(markerJson.buildVersion, markerJson.runtimeVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
-const displayVersion = firstFresh(markerJson.displayVersion, markerJson.runtimeVersion, packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
-const sourceMarker = firstFresh(markerJson.sourceMarker, packageJson.sourceMarker, envSourceMarker, `adminkit-${displayVersion}-local`) || `adminkit-${CURRENT_RUNTIME.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+const runtimeVersion = firstFresh(packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.runtimeVersion, markerJson.displayVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
+const buildVersion = firstFresh(packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.buildVersion, markerJson.runtimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
+const displayVersion = firstFresh(packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.displayVersion, markerJson.runtimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
+const sourceMarker = firstFresh(packageJson.sourceMarker, envSourceMarker, markerJson.sourceMarker, `adminkit-${displayVersion}-local`) || `adminkit-${CURRENT_RUNTIME.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
 const BUILD_INFO = Object.freeze({
   runtimeVersion,
@@ -44,7 +44,7 @@ const BUILD_INFO = Object.freeze({
   pr131MergeCommit: firstFresh(markerJson.pr165MergeCommit, markerJson.pr131MergeCommit, '') || '',
   buildGeneratedAt: clean(markerJson.buildGeneratedAt),
   serverStartedAt: SERVER_STARTED_AT,
-  buildInfoSource: 'build-info.json/package.json/env-fresh-only',
+  buildInfoSource: 'package.json/build-info.json/env-fresh-only-pr178',
   staleEnvIgnored: {
     BUILD_VERSION: Boolean(envBuildVersion && isStaleDiagnosticVersion(envBuildVersion)),
     RUNTIME_VERSION: Boolean(envRuntimeVersion && isStaleDiagnosticVersion(envRuntimeVersion)),
