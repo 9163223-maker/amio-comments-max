@@ -65,7 +65,7 @@ assert.ok(adapterGiftListButton, 'adapter Gifts root renders the list button');
 assert.strictEqual(JSON.parse(adapterGiftListButton.payload).action, 'gift_admin_list_campaigns', 'adapter Gifts list routes to gift_admin_list_campaigns');
 
 const pkg = JSON.parse(read('package.json'));
-assert.strictEqual(pkg.buildVersion, 'CC8.3.53-PR187-PUSH-PRODUCT-PERFECT');
-assert.strictEqual(pkg.sourceMarker, 'adminkit-pr187-push-product-perfect');
+assert.strictEqual(pkg.buildVersion, 'CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF');
+assert.strictEqual(pkg.sourceMarker, 'adminkit-pr188-push-multi-chat-handoff');
 
 console.log('PR176 Comments UX and Gifts reset assertions passed');

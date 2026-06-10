@@ -185,7 +185,7 @@ function assertNoPersonalLink(message, label) {
     await webhook(bot, messageUpdate({ text: '/push', userId: 'active-user', chatId: 'active-chat', title: 'Active Chat' }), sentMessages);
     assert.strictEqual(await storage.isChatBoundForUser('active-user', 'active-chat'), false, '/push does not claim a binding before the device confirms pairing');
     assert.strictEqual(sentMessages.filter((message) => message.userId === 'active-user').length, 1, 'existing active user gets a fresh setup link for another device');
-    assert(sentMessages.some((message) => message.userId === 'active-user' && String(message.text || '').includes('Включить уведомления')), 'existing active user gets a fresh enable explanation');
+    assert(sentMessages.some((message) => message.userId === 'active-user' && String(message.text || '').includes('подключите этот чат')), 'existing active user gets a fresh enable explanation');
     assert.strictEqual(sentMessages.filter((message) => message.chatId === 'active-chat').length, 0, 'existing active user gets no public group success reply');
 
     sentMessages.length = 0;

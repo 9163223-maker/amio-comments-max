@@ -122,7 +122,7 @@ function messageUpdate({ id = 'cmd-pr166', text = '/push', userId = 'typed-user-
     res = responseStub();
     await bot.handleWebhook({ get: () => '', body: callbackUpdate({ callbackId: 'cb-pr166-repeat' }) }, res, { botToken: 'BOT_TOKEN_PR166_MUST_NOT_LEAK', appBaseUrl: 'https://push.example.test' });
     assert.strictEqual(sentMessages.length, 1, 'existing active device still gets a new private DM');
-    assert(sentMessages[0].text.includes('Включить уведомления') && !sentMessages[0].text.includes('уже подключ'), 'existing active device always receives a fresh connection flow');
+    assert(sentMessages[0].text.includes('подключите этот чат') && !sentMessages[0].text.includes('уже подключ'), 'existing active device always receives a fresh connection flow');
     const secondToken = extractJoinToken(new URL(clckCalls[1]).searchParams.get('url'));
     assert(secondToken && secondToken !== firstToken, 'repeated callback creates a fresh unused join token');
     assert.strictEqual(await storage.isChatBoundForUser('click-user-pr166', 'group-chat-pr166'), true, 'existing active device remains bound to the chat');
@@ -162,7 +162,7 @@ function messageUpdate({ id = 'cmd-pr166', text = '/push', userId = 'typed-user-
     entrypoint.applyEnv();
     const install = entrypoint.installCleanBot();
     assert.strictEqual(install.pr165LiveChatPushRuntime, true, 'active production entrypoint still wires PR165 push runtime');
-    assert(entrypoint.RUNTIME.includes('PR187'), 'active production entrypoint advances to PR177 while preserving PR166 onboarding');
+    assert(entrypoint.RUNTIME.includes('PR188'), 'active production entrypoint advances to PR177 while preserving PR166 onboarding');
 
     console.log('group push private onboarding pr166 ok');
   } finally {

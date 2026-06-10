@@ -34,7 +34,7 @@ const confirmation = require('../services/pushConfirmationService');
     assert(safe.chats.every((x) => x.chatRef), 'safe chat references are exposed for diagnostics');
     const client = require('fs').readFileSync(require('path').join(__dirname, '..', 'public/push-client.js'), 'utf8');
     assert(client.includes("appendChatGroup(node, 'Подключены на этом устройстве:', enabled, 'включены')"));
-    assert(client.includes("appendChatGroup(node, 'Другие доступные чаты:', available, 'откройте ссылку из этого чата')"));
+    assert(client.includes("appendChatGroup(node, 'Другие доступные чаты:', available, 'отправьте /push в этом чате и откройте ссылку')"));
     assert(!client.includes("'нужно подключить'"));
     assert(client.includes('setNotificationsBadge(false)'));
     console.log('PR186 device-scoped status tests passed');

@@ -19,7 +19,7 @@ function subscription(suffix) { return { endpoint: `https://push.example.test/se
 function listen(app) { return new Promise((resolve) => { const server = app.listen(0, '127.0.0.1', () => resolve(server)); }); }
 async function request(server, target, options = {}) { const response = await fetch(`http://127.0.0.1:${server.address().port}${target}`, options); const text = await response.text(); let body; try { body = JSON.parse(text); } catch {} return { status: response.status, text, body, headers: response.headers }; }
 function postJson(body, headers = {}) { return { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) }; }
-function handoffFrom(response) { const match = response.text.match(/"handoffId":"([A-Za-z0-9_-]+)"/); assert(match, 'join response contains handoff id'); return match[1]; }
+function handoffFrom(response) { const match = String(response.headers.get('set-cookie') || '').match(/push_pairing_handoff=([^;,]+)/); assert(match, 'join response contains handoff cookie'); assert(!response.text.includes('\"handoffId\"')); return decodeURIComponent(match[1]); }
 
 (async () => {
   const originals = new Map(files.map((file) => [file, backup(file)]));

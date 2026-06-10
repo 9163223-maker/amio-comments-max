@@ -36,7 +36,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
     { chatTitle: 'Другой чат', needsReconnect: true }
   ] });
   assert(account.text.includes('Мож Хвост 2 — включены'));
-  assert(account.text.includes('Другой чат — откройте ссылку из этого чата'));
+  assert(account.text.includes('Другой чат — отправьте /push в этом чате и откройте ссылку'));
   assert(!account.text.includes('нужно подключить'));
 
   const campaignAdapter = read('clean-bot-campaign-attribution-cc8336.js');
@@ -47,7 +47,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
   assert(client.includes('Готово. Уведомления включены для чата'));
   assert(client.includes("connectedChats.resolveConnectedChats") === false, 'browser code does not infer server bindings');
   assert(client.includes("appendChatGroup(node, 'Подключены на этом устройстве:', enabled, 'включены')"));
-  assert(client.includes("appendChatGroup(node, 'Другие доступные чаты:', available, 'откройте ссылку из этого чата')"));
+  assert(client.includes("appendChatGroup(node, 'Другие доступные чаты:', available, 'отправьте /push в этом чате и откройте ссылку')"));
   assert(!client.includes("'нужно подключить'"));
   assert(html.includes('id="primaryActionSection" hidden'), 'empty primary card is hidden until an action is available');
   assert(html.includes('<h1>АдминКИТ PUSH</h1>'));
@@ -79,8 +79,8 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
     for (const forbidden of ['AdminKit Push', 'Adminkit Push', 'AdminKIT Push', 'АдминКИТ Push']) assert(!source.includes(forbidden), `${file} contains ${forbidden}`);
   }
 
-  assert.strictEqual(pkg.version, 'CC8.3.53-PR187-PUSH-PRODUCT-PERFECT');
-  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr187-push-product-perfect');
+  assert.strictEqual(pkg.version, 'CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF');
+  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr188-push-multi-chat-handoff');
   assert.strictEqual(buildInfo.runtimeVersion, pkg.version);
   assert.strictEqual(buildInfo.sourceMarker, pkg.sourceMarker);
   assert.strictEqual(pkg.scripts.start, 'node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js');

@@ -27,7 +27,7 @@ function countActiveManifest(html, href) {
   return (html.match(pattern) || []).length;
 }
 
-function assertClientSafe(html, label) {
+function assertClientSafe(html, label, expectedButtons = 1) {
   assert(!html.includes('placeholder="PUSH_SUBSCRIBE_TOKEN"'), `${label} hides subscribe token field`);
   assert(!html.includes('placeholder="PUSH_ADMIN_TOKEN"'), `${label} hides admin token field`);
   assert(!html.includes('Отправить тестовое уведомление'), `${label} hides test-send button`);
@@ -35,7 +35,7 @@ function assertClientSafe(html, label) {
   assert(!html.includes('id="subscribeSteps"'), `${label} hides raw diagnostics by default`);
   assert(!html.includes('<h2>Диагностика</h2>'), `${label} hides raw diagnostic table by default`);
   assert(html.includes('id="clientStatus"'), `${label} keeps visible client-safe status`);
-  assert.strictEqual((html.match(/<button\b/g) || []).length, 1, `${label} remains one-button/client-safe`);
+  assert.strictEqual((html.match(/<button\b/g) || []).length, expectedButtons, `${label} exposes only appropriate client actions`);
 }
 
 function assertAdminControls(html) {
@@ -90,7 +90,7 @@ function assertAdminControls(html) {
       assert.strictEqual(join.status, 200, '/push/join?t=valid token renders');
       assert(/<link\s+rel=["']manifest["']\s+href=["']\/push\/manifest\//.test(join.text), '/push/join contains token-scoped client manifest');
       assert.strictEqual(countActiveManifest(join.text, '/public/push-admin-manifest.json'), 0, '/push/join does not contain admin manifest');
-      assertClientSafe(join.text, '/push/join');
+      assertClientSafe(join.text, '/push/join', 0);
     });
 
     console.log('pwa push admin manifest pr152 ok');

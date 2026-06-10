@@ -4,6 +4,7 @@ const express = require('express');
 const timing = require('./v3-ui-timing-cc8');
 const postPatcher = require('./services/postPatcher');
 const config = require('./config');
+const maxCommandRegistry = require('./services/maxCommandRegistryService');
 
 const RUNTIME = 'CC8.3.2-MAX-NATIVE-COMMANDS-FULL-MENU';
 const MINI_LIMIT = 100;
@@ -12,11 +13,8 @@ const NAME_LIMIT = 80;
 const MAX_API_BASE_URL = 'https://platform-api.max.ru';
 const miniEvents = [];
 
-const ADMINKIT_MAX_COMMANDS = [
-  { name: 'push', description: '🔔 Уведомления этого чата' },
-  { name: 'help', description: '🆘 Помощь' }
-];
-const MAX_COMMAND_SCOPE_SUPPORT = 'global-only-undocumented-patch-me';
+const ADMINKIT_MAX_COMMANDS = maxCommandRegistry.GLOBAL_COMMANDS;
+const MAX_COMMAND_SCOPE_SUPPORT = maxCommandRegistry.SCOPE_SUPPORT;
 
 function clean(value, maxLen = STRING_LIMIT) {
   const text = String(value || '').trim().replace(/\s+/g, ' ');
@@ -245,7 +243,7 @@ async function maxCommandsSyncPayload(req) {
       method: 'PATCH',
       path: '/me',
       body: payloads.canonical,
-      note: 'Undocumented probe. Public docs expose GET /me and BotInfo.commands, but not a documented commands setter.'
+      note: 'MAX has no public command scopes or documented setter. If PATCH /me is accepted, write only the client-safe global catalog.'
     },
     alternativePayloads: {
       slashNameVariant: payloads.slashNameVariant,

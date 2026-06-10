@@ -39,6 +39,30 @@ function prune(store, timestamp = nowMs()) {
   return store;
 }
 
+function nextCreatedAtMs(store, timestamp = nowMs()) {
+  let latest = 0;
+  for (const item of Object.values(store.handoffs || {})) {
+    latest = Math.max(latest, Number(item && item.createdAtMs) || 0);
+  }
+  return Math.max(timestamp, latest + 1);
+}
+
+function publicPending(key, item) {
+  const context = item && item.context && typeof item.context === 'object' ? item.context : {};
+  return {
+    handoffId: clean(item && item.handoffId),
+    handoffIdHash: key,
+    flowId: clean(item && item.flowId) || handoffHash(item && item.pairingToken),
+    userId: clean(context.maxUserId),
+    chatId: clean(context.chatId),
+    channelId: clean(context.channelId),
+    chatTitle: clean(context.chatTitle).slice(0, 120),
+    createdAt: new Date(Number(item && item.createdAtMs) || 0).toISOString(),
+    expiresAt: new Date(Number(item && item.expiresAtMs) || 0).toISOString(),
+    consumed: Boolean(item && item.consumedAtMs)
+  };
+}
+
 function create({ pairingToken, context, ttlMs = DEFAULT_TTL_MS } = {}) {
   const token = clean(pairingToken);
   if (!token || !context || !clean(context.maxUserId) || !clean(context.chatId)) {
@@ -47,10 +71,14 @@ function create({ pairingToken, context, ttlMs = DEFAULT_TTL_MS } = {}) {
     throw error;
   }
   const handoffId = crypto.randomBytes(24).toString('base64url');
-  const createdAtMs = nowMs();
+  const timestamp = nowMs();
+  const store = prune(readStore(), timestamp);
+  const createdAtMs = nextCreatedAtMs(store, timestamp);
   const expiresAtMs = createdAtMs + Math.max(60_000, Math.min(DEFAULT_TTL_MS, Number(ttlMs) || DEFAULT_TTL_MS));
-  const store = prune(readStore(), createdAtMs);
-  store.handoffs[handoffHash(handoffId)] = {
+  const key = handoffHash(handoffId);
+  store.handoffs[key] = {
+    handoffId,
+    flowId: handoffHash(token),
     pairingToken: token,
     context: {
       maxUserId: clean(context.maxUserId),
@@ -64,7 +92,7 @@ function create({ pairingToken, context, ttlMs = DEFAULT_TTL_MS } = {}) {
     consumedAtMs: 0
   };
   writeStore(store);
-  return { handoffId, expiresAt: new Date(expiresAtMs).toISOString(), context: store.handoffs[handoffHash(handoffId)].context, status: 'found' };
+  return { ...publicPending(key, store.handoffs[key]), context: store.handoffs[key].context, status: 'found' };
 }
 
 function resolve(handoffId) {
@@ -80,9 +108,29 @@ function resolve(handoffId) {
     handoffId: id,
     pairingToken: clean(item.pairingToken),
     context: item.context || {},
+    flowId: clean(item.flowId) || handoffHash(item.pairingToken),
     expiresAt: new Date(Number(item.expiresAtMs)).toISOString(),
     consumedAt: item.consumedAtMs ? new Date(Number(item.consumedAtMs)).toISOString() : ''
   };
+}
+
+function listPendingForUser(userId, { limit = 10 } = {}) {
+  const target = clean(userId);
+  if (!target) return [];
+  const timestamp = nowMs();
+  const store = prune(readStore(), timestamp);
+  const seenChats = new Set();
+  return Object.entries(store.handoffs || {})
+    .filter(([, item]) => item && !item.consumedAtMs && Number(item.expiresAtMs) > timestamp && clean(item.context && item.context.maxUserId) === target)
+    .sort((a, b) => Number(b[1].createdAtMs) - Number(a[1].createdAtMs))
+    .filter(([, item]) => {
+      const chatId = clean(item.context && item.context.chatId);
+      if (!chatId || seenChats.has(chatId)) return false;
+      seenChats.add(chatId);
+      return true;
+    })
+    .slice(0, Math.max(1, Math.min(Number(limit) || 10, 20)))
+    .map(([key, item]) => publicPending(key, item));
 }
 
 function consume(handoffId) {
@@ -92,10 +140,19 @@ function consume(handoffId) {
   const store = readStore();
   const key = handoffHash(id);
   if (store.handoffs[key] && !store.handoffs[key].consumedAtMs) {
-    store.handoffs[key].consumedAtMs = nowMs();
+    const consumedAtMs = nowMs();
+    const selected = store.handoffs[key];
+    const selectedUser = clean(selected.context && selected.context.maxUserId);
+    const selectedChat = clean(selected.context && selected.context.chatId);
+    const selectedFlow = clean(selected.flowId);
+    for (const item of Object.values(store.handoffs)) {
+      if (!item || item.consumedAtMs) continue;
+      const sameContext = clean(item.context && item.context.maxUserId) === selectedUser && clean(item.context && item.context.chatId) === selectedChat;
+      if (sameContext && (!selectedFlow || clean(item.flowId) === selectedFlow)) item.consumedAtMs = consumedAtMs;
+    }
     writeStore(prune(store));
   }
-  return { ...current, status: 'consumed', error: 'handoff_consumed' };
+  return { ...current, status: 'consumed', error: 'handoff_consumed', consumed: true };
 }
 
-module.exports = { create, resolve, consume, handoffHash, DATA_FILE, DEFAULT_TTL_MS };
+module.exports = { create, resolve, listPendingForUser, consume, handoffHash, DATA_FILE, DEFAULT_TTL_MS };

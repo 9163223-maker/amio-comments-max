@@ -26,6 +26,10 @@
     button, input { font: inherit; border-radius: 14px; border: 1px solid #cbd5e1; padding: 12px 14px; }
     button { background: #2563eb; color: #fff; margin: 6px 6px 6px 0; border-color: #2563eb; font-weight: 700; }
     #enableBtn { width: min(100%, 360px); font-size: 17px; padding: 15px 18px; }
+    .instruction-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .instruction-actions a { display: inline-block; text-decoration: none; border-radius: 14px; padding: 11px 13px; background: #eff6ff; color: #1d4ed8; font-weight: 700; }
+    .instruction-block { border-left: 4px solid #93c5fd; padding-left: 14px; margin-top: 16px; }
+    .instruction-block ol { color: #334155; line-height: 1.6; padding-left: 22px; }
     input { width: min(100%, 420px); box-sizing: border-box; }
     dl { display: grid; grid-template-columns: minmax(180px, 1fr) 1fr; gap: 8px 12px; }
     dt { color: #475569; }
@@ -62,6 +66,34 @@
     <p id="pairingNotice" hidden></p>
     <p id="clientStatus" class="warning" aria-live="polite" hidden></p>
 
+    <section class="card" id="browserInstructions" hidden>
+      <h2>Чтобы получать уведомления этого чата</h2>
+      <p>Если АдминКИТ PUSH ещё не установлен, добавьте его на экран Домой и откройте приложение.</p>
+      <p>Если АдминКИТ PUSH уже установлен, откройте приложение с экрана Домой — мы покажем кнопку «Подключить этот чат».</p>
+      <nav class="instruction-actions" aria-label="Действия подключения">
+        <a href="#installInstructions">Как добавить на экран Домой</a>
+        <a href="#installedInstructions">Я уже установил АдминКИТ PUSH</a>
+        <a href="#installInstructions">Открыть инструкцию</a>
+      </nav>
+      <div class="instruction-block" id="installInstructions">
+        <h3>Если приложение ещё не установлено</h3>
+        <ol>
+          <li>Нажмите «Поделиться».</li>
+          <li>Выберите «На экран Домой».</li>
+          <li>Откройте АдминКИТ PUSH с экрана Домой.</li>
+          <li>Нажмите «Включить уведомления».</li>
+        </ol>
+      </div>
+      <div class="instruction-block" id="installedInstructions">
+        <h3>Если приложение уже установлено</h3>
+        <ol>
+          <li>Откройте АдминКИТ PUSH с экрана Домой.</li>
+          <li>Нажмите «Подключить этот чат».</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- functional-pwa-start -->
     <section class="card primary-card" id="primaryActionSection" hidden>
       <button id="enableBtn" type="button" hidden>Включить уведомления</button>
       <!-- admin-diagnostics-start -->
@@ -80,6 +112,7 @@
         <div class="empty-state">На этом устройстве пока нет подключённых чатов.</div>
       </div>
     </section>
+    <!-- functional-pwa-end -->
 
     <!-- admin-diagnostics-start -->
     <section class="card" id="maxChatDiagnostics">

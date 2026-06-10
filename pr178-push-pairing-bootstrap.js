@@ -26,6 +26,14 @@ function pairingContext(req, body) {
   const bodyHandoff = clean(body && body.handoffId);
   const cookieHandoff = getCookie(req, 'push_pairing_handoff');
   const handoffId = bodyHandoff || cookieHandoff;
+  if (bodyHandoff) {
+    const recovered = pushPairingHandoff.resolve(bodyHandoff);
+    return {
+      token: recovered.pairingToken || '', verified: recovered.context || null, handoffId: bodyHandoff,
+      handoffStatus: recovered.status, tokenSource: ['found', 'consumed'].includes(recovered.status) ? 'pending_handoff' : 'missing',
+      hasPairingCookie: Boolean(cookieToken), hasHandoffCookie: Boolean(cookieHandoff)
+    };
+  }
   if (bodyToken || cookieToken) return {
     token: bodyToken || cookieToken,
     verified: null,
@@ -46,6 +54,7 @@ function pairingContext(req, body) {
     hasHandoffCookie: Boolean(cookieHandoff)
   };
 }
+function isHandoffSource(value) { return value === 'handoff' || value === 'pending_handoff'; }
 function getCookie(req, name) {
   const header = clean(req && req.get && req.get('cookie'));
   const prefix = `${name}=`;
@@ -162,6 +171,35 @@ function buildHandlers(routes) {
     }
   }
 
+
+  async function pending(req, res) {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    let endpointHash = clean(req.query && req.query.endpointHash);
+    let deviceId = clean(req.query && req.query.deviceId);
+    try {
+      if (!endpointHash && body.subscription) {
+        const extracted = routes.extractPushSubscriptionFromBody(body);
+        endpointHash = storage.subscriptionId(storage.sanitizeSubscription(extracted.subscription));
+      }
+      let device = endpointHash ? await storage.findDeviceByEndpointHash(endpointHash) : null;
+      if (!device && deviceId) device = await storage.findDeviceByDeviceId(deviceId);
+      if (!device || device.disabled || device.status !== 'active') {
+        logPairing({ event: 'pending_lookup', route: '/api/push/pending', result: 'pending_missing', endpointHash, deviceId, pendingCount: 0 });
+        return res.json({ ok: true, pending: [], pendingCount: 0 });
+      }
+      const pendingItems = pushPairingHandoff.listPendingForUser(device.maxUserId);
+      const selected = pendingItems[0] || null;
+      logPairing({ event: 'pending_lookup', route: '/api/push/pending', result: selected ? 'pending_found' : 'pending_missing', maxUserId: device.maxUserId, deviceId: device.deviceId, endpointHash: device.endpointHash || endpointHash, pendingCount: pendingItems.length, selectedPendingChatId: selected && selected.chatId, selectedPendingChatTitle: selected && selected.chatTitle });
+      return res.json({
+        ok: true,
+        pendingCount: pendingItems.length,
+        pending: pendingItems.map((item) => ({ handoffId: item.handoffId, chatTitle: item.chatTitle, createdAt: item.createdAt, expiresAt: item.expiresAt }))
+      });
+    } catch (error) {
+      return res.status(400).json({ ok: false, error: safeErrorCode(error, 'pending_lookup_failed') });
+    }
+  }
+
   async function pair(req, res) {
     const config = routes.getConfig();
     if (!config.configured) return res.status(503).json({ ok: false, error: 'web_push_not_configured' });
@@ -169,10 +207,11 @@ function buildHandlers(routes) {
     const context = pairingContext(req, body);
     const logBase = {
       route: '/api/push/pair', tokenSource: context.tokenSource,
-      pairingToken: context.tokenSource === 'handoff' ? '' : context.token,
+      pairingToken: isHandoffSource(context.tokenSource) ? '' : context.token,
       handoffId: context.handoffId,
-      hasPairingToken: context.tokenSource !== 'handoff' && Boolean(context.token), hasHandoff: Boolean(context.handoffId),
-      hasPairingCookie: context.hasPairingCookie, hasHandoffCookie: context.hasHandoffCookie
+      hasPairingToken: !isHandoffSource(context.tokenSource) && Boolean(context.token), hasHandoff: Boolean(context.handoffId),
+      hasPairingCookie: context.hasPairingCookie, hasHandoffCookie: context.hasHandoffCookie,
+      maxUserId: context.verified && context.verified.maxUserId, chatId: context.verified && context.verified.chatId, chatTitle: context.verified && context.verified.chatTitle
     };
     logPairing({ ...logBase, event: 'pair_started', result: 'pair_started' });
     if (!context.token) {
@@ -180,7 +219,7 @@ function buildHandlers(routes) {
       logPairing({ ...logBase, event: code, result: code, errorCode: code });
       return res.status(403).json({ ok: false, error: code });
     }
-    if (context.tokenSource === 'handoff') {
+    if (isHandoffSource(context.tokenSource)) {
       logPairing({ ...logBase, event: 'handoff_recovered', result: context.handoffStatus === 'consumed' ? 'handoff_consumed' : 'handoff_found' });
     }
     let extracted = { subscription: undefined, source: 'missing' };
@@ -193,9 +232,11 @@ function buildHandlers(routes) {
       const cleanSubscription = storage.sanitizeSubscription(extracted.subscription);
       const endpointHash = storage.subscriptionId(cleanSubscription);
       const activeDevice = (await storage.listActiveDevicesForUser(verified.maxUserId)).find((device) => device.endpointHash === endpointHash || device.id === endpointHash);
+      const beforeSnapshot = activeDevice ? await connectedChats.resolveConnectedChats(verified.maxUserId, { endpointHash: activeDevice.endpointHash || endpointHash, botToken: process.env.BOT_TOKEN || process.env.MAX_BOT_TOKEN }) : { chats: [] };
+      const bindingAlreadyExisted = beforeSnapshot.chats.some((chat) => chat.enabledOnThisDevice && String(chat.chatId || '') === String(verified.chatId || ''));
 
       if (context.handoffStatus === 'consumed' && !activeDevice) {
-        logPairing({ ...logBase, event: 'handoff_consumed', result: 'handoff_consumed', maxUserId: verified.maxUserId, chatId: verified.chatId, errorCode: 'handoff_consumed' });
+        logPairing({ ...logBase, event: 'handoff_consumed', consumed: true, result: 'handoff_consumed', maxUserId: verified.maxUserId, chatId: verified.chatId, errorCode: 'handoff_consumed' });
         return res.status(409).json({ ok: false, error: 'handoff_consumed' });
       }
 
@@ -224,12 +265,12 @@ function buildHandlers(routes) {
         try { pairing.consumePairingToken(context.token); } catch (error) {
           if (safeErrorCode(error) !== 'push_pairing_token_used') throw error;
         }
-        if (context.tokenSource === 'handoff' && context.handoffId) pushPairingHandoff.consume(context.handoffId);
+        if (isHandoffSource(context.tokenSource) && context.handoffId) pushPairingHandoff.consume(context.handoffId);
       }
       expirePairingCookies(res, req);
-      logPairing({ ...logBase, event: 'pair_success', result: 'pair_success', maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle, deviceId: device.deviceId, endpointHash: device.endpointHash || endpointHash, tokenFound: true, subscriptionCreated: !activeDevice, linkedToChat: chats.some((chat) => chat.enabledOnThisDevice && String(chat.chatId || '') === String(verified.chatId || '')), chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
-      logPairing({ ...logBase, event: 'binding_created', result: chats.length ? 'binding_created' : 'binding_missing', maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle, deviceId: device.deviceId, endpointHash: device.endpointHash || endpointHash, tokenFound: true, subscriptionCreated: !activeDevice, linkedToChat: chats.some((chat) => chat.enabledOnThisDevice && String(chat.chatId || '') === String(verified.chatId || '')), chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
-      if (context.tokenSource === 'handoff' && context.handoffId) logPairing({ ...logBase, event: 'handoff_consumed', result: 'handoff_consumed', maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle, deviceId: device.deviceId, endpointHash: device.endpointHash || endpointHash, tokenFound: true, subscriptionCreated: !activeDevice, linkedToChat: chats.some((chat) => chat.enabledOnThisDevice && String(chat.chatId || '') === String(verified.chatId || '')), chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
+      logPairing({ ...logBase, event: 'pair_success', consumed: isHandoffSource(context.tokenSource), result: 'pair_success', maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle, deviceId: device.deviceId, endpointHash: device.endpointHash || endpointHash, tokenFound: true, subscriptionCreated: !activeDevice, linkedToChat: chats.some((chat) => chat.enabledOnThisDevice && String(chat.chatId || '') === String(verified.chatId || '')), chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
+      logPairing({ ...logBase, event: bindingAlreadyExisted ? 'binding_updated' : 'binding_created', consumed: isHandoffSource(context.tokenSource), result: chats.length ? (bindingAlreadyExisted ? 'binding_updated' : 'binding_created') : 'binding_missing', maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle, deviceId: device.deviceId, endpointHash: device.endpointHash || endpointHash, tokenFound: true, subscriptionCreated: !activeDevice, linkedToChat: chats.some((chat) => chat.enabledOnThisDevice && String(chat.chatId || '') === String(verified.chatId || '')), chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
+      if (isHandoffSource(context.tokenSource) && context.handoffId) logPairing({ ...logBase, event: 'handoff_consumed', consumed: true, result: 'handoff_consumed', maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle, deviceId: device.deviceId, endpointHash: device.endpointHash || endpointHash, tokenFound: true, subscriptionCreated: !activeDevice, linkedToChat: chats.some((chat) => chat.enabledOnThisDevice && String(chat.chatId || '') === String(verified.chatId || '')), chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
       return res.json(safePublicResult({ ok: true, status: 'active', confirmationRequired: false, confirmationSent: false, confirmationDispatch: 'not_needed', deviceId: device.deviceId, chats, requestShape }));
     } catch (error) {
       const requestShape = safePushRequestShape(body, extracted.source);
@@ -239,7 +280,7 @@ function buildHandlers(routes) {
     }
   }
 
-  return { deviceStatus, pair };
+  return { deviceStatus, pending, pair };
 }
 
 Module._load = function patchedModuleLoad(request, parent, isMain) {
@@ -254,15 +295,24 @@ Module._load = function patchedModuleLoad(request, parent, isMain) {
         install(app) {
           const handlers = buildHandlers(loaded);
           const originalPost = app.post.bind(app);
+          const originalGet = app.get.bind(app);
+          app.get = function patchedGet(route, ...routeHandlers) {
+            if (route === '/api/push/pending') return originalGet(route, handlers.pending);
+            return originalGet(route, ...routeHandlers);
+          };
           app.post = function patchedPost(route, ...routeHandlers) {
             if (route === '/api/push/device/status') return originalPost(route, handlers.deviceStatus);
             if (route === '/api/push/pair') return originalPost(route, handlers.pair);
+            if (route === '/api/push/pending') return originalPost(route, handlers.pending);
             return originalPost(route, ...routeHandlers);
           };
+          originalGet('/api/push/pending', handlers.pending);
+          originalPost('/api/push/pending', handlers.pending);
           try {
             return originalInstall(app);
           } finally {
             app.post = originalPost;
+            app.get = originalGet;
           }
         }
       };

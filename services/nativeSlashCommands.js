@@ -5,8 +5,9 @@ const walkthroughTrace = require('../admin-walkthrough-trace');
 const access = require('./clientAccessService');
 const accessGate = require('./accessGateService');
 const accountScreens = require('../features/account-screens-pr106');
+const maxCommandRegistry = require('./maxCommandRegistryService');
 
-const PUBLIC_GROUP_COMMANDS = Object.freeze(['/push', '/help']);
+const PUBLIC_GROUP_COMMANDS = maxCommandRegistry.GLOBAL_COMMAND_NAMES;
 const ADMIN_PRIVATE_COMMANDS = Object.freeze([
   '/start',
   '/menu',

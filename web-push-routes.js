@@ -260,7 +260,7 @@ function pushManifestHref(token) {
 }
 
 function pairingTokenFromRequest(req) {
-  return clean(req && req.params && req.params.token) || clean(req && req.query && req.query.t);
+  return clean(req && req.params && req.params.token) || clean(req && req.query && (req.query.t || req.query.token));
 }
 
 function pairingOpenedAs(req) {
@@ -273,6 +273,7 @@ function recordPushPairingEvent(event) {
 
 
 function safeChatTitle(value) { return clean(value).slice(0, 120); }
+function escapeHtml(value) { return String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])); }
 function safePublicChatItem(value) {
   const source = value && typeof value === 'object' ? value : {};
   const title = safeChatTitle(source.chatTitle || source.title);
@@ -289,7 +290,13 @@ function sendPushPage(req, res, options = {}) {
   const fs = require('fs');
   let html = fs.readFileSync(file, 'utf8');
   const mode = options.mode === 'admin' ? 'admin' : 'client';
-  const joinConfig = options.joinMode ? {
+  const joinConfig = options.joinMode ? (options.informationalJoin ? {
+    joinMode: true,
+    informationalJoin: true,
+    adminMode: false,
+    existingActiveDevicesFound: Boolean(options.existingActiveDevicesFound),
+    chatTitle: safeChatTitle(options.chatTitle)
+  } : {
     joinMode: true,
     tokenCookie: Boolean(options.tokenCookie),
     tokenStatus: options.tokenStatus || 'valid',
@@ -300,8 +307,9 @@ function sendPushPage(req, res, options = {}) {
     adminMode: false,
     chatLinkMode: Boolean(options.existingActiveDevicesFound),
     existingActiveDevicesFound: Boolean(options.existingActiveDevicesFound),
+    informationalJoin: false,
     chatTitle: safeChatTitle(options.chatTitle)
-  } : { joinMode: false, landingMode: mode === 'client', adminMode: mode === 'admin', handoffId: clean(options.handoffId), handoffStatus: clean(options.handoffStatus) };
+  }) : { joinMode: false, landingMode: mode === 'client', adminMode: mode === 'admin', handoffId: clean(options.handoffId), handoffStatus: clean(options.handoffStatus) };
   if (mode === 'admin') {
     html = html.replace('<link rel="manifest" href="/push/manifest.json">', '<link rel="manifest" href="/public/push-admin-manifest.json">');
   } else {
@@ -309,6 +317,12 @@ function sendPushPage(req, res, options = {}) {
     html = html.replace('<link rel="manifest" href="/push/manifest.json">', `<link rel="manifest" href="${manifestHref}">`);
     html = stripMarkedHtml(html, 'admin-diagnostics');
     html = stripMarkedHtml(html, 'raw-diagnostics');
+    if (options.informationalJoin) {
+      const title = safeChatTitle(options.chatTitle) || 'Чат MAX';
+      html = stripMarkedHtml(html, 'functional-pwa');
+      html = html.replace('id="browserInstructions" hidden', 'id="browserInstructions"');
+      html = html.replace('<p id="introText">Откройте ссылку из MAX-чата, чтобы подключить уведомления.</p>', `<p id="introText">Чат найден: «${escapeHtml(title)}»</p>`);
+    }
   }
   html = html.replace('</head>', `<script>window.__ADMINKIT_PUSH_JOIN__=${JSON.stringify(joinConfig).replace(/</g, '\\u003c')};</script></head>`);
   res.type('html').send(html);
@@ -432,15 +446,15 @@ function install(app) {
   async function handlePushJoin(req, res) {
     const token = pairingTokenFromRequest(req);
     const fromManifest = clean(req.query && req.query.source) === 'manifest-start-url';
-    recordPushPairingEvent({ event: fromManifest ? 'pwa_opened' : 'link_opened', pairingToken: token, route: '/push/join', result: fromManifest ? 'pwa_opened' : 'link_opened', tokenSource: fromManifest ? 'manifest-start-url' : 'query', hasPairingToken: Boolean(token), hasPairingCookie: Boolean(getCookie(req, 'push_pairing_token')), openedAs: pairingOpenedAs(req) });
     try {
       const verified = pairing.verifyPairingToken(token);
+      recordPushPairingEvent({ event: fromManifest ? 'pwa_opened' : 'link_opened', pairingToken: token, route: '/push/join', result: fromManifest ? 'pwa_opened' : 'link_opened', tokenSource: fromManifest ? 'manifest-start-url' : 'query', hasPairingToken: Boolean(token), hasPairingCookie: Boolean(getCookie(req, 'push_pairing_token')), openedAs: pairingOpenedAs(req), maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle });
       const maxAge = pairingCookieMaxAgeSeconds(verified.expiresAt);
       const cookie = `push_pairing_token=${encodeURIComponent(token)}; Path=/api/push; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
       appendCookie(res, isHttpsRequest(req) ? `${cookie}; Secure` : cookie);
       const handoff = pushPairingHandoff.create({ pairingToken: token, context: verified });
       appendCookie(res, handoffCookie(req, handoff.handoffId));
-      recordPushPairingEvent({ event: 'handoff_created', route: '/push/join', result: 'handoff_created', tokenSource: fromManifest ? 'manifest-start-url' : 'query', pairingToken: token, handoffId: handoff.handoffId, hasPairingToken: true, hasHandoff: true, hasPairingCookie: true, hasHandoffCookie: true, openedAs: pairingOpenedAs(req), maxUserId: verified.maxUserId, chatId: verified.chatId });
+      recordPushPairingEvent({ event: 'handoff_created', route: '/push/join', result: 'handoff_created', tokenSource: fromManifest ? 'manifest-start-url' : 'query', pairingToken: token, handoffId: handoff.handoffId, flowId: handoff.flowId, hasPairingToken: true, hasHandoff: true, handoffPending: true, consumed: false, hasPairingCookie: true, hasHandoffCookie: true, openedAs: pairingOpenedAs(req), maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle });
       const activeDevices = await storage.listActiveDevicesForUser(verified.maxUserId);
       const existingActiveDevicesFound = activeDevices.length > 0;
       return sendPushPage(req, res, {
@@ -453,6 +467,7 @@ function install(app) {
         handoffStatus: 'found',
         linkChatMode: existingActiveDevicesFound,
         existingActiveDevicesFound,
+        informationalJoin: !fromManifest,
         chatTitle: verified.chatTitle
       });
     } catch (error) {
@@ -751,7 +766,7 @@ function install(app) {
     res.status(result.ok ? 200 : 503).json(result);
   });
 
-  return { ok: true, routes: ['/push', '/push/admin', '/push/join', '/push/join/:token', '/push/manifest.json', '/push/manifest/:token', '/push/sw.js', '/api/push/status', '/internal/push/status', '/api/push/subscribe', '/api/push/device/status', '/api/push/pair', '/api/push/link-chat', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted', '/internal/max/chats', '/internal/max/chat-members', '/internal/max/group-push-invite'] };
+  return { ok: true, routes: ['/push', '/push/admin', '/push/join', '/push/join/:token', '/push/manifest.json', '/push/manifest/:token', '/push/sw.js', '/api/push/status', '/api/push/pending', '/internal/push/status', '/api/push/subscribe', '/api/push/device/status', '/api/push/pair', '/api/push/link-chat', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted', '/internal/max/chats', '/internal/max/chat-members', '/internal/max/group-push-invite'] };
 }
 
 module.exports = {

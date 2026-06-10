@@ -6,6 +6,7 @@ const path = require('path');
 const accountScreens = require('../features/account-screens-pr106');
 const groupPush = require('../services/groupPushOnboardingService');
 const slash = require('../services/nativeSlashCommands');
+const maxCommandRegistry = require('../services/maxCommandRegistryService');
 
 function buttons(screen) {
   return (screen.attachments?.[0]?.payload?.buttons || []).flat().map((item) => item.text);
@@ -27,17 +28,17 @@ function buttons(screen) {
 
   const existing = accountScreens.pushNotificationsScreen('ordinary-user', { chats: [{ chatTitle: 'Мож Хвост 3', enabledOnThisDevice: true }, { title: 'Все свои MAX', needsReconnect: true }, { chatTitle: 'Мож Хвост 3', enabledOnThisDevice: true }] });
   assert(existing.text.includes('Подключены на этом устройстве:') && existing.text.includes('Другие доступные чаты:'), 'existing chats have device-scoped headings');
-  assert(existing.text.includes('откройте ссылку из этого чата') && !existing.text.includes('нужно подключить'), 'inactive chats explain the actual next action');
+  assert(existing.text.includes('отправьте /push в этом чате и откройте ссылку') && !existing.text.includes('нужно подключить'), 'inactive chats explain the actual next action');
   assert.strictEqual((existing.text.match(/Мож Хвост 3/g) || []).length, 1, 'existing chat names are unique');
   assert(buttons(existing).includes('➕ Подключить ещё чат'), 'existing-chat flow offers adding another chat');
 
   const first = groupPush.buildPrivateJoinMessage({ chatTitle: 'Мож Хвост 3', joinUrl: 'https://example.test/join' });
-  assert(first.includes('АдминКИТ PUSH') && first.includes('Включить уведомления'), 'first-device group flow uses unified friendly install copy');
+  assert(first.includes('АдминКИТ PUSH') && first.includes('включите уведомления'), 'first-device group flow uses unified friendly install copy');
   assert(!/API|token|endpoint|binding|handoff|PWA|auth|p256dh/i.test(first), 'first-device group flow is non-technical');
   assert.strictEqual(groupPush.buildPrivateJoinKeyboard('https://example.test/join')[0].payload.buttons[0][0].text, 'Открыть подключение', 'first-device CTA opens connection');
 
   const later = groupPush.buildPrivateJoinMessage({ chatTitle: 'Все свои MAX', joinUrl: 'https://example.test/join', alreadyHadActiveDevice: true });
-  assert(later.includes('Включить уведомления'), 'existing-device flow always issues a fresh enable flow');
+  assert(later.includes('подключите этот чат'), 'existing-device flow always issues a fresh enable flow');
   assert(!later.includes('переустанов'), 'existing-device flow does not request reinstall');
   assert.strictEqual(groupPush.buildPrivateJoinKeyboard('https://example.test/join', { alreadyHadActiveDevice: true })[0].payload.buttons[0][0].text, 'Открыть подключение', 'existing-device CTA always opens a fresh connection');
 
@@ -53,11 +54,8 @@ function buttons(screen) {
   assert.strictEqual(slash.getNativeSlashCommand('/menu'), '/menu', 'private/admin command parser remains intact');
 
   const repo = path.join(__dirname, '..');
-  const commandRegistry = fs.readFileSync(path.join(repo, 'performance-debug-routes-pr73.js'), 'utf8');
-  const registryBlock = commandRegistry.slice(commandRegistry.indexOf('const ADMINKIT_MAX_COMMANDS'), commandRegistry.indexOf('function clean'));
-  assert(registryBlock.includes("name: 'push'") && registryBlock.includes("name: 'help'"), 'global MAX suggestions contain /push and /help');
-  for (const command of ['menu', 'channels', 'comments', 'gifts', 'stats', 'debug', 'clear']) assert(!registryBlock.includes(`name: '${command}'`), `global MAX suggestions exclude /${command}`);
-  assert(commandRegistry.includes("global-only-undocumented-patch-me"), 'MAX scoped-command limitation is documented in runtime diagnostics');
+  assert.deepStrictEqual(maxCommandRegistry.GLOBAL_COMMAND_NAMES, ['/push', '/help'], 'global MAX suggestions contain only /push and /help');
+  assert.strictEqual(maxCommandRegistry.SCOPE_SUPPORT, 'global-only-no-public-scopes', 'MAX public API has no command scopes, so admin commands are not global');
 
   const html = fs.readFileSync(path.join(repo, 'public', 'push.html'), 'utf8');
   const client = fs.readFileSync(path.join(repo, 'public', 'push-client.js'), 'utf8');
@@ -66,7 +64,7 @@ function buttons(screen) {
   assert(client.includes('Готово. Уведомления включены для чата'), 'chat success names the linked chat');
   assert(!client.includes("setText('enableBtn', 'Уведомления подключены')"), 'success is not rendered as a primary CTA');
   assert(html.includes('.chat-card { display: flex;') && html.includes('padding: 9px 11px'), 'connected chat rows are compact');
-  assert(client.includes("'откройте ссылку из этого чата'") && client.includes('uniqueChatItems'), 'compact connected chat items are unique and actionable');
+  assert(client.includes("'отправьте /push в этом чате и откройте ссылку'") && client.includes('uniqueChatItems'), 'compact connected chat items are unique and actionable');
 
   console.log('push group ux polish pr185 ok');
 })();

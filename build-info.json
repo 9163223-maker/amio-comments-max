@@ -1,9 +1,9 @@
 {
-  "runtimeVersion": "CC8.3.53-PR187-PUSH-PRODUCT-PERFECT",
-  "buildVersion": "CC8.3.53-PR187-PUSH-PRODUCT-PERFECT",
-  "displayVersion": "CC8.3.53-PR187-PUSH-PRODUCT-PERFECT",
-  "packageVersion": "CC8.3.53-PR187-PUSH-PRODUCT-PERFECT",
-  "sourceMarker": "adminkit-pr187-push-product-perfect",
+  "runtimeVersion": "CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF",
+  "buildVersion": "CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF",
+  "displayVersion": "CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF",
+  "packageVersion": "CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF",
+  "sourceMarker": "adminkit-pr188-push-multi-chat-handoff",
   "buildGeneratedAt": "2026-06-10T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.53-PR187-PUSH-PRODUCT-PERFECT"
+    "activeRuntimeVersion": "CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF"
   },
   "persistentStore": {
     "enabled": true,
@@ -93,8 +93,9 @@
   ],
   "gitCommit": "",
   "pr131MergeCommit": "",
-  "liveSyncAudit": "PR187 АдминКИТ PUSH product-perfect runtime and device-scoped pairing",
+  "liveSyncAudit": "PR188 АдминКИТ PUSH multi-chat pending handoff runtime",
   "pr165RuntimeWired": true,
   "pr165LiveChatPushRuntime": "clean-bot-live-chat-push-pr165.js",
-  "pr187PushProductPerfect": true
+  "pr187PushProductPerfect": true,
+  "pr188PushMultiChatHandoff": true
 }
