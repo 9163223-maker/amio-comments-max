@@ -1,9 +1,9 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-10T08:35:33.646Z",
+  "updatedAt": "2026-06-10T08:36:09.213Z",
   "limit": 100,
   "latest": {
-    "timestamp": "2026-06-10T08:35:33.162Z",
+    "timestamp": "2026-06-10T08:36:08.906Z",
     "event": "link_opened",
     "flowId": "315a853502845a4a28d4",
     "hasPairingToken": true,
@@ -20,6 +20,23 @@
     "missingTitleCount": 0
   },
   "items": [
+    {
+      "timestamp": "2026-06-10T08:36:08.906Z",
+      "event": "link_opened",
+      "flowId": "315a853502845a4a28d4",
+      "hasPairingToken": true,
+      "hasHandoff": false,
+      "tokenSource": "query",
+      "hasPairingCookie": false,
+      "hasHandoffCookie": false,
+      "openedAs": "safari",
+      "route": "/push/join",
+      "result": "link_opened",
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
+    },
     {
       "timestamp": "2026-06-10T08:35:33.162Z",
       "event": "link_opened",
