@@ -65,7 +65,7 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
     assert(pushClient.includes('Готово. Уведомления включены для чата') && pushClient.includes('Нажмите «Включить уведомления»'), 'add-chat flow has product copy');
     assert(!pushHtml.replace(/[\s\S]*<!-- raw-diagnostics-start -->[\s\S]*/m, '').includes('Последний результат'), 'normal PWA shell hides raw diagnostics before marker strip');
     assert(!/appendResult\([^)]*(endpoint|p256dh|auth|PUSH_ADMIN_TOKEN|BOT_TOKEN|pairingToken)/.test(pushClient), 'client does not append raw push or secret fields');
-    assert(entrypoint.includes('PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS') && pkg.sourceMarker === 'adminkit-pr191-push-admin-invite-title-commands', 'active PR173 runtime keeps the PR168 link-chat behavior');
+    assert(entrypoint.includes('PR192-PUSH-DEVICE-AUTOCONNECT-UNSUBSCRIBE') && pkg.sourceMarker === 'adminkit-pr192-push-device-autoconnect-unsubscribe', 'active PR173 runtime keeps the PR168 link-chat behavior');
 
     const pairing = fresh('../services/pushPairingService');
     const storage = fresh('../services/webPushStorage');
@@ -83,18 +83,18 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
       const tokenB = pairing.createPairingToken({ maxUserId: 'user-pr168', chatId: 'chat-b-pr168', chatTitle: 'Chat B Safe', ttlMinutes: 30 });
       const joinB = await request(server, `/push/join?t=${encodeURIComponent(tokenB)}`);
       assert.strictEqual(joinB.status, 200, 'fresh join for user with active device renders PWA');
-      assert(joinB.text.includes('"informationalJoin":true') && joinB.text.includes('"existingActiveDevicesFound":true'), 'join page enters informational add-chat mode for active device user');
+      assert(joinB.text.includes('"informationalJoin":true') && !joinB.text.includes('existingActiveDevicesFound'), 'join page stays informational without maxUserId device inference');
       assert(joinB.text.includes('Chat B Safe'), 'join page includes sanitized chat title label data');
       assert(!joinB.text.includes(tokenB) && !joinB.text.includes('/push/join?t='), 'add-chat page does not expose full token or join URL');
       const cookie = joinB.headers.get('set-cookie');
       assert(cookie && /push_pairing_token=/.test(cookie), 'add-chat join sets HttpOnly pairing cookie');
 
-      const link = await request(server, '/api/push/link-chat', { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: '{}' });
-      assert.strictEqual(link.status, 200, 'link-chat succeeds without browser push subscription');
+      const missingProof = await request(server, '/api/push/link-chat', { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: '{}' });
+      assert.strictEqual(missingProof.status, 400, 'link-chat refuses maxUserId-only linking without the current subscription');
+      const link = await request(server, '/api/push/link-chat', { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ subscription: validSubscription('existing-device') }) });
+      assert.strictEqual(link.status, 200, 'link-chat succeeds for the proven current endpoint');
       assert.strictEqual(link.body.ok, true, 'link-chat response is ok');
-      assert.strictEqual(link.body.existingActiveDevicesFound, true, 'link-chat reports existing active devices');
-      assert.strictEqual(link.body.linkedExistingDevicesCount, 1, 'link-chat links one existing active device');
-      assert.strictEqual(link.body.chatBindingUpserted, true, 'link-chat upserts chat binding');
+      assert.strictEqual(link.body.alreadyConnected, false, 'new chat is added only to the current endpoint');
       assert(Array.isArray(link.body.chats) && link.body.chats.some((chat) => chat.chatId === 'chat-b-pr168'), 'link-chat returns sanitized connected chats');
       assertNoSecretLeak('link-chat response', link.body, [tokenB, 'https://push.example.test/send/existing-device', 'p256dh-existing-device', 'auth-existing-device', process.env.PUSH_PAIRING_SECRET, process.env.WEB_PUSH_PRIVATE_KEY, process.env.BOT_TOKEN]);
       const rawAfter = JSON.parse(fs.readFileSync(storageFile, 'utf8'));

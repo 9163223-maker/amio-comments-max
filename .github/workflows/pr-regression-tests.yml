@@ -47,14 +47,22 @@ jobs:
           node --check performance-debug-routes-pr73.js
           node --check pr191-push-admin-invite-title-commands-bootstrap.js
           node --check services/pushPairingService.js
+          node --check services/pushConnectedChatsService.js
+          node --check services/webPushStorage.js
           node --check v3-menu-core-1539.js
           node --check web-push-routes.js
 
       - name: Run AdminKIT regression tests
         run: |
+          node scripts/test-push-product-perfect-pr187.js
+          node scripts/test-push-multi-chat-handoff-pr188.js
+          node scripts/test-push-fresh-pwa-pending-pr189.js
           node scripts/test-push-join-chat-title-pr191.js
           node scripts/test-push-admin-invite-publish-pr191.js
           node scripts/test-max-command-sync-pr191.js
+          node scripts/test-push-device-autoconnect-pr192.js
+          node scripts/test-push-device-scoped-ui-pr192.js
+          node scripts/test-push-chat-unpair-pr192.js
           if [ -f scripts/test-channels-push-ux-pr177.js ]; then
             node scripts/test-channels-push-ux-pr177.js
           else

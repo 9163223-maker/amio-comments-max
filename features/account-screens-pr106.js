@@ -222,35 +222,29 @@ function capabilitiesScreen() {
 }
 
 function pushNotificationsScreen(maxUserId = '', options = {}) {
-  const chatMap = new Map();
-  for (const item of (Array.isArray(options.chats) ? options.chats : [])) {
-    const title = clean(item && (item.chatTitle || item.title));
-    if (!title) continue;
-    const key = title.toLocaleLowerCase();
-    const next = { title, enabled: item && item.enabledOnThisDevice === true, reconnect: item && item.needsReconnect === true };
-    const current = chatMap.get(key);
-    if (!current || next.enabled) chatMap.set(key, next);
-  }
-  const chats = [...chatMap.values()].slice(0, 12);
-  const enabled = chats.filter((item) => item.enabled);
-  const reconnect = chats.filter((item) => !item.enabled && item.reconnect);
-  let text;
-  if (enabled.length || reconnect.length) {
-    text = ['🔔 Мои уведомления', '', ...(enabled.length ? ['Подключены на этом устройстве:', ...enabled.map((item) => `• ${item.title} — включены`), ''] : ['На этом устройстве пока нет подключённых чатов.', '']), ...(reconnect.length ? ['Другие доступные чаты:', ...reconnect.map((item) => `• ${item.title} — отправьте /push в этом чате и откройте ссылку`), ''] : []), 'Чтобы подключить чат:', '1. Откройте нужный MAX-чат.', '2. Отправьте /push.', '3. Откройте ссылку и включите уведомления в АдминКИТ PUSH.'].join('\n').trim();
-  } else {
-    text = ['🔔 Мои уведомления', '', 'На этом устройстве пока нет подключённых чатов.', 'Чтобы подключить чат:', '1. Откройте нужный MAX-чат.', '2. Отправьте /push.', '3. Откройте ссылку и включите уведомления в АдминКИТ PUSH.'].join('\n');
-  }
+  const text = [
+    '🔔 Мои уведомления',
+    '',
+    'Подключённые чаты хранятся отдельно на каждом устройстве.',
+    'Откройте АдминКИТ PUSH на нужном устройстве, чтобы увидеть список или отключить отдельный чат.',
+    '',
+    'Чтобы подключить чат:',
+    '1. Откройте нужный MAX-чат.',
+    '2. Отправьте /push.',
+    '3. Откройте ссылку на устройстве, где нужны уведомления.'
+  ].join('\n');
   return {
     id: 'account_push_notifications',
     text,
     attachments: keyboard([
-      [button(chats.length ? '➕ Подключить ещё чат' : '➕ Подключить чат', 'account_push_notifications_help')],
+      [button('➕ Подключить чат', 'account_push_notifications_help')],
       [link('Открыть АдминКИТ PUSH', publicPushUrl())],
       [button('Помощь', 'account_support')],
       [button('Главное меню', 'customer_main')]
     ])
   };
 }
+
 function pushNotificationsHelpScreen() {
   return {
     id: 'account_push_notifications_help',

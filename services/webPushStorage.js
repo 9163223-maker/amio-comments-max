@@ -428,6 +428,69 @@ async function upsertChatBindingForUserDevices({ maxUserId, chatId, channelId = 
   return { ok: true, devices: devices.length, bindings: results.filter((item) => item.ok).length, results };
 }
 
+
+async function listRawChatBindingsForDevice({ deviceId = '', endpointHash = '', includeInactive = false } = {}) {
+  const safeDevice = clean(deviceId);
+  const safeEndpoint = clean(endpointHash);
+  if (!safeDevice && !safeEndpoint) return [];
+  const p = getPool();
+  if (p) {
+    const client = await p.connect();
+    try {
+      await ensureTable(client);
+      const result = await client.query(
+        `SELECT * FROM ${BINDINGS_TABLE_NAME} WHERE ($3 OR status = 'active') AND (($1 <> '' AND device_id = $1) OR ($2 <> '' AND endpoint_hash = $2)) ORDER BY updated_at DESC`,
+        [safeDevice, safeEndpoint, includeInactive]
+      );
+      return result.rows.map(normalizeBindingRow);
+    } finally { client.release(); }
+  }
+  return (readFileStore().chatBindings || []).map(normalizeBindingRow).filter((item) => (includeInactive || item.status === 'active') && ((safeDevice && item.deviceId === safeDevice) || (safeEndpoint && item.endpointHash === safeEndpoint))).sort((a, b) => bindingTimestamp(b) - bindingTimestamp(a));
+}
+
+async function listChatBindingsSnapshotForDevice(options = {}) {
+  const rawBindings = await listRawChatBindingsForDevice(options);
+  const chats = normalizeChatBindings(rawBindings);
+  return {
+    rawBindings,
+    chats,
+    rawBindingsCount: rawBindings.length,
+    uniqueChatsCount: chats.length,
+    missingTitleCount: chats.filter((item) => !clean(item.chatTitle)).length
+  };
+}
+
+async function unpairChatForDevice({ deviceId = '', endpointHash = '', chatId = '' } = {}) {
+  const safeDevice = clean(deviceId);
+  const safeEndpoint = clean(endpointHash);
+  const safeChat = clean(chatId);
+  if ((!safeDevice && !safeEndpoint) || !safeChat) return { ok: false, found: false, error: 'push_unpair_identity_required' };
+  const p = getPool();
+  if (p) {
+    const client = await p.connect();
+    try {
+      await ensureTable(client);
+      const result = await client.query(
+        `UPDATE ${BINDINGS_TABLE_NAME} SET status = 'disabled', updated_at = NOW() WHERE chat_id = $1 AND status = 'active' AND (($2 <> '' AND device_id = $2) OR ($3 <> '' AND endpoint_hash = $3))`,
+        [safeChat, safeDevice, safeEndpoint]
+      );
+      return { ok: result.rowCount > 0, found: result.rowCount > 0, removed: result.rowCount };
+    } finally { client.release(); }
+  }
+  const payload = readFileStore();
+  let removed = 0;
+  for (const item of payload.chatBindings || []) {
+    const binding = normalizeBindingRow(item);
+    if (binding.chatId === safeChat && binding.status === 'active' && ((safeDevice && binding.deviceId === safeDevice) || (safeEndpoint && binding.endpointHash === safeEndpoint))) {
+      item.status = 'disabled';
+      item.updatedAt = nowIso();
+      removed += 1;
+    }
+  }
+  if (removed) writeFileStore(payload);
+  return { ok: removed > 0, found: removed > 0, removed };
+}
+
 function bindingTimestamp(binding) {
   const value = Date.parse(clean(binding && (binding.updatedAt || binding.createdAt)));
   return Number.isFinite(value) ? value : 0;
@@ -499,7 +562,7 @@ async function listActiveDevicesForChat(chatId) {
     const client = await p.connect();
     try {
       await ensureTable(client);
-      const result = await client.query(`SELECT s.* FROM ${TABLE_NAME} s JOIN ${BINDINGS_TABLE_NAME} b ON ((b.device_id <> '' AND b.device_id = s.device_id) OR (b.endpoint_hash <> '' AND b.endpoint_hash = s.endpoint_hash)) WHERE b.chat_id = $1 AND b.status = 'active' AND s.status = 'active' AND s.disabled = FALSE UNION SELECT * FROM ${TABLE_NAME} WHERE chat_id = $1 AND status = 'active' AND disabled = FALSE ORDER BY updated_at DESC`, [targetChat]);
+      const result = await client.query(`SELECT s.* FROM ${TABLE_NAME} s JOIN ${BINDINGS_TABLE_NAME} b ON ((b.device_id <> '' AND b.device_id = s.device_id) OR (b.endpoint_hash <> '' AND b.endpoint_hash = s.endpoint_hash)) WHERE b.chat_id = $1 AND b.status = 'active' AND s.status = 'active' AND s.disabled = FALSE UNION SELECT s.* FROM ${TABLE_NAME} s WHERE s.chat_id = $1 AND s.status = 'active' AND s.disabled = FALSE AND NOT EXISTS (SELECT 1 FROM ${BINDINGS_TABLE_NAME} b WHERE (b.device_id <> '' AND b.device_id = s.device_id) OR (b.endpoint_hash <> '' AND b.endpoint_hash = s.endpoint_hash)) ORDER BY updated_at DESC`, [targetChat]);
       const seen = new Set();
       return result.rows.map(normalizeRow).filter((item) => { const key = item.deviceId || item.endpointHash || item.id; if (seen.has(key)) return false; seen.add(key); return true; });
     } finally { client.release(); }
@@ -507,7 +570,8 @@ async function listActiveDevicesForChat(chatId) {
   const payload = readFileStore();
   const activeBindings = (payload.chatBindings || []).map(normalizeBindingRow).filter((item) => item.chatId === targetChat && item.status === 'active');
   const allowed = new Set(activeBindings.map((item) => item.deviceId || item.endpointHash).filter(Boolean));
-  return payload.subscriptions.map(normalizeRow).filter((item) => item.status === 'active' && !item.disabled && (allowed.has(item.deviceId || item.endpointHash) || item.chatId === targetChat));
+  const devicesWithBindings = new Set((payload.chatBindings || []).map(normalizeBindingRow).map((item) => item.deviceId || item.endpointHash).filter(Boolean));
+  return payload.subscriptions.map(normalizeRow).filter((item) => item.status === 'active' && !item.disabled && (allowed.has(item.deviceId || item.endpointHash) || (!devicesWithBindings.has(item.deviceId || item.endpointHash) && item.chatId === targetChat)));
 }
 
 async function listActiveDevicesForChatAndUser({ chatId, maxUserId } = {}) {
@@ -546,4 +610,4 @@ async function listPublicDeviceSummaries() { return (await listActiveSubscriptio
 
 function info() { return { backend: isPostgresConfigured() ? 'postgres' : 'file', persistent: isPostgresConfigured(), table: isPostgresConfigured() ? TABLE_NAME : '', file: isPostgresConfigured() ? '' : DATA_FILE }; }
 
-module.exports = { saveSubscription, savePairedDevice, listActiveSubscriptions, listDevicesForUser, listActiveDevicesForUser, upsertChatBindingForDevice, upsertChatBindingForUserDevices, normalizeChatBindings, listRawChatBindingsForUser, listChatBindingsSnapshot, listChatBindingsForUser, isChatBoundForUser, listActiveDevicesForChat, listActiveDevicesForChatAndUser, listPublicDeviceSummaries, findDeviceByEndpointHash, findDeviceByDeviceId, markDeviceActive, markResult, countSubscriptions, publicSummary, subscriptionId, subscriptionShape, sanitizeSubscription, info };
+module.exports = { saveSubscription, savePairedDevice, listActiveSubscriptions, listDevicesForUser, listActiveDevicesForUser, upsertChatBindingForDevice, upsertChatBindingForUserDevices, unpairChatForDevice, normalizeChatBindings, listRawChatBindingsForUser, listRawChatBindingsForDevice, listChatBindingsSnapshot, listChatBindingsSnapshotForDevice, listChatBindingsForUser, isChatBoundForUser, listActiveDevicesForChat, listActiveDevicesForChatAndUser, listPublicDeviceSummaries, findDeviceByEndpointHash, findDeviceByDeviceId, markDeviceActive, markResult, countSubscriptions, publicSummary, subscriptionId, subscriptionShape, sanitizeSubscription, info };

@@ -8,10 +8,10 @@ const DEFAULT_BRANCH = 'runtime-status';
 const DEFAULT_PATH = 'runtime/push-pairing-log.json';
 const DEFAULT_LIMIT = 100;
 const USER_AGENT = 'adminkit-push-pairing-log-pr188';
-const ALLOWED_ROUTES = new Set(['/push', '/push/join', '/api/push/pair', '/api/push/device/status', '/api/push/link-chat', '/api/push/pending']);
+const ALLOWED_ROUTES = new Set(['/push', '/push/join', '/api/push/pair', '/api/push/device/status', '/api/push/link-chat', '/api/push/pending', '/api/push/unpair']);
 const ALLOWED_TOKEN_SOURCES = new Set(['query', 'cookie', 'body', 'manifest-start-url', 'handoff', 'pending_handoff', 'missing']);
 const ALLOWED_OPENED_AS = new Set(['safari', 'standalone-pwa', 'unknown']);
-const ALLOWED_RESULTS = new Set(['link_opened', 'pwa_opened', 'handoff_created', 'handoff_found', 'handoff_missing', 'handoff_expired', 'handoff_consumed', 'pair_started', 'pair_success', 'pair_failed', 'status_success', 'binding_created', 'binding_updated', 'binding_missing', 'pending_found', 'pending_missing']);
+const ALLOWED_RESULTS = new Set(['link_opened', 'pwa_opened', 'handoff_created', 'handoff_found', 'handoff_missing', 'handoff_expired', 'handoff_consumed', 'pair_started', 'pair_success', 'pair_failed', 'status_success', 'binding_created', 'binding_updated', 'binding_missing', 'pending_found', 'pending_missing', 'auto_pair_success', 'auto_pair_skipped_no_device_proof', 'auto_pair_skipped_no_active_subscription', 'auto_pair_skipped_device_mismatch', 'auto_pair_fallback_pending', 'unpair_success', 'unpair_not_found']);
 
 const state = {
   enabled: Boolean(String(process.env.GITHUB_DEBUG_TOKEN || '').trim()),
@@ -62,6 +62,7 @@ function sanitizeEvent(input = {}) {
     openedAs: allowed(input.openedAs, ALLOWED_OPENED_AS, 'unknown'),
     route: allowed(input.route, ALLOWED_ROUTES, '/push'),
     result: allowed(input.result, ALLOWED_RESULTS, 'pair_failed'),
+    reason: /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/.test(short(input.reason, 80)) ? short(input.reason, 80) : (clean(input.reason) ? 'sanitized_reason' : ''),
     pendingCount: Math.max(0, Math.min(Number.parseInt(input.pendingCount, 10) || 0, 10000)),
     selectedPendingChatId: short(input.selectedPendingChatId, 80).replace(/[^A-Za-z0-9_.:@-]/g, ''),
     selectedPendingChatTitle: short(input.selectedPendingChatTitle, 120).replace(/[\u0000-\u001f\u007f]/g, ' '),
