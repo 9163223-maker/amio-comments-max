@@ -18,6 +18,17 @@ function memberRole(member = {}) {
   return clean(member.role || member.chat_role || member.chatRole || member.status || member.permissions?.role).toLowerCase();
 }
 
+function botCanPublish(member = {}, chat = {}) {
+  const role = memberRole(member);
+  const type = clean(chat.type || chat.chat_type || chat.kind).toLowerCase();
+  const permissions = member.permissions && typeof member.permissions === 'object' ? member.permissions : {};
+  const explicitlyBlocked = member.can_send_messages === false || member.canSendMessages === false || permissions.send_messages === false || permissions.sendMessages === false || permissions.write === false;
+  if (explicitlyBlocked) return false;
+  if (ADMIN_ROLES.has(role)) return true;
+  if (member.can_send_messages === true || member.canSendMessages === true || permissions.send_messages === true || permissions.sendMessages === true || permissions.write === true) return true;
+  return type !== 'channel' && ['member', 'participant'].includes(role);
+}
+
 function membersFrom(response) {
   if (Array.isArray(response?.members)) return response.members;
   if (Array.isArray(response?.data?.members)) return response.data.members;
@@ -40,18 +51,19 @@ async function verifyRequesterCanPublish({ botToken, requesterId, chatId, api } 
     ]);
     const members = membersFrom(membersResponse);
     if (!chat || !botMember || !members || !members.length) return { ok: false, error: 'verification_failed' };
+    if (!botCanPublish(botMember, chat)) return { ok: false, error: 'bot_cannot_publish' };
     const requester = members.find((member) => memberUserId(member) === safeRequesterId);
     if (!requester) return { ok: false, error: 'verification_failed' };
     const role = memberRole(requester);
     if (!role) return { ok: false, error: 'verification_failed' };
     if (!ADMIN_ROLES.has(role)) return { ok: false, error: 'requester_not_admin' };
-    return { ok: true, chatId: safeChatId, role };
+    return { ok: true, chatId: safeChatId, role, chat, botRole: memberRole(botMember) };
   } catch {
     return { ok: false, error: 'verification_failed' };
   }
 }
 
-async function publishGroupPushInvite({ botToken, requesterId, chatId, title = '', api, buildInviteText, buildInviteKeyboard } = {}) {
+async function publishGroupPushInvite({ botToken, requesterId, chatId, title = '', chatType = '', api, buildInviteText, buildInviteKeyboard } = {}) {
   const permission = await verifyRequesterCanPublish({ botToken, requesterId, chatId, api });
   if (!permission.ok) return permission;
   if (typeof api?.sendMessage !== 'function' || typeof buildInviteText !== 'function' || typeof buildInviteKeyboard !== 'function') {
@@ -61,10 +73,10 @@ async function publishGroupPushInvite({ botToken, requesterId, chatId, title = '
     await api.sendMessage({
       botToken,
       chatId: permission.chatId,
-      text: buildInviteText(clean(title)),
+      text: buildInviteText(clean(title), { chatType: clean(chatType) || clean(permission.chat?.type || permission.chat?.chat_type || permission.chat?.kind) }),
       attachments: buildInviteKeyboard()
     });
-    return { ok: true, sent: true, chatId: permission.chatId };
+    return { ok: true, sent: true, chatId: permission.chatId, title: clean(title), chatType: clean(chatType) || clean(permission.chat?.type || permission.chat?.chat_type || permission.chat?.kind) };
   } catch {
     return { ok: false, error: 'publish_failed' };
   }
@@ -75,6 +87,7 @@ module.exports = {
   NON_ADMIN_MESSAGE,
   VERIFICATION_FAILURE_MESSAGE,
   memberRole,
+  botCanPublish,
   memberUserId,
   verifyRequesterCanPublish,
   publishGroupPushInvite

@@ -48,6 +48,7 @@ function sanitizeEntry(input = {}) {
     commitSource: short(input.commitSource, 80),
     nodeEnv: short(process.env.NODE_ENV || '', 40),
     pr178PushPairingBinding: sanitizeBool(input.pr178PushPairingBinding),
+    pr191PushAdminInviteTitleCommands: sanitizeBool(input.pr191PushAdminInviteTitleCommands),
     pushPairingRuntimeVersion: short(input.pushPairingRuntimeVersion, 120),
     pushPairingSourceMarker: short(input.pushPairingSourceMarker, 160),
     pr165RuntimeWired: sanitizeBool(input.pr165RuntimeWired),

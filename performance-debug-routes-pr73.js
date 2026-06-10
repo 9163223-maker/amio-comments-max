@@ -5,8 +5,9 @@ const timing = require('./v3-ui-timing-cc8');
 const postPatcher = require('./services/postPatcher');
 const config = require('./config');
 const maxCommandRegistry = require('./services/maxCommandRegistryService');
+const maxApiService = require('./services/maxApi');
 
-const RUNTIME = 'CC8.3.2-MAX-NATIVE-COMMANDS-FULL-MENU';
+const RUNTIME = 'CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS';
 const MINI_LIMIT = 100;
 const STRING_LIMIT = 160;
 const NAME_LIMIT = 80;
@@ -283,34 +284,37 @@ async function maxCommandsSyncPayload(req) {
     };
   }
 
-  const patch = await maxBotApi('/me', {
-    method: 'PATCH',
-    body: payloads.canonical,
-    timeoutMs: 9000
-  });
-  const after = await getMaxBotInfoPayload();
-
+  const sync = await internalMaxCommandSyncPayload();
   return {
     ...base,
-    ok: Boolean(patch.ok && after.hasNativeCommands),
-    patchAttempted: true,
-    patch: {
-      method: 'PATCH',
-      path: '/me',
-      status: patch.status,
-      statusText: patch.statusText || '',
-      ok: patch.ok,
-      error: patch.error || '',
-      data: patch.data || null
-    },
-    after,
-    afterCommands: after.commands || [],
-    afterCommandsCount: after.commandsCount || 0,
-    afterHasNativeCommands: Boolean(after.hasNativeCommands),
-    conclusion: patch.ok
-      ? 'PATCH /me accepted. Check MAX client slash button after reopening chat.'
-      : 'PATCH /me was not accepted by MAX API. Native commands likely require business.max.ru/support/internal tooling.'
+    ...sync,
+    patchAttempted: sync.error !== maxCommandRegistry.UNSUPPORTED_ERROR,
+    conclusion: sync.ok
+      ? 'Command catalog synchronized and verified against GET /me.'
+      : (sync.error === maxCommandRegistry.UNSUPPORTED_ERROR
+        ? maxCommandRegistry.EXTERNAL_CATALOG_NOTE
+        : 'Command catalog sync failed or could not be verified.')
   };
+}
+
+async function internalMaxCommandStatusPayload(options = {}) {
+  return maxCommandRegistry.commandStatus({
+    botToken: options.botToken || config.botToken,
+    api: options.api || maxApiService
+  });
+}
+
+async function internalMaxCommandSyncPayload(options = {}) {
+  return maxCommandRegistry.syncCommands({
+    botToken: options.botToken || config.botToken,
+    api: options.api || maxApiService
+  });
+}
+
+function requireOperator(req, res) {
+  if (adminAllowed(req)) return true;
+  send(res, { ok: false, error: config.giftAdminToken ? 'admin_forbidden' : 'admin_token_not_configured' }, config.giftAdminToken ? 403 : 503);
+  return false;
 }
 
 function sanitizeMiniPayload(payload = {}) {
@@ -641,6 +645,18 @@ function install(app) {
     });
   });
 
+  app.get('/internal/max/commands/status', async (req, res) => {
+    if (!requireOperator(req, res)) return;
+    const payload = await internalMaxCommandStatusPayload();
+    send(res, payload, payload.ok ? 200 : 502);
+  });
+
+  app.post('/internal/max/commands/sync', async (req, res) => {
+    if (!requireOperator(req, res)) return;
+    const payload = await internalMaxCommandSyncPayload();
+    send(res, payload, payload.ok ? 200 : (payload.error === maxCommandRegistry.UNSUPPORTED_ERROR ? 501 : 502));
+  });
+
   app.get('/debug/max-bot-info', async (req, res) => {
     try {
       send(res, await getMaxBotInfoPayload());
@@ -707,5 +723,7 @@ module.exports = {
   normalizeCommands,
   commandPayloads,
   getMaxBotInfoPayload,
-  maxCommandsSyncPayload
+  maxCommandsSyncPayload,
+  internalMaxCommandStatusPayload,
+  internalMaxCommandSyncPayload
 };

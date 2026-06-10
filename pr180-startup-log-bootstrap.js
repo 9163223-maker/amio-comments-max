@@ -19,6 +19,7 @@ function runtimeInfo() {
     entrypoint: clean(buildInfo.activeEntrypoint || 'clean-entrypoint-1.53.10-pr89.js'),
     gitCommit: clean(buildInfo.gitCommit || process.env.GIT_COMMIT || process.env.COMMIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION),
     pr188PushMultiChatHandoff: buildInfo.pr188PushMultiChatHandoff === true,
+    pr191PushAdminInviteTitleCommands: buildInfo.pr191PushAdminInviteTitleCommands === true || process.env.ADMINKIT_PR191_PUSH_ADMIN_INVITE_TITLE_COMMANDS === '1',
     pr178PushPairingBinding: buildInfo.pr178PushPairingBinding === true || process.env.ADMINKIT_PR178_PUSH_PAIRING_BINDING === '1',
     pushPairingRuntimeVersion: clean(buildInfo.pushPairingRuntimeVersion || 'CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF'),
     pushPairingSourceMarker: clean(buildInfo.pushPairingSourceMarker || 'adminkit-pr188-push-multi-chat-handoff'),

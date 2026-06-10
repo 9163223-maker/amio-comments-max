@@ -12,7 +12,7 @@ const {
   saveGiftSettings,
   findGiftCampaignForPost
 } = require("./services/giftService");
-const { sendMessage, editMessage, deleteMessage, answerCallback, getBotChatMember, getChat, getChatMembers, createUpload, uploadBinaryToUrl, buildUploadAttachmentPayload } = require("./services/maxApi");
+const { sendMessage, editMessage, deleteMessage, answerCallback, getBotChatMember, getChat, getChats, getChatMembers, createUpload, uploadBinaryToUrl, buildUploadAttachmentPayload } = require("./services/maxApi");
 const { safeJson } = require("./services/helpers");
 const {
   getSetupState,
@@ -374,6 +374,32 @@ async function getVisibleChannelsForUser(config, userId, options = {}) {
     prepared.push(nextItem);
   }
   return prepared;
+}
+
+function chatsFromResponse(response = {}) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response.chats)) return response.chats;
+  if (Array.isArray(response.data?.chats)) return response.data.chats;
+  return [];
+}
+
+async function getPushPublishDestinations(config, userId) {
+  const byId = new Map();
+  const add = (item = {}) => {
+    const channelId = String(item.chat_id || item.chatId || item.channelId || item.id || '').trim();
+    if (!channelId) return;
+    const title = String(item.title || item.chat_title || item.chatTitle || item.channelTitle || item.name || '').replace(/\s+/g, ' ').trim();
+    const type = String(item.type || item.chat_type || item.chatType || item.kind || (item.isChannel ? 'channel' : 'chat')).trim().toLowerCase();
+    if (['dialog', 'direct', 'private', 'user'].includes(type)) return;
+    const previous = byId.get(channelId) || {};
+    byId.set(channelId, { ...previous, ...item, channelId, title: title || previous.title || '', type: type || previous.type || 'chat', chatType: type || previous.chatType || 'chat', isChannel: type === 'channel' });
+  };
+  for (const item of await getVisibleChannelsForUser(config, userId, { adminView: clientAccessService.isAdmin(userId) })) add(item);
+  try {
+    const response = await getChats({ botToken: config?.botToken, count: 100 });
+    for (const item of chatsFromResponse(response)) add(item);
+  } catch {}
+  return Array.from(byId.values()).slice(0, 50);
 }
 
 function findStoredChannel(channelId) {
@@ -938,9 +964,21 @@ function recordGroupPushInboundDiagnostic(context = {}, patch = {}) {
   return groupPushInboundDiagnostics.record({ ...context, ...patch });
 }
 
-async function performGroupPushOnboarding({ userId, chatId, chatTitle, config, callbackId = '' } = {}) {
+async function performGroupPushOnboarding({ userId, chatId, chatTitle, message = {}, body = {}, config, callbackId = '' } = {}) {
   if (!userId) return { ok: false, error: 'message_user_id_missing' };
   if (!chatId) return { ok: false, error: 'message_chat_id_missing' };
+
+  const stored = findStoredChannel(chatId) || {};
+  const resolvedTitle = await groupPushOnboarding.resolveChatTitle({
+    message,
+    body,
+    chatId,
+    storedTitle: chatTitle || getChannelDisplayName(stored),
+    botToken: config?.botToken,
+    api: { getChat }
+  });
+  const safeChatTitle = resolvedTitle.chatTitle;
+  if (resolvedTitle.titleMissing) logVerbose(config, 'GROUP PUSH CHAT TITLE FALLBACK', { chatId, titleMissing: true });
 
   const activeDevices = await webPushStorage.listActiveDevicesForUser(userId);
   const alreadyHadActiveDevice = activeDevices.length > 0;
@@ -952,7 +990,7 @@ async function performGroupPushOnboarding({ userId, chatId, chatTitle, config, c
     joinLink = await groupPushOnboarding.createPersonalJoinLinkForMessage({
       maxUserId: userId,
       chatId,
-      chatTitle,
+      chatTitle: safeChatTitle,
       ttlMinutes: 60,
       detectedBaseUrl: config.appBaseUrl
     });
@@ -974,7 +1012,7 @@ async function performGroupPushOnboarding({ userId, chatId, chatTitle, config, c
       botToken: config.botToken,
       userId,
       text: groupPushOnboarding.buildPrivateJoinMessage({
-        chatTitle,
+        chatTitle: safeChatTitle,
         joinUrl: joinLink.displayUrl,
         shortUrlError: joinLink.shortUrlError,
         alreadyHadActiveDevice,
@@ -984,8 +1022,8 @@ async function performGroupPushOnboarding({ userId, chatId, chatTitle, config, c
     });
   } catch (error) {
     const text = callbackId
-      ? 'Откройте бота в личке и нажмите «Подключить уведомления».'
-      : 'Откройте бота в личке и нажмите «Подключить уведомления».';
+      ? 'Откройте личный чат с ботом и нажмите Старт, затем повторите подключение.'
+      : 'Откройте личный чат с ботом и нажмите Старт, затем повторите подключение.';
     if (callbackId) await answerCallback({ botToken: config.botToken, callbackId, notification: text });
     else await sendMessage({ botToken: config.botToken, chatId, text });
     return {
@@ -1011,7 +1049,9 @@ async function performGroupPushOnboarding({ userId, chatId, chatTitle, config, c
     alreadyBound,
     boundExistingDevices,
     chatId,
-    userId
+    userId,
+    chatTitle: safeChatTitle,
+    titleMissing: resolvedTitle.titleMissing
   };
 }
 
@@ -1048,7 +1088,7 @@ async function handleGroupPushCommandMessage(message, config, commandText = '') 
     return { ok: false, action: 'group_push_message_command', error: 'message_chat_id_missing', userId, ...deleteResult };
   }
 
-  const result = await performGroupPushOnboarding({ userId, chatId, chatTitle, config });
+  const result = await performGroupPushOnboarding({ userId, chatId, chatTitle, message, body: getMessageBody(message), config });
   return { ...result, ...deleteResult };
 }
 
@@ -2932,7 +2972,7 @@ function buildAdminSectionsKeyboard(config = null) {
         [{ type: 'callback', text: '🔘 Кнопки под постами', payload: buildAdminCallbackPayload('admin_section_buttons') }],
         [{ type: 'callback', text: '🎁 Подарки / лид-магниты', payload: buildAdminCallbackPayload('admin_section_gifts', { resetContext: true }) }],
         [{ type: 'callback', text: '📊 Статистика', payload: buildAdminCallbackPayload('admin_section_stats') }],
-        [{ type: 'callback', text: '🔔 Push-уведомления', payload: buildAdminCallbackPayload('admin_section_push') }],
+        [{ type: 'callback', text: '🔔 Уведомления', payload: buildAdminCallbackPayload('admin_section_push') }],
         [{ type: 'callback', text: '📺 Каналы и подключение', payload: buildAdminCallbackPayload('admin_section_channels') }],
         [{ type: 'callback', text: '❓ Помощь', payload: buildAdminCallbackPayload('admin_section_help') }]
       ]
@@ -3613,9 +3653,10 @@ function buildChannelCardKeyboard({ channelId = '', title = '' } = {}) {
 
 function buildPushAdminSectionText() {
   return [
-    '🔔 Push-уведомления',
+    '🔔 Уведомления MAX',
     '',
-    'Опубликуйте кнопку подключения в MAX-чат или канал, чтобы участники могли получать уведомления на iPhone через АдминКИТ PUSH.'
+    'Опубликуйте кнопку подключения в нужном MAX-чате или канале.',
+    'Участник нажмёт кнопку, а бот отправит ему персональную ссылку в личные сообщения.'
   ].join('\n');
 }
 
@@ -3669,7 +3710,8 @@ function buildPushAdminChatPickerKeyboard(channels = []) {
         text: truncateText(title, 56),
         payload: buildAdminCallbackPayload('admin_push_publish_invite', {
           chatId: String(item.channelId || '').trim(),
-          title: title.slice(0, 80)
+          title: title.slice(0, 80),
+          chatType: String(item.type || item.chatType || item.chat_type || item.kind || (item.isChannel ? 'channel' : 'chat')).trim().slice(0, 20)
         })
       }];
     });
@@ -3680,7 +3722,7 @@ function buildPushAdminChatPickerKeyboard(channels = []) {
 
 function buildPushPublishResultText({ ok = false, title = '', verificationFailed = false } = {}) {
   const safeTitle = getSafeClientDestinationTitle({ title }, 0).replace(/\s+1$/, '');
-  if (ok) return ['Приглашение опубликовано.', '', `Чат/канал: ${safeTitle}`, '', 'Участники смогут нажать «🔔 Подключить уведомления» и получить персональную ссылку в личных сообщениях.'].join('\n');
+  if (ok) return `Приглашение опубликовано в «${safeTitle}».`;
   if (verificationFailed) return ['Не удалось проверить права в выбранном чате/канале.', 'Проверьте, что бот добавлен туда администратором, и попробуйте ещё раз.'].join('\n');
   return ['Не удалось опубликовать приглашение.', '', 'Публиковать кнопку может только администратор или владелец выбранного чата/канала.'].join('\n');
 }
@@ -3688,17 +3730,18 @@ function buildPushPublishResultText({ ok = false, title = '', verificationFailed
 function buildPushPublishResultKeyboard(ok = false) {
   return [{ type: 'inline_keyboard', payload: { buttons: [
     [{ type: 'callback', text: ok ? 'Опубликовать ещё' : 'Выбрать другой чат', payload: buildAdminCallbackPayload('admin_push_select_chat') }],
-    [{ type: 'callback', text: 'Push-уведомления', payload: buildAdminCallbackPayload('admin_section_push') }],
+    [{ type: 'callback', text: 'Мои уведомления', payload: buildAdminCallbackPayload('admin_section_push') }],
     [{ type: 'callback', text: 'Главное меню', payload: buildAdminCallbackPayload('admin_section_main') }]
   ] } }];
 }
 
-async function publishAdminGroupPushInvite({ config, userId = '', chatId = '', title = '' } = {}) {
+async function publishAdminGroupPushInvite({ config, userId = '', chatId = '', title = '', chatType = '' } = {}) {
   return groupPushAdminPublishing.publishGroupPushInvite({
     botToken: config?.botToken,
     requesterId: userId,
     chatId,
     title,
+    chatType,
     api: { getChat, getBotChatMember, getChatMembers, sendMessage },
     buildInviteText: groupPushOnboarding.buildGroupInviteText,
     buildInviteKeyboard: groupPushOnboarding.buildGroupInviteKeyboard
@@ -5253,7 +5296,7 @@ async function handleMessageCallback(update, config) {
       await answerCallback({ botToken: config.botToken, callbackId, notification: 'Не удалось определить чат MAX. Нажмите кнопку из сообщения в группе.' });
       return { ok: false, action: groupPushOnboarding.ACTION_GROUP_PUSH_ENABLE, error: 'callback_chat_id_missing' };
     }
-    return performGroupPushOnboarding({ userId, chatId, chatTitle, config, callbackId });
+    return performGroupPushOnboarding({ userId, chatId, chatTitle, message, body: update?.body || update?.data || {}, config, callbackId });
   }
 
   if (payload?.action === pushConfirmation.ACTION) {
@@ -5508,7 +5551,7 @@ async function handleMessageCallback(update, config) {
     if (payload.action === 'admin_push_select_chat') {
       await acknowledgeCallbackSilently(config, callbackId);
       if (message) {
-        const channels = await getVisibleChannelsForUser(config, userId, { adminView: clientAccessService.isAdmin(userId) });
+        const channels = await getPushPublishDestinations(config, userId);
         await upsertBotMessage({
           config,
           message,
@@ -5545,9 +5588,10 @@ async function handleMessageCallback(update, config) {
       await acknowledgeCallbackSilently(config, callbackId);
       const selectedChatId = String(payload.chatId || '').trim();
       const selectedTitle = String(payload.title || '').trim();
+      const selectedChatType = String(payload.chatType || '').trim();
       let result = null;
       try {
-        result = await publishAdminGroupPushInvite({ config, userId, chatId: selectedChatId, title: selectedTitle });
+        result = await publishAdminGroupPushInvite({ config, userId, chatId: selectedChatId, title: selectedTitle, chatType: selectedChatType });
       } catch {
         result = { ok: false, error: 'verification_failed' };
       }

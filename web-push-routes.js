@@ -321,7 +321,8 @@ function sendPushPage(req, res, options = {}) {
       const title = safeChatTitle(options.chatTitle) || 'Чат MAX';
       html = stripMarkedHtml(html, 'functional-pwa');
       html = html.replace('id="browserInstructions" hidden', 'id="browserInstructions"');
-      html = html.replace('<p id="introText">Откройте ссылку из MAX-чата, чтобы подключить уведомления.</p>', `<p id="introText">Чат найден: «${escapeHtml(title)}»</p>`);
+      html = html.replace('<p id="introText">Откройте ссылку из MAX-чата, чтобы подключить уведомления.</p>', `<p id="introText">Подключается чат:<br><strong>«${escapeHtml(title)}»</strong></p>`);
+      html = html.replace(/<section class="card" id="browserInstructions"[^>]*>[\s\S]*?<\/section>/, '<section class="card" id="browserInstructions"><p>Откройте АдминКИТ PUSH с экрана Домой.<br>В приложении появится кнопка «Подключить этот чат».</p></section>');
     }
   }
   html = html.replace('</head>', `<script>window.__ADMINKIT_PUSH_JOIN__=${JSON.stringify(joinConfig).replace(/</g, '\\u003c')};</script></head>`);
@@ -776,5 +777,6 @@ module.exports = {
   sendToAll: sendTestToAllAdminOnly,
   sendTestToAllAdminOnly,
   isHttpsRequest,
-  extractPushSubscriptionFromBody
+  extractPushSubscriptionFromBody,
+  sendPushPage
 };

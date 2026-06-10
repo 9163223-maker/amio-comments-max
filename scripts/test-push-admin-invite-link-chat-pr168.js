@@ -44,12 +44,12 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
     process.env.WEB_PUSH_SUBJECT = 'mailto:pr168@example.test';
     process.env.BOT_TOKEN = 'BOT_TOKEN_PR168_MUST_NOT_LEAK';
 
-    assert(adminSource.includes('🔔 Push-уведомления') && adminSource.includes('admin_section_push'), 'real AdminKIT admin panel links to the visible Push section');
-    assert(botSource.includes('🔔 Push-уведомления') && botSource.includes('admin_push_publish_invite'), 'active bot exposes visible Push publishing outside /push/admin');
+    assert(adminSource.includes('🔔 Уведомления') && adminSource.includes('admin_section_push'), 'real AdminKIT admin panel links to the visible Push section');
+    assert(botSource.includes('🔔 Уведомления') && botSource.includes('admin_push_publish_invite'), 'active bot exposes visible Push publishing outside /push/admin');
     assert(!adapterSource.includes("a === 'admin_push_publish_invite'") && botSource.includes('groupPushAdminPublishing.publishGroupPushInvite'), 'publish action bypasses global support-admin interception and uses chat-scoped authorization');
     assert(!/admin_push_publish_invite[\s\S]{0,400}PUSH_ADMIN_TOKEN/.test(botSource), 'product admin action does not require manual PUSH_ADMIN_TOKEN');
     assert(botSource.includes('publishAdminGroupPushInvite') && botSource.includes('groupPushOnboarding.buildGroupInviteText') && botSource.includes('groupPushOnboarding.buildGroupInviteKeyboard'), 'product admin action publishes group invite server-side');
-    assert(botSource.includes('Приглашение опубликовано.') && botSource.includes('Не удалось проверить права в выбранном чате/канале.'), 'admin action has safe success/failure copy');
+    assert(botSource.includes('Приглашение опубликовано в «') && botSource.includes('Не удалось проверить права в выбранном чате/канале.'), 'admin action has safe success/failure copy');
 
     const inviteText = groupPush.buildGroupInviteText('PR168 Group');
     const keyboard = groupPush.buildGroupInviteKeyboard();
@@ -65,7 +65,7 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
     assert(pushClient.includes('Готово. Уведомления включены для чата') && pushClient.includes('Нажмите «Включить уведомления»'), 'add-chat flow has product copy');
     assert(!pushHtml.replace(/[\s\S]*<!-- raw-diagnostics-start -->[\s\S]*/m, '').includes('Последний результат'), 'normal PWA shell hides raw diagnostics before marker strip');
     assert(!/appendResult\([^)]*(endpoint|p256dh|auth|PUSH_ADMIN_TOKEN|BOT_TOKEN|pairingToken)/.test(pushClient), 'client does not append raw push or secret fields');
-    assert(entrypoint.includes('PR188-PUSH-MULTI-CHAT-HANDOFF') && pkg.sourceMarker === 'adminkit-pr188-push-multi-chat-handoff', 'active PR173 runtime keeps the PR168 link-chat behavior');
+    assert(entrypoint.includes('PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS') && pkg.sourceMarker === 'adminkit-pr191-push-admin-invite-title-commands', 'active PR173 runtime keeps the PR168 link-chat behavior');
 
     const pairing = fresh('../services/pushPairingService');
     const storage = fresh('../services/webPushStorage');
@@ -109,7 +109,7 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
       const joinC = await request(server, `/push/join?t=${encodeURIComponent(tokenC)}`);
       assert.strictEqual(joinC.status, 200, 'fresh join for user without active device still works');
       assert(joinC.text.includes('"joinMode":true') && joinC.text.includes('"informationalJoin":true'), 'new-device onboarding starts on the informational Safari page');
-      assert(joinC.text.includes('На экран Домой') && joinC.text.includes('Включить уведомления'), 'new-device onboarding explains installation and the later PWA action');
+      assert(joinC.text.includes('Откройте АдминКИТ PUSH с экрана Домой.') && joinC.text.includes('Подключить этот чат') && !joinC.text.includes('Нажмите «Включить уведомления»'), 'new-device onboarding uses compact PR191 handoff copy');
     });
 
     console.log('push admin invite link chat pr168 ok');

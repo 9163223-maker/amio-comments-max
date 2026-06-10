@@ -18,13 +18,58 @@ function publicBaseUrl(detectedBaseUrl = '') {
   return trimBaseUrl(process.env.PUBLIC_BASE_URL || process.env.ADMINKIT_PUBLIC_BASE_URL || process.env.APP_BASE_URL || detectedBaseUrl);
 }
 
-function buildGroupInviteText(title = '') {
-  const safeTitle = clean(title).slice(0, 120);
+function normalizeChatTitle(value) {
+  const title = clean(value).replace(/\s+/g, ' ').slice(0, 120);
+  if (!title || /^-?\d{5,}$/.test(title)) return '';
+  return title;
+}
+
+function chatTitleFromSource(source = {}) {
+  const body = source && typeof source.body === 'object' ? source.body : {};
+  const candidates = [
+    source?.recipient?.title,
+    source?.recipient?.chat_title,
+    source?.chat?.title,
+    body?.recipient?.title,
+    body?.recipient?.chat_title,
+    body?.chat?.title,
+    source?.title,
+    source?.chatTitle
+  ];
+  for (const candidate of candidates) {
+    const title = normalizeChatTitle(candidate);
+    if (title) return title;
+  }
+  return '';
+}
+
+function chatTitleFromChat(chat = {}) {
+  return normalizeChatTitle(chat?.title || chat?.chat_title || chat?.name);
+}
+
+async function resolveChatTitle({ message = {}, body = {}, chatId = '', storedTitle = '', botToken = '', api } = {}) {
+  const embedded = chatTitleFromSource(message) || chatTitleFromSource({ body }) || normalizeChatTitle(storedTitle);
+  if (embedded) return { chatTitle: embedded, titleMissing: false, source: 'update_or_registry' };
+  if (clean(chatId) && clean(botToken) && api && typeof api.getChat === 'function') {
+    try {
+      const chat = await api.getChat({ botToken, chatId: clean(chatId) });
+      const fetched = chatTitleFromChat(chat);
+      if (fetched) return { chatTitle: fetched, titleMissing: false, source: 'max_api' };
+    } catch {}
+  }
+  return { chatTitle: 'Чат MAX', titleMissing: true, source: 'fallback' };
+}
+
+function buildGroupInviteText(title = '', options = {}) {
+  const kind = clean(options.kind || options.chatType).toLowerCase();
+  const isChannel = kind === 'channel';
   return [
-    'Включите уведомления этого чата на iPhone. Нажмите кнопку — бот отправит персональную ссылку в личные сообщения.',
-    safeTitle ? `Чат: «${safeTitle}»` : '',
-    'Если кнопка недоступна, можно написать /push в этом чате — бот всё равно отправит ссылку только в личку.'
-  ].filter(Boolean).join('\n').trim();
+    isChannel ? '🔔 Уведомления этого MAX-канала' : '🔔 Уведомления для этого MAX-чата',
+    '',
+    'Получайте push-уведомления на iPhone/iPad через АдминКИТ PUSH.',
+    '',
+    'Нажмите кнопку ниже — бот отправит персональную ссылку в личные сообщения.'
+  ].join('\n');
 }
 
 function buildGroupInviteKeyboard() {
@@ -61,7 +106,8 @@ function createPersonalJoinUrl({ maxUserId, chatId, channelId = '', chatTitle = 
     error.code = 'public_base_url_required';
     throw error;
   }
-  const token = pairing.createPairingToken({ maxUserId, chatId, channelId, chatTitle, issuedByAdminId, ttlMinutes });
+  const resolvedTitle = normalizeChatTitle(chatTitle) || 'Чат MAX';
+  const token = pairing.createPairingToken({ maxUserId, chatId, channelId, chatTitle: resolvedTitle, issuedByAdminId, ttlMinutes });
   return `${base}/push/join?t=${encodeURIComponent(token)}`;
 }
 
@@ -92,6 +138,9 @@ function buildPrivateJoinKeyboard(joinUrl = '') {
 module.exports = {
   ACTION_GROUP_PUSH_ENABLE,
   DEFAULT_TTL_MINUTES,
+  normalizeChatTitle,
+  chatTitleFromSource,
+  resolveChatTitle,
   buildGroupInviteText,
   buildGroupInviteKeyboard,
   isGroupPushCommandText,

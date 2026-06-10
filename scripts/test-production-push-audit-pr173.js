@@ -29,7 +29,7 @@ function apiFor({ role = 'owner', fail = '' } = {}) {
   const entrypoint = read('clean-entrypoint-1.53.10-pr89.js');
   const buildInfo = require('../buildInfo').getBuildInfo();
 
-  assert(bot.includes("text: '🔔 Push-уведомления'") && bot.includes("buildAdminCallbackPayload('admin_section_push')"), 'real admin menu exposes visible Push section');
+  assert(bot.includes("text: '🔔 Уведомления'") && bot.includes("buildAdminCallbackPayload('admin_section_push')"), 'real admin menu exposes visible Push section');
   for (const label of ['Опубликовать приглашение', 'Как это работает', 'Главное меню']) assert(bot.includes(`text: '${label}'`), `visible Push section contains ${label}`);
   assert(bot.includes('const title = getSafeClientDestinationTitle(item, index);') && bot.includes('text: truncateText(title, 56)'), 'multi-chat publish choices include a safe chat/channel title');
   assert(bot.includes("const selectedChatId = String(payload.chatId || '').trim()"), 'product publish callback requires an explicitly selected chat');
@@ -73,20 +73,20 @@ function apiFor({ role = 'owner', fail = '' } = {}) {
 
   assert(onboarding.isGroupPushCommandText('/push'), 'ordinary group /push remains supported');
   assert(onboarding.isGroupPushEnablePayload('group_push_enable'), 'ordinary callback remains supported');
-  assert(bot.includes('return performGroupPushOnboarding({ userId, chatId, chatTitle, config, callbackId });'), 'callback onboarding remains DM-only');
+  assert(bot.includes('return performGroupPushOnboarding({ userId, chatId, chatTitle, message'), 'callback onboarding remains DM-only');
   assert(bot.includes('await sendMessage({\n      botToken: config.botToken,\n      userId,'), 'personal join link is sent to user DM');
   assert(bot.includes("if (groupPushOnboarding.isGroupPushCommandText(normalized)) return 'push_command';"), '/push command is excluded from live dispatch');
   assert(routes.includes("app.post('/api/push/link-chat'"), 'PR168 link-chat route remains present');
   assert(client.includes("fetchJson('/api/push/pair', { method: 'POST'") && client.includes('normalizePushSubscription(subscription)'), 'every chat link uses the confirmed pairing endpoint');
   assert(client.includes("hasConnectedChats ? 'Подключить этот чат' : 'Включить уведомления'"), 'first and subsequent chat links use explicit contextual actions');
 
-  assert.strictEqual(pkg.version, 'CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF');
-  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr188-push-multi-chat-handoff');
+  assert.strictEqual(pkg.version, 'CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS');
+  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr191-push-admin-invite-title-commands');
   assert.strictEqual(buildInfo.runtimeVersion, pkg.version);
   assert.strictEqual(buildInfo.buildVersion, pkg.version);
   assert.strictEqual(buildInfo.sourceMarker, pkg.sourceMarker);
-  assert(entrypoint.includes("const RUNTIME='CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF'"));
-  assert(entrypoint.includes("const SOURCE='adminkit-pr188-push-multi-chat-handoff'"));
+  assert(entrypoint.includes("const RUNTIME='CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS'"));
+  assert(entrypoint.includes("const SOURCE='adminkit-pr191-push-admin-invite-title-commands'"));
 
   console.log('production push audit pr173 ok');
 })().catch((error) => { console.error(error && error.stack || error); process.exit(1); });

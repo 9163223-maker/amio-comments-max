@@ -70,7 +70,7 @@ function request(server, pathname, options = {}) {
     const inviteText = groupPush.buildGroupInviteText('PR167 Group');
     const keyboard = groupPush.buildGroupInviteKeyboard();
     const button = keyboard[0].payload.buttons[0][0];
-    assert(inviteText.includes('Включите уведомления этого чата на iPhone. Нажмите кнопку — бот отправит персональную ссылку в личные сообщения.'), 'group invite uses clean product copy');
+    assert(inviteText.includes('🔔 Уведомления для этого MAX-чата') && inviteText.includes('Получайте push-уведомления на iPhone/iPad через АдминКИТ PUSH.') && inviteText.includes('бот отправит персональную ссылку в личные сообщения.'), 'group invite uses clean product copy');
     assert(!/\/push\/join\?t=|clck\.ru|access_token|PUSH_ADMIN_TOKEN|BOT_TOKEN/.test(inviteText), 'group invite text contains no personal link or token');
     assert.strictEqual(button.type, 'callback', 'published group invite keeps callback button');
     assert.notStrictEqual(button.type, 'message', 'published group invite is not a message button');

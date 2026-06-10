@@ -67,7 +67,7 @@ function messageUpdate({ id = 'cmd-pr166', text = '/push', userId = 'typed-user-
     const inviteText = groupPush.buildGroupInviteText('PR166 Group');
     const inviteKeyboard = groupPush.buildGroupInviteKeyboard();
     const inviteButton = inviteKeyboard[0].payload.buttons[0][0];
-    assert(inviteText.includes('Нажмите кнопку — бот отправит персональную ссылку в личные сообщения.'), 'invite text promotes private callback onboarding');
+    assert(inviteText.includes('Нажмите кнопку ниже — бот отправит персональную ссылку в личные сообщения.'), 'invite text promotes private callback onboarding');
     assert.strictEqual(inviteButton.type, 'callback', 'group invite button is callback');
     assert.notStrictEqual(inviteButton.type, 'message', 'group invite button is not message');
     assert.strictEqual(inviteButton.payload, 'group_push_enable', 'group invite payload is group_push_enable');
@@ -152,7 +152,7 @@ function messageUpdate({ id = 'cmd-pr166', text = '/push', userId = 'typed-user-
     await bot.handleWebhook({ get: () => '', body: messageUpdate({ id: 'cmd-dm-fails-pr166', userId: 'dm-fails-pr166', chatId: 'dm-fails-chat-pr166' }) }, res, { botToken: 'BOT_TOKEN_PR166_MUST_NOT_LEAK', appBaseUrl: 'https://push.example.test' });
     const safeFallback = sentMessages.find((msg) => msg.chatId === 'dm-fails-chat-pr166');
     assert(safeFallback, 'typed /push DM failure may post minimal safe fallback');
-    assert.strictEqual(safeFallback.text, 'Откройте бота в личке и нажмите «Подключить уведомления».', 'typed /push fallback is minimal and safe');
+    assert.strictEqual(safeFallback.text, 'Откройте личный чат с ботом и нажмите Старт, затем повторите подключение.', 'typed /push fallback is minimal and safe');
     assert(!/\/push\/join\?t=|clck\.ru/.test(safeFallback.text), 'typed /push fallback exposes no link');
 
     const diagnostics = { inbound: bot.getGroupPushInboundDiagnostics(30), dispatch: bot.getPushDispatchDiagnostics(30) };
@@ -162,7 +162,7 @@ function messageUpdate({ id = 'cmd-pr166', text = '/push', userId = 'typed-user-
     entrypoint.applyEnv();
     const install = entrypoint.installCleanBot();
     assert.strictEqual(install.pr165LiveChatPushRuntime, true, 'active production entrypoint still wires PR165 push runtime');
-    assert(entrypoint.RUNTIME.includes('PR188'), 'active production entrypoint advances to PR177 while preserving PR166 onboarding');
+    assert(entrypoint.RUNTIME.includes('PR191'), 'active production entrypoint advances to PR177 while preserving PR166 onboarding');
 
     console.log('group push private onboarding pr166 ok');
   } finally {

@@ -20,7 +20,7 @@ const payloads = (screen) => buttons(screen).map((item) => String(item.payload |
 
 const expectedTop = [
   'Каналы', 'Комментарии', 'Подарки / лид-магниты', 'Кнопки под постами', 'Статистика',
-  '🔔 Push-уведомления', 'Рекламные ссылки', 'Опросы / голосования', 'Выделение постов',
+  '🔔 Уведомления', 'Рекламные ссылки', 'Опросы / голосования', 'Выделение постов',
   'Редактор постов', 'Архив постов', 'Личный кабинет', 'Настройки'
 ];
 const expectedItems = {
@@ -43,7 +43,7 @@ assert.strictEqual(canonical.validate().ok, true, canonical.validate().errors.jo
 assert.strictEqual(canonical.clientSections.length, 13, 'exactly 13 client-visible sections');
 assert.deepStrictEqual(canonical.clientSections.map((section) => section.title), expectedTop, 'approved top-level order');
 assert.deepStrictEqual(labels(adapter.render('main:home')), expectedTop, 'rendered main menu matches canonical tree');
-assert.ok(expectedTop.includes('🔔 Push-уведомления'), 'Push remains a top-level product section');
+assert.ok(expectedTop.includes('🔔 Уведомления'), 'Push remains a top-level product section');
 
 for (const section of canonical.clientSections) {
   const screen = adapter.render(section.route, section.id === 'account' ? { maxUserId: ADMIN_USER_ID } : {});
@@ -105,10 +105,10 @@ for (const payload of visibleScreens.flatMap(payloads)) assert.ok(!/production_c
 
 const entrypoint = read('clean-entrypoint-1.53.10-pr89.js');
 const pkg = JSON.parse(read('package.json'));
-assert.strictEqual(pkg.buildVersion, 'CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF');
-assert.strictEqual(pkg.sourceMarker, 'adminkit-pr188-push-multi-chat-handoff');
-assert.ok(entrypoint.includes("const RUNTIME='CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF'"));
-assert.ok(entrypoint.includes("const SOURCE='adminkit-pr188-push-multi-chat-handoff'"));
+assert.strictEqual(pkg.buildVersion, 'CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS');
+assert.strictEqual(pkg.sourceMarker, 'adminkit-pr191-push-admin-invite-title-commands');
+assert.ok(entrypoint.includes("const RUNTIME='CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS'"));
+assert.ok(entrypoint.includes("const SOURCE='adminkit-pr191-push-admin-invite-title-commands'"));
 
 if (previousAdminIds === undefined) delete process.env.ADMINKIT_ADMIN_MAX_USER_IDS;
 else process.env.ADMINKIT_ADMIN_MAX_USER_IDS = previousAdminIds;

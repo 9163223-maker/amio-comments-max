@@ -26,11 +26,11 @@ function manualDeferredScreen(maxUserId = '') {
 function assertAdmin(maxUserId = '') { return access.isAdmin(maxUserId); }
 function adminPushInviteScreen(maxUserId = '') {
   if (!assertAdmin(maxUserId)) return denyScreen();
-  return { id: 'pr172_admin_push_invite', text: ['🔔 Push-уведомления', '', 'Выберите чат или канал в разделе Push-уведомлений. Перед публикацией бот проверит ваши права именно в выбранном чате.'].join('\n'), attachments: keyboard([[button('Push-уведомления', 'admin_section_push')], [button('Админ-панель', 'admin_panel')]]) };
+  return { id: 'pr172_admin_push_invite', text: ['🔔 Уведомления', '', 'Выберите чат или канал в разделе уведомлений. Перед публикацией бот проверит ваши права именно в выбранном чате.'].join('\n'), attachments: keyboard([[button('Уведомления', 'admin_section_push')], [button('Админ-панель', 'admin_panel')]]) };
 }
 function adminPanel(maxUserId = '') {
   if (!assertAdmin(maxUserId)) return denyScreen();
-  return { id: 'pr108_admin_panel', text: ['🛠 Админ-панель', '', 'Управление доступами АдминКИТ.'].join('\n'), attachments: keyboard([[button('Создать код', 'admin_code_create')], [button('Коды доступа', 'admin_codes_list')], [button('Клиенты / tenants', 'admin_tenants_list')], [button('🔔 Push-уведомления', 'admin_section_push')], [button('Главное меню', 'admin_section_main')]]) };
+  return { id: 'pr108_admin_panel', text: ['🛠 Админ-панель', '', 'Управление доступами АдминКИТ.'].join('\n'), attachments: keyboard([[button('Создать код', 'admin_code_create')], [button('Коды доступа', 'admin_codes_list')], [button('Клиенты / tenants', 'admin_tenants_list')], [button('🔔 Уведомления', 'admin_section_push')], [button('Главное меню', 'admin_section_main')]]) };
 }
 function createPlanScreen(maxUserId = '') {
   if (!assertAdmin(maxUserId)) return denyScreen();

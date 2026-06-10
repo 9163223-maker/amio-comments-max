@@ -573,8 +573,8 @@ async function fetchJson(url, options) {
 
 function applyInformationalJoin() {
   const title = String(state.join && state.join.chatTitle || '').trim().slice(0, 120);
-  setText('introText', title ? `Чат найден: «${title}»` : 'Чат найден');
-  setClientStatus('Откройте АдминКИТ PUSH с экрана Домой и продолжите подключение там.', 'info');
+  setText('introText', `Подключается чат: «${title || 'Чат MAX'}»`);
+  setClientStatus('', 'info');
   setHidden('browserInstructions', false);
   setHidden('connectedChatsSection', true);
   setNotificationsBadge(false);
@@ -620,7 +620,7 @@ function applyJoinMode() {
   }
   if (history && history.replaceState) history.replaceState(null, document.title, '/push');
   const foundTitle = String(state.join && state.join.chatTitle || '').trim().slice(0, 120);
-  setText('introText', foundTitle ? `Чат найден: ${foundTitle}` : 'Чат найден');
+  setText('introText', `Подключается чат: «${foundTitle || 'Чат MAX'}»`);
   setHidden('pairingNotice', true);
   setHidden('subscribeTokenRow', true);
   setHidden('adminTokenRow', true);
