@@ -56,7 +56,7 @@ const BUILD_INFO = Object.freeze({
   expectedRuntimeVersion: CURRENT_RUNTIME,
   pr178PushPairingBinding,
   pushPairingRuntimeVersion: pr178PushPairingBinding ? CURRENT_RUNTIME : '',
-  pushPairingSourceMarker: pr178PushPairingBinding ? 'adminkit-pr178-push-pairing-binding' : '',
+  pushPairingSourceMarker: pr178PushPairingBinding ? 'adminkit-pr187-push-product-perfect' : '',
   pr165RuntimeWired: Boolean(markerJson.pr165RuntimeWired || process.env.PR165_RUNTIME_WIRED === '1'),
   pr165LiveChatPushRuntime: clean(markerJson.pr165LiveChatPushRuntime || '')
 });

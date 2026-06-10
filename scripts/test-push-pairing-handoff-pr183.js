@@ -63,7 +63,7 @@ function handoffFrom(response) {
       const genericA = await request(server, '/push', { headers: { cookie: `push_pairing_handoff=${encodeURIComponent(handoffA)}` } });
       assert.strictEqual(genericA.status, 200);
       assert(genericA.text.includes(`"handoffId":"${handoffA}"`) && genericA.text.includes('"joinMode":true'), 'generic /push recovers pending handoff from cookie');
-      assert(genericA.text.includes('Чат найден. Нажмите, чтобы подключить уведомления.') || fs.readFileSync(path.join(repoRoot, 'public', 'push-client.js'), 'utf8').includes('Чат найден. Нажмите, чтобы подключить уведомления.'), 'handoff UX has a chat-found state');
+      assert(genericA.text.includes('Нажмите «Включить уведомления», чтобы получать уведомления этого чата.') || fs.readFileSync(path.join(repoRoot, 'public', 'push-client.js'), 'utf8').includes('Нажмите «Включить уведомления», чтобы получать уведомления этого чата.'), 'handoff UX has a chat-found state');
 
       events.length = 0;
       const pairA = await request(server, '/api/push/pair', postJson({ handoffId: handoffA, subscription: deviceSubscription }));

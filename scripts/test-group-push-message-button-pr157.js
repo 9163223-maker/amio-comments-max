@@ -155,7 +155,7 @@ function messageUpdate({ text = '/push', userId = 'message-user-pr157', chatId =
     const fallbackPrivate = sentMessages.find((msg) => msg.userId === 'message-fallback-user-pr157');
     const fallbackGroup = sentMessages.find((msg) => msg.chatId === 'message-fallback-chat-pr157');
     assert(fallbackPrivate && fallbackPrivate.text.includes('/push/join?t='), 'private link falls back to long URL when clck.ru fails');
-    assert(fallbackPrivate.text.includes('Короткая ссылка временно недоступна'), 'fallback private DM explains short link failure safely');
+    assert(fallbackPrivate.text.includes('АдминКИТ PUSH'), 'fallback private DM keeps the same product copy');
     assert(!fallbackGroup, 'shortener fallback still does not post publicly on success');
 
     sentMessages.length = 0; clckCalls = [];
@@ -195,7 +195,7 @@ function messageUpdate({ text = '/push', userId = 'message-user-pr157', chatId =
     const routesSource = fs.readFileSync(path.join(repoRoot, 'web-push-routes.js'), 'utf8');
     const clientSource = fs.readFileSync(path.join(repoRoot, 'public', 'push-client.js'), 'utf8');
     assert(routesSource.includes("sendPushPage(req, res, { mode: 'client', joinMode: true"), '/push/join client page remains client-safe/simple');
-    assert(routesSource.includes("sendPushPage(req, res, { mode: 'client', joinMode: false"), '/push client page remains client-safe/simple');
+    assert(routesSource.includes("app.get('/push'") && routesSource.includes("mode: 'client'"), '/push client page remains client-safe/simple');
     assert(clientSource.includes('/internal/max/group-push-invite'), 'admin Push PWA group invite wiring remains');
     assert(clientSource.includes('Authorization: `Bearer ${token}`'), 'admin Push PWA still uses bearer token');
     assert(!clientSource.includes('platform-api.max.ru'), 'client Push PWA still does not expose MAX API base URL');

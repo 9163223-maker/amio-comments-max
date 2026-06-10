@@ -5146,7 +5146,7 @@ async function handleDirectChannelPost(message, config) {
     } catch {}
   }
 
-  const channelOwnerId = String(getChannelsList().find((channel) => String(channel?.channelId || '') === String(channelId || ''))?.linkedByUserId || getSenderUserId(message) || '').trim();
+  const channelOwnerId = String(listChannels().find((channel) => String(channel?.channelId || '') === String(channelId || ''))?.linkedByUserId || getSenderUserId(message) || '').trim();
   if (channelOwnerId && !getAutoCommentsEnabled(channelOwnerId, channelId)) {
     pushPostPatchTrace('direct_channel_post_auto_patch_disabled', { channelId, postId, messageId, messageIdCandidates });
     return { ok: true, action: 'channel_post_auto_patch_disabled', channelId, postId };

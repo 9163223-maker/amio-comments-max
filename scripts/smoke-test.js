@@ -44,5 +44,6 @@ runSmoke('patch-compute-breakdown-pr75-test.js', 'patch compute breakdown PR75 s
 runSmoke('comment-runtime-media-contract-test.js', 'comment runtime media contract smoke test');
 runSmoke('media-lifecycle-clean-test.js', 'media lifecycle clean contract smoke test');
 runSmoke('test-canonical-client-menu.js', 'PR105 canonical client menu smoke test');
+runSmoke('test-push-product-perfect-pr187.js', 'PR187 push product-perfect smoke test');
 
 console.log('smoke ok');

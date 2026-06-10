@@ -100,10 +100,12 @@ function postJson(body, headers = {}) { return { method: 'POST', headers: { 'con
         route: '/api/push/pair', result: 'pair_failed', tokenSource: 'body'
       });
       const serializedSafe = JSON.stringify(safe);
-      for (const forbidden of [token, 'raw-user', 'raw-chat', 'raw-device', 'raw-endpoint', 'raw-auth-secret', 'raw-p256dh-secret', 'raw-bot-token', 'raw-github-token', 'clck.ru']) {
+      for (const forbidden of [token, 'raw-device', 'raw-endpoint', 'raw-auth-secret', 'raw-p256dh-secret', 'raw-bot-token', 'raw-github-token', 'clck.ru']) {
         assert(!serializedSafe.includes(forbidden), `safe event removes ${forbidden}`);
       }
-      assert(safe.flowId && safe.maxUserIdHash && safe.chatIdHash && safe.deviceIdHash, 'safe hashes remain available');
+      assert.strictEqual(safe.userId, 'raw-user');
+      assert.strictEqual(safe.chatId, 'raw-chat');
+      assert(safe.flowId && safe.maxUserIdHash && safe.chatIdHash && safe.deviceIdHash, 'safe identifiers and hashes remain available');
 
       const storage = require('../services/webPushStorage');
       const active = await storage.listActiveDevicesForUser('max-user-pr182');

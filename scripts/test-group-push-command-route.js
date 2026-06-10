@@ -183,14 +183,14 @@ function assertNoPersonalLink(message, label) {
     await storage.savePairedDevice(validSubscription('active-route'), { maxUserId: 'active-user', chatId: 'old-chat', status: 'active' });
     sentMessages.length = 0;
     await webhook(bot, messageUpdate({ text: '/push', userId: 'active-user', chatId: 'active-chat', title: 'Active Chat' }), sentMessages);
-    assert.strictEqual(await storage.isChatBoundForUser('active-user', 'active-chat'), true, 'existing active user keeps direct chat binding');
+    assert.strictEqual(await storage.isChatBoundForUser('active-user', 'active-chat'), false, '/push does not claim a binding before the device confirms pairing');
     assert.strictEqual(sentMessages.filter((message) => message.userId === 'active-user').length, 1, 'existing active user gets a fresh setup link for another device');
-    assert(sentMessages.some((message) => message.userId === 'active-user' && String(message.text || '').includes('уже есть подключённое устройство')), 'existing active user gets private multi-device explanation');
+    assert(sentMessages.some((message) => message.userId === 'active-user' && String(message.text || '').includes('Включить уведомления')), 'existing active user gets a fresh enable explanation');
     assert.strictEqual(sentMessages.filter((message) => message.chatId === 'active-chat').length, 0, 'existing active user gets no public group success reply');
 
     sentMessages.length = 0;
     await webhook(bot, messageUpdate({ text: '/push', userId: 'active-user', chatId: 'active-chat', title: 'Active Chat' }), sentMessages);
-    assert.strictEqual((await storage.listChatBindingsForUser('active-user')).filter((binding) => binding.chatId === 'active-chat').length, 1, 'repeated /push keeps existing binding idempotent');
+    assert.strictEqual((await storage.listChatBindingsForUser('active-user')).filter((binding) => binding.chatId === 'active-chat').length, 0, 'repeated /push still waits for confirmed device pairing');
     assert(sentMessages.some((message) => message.userId === 'active-user' && /https:\/\/clck\.ru\/route-short/.test(String(message.text || ''))), 'repeated /push sends another private setup link');
     assert.strictEqual(sentMessages.filter((message) => message.chatId === 'active-chat').length, 0, 'repeated /push sends no public group reply');
 

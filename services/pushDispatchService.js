@@ -120,6 +120,8 @@ async function sendPushToChat({ chatId, payload, webPushClient } = {}) {
     senderName: clean(enrichedPayload.senderName),
     messageText: clean(enrichedPayload.messageText),
     messageType: Array.isArray(enrichedPayload.attachments) && enrichedPayload.attachments.length ? 'other' : 'text',
+    candidateEndpoints: devices.length,
+    selectedEndpoints: devices.length,
     selectedEndpointsCount: devices.length,
     activeBindingsCount: devices.length,
     notificationTitlePreview: normalizedPayload.title,
@@ -133,6 +135,7 @@ async function sendPushToChat({ chatId, payload, webPushClient } = {}) {
     ...logContext,
     successCount: result.success,
     failureCount: result.failed,
+    staleEndpointsRemoved: Array.isArray(result.results) ? result.results.filter((item) => item.disabled && [404, 410].includes(item.statusCode)).length : 0,
     removedExpiredCount: Array.isArray(result.results) ? result.results.filter((item) => item.disabled && [404, 410].includes(item.statusCode)).length : 0,
     skippedReason: devices.length ? '' : 'no_bound_devices'
   });

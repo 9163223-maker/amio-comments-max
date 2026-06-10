@@ -77,8 +77,7 @@ function clientGroupHelpScreen() {
 
 function isCommandAllowedInContext({ command = '', message = {}, userId = '' } = {}) {
   if (!isGroupContext(message)) return true;
-  if (PUBLIC_GROUP_COMMANDS.includes(command)) return true;
-  return Boolean(access.isAdmin(userId) || access.getAccessState(userId).active);
+  return PUBLIC_GROUP_COMMANDS.includes(command);
 }
 
 async function cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu, options = {}) {

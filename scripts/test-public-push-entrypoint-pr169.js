@@ -58,7 +58,7 @@ function actionOf(item = {}) {
     });
     assert.strictEqual(result.ok, true, 'public Push screen resolves without active access, admin, tenant, or channel');
     assert.strictEqual(result.screen.id, 'account_push_notifications', 'public Push action renders its public screen');
-    assert(result.screen.text.includes('У вас пока нет подключённых чатов.'), 'public Push screen contains concise status copy');
+    assert(result.screen.text.includes('На этом устройстве пока нет подключённых чатов.'), 'public Push screen contains concise status copy');
     assert(!result.screen.text.includes('Активируйте доступ'), 'public Push screen does not lead with admin activation');
 
     const pushButtons = buttonsOf(result.screen);
@@ -85,10 +85,10 @@ function actionOf(item = {}) {
 
     const pkg = require('../package.json');
     const entrypoint = fs.readFileSync(path.join(repoRoot, 'clean-entrypoint-1.53.10-pr89.js'), 'utf8');
-    assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR177-CHANNELS-PUSH-UX', 'package build marker advances to PR173');
-    assert.strictEqual(pkg.sourceMarker, 'adminkit-pr177-channels-push-ux', 'package source marker advances to PR173');
-    assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR177-CHANNELS-PUSH-UX'"), 'active entrypoint runtime marker is PR173');
-    assert(entrypoint.includes("const SOURCE='adminkit-pr177-channels-push-ux'"), 'active entrypoint source marker is PR173');
+    assert.strictEqual(pkg.buildVersion, 'CC8.3.53-PR187-PUSH-PRODUCT-PERFECT', 'package build marker advances to PR173');
+    assert.strictEqual(pkg.sourceMarker, 'adminkit-pr187-push-product-perfect', 'package source marker advances to PR173');
+    assert(entrypoint.includes("const RUNTIME='CC8.3.53-PR187-PUSH-PRODUCT-PERFECT'"), 'active entrypoint runtime marker is PR173');
+    assert(entrypoint.includes("const SOURCE='adminkit-pr187-push-product-perfect'"), 'active entrypoint source marker is PR173');
 
     console.log('public push entrypoint pr169 ok');
   } finally {

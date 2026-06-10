@@ -1,10 +1,10 @@
 {
-  "runtimeVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
-  "buildVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
-  "displayVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
-  "packageVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX",
-  "sourceMarker": "adminkit-pr177-channels-push-ux",
-  "buildGeneratedAt": "2026-06-09T00:00:00Z",
+  "runtimeVersion": "CC8.3.53-PR187-PUSH-PRODUCT-PERFECT",
+  "buildVersion": "CC8.3.53-PR187-PUSH-PRODUCT-PERFECT",
+  "displayVersion": "CC8.3.53-PR187-PUSH-PRODUCT-PERFECT",
+  "packageVersion": "CC8.3.53-PR187-PUSH-PRODUCT-PERFECT",
+  "sourceMarker": "adminkit-pr187-push-product-perfect",
+  "buildGeneratedAt": "2026-06-10T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
     "version": "1.53.11",
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.52-PR177-CHANNELS-PUSH-UX"
+    "activeRuntimeVersion": "CC8.3.53-PR187-PUSH-PRODUCT-PERFECT"
   },
   "persistentStore": {
     "enabled": true,
@@ -93,7 +93,8 @@
   ],
   "gitCommit": "",
   "pr131MergeCommit": "",
-  "liveSyncAudit": "PR173 audits and hardens the production AdminKIT Push flow while preserving PR168/PR170 behavior",
+  "liveSyncAudit": "PR187 АдминКИТ PUSH product-perfect runtime and device-scoped pairing",
   "pr165RuntimeWired": true,
-  "pr165LiveChatPushRuntime": "clean-bot-live-chat-push-pr165.js"
+  "pr165LiveChatPushRuntime": "clean-bot-live-chat-push-pr165.js",
+  "pr187PushProductPerfect": true
 }

@@ -77,16 +77,16 @@ function apiFor({ role = 'owner', fail = '' } = {}) {
   assert(bot.includes('await sendMessage({\n      botToken: config.botToken,\n      userId,'), 'personal join link is sent to user DM');
   assert(bot.includes("if (groupPushOnboarding.isGroupPushCommandText(normalized)) return 'push_command';"), '/push command is excluded from live dispatch');
   assert(routes.includes("app.post('/api/push/link-chat'"), 'PR168 link-chat route remains present');
-  assert(client.includes("fetchJson('/api/push/link-chat', { method: 'POST', body: JSON.stringify(requestBody) })") && client.includes('normalizePushSubscription(subscription)'), 'existing-device add-chat sends the current subscription for device-scoped status');
-  assert(client.includes('Подключить этот чат'), 'link-chat product label remains present');
+  assert(client.includes("fetchJson('/api/push/pair', { method: 'POST'") && client.includes('normalizePushSubscription(subscription)'), 'every chat link uses the confirmed pairing endpoint');
+  assert(client.includes("showPrimaryAction('Включить уведомления')") && !client.includes("showPrimaryAction('Подключить этот чат')"), 'all chat links use the same explicit enable action');
 
-  assert.strictEqual(pkg.version, 'CC8.3.52-PR177-CHANNELS-PUSH-UX');
-  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr177-channels-push-ux');
+  assert.strictEqual(pkg.version, 'CC8.3.53-PR187-PUSH-PRODUCT-PERFECT');
+  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr187-push-product-perfect');
   assert.strictEqual(buildInfo.runtimeVersion, pkg.version);
   assert.strictEqual(buildInfo.buildVersion, pkg.version);
   assert.strictEqual(buildInfo.sourceMarker, pkg.sourceMarker);
-  assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR177-CHANNELS-PUSH-UX'"));
-  assert(entrypoint.includes("const SOURCE='adminkit-pr177-channels-push-ux'"));
+  assert(entrypoint.includes("const RUNTIME='CC8.3.53-PR187-PUSH-PRODUCT-PERFECT'"));
+  assert(entrypoint.includes("const SOURCE='adminkit-pr187-push-product-perfect'"));
 
   console.log('production push audit pr173 ok');
 })().catch((error) => { console.error(error && error.stack || error); process.exit(1); });

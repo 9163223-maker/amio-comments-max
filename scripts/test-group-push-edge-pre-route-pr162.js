@@ -217,7 +217,7 @@ async function postWebhook(port, update) {
       fs.writeFileSync(sentFile, '[]', 'utf8');
       const active = await postWebhook(port, messageUpdate({ text: '/push', userId: 'active-edge-user', chatId: 'active-edge-chat', title: 'Active Edge Chat' }));
       assert.strictEqual(active.status, 200, 'active user /push returns 200');
-      assert.strictEqual(await storage.isChatBoundForUser('active-edge-user', 'active-edge-chat'), true, 'active user gets direct chat binding at edge');
+      assert.strictEqual(await storage.isChatBoundForUser('active-edge-user', 'active-edge-chat'), false, 'edge /push waits for confirmed device pairing');
       let activeSent = readSent(sentFile);
       assert(activeSent.some((message) => message.userId === 'active-edge-user'), 'active user gets private setup link for another device');
       assert(!activeSent.some((message) => message.chatId === 'active-edge-chat'), 'active user gets no group success text');
@@ -225,7 +225,7 @@ async function postWebhook(port, update) {
       fs.writeFileSync(sentFile, '[]', 'utf8');
       const repeated = await postWebhook(port, messageUpdate({ text: '/push', userId: 'active-edge-user', chatId: 'active-edge-chat', title: 'Active Edge Chat' }));
       assert.strictEqual(repeated.status, 200, 'repeated active user /push returns 200');
-      assert.strictEqual((await storage.listChatBindingsForUser('active-edge-user')).filter((binding) => binding.chatId === 'active-edge-chat').length, 1, 'repeated /push remains idempotent');
+      assert.strictEqual((await storage.listChatBindingsForUser('active-edge-user')).filter((binding) => binding.chatId === 'active-edge-chat').length, 0, 'repeated /push still waits for confirmed pairing');
       assert(readSent(sentFile).some((message) => message.userId === 'active-edge-user' && /https?:\/\/clck\.ru\//i.test(String(message.text || ''))), 'repeated /push sends another private personal link');
       assert(!readSent(sentFile).some((message) => message.chatId === 'active-edge-chat'), 'repeated /push posts no public group link/status');
 

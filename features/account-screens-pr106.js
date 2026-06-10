@@ -236,9 +236,9 @@ function pushNotificationsScreen(maxUserId = '', options = {}) {
   const reconnect = chats.filter((item) => !item.enabled && item.reconnect);
   let text;
   if (enabled.length || reconnect.length) {
-    text = ['🔔 Мои уведомления', '', ...(enabled.length ? ['На этом устройстве:', ...enabled.map((item) => `• ${item.title} — включены`), ''] : []), ...(reconnect.length ? ['Нужно подключить:', ...reconnect.map((item) => `• ${item.title} — подключить`)] : [])].join('\n').trim();
+    text = ['🔔 Мои уведомления', '', ...(enabled.length ? ['Подключены на этом устройстве:', ...enabled.map((item) => `• ${item.title} — включены`), ''] : ['На этом устройстве пока нет подключённых чатов.', '']), ...(reconnect.length ? ['Другие доступные чаты:', ...reconnect.map((item) => `• ${item.title} — откройте ссылку из этого чата`), ''] : []), 'Чтобы подключить чат:', '1. Откройте нужный MAX-чат.', '2. Отправьте /push.', '3. Откройте ссылку и включите уведомления в АдминКИТ PUSH.'].join('\n').trim();
   } else {
-    text = ['🔔 Мои уведомления', '', 'У вас пока нет подключённых чатов.', 'Чтобы получать уведомления, подключите нужный MAX-чат.'].join('\n');
+    text = ['🔔 Мои уведомления', '', 'На этом устройстве пока нет подключённых чатов.', 'Чтобы подключить чат:', '1. Откройте нужный MAX-чат.', '2. Отправьте /push.', '3. Откройте ссылку и включите уведомления в АдминКИТ PUSH.'].join('\n');
   }
   return {
     id: 'account_push_notifications',

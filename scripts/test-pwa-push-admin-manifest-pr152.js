@@ -88,7 +88,7 @@ function assertAdminControls(html) {
 
       const join = await request(server, `/push/join?t=${encodeURIComponent(token)}`);
       assert.strictEqual(join.status, 200, '/push/join?t=valid token renders');
-      assert.strictEqual(countActiveManifest(join.text, '/push/manifest.json'), 1, '/push/join contains client manifest');
+      assert(/<link\s+rel=["']manifest["']\s+href=["']\/push\/manifest\//.test(join.text), '/push/join contains token-scoped client manifest');
       assert.strictEqual(countActiveManifest(join.text, '/public/push-admin-manifest.json'), 0, '/push/join does not contain admin manifest');
       assertClientSafe(join.text, '/push/join');
     });
