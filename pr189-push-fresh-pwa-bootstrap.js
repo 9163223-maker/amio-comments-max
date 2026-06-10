@@ -2,8 +2,8 @@
 
 const path = require('path');
 
-const RUNTIME = 'CC8.3.55-PR189-PUSH-FRESH-PWA-PENDING';
-const SOURCE = 'adminkit-pr189-push-fresh-pwa-pending';
+const RUNTIME = 'CC8.3.56-PR190-PUSH-POLISH-AUTOREFRESH';
+const SOURCE = 'adminkit-pr190-push-polish-autorefresh';
 
 function clean(value) { return String(value || '').trim(); }
 function versionToken() { return encodeURIComponent(clean(process.env.RUNTIME_VERSION) || RUNTIME); }
@@ -18,14 +18,56 @@ function setNoCacheHeaders(res) {
   res.setHeader('X-Adminkit-Push-Source', SOURCE);
 }
 
+function compactJoinStyle() {
+  return `<style id="adminkit-pr190-compact-join">
+    @media (max-width: 760px) {
+      main { max-width: 520px; padding: max(10px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom)) !important; }
+      .brand { padding: 8px 8px 2px !important; }
+      .brand-logo { width: 64px !important; height: 64px !important; border-radius: 18px !important; box-shadow: 0 10px 22px rgba(37,99,235,.14) !important; }
+      h1 { font-size: 25px !important; margin: 8px 0 4px !important; }
+      h2 { font-size: 17px !important; margin: 0 0 8px !important; }
+      p { line-height: 1.35 !important; margin: 7px 0 !important; }
+      .card { border-radius: 18px !important; padding: 13px 14px !important; margin: 9px 0 !important; box-shadow: 0 8px 18px rgba(15,23,42,.045) !important; }
+      #clientStatus { font-size: 15px !important; padding: 10px 12px !important; }
+      #browserInstructions .instruction-actions, #browserInstructions .instruction-block { display: none !important; }
+    }
+  </style>`;
+}
+
+function focusRefreshScript() {
+  return `<script id="adminkit-pr190-focus-refresh">
+    (function(){
+      var lastRefreshAt = 0;
+      function refreshAdminkitPush(reason){
+        if (document.visibilityState === 'hidden') return;
+        var now = Date.now();
+        if (now - lastRefreshAt < 1200) return;
+        lastRefreshAt = now;
+        setTimeout(function(){
+          try {
+            if (typeof window.refreshStatus === 'function') window.refreshStatus().catch(function(){});
+          } catch (error) {}
+        }, 250);
+      }
+      window.addEventListener('pageshow', function(){ refreshAdminkitPush('pageshow'); });
+      window.addEventListener('focus', function(){ refreshAdminkitPush('focus'); });
+      document.addEventListener('visibilitychange', function(){ if (!document.hidden) refreshAdminkitPush('visible'); });
+    })();
+  </script>`;
+}
+
 function patchPushHtml(html) {
   if (typeof html !== 'string' || !html.includes('/public/push-client.js')) return html;
   const marker = `<script>window.__ADMINKIT_PUSH_CLIENT_VERSION__=${JSON.stringify(RUNTIME)};window.__ADMINKIT_PUSH_CLIENT_SOURCE__=${JSON.stringify(SOURCE)};</script>`;
-  return html
+  let output = html
+    .replace(/<style id="adminkit-pr190-compact-join">[\s\S]*?<\/style>\s*/g, '')
+    .replace(/<script id="adminkit-pr190-focus-refresh">[\s\S]*?<\/script>\s*/g, '')
     .replace(/<script>window\.__ADMINKIT_PUSH_CLIENT_VERSION__=[\s\S]*?<\/script>\s*/g, '')
-    .replace(/<script\s+src="\/public\/push-client\.js(?:\?[^\"]*)?"><\/script>/g, `${marker}\n    <script src="/public/push-client.js?v=${versionToken()}"></script>`)
+    .replace(/<script\s+src="\/public\/push-client\.js(?:\?[^\"]*)?"><\/script>/g, `${marker}\n    <script src="/public/push-client.js?v=${versionToken()}"></script>\n    ${focusRefreshScript()}`)
     .replace(/Персональная ссылка найдена\. Теперь нажмите «Включить уведомления»\.?/g, 'Откройте АдминКИТ PUSH с экрана Домой. В приложении появится кнопка «Подключить этот чат».')
     .replace(/Если АдминКИТ PUSH уже установлен,\s*просто откройте ссылку и нажмите\s*«Включить уведомления»\.?/g, 'Если АдминКИТ PUSH уже установлен, откройте приложение с экрана Домой — в нём появится кнопка «Подключить этот чат».');
+  if (output.includes('"informationalJoin":true') && !output.includes('adminkit-pr190-compact-join')) output = output.replace('</head>', `${compactJoinStyle()}</head>`);
+  return output;
 }
 
 function wrapSendForPush(req, res, next) {
@@ -91,6 +133,6 @@ function install() {
 }
 
 const state = install();
-function info() { return { ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, state, versionToken: versionToken() }; }
+function info() { return { ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, state, versionToken: versionToken(), compactJoin: true, focusRefresh: true }; }
 
-module.exports = { RUNTIME, SOURCE, setNoCacheHeaders, patchPushHtml, info, state };
+module.exports = { RUNTIME, SOURCE, setNoCacheHeaders, patchPushHtml, compactJoinStyle, focusRefreshScript, info, state };
