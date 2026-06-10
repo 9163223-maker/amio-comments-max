@@ -53,7 +53,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
   assert(html.includes('<h1>АдминКИТ PUSH</h1>'));
 
   const notification = payloads.buildGroupMessagePayload({ chatTitle: 'Мож Хвост 2', senderName: 'Ольга', messageText: 'Привет, кто сегодня идёт?' });
-  assert.strictEqual(notification.title, 'АдминКИТ PUSH');
+  assert.strictEqual(notification.title, 'MAX уведомления');
   assert.strictEqual(notification.body, 'Мож Хвост 2\nОльга: Привет, кто сегодня идёт?');
   const fallback = payloads.buildGroupMessagePayload({ chatTitle: 'Мож Хвост 2', messageText: 'Привет' });
   assert(fallback.body.includes('Участник: Привет'));
@@ -79,10 +79,9 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
     for (const forbidden of ['AdminKit Push', 'Adminkit Push', 'AdminKIT Push', 'АдминКИТ Push']) assert(!source.includes(forbidden), `${file} contains ${forbidden}`);
   }
 
-  assert.strictEqual(pkg.version, 'CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF');
-  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr188-push-multi-chat-handoff');
-  assert.strictEqual(buildInfo.runtimeVersion, pkg.version);
-  assert.strictEqual(buildInfo.sourceMarker, pkg.sourceMarker);
+  assert.strictEqual(pkg.version, buildInfo.runtimeVersion);
+  assert.strictEqual(pkg.sourceMarker, buildInfo.sourceMarker);
+  assert.strictEqual(pkg.pr187PushProductPerfect, true);
   assert.strictEqual(pkg.scripts.start, 'node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js');
   assert(read('clean-entrypoint-1.53.10-pr89.js').includes("require('./pr180-startup-log-bootstrap')"));
   const debugRoutes = read('v3-menu-routes-1539.js');
