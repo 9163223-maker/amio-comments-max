@@ -39,6 +39,14 @@ function prune(store, timestamp = nowMs()) {
   return store;
 }
 
+function nextCreatedAtMs(store, timestamp = nowMs()) {
+  let latest = 0;
+  for (const item of Object.values(store.handoffs || {})) {
+    latest = Math.max(latest, Number(item && item.createdAtMs) || 0);
+  }
+  return Math.max(timestamp, latest + 1);
+}
+
 function publicPending(key, item) {
   const context = item && item.context && typeof item.context === 'object' ? item.context : {};
   return {
@@ -63,9 +71,10 @@ function create({ pairingToken, context, ttlMs = DEFAULT_TTL_MS } = {}) {
     throw error;
   }
   const handoffId = crypto.randomBytes(24).toString('base64url');
-  const createdAtMs = nowMs();
+  const timestamp = nowMs();
+  const store = prune(readStore(), timestamp);
+  const createdAtMs = nextCreatedAtMs(store, timestamp);
   const expiresAtMs = createdAtMs + Math.max(60_000, Math.min(DEFAULT_TTL_MS, Number(ttlMs) || DEFAULT_TTL_MS));
-  const store = prune(readStore(), createdAtMs);
   const key = handoffHash(handoffId);
   store.handoffs[key] = {
     handoffId,
