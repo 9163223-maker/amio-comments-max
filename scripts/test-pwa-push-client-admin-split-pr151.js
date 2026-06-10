@@ -65,7 +65,7 @@ function assertNoLeaks(text, label, extraForbidden = []) {
       const join = await request(server, `/push/join?t=${encodeURIComponent(token)}`);
       assert.strictEqual(join.status, 200, '/push/join?t=valid token renders client UX');
       assert(join.text.includes('Включить уведомления'), 'client UX contains the one-button enable label');
-      assert(join.text.includes('Откройте это приложение с экрана Домой и нажмите «Включить уведомления».'), 'client UX contains short human instruction');
+      assert(join.text.includes('Откройте ссылку из MAX-чата, чтобы подключить уведомления.'), 'client UX contains short human instruction');
       assert(join.text.includes('id="clientStatus"'), 'client UX contains a visible client-safe status container');
       assert.strictEqual((join.text.match(/<button\b/g) || []).length, 1, 'client UX has one main enable button');
       assert(!join.text.includes('placeholder="PUSH_SUBSCRIBE_TOKEN"'), 'client UX hides subscribe token field');
@@ -123,7 +123,7 @@ function assertNoLeaks(text, label, extraForbidden = []) {
     assert(enableSource.includes("setClientStatus(standaloneMessage, 'warning')"), 'iOS not-standalone warning is written to visible client status');
     assert(enableSource.includes("if (state.join.joinMode || state.join.landingMode) throw new Error(standaloneMessage);"), 'client/join iOS non-standalone path stops before subscribe/save');
     assert(enableSource.includes("setClientStatus(permissionMessage, 'error')"), 'permission denied is written to visible client status');
-    assert(enableSource.includes("setClientStatus(successMessage, 'success')"), 'join success statuses are written to visible client status');
+    assert(enableSource.includes('applyPairedReadyState(successMessage)'), 'join success statuses are written to the single visible state area');
     assert(pushClient.includes('normalizePushSubscription(subscription)'), 'client flow normalizes the PushSubscription before sending');
     assert(pushClient.includes('getSubscriptionKey(subscription, PUSH_SUBSCRIPTION_FIELDS.p256dhField)'), 'PR149 p256dh getKey fallback remains');
     assert(pushClient.includes('getSubscriptionKey(subscription, PUSH_SUBSCRIPTION_FIELDS.authField)'), 'PR149 auth getKey fallback remains');
@@ -132,8 +132,8 @@ function assertNoLeaks(text, label, extraForbidden = []) {
     assert(pushClient.includes('state.forceNewSubscriptionAfterInvalid = true'), 'PR148 invalid subscription one-shot remains');
     assert(pushClient.includes('Устройство подключено. Подтвердите его в MAX.'), 'confirmation-required final status exists');
     assert(pushClient.includes('Устройство подключено. Откройте MAX и нажмите «Подтвердить устройство».'), 'confirmation-sent final status exists');
-    assert(pushClient.includes('Уведомления подключены.'), 'no-confirmation final status exists');
-    assert(pushClient.includes('Откройте АдминКИТ Push с иконки на экране Домой.'), 'not-standalone iOS final hint exists');
+    assert(pushClient.includes('Готово — уведомления подключены.'), 'no-confirmation final status exists');
+    assert(pushClient.includes('Откройте АдминКИТ PUSH с иконки на экране Домой.'), 'not-standalone iOS final hint exists');
     assert(pushClient.includes('Разрешение не выдано. Включите уведомления в настройках iPhone.'), 'permission-denied final status exists');
     assert(pushClient.includes("fetchJson('/api/push/test', { method: 'POST'"), 'admin diagnostic test send uses /api/push/test');
     assert(!pushClient.includes('location.search') && !pushClient.includes('URLSearchParams'), 'client/admin script does not read admin token from query string');

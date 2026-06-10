@@ -6,7 +6,8 @@ const access = require('./clientAccessService');
 const accessGate = require('./accessGateService');
 const accountScreens = require('../features/account-screens-pr106');
 
-const COMMANDS = new Set([
+const PUBLIC_GROUP_COMMANDS = Object.freeze(['/push', '/help']);
+const ADMIN_PRIVATE_COMMANDS = Object.freeze([
   '/start',
   '/menu',
   '/channels',
@@ -26,6 +27,7 @@ const COMMANDS = new Set([
   '/privacy',
   '/clear'
 ]);
+const COMMANDS = new Set([...PUBLIC_GROUP_COMMANDS, ...ADMIN_PRIVATE_COMMANDS]);
 
 const ROUTE_BY_COMMAND = {
   '/start': 'main:home',
@@ -53,6 +55,30 @@ function getNativeSlashCommand(text = '') {
   const first = raw.split(/\s+/)[0] || '';
   const command = first.replace(/@[\w.:-]+$/i, '').trim().toLowerCase();
   return COMMANDS.has(command) ? command : '';
+}
+
+function isGroupContext(message = {}) {
+  const body = message && message.body && typeof message.body === 'object' ? message.body : {};
+  const recipient = message && message.recipient && typeof message.recipient === 'object' ? message.recipient : (body.recipient || {});
+  const type = String(recipient.chat_type || recipient.type || message.chat_type || (message.chat && message.chat.type) || '').trim().toLowerCase();
+  if (['chat', 'group', 'public', 'channel'].includes(type)) return true;
+  const chatId = String(recipient.chat_id || recipient.id || message.chat_id || body.chat_id || '').trim();
+  const senderId = String(message?.sender?.user_id || message?.sender?.id || body?.sender?.user_id || body?.sender?.id || message?.user_id || '').trim();
+  return Boolean(chatId && senderId && chatId !== senderId);
+}
+
+function clientGroupHelpScreen() {
+  return {
+    id: 'pr185_group_client_help',
+    text: ['🔔 Уведомления чата', '', 'Отправьте /push, чтобы подключить уведомления этого чата.', 'Если нужна помощь, откройте личный чат с ботом.'].join('\n'),
+    attachments: []
+  };
+}
+
+function isCommandAllowedInContext({ command = '', message = {}, userId = '' } = {}) {
+  if (!isGroupContext(message)) return true;
+  if (PUBLIC_GROUP_COMMANDS.includes(command)) return true;
+  return Boolean(access.isAdmin(userId) || access.getAccessState(userId).active);
 }
 
 async function cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu, options = {}) {
@@ -153,7 +179,38 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
   } = helpers;
 
   const userId = getSenderUserId(message);
-  walkthroughTrace.log('slash.received', { command, userId });
+  const groupContext = isGroupContext(message);
+  walkthroughTrace.log('slash.received', { command, userId, groupContext });
+
+  if (!isCommandAllowedInContext({ command, message, userId })) {
+    return sendUnifiedScreen({
+      config,
+      message,
+      userId,
+      cleanupAdminWorkspaceOnMainMenu,
+      sendFreshAdminMessage,
+      replyToUser,
+      route: 'help:home',
+      skipCleanup: true,
+      command,
+      screen: clientGroupHelpScreen()
+    });
+  }
+
+  if (groupContext && command === '/help') {
+    return sendUnifiedScreen({
+      config,
+      message,
+      userId,
+      cleanupAdminWorkspaceOnMainMenu,
+      sendFreshAdminMessage,
+      replyToUser,
+      route: 'help:home',
+      skipCleanup: true,
+      command,
+      screen: clientGroupHelpScreen()
+    });
+  }
 
   if (command === '/clear') {
     const failedIds = await cleanupBeforeSlash(
@@ -216,6 +273,11 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
 }
 
 module.exports = {
+  PUBLIC_GROUP_COMMANDS,
+  ADMIN_PRIVATE_COMMANDS,
   getNativeSlashCommand,
+  isGroupContext,
+  isCommandAllowedInContext,
+  clientGroupHelpScreen,
   handleNativeSlashCommand
 };

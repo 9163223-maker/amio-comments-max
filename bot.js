@@ -944,11 +944,7 @@ async function performGroupPushOnboarding({ userId, chatId, chatTitle, config, c
   const activeDevices = await webPushStorage.listActiveDevicesForUser(userId);
   const alreadyHadActiveDevice = activeDevices.length > 0;
   const alreadyBound = alreadyHadActiveDevice ? await webPushStorage.isChatBoundForUser(userId, chatId) : false;
-  let boundExistingDevices = 0;
-  if (alreadyHadActiveDevice) {
-    const binding = await webPushStorage.upsertChatBindingForUserDevices({ maxUserId: userId, chatId, chatTitle });
-    boundExistingDevices = Number(binding?.devices || 0) || 0;
-  }
+  const boundExistingDevices = 0;
 
   let joinLink = null;
   try {
@@ -980,9 +976,10 @@ async function performGroupPushOnboarding({ userId, chatId, chatTitle, config, c
         chatTitle,
         joinUrl: joinLink.displayUrl,
         shortUrlError: joinLink.shortUrlError,
-        alreadyHadActiveDevice
+        alreadyHadActiveDevice,
+        alreadyBound
       }),
-      attachments: groupPushOnboarding.buildPrivateJoinKeyboard(joinLink.displayUrl)
+      attachments: groupPushOnboarding.buildPrivateJoinKeyboard(joinLink.displayUrl, { alreadyHadActiveDevice, alreadyBound })
     });
   } catch (error) {
     const text = callbackId
@@ -1100,7 +1097,8 @@ async function dispatchLiveChatPushNotification({ updateType = '', message = nul
   }
   const chatId = getRecipientChatId(message);
   const chatTitle = getRecipientChatTitle(message);
-  const senderName = getSenderFirstName(message);
+  const resolvedSenderName = getSenderFirstName(message);
+  const senderName = resolvedSenderName === 'Пользователь' ? '' : resolvedSenderName;
   const messageId = getMessageId(message);
   try {
     const result = await pushDispatch.sendPushToChat({
@@ -1111,6 +1109,7 @@ async function dispatchLiveChatPushNotification({ updateType = '', message = nul
         chatTitle,
         senderName,
         messageText: text || getMessageText(message),
+        attachments: getMessageAttachments(message),
         messageId
       },
       webPushClient: config && config.webPushClient
@@ -3613,7 +3612,7 @@ function buildPushAdminSectionText() {
   return [
     '🔔 Push-уведомления',
     '',
-    'Опубликуйте кнопку подключения в MAX-чат или канал, чтобы участники могли получать уведомления на iPhone через AdminKIT Push.'
+    'Опубликуйте кнопку подключения в MAX-чат или канал, чтобы участники могли получать уведомления на iPhone через АдминКИТ PUSH.'
   ].join('\n');
 }
 
@@ -3637,7 +3636,7 @@ function buildPushAdminHelpText() {
     '1. Выберите чат или канал, где установлен бот.',
     '2. АдминКИТ опубликует кнопку «🔔 Подключить уведомления».',
     '3. Участник нажмёт кнопку и получит личную ссылку от бота.',
-    '4. После подключения уведомления будут приходить через AdminKIT Push.',
+    '4. После подключения уведомления будут приходить через АдминКИТ PUSH.',
     '',
     'Публиковать кнопку может только администратор или владелец выбранного чата/канала.'
   ].join('\n');

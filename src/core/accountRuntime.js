@@ -3,6 +3,7 @@
 const accountScreens = require('../../features/account-screens-pr106');
 const clientAccess = require('../../services/clientAccessService');
 const webhookContext = require('./webhookContext');
+const connectedChats = require('../../services/pushConnectedChatsService');
 
 const RUNTIME = clientAccess.RUNTIME;
 const ACCOUNT_ACTIONS = new Set([
@@ -91,7 +92,18 @@ async function buildAccountScreenForUpdate({ update = {}, context = {}, config =
   const decision = shouldHandleAccountUpdate(update);
   if (!decision.ok) return { ...decision, screen: null, runtimeVersion: RUNTIME };
   const maxUserId = getMaxUserId(update, context);
-  const screen = accountScreens.screenForAction(decision.action, maxUserId);
+  let options = {};
+  if (decision.action === 'account_push_notifications' && maxUserId) {
+    try {
+      const snapshot = await connectedChats.resolveConnectedChats(maxUserId, { botToken: clean(config.botToken) });
+      options = { chats: snapshot.chats };
+    } catch {
+      options = { chats: [] };
+    }
+  }
+  const screen = decision.action === 'account_push_notifications'
+    ? accountScreens.pushNotificationsScreen(maxUserId, options)
+    : accountScreens.screenForAction(decision.action, maxUserId);
   return { ok: Boolean(screen), action: decision.action, screen, contextOk: Boolean(maxUserId), contextReason: maxUserId ? '' : 'max_user_id_missing', runtimeVersion: RUNTIME };
 }
 

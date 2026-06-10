@@ -1,6 +1,6 @@
 {
-  "name": "АдминКИТ Push Admin",
-  "short_name": "Push Admin",
+  "name": "АдминКИТ PUSH",
+  "short_name": "АдминКИТ PUSH",
   "id": "/push-admin",
   "display": "standalone",
   "start_url": "/push/admin",

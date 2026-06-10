@@ -60,9 +60,9 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
     assert.notStrictEqual(button.type, 'message', 'published group invite does not use message button');
     assert(!/\/push\/join\?t=|clck\.ru|token|PUSH_ADMIN_TOKEN|BOT_TOKEN/i.test(inviteText), 'group invite has no personal link/token/secret text');
 
-    assert(pushHtml.includes('АдминКИТ Push') && pushHtml.includes('Включить уведомления') && pushHtml.includes('Подключённые чаты'), 'PWA product UI keeps title, enable button, connected chats');
+    assert(pushHtml.includes('АдминКИТ PUSH') && pushHtml.includes('Включить уведомления') && pushHtml.includes('Подключённые чаты'), 'PWA product UI keeps title, enable button, connected chats');
     assert(pushClient.includes('Подключить этот чат') && pushClient.includes("fetchJson('/api/push/link-chat'") && pushRoutes.includes("app.post('/api/push/link-chat'"), 'existing-device add-chat UI and endpoint are wired');
-    assert(pushClient.includes('Готово. Уведомления этого чата подключены.') && pushClient.includes('Можно подключить этот чат к уже установленному AdminKIT Push.'), 'add-chat flow has product copy');
+    assert(pushClient.includes('Готово — чат добавлен.') && pushClient.includes('Нажмите кнопку, чтобы получать уведомления этого чата.'), 'add-chat flow has product copy');
     assert(!pushHtml.replace(/[\s\S]*<!-- raw-diagnostics-start -->[\s\S]*/m, '').includes('Последний результат'), 'normal PWA shell hides raw diagnostics before marker strip');
     assert(!/appendResult\([^)]*(endpoint|p256dh|auth|PUSH_ADMIN_TOKEN|BOT_TOKEN|pairingToken)/.test(pushClient), 'client does not append raw push or secret fields');
     assert(entrypoint.includes('PR177-CHANNELS-PUSH-UX') && pkg.sourceMarker === 'adminkit-pr177-channels-push-ux', 'active PR173 runtime keeps the PR168 link-chat behavior');

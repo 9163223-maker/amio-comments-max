@@ -18,17 +18,16 @@ function channelTitle(channel = {}) { return clean(channel.title || channel.chan
 
 function activationScreen() {
   return {
-    id: 'pr106_activation_required',
-    text: ['АдминКИТ', '', 'Для работы с АдминКИТ активируйте доступ. Если у вас уже есть код — нажмите «Активировать код».'].join('\n'),
+    id: 'pr185_client_start',
+    text: ['АдминКИТ', '', 'Здесь можно подключить уведомления для MAX-чатов, где установлен бот.'].join('\n'),
     attachments: keyboard([
       [button('🔔 Уведомления чатов', 'account_push_notifications')],
-      [button('Активировать код', 'account_activate_code')],
-      [button('Что умеет АдминКИТ', 'account_capabilities')],
-      [button('Поддержка', 'account_support')]
+      [button('Как подключить', 'account_push_notifications_help')],
+      [button('Поддержка', 'account_support')],
+      [button('Я администратор', 'account_activate_code')]
     ])
   };
 }
-
 function expiredScreen(maxUserId = '') {
   const state = access.getAccessState(maxUserId);
   return {
@@ -208,53 +207,65 @@ function capabilitiesScreen() {
 
 
 
-function pushNotificationsScreen(maxUserId = '') {
+function pushNotificationsScreen(maxUserId = '', options = {}) {
   const state = access.getAccessState(maxUserId);
-  return {
-    id: 'account_push_notifications',
-    text: [
+  const chats = (Array.isArray(options.chats) ? options.chats : [])
+    .map((item) => clean(item && (item.chatTitle || item.title)))
+    .filter(Boolean)
+    .filter((title, index, items) => items.indexOf(title) === index)
+    .slice(0, 12);
+  const pendingTitle = clean(options.pendingChatTitle).slice(0, 120);
+  const pendingUrl = clean(options.pendingUrl);
+  if (pendingTitle && pendingUrl) {
+    return {
+      id: 'account_push_notifications_pending',
+      text: ['🔔 Уведомления чатов', '', `Чат найден: ${pendingTitle}. Откройте АдминКИТ PUSH и подключите уведомления.`].join('\n'),
+      attachments: keyboard([[link('Открыть подключение', pendingUrl)], [button('Поддержка', 'account_support')]])
+    };
+  }
+  const text = chats.length
+    ? ['🔔 Уведомления чатов', '', 'У вас уже подключены уведомления для чатов:', '', ...chats.map((title) => `• ${title}`)].join('\n')
+    : [
       '🔔 Уведомления чатов',
       '',
-      'Получайте уведомления из MAX-чата на iPhone через AdminKIT Push.',
+      'Чтобы подключить уведомления:',
       '',
-      'Как подключить:',
-      '1. Откройте нужный MAX-чат, где установлен бот.',
-      '2. Нажмите «Подключить уведомления» или напишите /push.',
-      '3. Бот пришлёт личную ссылку. Откройте её и включите уведомления.',
-      '',
-      'Это бесплатная функция. Код доступа и регистрация в админке не требуются.'
-    ].join('\n'),
-    attachments: keyboard([
-      [link('Открыть AdminKIT Push', publicPushUrl())],
-      [button('Как подключить чат', 'account_push_notifications_help')],
-      [button('Активировать код', 'account_activate_code')],
+      '1. Откройте MAX-чат, где установлен бот.',
+      '2. Нажмите кнопку «Подключить уведомления» или отправьте /push.',
+      '3. Откройте ссылку на iPhone/iPad и включите уведомления.'
+    ].join('\n');
+  return {
+    id: 'account_push_notifications',
+    text,
+    attachments: keyboard(chats.length ? [
+      [link('Открыть АдминКИТ PUSH', publicPushUrl())],
+      [button('Как добавить ещё чат', 'account_push_notifications_help')],
       [button(state.active || state.admin ? 'Главное меню' : 'Поддержка', state.active || state.admin ? 'admin_section_main' : 'account_support')]
+    ] : [
+      [button('Как подключить чат', 'account_push_notifications_help')],
+      [link('Открыть АдминКИТ PUSH', publicPushUrl())],
+      [button('Поддержка', 'account_support')]
     ])
   };
 }
-
 function pushNotificationsHelpScreen(maxUserId = '') {
-  const state = access.getAccessState(maxUserId);
   return {
     id: 'account_push_notifications_help',
     text: [
       '🔔 Как подключить чат',
       '',
       '1. Откройте MAX-чат, где установлен бот.',
-      '2. Нажмите «Подключить уведомления» или отправьте команду /push.',
-      '3. Откройте личную ссылку из сообщения бота и включите уведомления в AdminKIT Push.',
-      '',
-      'Подключение бесплатное. Активация доступа, регистрация в админке и владение каналом не нужны.'
+      '2. Нажмите «Подключить уведомления» или отправьте /push.',
+      '3. Откройте ссылку на iPhone/iPad.',
+      '4. Добавьте АдминКИТ PUSH на экран Домой и включите уведомления.'
     ].join('\n'),
     attachments: keyboard([
-      [link('Открыть AdminKIT Push', publicPushUrl())],
+      [link('Открыть АдминКИТ PUSH', publicPushUrl())],
       [button('Уведомления чатов', 'account_push_notifications')],
-      [button('Активировать код', 'account_activate_code')],
-      [button(state.active || state.admin ? 'Главное меню' : 'Поддержка', state.active || state.admin ? 'admin_section_main' : 'account_support')]
+      [button('Поддержка', 'account_support')]
     ])
   };
 }
-
 function deniedFeatureScreen(decision = {}, maxUserId = '') {
   const state = decision.state || access.getAccessState(maxUserId);
   if (state.status === 'expired') return expiredScreen(maxUserId);

@@ -22,15 +22,15 @@ self.addEventListener('push', (event) => {
     payload = event.data ? event.data.json() : {};
   } catch (error) {
     try {
-      payload = { title: 'АдминКИТ Push', body: event.data ? event.data.text() : '' };
+      payload = { title: 'АдминКИТ PUSH', body: event.data ? event.data.text() : '' };
     } catch (_) {
-      payload = { title: 'АдминКИТ Push', body: '' };
+      payload = { title: 'АдминКИТ PUSH', body: '' };
     }
   }
   if (!payload || typeof payload !== 'object') payload = {};
 
   const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
-  const title = safeText(payload.title, 'АдминКИТ Push');
+  const title = safeText(payload.title, 'АдминКИТ PUSH');
   const options = {
     body: safeText(payload.body, ''),
     icon: payload.icon || '/public/adminkit-push-icon-192.png',

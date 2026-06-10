@@ -13,25 +13,10 @@ const MAX_API_BASE_URL = 'https://platform-api.max.ru';
 const miniEvents = [];
 
 const ADMINKIT_MAX_COMMANDS = [
-  { name: 'start', description: '🚀 Запуск АдминКИТ' },
-  { name: 'menu', description: '📋 Главное меню' },
-  { name: 'channels', description: '📺 Подключение канала' },
-  { name: 'comments', description: '💬 Комментарии под постами' },
-  { name: 'gifts', description: '🎁 Подарки / лид-магниты' },
-  { name: 'buttons', description: '⚪ CTA / пользовательские кнопки' },
-  { name: 'highlight', description: '⭐ Выделение постов' },
-  { name: 'polls', description: '🗳️ Голосовалки / опросы' },
-  { name: 'posts', description: '✏️ Редактирование постов' },
-  { name: 'archive', description: '🗄️ Архив / восстановление' },
-  { name: 'moderation', description: '🛡️ Модерация' },
-  { name: 'stats', description: '📊 Статистика' },
-  { name: 'account', description: '👤 Личный кабинет' },
-  { name: 'debug', description: '🧪 Debug / GitHub export' },
-  { name: 'help', description: '🆘 Помощь' },
-  { name: 'terms', description: '📄 Пользовательское соглашение' },
-  { name: 'privacy', description: '🔐 Политика конфиденциальности' },
-  { name: 'clear', description: '🧹 Очистить меню бота' }
+  { name: 'push', description: '🔔 Уведомления этого чата' },
+  { name: 'help', description: '🆘 Помощь' }
 ];
+const MAX_COMMAND_SCOPE_SUPPORT = 'global-only-undocumented-patch-me';
 
 function clean(value, maxLen = STRING_LIMIT) {
   const text = String(value || '').trim().replace(/\s+/g, ' ');
@@ -250,6 +235,7 @@ async function maxCommandsSyncPayload(req) {
     runtimeVersion: RUNTIME,
     mode,
     hypothesis: 'MAX native slash button should appear if BotInfo.commands is filled for the bot',
+    commandScopeSupport: MAX_COMMAND_SCOPE_SUPPORT,
     desiredCommands: desired,
     desiredCommandsCount: desired.length,
     currentCommands: before.commands || [],

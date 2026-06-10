@@ -36,7 +36,7 @@ function actionOf(item = {}) {
     const gate = accountScreens.accessGateScreen(maxUserId);
     const gateButtons = buttonsOf(gate);
     const pushIndex = gateButtons.findIndex((item) => item.text === '🔔 Уведомления чатов' && actionOf(item) === 'account_push_notifications');
-    const activateIndex = gateButtons.findIndex((item) => item.text === 'Активировать код' && actionOf(item) === 'account_activate_code');
+    const activateIndex = gateButtons.findIndex((item) => item.text === 'Я администратор' && actionOf(item) === 'account_activate_code');
     assert(pushIndex === 0, 'new access-gated activation screen shows Push as the first button');
     assert(activateIndex > pushIndex, 'Push button appears before Activate code');
     assert.strictEqual(buttonsOf(accountScreens.expiredScreen(maxUserId))[0].text, '🔔 Уведомления чатов', 'expired access screen shows Push first');
@@ -58,11 +58,11 @@ function actionOf(item = {}) {
     });
     assert.strictEqual(result.ok, true, 'public Push screen resolves without active access, admin, tenant, or channel');
     assert.strictEqual(result.screen.id, 'account_push_notifications', 'public Push action renders its public screen');
-    assert(result.screen.text.includes('Получайте уведомления из MAX-чата на iPhone'), 'public Push screen contains required product copy');
-    assert(result.screen.text.includes('Код доступа и регистрация в админке не требуются.'), 'public Push screen states that access and registration are not required');
+    assert(result.screen.text.includes('Чтобы подключить уведомления:'), 'public Push screen contains required product copy');
+    assert(!result.screen.text.includes('Активируйте доступ'), 'public Push screen does not lead with admin activation');
 
     const pushButtons = buttonsOf(result.screen);
-    const openPush = pushButtons.find((item) => item.text === 'Открыть AdminKIT Push');
+    const openPush = pushButtons.find((item) => item.text === 'Открыть АдминКИТ PUSH');
     assert(openPush && openPush.type === 'link', 'public Push screen has a direct link button');
     assert(openPush.url.startsWith('https://'), 'public Push link uses an absolute HTTPS URL');
     assert(openPush.url.endsWith('/push'), 'public Push link ends with the public /push route');
@@ -70,11 +70,10 @@ function actionOf(item = {}) {
     assert(!/PUSH_ADMIN_TOKEN|(?:bot|BOT)[ _-]?token|endpoint|p256dh|access_token|auth|VAPID|private[_ -]?key/i.test(openPush.url), 'public Push link exposes no token, endpoint, auth, or private key material');
     assert.strictEqual(openPush.url, 'https://public-push.example.test/push', 'public Push button links to the configured public /push route');
     delete process.env.ADMINKIT_PUBLIC_BASE_URL;
-    const fallbackOpenPush = buttonsOf(accountScreens.pushNotificationsScreen(maxUserId)).find((item) => item.text === 'Открыть AdminKIT Push');
+    const fallbackOpenPush = buttonsOf(accountScreens.pushNotificationsScreen(maxUserId)).find((item) => item.text === 'Открыть АдминКИТ PUSH');
     assert.strictEqual(fallbackOpenPush.url, 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run/push', 'public Push button uses the required safe fallback /push URL');
     process.env.ADMINKIT_PUBLIC_BASE_URL = 'https://public-push.example.test';
     assert(pushButtons.some((item) => actionOf(item) === 'account_push_notifications_help'), 'public Push screen includes chat connection help');
-    assert(pushButtons.some((item) => actionOf(item) === 'account_activate_code'), 'public Push screen keeps code activation available');
     assert(pushButtons.some((item) => item.text === 'Поддержка' && actionOf(item) === 'account_support'), 'access-gated public Push screen returns to support rather than admin menu');
 
     const serialized = JSON.stringify(result.screen);

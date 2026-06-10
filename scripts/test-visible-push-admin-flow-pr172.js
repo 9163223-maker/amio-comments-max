@@ -36,9 +36,9 @@ function apiFor({ role = 'administrator', requesterId = 'user-pr172', members = 
   const activePushScreen = menuAdapter.render('push:home');
   const activePushLabels = activePushScreen.attachments[0].payload.buttons.flat().map((button) => button.text);
   assert.deepStrictEqual(activePushLabels, ['Опубликовать приглашение', 'Как это работает', 'Главное меню'], 'active Push section has the required three buttons');
-  assert(activePushScreen.text.includes('Опубликуйте кнопку подключения в MAX-чат или канал, чтобы участники могли получать уведомления на iPhone через AdminKIT Push.'), 'active canonical Push screen has required product copy');
+  assert(activePushScreen.text.includes('Опубликуйте кнопку подключения в MAX-чат или канал, чтобы участники могли получать уведомления на iPhone через АдминКИТ PUSH.'), 'active canonical Push screen has required product copy');
   assert(botSource.includes("text: '🔔 Push-уведомления'") && botSource.includes("buildAdminCallbackPayload('admin_section_push')"), 'legacy activated/admin main menu also exposes visible Push section');
-  assert(botSource.includes("'🔔 Push-уведомления'") && botSource.includes('Опубликуйте кнопку подключения в MAX-чат или канал, чтобы участники могли получать уведомления на iPhone через AdminKIT Push.'), 'Push section has required title and product copy');
+  assert(botSource.includes("'🔔 Push-уведомления'") && botSource.includes('Опубликуйте кнопку подключения в MAX-чат или канал, чтобы участники могли получать уведомления на iPhone через АдминКИТ PUSH.'), 'Push section has required title and product copy');
   for (const label of ['Опубликовать приглашение', 'Как это работает', 'Главное меню']) assert(botSource.includes(`text: '${label}'`), `Push section includes ${label}`);
   assert(botSource.includes("buildAdminCallbackPayload('admin_push_select_chat')"), 'publish action opens a chat/channel picker');
   assert(botSource.includes("buildAdminCallbackPayload('admin_push_publish_invite', {"), 'selected chat id is embedded in scoped publish callback');
@@ -92,7 +92,7 @@ function apiFor({ role = 'administrator', requesterId = 'user-pr172', members = 
 
   assert(linkChatSource.includes("app.post('/api/push/link-chat'"), 'PR168 /api/push/link-chat remains unchanged and present');
   assert(publicEntrySource.includes('🔔 Уведомления чатов'), 'PR170 public B2C entrypoint remains visible');
-  assert(publicEntrySource.includes('Откройте нужный MAX-чат, где установлен бот.') && publicEntrySource.includes('Откройте MAX-чат, где установлен бот.'), 'PR170 chat-specific connection copy remains unchanged');
+  assert(publicEntrySource.includes('Чтобы подключить уведомления:') && publicEntrySource.includes('Откройте MAX-чат, где установлен бот.'), 'public chat-specific connection copy remains client-safe');
   assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR177-CHANNELS-PUSH-UX', 'runtime marker advances to PR173');
   assert.strictEqual(pkg.sourceMarker, 'adminkit-pr177-channels-push-ux', 'source marker advances to PR173');
   assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR177-CHANNELS-PUSH-UX'"), 'active entrypoint has PR173 runtime marker');

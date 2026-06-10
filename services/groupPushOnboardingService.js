@@ -70,28 +70,32 @@ async function createPersonalJoinLinkForMessage(options = {}) {
   return shortLinks.createShortUrlOrFallback(longUrl);
 }
 
-function buildPrivateJoinMessage({ chatTitle = '', joinUrl = '', shortUrlError = '', alreadyHadActiveDevice = false } = {}) {
+function buildPrivateJoinMessage({ chatTitle = '', joinUrl = '', alreadyHadActiveDevice = false, alreadyBound = false } = {}) {
   const safeTitle = clean(chatTitle).slice(0, 120);
-  const lines = [
-    `🔔 Подключение уведомлений для чата «${safeTitle}»`,
+  if (alreadyBound) {
+    return [
+      'Этот чат уже подключён к уведомлениям.',
+      safeTitle ? `Чат: «${safeTitle}»` : '',
+      '',
+      clean(joinUrl)
+    ].filter(Boolean).join('\n');
+  }
+  return [
+    '🔔 Уведомления для этого чата',
     '',
-    alreadyHadActiveDevice ? 'У вас уже есть подключённое устройство. Откройте ссылку и нажмите «Подключить этот чат», чтобы добавить чат без переустановки PWA.' : '',
-    alreadyHadActiveDevice ? '' : '',
-    '1. Откройте ссылку на iPhone или iPad.',
-    '2. Добавьте АдминКИТ Push на экран Домой.',
-    '3. Откройте и нажмите «Включить уведомления».',
+    alreadyHadActiveDevice
+      ? 'У вас уже есть АдминКИТ PUSH. Откройте ссылку и нажмите «Подключить этот чат».'
+      : 'Откройте ссылку на iPhone/iPad, добавьте АдминКИТ PUSH на экран Домой и включите уведомления.',
     '',
     clean(joinUrl)
-  ].filter((line, index) => line || index === 1 || index === 3 || index === 7);
-  if (clean(shortUrlError)) lines.push('', 'Короткая ссылка временно недоступна, отправляю прямую ссылку.');
-  return lines.join('\n');
+  ].filter((line, index) => line || index === 1 || index === 3).join('\n');
 }
-function buildPrivateJoinKeyboard(joinUrl = '') {
+function buildPrivateJoinKeyboard(joinUrl = '', options = {}) {
   const url = clean(joinUrl);
   if (!url) return undefined;
   return [{
     type: 'inline_keyboard',
-    payload: { buttons: [[{ type: 'link', text: 'Открыть подключение', url }]] }
+    payload: { buttons: [[{ type: 'link', text: options.alreadyBound ? 'Открыть АдминКИТ PUSH' : (options.alreadyHadActiveDevice ? 'Подключить этот чат' : 'Открыть подключение'), url }]] }
   }];
 }
 
