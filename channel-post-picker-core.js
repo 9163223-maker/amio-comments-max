@@ -1,6 +1,7 @@
 'use strict';
 
 const store = require('./store');
+const db = require('./cc5-db-core');
 const clientAccessService = require('./services/clientAccessService');
 const maxApi = require('./services/maxApi');
 const channelTitles = require('./human-channel-title-helper');
@@ -35,6 +36,48 @@ function safeTitle(value = '') { const title = clean(value); if (!title || looks
 function storedChannel(channelId = '') { const id = clean(channelId); if (!id) return null; return safe(() => array(store.getChannelsList()).find((item) => clean(item.channelId || item.id || item.chatId) === id), null) || null; }
 function accessChannels(userId = '') { return array(safe(() => clientAccessService.getClientChannels(clean(userId)), [])); }
 function accessChannel(userId = '', channelId = '') { const id = clean(channelId); return accessChannels(userId).find((item) => clean(item.channelId || item.id || item.chatId) === id) || null; }
+function channelIdOf(raw = {}) { return clean(raw.channelId || raw.channel_id || raw.id || raw.chatId || raw.chat_id || ''); }
+function mergeChannelSources(...sources) {
+  const byId = new Map();
+  const add = (raw = {}) => {
+    const channelId = channelIdOf(raw);
+    if (!channelId) return;
+    const previous = byId.get(channelId) || {};
+    const nextSafeTitle = safeTitle(firstTitle(raw));
+    const previousSafeTitle = safeTitle(firstTitle(previous));
+    const title = nextSafeTitle || previousSafeTitle || firstTitle(previous) || firstTitle(raw);
+    const merged = { ...previous, ...raw, channelId };
+    if (title) {
+      merged.title = title;
+      if (!safeTitle(merged.channelTitle)) merged.channelTitle = title;
+    }
+    byId.set(channelId, merged);
+  };
+  for (const source of sources) for (const item of array(source)) add(item);
+  return Array.from(byId.values());
+}
+async function dbChannels(userId = '') {
+  const id = clean(userId);
+  if (!id || !db || typeof db.getChannels !== 'function') return [];
+  try {
+    return array(await db.getChannels(id))
+      .map((row) => {
+        const channelId = channelIdOf(row);
+        const title = firstTitle(row);
+        return {
+          ...row,
+          channelId,
+          title,
+          channelTitle: title || clean(row.channelTitle || row.channel_title || ''),
+          source: row.source || 'cc5_admin_channels'
+        };
+      })
+      .filter((row) => row.channelId);
+  } catch {
+    record(id, 'channel_picker', { warning: 'admin_channels_db_failed' });
+    return [];
+  }
+}
 function rawTitleFromChat(chat = {}) { return clean(firstTitle(chat) || firstTitle(chat.chat || {}) || firstTitle(chat.body || {}) || firstTitle(chat.payload || {})); }
 function titleFromChat(chat = {}) { return safeTitle(rawTitleFromChat(chat)); }
 function record(userId = '', action = '', entry = {}) {
@@ -111,7 +154,8 @@ async function listUiChannelsForUser(userId = '', config = {}) {
   const channels = [];
   const seen = new Set();
   const diagnostics = [];
-  for (const raw of accessChannels(userId)) {
+  const scopedChannels = mergeChannelSources(accessChannels(userId), await dbChannels(userId));
+  for (const raw of scopedChannels) {
     const channelId = clean(raw.channelId || raw.id || raw.chatId);
     if (!channelId || seen.has(channelId) || !isVisibleChannelRecord({ ...raw, channelId })) continue;
     seen.add(channelId);
