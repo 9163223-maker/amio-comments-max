@@ -35,9 +35,11 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
     { chatTitle: 'Мож Хвост 2', enabledOnThisDevice: true },
     { chatTitle: 'Другой чат', needsReconnect: true }
   ] });
-  assert(account.text.includes('Мож Хвост 2 — включены'));
-  assert(account.text.includes('Другой чат — отправьте /push в этом чате и откройте ссылку'));
-  assert(!account.text.includes('нужно подключить'));
+  assert(account.text.includes('Подключённые чаты хранятся отдельно на каждом устройстве.'));
+  assert(account.text.includes('Откройте АдминКИТ PUSH на нужном устройстве'));
+  assert(!account.text.includes('Мож Хвост 2'));
+  assert(!account.text.includes('Другой чат'));
+  assert(!account.text.includes('Другие доступные чаты'));
 
   const campaignAdapter = read('clean-bot-campaign-attribution-cc8336.js');
   assert(campaignAdapter.includes('pushConnectedChats.resolveConnectedChats(uid'), 'bot notifications and PWA use the same binding projection');
@@ -46,8 +48,9 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
   const html = read('public/push.html');
   assert(client.includes('Готово. Уведомления включены для чата'));
   assert(client.includes("connectedChats.resolveConnectedChats") === false, 'browser code does not infer server bindings');
-  assert(client.includes("appendChatGroup(node, 'Подключены на этом устройстве:', enabled, 'включены')"));
-  assert(client.includes("appendChatGroup(node, 'Другие доступные чаты:', available, 'отправьте /push в этом чате и откройте ссылку')"));
+  assert(client.includes("title.textContent = 'Подключены на этом устройстве:'"));
+  assert(!client.includes('Другие доступные чаты:'));
+  assert(!client.includes('knownForUser'));
   assert(!client.includes("'нужно подключить'"));
   assert(html.includes('id="primaryActionSection" hidden'), 'empty primary card is hidden until an action is available');
   assert(html.includes('<h1>АдминКИТ PUSH</h1>'));

@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const SERVER_STARTED_AT = new Date().toISOString();
-const CURRENT_RUNTIME = 'CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS';
+const CURRENT_RUNTIME = 'CC8.3.58-PR192-PUSH-DEVICE-AUTOCONNECT-UNSUBSCRIBE';
 
 function clean(value) { return String(value || '').trim(); }
 function readJsonSafe(filePath) {
@@ -30,6 +30,7 @@ const envGitCommit = clean(process.env.GIT_COMMIT || process.env.COMMIT_SHA || p
 const pr178PushPairingBinding = packageJson.pr178PushPairingBinding === true;
 const pr188PushMultiChatHandoff = packageJson.pr188PushMultiChatHandoff === true;
 const pr191PushAdminInviteTitleCommands = packageJson.pr191PushAdminInviteTitleCommands === true;
+const pr192PushDeviceAutoconnectUnsubscribe = packageJson.pr192PushDeviceAutoconnectUnsubscribe === true;
 
 const runtimeVersion = firstFresh(packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.runtimeVersion, markerJson.displayVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
 const buildVersion = firstFresh(packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.buildVersion, markerJson.runtimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
@@ -59,6 +60,7 @@ const BUILD_INFO = Object.freeze({
   pr178PushPairingBinding,
   pr188PushMultiChatHandoff,
   pr191PushAdminInviteTitleCommands,
+  pr192PushDeviceAutoconnectUnsubscribe,
   pushPairingRuntimeVersion: pr178PushPairingBinding ? CURRENT_RUNTIME : '',
   pushRuntimeSourceMarker: pr178PushPairingBinding ? sourceMarker : '',
   pushPairingBaseSourceMarker: pr178PushPairingBinding ? 'adminkit-pr188-push-multi-chat-handoff' : '',

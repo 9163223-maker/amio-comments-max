@@ -6,7 +6,6 @@ const maxApi = require('./maxApi');
 
 function clean(value) { return String(value || '').trim(); }
 function safeTitle(value) { return clean(value).slice(0, 180); }
-function last4(value) { return clean(value).replace(/[^A-Za-z0-9_-]/g, '').slice(-4); }
 
 function registryTitle(binding) {
   for (const id of [binding && binding.channelId, binding && binding.chatId]) {
@@ -30,27 +29,20 @@ async function apiTitle(binding, options = {}) {
 }
 
 async function resolveConnectedChats(maxUserId, options = {}) {
-  const snapshot = await storage.listChatBindingsSnapshot(maxUserId);
   const currentEndpointHash = clean(options.endpointHash);
   const currentDeviceId = clean(options.deviceId);
+  const snapshot = await storage.listChatBindingsSnapshotForDevice({ endpointHash: currentEndpointHash, deviceId: currentDeviceId });
+  const targetUser = clean(maxUserId);
   const chats = [];
   for (const binding of snapshot.chats) {
-    const title = safeTitle(binding.chatTitle || binding.title) || registryTitle(binding) || await apiTitle(binding, options);
-    const matchingBindings = snapshot.rawBindings.filter((item) => clean(item.chatId) === clean(binding.chatId) || (!binding.chatId && clean(item.channelId) === clean(binding.channelId)));
-    const enabledOnThisDevice = Boolean((currentEndpointHash || currentDeviceId) && matchingBindings.some((item) =>
-      (currentEndpointHash && clean(item.endpointHash) === currentEndpointHash) ||
-      (currentDeviceId && clean(item.deviceId) === currentDeviceId)
-    ));
-    const knownForUser = true;
+    if (targetUser && clean(binding.maxUserId) !== targetUser) continue;
+    const title = safeTitle(binding.chatTitle || binding.title) || registryTitle(binding) || await apiTitle(binding, options) || 'Чат MAX';
     const resolved = {
       ...binding,
       chatTitle: title,
       title,
-      chatRef: last4(binding.chatId || binding.channelId),
-      enabledOnThisDevice,
-      knownForUser,
-      needsReconnect: knownForUser && !enabledOnThisDevice,
-      status: enabledOnThisDevice ? 'enabled' : 'needs_reconnect',
+      enabledOnThisDevice: true,
+      status: 'enabled',
       lastConnectedAt: clean(binding.updatedAt || binding.createdAt)
     };
     chats.push(resolved);

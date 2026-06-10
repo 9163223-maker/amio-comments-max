@@ -81,10 +81,11 @@ function handoffFrom(response) { const match = String(response.headers.get('set-
       assert(fallback && fallback.title === 'Чат MAX', 'fallback appears only for the unresolved chat');
       assert.strictEqual(statusC.body.chats.filter((chat) => chat.title === 'Чат MAX').length, 1);
 
-      // E. Counts describe raw storage versus normalized output without leaking secrets.
-      const countEvent = events.find((event) => event.rawBindingsCount > event.uniqueChatsCount);
-      assert(countEvent, 'safe pairing diagnostics include raw and unique counts for duplicate bindings');
-      assert.strictEqual(countEvent.missingTitleCount, 0, 'the duplicate titled chat is not counted as missing a title');
+      // E. Device-scoped counts exclude malformed bindings belonging to another endpoint.
+      const countEvent = events.find((event) => event.event === 'device_status');
+      assert(countEvent, 'safe device status diagnostics are recorded');
+      assert.strictEqual(countEvent.rawBindingsCount, countEvent.uniqueChatsCount, 'another endpoint is excluded from this device snapshot');
+      assert.strictEqual(countEvent.missingTitleCount, 0, 'resolved fallback titles are not counted as missing');
       const safe = logService.sanitizeEvent({
         event: 'pair_success', result: 'pair_success', route: '/api/push/pair', pairingToken: tokenB, handoffId: handoffA,
         endpoint: device.endpoint, auth: device.keys.auth, p256dh: device.keys.p256dh, botToken: 'raw-bot-token-pr184', githubToken: 'raw-github-token-pr184',

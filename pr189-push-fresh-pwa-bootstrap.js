@@ -2,8 +2,8 @@
 
 const path = require('path');
 
-const RUNTIME = 'CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS';
-const SOURCE = 'adminkit-pr191-push-admin-invite-title-commands';
+const RUNTIME = 'CC8.3.58-PR192-PUSH-DEVICE-AUTOCONNECT-UNSUBSCRIBE';
+const SOURCE = 'adminkit-pr192-push-device-autoconnect-unsubscribe';
 
 function clean(value) { return String(value || '').trim(); }
 function versionToken() { return encodeURIComponent(clean(process.env.RUNTIME_VERSION) || RUNTIME); }

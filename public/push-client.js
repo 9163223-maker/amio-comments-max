@@ -87,60 +87,117 @@ function setClientStatus(message, kind = 'info') {
 function safeChatItem(value) {
   const source = value && typeof value === 'object' ? value : {};
   const title = String(source.title || source.chatTitle || '').trim().slice(0, 120);
-  const chatRef = String(source.chatRef || source.chatId || source.channelId || '').trim().replace(/[^A-Za-z0-9_-]/g, '').slice(-4);
-  if (!title && !chatRef) return null;
+  const chatId = String(source.chatId || '').trim().replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
   const enabledOnThisDevice = source.enabledOnThisDevice === true || source.status === 'enabled';
-  const knownForUser = source.knownForUser !== false;
-  return { title: title || 'Чат MAX', chatRef, enabledOnThisDevice, knownForUser, needsReconnect: knownForUser && !enabledOnThisDevice, status: enabledOnThisDevice ? 'включены' : 'отправьте /push в этом чате и откройте ссылку' };
+  if (!title || !chatId || !enabledOnThisDevice) return null;
+  return { title, chatId, enabledOnThisDevice: true, status: 'включены' };
 }
 
 function uniqueChatItems(values) {
   const unique = [];
   const seen = new Set();
   for (const chat of (Array.isArray(values) ? values : []).map(safeChatItem).filter(Boolean)) {
-    const key = chat.chatRef ? `chat:${chat.chatRef}:${chat.title.toLocaleLowerCase()}` : `title:${chat.title.toLocaleLowerCase()}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    if (seen.has(chat.chatId)) continue;
+    seen.add(chat.chatId);
     unique.push(chat);
   }
   return unique;
 }
 
-function appendChatGroup(node, heading, chats, statusText) {
-  if (!chats.length) return;
-  const title = document.createElement('h3');
-  title.className = 'chat-group-title';
-  title.textContent = heading;
-  node.appendChild(title);
-  chats.forEach((chat) => {
-    const card = document.createElement('div');
-    card.className = 'chat-card';
-    const name = document.createElement('strong');
-    name.textContent = chat.title || 'Чат MAX';
-    const status = document.createElement('span');
-    status.textContent = statusText;
-    card.appendChild(name);
-    card.appendChild(status);
-    node.appendChild(card);
+function confirmUnpairChat(chat) {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'chat-unpair-backdrop';
+    const dialog = document.createElement('section');
+    dialog.className = 'chat-unpair-dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-label', 'Подтверждение отключения уведомлений');
+    const question = document.createElement('p');
+    question.textContent = `Отключить уведомления от чата «${chat.title}» на этом устройстве?`;
+    const actions = document.createElement('div');
+    actions.className = 'chat-unpair-actions';
+    const confirmButton = document.createElement('button');
+    confirmButton.type = 'button';
+    confirmButton.className = 'chat-unpair-confirm';
+    confirmButton.textContent = 'Отключить';
+    const cancelButton = document.createElement('button');
+    cancelButton.type = 'button';
+    cancelButton.className = 'chat-unpair-cancel';
+    cancelButton.textContent = 'Отмена';
+    const finish = (value) => { backdrop.remove(); resolve(value); };
+    confirmButton.addEventListener('click', () => finish(true));
+    cancelButton.addEventListener('click', () => finish(false));
+    backdrop.addEventListener('click', (event) => { if (event.target === backdrop) finish(false); });
+    actions.appendChild(confirmButton);
+    actions.appendChild(cancelButton);
+    dialog.appendChild(question);
+    dialog.appendChild(actions);
+    backdrop.appendChild(dialog);
+    document.body.appendChild(backdrop);
+    cancelButton.focus();
   });
+}
+
+async function unpairChat(chat) {
+  if (!chat || !chat.chatId) return;
+  const confirmed = await confirmUnpairChat(chat);
+  if (!confirmed) return;
+  try {
+    const registration = state.registration || await ensureRegistration();
+    const subscription = state.subscription || (registration && registration.pushManager ? await registration.pushManager.getSubscription() : null);
+    if (!subscription) throw new Error('push_subscription_missing');
+    const result = await withTimeout(fetchJson('/api/push/unpair', {
+      method: 'POST',
+      body: JSON.stringify({ subscription: normalizePushSubscription(subscription), chatId: chat.chatId })
+    }), TIMEOUTS.serverSave, 'chat unpair timed out');
+    const chats = result && Array.isArray(result.chats) ? result.chats : [];
+    storePairedContext({ ok: true, status: 'active', chats });
+    renderConnectedChats(chats);
+    const message = `Уведомления от чата «${chat.title}» отключены на этом устройстве.`;
+    setClientStatus(message, 'success');
+    appendResult(message);
+  } catch (error) {
+    setClientStatus('Не удалось отключить уведомления от этого чата. Попробуйте ещё раз.', 'error');
+    appendResult(error.message || 'push_unpair_failed', error.data || null);
+  }
+}
+
+function appendConnectedChat(node, chat) {
+  const card = document.createElement('div');
+  card.className = 'chat-card';
+  const name = document.createElement('strong');
+  name.textContent = chat.title;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'chat-unpair-button';
+  button.textContent = '×';
+  button.setAttribute('aria-label', `Отключить уведомления от чата «${chat.title}»`);
+  button.title = 'Отключить';
+  button.addEventListener('click', () => unpairChat(chat));
+  card.appendChild(name);
+  card.appendChild(button);
+  node.appendChild(card);
 }
 
 function renderConnectedChats(chats) {
   const node = $('connectedChatsList');
   if (!node) return;
-  const safeChats = uniqueChatItems(chats);
-  const enabled = safeChats.filter((chat) => chat.enabledOnThisDevice);
-  const available = safeChats.filter((chat) => !chat.enabledOnThisDevice);
+  const connected = uniqueChatItems(chats);
   node.innerHTML = '';
-  appendChatGroup(node, 'Подключены на этом устройстве:', enabled, 'включены');
-  appendChatGroup(node, 'Другие доступные чаты:', available, 'отправьте /push в этом чате и откройте ссылку');
-  if (!safeChats.length) {
-    const empty = document.createElement('div');
-    empty.className = 'empty-state';
-    const hasPendingHandoff = Boolean(safeHandoffId(state.join && state.join.handoffId) || readPendingHandoffId());
-    empty.textContent = hasPendingHandoff ? HANDOFF_FOUND_MESSAGE : EMPTY_CHATS_MESSAGE;
-    node.appendChild(empty);
+  if (connected.length) {
+    const title = document.createElement('h3');
+    title.className = 'chat-group-title';
+    title.textContent = 'Подключены на этом устройстве:';
+    node.appendChild(title);
+    connected.forEach((chat) => appendConnectedChat(node, chat));
+    return;
   }
+  const empty = document.createElement('div');
+  empty.className = 'empty-state';
+  const hasPendingHandoff = Boolean(safeHandoffId(state.join && state.join.handoffId) || readPendingHandoffId());
+  empty.textContent = hasPendingHandoff ? HANDOFF_FOUND_MESSAGE : `${EMPTY_CHATS_MESSAGE}\nОткройте ссылку подключения из нужного MAX-чата.`;
+  node.appendChild(empty);
 }
 function renderStoredConnectedChats() {
   const context = readPairedContext();

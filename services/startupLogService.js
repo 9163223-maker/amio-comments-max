@@ -49,6 +49,7 @@ function sanitizeEntry(input = {}) {
     nodeEnv: short(process.env.NODE_ENV || '', 40),
     pr178PushPairingBinding: sanitizeBool(input.pr178PushPairingBinding),
     pr191PushAdminInviteTitleCommands: sanitizeBool(input.pr191PushAdminInviteTitleCommands),
+    pr192PushDeviceAutoconnectUnsubscribe: sanitizeBool(input.pr192PushDeviceAutoconnectUnsubscribe),
     pushPairingRuntimeVersion: short(input.pushPairingRuntimeVersion, 120),
     pushRuntimeSourceMarker: short(input.pushRuntimeSourceMarker, 160),
     pushPairingBaseSourceMarker: short(input.pushPairingBaseSourceMarker, 160),

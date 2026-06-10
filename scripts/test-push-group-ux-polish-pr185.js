@@ -21,16 +21,17 @@ function buttons(screen) {
   for (const forbidden of ['Комментарии', 'Подарки', 'Каналы', 'Статистика', 'Debug']) assert(!startButtons.some((text) => text.includes(forbidden)), `${forbidden} is absent from ordinary /start`);
 
   const empty = accountScreens.pushNotificationsScreen('ordinary-user');
-  assert(empty.text.includes('пока нет подключённых чатов'), 'notification status stays concise when empty');
+  assert(empty.text.includes('Подключённые чаты хранятся отдельно на каждом устройстве.'), 'notification status stays device-scoped');
   const connectHelp = accountScreens.pushNotificationsHelpScreen('ordinary-user');
   assert(connectHelp.text.includes('1. Откройте MAX-чат') && connectHelp.text.includes('/push'), 'separate connection screen explains group-first connection');
   assert(!/API|token|endpoint|binding|handoff|device id|auth|p256dh/i.test(connectHelp.text), 'private notification flow is non-technical');
 
   const existing = accountScreens.pushNotificationsScreen('ordinary-user', { chats: [{ chatTitle: 'Мож Хвост 3', enabledOnThisDevice: true }, { title: 'Все свои MAX', needsReconnect: true }, { chatTitle: 'Мож Хвост 3', enabledOnThisDevice: true }] });
-  assert(existing.text.includes('Подключены на этом устройстве:') && existing.text.includes('Другие доступные чаты:'), 'existing chats have device-scoped headings');
-  assert(existing.text.includes('отправьте /push в этом чате и откройте ссылку') && !existing.text.includes('нужно подключить'), 'inactive chats explain the actual next action');
-  assert.strictEqual((existing.text.match(/Мож Хвост 3/g) || []).length, 1, 'existing chat names are unique');
-  assert(buttons(existing).includes('➕ Подключить ещё чат'), 'existing-chat flow offers adding another chat');
+  assert(existing.text.includes('Подключённые чаты хранятся отдельно на каждом устройстве.'), 'MAX screen delegates the device-scoped list to the PWA');
+  assert(!existing.text.includes('Другие доступные чаты:'));
+  assert(!existing.text.includes('Мож Хвост 3') && !existing.text.includes('Все свои MAX'), 'MAX screen does not aggregate chat names across devices');
+  assert(existing.text.includes('Откройте ссылку на устройстве, где нужны уведомления.'), 'connection instruction remains device-scoped');
+  assert(buttons(existing).includes('➕ Подключить чат'), 'screen keeps the connect action');
 
   const first = groupPush.buildPrivateJoinMessage({ chatTitle: 'Мож Хвост 3', joinUrl: 'https://example.test/join' });
   assert(first.includes('АдминКИТ PUSH') && first.includes('включите уведомления'), 'first-device group flow uses unified friendly install copy');
@@ -64,7 +65,7 @@ function buttons(screen) {
   assert(client.includes('Готово. Уведомления включены для чата'), 'chat success names the linked chat');
   assert(!client.includes("setText('enableBtn', 'Уведомления подключены')"), 'success is not rendered as a primary CTA');
   assert(html.includes('.chat-card { display: flex;') && html.includes('padding: 9px 11px'), 'connected chat rows are compact');
-  assert(client.includes("'отправьте /push в этом чате и откройте ссылку'") && client.includes('uniqueChatItems'), 'compact connected chat items are unique and actionable');
+  assert(client.includes('uniqueChatItems') && client.includes("button.textContent = '×'"), 'compact connected chat items are unique and can be disconnected');
 
   console.log('push group ux polish pr185 ok');
 })();

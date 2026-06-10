@@ -238,6 +238,12 @@ function appendCookie(res, cookie) {
   res.set('Set-Cookie', [...values, cookie]);
 }
 
+function deviceProofCookie(req, device) {
+  const proof = pairing.createDeviceProof({ deviceId: device.deviceId, endpointHash: device.endpointHash });
+  const cookie = `push_device_proof=${encodeURIComponent(proof)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${365 * 24 * 60 * 60}`;
+  return isHttpsRequest(req) ? `${cookie}; Secure` : cookie;
+}
+
 function handoffCookie(req, handoffId, maxAge = 15 * 60) {
   const cookie = `push_pairing_handoff=${encodeURIComponent(handoffId)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
   return isHttpsRequest(req) ? `${cookie}; Secure` : cookie;
@@ -277,11 +283,9 @@ function escapeHtml(value) { return String(value || '').replace(/[&<>"']/g, (cha
 function safePublicChatItem(value) {
   const source = value && typeof value === 'object' ? value : {};
   const title = safeChatTitle(source.chatTitle || source.title);
-  const chatRef = clean(source.chatRef || source.chatId || source.channelId).replace(/[^A-Za-z0-9_-]/g, '').slice(-4);
-  if (!title && !chatRef) return null;
-  const enabledOnThisDevice = source.enabledOnThisDevice === true;
-  const knownForUser = source.knownForUser !== false;
-  return { chatId: clean(source.chatId).replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80), channelId: clean(source.channelId).replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80), title: title || 'Чат MAX', chatRef, enabledOnThisDevice, knownForUser, needsReconnect: knownForUser && !enabledOnThisDevice, status: enabledOnThisDevice ? 'enabled' : 'needs_reconnect', lastConnectedAt: clean(source.lastConnectedAt).slice(0, 40) };
+  const chatId = clean(source.chatId).replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
+  if (!title || !chatId || source.enabledOnThisDevice !== true) return null;
+  return { chatId, title, enabledOnThisDevice: true, status: 'enabled', lastConnectedAt: clean(source.lastConnectedAt).slice(0, 40) };
 }
 function safePublicChats(value) { return Array.isArray(value) ? value.map(safePublicChatItem).filter(Boolean).slice(0, 20) : []; }
 
@@ -294,7 +298,6 @@ function sendPushPage(req, res, options = {}) {
     joinMode: true,
     informationalJoin: true,
     adminMode: false,
-    existingActiveDevicesFound: Boolean(options.existingActiveDevicesFound),
     chatTitle: safeChatTitle(options.chatTitle)
   } : {
     joinMode: true,
@@ -305,19 +308,24 @@ function sendPushPage(req, res, options = {}) {
     handoffStatus: clean(options.handoffStatus) || (options.handoffId ? 'found' : 'missing'),
     relaunchMode: options.tokenStatus === 'used' && !options.handoffId,
     adminMode: false,
-    chatLinkMode: Boolean(options.existingActiveDevicesFound),
-    existingActiveDevicesFound: Boolean(options.existingActiveDevicesFound),
     informationalJoin: false,
     chatTitle: safeChatTitle(options.chatTitle)
   }) : { joinMode: false, landingMode: mode === 'client', adminMode: mode === 'admin', handoffId: clean(options.handoffId), handoffStatus: clean(options.handoffStatus) };
   if (mode === 'admin') {
     html = html.replace('<link rel="manifest" href="/push/manifest.json">', '<link rel="manifest" href="/public/push-admin-manifest.json">');
   } else {
-    const manifestHref = options.linkChatMode ? pushManifestHref('') : pushManifestHref(options.token);
+    const manifestHref = (options.informationalJoin || options.autoPairSuccess || options.linkChatMode) ? pushManifestHref('') : pushManifestHref(options.token);
     html = html.replace('<link rel="manifest" href="/push/manifest.json">', `<link rel="manifest" href="${manifestHref}">`);
     html = stripMarkedHtml(html, 'admin-diagnostics');
     html = stripMarkedHtml(html, 'raw-diagnostics');
-    if (options.informationalJoin) {
+    if (options.autoPairSuccess) {
+      const title = safeChatTitle(options.chatTitle) || 'Чат MAX';
+      html = stripMarkedHtml(html, 'functional-pwa');
+      html = html.replace('id="browserInstructions" hidden', 'id="browserInstructions"');
+      html = html.replace('<p id="introText">Откройте ссылку из MAX-чата, чтобы подключить уведомления.</p>', `<p id="introText"><strong>Готово.</strong><br>Чат «${escapeHtml(title)}» подключён к уведомлениям на этом устройстве.</p>`);
+      html = html.replace(/<section class="card" id="browserInstructions"[^>]*>[\s\S]*?<\/section>/, '<section class="card" id="browserInstructions"><p>Можно закрыть эту страницу.</p></section>');
+      html = html.replace(/\s*<script src="\/public\/push-client\.js"><\/script>/, '');
+    } else if (options.informationalJoin) {
       const title = safeChatTitle(options.chatTitle) || 'Чат MAX';
       html = stripMarkedHtml(html, 'functional-pwa');
       html = html.replace('id="browserInstructions" hidden', 'id="browserInstructions"');
@@ -449,28 +457,54 @@ function install(app) {
     const fromManifest = clean(req.query && req.query.source) === 'manifest-start-url';
     try {
       const verified = pairing.verifyPairingToken(token);
-      recordPushPairingEvent({ event: fromManifest ? 'pwa_opened' : 'link_opened', pairingToken: token, route: '/push/join', result: fromManifest ? 'pwa_opened' : 'link_opened', tokenSource: fromManifest ? 'manifest-start-url' : 'query', hasPairingToken: Boolean(token), hasPairingCookie: Boolean(getCookie(req, 'push_pairing_token')), openedAs: pairingOpenedAs(req), maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle });
+      const logBase = { pairingToken: token, route: '/push/join', tokenSource: fromManifest ? 'manifest-start-url' : 'query', hasPairingToken: Boolean(token), hasPairingCookie: Boolean(getCookie(req, 'push_pairing_token')), openedAs: pairingOpenedAs(req), maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle };
+      recordPushPairingEvent({ ...logBase, event: fromManifest ? 'pwa_opened' : 'link_opened', result: fromManifest ? 'pwa_opened' : 'link_opened' });
+
+      const rawDeviceProof = getCookie(req, 'push_device_proof');
+      let proof = null;
+      let device = null;
+      let skipEvent = '';
+      let skipReason = '';
+      if (!rawDeviceProof) {
+        skipEvent = 'auto_pair_skipped_no_device_proof';
+        skipReason = 'no_device_proof';
+      } else {
+        try { proof = pairing.verifyDeviceProof(rawDeviceProof); } catch {
+          skipEvent = 'auto_pair_skipped_device_mismatch';
+          skipReason = 'invalid_device_proof';
+        }
+      }
+      if (proof) {
+        device = await storage.findDeviceByDeviceId(proof.deviceId);
+        if (!device || clean(device.endpointHash) !== clean(proof.endpointHash)) {
+          skipEvent = 'auto_pair_skipped_device_mismatch';
+          skipReason = 'device_proof_mismatch';
+        } else if (device.disabled || device.status !== 'active') {
+          skipEvent = 'auto_pair_skipped_no_active_subscription';
+          skipReason = 'no_active_subscription';
+        } else if (clean(device.maxUserId) !== clean(verified.maxUserId)) {
+          skipEvent = 'auto_pair_skipped_device_mismatch';
+          skipReason = 'max_context_mismatch';
+        } else {
+          const handoff = pushPairingHandoff.create({ pairingToken: token, context: verified });
+          await storage.upsertChatBindingForDevice({ maxUserId: verified.maxUserId, chatId: verified.chatId, channelId: verified.channelId, chatTitle: verified.chatTitle, deviceId: device.deviceId, endpointHash: device.endpointHash });
+          pairing.consumePairingToken(token);
+          pushPairingHandoff.consume(handoff.handoffId);
+          appendCookie(res, deviceProofCookie(req, device));
+          recordPushPairingEvent({ ...logBase, event: 'auto_pair_success', result: 'auto_pair_success', endpointHash: device.endpointHash, deviceId: device.deviceId, linkedToChat: true, consumed: true, handoffId: handoff.handoffId, hasHandoff: true });
+          return sendPushPage(req, res, { mode: 'client', autoPairSuccess: true, chatTitle: verified.chatTitle });
+        }
+      }
+
+      recordPushPairingEvent({ ...logBase, event: skipEvent, result: skipEvent, endpointHash: proof && proof.endpointHash, deviceId: proof && proof.deviceId, reason: skipReason });
       const maxAge = pairingCookieMaxAgeSeconds(verified.expiresAt);
       const cookie = `push_pairing_token=${encodeURIComponent(token)}; Path=/api/push; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
       appendCookie(res, isHttpsRequest(req) ? `${cookie}; Secure` : cookie);
       const handoff = pushPairingHandoff.create({ pairingToken: token, context: verified });
       appendCookie(res, handoffCookie(req, handoff.handoffId));
-      recordPushPairingEvent({ event: 'handoff_created', route: '/push/join', result: 'handoff_created', tokenSource: fromManifest ? 'manifest-start-url' : 'query', pairingToken: token, handoffId: handoff.handoffId, flowId: handoff.flowId, hasPairingToken: true, hasHandoff: true, handoffPending: true, consumed: false, hasPairingCookie: true, hasHandoffCookie: true, openedAs: pairingOpenedAs(req), maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle });
-      const activeDevices = await storage.listActiveDevicesForUser(verified.maxUserId);
-      const existingActiveDevicesFound = activeDevices.length > 0;
-      return sendPushPage(req, res, {
-        mode: 'client',
-        joinMode: true,
-        tokenCookie: true,
-        tokenStatus: 'valid',
-        token,
-        handoffId: handoff.handoffId,
-        handoffStatus: 'found',
-        linkChatMode: existingActiveDevicesFound,
-        existingActiveDevicesFound,
-        informationalJoin: !fromManifest,
-        chatTitle: verified.chatTitle
-      });
+      recordPushPairingEvent({ ...logBase, event: 'handoff_created', result: 'handoff_created', handoffId: handoff.handoffId, flowId: handoff.flowId, hasHandoff: true, handoffPending: true, consumed: false, hasPairingCookie: true, hasHandoffCookie: true });
+      recordPushPairingEvent({ ...logBase, event: 'auto_pair_fallback_pending', result: 'auto_pair_fallback_pending', handoffId: handoff.handoffId, hasHandoff: true, handoffPending: true, reason: skipReason });
+      return sendPushPage(req, res, { mode: 'client', joinMode: true, tokenCookie: true, tokenStatus: 'valid', token, handoffId: handoff.handoffId, handoffStatus: 'found', informationalJoin: !fromManifest, chatTitle: verified.chatTitle });
     } catch (error) {
       const code = safeErrorCode(error, 'invalid_push_pairing_token');
       if (code === 'push_pairing_token_used') {
@@ -598,6 +632,7 @@ function install(app) {
       const chatSnapshot = await connectedChats.resolveConnectedChats(device.maxUserId, { botToken: getMaxBotToken(), endpointHash, deviceId: device.deviceId });
       const chats = chatSnapshot.chats;
       recordPushPairingEvent({ event: 'device_status', route: '/api/push/device/status', result: chats.length ? 'status_success' : 'binding_missing', maxUserId: device.maxUserId, chatId: device.chatId, deviceId: device.deviceId, chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
+      appendCookie(res, deviceProofCookie(req, device));
       return res.json(confirmation.safePublicResult({
         ok: true,
         status: device.status,
@@ -637,7 +672,8 @@ function install(app) {
           endpointHash
         });
         const chats = (await connectedChats.resolveConnectedChats(verified.maxUserId, { botToken: getMaxBotToken(), endpointHash, deviceId: activeDevice && activeDevice.deviceId })).chats;
-        return res.json(confirmation.safePublicResult({ ok: true, status: 'active', confirmationRequired: false, confirmationSent: false, chats }));
+        appendCookie(res, deviceProofCookie(req, activeDevice));
+        return res.json(confirmation.safePublicResult({ ok: true, status: 'active', confirmationRequired: false, confirmationSent: false, deviceId: activeDevice.deviceId, chats }));
       }
       const saved = await storage.savePairedDevice(cleanSubscription, {
         maxUserId: verified.maxUserId,
@@ -649,6 +685,7 @@ function install(app) {
       });
       const prompt = await confirmation.sendConfirmationPrompt({ maxUserId: verified.maxUserId, deviceId: saved.deviceId });
       const chats = (await connectedChats.resolveConnectedChats(verified.maxUserId, { botToken: getMaxBotToken(), endpointHash, deviceId: saved.deviceId })).chats;
+      appendCookie(res, deviceProofCookie(req, saved));
       return res.json(confirmation.safePublicResult({
         ok: true,
         status: saved.status,
@@ -665,46 +702,56 @@ function install(app) {
   });
 
 
+  app.post('/api/push/unpair', async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    try {
+      const extracted = extractPushSubscriptionFromBody(body);
+      const subscription = storage.sanitizeSubscription(extracted.subscription);
+      const endpointHash = storage.subscriptionId(subscription);
+      const device = await storage.findDeviceByEndpointHash(endpointHash);
+      const chatId = clean(body.chatId);
+      if (!device || device.disabled || device.status !== 'active' || !chatId) {
+        recordPushPairingEvent({ event: 'unpair_not_found', route: '/api/push/unpair', result: 'unpair_not_found', endpointHash, chatId, reason: !chatId ? 'chat_required' : 'device_not_active' });
+        return res.status(404).json({ ok: false, error: 'push_chat_binding_not_found' });
+      }
+      const result = await storage.unpairChatForDevice({ deviceId: device.deviceId, endpointHash, chatId });
+      if (!result.ok) {
+        recordPushPairingEvent({ event: 'unpair_not_found', route: '/api/push/unpair', result: 'unpair_not_found', endpointHash, deviceId: device.deviceId, chatId, maxUserId: device.maxUserId });
+        return res.status(404).json({ ok: false, error: 'push_chat_binding_not_found' });
+      }
+      const snapshot = await connectedChats.resolveConnectedChats(device.maxUserId, { botToken: getMaxBotToken(), endpointHash, deviceId: device.deviceId });
+      recordPushPairingEvent({ event: 'unpair_success', route: '/api/push/unpair', result: 'unpair_success', endpointHash, deviceId: device.deviceId, chatId, maxUserId: device.maxUserId, chatsCount: snapshot.chats.length });
+      appendCookie(res, deviceProofCookie(req, device));
+      return res.json({ ok: true, chats: safePublicChats(snapshot.chats) });
+    } catch (error) {
+      return res.status(400).json({ ok: false, error: safeErrorCode(error, 'push_unpair_failed') });
+    }
+  });
+
   app.post('/api/push/link-chat', async (req, res) => {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const token = clean(body.pairingToken) || getCookie(req, 'push_pairing_token');
-    if (!token) return res.status(403).json({ ok: false, error: 'push_pairing_token_required', existingActiveDevicesFound: false, chatLinkMode: true });
+    if (!token) return res.status(403).json({ ok: false, error: 'push_pairing_token_required' });
     try {
-      const verified = pairing.consumePairingToken(token);
-      const activeDevices = await storage.listActiveDevicesForUser(verified.maxUserId);
-      const alreadyConnected = await storage.isChatBoundForUser(verified.maxUserId, verified.chatId);
-      if (!activeDevices.length) {
-        return res.status(409).json({ ok: false, error: 'push_active_device_not_found', existingActiveDevicesFound: false, chatLinkMode: true, linkedExistingDevicesCount: 0, chatBindingUpserted: false, chats: [] });
-      }
-      const binding = await storage.upsertChatBindingForUserDevices({
-        maxUserId: verified.maxUserId,
-        chatId: verified.chatId,
-        channelId: verified.channelId,
-        chatTitle: verified.chatTitle
-      });
+      const verified = pairing.verifyPairingToken(token);
       const extracted = extractPushSubscriptionFromBody(body);
-      let currentEndpointHash = '';
-      let currentDeviceId = '';
-      if (extracted.subscription) {
-        const currentSubscription = storage.sanitizeSubscription(extracted.subscription);
-        currentEndpointHash = storage.subscriptionId(currentSubscription);
-        const currentDevice = activeDevices.find((item) => item.endpointHash === currentEndpointHash || item.id === currentEndpointHash);
-        currentDeviceId = currentDevice ? currentDevice.deviceId : '';
+      const currentSubscription = storage.sanitizeSubscription(extracted.subscription);
+      const endpointHash = storage.subscriptionId(currentSubscription);
+      const device = await storage.findDeviceByEndpointHash(endpointHash);
+      if (!device || device.disabled || device.status !== 'active' || clean(device.maxUserId) !== clean(verified.maxUserId)) {
+        return res.status(409).json({ ok: false, error: 'push_active_device_not_found', chats: [] });
       }
-      const chatSnapshot = await connectedChats.resolveConnectedChats(verified.maxUserId, { botToken: getMaxBotToken(), endpointHash: currentEndpointHash, deviceId: currentDeviceId });
+      pairing.consumePairingToken(token);
+      const before = await storage.listChatBindingsSnapshotForDevice({ deviceId: device.deviceId, endpointHash });
+      const alreadyConnected = before.chats.some((item) => clean(item.chatId) === clean(verified.chatId));
+      await storage.upsertChatBindingForDevice({ maxUserId: verified.maxUserId, chatId: verified.chatId, channelId: verified.channelId, chatTitle: verified.chatTitle, deviceId: device.deviceId, endpointHash });
+      const chatSnapshot = await connectedChats.resolveConnectedChats(verified.maxUserId, { botToken: getMaxBotToken(), endpointHash, deviceId: device.deviceId });
       const chats = chatSnapshot.chats;
-      recordPushPairingEvent({ event: 'binding_created', route: '/api/push/link-chat', result: chats.length ? 'binding_created' : 'binding_missing', maxUserId: verified.maxUserId, chatId: verified.chatId, chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount, uiState: alreadyConnected ? 'already_connected' : 'chat_added', alreadyConnected, renderedChatsCount: chats.length, connectedChatTitlesCount: chats.filter((item) => safeChatTitle(item.chatTitle)).length, action: 'connect_chat', clientEntry: 'pwa_link' });
-      return res.json({
-        ok: true,
-        existingActiveDevicesFound: true,
-        chatLinkMode: true,
-        linkedExistingDevicesCount: Number(binding && binding.devices) || 0,
-        chatBindingUpserted: Number(binding && binding.bindings) > 0,
-        alreadyConnected,
-        chats: safePublicChats(chats)
-      });
+      recordPushPairingEvent({ event: alreadyConnected ? 'binding_updated' : 'binding_created', route: '/api/push/link-chat', result: alreadyConnected ? 'binding_updated' : 'binding_created', maxUserId: verified.maxUserId, chatId: verified.chatId, endpointHash, deviceId: device.deviceId, chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
+      appendCookie(res, deviceProofCookie(req, device));
+      return res.json({ ok: true, alreadyConnected, chats: safePublicChats(chats) });
     } catch (error) {
-      return res.status(400).json({ ok: false, error: safeErrorCode(error, 'push_link_chat_failed'), existingActiveDevicesFound: false, chatLinkMode: true, linkedExistingDevicesCount: 0, chatBindingUpserted: false });
+      return res.status(400).json({ ok: false, error: safeErrorCode(error, 'push_link_chat_failed') });
     }
   });
 
@@ -767,7 +814,7 @@ function install(app) {
     res.status(result.ok ? 200 : 503).json(result);
   });
 
-  return { ok: true, routes: ['/push', '/push/admin', '/push/join', '/push/join/:token', '/push/manifest.json', '/push/manifest/:token', '/push/sw.js', '/api/push/status', '/api/push/pending', '/internal/push/status', '/api/push/subscribe', '/api/push/device/status', '/api/push/pair', '/api/push/link-chat', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted', '/internal/max/chats', '/internal/max/chat-members', '/internal/max/group-push-invite'] };
+  return { ok: true, routes: ['/push', '/push/admin', '/push/join', '/push/join/:token', '/push/manifest.json', '/push/manifest/:token', '/push/sw.js', '/api/push/status', '/api/push/pending', '/internal/push/status', '/api/push/subscribe', '/api/push/device/status', '/api/push/pair', '/api/push/link-chat', '/api/push/unpair', '/api/push/test', '/internal/push/send', '/internal/push/invite', '/internal/push/invite-chat', '/internal/push/targeted', '/internal/max/chats', '/internal/max/chat-members', '/internal/max/group-push-invite'] };
 }
 
 module.exports = {

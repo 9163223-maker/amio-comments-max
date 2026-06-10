@@ -7,7 +7,9 @@ const crypto = require('crypto');
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const USED_FILE = path.join(DATA_DIR, 'push-pairing-used.json');
 const PURPOSE = 'push_pairing';
+const DEVICE_PURPOSE = 'push_device_proof';
 const DEFAULT_TTL_MINUTES = 60;
+const DEFAULT_DEVICE_TTL_DAYS = 365;
 
 function clean(value) {
   return String(value || '').trim();
@@ -163,6 +165,56 @@ function consumePairingToken(token) {
   return payload;
 }
 
+
+function createDeviceProof({ deviceId, endpointHash, ttlDays } = {}) {
+  requireSecret();
+  const safeDeviceId = clean(deviceId);
+  const safeEndpointHash = clean(endpointHash);
+  if (!safeDeviceId || !/^[a-f0-9]{32,128}$/i.test(safeEndpointHash)) {
+    const error = new Error('push_device_proof_identity_required');
+    error.code = 'push_device_proof_identity_required';
+    throw error;
+  }
+  const days = Math.max(1, Math.min(730, Number(ttlDays || DEFAULT_DEVICE_TTL_DAYS) || DEFAULT_DEVICE_TTL_DAYS));
+  const payload = {
+    purpose: DEVICE_PURPOSE,
+    deviceId: safeDeviceId,
+    endpointHash: safeEndpointHash,
+    expiresAt: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+  };
+  const encodedPayload = base64url(JSON.stringify(payload));
+  return `${encodedPayload}.${sign(encodedPayload)}`;
+}
+
+function verifyDeviceProof(token) {
+  requireSecret();
+  const raw = clean(token);
+  const parts = raw.split('.');
+  if (parts.length !== 2 || !parts[0] || !parts[1] || !timingSafeEqualText(parts[1], sign(parts[0]))) {
+    const error = new Error('invalid_push_device_proof');
+    error.code = 'invalid_push_device_proof';
+    throw error;
+  }
+  let payload;
+  try { payload = JSON.parse(decodeBase64url(parts[0])); } catch {
+    const error = new Error('invalid_push_device_proof_payload');
+    error.code = 'invalid_push_device_proof_payload';
+    throw error;
+  }
+  const expiresAtMs = Date.parse(payload && payload.expiresAt);
+  if (!payload || payload.purpose !== DEVICE_PURPOSE || !clean(payload.deviceId) || !/^[a-f0-9]{32,128}$/i.test(clean(payload.endpointHash))) {
+    const error = new Error('invalid_push_device_proof_identity');
+    error.code = 'invalid_push_device_proof_identity';
+    throw error;
+  }
+  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
+    const error = new Error('push_device_proof_expired');
+    error.code = 'push_device_proof_expired';
+    throw error;
+  }
+  return { purpose: DEVICE_PURPOSE, deviceId: clean(payload.deviceId), endpointHash: clean(payload.endpointHash), expiresAt: new Date(expiresAtMs).toISOString() };
+}
+
 function safeTokenId(tokenOrPayload) {
   if (typeof tokenOrPayload === 'string') {
     try { return verifyPairingToken(tokenOrPayload, { allowUsed: true }).nonceHash; } catch { return tokenHash(tokenOrPayload).slice(0, 16); }
@@ -172,7 +224,10 @@ function safeTokenId(tokenOrPayload) {
 
 module.exports = {
   PURPOSE,
+  DEVICE_PURPOSE,
   createPairingToken,
+  createDeviceProof,
+  verifyDeviceProof,
   verifyPairingToken,
   consumePairingToken,
   safeTokenId,
