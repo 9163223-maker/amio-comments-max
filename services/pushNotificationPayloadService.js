@@ -7,6 +7,7 @@ const SERVICE_NAME = 'АдминКИТ PUSH';
 const MAX_PREVIEW_LENGTH = 120;
 
 function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function cleanBody(value) { return String(value || '').replace(/\r/g, '').split('\n').map((line) => clean(line)).filter(Boolean).join('\n').trim(); }
 function stripMarkup(value) {
   return clean(value)
     .replace(/<[^>]*>/g, '')
@@ -17,8 +18,8 @@ function stripMarkup(value) {
     .replace(/\s+/g, ' ')
     .trim();
 }
-function truncate(value, limit = MAX_PREVIEW_LENGTH) {
-  const text = clean(value);
+function truncate(value, limit = MAX_PREVIEW_LENGTH, preserveNewlines = false) {
+  const text = preserveNewlines ? cleanBody(value) : clean(value);
   if (text.length <= limit) return text;
   return `${text.slice(0, Math.max(1, limit - 1)).trimEnd()}…`;
 }
@@ -60,7 +61,7 @@ function safeTagPart(value) { return clean(value).replace(/[^\w.:-]+/g, '_').sli
 function basePayload({ title, body, tag, timestamp, data }) {
   return {
     title: truncate(clean(title), 80) || SERVICE_NAME,
-    body: truncate(clean(body), 160) || 'Новое сообщение',
+    body: truncate(body, 160, true) || 'Новое сообщение',
     icon: DEFAULT_ICON,
     badge: DEFAULT_BADGE,
     timestamp: timestampOrNow(timestamp),
@@ -81,14 +82,15 @@ function selectChatTitle(input = {}) {
   return { title: 'Чат MAX', source: 'fallback' };
 }
 function groupMessageBody(input = {}) {
-  const sender = truncate(stripMarkup(input.senderName), 48);
+  const sender = truncate(stripMarkup(input.senderName), 48) || 'Участник';
   const text = truncate(stripMarkup(input.messageText), MAX_PREVIEW_LENGTH);
   const kind = attachmentKind(input.attachments);
-  if (text) return { body: sender ? `${sender}: ${text}` : 'Новое сообщение', source: sender ? 'sender_text' : 'text_without_sender' };
-  if (kind === 'photo') return { body: sender ? `${sender} отправил(а) фото` : 'Новое фото', source: sender ? 'sender_photo' : 'photo' };
-  if (kind === 'file') return { body: sender ? `${sender} отправил(а) файл` : 'Новый файл', source: sender ? 'sender_file' : 'file' };
-  if (sender && !kind) return { body: `${sender}: новое сообщение`, source: 'sender_fallback' };
-  return { body: 'Новое сообщение', source: kind ? 'unsupported_media' : 'fallback' };
+  if (text) return { body: `${sender}: ${text}`, source: 'sender_text' };
+  if (kind === 'photo') return { body: `${sender}: Фото`, source: 'sender_photo' };
+  if (kind === 'file') return { body: `${sender}: Файл`, source: 'sender_file' };
+  if (kind === 'video') return { body: `${sender}: Видео`, source: 'sender_video' };
+  if (kind === 'voice') return { body: `${sender}: Голосовое сообщение`, source: 'sender_voice' };
+  return { body: `${sender}: Новое сообщение`, source: 'sender_fallback' };
 }
 function buildGroupMessagePayload(input = {}) {
   const chatId = clean(input.chatId);
@@ -96,8 +98,8 @@ function buildGroupMessagePayload(input = {}) {
   const title = selectChatTitle(input);
   const body = groupMessageBody(input);
   return basePayload({
-    title: title.title,
-    body: body.body,
+    title: SERVICE_NAME,
+    body: `${title.title}\n${body.body}`,
     timestamp,
     tag: `adminkit:chat:${safeTagPart(chatId)}:${safeTagPart(input.messageId || timestamp)}`,
     data: {

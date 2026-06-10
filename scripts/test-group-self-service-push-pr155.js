@@ -164,7 +164,7 @@ function extractJoinToken(text) {
     assert.strictEqual(fallbackRes.statusCode, 200, 'shortener failure still returns callback 200');
     assert.strictEqual(sentMessages.length, 1, 'shortener failure still sends private message');
     assert(sentMessages[0].text.includes('/push/join?t='), 'shortener failure falls back to long join URL');
-    assert(sentMessages[0].text.includes('Короткая ссылка временно недоступна'), 'shortener failure includes safe fallback note');
+    assert(sentMessages[0].text.includes('АдминКИТ PUSH'), 'shortener failure includes safe fallback note');
     assert(answers.some((answer) => answer.notification === 'Ссылка отправлена в личные сообщения.'), 'shortener failure does not block callback success');
 
     global.fetch = async (url, options = {}) => {

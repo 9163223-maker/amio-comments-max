@@ -51,8 +51,8 @@ function request(server, pathname, options = {}) {
       assert(!page.includes('PUSH_ADMIN_TOKEN') && !page.includes('PUSH_SUBSCRIBE_TOKEN'), 'normal Push UI hides token fields');
       assert(!page.includes('Персональная ссылка найдена'), 'normal Push UI hides technical personal-link wording');
     }
-    assert(normalPush.text.includes('Подключённые чаты'), '/push shows connected chats section');
-    assert(normalPush.text.includes('Пока нет подключённых чатов.'), '/push shows clean empty state');
+    assert(normalPush.text.includes('Ваши чаты'), '/push shows connected chats section');
+    assert(normalPush.text.includes('На этом устройстве пока нет подключённых чатов.'), '/push shows clean empty state');
     assert(normalPush.text.includes('/public/adminkit-push-icon-192.png?v=pr167'), '/push references АдминКИТ PUSH app icon');
     assert(normalPush.text.includes('rel="apple-touch-icon"') && normalPush.text.includes('adminkit-push-icon-192.png?v=pr167'), 'iOS apple touch icon uses АдминКИТ PUSH icon');
 

@@ -16,6 +16,8 @@
     main { max-width: 720px; margin: 0 auto; padding: max(20px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom)); }
     h1 { font-size: 30px; margin: 14px 0 8px; letter-spacing: -.03em; }
     h2 { font-size: 18px; margin: 0 0 12px; }
+    h3.chat-group-title { font-size: 14px; margin: 12px 0 4px; color: #475569; }
+    [hidden] { display: none !important; }
     p { color: #475569; line-height: 1.5; }
     .brand { text-align: center; padding: 20px 8px 8px; }
     .brand-logo { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 18px 40px rgba(37, 99, 235, .18); }
@@ -36,7 +38,7 @@
     .chat-list { display: grid; gap: 6px; margin-top: 8px; }
     .chat-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #dbeafe; background: #f8fbff; border-radius: 12px; padding: 9px 11px; }
     .chat-card strong { min-width: 0; color: #0f172a; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .chat-card span { flex: none; color: #166534; font-size: 12px; font-weight: 700; }
+    .chat-card span { flex: none; max-width: 48%; color: #166534; font-size: 12px; font-weight: 700; text-align: right; }
     .status-badge { display: inline-block; color: #166534; background: #dcfce7; border-radius: 999px; padding: 5px 9px; font-size: 13px; font-weight: 700; }
     .empty-state { color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 18px; padding: 14px; }
     .admin-success { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 10px 12px; }
@@ -58,9 +60,9 @@
       <span id="notificationBadge" class="status-badge" hidden>Уведомления включены</span>
     </header>
     <p id="pairingNotice" hidden></p>
-    <p id="clientStatus" class="warning" aria-live="polite">—</p>
+    <p id="clientStatus" class="warning" aria-live="polite" hidden></p>
 
-    <section class="card primary-card">
+    <section class="card primary-card" id="primaryActionSection" hidden>
       <button id="enableBtn" type="button" hidden>Включить уведомления</button>
       <!-- admin-diagnostics-start -->
       <button id="testBtn" type="button">Отправить тестовое уведомление</button>
@@ -73,9 +75,9 @@
     </section>
 
     <section class="card" id="connectedChatsSection">
-      <h2>Подключённые чаты</h2>
+      <h2>Ваши чаты</h2>
       <div id="connectedChatsList" class="chat-list" aria-live="polite">
-        <div class="empty-state">Пока нет подключённых чатов.</div>
+        <div class="empty-state">На этом устройстве пока нет подключённых чатов.</div>
       </div>
     </section>
 

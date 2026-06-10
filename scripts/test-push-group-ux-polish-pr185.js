@@ -26,23 +26,24 @@ function buttons(screen) {
   assert(!/API|token|endpoint|binding|handoff|device id|auth|p256dh/i.test(connectHelp.text), 'private notification flow is non-technical');
 
   const existing = accountScreens.pushNotificationsScreen('ordinary-user', { chats: [{ chatTitle: 'Мож Хвост 3', enabledOnThisDevice: true }, { title: 'Все свои MAX', needsReconnect: true }, { chatTitle: 'Мож Хвост 3', enabledOnThisDevice: true }] });
-  assert(existing.text.includes('На этом устройстве:') && existing.text.includes('Нужно подключить:'), 'existing chats have device-scoped headings');
+  assert(existing.text.includes('Подключены на этом устройстве:') && existing.text.includes('Другие доступные чаты:'), 'existing chats have device-scoped headings');
+  assert(existing.text.includes('откройте ссылку из этого чата') && !existing.text.includes('нужно подключить'), 'inactive chats explain the actual next action');
   assert.strictEqual((existing.text.match(/Мож Хвост 3/g) || []).length, 1, 'existing chat names are unique');
   assert(buttons(existing).includes('➕ Подключить ещё чат'), 'existing-chat flow offers adding another chat');
 
   const first = groupPush.buildPrivateJoinMessage({ chatTitle: 'Мож Хвост 3', joinUrl: 'https://example.test/join' });
-  assert(first.includes('АдминКИТ PUSH') && first.includes('экран Домой'), 'first-device group flow uses unified friendly install copy');
+  assert(first.includes('АдминКИТ PUSH') && first.includes('Включить уведомления'), 'first-device group flow uses unified friendly install copy');
   assert(!/API|token|endpoint|binding|handoff|PWA|auth|p256dh/i.test(first), 'first-device group flow is non-technical');
   assert.strictEqual(groupPush.buildPrivateJoinKeyboard('https://example.test/join')[0].payload.buttons[0][0].text, 'Открыть подключение', 'first-device CTA opens connection');
 
   const later = groupPush.buildPrivateJoinMessage({ chatTitle: 'Все свои MAX', joinUrl: 'https://example.test/join', alreadyHadActiveDevice: true });
-  assert(later.includes('Подключить этот чат'), 'existing-device flow explains adding this chat');
+  assert(later.includes('Включить уведомления'), 'existing-device flow always issues a fresh enable flow');
   assert(!later.includes('переустанов'), 'existing-device flow does not request reinstall');
-  assert.strictEqual(groupPush.buildPrivateJoinKeyboard('https://example.test/join', { alreadyHadActiveDevice: true })[0].payload.buttons[0][0].text, 'Подключить этот чат', 'existing-device CTA is explicit');
+  assert.strictEqual(groupPush.buildPrivateJoinKeyboard('https://example.test/join', { alreadyHadActiveDevice: true })[0].payload.buttons[0][0].text, 'Открыть подключение', 'existing-device CTA always opens a fresh connection');
 
   const already = groupPush.buildPrivateJoinMessage({ chatTitle: 'Все свои MAX', joinUrl: 'https://example.test/join', alreadyHadActiveDevice: true, alreadyBound: true });
-  assert(already.includes('Этот чат уже подключён к уведомлениям.'), 'already-connected group flow is explicit');
-  assert.strictEqual(groupPush.buildPrivateJoinKeyboard('https://example.test/join', { alreadyBound: true })[0].payload.buttons[0][0].text, 'Открыть АдминКИТ PUSH', 'already-connected CTA opens the app');
+  assert(!already.includes('уже подключ'), 'old bindings never block a fresh link');
+  assert.strictEqual(groupPush.buildPrivateJoinKeyboard('https://example.test/join', { alreadyBound: true })[0].payload.buttons[0][0].text, 'Открыть подключение', 'already-connected state still opens a fresh connection');
 
   assert.deepStrictEqual(slash.PUBLIC_GROUP_COMMANDS, ['/push', '/help'], 'group-visible command model is client-safe only');
   for (const command of ['/menu', '/channels', '/comments', '/gifts', '/debug']) assert(slash.ADMIN_PRIVATE_COMMANDS.includes(command), `${command} remains available in private/admin handling`);
@@ -61,11 +62,11 @@ function buttons(screen) {
   const html = fs.readFileSync(path.join(repo, 'public', 'push.html'), 'utf8');
   const client = fs.readFileSync(path.join(repo, 'public', 'push-client.js'), 'utf8');
   assert(html.includes('<h1>АдминКИТ PUSH</h1>') && html.includes('apple-mobile-web-app-title" content="АдминКИТ PUSH'), 'PWA visible name is unified');
-  assert(client.includes("const JOIN_SUCCESS_MESSAGE = 'Готово — уведомления подключены.'"), 'first success has one clear message');
-  assert(client.includes("const LINK_CHAT_SUCCESS_MESSAGE = 'Готово — чат добавлен.'"), 'later chat success is distinct');
+  assert(client.includes("const JOIN_SUCCESS_MESSAGE = 'Готово. Уведомления включены.'"), 'first success has one clear message');
+  assert(client.includes('Готово. Уведомления включены для чата'), 'chat success names the linked chat');
   assert(!client.includes("setText('enableBtn', 'Уведомления подключены')"), 'success is not rendered as a primary CTA');
   assert(html.includes('.chat-card { display: flex;') && html.includes('padding: 9px 11px'), 'connected chat rows are compact');
-  assert(client.includes("chat.enabledOnThisDevice ? 'включены' : 'нужно подключить'") && client.includes('uniqueChatItems'), 'compact connected chat items are unique and readable');
+  assert(client.includes("'откройте ссылку из этого чата'") && client.includes('uniqueChatItems'), 'compact connected chat items are unique and actionable');
 
   console.log('push group ux polish pr185 ok');
 })();

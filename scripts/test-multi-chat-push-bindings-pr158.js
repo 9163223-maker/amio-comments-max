@@ -81,18 +81,18 @@ async function request(server, target, options = {}) { const res = await origina
     assert.strictEqual(sentMessages.filter((msg) => msg.userId === 'multi-user').length, 1, 'second /push with active device sends private setup link for another device');
     const secondReply = sentMessages.find((msg) => msg.chatId === 'chat-two');
     assert(!secondReply, 'second /push posts no group success text');
-    assert.strictEqual(await storage.isChatBoundForUser('multi-user', 'chat-two'), true, 'second /push creates new chat binding');
-    assert.strictEqual((await storage.listChatBindingsForUser('multi-user')).filter((b) => b.chatId === 'chat-two').length, 1, 'new chat binding has no duplicates');
+    assert.strictEqual(await storage.isChatBoundForUser('multi-user', 'chat-two'), false, 'second /push waits for endpoint confirmation');
+    assert.strictEqual((await storage.listChatBindingsForUser('multi-user')).filter((b) => b.chatId === 'chat-two').length, 0, 'no binding is created before confirmation');
     res = responseStub(); sentMessages.length = 0;
     await bot.handleWebhook({ get: () => '', body: messageUpdate({ userId: 'multi-user', chatId: 'chat-two', title: 'Второй чат' }) }, res, { botToken: 'BOT_TOKEN_PR158', appBaseUrl: 'https://push.example.test' });
-    assert.strictEqual((await storage.listChatBindingsForUser('multi-user')).filter((b) => b.chatId === 'chat-two').length, 1, 'repeated /push is idempotent');
-    assert(sentMessages.some((message) => message.userId === 'multi-user' && String(message.text || '').includes('уже есть подключённое устройство')), 'repeated /push sends private multi-device link safely');
+    assert.strictEqual((await storage.listChatBindingsForUser('multi-user')).filter((b) => b.chatId === 'chat-two').length, 0, 'repeated /push still waits for confirmation');
+    assert(sentMessages.some((message) => message.userId === 'multi-user' && String(message.text || '').includes('Включить уведомления')), 'repeated /push sends private multi-device link safely');
 
     await storage.savePairedDevice(validSubscription('active-two'), { maxUserId: 'multi-user', chatId: 'chat-one', status: 'active' });
     await storage.upsertChatBindingForUserDevices({ maxUserId: 'multi-user', chatId: 'chat-three', chatTitle: 'Третий чат' });
     assert.strictEqual((await storage.listActiveDevicesForChatAndUser({ maxUserId: 'multi-user', chatId: 'chat-three' })).length, 2, 'multiple active devices for same user all get new chat binding');
     assert((await storage.listChatBindingsForUser('multi-user')).some((b) => b.chatId === 'chat-one'), 'previous chat binding is preserved');
-    assert((await storage.listChatBindingsForUser('multi-user')).some((b) => b.chatId === 'chat-two'), 'second chat binding is preserved');
+    assert(!(await storage.listChatBindingsForUser('multi-user')).some((b) => b.chatId === 'chat-two'), 'unconfirmed chat is not reported as connected');
 
     await storage.savePairedDevice(validSubscription('other-user'), { maxUserId: 'other-user', chatId: 'other-chat', status: 'active' });
     const endpoints = [];
@@ -103,7 +103,7 @@ async function request(server, target, options = {}) { const res = await origina
     sentMessages.length = 0; answers.length = 0;
     res = responseStub();
     await bot.handleWebhook({ get: () => '', body: callbackUpdate({ userId: 'multi-user', chatId: 'callback-chat', title: 'Callback Chat' }) }, res, { botToken: 'BOT_TOKEN_PR158', appBaseUrl: 'https://push.example.test' });
-    assert.strictEqual(await storage.isChatBoundForUser('multi-user', 'callback-chat'), true, 'callback fallback uses same multi-chat binding logic');
+    assert.strictEqual(await storage.isChatBoundForUser('multi-user', 'callback-chat'), false, 'callback waits for confirmed endpoint binding');
     assert.strictEqual(sentMessages.filter((message) => message.userId === 'multi-user').length, 1, 'callback fallback with active device sends private setup link for another device');
     assert(answers.some((answer) => String(answer.notification || '') === 'Ссылка отправлена в личные сообщения.'), 'callback fallback answers safely without link');
 

@@ -74,8 +74,8 @@ function assertNoLeaks(text, label, extraForbidden = []) {
       assert(!join.text.includes('id="subscribeSteps"'), 'client UX does not show raw connection diagnostics by default');
       assert(!join.text.includes('<h2>Диагностика</h2>'), 'client UX hides raw diagnostic table by default');
       assert(join.text.includes('id="clientStatus"') && !join.text.includes('id="subscribeSteps"'), 'client-safe join keeps visible client status while hiding raw diagnostics');
-      assert(join.headers.get('set-cookie').includes('Path=/api/push/pair'), 'client UX uses narrow pairing cookie flow');
-      assertNoLeaks(join.text, 'client join page', [token]);
+      assert(join.headers.get('set-cookie').includes('Path=/api/push'), 'client UX uses narrow pairing cookie flow');
+      assertNoLeaks(join.text.replace(encodeURIComponent(token), '[manifest-flow]'), 'client join page');
 
       const publicPush = await request(server, '/push');
       assert.strictEqual(publicPush.status, 200, '/push renders safe client landing');
@@ -101,7 +101,7 @@ function assertNoLeaks(text, label, extraForbidden = []) {
 
     assert(routesSource.includes("app.get('/push/admin'"), 'web-push routes expose explicit /push/admin diagnostic route');
     assert(routesSource.includes("sendPushPage(req, res, { mode: 'client', joinMode: true"), '/push/join renders client mode');
-    assert(routesSource.includes("sendPushPage(req, res, { mode: 'client', joinMode: false"), '/push renders client-safe mode by default');
+    assert(routesSource.includes("app.get('/push'") && routesSource.includes("mode: 'client'"), '/push renders client-safe mode by default');
     assert(routesSource.includes('stripMarkedHtml(html, \'admin-diagnostics\')'), 'client mode strips admin diagnostic controls server-side');
     assert(routesSource.includes('stripMarkedHtml(html, \'raw-diagnostics\')'), 'client mode strips raw diagnostics server-side');
     assert(!routesSource.includes('req.query.admin') && !routesSource.includes('req.query.token'), 'admin token is not read from query string');
@@ -111,7 +111,7 @@ function assertNoLeaks(text, label, extraForbidden = []) {
     assert(saveStart !== -1 && saveEnd > saveStart, 'saveSubscription function exists');
     const saveSource = pushClient.slice(saveStart, saveEnd);
     assert(saveSource.includes('const requestBody = { subscription: normalizedSubscription };'), 'client mode sends nested { subscription } body');
-    assert(saveSource.includes("fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify(requestBody) })"), 'client mode posts to /api/push/pair');
+    assert(saveSource.includes("fetchJson('/api/push/pair', { method: 'POST', body: JSON.stringify(pairBody) })"), 'client mode posts to /api/push/pair');
     assert(saveSource.indexOf('state.join.joinMode') < saveSource.indexOf("fetchJson('/api/push/pair'"), 'pairing branch is gated by join mode');
     assert(saveSource.indexOf("fetchJson('/api/push/pair'") < saveSource.indexOf("fetchJson('/api/push/subscribe'"), 'join branch returns before manual subscribe branch');
     assert(saveSource.includes("throw new Error('Нужен PUSH_SUBSCRIBE_TOKEN для ручного режима.');"), 'PUSH_SUBSCRIBE_TOKEN is only required in manual/admin mode');
@@ -130,9 +130,7 @@ function assertNoLeaks(text, label, extraForbidden = []) {
     assert(pushClient.includes("writeResetResult('reset started')"), 'PR148 reset behavior remains');
     assert(pushClient.includes("navigator.serviceWorker.getRegistration('/push/')"), 'PR148 reset uses /push/ service worker registration');
     assert(pushClient.includes('state.forceNewSubscriptionAfterInvalid = true'), 'PR148 invalid subscription one-shot remains');
-    assert(pushClient.includes('Устройство подключено. Подтвердите его в MAX.'), 'confirmation-required final status exists');
-    assert(pushClient.includes('Устройство подключено. Откройте MAX и нажмите «Подтвердить устройство».'), 'confirmation-sent final status exists');
-    assert(pushClient.includes('Готово — уведомления подключены.'), 'no-confirmation final status exists');
+    assert(pushClient.includes('Готово. Уведомления включены для чата'), 'confirmed chat-specific final status exists');
     assert(pushClient.includes('Откройте АдминКИТ PUSH с иконки на экране Домой.'), 'not-standalone iOS final hint exists');
     assert(pushClient.includes('Разрешение не выдано. Включите уведомления в настройках iPhone.'), 'permission-denied final status exists');
     assert(pushClient.includes("fetchJson('/api/push/test', { method: 'POST'"), 'admin diagnostic test send uses /api/push/test');

@@ -1,6 +1,6 @@
 'use strict';
 
-// PR183: runtime-safe patch for the AdminKIT Push client pairing flow.
+// PR183: runtime-safe patch for the АдминКИТ PUSH client pairing flow.
 // The patch is loaded before the production entrypoint and replaces only the
 // /api/push/pair and /api/push/device/status route handlers while preserving
 // the rest of web-push-routes.js unchanged.
@@ -129,7 +129,7 @@ function buildHandlers(routes) {
         return res.status(404).json({ ok: false, error: 'push_device_not_paired', requestShape });
       }
 
-      let chatSnapshot = await connectedChats.resolveConnectedChats(device.maxUserId, { botToken: process.env.BOT_TOKEN || process.env.MAX_BOT_TOKEN });
+      let chatSnapshot = await connectedChats.resolveConnectedChats(device.maxUserId, { endpointHash, botToken: process.env.BOT_TOKEN || process.env.MAX_BOT_TOKEN });
       let chats = chatSnapshot.chats;
       let bindingCreated = false;
       // PR178 recovery for legacy active devices created before binding was upserted.
@@ -141,12 +141,12 @@ function buildHandlers(routes) {
           deviceId: device.deviceId,
           endpointHash: device.endpointHash
         });
-        chatSnapshot = await connectedChats.resolveConnectedChats(device.maxUserId, { botToken: process.env.BOT_TOKEN || process.env.MAX_BOT_TOKEN });
+        chatSnapshot = await connectedChats.resolveConnectedChats(device.maxUserId, { endpointHash, botToken: process.env.BOT_TOKEN || process.env.MAX_BOT_TOKEN });
         chats = chatSnapshot.chats;
         bindingCreated = chats.length > 0;
       }
 
-      logPairing({ event: bindingCreated ? 'device_status_binding_recovered' : 'device_status', route: '/api/push/device/status', result: chats.length ? (bindingCreated ? 'binding_created' : 'status_success') : 'binding_missing', tokenSource: 'missing', hasPairingToken: false, hasPairingCookie: Boolean(getCookie(req, 'push_pairing_token')), hasHandoffCookie: Boolean(getCookie(req, 'push_pairing_handoff')), hasHandoff: Boolean(getCookie(req, 'push_pairing_handoff')), maxUserId: device.maxUserId, chatId: device.chatId, deviceId: device.deviceId, chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
+      logPairing({ event: bindingCreated ? 'device_status_binding_recovered' : 'device_status', route: '/api/push/device/status', result: chats.length ? (bindingCreated ? 'binding_created' : 'status_success') : 'binding_missing', tokenSource: 'missing', hasPairingToken: false, hasPairingCookie: Boolean(getCookie(req, 'push_pairing_token')), hasHandoffCookie: Boolean(getCookie(req, 'push_pairing_handoff')), hasHandoff: Boolean(getCookie(req, 'push_pairing_handoff')), maxUserId: device.maxUserId, chatId: device.chatId, chatTitle: device.chatTitle, deviceId: device.deviceId, endpointHash, tokenFound: false, subscriptionCreated: false, linkedToChat: chats.some((chat) => chat.enabledOnThisDevice), chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
       return res.json(safePublicResult({
         ok: true,
         status: device.status,
@@ -218,7 +218,7 @@ function buildHandlers(routes) {
         deviceId: device.deviceId,
         endpointHash: device.endpointHash || endpointHash
       });
-      const chatSnapshot = await connectedChats.resolveConnectedChats(verified.maxUserId, { botToken: process.env.BOT_TOKEN || process.env.MAX_BOT_TOKEN });
+      const chatSnapshot = await connectedChats.resolveConnectedChats(verified.maxUserId, { endpointHash: device.endpointHash || endpointHash, botToken: process.env.BOT_TOKEN || process.env.MAX_BOT_TOKEN });
       const chats = chatSnapshot.chats;
       if (context.handoffStatus !== 'consumed') {
         try { pairing.consumePairingToken(context.token); } catch (error) {
@@ -227,9 +227,9 @@ function buildHandlers(routes) {
         if (context.tokenSource === 'handoff' && context.handoffId) pushPairingHandoff.consume(context.handoffId);
       }
       expirePairingCookies(res, req);
-      logPairing({ ...logBase, event: 'pair_success', result: 'pair_success', maxUserId: verified.maxUserId, chatId: verified.chatId, deviceId: device.deviceId, chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
-      logPairing({ ...logBase, event: 'binding_created', result: chats.length ? 'binding_created' : 'binding_missing', maxUserId: verified.maxUserId, chatId: verified.chatId, deviceId: device.deviceId, chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
-      if (context.tokenSource === 'handoff' && context.handoffId) logPairing({ ...logBase, event: 'handoff_consumed', result: 'handoff_consumed', maxUserId: verified.maxUserId, chatId: verified.chatId, deviceId: device.deviceId, chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
+      logPairing({ ...logBase, event: 'pair_success', result: 'pair_success', maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle, deviceId: device.deviceId, endpointHash: device.endpointHash || endpointHash, tokenFound: true, subscriptionCreated: !activeDevice, linkedToChat: chats.some((chat) => chat.enabledOnThisDevice && String(chat.chatId || '') === String(verified.chatId || '')), chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
+      logPairing({ ...logBase, event: 'binding_created', result: chats.length ? 'binding_created' : 'binding_missing', maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle, deviceId: device.deviceId, endpointHash: device.endpointHash || endpointHash, tokenFound: true, subscriptionCreated: !activeDevice, linkedToChat: chats.some((chat) => chat.enabledOnThisDevice && String(chat.chatId || '') === String(verified.chatId || '')), chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
+      if (context.tokenSource === 'handoff' && context.handoffId) logPairing({ ...logBase, event: 'handoff_consumed', result: 'handoff_consumed', maxUserId: verified.maxUserId, chatId: verified.chatId, chatTitle: verified.chatTitle, deviceId: device.deviceId, endpointHash: device.endpointHash || endpointHash, tokenFound: true, subscriptionCreated: !activeDevice, linkedToChat: chats.some((chat) => chat.enabledOnThisDevice && String(chat.chatId || '') === String(verified.chatId || '')), chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
       return res.json(safePublicResult({ ok: true, status: 'active', confirmationRequired: false, confirmationSent: false, confirmationDispatch: 'not_needed', deviceId: device.deviceId, chats, requestShape }));
     } catch (error) {
       const requestShape = safePushRequestShape(body, extracted.source);

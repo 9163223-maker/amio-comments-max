@@ -10,6 +10,7 @@ const max = require('./services/maxApi');
 const menu = require('./v3-menu-core-1539');
 const access = require('./services/clientAccessService');
 const accountScreens = require('./features/account-screens-pr106');
+const pushConnectedChats = require('./services/pushConnectedChatsService');
 const adminScreens = require('./features/admin-activation-screens-pr108');
 const accessGate = require('./services/accessGateService');
 const liveIdentity = require('./services/liveIdentityService');
@@ -115,7 +116,11 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
         await sendOrEditScreen({ update, callback, message, config, screen: adminScreen, edit: true });
         return res.status(200).json({ ok: true, handledBy: access.ADMIN_ACCESS_RUNTIME, action, screenId: adminScreen.id, adminRuntime: true });
       }
-      const accountScreen = accountScreens.screenForAction(action, uid);
+      let accountScreen = accountScreens.screenForAction(action, uid);
+      if (action === 'account_push_notifications') {
+        const snapshot = await pushConnectedChats.resolveConnectedChats(uid, { botToken: config.botToken });
+        accountScreen = accountScreens.pushNotificationsScreen(uid, { chats: snapshot.chats });
+      }
       if (accountScreen) {
         if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
         await sendOrEditScreen({ update, callback, message, config, screen: accountScreen, edit: true });

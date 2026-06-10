@@ -37,15 +37,15 @@ const LEGACY_RESET_NO_SUBSCRIPTION_RESULT = 'push subscription reset: no subscri
 const LEGACY_RESET_FAILED_RESULT = 'push subscription reset failed';
 const PENDING_HANDOFF_STORAGE_KEY = 'adminkit.push.pendingHandoff.v1';
 const PAIRED_CONTEXT_STORAGE_KEY = 'adminkit.push.pairedContext.v1';
-const EMPTY_CHATS_MESSAGE = 'Пока нет подключённых чатов.';
-const HANDOFF_FOUND_MESSAGE = 'Чат найден. Нажмите, чтобы подключить уведомления.';
+const EMPTY_CHATS_MESSAGE = 'На этом устройстве пока нет подключённых чатов.';
+const HANDOFF_FOUND_MESSAGE = 'Нажмите «Включить уведомления», чтобы получать уведомления этого чата.';
 const JOIN_TOKEN_FOUND_MESSAGE = 'Нажмите кнопку, чтобы получать уведомления этого чата.';
 const JOIN_TOKEN_MISSING_MESSAGE = 'Откройте ссылку из MAX-чата, чтобы подключить уведомления.';
 const JOIN_TOKEN_EXPIRED_MESSAGE = 'Ссылка истекла. Откройте новую ссылку из MAX или нажмите кнопку подключения в чате.';
-const JOIN_SUCCESS_MESSAGE = 'Готово — уведомления подключены.';
-const LINK_CHAT_SUCCESS_MESSAGE = 'Готово — чат добавлен.';
+const JOIN_SUCCESS_MESSAGE = 'Готово. Уведомления включены.';
+const LINK_CHAT_SUCCESS_MESSAGE = 'Готово. Уведомления включены.';
 const LINK_CHAT_EXPLAIN_MESSAGE = 'Нажмите кнопку, чтобы получать уведомления этого чата.';
-const JOIN_READY_MESSAGE = 'Уведомления включены';
+const JOIN_READY_MESSAGE = 'Ваши уведомления на этом устройстве';
 
 // Legacy diagnostic test markers retained to prove earlier UX guarantees remain documented:
 // Разрешение не выдано. Проверьте настройки iOS для АдминКИТ PUSH.
@@ -77,8 +77,10 @@ function setHidden(id, hidden) { const node = $(id); if (node) node.hidden = Boo
 function setClientStatus(message, kind = 'info') {
   const node = $('clientStatus');
   if (!node) return;
-  node.textContent = String(message || '—');
+  const text = String(message || '').trim();
+  node.textContent = text;
   node.dataset.kind = kind;
+  node.hidden = !text || text === '—';
 }
 
 function safeChatItem(value) {
@@ -88,7 +90,7 @@ function safeChatItem(value) {
   if (!title && !chatRef) return null;
   const enabledOnThisDevice = source.enabledOnThisDevice === true || source.status === 'enabled';
   const knownForUser = source.knownForUser !== false;
-  return { title: title || 'Чат MAX', chatRef, enabledOnThisDevice, knownForUser, needsReconnect: knownForUser && !enabledOnThisDevice, status: enabledOnThisDevice ? 'включены' : 'нужно подключить' };
+  return { title: title || 'Чат MAX', chatRef, enabledOnThisDevice, knownForUser, needsReconnect: knownForUser && !enabledOnThisDevice, status: enabledOnThisDevice ? 'включены' : 'откройте ссылку из этого чата' };
 }
 
 function uniqueChatItems(values) {
@@ -103,32 +105,42 @@ function uniqueChatItems(values) {
   return unique;
 }
 
+function appendChatGroup(node, heading, chats, statusText) {
+  if (!chats.length) return;
+  const title = document.createElement('h3');
+  title.className = 'chat-group-title';
+  title.textContent = heading;
+  node.appendChild(title);
+  chats.forEach((chat) => {
+    const card = document.createElement('div');
+    card.className = 'chat-card';
+    const name = document.createElement('strong');
+    name.textContent = chat.title || 'Чат MAX';
+    const status = document.createElement('span');
+    status.textContent = statusText;
+    card.appendChild(name);
+    card.appendChild(status);
+    node.appendChild(card);
+  });
+}
+
 function renderConnectedChats(chats) {
   const node = $('connectedChatsList');
   if (!node) return;
   const safeChats = uniqueChatItems(chats);
+  const enabled = safeChats.filter((chat) => chat.enabledOnThisDevice);
+  const available = safeChats.filter((chat) => !chat.enabledOnThisDevice);
   node.innerHTML = '';
+  appendChatGroup(node, 'Подключены на этом устройстве:', enabled, 'включены');
+  appendChatGroup(node, 'Другие доступные чаты:', available, 'откройте ссылку из этого чата');
   if (!safeChats.length) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
     const hasPendingHandoff = Boolean(safeHandoffId(state.join && state.join.handoffId) || readPendingHandoffId());
     empty.textContent = hasPendingHandoff ? HANDOFF_FOUND_MESSAGE : EMPTY_CHATS_MESSAGE;
     node.appendChild(empty);
-    return;
   }
-  safeChats.forEach((chat) => {
-    const card = document.createElement('div');
-    card.className = 'chat-card';
-    const title = document.createElement('strong');
-    title.textContent = chat.title || 'Чат MAX';
-    const status = document.createElement('span');
-    status.textContent = chat.enabledOnThisDevice ? 'включены' : 'нужно подключить';
-    card.appendChild(title);
-    card.appendChild(status);
-    node.appendChild(card);
-  });
 }
-
 function renderStoredConnectedChats() {
   const context = readPairedContext();
   renderConnectedChats(context && context.chats ? context.chats : []);
@@ -241,10 +253,12 @@ function isPairedRelaunchMode() {
 function showPrimaryAction(label) {
   setText('enableBtn', label);
   setHidden('enableBtn', false);
+  setHidden('primaryActionSection', false);
 }
 
 function hidePrimaryAction() {
   setHidden('enableBtn', true);
+  setHidden('primaryActionSection', true);
 }
 
 function setNotificationsBadge(visible) {
@@ -262,8 +276,8 @@ function applyChatLinkMode() {
   setHidden('resetPushButton', true);
   setClientStatus(LINK_CHAT_EXPLAIN_MESSAGE, 'info');
   setText('pairingStatus', 'link-chat-ready');
-  setNotificationsBadge(true);
-  showPrimaryAction('Подключить этот чат');
+  setNotificationsBadge(false);
+  showPrimaryAction('Включить уведомления');
 }
 
 function applyPairedReadyState(message = '') {
@@ -276,10 +290,10 @@ function applyPairedReadyState(message = '') {
   setHidden('resetPushButton', true);
   const context = readPairedContext();
   const aggregate = deviceChatStatus(context && context.chats ? context.chats : []);
-  const statusMessage = message || (aggregate.allEnabled ? JOIN_READY_MESSAGE : (aggregate.enabled ? 'Часть чатов нужно подключить на этом устройстве.' : 'Откройте ссылку из нужного чата, чтобы подключить уведомления на этом устройстве.'));
-  setClientStatus(statusMessage, aggregate.allEnabled ? 'success' : 'info');
+  const statusMessage = message || 'Чтобы подключить новый чат: 1. Откройте нужный MAX-чат. 2. Отправьте /push. 3. Откройте ссылку и нажмите «Включить уведомления».';
+  setClientStatus(statusMessage, message ? 'success' : 'info');
   setText('pairingStatus', 'paired-ready');
-  setNotificationsBadge(aggregate.allEnabled);
+  setNotificationsBadge(false);
   hidePrimaryAction();
   renderStoredConnectedChats();
 }
@@ -554,7 +568,7 @@ function applyJoinMode() {
   const pendingHandoff = recoverJoinHandoff();
   const pendingToken = recoverJoinToken();
   if (pendingHandoff) renderStoredConnectedChats();
-  if (state.join && state.join.chatLinkMode && (pendingHandoff || pendingToken)) {
+  if (state.join && state.join.joinMode && (pendingHandoff || pendingToken)) {
     applyChatLinkMode();
     return;
   }
@@ -573,9 +587,9 @@ function applyJoinMode() {
   }
   if (!state.join.joinMode) {
     if (state.join.landingMode) {
-      setText('introText', JOIN_TOKEN_MISSING_MESSAGE);
+      setText('introText', 'Ваши чаты');
       setText('pairingStatus', 'client-safe landing');
-      setClientStatus('Пока нет подключённых чатов.', 'info');
+      setClientStatus('Чтобы подключить новый чат: 1. Откройте нужный MAX-чат. 2. Отправьте /push. 3. Откройте ссылку и нажмите «Включить уведомления».', 'info');
       setNotificationsBadge(false);
       hidePrimaryAction();
     } else {
@@ -595,7 +609,7 @@ function applyJoinMode() {
   setClientStatus(JOIN_TOKEN_FOUND_MESSAGE, 'info');
   setText('pairingStatus', (pendingHandoff || pendingToken) ? 'join-ready' : 'join-not-ready');
   setNotificationsBadge(false);
-  showPrimaryAction(('Notification' in window && Notification.permission === 'granted') ? 'Подключить этот чат' : 'Включить уведомления');
+  showPrimaryAction('Включить уведомления');
 }
 
 async function linkExistingChat() {
@@ -606,19 +620,18 @@ async function linkExistingChat() {
   const result = await withTimeout(fetchJson('/api/push/link-chat', { method: 'POST', body: JSON.stringify(requestBody) }), TIMEOUTS.serverSave, 'link chat request timed out');
   storePairedContext({ ok: true, status: 'active', chats: result && Array.isArray(result.chats) ? result.chats : [] });
   renderConnectedChats(result && Array.isArray(result.chats) ? result.chats : []);
-  const message = result && result.alreadyConnected ? 'Этот чат уже подключён.' : LINK_CHAT_SUCCESS_MESSAGE;
+  const message = LINK_CHAT_SUCCESS_MESSAGE;
   setText('introText', 'Ваши чаты');
   setHidden('pairingNotice', true);
   setClientStatus(message, 'success');
   setText('pairingStatus', result && result.alreadyConnected ? 'chat-already-connected' : 'link-chat-done');
-  setNotificationsBadge(deviceChatStatus(result && result.chats).allEnabled);
+  setNotificationsBadge(false);
   hidePrimaryAction();
   clearJoinState();
   appendResult(message, { ok: true, alreadyConnected: Boolean(result && result.alreadyConnected), renderedChatsCount: Array.isArray(result && result.chats) ? result.chats.length : 0 });
 }
 
 async function handlePrimaryButton() {
-  if (state.join && state.join.chatLinkMode) return linkExistingChat();
   return enableNotifications();
 }
 
@@ -644,7 +657,7 @@ async function refreshStatus() {
     setText('swState', registrationState);
     state.subscription = state.registration && state.registration.pushManager ? await state.registration.pushManager.getSubscription() : null;
     setText('subscriptionExists', state.subscription ? 'exists' : 'not exists');
-    if (state.subscription && hasPairedContext()) {
+    if (state.subscription && !state.join.joinMode) {
       try {
         const deviceStatus = await confirmPairedSubscription(state.subscription);
         if (deviceStatus && deviceStatus.ok) {
@@ -845,7 +858,8 @@ async function enableNotifications() {
     currentStep = 'server response';
     setStep(currentStep, 'done', JSON.stringify(safeServerResult(result)));
     if (state.join.joinMode || isPairedRelaunchMode()) {
-      let successMessage = isPairedRelaunchMode() ? JOIN_READY_MESSAGE : JOIN_SUCCESS_MESSAGE;
+      const pairedTitle = String(state.join && state.join.chatTitle || '').trim().slice(0, 120);
+      let successMessage = isPairedRelaunchMode() ? JOIN_READY_MESSAGE : (pairedTitle ? `Готово. Уведомления включены для чата «${pairedTitle}».` : JOIN_SUCCESS_MESSAGE);
       storePairedContext(result);
       clearJoinState();
       applyPairedReadyState(successMessage);

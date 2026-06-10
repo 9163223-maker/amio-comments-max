@@ -70,32 +70,22 @@ async function createPersonalJoinLinkForMessage(options = {}) {
   return shortLinks.createShortUrlOrFallback(longUrl);
 }
 
-function buildPrivateJoinMessage({ chatTitle = '', joinUrl = '', alreadyHadActiveDevice = false, alreadyBound = false } = {}) {
-  const safeTitle = clean(chatTitle).slice(0, 120);
-  if (alreadyBound) {
-    return [
-      'Этот чат уже подключён к уведомлениям.',
-      safeTitle ? `Чат: «${safeTitle}»` : '',
-      '',
-      clean(joinUrl)
-    ].filter(Boolean).join('\n');
-  }
+function buildPrivateJoinMessage({ chatTitle = '', joinUrl = '' } = {}) {
+  const safeTitle = clean(chatTitle).slice(0, 120) || 'Чат MAX';
   return [
-    '🔔 Уведомления для этого чата',
-    '',
-    alreadyHadActiveDevice
-      ? 'У вас уже есть АдминКИТ PUSH. Откройте ссылку и нажмите «Подключить этот чат».'
-      : 'Откройте ссылку на iPhone/iPad, добавьте АдминКИТ PUSH на экран Домой и включите уведомления.',
+    `🔔 Уведомления для чата «${safeTitle}»`,
+    'Откройте ссылку на iPhone/iPad и включите уведомления в АдминКИТ PUSH.',
+    'Если АдминКИТ PUSH уже установлен, просто откройте ссылку и нажмите «Включить уведомления».',
     '',
     clean(joinUrl)
-  ].filter((line, index) => line || index === 1 || index === 3).join('\n');
+  ].join('\n');
 }
-function buildPrivateJoinKeyboard(joinUrl = '', options = {}) {
+function buildPrivateJoinKeyboard(joinUrl = '') {
   const url = clean(joinUrl);
   if (!url) return undefined;
   return [{
     type: 'inline_keyboard',
-    payload: { buttons: [[{ type: 'link', text: options.alreadyBound ? 'Открыть АдминКИТ PUSH' : (options.alreadyHadActiveDevice ? 'Подключить этот чат' : 'Открыть подключение'), url }]] }
+    payload: { buttons: [[{ type: 'link', text: 'Открыть подключение', url }]] }
   }];
 }
 
