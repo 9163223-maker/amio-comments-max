@@ -88,11 +88,10 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
   assert(!JSON.stringify(event).includes('https://secret'));
 
   const notification = payloads.buildGroupMessagePayload({ chatTitle: 'Чат Б', senderName: 'Ольга', messageText: 'Новое сообщение' });
-  assert.strictEqual(notification.title, 'АдминКИТ PUSH');
+  assert.strictEqual(notification.title, 'MAX уведомления');
   assert.strictEqual(notification.body, 'Чат Б\nОльга: Новое сообщение');
 
-  assert.strictEqual(pkg.version, 'CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF');
-  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr188-push-multi-chat-handoff');
   assert.strictEqual(pkg.pr188PushMultiChatHandoff, true);
+  assert.strictEqual(pkg.pr190PushPolishAutorefresh, true);
   console.log('PR188 push multi-chat handoff tests passed');
 })();
