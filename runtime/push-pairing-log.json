@@ -1,11 +1,13 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-10T08:34:38.643Z",
+  "updatedAt": "2026-06-10T08:34:39.777Z",
   "limit": 100,
   "latest": {
     "timestamp": "2026-06-10T08:34:38.049Z",
-    "event": "push_opened",
+    "event": "handoff_recovered",
     "handoffIdHash": "6969699ed659fc09d16d",
+    "maxUserIdHash": "1ef3d3317311c3f724ef",
+    "chatIdHash": "3f56706e805b69c6c0ff",
     "hasPairingToken": false,
     "hasHandoff": true,
     "tokenSource": "handoff",
@@ -20,6 +22,25 @@
     "missingTitleCount": 0
   },
   "items": [
+    {
+      "timestamp": "2026-06-10T08:34:38.049Z",
+      "event": "handoff_recovered",
+      "handoffIdHash": "6969699ed659fc09d16d",
+      "maxUserIdHash": "1ef3d3317311c3f724ef",
+      "chatIdHash": "3f56706e805b69c6c0ff",
+      "hasPairingToken": false,
+      "hasHandoff": true,
+      "tokenSource": "handoff",
+      "hasPairingCookie": false,
+      "hasHandoffCookie": true,
+      "openedAs": "standalone-pwa",
+      "route": "/push",
+      "result": "handoff_found",
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
+    },
     {
       "timestamp": "2026-06-10T08:34:38.049Z",
       "event": "push_opened",
