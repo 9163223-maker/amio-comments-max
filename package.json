@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
+  "version": "CC8.3.59-PR193A-TENANT-CHANNELS-HYDRATION",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
@@ -18,9 +18,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
-  "displayVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
-  "sourceMarker": "adminkit-pr191-push-admin-invite-title-commands",
+  "buildVersion": "CC8.3.59-PR193A-TENANT-CHANNELS-HYDRATION",
+  "displayVersion": "CC8.3.59-PR193A-TENANT-CHANNELS-HYDRATION",
+  "sourceMarker": "adminkit-pr193a-tenant-channels-hydration",
   "gitCommit": "",
   "pr165RuntimeWired": true,
   "pr178PushPairingBinding": true,
@@ -28,5 +28,6 @@
   "pr188PushMultiChatHandoff": true,
   "pr189PushFreshPwaPending": true,
   "pr190PushPolishAutorefresh": true,
-  "pr191PushAdminInviteTitleCommands": true
+  "pr191PushAdminInviteTitleCommands": true,
+  "pr193aTenantChannelsHydration": true
 }
