@@ -74,6 +74,7 @@ const webPushRoutes = require("./web-push-routes");
 const { renderGroupPushInboundDebugHtml } = require("./services/groupPushInboundDebugPage");
 const maxWebhookEdgeDiagnostics = require("./services/maxWebhookEdgeDiagnostics");
 const pushDispatchDiagnostics = require("./services/pushDispatchDiagnostics");
+const pushDispatchLog = require("./services/pushDispatchLogService");
 
 const app = express();
 const deferredVideoResults = new Map();
@@ -1096,6 +1097,7 @@ function buildLiveDebugPayload() {
     groupPushInboundDiagnostics: getGroupPushInboundDiagnosticsBlock(),
     maxWebhookEdgeDiagnostics: getMaxWebhookEdgeDiagnosticsBlock(),
     pushDispatchDiagnostics: getPushDispatchDiagnosticsBlock(),
+    pushDispatchLog: pushDispatchLog.summary(10),
     webhookRouteRegistrationDiagnostics: getWebhookRouteRegistrationDiagnostics(),
     store: snapshot
   };
@@ -1235,6 +1237,7 @@ function buildGithubDebugPayload({ lite = false } = {}) {
     groupPushInboundDiagnostics: clean.groupPushInboundDiagnostics || getGroupPushInboundDiagnosticsBlock(),
     maxWebhookEdgeDiagnostics: clean.maxWebhookEdgeDiagnostics || getMaxWebhookEdgeDiagnosticsBlock(),
     pushDispatchDiagnostics: clean.pushDispatchDiagnostics || getPushDispatchDiagnosticsBlock(),
+    pushDispatchLog: clean.pushDispatchLog || pushDispatchLog.summary(10),
     webhookRouteRegistrationDiagnostics: clean.webhookRouteRegistrationDiagnostics || getWebhookRouteRegistrationDiagnostics(),
     channels: clean.store?.channels || {},
     postsCount: Object.keys(clean.store?.posts || {}).length,
@@ -1309,7 +1312,7 @@ app.get('/debug/webhook-edge.json', (req, res) => {
 app.get('/debug/push-dispatch.json', (req, res) => {
   setNoCacheHeaders(res);
   if (!requireDebugExportAccess(req, res)) return;
-  res.json({ ok: true, ...baseDebugPayload(), pushDispatchDiagnostics: getPushDispatchDiagnosticsBlock() });
+  res.json({ ok: true, ...baseDebugPayload(), pushDispatchDiagnostics: getPushDispatchDiagnosticsBlock(), pushDispatchLog: pushDispatchLog.summary(20) });
 });
 
 app.get('/debug/webhook-edge', (req, res) => {

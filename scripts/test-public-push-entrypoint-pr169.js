@@ -35,13 +35,13 @@ function actionOf(item = {}) {
 
     const gate = accountScreens.accessGateScreen(maxUserId);
     const gateButtons = buttonsOf(gate);
-    const pushIndex = gateButtons.findIndex((item) => item.text === '🔔 Уведомления чатов' && actionOf(item) === 'account_push_notifications');
-    const activateIndex = gateButtons.findIndex((item) => item.text === 'Я администратор' && actionOf(item) === 'account_activate_code');
+    const pushIndex = gateButtons.findIndex((item) => item.text === '🔔 Мои уведомления' && actionOf(item) === 'account_push_notifications');
+    const funnelIndex = gateButtons.findIndex((item) => item.text === 'Что умеет АдминКИТ для MAX' && actionOf(item) === 'account_capabilities');
     assert(pushIndex === 0, 'new access-gated activation screen shows Push as the first button');
-    assert(activateIndex > pushIndex, 'Push button appears before Activate code');
-    assert.strictEqual(buttonsOf(accountScreens.expiredScreen(maxUserId))[0].text, '🔔 Уведомления чатов', 'expired access screen shows Push first');
-    assert.strictEqual(buttonsOf(accountScreens.activationPrompt(maxUserId))[0].text, '🔔 Уведомления чатов', 'activation prompt shows Push first');
-    assert.strictEqual(buttonsOf(accountScreens.accountHome(maxUserId))[0].text, '🔔 Уведомления чатов', 'account home shows Push first');
+    assert(funnelIndex > pushIndex, 'Push button appears before the sales funnel');
+    assert(!gateButtons.some((item) => actionOf(item) === 'account_activate_code'), 'activation is not exposed on the first customer screen');
+    assert.strictEqual(buttonsOf(accountScreens.accountHome(maxUserId))[0].text, '🔔 Уведомления чатов', 'activated account home keeps Push first');
+    assert(accountScreens.activationPrompt(maxUserId).text.includes('Пришлите код доступа.'), 'explicit activation prompt requests the code');
 
     assert(accountRuntime.ACCOUNT_ACTIONS.has('account_push_notifications'), 'account runtime recognizes public Push action');
     assert(accountRuntime.ACCOUNT_ACTIONS.has('account_push_notifications_help'), 'account runtime recognizes public Push help action');
@@ -58,7 +58,7 @@ function actionOf(item = {}) {
     });
     assert.strictEqual(result.ok, true, 'public Push screen resolves without active access, admin, tenant, or channel');
     assert.strictEqual(result.screen.id, 'account_push_notifications', 'public Push action renders its public screen');
-    assert(result.screen.text.includes('Чтобы подключить уведомления:'), 'public Push screen contains required product copy');
+    assert(result.screen.text.includes('У вас пока нет подключённых чатов.'), 'public Push screen contains concise status copy');
     assert(!result.screen.text.includes('Активируйте доступ'), 'public Push screen does not lead with admin activation');
 
     const pushButtons = buttonsOf(result.screen);
@@ -73,8 +73,8 @@ function actionOf(item = {}) {
     const fallbackOpenPush = buttonsOf(accountScreens.pushNotificationsScreen(maxUserId)).find((item) => item.text === 'Открыть АдминКИТ PUSH');
     assert.strictEqual(fallbackOpenPush.url, 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run/push', 'public Push button uses the required safe fallback /push URL');
     process.env.ADMINKIT_PUBLIC_BASE_URL = 'https://public-push.example.test';
-    assert(pushButtons.some((item) => actionOf(item) === 'account_push_notifications_help'), 'public Push screen includes chat connection help');
-    assert(pushButtons.some((item) => item.text === 'Поддержка' && actionOf(item) === 'account_support'), 'access-gated public Push screen returns to support rather than admin menu');
+    assert(pushButtons.some((item) => actionOf(item) === 'account_push_notifications_help'), 'public Push screen includes chat connection action');
+    assert(pushButtons.some((item) => item.text === 'Помощь' && actionOf(item) === 'account_support'), 'access-gated public Push screen returns to support rather than admin menu');
 
     const serialized = JSON.stringify(result.screen);
     assert(!/\/push\/join\?t=|clck\.ru|PUSH_ADMIN_TOKEN|(?:bot|BOT)[ _-]?token|endpoint|p256dh|access_token|VAPID private key/i.test(serialized), 'public Push screen exposes no personal link, token, endpoint, key, or subscription secret');

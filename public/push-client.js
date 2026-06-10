@@ -84,17 +84,18 @@ function setClientStatus(message, kind = 'info') {
 function safeChatItem(value) {
   const source = value && typeof value === 'object' ? value : {};
   const title = String(source.title || source.chatTitle || '').trim().slice(0, 120);
-  const chatId = String(source.chatId || '').trim().replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
-  const channelId = String(source.channelId || '').trim().replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
-  if (!title && !chatId && !channelId) return null;
-  return { title: title || 'Чат MAX', chatId, channelId, status: 'включены' };
+  const chatRef = String(source.chatRef || source.chatId || source.channelId || '').trim().replace(/[^A-Za-z0-9_-]/g, '').slice(-4);
+  if (!title && !chatRef) return null;
+  const enabledOnThisDevice = source.enabledOnThisDevice === true || source.status === 'enabled';
+  const knownForUser = source.knownForUser !== false;
+  return { title: title || 'Чат MAX', chatRef, enabledOnThisDevice, knownForUser, needsReconnect: knownForUser && !enabledOnThisDevice, status: enabledOnThisDevice ? 'включены' : 'нужно подключить' };
 }
 
 function uniqueChatItems(values) {
   const unique = [];
   const seen = new Set();
   for (const chat of (Array.isArray(values) ? values : []).map(safeChatItem).filter(Boolean)) {
-    const key = chat.chatId ? `chat:${chat.chatId}` : (chat.channelId ? `channel:${chat.channelId}` : `title:${chat.title.toLocaleLowerCase()}`);
+    const key = chat.chatRef ? `chat:${chat.chatRef}:${chat.title.toLocaleLowerCase()}` : `title:${chat.title.toLocaleLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
     unique.push(chat);
@@ -121,7 +122,7 @@ function renderConnectedChats(chats) {
     const title = document.createElement('strong');
     title.textContent = chat.title || 'Чат MAX';
     const status = document.createElement('span');
-    status.textContent = chat.status || 'включены';
+    status.textContent = chat.enabledOnThisDevice ? 'включены' : 'нужно подключить';
     card.appendChild(title);
     card.appendChild(status);
     node.appendChild(card);
@@ -131,6 +132,12 @@ function renderConnectedChats(chats) {
 function renderStoredConnectedChats() {
   const context = readPairedContext();
   renderConnectedChats(context && context.chats ? context.chats : []);
+}
+
+function deviceChatStatus(chats) {
+  const safeChats = uniqueChatItems(chats);
+  const enabled = safeChats.filter((chat) => chat.enabledOnThisDevice);
+  return { total: safeChats.length, enabled: enabled.length, allEnabled: safeChats.length > 0 && enabled.length === safeChats.length };
 }
 
 function clearClientStatus() {
@@ -267,9 +274,12 @@ function applyPairedReadyState(message = '') {
   setHidden('testBtn', true);
   setHidden('statusBtn', true);
   setHidden('resetPushButton', true);
-  setClientStatus(message || JOIN_READY_MESSAGE, message ? 'success' : 'info');
+  const context = readPairedContext();
+  const aggregate = deviceChatStatus(context && context.chats ? context.chats : []);
+  const statusMessage = message || (aggregate.allEnabled ? JOIN_READY_MESSAGE : (aggregate.enabled ? 'Часть чатов нужно подключить на этом устройстве.' : 'Откройте ссылку из нужного чата, чтобы подключить уведомления на этом устройстве.'));
+  setClientStatus(statusMessage, aggregate.allEnabled ? 'success' : 'info');
   setText('pairingStatus', 'paired-ready');
-  setNotificationsBadge(true);
+  setNotificationsBadge(aggregate.allEnabled);
   hidePrimaryAction();
   renderStoredConnectedChats();
 }
@@ -590,7 +600,10 @@ function applyJoinMode() {
 
 async function linkExistingChat() {
   showPrimaryAction('Подключаем…');
-  const result = await withTimeout(fetchJson('/api/push/link-chat', { method: 'POST', body: JSON.stringify({}) }), TIMEOUTS.serverSave, 'link chat request timed out');
+  const registration = state.registration || await ensureRegistration();
+  const subscription = state.subscription || (registration && registration.pushManager ? await registration.pushManager.getSubscription() : null);
+  const requestBody = subscription ? { subscription: normalizePushSubscription(subscription) } : {};
+  const result = await withTimeout(fetchJson('/api/push/link-chat', { method: 'POST', body: JSON.stringify(requestBody) }), TIMEOUTS.serverSave, 'link chat request timed out');
   storePairedContext({ ok: true, status: 'active', chats: result && Array.isArray(result.chats) ? result.chats : [] });
   renderConnectedChats(result && Array.isArray(result.chats) ? result.chats : []);
   const message = result && result.alreadyConnected ? 'Этот чат уже подключён.' : LINK_CHAT_SUCCESS_MESSAGE;
@@ -598,7 +611,7 @@ async function linkExistingChat() {
   setHidden('pairingNotice', true);
   setClientStatus(message, 'success');
   setText('pairingStatus', result && result.alreadyConnected ? 'chat-already-connected' : 'link-chat-done');
-  setNotificationsBadge(true);
+  setNotificationsBadge(deviceChatStatus(result && result.chats).allEnabled);
   hidePrimaryAction();
   clearJoinState();
   appendResult(message, { ok: true, alreadyConnected: Boolean(result && result.alreadyConnected), renderedChatsCount: Array.isArray(result && result.chats) ? result.chats.length : 0 });

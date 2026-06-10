@@ -40,6 +40,7 @@ const groupPushInboundDiagnostics = require("./services/groupPushInboundDiagnost
 const webPushStorage = require("./services/webPushStorage");
 const pushDispatch = require("./services/pushDispatchService");
 const pushDispatchDiagnostics = require("./services/pushDispatchDiagnostics");
+const pushDispatchLog = require("./services/pushDispatchLogService");
 const buttonsFlow = require("./buttons-flow-cc8-clean");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
 const {
@@ -1086,6 +1087,7 @@ function recordLiveChatPushDiagnostic({ message = null, text = '', result = {}, 
 
 function recordSkippedLiveChatPushNotification({ updateType = '', message = null, text = '', skippedReason = '' } = {}) {
   const reason = skippedReason || liveChatPushSkipReason(updateType, message, text) || 'skipped';
+  pushDispatchLog.record({ event: 'dispatch_skipped', chatId: getRecipientChatId(message), chatTitle: getRecipientChatTitle(message), senderName: getSenderFirstName(message), messageText: text || getMessageText(message), messageType: getMessageAttachments(message).length ? 'other' : 'text', skippedReason: reason, route: 'group_message' });
   return recordLiveChatPushDiagnostic({ message, text, skippedReason: reason });
 }
 
@@ -1100,6 +1102,7 @@ async function dispatchLiveChatPushNotification({ updateType = '', message = nul
   const resolvedSenderName = getSenderFirstName(message);
   const senderName = resolvedSenderName === 'Пользователь' ? '' : resolvedSenderName;
   const messageId = getMessageId(message);
+  await pushDispatchLog.record({ event: 'message_received', chatId, chatTitle, senderName, messageText: text || getMessageText(message), messageType: getMessageAttachments(message).length ? 'other' : 'text', route: 'group_message' });
   try {
     const result = await pushDispatch.sendPushToChat({
       chatId,

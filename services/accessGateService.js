@@ -2,7 +2,7 @@
 
 const access = require('./clientAccessService');
 
-const ACCOUNT_ACTIONS = new Set(['admin_section_tariffs','billing_current_plan','billing_limits','billing_referral','billing_upgrade','account_home','account_my_access','account_activate_code','account_payment','account_limits','account_channels','account_support','account_capabilities']);
+const ACCOUNT_ACTIONS = new Set(['admin_section_tariffs','billing_current_plan','billing_limits','billing_referral','billing_upgrade','account_home','account_my_access','account_activate_code','account_payment','account_limits','account_channels','account_support','account_capabilities','customer_main','account_ask_question','account_get_access']);
 const PUBLIC_ACTIONS = new Set(['poll_vote','poll_info','gift_claim']);
 const COMMAND_FEATURES = {
   '/channels': 'channels', '/comments': 'comments', '/gifts': 'gifts', '/buttons': 'buttons', '/highlight': 'highlights', '/polls': 'polls', '/posts': 'post_editor', '/archive': 'archive', '/moderation': 'moderation', '/stats': 'basic_stats', '/debug': 'debug'

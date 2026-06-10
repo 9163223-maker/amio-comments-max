@@ -15,19 +15,20 @@ function buttons(screen) {
   const start = accountScreens.activationScreen();
   const startButtons = buttons(start);
   assert(start.text.includes('подключить уведомления для MAX-чатов'), 'ordinary /start is client-safe');
-  assert.strictEqual(startButtons[0], '🔔 Уведомления чатов', 'notifications are the primary ordinary-user action');
-  assert(startButtons.includes('Я администратор'), 'admin activation is secondary');
+  assert.strictEqual(startButtons[0], '🔔 Мои уведомления', 'notifications are the primary ordinary-user action');
+  assert(startButtons.includes('Что умеет АдминКИТ для MAX'), 'sales funnel is secondary without exposing activation on the first screen');
   for (const forbidden of ['Комментарии', 'Подарки', 'Каналы', 'Статистика', 'Debug']) assert(!startButtons.some((text) => text.includes(forbidden)), `${forbidden} is absent from ordinary /start`);
 
   const empty = accountScreens.pushNotificationsScreen('ordinary-user');
-  assert(empty.text.includes('1. Откройте MAX-чат'), 'private notification flow explains group-first connection');
-  assert(empty.text.includes('/push'), 'private notification flow names the simple command');
-  assert(!/API|token|endpoint|binding|handoff|device id|auth|p256dh/i.test(empty.text), 'private notification flow is non-technical');
+  assert(empty.text.includes('пока нет подключённых чатов'), 'notification status stays concise when empty');
+  const connectHelp = accountScreens.pushNotificationsHelpScreen('ordinary-user');
+  assert(connectHelp.text.includes('1. Откройте MAX-чат') && connectHelp.text.includes('/push'), 'separate connection screen explains group-first connection');
+  assert(!/API|token|endpoint|binding|handoff|device id|auth|p256dh/i.test(connectHelp.text), 'private notification flow is non-technical');
 
-  const existing = accountScreens.pushNotificationsScreen('ordinary-user', { chats: [{ chatTitle: 'Мож Хвост 3' }, { title: 'Все свои MAX' }, { chatTitle: 'Мож Хвост 3' }] });
-  assert(existing.text.includes('У вас уже подключены уведомления для чатов:'), 'existing chats have a simple heading');
+  const existing = accountScreens.pushNotificationsScreen('ordinary-user', { chats: [{ chatTitle: 'Мож Хвост 3', enabledOnThisDevice: true }, { title: 'Все свои MAX', needsReconnect: true }, { chatTitle: 'Мож Хвост 3', enabledOnThisDevice: true }] });
+  assert(existing.text.includes('На этом устройстве:') && existing.text.includes('Нужно подключить:'), 'existing chats have device-scoped headings');
   assert.strictEqual((existing.text.match(/Мож Хвост 3/g) || []).length, 1, 'existing chat names are unique');
-  assert(buttons(existing).includes('Как добавить ещё чат'), 'existing-chat flow explains adding another chat');
+  assert(buttons(existing).includes('➕ Подключить ещё чат'), 'existing-chat flow offers adding another chat');
 
   const first = groupPush.buildPrivateJoinMessage({ chatTitle: 'Мож Хвост 3', joinUrl: 'https://example.test/join' });
   assert(first.includes('АдминКИТ PUSH') && first.includes('экран Домой'), 'first-device group flow uses unified friendly install copy');
@@ -64,7 +65,7 @@ function buttons(screen) {
   assert(client.includes("const LINK_CHAT_SUCCESS_MESSAGE = 'Готово — чат добавлен.'"), 'later chat success is distinct');
   assert(!client.includes("setText('enableBtn', 'Уведомления подключены')"), 'success is not rendered as a primary CTA');
   assert(html.includes('.chat-card { display: flex;') && html.includes('padding: 9px 11px'), 'connected chat rows are compact');
-  assert(client.includes("status: 'включены'") && client.includes('uniqueChatItems'), 'compact connected chat items are unique and readable');
+  assert(client.includes("chat.enabledOnThisDevice ? 'включены' : 'нужно подключить'") && client.includes('uniqueChatItems'), 'compact connected chat items are unique and readable');
 
   console.log('push group ux polish pr185 ok');
 })();
