@@ -1,10 +1,10 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-10T16:59:18.016Z",
+  "updatedAt": "2026-06-10T17:07:11.003Z",
   "limit": 50,
   "latest": {
-    "startedAt": "2026-06-10T16:59:14.021Z",
-    "bootId": "mq8bcw14-1bd8e413",
+    "startedAt": "2026-06-10T17:07:06.203Z",
+    "bootId": "mq8bn0zs-caedc0e0",
     "runtimeVersion": "CC8.3.56-PR190-PUSH-POLISH-AUTOREFRESH",
     "buildVersion": "CC8.3.56-PR190-PUSH-POLISH-AUTOREFRESH",
     "displayVersion": "CC8.3.56-PR190-PUSH-POLISH-AUTOREFRESH",
@@ -12,8 +12,8 @@
     "entrypoint": "clean-entrypoint-1.53.10-pr89.js",
     "gitCommit": "",
     "githubMainBranch": "main",
-    "githubMainHeadSha": "1f4f1e0f9510ceaa031368225bdcf3855b2a2fdf",
-    "githubMainHeadCheckedAt": "2026-06-10T16:59:16.210Z",
+    "githubMainHeadSha": "666c481302e91086cb4daae5ec9fcf5a3b60078a",
+    "githubMainHeadCheckedAt": "2026-06-10T17:07:09.000Z",
     "commitSource": "github-main-head",
     "nodeEnv": "",
     "pr178PushPairingBinding": true,
@@ -25,6 +25,28 @@
     "safe": true
   },
   "items": [
+    {
+      "startedAt": "2026-06-10T17:07:06.203Z",
+      "bootId": "mq8bn0zs-caedc0e0",
+      "runtimeVersion": "CC8.3.56-PR190-PUSH-POLISH-AUTOREFRESH",
+      "buildVersion": "CC8.3.56-PR190-PUSH-POLISH-AUTOREFRESH",
+      "displayVersion": "CC8.3.56-PR190-PUSH-POLISH-AUTOREFRESH",
+      "sourceMarker": "adminkit-pr190-push-polish-autorefresh",
+      "entrypoint": "clean-entrypoint-1.53.10-pr89.js",
+      "gitCommit": "",
+      "githubMainBranch": "main",
+      "githubMainHeadSha": "666c481302e91086cb4daae5ec9fcf5a3b60078a",
+      "githubMainHeadCheckedAt": "2026-06-10T17:07:09.000Z",
+      "commitSource": "github-main-head",
+      "nodeEnv": "",
+      "pr178PushPairingBinding": true,
+      "pushPairingRuntimeVersion": "CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF",
+      "pushPairingSourceMarker": "adminkit-pr188-push-multi-chat-handoff",
+      "pr165RuntimeWired": true,
+      "postgresConfigured": true,
+      "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
+      "safe": true
+    },
     {
       "startedAt": "2026-06-10T16:59:14.021Z",
       "bootId": "mq8bcw14-1bd8e413",
