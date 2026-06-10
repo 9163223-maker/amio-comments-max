@@ -1,10 +1,10 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-10T16:45:47.895Z",
+  "updatedAt": "2026-06-10T16:56:43.106Z",
   "limit": 50,
   "latest": {
-    "startedAt": "2026-06-10T16:45:43.593Z",
-    "bootId": "mq8aviuy-bf5e228c",
+    "startedAt": "2026-06-10T16:56:38.606Z",
+    "bootId": "mq8b9khz-d17d0dbf",
     "runtimeVersion": "CC8.3.55-PR189-PUSH-FRESH-PWA-PENDING",
     "buildVersion": "CC8.3.55-PR189-PUSH-FRESH-PWA-PENDING",
     "displayVersion": "CC8.3.55-PR189-PUSH-FRESH-PWA-PENDING",
@@ -12,8 +12,8 @@
     "entrypoint": "clean-entrypoint-1.53.10-pr89.js",
     "gitCommit": "",
     "githubMainBranch": "main",
-    "githubMainHeadSha": "5c27d9481e0da9ebe68b9e476a97a6bca5b53ac5",
-    "githubMainHeadCheckedAt": "2026-06-10T16:45:45.893Z",
+    "githubMainHeadSha": "a53755efabe882844024aba8be0df65de9a75ccd",
+    "githubMainHeadCheckedAt": "2026-06-10T16:56:41.108Z",
     "commitSource": "github-main-head",
     "nodeEnv": "",
     "pr178PushPairingBinding": true,
@@ -25,6 +25,28 @@
     "safe": true
   },
   "items": [
+    {
+      "startedAt": "2026-06-10T16:56:38.606Z",
+      "bootId": "mq8b9khz-d17d0dbf",
+      "runtimeVersion": "CC8.3.55-PR189-PUSH-FRESH-PWA-PENDING",
+      "buildVersion": "CC8.3.55-PR189-PUSH-FRESH-PWA-PENDING",
+      "displayVersion": "CC8.3.55-PR189-PUSH-FRESH-PWA-PENDING",
+      "sourceMarker": "adminkit-pr189-push-fresh-pwa-pending",
+      "entrypoint": "clean-entrypoint-1.53.10-pr89.js",
+      "gitCommit": "",
+      "githubMainBranch": "main",
+      "githubMainHeadSha": "a53755efabe882844024aba8be0df65de9a75ccd",
+      "githubMainHeadCheckedAt": "2026-06-10T16:56:41.108Z",
+      "commitSource": "github-main-head",
+      "nodeEnv": "",
+      "pr178PushPairingBinding": true,
+      "pushPairingRuntimeVersion": "CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF",
+      "pushPairingSourceMarker": "adminkit-pr188-push-multi-chat-handoff",
+      "pr165RuntimeWired": true,
+      "postgresConfigured": true,
+      "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
+      "safe": true
+    },
     {
       "startedAt": "2026-06-10T16:45:43.593Z",
       "bootId": "mq8aviuy-bf5e228c",
