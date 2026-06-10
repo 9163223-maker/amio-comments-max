@@ -24,11 +24,11 @@ function assertNoSecrets(text, label) {
     assert(!String(text).includes(secret), `${label} must not leak ${secret}`);
   }
 }
-function assertClientSafe(html, label) {
+function assertClientSafe(html, label, expectedButtons = 1) {
   assert(!html.includes('Опубликовать приглашение в чат'), `${label} hides group invite publish control`);
   assert(!html.includes('Получить чаты бота'), `${label} hides MAX chat diagnostics`);
   assert(!html.includes('placeholder="PUSH_ADMIN_TOKEN"'), `${label} hides admin token input`);
-  assert.strictEqual((html.match(/<button\b/g) || []).length, 1, `${label} stays one-button/simple`);
+  assert.strictEqual((html.match(/<button\b/g) || []).length, expectedButtons, `${label} exposes only appropriate product actions`);
 }
 function extractJoinToken(text) {
   const match = String(text || '').match(/\/push\/join\?t=([^\s"']+)/);
@@ -75,7 +75,8 @@ function extractJoinToken(text) {
       assertClientSafe(publicPush.text, '/push');
       const join = await request(server, `/push/join?t=${encodeURIComponent(joinToken)}`);
       assert.strictEqual(join.status, 200, '/push/join renders');
-      assertClientSafe(join.text, '/push/join');
+      assertClientSafe(join.text, '/push/join', 0);
+      assert(join.text.includes('Чат найден:') && join.text.includes('Подключить этот чат'), '/push/join is informational and actionable');
 
       const noAuth = await request(server, '/internal/max/group-push-invite', { method: 'POST', body: JSON.stringify({ chatId: 'chat-pr155' }), headers: { 'Content-Type': 'application/json' } });
       assert.strictEqual(noAuth.status, 403, '/internal/max/group-push-invite requires PUSH_ADMIN_TOKEN');

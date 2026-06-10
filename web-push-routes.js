@@ -273,6 +273,7 @@ function recordPushPairingEvent(event) {
 
 
 function safeChatTitle(value) { return clean(value).slice(0, 120); }
+function escapeHtml(value) { return String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])); }
 function safePublicChatItem(value) {
   const source = value && typeof value === 'object' ? value : {};
   const title = safeChatTitle(source.chatTitle || source.title);
@@ -289,7 +290,13 @@ function sendPushPage(req, res, options = {}) {
   const fs = require('fs');
   let html = fs.readFileSync(file, 'utf8');
   const mode = options.mode === 'admin' ? 'admin' : 'client';
-  const joinConfig = options.joinMode ? {
+  const joinConfig = options.joinMode ? (options.informationalJoin ? {
+    joinMode: true,
+    informationalJoin: true,
+    adminMode: false,
+    existingActiveDevicesFound: Boolean(options.existingActiveDevicesFound),
+    chatTitle: safeChatTitle(options.chatTitle)
+  } : {
     joinMode: true,
     tokenCookie: Boolean(options.tokenCookie),
     tokenStatus: options.tokenStatus || 'valid',
@@ -300,9 +307,9 @@ function sendPushPage(req, res, options = {}) {
     adminMode: false,
     chatLinkMode: Boolean(options.existingActiveDevicesFound),
     existingActiveDevicesFound: Boolean(options.existingActiveDevicesFound),
-    informationalJoin: Boolean(options.informationalJoin),
+    informationalJoin: false,
     chatTitle: safeChatTitle(options.chatTitle)
-  } : { joinMode: false, landingMode: mode === 'client', adminMode: mode === 'admin', handoffId: clean(options.handoffId), handoffStatus: clean(options.handoffStatus) };
+  }) : { joinMode: false, landingMode: mode === 'client', adminMode: mode === 'admin', handoffId: clean(options.handoffId), handoffStatus: clean(options.handoffStatus) };
   if (mode === 'admin') {
     html = html.replace('<link rel="manifest" href="/push/manifest.json">', '<link rel="manifest" href="/public/push-admin-manifest.json">');
   } else {
@@ -310,6 +317,12 @@ function sendPushPage(req, res, options = {}) {
     html = html.replace('<link rel="manifest" href="/push/manifest.json">', `<link rel="manifest" href="${manifestHref}">`);
     html = stripMarkedHtml(html, 'admin-diagnostics');
     html = stripMarkedHtml(html, 'raw-diagnostics');
+    if (options.informationalJoin) {
+      const title = safeChatTitle(options.chatTitle) || 'Чат MAX';
+      html = stripMarkedHtml(html, 'functional-pwa');
+      html = html.replace('id="browserInstructions" hidden', 'id="browserInstructions"');
+      html = html.replace('<p id="introText">Откройте ссылку из MAX-чата, чтобы подключить уведомления.</p>', `<p id="introText">Чат найден: «${escapeHtml(title)}»</p>`);
+    }
   }
   html = html.replace('</head>', `<script>window.__ADMINKIT_PUSH_JOIN__=${JSON.stringify(joinConfig).replace(/</g, '\\u003c')};</script></head>`);
   res.type('html').send(html);

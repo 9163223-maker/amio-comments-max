@@ -8,6 +8,7 @@ const handoffs = require('../services/pushPairingHandoffService');
 const pairingLog = require('../services/pushPairingLogService');
 const groupPush = require('../services/groupPushOnboardingService');
 const slash = require('../services/nativeSlashCommands');
+const maxCommandRegistry = require('../services/maxCommandRegistryService');
 const payloads = require('../services/pushNotificationPayloadService');
 const pkg = require('../package.json');
 
@@ -55,6 +56,11 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
   assert(!html.includes('Персональная ссылка найдена'));
   assert(client.includes("fetchJson('/api/push/pending'"));
   assert(client.includes("hasConnectedChats ? 'Подключить этот чат' : 'Включить уведомления'"));
+  assert(client.includes('async function connectPendingChatWithExistingSubscription()'));
+  assert(client.includes('JSON.stringify({ subscription: normalizePushSubscription(subscription), handoffId })'));
+  const directConnect = client.slice(client.indexOf('async function connectPendingChatWithExistingSubscription()'), client.indexOf('async function handlePrimaryButton()'));
+  assert(!directConnect.includes('Notification.requestPermission'), 'existing-subscription chat connect does not request permission again');
+  assert(!directConnect.includes('pushManager.subscribe'), 'existing-subscription chat connect does not create another subscription');
   assert(client.includes('отправьте /push в этом чате и откройте ссылку'));
   assert(routes.includes('informationalJoin: !fromManifest'));
   assert(bootstrap.includes("originalGet('/api/push/pending', handlers.pending)"));
@@ -69,10 +75,12 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
   const cleanBot = read('clean-bot-1539.js');
   assert(cleanBot.includes('privateMessage(m)&&txt(m).trim()'), 'ordinary group messages never enter activation-code handling');
 
-  const registry = read('performance-debug-routes-pr73.js');
-  const commandBlock = registry.slice(registry.indexOf('const ADMINKIT_MAX_COMMANDS'), registry.indexOf('const MAX_COMMAND_SCOPE_SUPPORT'));
-  assert(commandBlock.includes("name: 'push'") && commandBlock.includes("name: 'help'"));
-  for (const leaked of ['start', 'menu', 'channels', 'comments', 'gifts', 'posts', 'polls', 'buttons', 'stats', 'privacy', 'settings', 'archive']) assert(!commandBlock.includes(`name: '${leaked}'`));
+  assert.deepStrictEqual(maxCommandRegistry.GLOBAL_COMMAND_NAMES, ['/push', '/help']);
+  assert.deepStrictEqual(maxCommandRegistry.commandsPayload(), { commands: [
+    { name: 'push', description: '🔔 Уведомления этого чата' },
+    { name: 'help', description: '🆘 Помощь' }
+  ] });
+  assert.strictEqual(maxCommandRegistry.SCOPE_SUPPORT, 'global-only-no-public-scopes');
 
   const event = pairingLog.sanitizeEvent({ event: 'pending_lookup', route: '/api/push/pending', result: 'pending_found', maxUserId: 'user-188', deviceId: 'device-secret', endpointHash: 'abcdef1234567890', pendingCount: 1, selectedPendingChatId: 'chat-b', selectedPendingChatTitle: 'Чат Б', endpoint: 'https://secret', auth: 'secret', p256dh: 'secret' });
   assert.strictEqual(event.pendingCount, 1);

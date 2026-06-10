@@ -6,6 +6,7 @@ const path = require('path');
 const accountScreens = require('../features/account-screens-pr106');
 const groupPush = require('../services/groupPushOnboardingService');
 const slash = require('../services/nativeSlashCommands');
+const maxCommandRegistry = require('../services/maxCommandRegistryService');
 
 function buttons(screen) {
   return (screen.attachments?.[0]?.payload?.buttons || []).flat().map((item) => item.text);
@@ -53,11 +54,8 @@ function buttons(screen) {
   assert.strictEqual(slash.getNativeSlashCommand('/menu'), '/menu', 'private/admin command parser remains intact');
 
   const repo = path.join(__dirname, '..');
-  const commandRegistry = fs.readFileSync(path.join(repo, 'performance-debug-routes-pr73.js'), 'utf8');
-  const registryBlock = commandRegistry.slice(commandRegistry.indexOf('const ADMINKIT_MAX_COMMANDS'), commandRegistry.indexOf('function clean'));
-  assert(registryBlock.includes("name: 'push'") && registryBlock.includes("name: 'help'"), 'global MAX suggestions contain /push and /help');
-  for (const command of ['menu', 'channels', 'comments', 'gifts', 'stats', 'debug', 'clear']) assert(!registryBlock.includes(`name: '${command}'`), `global MAX suggestions exclude /${command}`);
-  assert(commandRegistry.includes("global-only-undocumented-patch-me"), 'MAX scoped-command limitation is documented in runtime diagnostics');
+  assert.deepStrictEqual(maxCommandRegistry.GLOBAL_COMMAND_NAMES, ['/push', '/help'], 'global MAX suggestions contain only /push and /help');
+  assert.strictEqual(maxCommandRegistry.SCOPE_SUPPORT, 'global-only-no-public-scopes', 'MAX public API has no command scopes, so admin commands are not global');
 
   const html = fs.readFileSync(path.join(repo, 'public', 'push.html'), 'utf8');
   const client = fs.readFileSync(path.join(repo, 'public', 'push-client.js'), 'utf8');

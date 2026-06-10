@@ -21,10 +21,9 @@ function postJson(body, headers = {}) { return { method: 'POST', headers: { 'con
 function handoffFrom(response) {
   const cookies = response.headers.get('set-cookie') || '';
   const cookieMatch = cookies.match(/push_pairing_handoff=([^;,]+)/);
-  const pageMatch = response.text.match(/"handoffId":"([A-Za-z0-9_-]+)"/);
-  assert(cookieMatch && pageMatch, 'join response provides the same opaque handoff through HttpOnly cookie and page state');
-  assert.strictEqual(decodeURIComponent(cookieMatch[1]), pageMatch[1]);
-  return pageMatch[1];
+  assert(cookieMatch, 'join response stores the opaque handoff in an HttpOnly cookie');
+  assert(!response.text.includes('"handoffId"'), 'Safari response does not expose handoffId in HTML');
+  return decodeURIComponent(cookieMatch[1]);
 }
 
 (async () => {
@@ -89,6 +88,11 @@ function handoffFrom(response) {
       assert.strictEqual(joinB.status, 200);
       const handoffB = handoffFrom(joinB);
       assert(joinB.text.includes('"existingActiveDevicesFound":true'), 'later-chat page recognizes an existing active device');
+      assert(joinB.text.includes('Чат найден: «Chat B»'), 'Safari page names the discovered chat without JavaScript');
+      assert(joinB.text.includes('Если АдминКИТ PUSH ещё не установлен') && joinB.text.includes('Если АдминКИТ PUSH уже установлен'), 'Safari page explains both install states');
+      assert(joinB.text.includes('Подключить этот чат'), 'Safari page explains the installed-PWA action');
+      assert(!joinB.text.includes('Персональная ссылка найдена'), 'Safari page contains no technical personal-link wording');
+      assert(!joinB.text.includes('id="enableBtn"') && !joinB.text.includes('id="connectedChatsSection"'), 'Safari page contains no functional PWA button or empty chat list');
       const genericB = await request(server, '/push');
       assert(genericB.text.includes('"landingMode":true') && !genericB.text.includes(handoffB), 'standalone PWA may launch without Safari cookies');
       events.length = 0;

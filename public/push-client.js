@@ -652,8 +652,44 @@ async function linkExistingChat() {
   appendResult(message, { ok: true, alreadyConnected: Boolean(result && result.alreadyConnected), renderedChatsCount: Array.isArray(result && result.chats) ? result.chats.length : 0 });
 }
 
+async function completeJoinSuccess(result) {
+  const pairedTitle = String(state.join && state.join.chatTitle || '').trim().slice(0, 120);
+  const successMessage = pairedTitle ? `Готово. Уведомления включены для чата «${pairedTitle}».` : JOIN_SUCCESS_MESSAGE;
+  storePairedContext(result);
+  clearJoinState();
+  applyPairedReadyState(successMessage);
+  appendResult(successMessage);
+  return result;
+}
+
+async function connectPendingChatWithExistingSubscription() {
+  const handoffId = recoverJoinHandoff();
+  if (!handoffId || !hasPairedContext()) return enableNotifications();
+  showPrimaryAction('Подключаем…');
+  clearClientStatus();
+  try {
+    const registration = state.registration || await navigator.serviceWorker.getRegistration('/push/');
+    const subscription = state.subscription || (registration && registration.pushManager ? await registration.pushManager.getSubscription() : null);
+    if (!subscription) return enableNotifications();
+    const result = await withTimeout(fetchJson('/api/push/pair', {
+      method: 'POST',
+      body: JSON.stringify({ subscription: normalizePushSubscription(subscription), handoffId })
+    }), TIMEOUTS.serverSave, 'pending chat pairing timed out');
+    state.registration = registration;
+    state.subscription = subscription;
+    await completeJoinSuccess(result);
+    return result;
+  } catch (error) {
+    setClientStatus('Ошибка подключения. Попробуйте ещё раз.', 'error');
+    appendResult(error.message || 'pending_chat_pair_failed', error.data || null);
+    showPrimaryAction('Подключить этот чат');
+    throw error;
+  }
+}
+
 async function handlePrimaryButton() {
-  return enableNotifications();
+  const hasPendingChat = Boolean(state.join && state.join.joinMode && recoverJoinHandoff());
+  return hasPendingChat && hasPairedContext() ? connectPendingChatWithExistingSubscription() : enableNotifications();
 }
 
 async function refreshStatus() {
@@ -898,13 +934,12 @@ async function enableNotifications() {
 
     currentStep = 'server response';
     setStep(currentStep, 'done', JSON.stringify(safeServerResult(result)));
-    if (state.join.joinMode || isPairedRelaunchMode()) {
-      const pairedTitle = String(state.join && state.join.chatTitle || '').trim().slice(0, 120);
-      let successMessage = isPairedRelaunchMode() ? JOIN_READY_MESSAGE : (pairedTitle ? `Готово. Уведомления включены для чата «${pairedTitle}».` : JOIN_SUCCESS_MESSAGE);
+    if (state.join.joinMode) {
+      await completeJoinSuccess(result);
+    } else if (isPairedRelaunchMode()) {
       storePairedContext(result);
-      clearJoinState();
-      applyPairedReadyState(successMessage);
-      appendResult(successMessage);
+      applyPairedReadyState(JOIN_READY_MESSAGE);
+      appendResult(JOIN_READY_MESSAGE);
     } else {
       appendResult('subscription saved', safeServerResult(result));
     }

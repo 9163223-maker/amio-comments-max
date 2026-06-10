@@ -83,7 +83,7 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
       const tokenB = pairing.createPairingToken({ maxUserId: 'user-pr168', chatId: 'chat-b-pr168', chatTitle: 'Chat B Safe', ttlMinutes: 30 });
       const joinB = await request(server, `/push/join?t=${encodeURIComponent(tokenB)}`);
       assert.strictEqual(joinB.status, 200, 'fresh join for user with active device renders PWA');
-      assert(joinB.text.includes('"chatLinkMode":true') && joinB.text.includes('"existingActiveDevicesFound":true'), 'join page enters add-chat mode for active device user');
+      assert(joinB.text.includes('"informationalJoin":true') && joinB.text.includes('"existingActiveDevicesFound":true'), 'join page enters informational add-chat mode for active device user');
       assert(joinB.text.includes('Chat B Safe'), 'join page includes sanitized chat title label data');
       assert(!joinB.text.includes(tokenB) && !joinB.text.includes('/push/join?t='), 'add-chat page does not expose full token or join URL');
       const cookie = joinB.headers.get('set-cookie');
@@ -108,8 +108,8 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
       const tokenC = pairing.createPairingToken({ maxUserId: 'new-user-pr168', chatId: 'chat-c-pr168', chatTitle: 'Chat C', ttlMinutes: 30 });
       const joinC = await request(server, `/push/join?t=${encodeURIComponent(tokenC)}`);
       assert.strictEqual(joinC.status, 200, 'fresh join for user without active device still works');
-      assert(joinC.text.includes('"joinMode":true') && joinC.text.includes('"chatLinkMode":false'), 'new-device onboarding remains normal join mode');
-      assert(joinC.text.includes('Включить уведомления'), 'new-device onboarding still shows enable notifications');
+      assert(joinC.text.includes('"joinMode":true') && joinC.text.includes('"informationalJoin":true'), 'new-device onboarding starts on the informational Safari page');
+      assert(joinC.text.includes('На экран Домой') && joinC.text.includes('Включить уведомления'), 'new-device onboarding explains installation and the later PWA action');
     });
 
     console.log('push admin invite link chat pr168 ok');

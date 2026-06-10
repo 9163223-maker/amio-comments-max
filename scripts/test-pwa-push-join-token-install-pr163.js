@@ -63,8 +63,8 @@ function body(token, suffix) { return { method: 'POST', headers: { 'content-type
       const join = await request(server, `/push/join?t=${encodeURIComponent(token)}`);
       assert.strictEqual(join.status, 200, '/push/join?t=TOKEN renders client page');
       assert(join.text.includes(`href="/push/manifest/${encodeURIComponent(token)}.json"`), '/push/join points Add to Home Screen at token-carrying manifest');
-      assert(join.text.includes('"joinMode":true') && join.text.includes('"tokenStatus":"valid"'), '/push/join initializes join mode');
-      assert(join.text.includes('\"handoffId\":') && !join.text.includes(`\"token\":\"${token}\"`), '/push/join exposes only an opaque handoff to client storage');
+      assert(join.text.includes('"joinMode":true') && join.text.includes('"informationalJoin":true'), '/push/join initializes informational browser mode');
+      assert(!join.text.includes('\"handoffId\":') && !join.text.includes(`\"token\":\"${token}\"`), '/push/join exposes no pairing credentials in Safari HTML');
 
       const manifest = await request(server, `/push/manifest/${encodeURIComponent(token)}.json`);
       assert.strictEqual(manifest.status, 200, 'dynamic join manifest is available');

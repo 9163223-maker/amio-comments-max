@@ -64,10 +64,10 @@ function assertNoLeaks(text, label, extraForbidden = []) {
     await withServer(async (server) => {
       const join = await request(server, `/push/join?t=${encodeURIComponent(token)}`);
       assert.strictEqual(join.status, 200, '/push/join?t=valid token renders client UX');
-      assert(join.text.includes('Включить уведомления'), 'client UX contains the one-button enable label');
-      assert(join.text.includes('Откройте ссылку из MAX-чата, чтобы подключить уведомления.'), 'client UX contains short human instruction');
+      assert(join.text.includes('Чат найден:') && join.text.includes('Подключить этот чат'), 'Safari client UX explains the discovered chat and next PWA action');
+      assert(join.text.includes('Если АдминКИТ PUSH ещё не установлен'), 'Safari client UX contains install guidance');
       assert(join.text.includes('id="clientStatus"'), 'client UX contains a visible client-safe status container');
-      assert.strictEqual((join.text.match(/<button\b/g) || []).length, 1, 'client UX has one main enable button');
+      assert.strictEqual((join.text.match(/<button\b/g) || []).length, 0, 'Safari client UX has no fake enable button');
       assert(!join.text.includes('placeholder="PUSH_SUBSCRIBE_TOKEN"'), 'client UX hides subscribe token field');
       assert(!join.text.includes('placeholder="PUSH_ADMIN_TOKEN"'), 'client UX hides admin token field');
       assert(!join.text.includes('Отправить тестовое уведомление'), 'client UX hides test-send button');
@@ -123,7 +123,7 @@ function assertNoLeaks(text, label, extraForbidden = []) {
     assert(enableSource.includes("setClientStatus(standaloneMessage, 'warning')"), 'iOS not-standalone warning is written to visible client status');
     assert(enableSource.includes("if (state.join.joinMode || state.join.landingMode) throw new Error(standaloneMessage);"), 'client/join iOS non-standalone path stops before subscribe/save');
     assert(enableSource.includes("setClientStatus(permissionMessage, 'error')"), 'permission denied is written to visible client status');
-    assert(enableSource.includes('applyPairedReadyState(successMessage)'), 'join success statuses are written to the single visible state area');
+    assert(pushClient.includes('async function completeJoinSuccess(result)') && pushClient.includes('applyPairedReadyState(successMessage)'), 'join success statuses are written to the single visible state area');
     assert(pushClient.includes('normalizePushSubscription(subscription)'), 'client flow normalizes the PushSubscription before sending');
     assert(pushClient.includes('getSubscriptionKey(subscription, PUSH_SUBSCRIPTION_FIELDS.p256dhField)'), 'PR149 p256dh getKey fallback remains');
     assert(pushClient.includes('getSubscriptionKey(subscription, PUSH_SUBSCRIPTION_FIELDS.authField)'), 'PR149 auth getKey fallback remains');
