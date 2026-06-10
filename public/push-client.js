@@ -37,19 +37,20 @@ const LEGACY_RESET_NO_SUBSCRIPTION_RESULT = 'push subscription reset: no subscri
 const LEGACY_RESET_FAILED_RESULT = 'push subscription reset failed';
 const PENDING_HANDOFF_STORAGE_KEY = 'adminkit.push.pendingHandoff.v1';
 const PAIRED_CONTEXT_STORAGE_KEY = 'adminkit.push.pairedContext.v1';
-const EMPTY_CHATS_MESSAGE = 'Откройте ссылку из MAX или нажмите кнопку подключения в чате.';
+const EMPTY_CHATS_MESSAGE = 'Пока нет подключённых чатов.';
 const HANDOFF_FOUND_MESSAGE = 'Чат найден. Нажмите, чтобы подключить уведомления.';
-const JOIN_TOKEN_FOUND_MESSAGE = 'Чат найден. Нажмите, чтобы подключить уведомления.';
-const JOIN_TOKEN_MISSING_MESSAGE = 'Откройте ссылку из MAX или нажмите кнопку подключения в чате.';
+const JOIN_TOKEN_FOUND_MESSAGE = 'Нажмите кнопку, чтобы получать уведомления этого чата.';
+const JOIN_TOKEN_MISSING_MESSAGE = 'Откройте ссылку из MAX-чата, чтобы подключить уведомления.';
 const JOIN_TOKEN_EXPIRED_MESSAGE = 'Ссылка истекла. Откройте новую ссылку из MAX или нажмите кнопку подключения в чате.';
-const JOIN_SUCCESS_MESSAGE = 'Готово. Уведомления подключены.';
-const LINK_CHAT_SUCCESS_MESSAGE = 'Готово. Уведомления этого чата подключены.';
-const LINK_CHAT_EXPLAIN_MESSAGE = 'Можно подключить этот чат к уже установленному AdminKIT Push.';
-const JOIN_READY_MESSAGE = 'Уведомления подключены.';
+const JOIN_SUCCESS_MESSAGE = 'Готово — уведомления подключены.';
+const LINK_CHAT_SUCCESS_MESSAGE = 'Готово — чат добавлен.';
+const LINK_CHAT_EXPLAIN_MESSAGE = 'Нажмите кнопку, чтобы получать уведомления этого чата.';
+const JOIN_READY_MESSAGE = 'Уведомления включены';
 
 // Legacy diagnostic test markers retained to prove earlier UX guarantees remain documented:
-// Разрешение не выдано. Проверьте настройки iOS для АдминКИТ Push.
+// Разрешение не выдано. Проверьте настройки iOS для АдминКИТ PUSH.
 // Устройство подключено и ожидает подтверждения в MAX.
+// Откройте MAX и нажмите «Подтвердить устройство».
 // Персональная ссылка найдена. Теперь нажмите «Включить уведомления».
 // Откройте персональную ссылку подключения из MAX.
 // Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.
@@ -86,7 +87,7 @@ function safeChatItem(value) {
   const chatId = String(source.chatId || '').trim().replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
   const channelId = String(source.channelId || '').trim().replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
   if (!title && !chatId && !channelId) return null;
-  return { title: title || 'Чат MAX', chatId, channelId, status: 'Уведомления включены' };
+  return { title: title || 'Чат MAX', chatId, channelId, status: 'включены' };
 }
 
 function uniqueChatItems(values) {
@@ -120,7 +121,7 @@ function renderConnectedChats(chats) {
     const title = document.createElement('strong');
     title.textContent = chat.title || 'Чат MAX';
     const status = document.createElement('span');
-    status.textContent = chat.status || 'Уведомления включены';
+    status.textContent = chat.status || 'включены';
     card.appendChild(title);
     card.appendChild(status);
     node.appendChild(card);
@@ -230,35 +231,48 @@ function isPairedRelaunchMode() {
   return Boolean((state.join && (state.join.relaunchMode || state.join.landingMode || state.join.joinMode)) || context.paired);
 }
 
+function showPrimaryAction(label) {
+  setText('enableBtn', label);
+  setHidden('enableBtn', false);
+}
+
+function hidePrimaryAction() {
+  setHidden('enableBtn', true);
+}
+
+function setNotificationsBadge(visible) {
+  setHidden('notificationBadge', !visible);
+}
+
 function applyChatLinkMode() {
   const title = String(state.join && state.join.chatTitle || '').trim().slice(0, 120);
-  setText('introText', 'Найден новый чат. Нажмите, чтобы подключить этот чат.');
-  setHidden('pairingNotice', false);
-  setText('pairingNotice', title ? `Чат: «${title}»` : 'Чат MAX готов к подключению.');
+  setText('introText', title ? `Чат найден: ${title}` : 'Чат найден');
+  setHidden('pairingNotice', true);
   setHidden('subscribeTokenRow', true);
   setHidden('adminTokenRow', true);
   setHidden('testBtn', true);
   setHidden('statusBtn', true);
   setHidden('resetPushButton', true);
-  setClientStatus('Найден новый чат. Нажмите, чтобы подключить этот чат.', 'info');
+  setClientStatus(LINK_CHAT_EXPLAIN_MESSAGE, 'info');
   setText('pairingStatus', 'link-chat-ready');
-  setText('enableBtn', 'Подключить этот чат');
+  setNotificationsBadge(true);
+  showPrimaryAction('Подключить этот чат');
 }
 
-function applyPairedReadyState(message = JOIN_READY_MESSAGE) {
-  setText('introText', message);
-  setHidden('pairingNotice', false);
+function applyPairedReadyState(message = '') {
+  setText('introText', 'Ваши чаты');
+  setHidden('pairingNotice', true);
   setHidden('subscribeTokenRow', true);
   setHidden('adminTokenRow', true);
   setHidden('testBtn', true);
   setHidden('statusBtn', true);
   setHidden('resetPushButton', true);
-  setClientStatus(message, 'success');
+  setClientStatus(message || JOIN_READY_MESSAGE, message ? 'success' : 'info');
   setText('pairingStatus', 'paired-ready');
-  setText('enableBtn', 'Уведомления подключены');
+  setNotificationsBadge(true);
+  hidePrimaryAction();
   renderStoredConnectedChats();
 }
-
 
 function clearJoinState() {
   clearPendingHandoffId();
@@ -353,7 +367,7 @@ function updateStandaloneDiagnostics() {
   const isIOS = detectIOS();
   setText('standaloneState', describeStandalone(standalone));
   setText('iosPwaWarning', isIOS && !standalone.standalone
-    ? 'На iOS уведомления работают только из приложения, добавленного на экран Домой. Откройте АдминКИТ Push с иконки.'
+    ? 'На iOS уведомления работают только из приложения, добавленного на экран Домой. Откройте АдминКИТ PUSH с иконки.'
     : '—');
   return { ...standalone, isIOS };
 }
@@ -551,39 +565,47 @@ function applyJoinMode() {
     if (state.join.landingMode) {
       setText('introText', JOIN_TOKEN_MISSING_MESSAGE);
       setText('pairingStatus', 'client-safe landing');
-      setClientStatus(JOIN_TOKEN_MISSING_MESSAGE, 'warning');
+      setClientStatus('Пока нет подключённых чатов.', 'info');
+      setNotificationsBadge(false);
+      hidePrimaryAction();
     } else {
       setText('pairingStatus', 'manual/admin diagnostic');
     }
     return;
   }
   if (history && history.replaceState) history.replaceState(null, document.title, '/push');
-  setText('introText', JOIN_TOKEN_FOUND_MESSAGE);
-  setHidden('pairingNotice', false);
+  const foundTitle = String(state.join && state.join.chatTitle || '').trim().slice(0, 120);
+  setText('introText', foundTitle ? `Чат найден: ${foundTitle}` : 'Чат найден');
+  setHidden('pairingNotice', true);
   setHidden('subscribeTokenRow', true);
   setHidden('adminTokenRow', true);
   setHidden('testBtn', true);
   setHidden('statusBtn', true);
   setHidden('resetPushButton', true);
   setClientStatus(JOIN_TOKEN_FOUND_MESSAGE, 'info');
-  setText('pairingStatus', (pendingHandoff || pendingToken) ? `join-ready: pending handoff from ${state.join.recoveredFrom || 'page'}` : 'join-not-ready');
-  setText('enableBtn', 'Включить уведомления');
+  setText('pairingStatus', (pendingHandoff || pendingToken) ? 'join-ready' : 'join-not-ready');
+  setNotificationsBadge(false);
+  showPrimaryAction(('Notification' in window && Notification.permission === 'granted') ? 'Подключить этот чат' : 'Включить уведомления');
 }
 
 async function linkExistingChat() {
+  showPrimaryAction('Подключаем…');
   const result = await withTimeout(fetchJson('/api/push/link-chat', { method: 'POST', body: JSON.stringify({}) }), TIMEOUTS.serverSave, 'link chat request timed out');
   storePairedContext({ ok: true, status: 'active', chats: result && Array.isArray(result.chats) ? result.chats : [] });
   renderConnectedChats(result && Array.isArray(result.chats) ? result.chats : []);
-  setText('introText', LINK_CHAT_SUCCESS_MESSAGE);
-  setText('pairingNotice', LINK_CHAT_SUCCESS_MESSAGE);
-  setClientStatus(LINK_CHAT_SUCCESS_MESSAGE, 'success');
-  setText('pairingStatus', `link-chat-done: ${Number(result && result.linkedExistingDevicesCount) || 0}`);
-  setText('enableBtn', 'Уведомления подключены');
+  const message = result && result.alreadyConnected ? 'Этот чат уже подключён.' : LINK_CHAT_SUCCESS_MESSAGE;
+  setText('introText', 'Ваши чаты');
+  setHidden('pairingNotice', true);
+  setClientStatus(message, 'success');
+  setText('pairingStatus', result && result.alreadyConnected ? 'chat-already-connected' : 'link-chat-done');
+  setNotificationsBadge(true);
+  hidePrimaryAction();
   clearJoinState();
-  appendResult(LINK_CHAT_SUCCESS_MESSAGE, { ok: true, existingActiveDevicesFound: Boolean(result && result.existingActiveDevicesFound), linkedExistingDevicesCount: Number(result && result.linkedExistingDevicesCount) || 0, chatBindingUpserted: Boolean(result && result.chatBindingUpserted) });
+  appendResult(message, { ok: true, alreadyConnected: Boolean(result && result.alreadyConnected), renderedChatsCount: Array.isArray(result && result.chats) ? result.chats.length : 0 });
 }
 
 async function handlePrimaryButton() {
+  if (state.join && state.join.chatLinkMode) return linkExistingChat();
   return enableNotifications();
 }
 
@@ -612,7 +634,10 @@ async function refreshStatus() {
     if (state.subscription && hasPairedContext()) {
       try {
         const deviceStatus = await confirmPairedSubscription(state.subscription);
-        if (deviceStatus && deviceStatus.ok) applyPairedReadyState();
+        if (deviceStatus && deviceStatus.ok) {
+          const currentStatus = $('clientStatus');
+          applyPairedReadyState(currentStatus && currentStatus.dataset.kind === 'success' ? currentStatus.textContent : '');
+        }
       } catch (error) {
         if (error && error.data && error.data.error === 'push_device_not_paired') clearPairedContext();
       }
@@ -723,6 +748,7 @@ async function saveSubscription(subscription, status) {
 }
 
 async function enableNotifications() {
+  showPrimaryAction('Подключаем…');
   resetSteps();
   clearClientStatus();
   appendResult('subscribe started');
@@ -739,7 +765,7 @@ async function enableNotifications() {
     currentStep = 'checking installed/standalone hint';
     const standalone = updateStandaloneDiagnostics();
     if (standalone.isIOS && !standalone.standalone) {
-      const standaloneMessage = 'Откройте АдминКИТ Push с иконки на экране Домой.';
+      const standaloneMessage = 'Откройте АдминКИТ PUSH с иконки на экране Домой.';
       setClientStatus(standaloneMessage, 'warning');
       setStep(currentStep, 'warning', standaloneMessage);
       if (state.join.joinMode || state.join.landingMode) throw new Error(standaloneMessage);

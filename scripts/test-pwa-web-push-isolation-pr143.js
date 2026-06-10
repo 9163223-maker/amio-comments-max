@@ -81,7 +81,7 @@ function validSubscription() {
 
       const pushPage = await request(server, '/push');
       assert.strictEqual(pushPage.status, 200, '/push opens');
-      assert.match(pushPage.body, /АдминКИТ Push/, '/push contains title');
+      assert.match(pushPage.body, /АдминКИТ PUSH/, '/push contains title');
       assert.match(pushPage.body, /\/push\/manifest\.json/, '/push references isolated manifest');
       assert.doesNotMatch(pushPage.body, /href="\/manifest\.json"/, '/push must not reference global manifest');
 

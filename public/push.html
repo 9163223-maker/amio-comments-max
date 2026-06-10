@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#111827">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="АдминКИТ Push">
+  <meta name="apple-mobile-web-app-title" content="АдминКИТ PUSH">
   <link rel="manifest" href="/push/manifest.json">
   <link rel="apple-touch-icon" sizes="180x180" href="/public/adminkit-push-icon-192.png?v=pr167">
   <link rel="icon" type="image/png" sizes="192x192" href="/public/adminkit-push-icon-192.png?v=pr167">
   <link rel="icon" type="image/png" sizes="512x512" href="/public/adminkit-push-icon-512.png?v=pr167">
-  <title>АдминКИТ Push</title>
+  <title>АдминКИТ PUSH</title>
   <style>
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at top, #eff6ff 0, #f8fafc 42%, #fff 100%); color: #111827; }
     main { max-width: 720px; margin: 0 auto; padding: max(20px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom)); }
@@ -33,10 +33,11 @@
     #clientStatus[data-kind="success"] { color: #166534; background: #f0fdf4; border-color: #bbf7d0; }
     #clientStatus[data-kind="info"], #clientStatus[data-kind="idle"] { color: #334155; background: #f8fafc; border-color: #e2e8f0; }
     #clientStatus[data-kind="error"] { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
-    .chat-list { display: grid; gap: 10px; margin-top: 12px; }
-    .chat-card { border: 1px solid #dbeafe; background: #eff6ff; border-radius: 18px; padding: 14px; }
-    .chat-card strong { display: block; color: #0f172a; margin-bottom: 4px; }
-    .chat-card span { color: #166534; font-size: 14px; }
+    .chat-list { display: grid; gap: 6px; margin-top: 8px; }
+    .chat-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #dbeafe; background: #f8fbff; border-radius: 12px; padding: 9px 11px; }
+    .chat-card strong { min-width: 0; color: #0f172a; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chat-card span { flex: none; color: #166534; font-size: 12px; font-weight: 700; }
+    .status-badge { display: inline-block; color: #166534; background: #dcfce7; border-radius: 999px; padding: 5px 9px; font-size: 13px; font-weight: 700; }
     .empty-state { color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 18px; padding: 14px; }
     .admin-success { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 10px 12px; }
     .admin-error { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; border-radius: 14px; padding: 10px 12px; }
@@ -51,15 +52,16 @@
 <body>
   <main>
     <header class="brand">
-      <img class="brand-logo" src="/public/adminkit-push-icon-192.png?v=pr167" width="96" height="96" alt="AdminKIT Push">
-      <h1>АдминКИТ Push</h1>
-      <p id="introText">Откройте приложение с экрана Домой и нажмите «Включить уведомления».</p>
+      <img class="brand-logo" src="/public/adminkit-push-icon-192.png?v=pr167" width="96" height="96" alt="АдминКИТ PUSH">
+      <h1>АдминКИТ PUSH</h1>
+      <p id="introText">Откройте ссылку из MAX-чата, чтобы подключить уведомления.</p>
+      <span id="notificationBadge" class="status-badge" hidden>Уведомления включены</span>
     </header>
-    <p id="pairingNotice" hidden>Готово. Уведомления подключены.</p>
+    <p id="pairingNotice" hidden></p>
     <p id="clientStatus" class="warning" aria-live="polite">—</p>
 
     <section class="card primary-card">
-      <button id="enableBtn" type="button">Включить уведомления</button>
+      <button id="enableBtn" type="button" hidden>Включить уведомления</button>
       <!-- admin-diagnostics-start -->
       <button id="testBtn" type="button">Отправить тестовое уведомление</button>
       <button id="statusBtn" type="button">Проверить статус</button>
@@ -73,7 +75,7 @@
     <section class="card" id="connectedChatsSection">
       <h2>Подключённые чаты</h2>
       <div id="connectedChatsList" class="chat-list" aria-live="polite">
-        <div class="empty-state">Откройте ссылку из MAX или нажмите кнопку подключения в чате.</div>
+        <div class="empty-state">Пока нет подключённых чатов.</div>
       </div>
     </section>
 

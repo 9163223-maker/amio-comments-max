@@ -302,10 +302,7 @@ function sendPushPage(req, res, options = {}) {
     chatTitle: safeChatTitle(options.chatTitle)
   } : { joinMode: false, landingMode: mode === 'client', adminMode: mode === 'admin', handoffId: clean(options.handoffId), handoffStatus: clean(options.handoffStatus) };
   if (mode === 'admin') {
-    html = html
-      .replace('<link rel="manifest" href="/push/manifest.json">', '<link rel="manifest" href="/public/push-admin-manifest.json">')
-      .replace('<meta name="apple-mobile-web-app-title" content="АдминКИТ Push">', '<meta name="apple-mobile-web-app-title" content="Push Admin">')
-      .replace('<title>АдминКИТ Push</title>', '<title>АдминКИТ Push Admin</title>');
+    html = html.replace('<link rel="manifest" href="/push/manifest.json">', '<link rel="manifest" href="/public/push-admin-manifest.json">');
   } else {
     const manifestHref = options.linkChatMode ? pushManifestHref('') : pushManifestHref(options.token);
     html = html.replace('<link rel="manifest" href="/push/manifest.json">', `<link rel="manifest" href="${manifestHref}">`);
@@ -347,7 +344,7 @@ function requireSubscribeAccess(req, res, next) {
 function safeNotificationPayload(input = {}) {
   const source = input && typeof input === 'object' ? input : {};
   return {
-    title: clean(source.title).slice(0, 120) || 'АдминКИТ Push',
+    title: clean(source.title).slice(0, 120) || 'АдминКИТ PUSH',
     body: clean(source.body).slice(0, 500) || 'Тестовое резервное уведомление',
     icon: clean(source.icon).slice(0, 300) || '/public/adminkit-push-icon-192.png',
     badge: clean(source.badge).slice(0, 300) || '/public/favicon-32.png',
@@ -465,7 +462,7 @@ function install(app) {
         const hasHandoff = recovered.status === 'consumed';
         return sendPushPage(req, res, { mode: 'client', joinMode: true, tokenStatus: 'used', handoffId: hasHandoff ? handoffId : '', handoffStatus: recovered.status });
       }
-      return res.status(400).send(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="apple-touch-icon" sizes="180x180" href="/public/adminkit-push-icon-192.png?v=pr167"><title>АдминКИТ Push</title></head><body><main><h1>АдминКИТ Push</h1><p>Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.</p><p>Подключённые чаты появятся здесь после включения уведомлений.</p></main></body></html>`);
+      return res.status(400).send(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="apple-touch-icon" sizes="180x180" href="/public/adminkit-push-icon-192.png?v=pr167"><title>АдминКИТ PUSH</title></head><body><main><h1>АдминКИТ PUSH</h1><p>Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.</p><p>Подключённые чаты появятся здесь после включения уведомлений.</p></main></body></html>`);
     }
   }
   app.get('/push/join', handlePushJoin);
@@ -477,8 +474,8 @@ function install(app) {
     const startUrl = token ? `/push/join/${encodeURIComponent(token)}?source=manifest-start-url` : '/push';
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({
-      name: 'АдминКИТ Push',
-      short_name: 'AdminKIT Push',
+      name: 'АдминКИТ PUSH',
+      short_name: 'АдминКИТ PUSH',
       id: token ? `/push/install/${flowId}` : '/push',
       display: 'standalone',
       start_url: startUrl,
@@ -658,6 +655,7 @@ function install(app) {
     try {
       const verified = pairing.consumePairingToken(token);
       const activeDevices = await storage.listActiveDevicesForUser(verified.maxUserId);
+      const alreadyConnected = await storage.isChatBoundForUser(verified.maxUserId, verified.chatId);
       if (!activeDevices.length) {
         return res.status(409).json({ ok: false, error: 'push_active_device_not_found', existingActiveDevicesFound: false, chatLinkMode: true, linkedExistingDevicesCount: 0, chatBindingUpserted: false, chats: [] });
       }
@@ -669,13 +667,14 @@ function install(app) {
       });
       const chatSnapshot = await connectedChats.resolveConnectedChats(verified.maxUserId, { botToken: getMaxBotToken() });
       const chats = chatSnapshot.chats;
-      recordPushPairingEvent({ event: 'binding_created', route: '/api/push/link-chat', result: chats.length ? 'binding_created' : 'binding_missing', maxUserId: verified.maxUserId, chatId: verified.chatId, chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount });
+      recordPushPairingEvent({ event: 'binding_created', route: '/api/push/link-chat', result: chats.length ? 'binding_created' : 'binding_missing', maxUserId: verified.maxUserId, chatId: verified.chatId, chatsCount: chats.length, rawBindingsCount: chatSnapshot.rawBindingsCount, uniqueChatsCount: chatSnapshot.uniqueChatsCount, missingTitleCount: chatSnapshot.missingTitleCount, uiState: alreadyConnected ? 'already_connected' : 'chat_added', alreadyConnected, renderedChatsCount: chats.length, connectedChatTitlesCount: chats.filter((item) => safeChatTitle(item.chatTitle)).length, action: 'connect_chat', clientEntry: 'pwa_link' });
       return res.json({
         ok: true,
         existingActiveDevicesFound: true,
         chatLinkMode: true,
         linkedExistingDevicesCount: Number(binding && binding.devices) || 0,
         chatBindingUpserted: Number(binding && binding.bindings) > 0,
+        alreadyConnected,
         chats: safePublicChats(chats)
       });
     } catch (error) {
@@ -724,7 +723,7 @@ function install(app) {
 
   app.post('/api/push/test', requireAdminToken, async (req, res) => {
     const payload = safeNotificationPayload({
-      title: 'АдминКИТ Push: тест',
+      title: 'АдминКИТ PUSH: тест',
       body: 'Тестовое резервное уведомление доставлено.',
       url: '/push',
       tag: 'adminkit-push-test',

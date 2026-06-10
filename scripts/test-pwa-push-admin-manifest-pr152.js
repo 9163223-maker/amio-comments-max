@@ -75,8 +75,8 @@ function assertAdminControls(html) {
       assert.strictEqual(admin.status, 200, '/push/admin renders');
       assert.strictEqual(countActiveManifest(admin.text, '/public/push-admin-manifest.json'), 1, '/push/admin contains admin manifest as the active manifest');
       assert.strictEqual(countActiveManifest(admin.text, '/push/manifest.json'), 0, '/push/admin does not use client manifest as its active manifest');
-      assert(admin.text.includes('<title>АдминКИТ Push Admin</title>'), '/push/admin uses admin-specific title');
-      assert(admin.text.includes('<meta name="apple-mobile-web-app-title" content="Push Admin">'), '/push/admin uses admin-specific apple title');
+      assert(admin.text.includes('<title>АдминКИТ PUSH</title>'), '/push/admin uses admin-specific title');
+      assert(admin.text.includes('<meta name="apple-mobile-web-app-title" content="АдминКИТ PUSH">'), '/push/admin uses unified service apple title');
       assert(!admin.text.includes('ADMIN_TOKEN_VALUE_PR152'), '/push/admin does not expose admin token query value');
       assertAdminControls(admin.text);
 

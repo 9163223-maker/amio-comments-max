@@ -122,7 +122,7 @@ function messageUpdate({ id = 'cmd-pr166', text = '/push', userId = 'typed-user-
     res = responseStub();
     await bot.handleWebhook({ get: () => '', body: callbackUpdate({ callbackId: 'cb-pr166-repeat' }) }, res, { botToken: 'BOT_TOKEN_PR166_MUST_NOT_LEAK', appBaseUrl: 'https://push.example.test' });
     assert.strictEqual(sentMessages.length, 1, 'existing active device still gets a new private DM');
-    assert(sentMessages[0].text.includes('уже есть подключённое устройство'), 'existing active device private DM explains another-device link');
+    assert(sentMessages[0].text.includes('Этот чат уже подключён к уведомлениям.'), 'existing active device private DM explains already-connected state');
     const secondToken = extractJoinToken(new URL(clckCalls[1]).searchParams.get('url'));
     assert(secondToken && secondToken !== firstToken, 'repeated callback creates a fresh unused join token');
     assert.strictEqual(await storage.isChatBoundForUser('click-user-pr166', 'group-chat-pr166'), true, 'existing active device remains bound to the chat');

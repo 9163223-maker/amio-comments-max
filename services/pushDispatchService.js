@@ -9,8 +9,8 @@ function privateDefaultPayload(input = {}) {
   const source = input && typeof input === 'object' ? input : {};
   const allowPreview = source.allowPreview === true;
   return {
-    title: clean(source.title).slice(0, 80) || 'АдминКИТ Push',
-    body: allowPreview ? (clean(source.body).slice(0, 160) || 'Новое сообщение. Откройте АдминКИТ Push.') : 'Новое сообщение. Откройте АдминКИТ Push.',
+    title: clean(source.title).slice(0, 80) || payloadService.SERVICE_NAME,
+    body: allowPreview ? (clean(source.body).slice(0, 160) || `Новое сообщение. Откройте ${payloadService.SERVICE_NAME}.`) : `Новое сообщение. Откройте ${payloadService.SERVICE_NAME}.`,
     icon: clean(source.icon).slice(0, 300) || '/public/adminkit-push-icon-192.png',
     badge: clean(source.badge).slice(0, 300) || '/public/favicon-32.png',
     tag: clean(source.tag).slice(0, 120) || 'adminkit-targeted',
@@ -23,7 +23,7 @@ function normalizeDispatchPayload(payload) {
   const data = source.data && typeof source.data === 'object' ? source.data : {};
   if ((clean(source.title) || clean(source.body)) && clean(data.source)) {
     return {
-      title: clean(source.title).slice(0, 120) || 'АдминКИТ Push',
+      title: clean(source.title).slice(0, 120) || payloadService.SERVICE_NAME,
       body: clean(source.body).slice(0, 500) || 'Новое сообщение',
       icon: clean(source.icon).slice(0, 300) || payloadService.DEFAULT_ICON,
       badge: clean(source.badge).slice(0, 300) || payloadService.DEFAULT_BADGE,
@@ -94,11 +94,25 @@ async function sendPushToUser({ maxUserId, chatId, payload, includePending = fal
   return sendToDevices({ devices: scoped, payload, webPushClient, forbidden: [user, clean(payload && payload.token)] });
 }
 
+async function resolvedBindingTitle(chatId, devices = []) {
+  const users = [...new Set((Array.isArray(devices) ? devices : []).map((device) => clean(device && device.maxUserId)).filter(Boolean))];
+  for (const maxUserId of users) {
+    const bindings = await storage.listChatBindingsForUser(maxUserId);
+    const binding = bindings.find((item) => clean(item && item.chatId) === chatId && clean(item && item.chatTitle));
+    if (binding) return clean(binding.chatTitle).slice(0, 180);
+  }
+  return '';
+}
+
 async function sendPushToChat({ chatId, payload, webPushClient } = {}) {
   const chat = clean(chatId);
   if (!chat) return { ok: false, error: 'push_chat_id_required', total: 0, success: 0, failed: 0, results: [] };
   const devices = await storage.listActiveDevicesForChat(chat);
-  return sendToDevices({ devices, payload, webPushClient, forbidden: [clean(payload && payload.token)] });
+  const source = payload && typeof payload === 'object' ? payload : {};
+  const enrichedPayload = clean(source.source) === 'max_group'
+    ? { ...source, resolvedChatTitle: await resolvedBindingTitle(chat, devices) }
+    : source;
+  return sendToDevices({ devices, payload: enrichedPayload, webPushClient, forbidden: [clean(source.token)] });
 }
 
 async function sendPushToChatMembers({ chatId, userIds, payloadBuilder, webPushClient } = {}) {
@@ -116,4 +130,4 @@ async function sendPushToChatMembers({ chatId, userIds, payloadBuilder, webPushC
   return { ok: failed === 0, total, success, failed, results };
 }
 
-module.exports = { privateDefaultPayload, sendPushToUser, sendPushToChat, sendPushToChatMembers };
+module.exports = { privateDefaultPayload, resolvedBindingTitle, sendPushToUser, sendPushToChat, sendPushToChatMembers };

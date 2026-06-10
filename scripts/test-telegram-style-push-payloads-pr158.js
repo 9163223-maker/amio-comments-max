@@ -15,16 +15,16 @@ function fresh(modulePath) { delete require.cache[require.resolve(modulePath)]; 
   assert.strictEqual(group.title, 'Все свои MAX', 'group notification title is chatTitle');
   assert(group.body.startsWith('Александр: Проверяем подключение уведомлений'), 'group body contains sender + preview');
   assert(group.body.length <= 160, 'long group preview is limited');
-  assert.strictEqual(group.icon, '/public/adminkit-push-icon-192.png', 'group icon uses AdminKIT Push PNG');
+  assert.strictEqual(group.icon, '/public/adminkit-push-icon-192.png', 'group icon uses АдминКИТ PUSH PNG');
   assert.strictEqual(group.badge, '/public/favicon-32.png', 'group badge uses favicon PNG');
   assert(group.tag.includes('adminkit:chat:chat-1:m1'), 'group tag is message-specific');
   assert.strictEqual(group.data.source, 'max_group', 'group data source is distinct');
   assert.strictEqual(group.data.url, '/push?chatId=chat-1', 'group data.url opens chat in PWA');
 
   const missingSender = payloads.buildGroupMessagePayload({ source: 'max_group', chatId: 'chat-2', chatTitle: 'Чат', messageText: 'Текст без отправителя', messageId: 'm2' });
-  assert(missingSender.body.startsWith('Новое сообщение: Текст без отправителя'), 'missing sender uses Новое сообщение prefix');
+  assert.strictEqual(missingSender.body, 'Новое сообщение', 'missing sender uses safe generic body');
   const photo = payloads.buildGroupMessagePayload({ chatId: 'chat-photo', chatTitle: 'Фото чат', attachments: [{ type: 'image' }], messageId: 'photo-1' });
-  assert(photo.body.includes('Фото'), 'empty group text with photo creates media preview');
+  assert.strictEqual(photo.body, 'Новое фото', 'empty group text with photo creates friendly media preview');
 
   const channel = payloads.buildChannelPostPayload({ source: 'max_channel', chatId: 'channel-chat', channelId: 'channel-1', channelTitle: 'Olga.style', postText: 'Почему красивые вещи не складываются в образ', postId: 'p1', timestamp: 2345678901 });
   assert.strictEqual(channel.title, 'Olga.style', 'channel notification title is channelTitle');
@@ -36,7 +36,7 @@ function fresh(modulePath) { delete require.cache[require.resolve(modulePath)]; 
   assert.strictEqual(channelMedia.body, 'Новый пост: Видео', 'empty channel post with media creates safe media preview');
 
   const admin = payloads.buildAdminPayload({ body: 'Уведомления подключены для чата «Все свои MAX»', url: '/push?chatId=chat-1' });
-  assert.strictEqual(admin.title, 'АдминКИТ Push', 'admin notification title defaults to АдминКИТ Push');
+  assert.strictEqual(admin.title, 'АдминКИТ PUSH', 'admin notification title defaults to АдминКИТ PUSH');
   assert.strictEqual(admin.data.source, 'admin', 'admin source is distinct');
   assert.strictEqual(admin.data.url, '/push?chatId=chat-1', 'admin url is preserved when safe');
   assert.strictEqual(payloads.buildAdminPayload({ title: 'X', body: 'Y', url: 'https://evil.example/path?x=1' }).data.url, '/path?x=1', 'absolute URLs are reduced to safe relative URLs');
@@ -45,7 +45,7 @@ function fresh(modulePath) { delete require.cache[require.resolve(modulePath)]; 
   const privatePayloads = fresh('../services/pushNotificationPayloadService');
   const privateGroup = privatePayloads.buildGroupMessagePayload({ chatId: 'private-chat', chatTitle: 'Личный чат', senderName: 'Секрет', messageText: 'Секретный текст' });
   assert.strictEqual(privateGroup.title, 'Личный чат', 'private mode keeps group title');
-  assert.strictEqual(privateGroup.body, 'Новое сообщение', 'private mode hides sender and message text');
+  assert.strictEqual(privateGroup.body, 'Секрет: Секретный текст', 'chat notifications keep sender and message format');
   const privateChannel = privatePayloads.buildChannelPostPayload({ channelId: 'private-channel', channelTitle: 'Канал', postText: 'Секретный пост' });
   assert.strictEqual(privateChannel.title, 'Канал', 'private mode keeps channel title');
   assert.strictEqual(privateChannel.body, 'Новый пост', 'private mode hides channel post text');

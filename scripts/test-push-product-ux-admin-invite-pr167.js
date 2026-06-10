@@ -41,7 +41,7 @@ function request(server, pathname, options = {}) {
     assert.strictEqual(joinPush.status, 400, '/push/join without token is safe error page');
 
     for (const page of [normalPush.text, joinPush.text]) {
-      assert(page.includes('АдминКИТ Push'), 'normal Push UI keeps product title');
+      assert(page.includes('АдминКИТ PUSH'), 'normal Push UI keeps product title');
       assert(page.includes('Включить уведомления') || page.includes('Откройте новую ссылку из MAX') || page.includes('Откройте ссылку из MAX') || page.includes('Вернитесь в MAX'), 'normal Push UI is human-facing');
       assert(!page.includes('Последний результат'), 'normal Push UI hides last result diagnostics');
       assert(!page.includes('endpoint'), 'normal Push UI hides endpoint diagnostics');
@@ -52,9 +52,9 @@ function request(server, pathname, options = {}) {
       assert(!page.includes('Персональная ссылка найдена'), 'normal Push UI hides technical personal-link wording');
     }
     assert(normalPush.text.includes('Подключённые чаты'), '/push shows connected chats section');
-    assert(normalPush.text.includes('Откройте ссылку из MAX или нажмите кнопку подключения в чате.'), '/push shows clean empty state');
-    assert(normalPush.text.includes('/public/adminkit-push-icon-192.png?v=pr167'), '/push references AdminKIT Push app icon');
-    assert(normalPush.text.includes('rel="apple-touch-icon"') && normalPush.text.includes('adminkit-push-icon-192.png?v=pr167'), 'iOS apple touch icon uses AdminKIT Push icon');
+    assert(normalPush.text.includes('Пока нет подключённых чатов.'), '/push shows clean empty state');
+    assert(normalPush.text.includes('/public/adminkit-push-icon-192.png?v=pr167'), '/push references АдминКИТ PUSH app icon');
+    assert(normalPush.text.includes('rel="apple-touch-icon"') && normalPush.text.includes('adminkit-push-icon-192.png?v=pr167'), 'iOS apple touch icon uses АдминКИТ PUSH icon');
 
     const manifest = (await request(server, '/push/manifest.json')).json();
     assert(manifest.icons.some((icon) => icon.src === '/public/adminkit-push-icon-192.png?v=pr167' && /maskable/.test(icon.purpose || '')), 'manifest contains cache-busted maskable 192 icon');

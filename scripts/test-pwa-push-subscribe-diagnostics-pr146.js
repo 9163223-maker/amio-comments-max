@@ -44,13 +44,13 @@ assert(missingTokenIndex !== -1 && protectedSubscribeIndex !== -1 && missingToke
 assert(pushClient.includes('flags.subscribeRequiresToken && !token'), 'missing token check is gated by subscribeRequiresToken');
 assert(pushClient.includes('state.join.joinMode') && pushClient.includes("fetchJson('/api/push/pair'"), 'join mode still uses the pairing endpoint instead of manual subscribe token');
 
-const iosWarning = 'На iOS уведомления работают только из приложения, добавленного на экран Домой. Откройте АдминКИТ Push с иконки.';
+const iosWarning = 'На iOS уведомления работают только из приложения, добавленного на экран Домой. Откройте АдминКИТ PUSH с иконки.';
 assert(combined.includes(iosWarning), 'iOS standalone warning text exists');
 assert(pushClient.includes('window.navigator.standalone === true'), 'standalone detection checks navigator.standalone');
 assert(pushClient.includes("matchMedia('(display-mode: standalone)')"), 'standalone detection checks display-mode standalone');
 
 assert(pushClient.includes('Notification.permission') && pushClient.includes('Notification.requestPermission()'), 'permission flow logs current permission and requests permission');
-assert(pushClient.includes('Разрешение не выдано. Проверьте настройки iOS для АдминКИТ Push.'), 'denied/default permission shows clear iOS settings message');
+assert(pushClient.includes('Разрешение не выдано. Проверьте настройки iOS для АдминКИТ PUSH.'), 'denied/default permission shows clear iOS settings message');
 assert(pushClient.includes('browser subscription created'), 'successful subscribe displays browser subscription creation');
 assert(pushClient.includes('service_worker_push_manager_missing'), 'subscribe verifies registration.pushManager before subscribing');
 assert(pushClient.includes('public_key_missing'), 'subscribe verifies public key before subscribing');
