@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF",
+  "version": "CC8.3.55-PR189-PUSH-FRESH-PWA-PENDING",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
@@ -18,12 +18,13 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF",
-  "displayVersion": "CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF",
-  "sourceMarker": "adminkit-pr188-push-multi-chat-handoff",
+  "buildVersion": "CC8.3.55-PR189-PUSH-FRESH-PWA-PENDING",
+  "displayVersion": "CC8.3.55-PR189-PUSH-FRESH-PWA-PENDING",
+  "sourceMarker": "adminkit-pr189-push-fresh-pwa-pending",
   "gitCommit": "",
   "pr165RuntimeWired": true,
   "pr178PushPairingBinding": true,
   "pr187PushProductPerfect": true,
-  "pr188PushMultiChatHandoff": true
+  "pr188PushMultiChatHandoff": true,
+  "pr189PushFreshPwaPending": true
 }
