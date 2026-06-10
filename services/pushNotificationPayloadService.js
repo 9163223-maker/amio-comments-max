@@ -4,6 +4,7 @@ const DEFAULT_ICON = '/public/adminkit-push-icon-192.png';
 const DEFAULT_BADGE = '/public/favicon-32.png';
 const DEFAULT_URL = '/push';
 const SERVICE_NAME = 'АдминКИТ PUSH';
+const MAX_GROUP_NOTIFICATION_TITLE = 'MAX уведомления';
 const MAX_PREVIEW_LENGTH = 120;
 
 function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
@@ -98,7 +99,7 @@ function buildGroupMessagePayload(input = {}) {
   const title = selectChatTitle(input);
   const body = groupMessageBody(input);
   return basePayload({
-    title: SERVICE_NAME,
+    title: MAX_GROUP_NOTIFICATION_TITLE,
     body: `${title.title}\n${body.body}`,
     timestamp,
     tag: `adminkit:chat:${safeTagPart(chatId)}:${safeTagPart(input.messageId || timestamp)}`,
@@ -141,4 +142,4 @@ function buildPushNotificationPayload(input = {}) {
   if (source === 'max_channel') return buildChannelPostPayload(input);
   return buildAdminPayload(input);
 }
-module.exports = { SERVICE_NAME, DEFAULT_ICON, DEFAULT_BADGE, buildPushNotificationPayload, buildGroupMessagePayload, buildChannelPostPayload, buildAdminPayload, previewText, attachmentLabel, attachmentKind, stripMarkup, selectChatTitle, groupMessageBody };
+module.exports = { SERVICE_NAME, MAX_GROUP_NOTIFICATION_TITLE, DEFAULT_ICON, DEFAULT_BADGE, buildPushNotificationPayload, buildGroupMessagePayload, buildChannelPostPayload, buildAdminPayload, previewText, attachmentLabel, attachmentKind, stripMarkup, selectChatTitle, groupMessageBody };
