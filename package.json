@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.55-PR189-PUSH-FRESH-PWA-PENDING",
+  "version": "CC8.3.56-PR190-PUSH-POLISH-AUTOREFRESH",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
@@ -18,13 +18,14 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.55-PR189-PUSH-FRESH-PWA-PENDING",
-  "displayVersion": "CC8.3.55-PR189-PUSH-FRESH-PWA-PENDING",
-  "sourceMarker": "adminkit-pr189-push-fresh-pwa-pending",
+  "buildVersion": "CC8.3.56-PR190-PUSH-POLISH-AUTOREFRESH",
+  "displayVersion": "CC8.3.56-PR190-PUSH-POLISH-AUTOREFRESH",
+  "sourceMarker": "adminkit-pr190-push-polish-autorefresh",
   "gitCommit": "",
   "pr165RuntimeWired": true,
   "pr178PushPairingBinding": true,
   "pr187PushProductPerfect": true,
   "pr188PushMultiChatHandoff": true,
-  "pr189PushFreshPwaPending": true
+  "pr189PushFreshPwaPending": true,
+  "pr190PushPolishAutorefresh": true
 }
