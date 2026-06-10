@@ -6,6 +6,10 @@ const path = require('path');
 const canonical = require('../features/menu-v3/canonical-menu');
 const adapter = require('../features/menu-v3/adapter');
 
+const ADMIN_USER_ID = 'pr175-activated-admin';
+const previousAdminIds = process.env.ADMINKIT_ADMIN_MAX_USER_IDS;
+process.env.ADMINKIT_ADMIN_MAX_USER_IDS = [previousAdminIds, ADMIN_USER_ID].filter(Boolean).join(',');
+
 const ROOT = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 const rows = (screen) => screen?.attachments?.[0]?.payload?.buttons || [];
@@ -42,7 +46,7 @@ assert.deepStrictEqual(labels(adapter.render('main:home')), expectedTop, 'render
 assert.ok(expectedTop.includes('🔔 Push-уведомления'), 'Push remains a top-level product section');
 
 for (const section of canonical.clientSections) {
-  const screen = adapter.render(section.route);
+  const screen = adapter.render(section.route, section.id === 'account' ? { maxUserId: ADMIN_USER_ID } : {});
   const actualBusinessLabels = section.id === 'channels' ? businessLabels(screen).filter((label) => label !== 'Помощь') : businessLabels(screen);
   assert.deepStrictEqual(actualBusinessLabels, expectedItems[section.id], `${section.id}: exact visible business items`);
   for (const item of buttons(screen).filter((button) => actualBusinessLabels.includes(String(button.text || '').trim()))) {
@@ -51,6 +55,10 @@ for (const section of canonical.clientSections) {
     assert.ok(parsed.action || parsed.route, `${section.id}/${item.text}: reachable action or route`);
   }
 }
+
+const ordinaryAccount = adapter.render('account:home', { maxUserId: 'pr175-ordinary-customer' });
+assert.deepStrictEqual(businessLabels(ordinaryAccount), ['🔔 Мои уведомления', '➕ Подключить чат', 'Помощь', 'Что умеет АдминКИТ для MAX'], 'ordinary account route uses the PR186 customer funnel without admin/payment leakage');
+assert(!labels(ordinaryAccount).some((label) => ['Активировать код', 'Оплата / продление', 'Мой доступ', 'Мои каналы'].includes(label)), 'ordinary account route does not expose admin access controls');
 
 const giftRoot = businessLabels(adapter.render('gifts:home'));
 for (const material of ['Текст', 'Промокод', 'Файл', 'Фото', 'Изображение', 'Ссылка']) {
@@ -101,5 +109,8 @@ assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR177-CHANNELS-PUSH-UX');
 assert.strictEqual(pkg.sourceMarker, 'adminkit-pr177-channels-push-ux');
 assert.ok(entrypoint.includes("const RUNTIME='CC8.3.52-PR177-CHANNELS-PUSH-UX'"));
 assert.ok(entrypoint.includes("const SOURCE='adminkit-pr177-channels-push-ux'"));
+
+if (previousAdminIds === undefined) delete process.env.ADMINKIT_ADMIN_MAX_USER_IDS;
+else process.env.ADMINKIT_ADMIN_MAX_USER_IDS = previousAdminIds;
 
 console.log('PR175 canonical menu matrix assertions passed');

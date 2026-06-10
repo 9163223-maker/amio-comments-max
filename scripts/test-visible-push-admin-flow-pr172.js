@@ -91,8 +91,8 @@ function apiFor({ role = 'administrator', requesterId = 'user-pr172', members = 
   assert(botSource.includes('sentPrivate') && botSource.includes('commandDeleteAttempted'), 'private onboarding safeguards remain wired');
 
   assert(linkChatSource.includes("app.post('/api/push/link-chat'"), 'PR168 /api/push/link-chat remains unchanged and present');
-  assert(publicEntrySource.includes('🔔 Уведомления чатов'), 'PR170 public B2C entrypoint remains visible');
-  assert(publicEntrySource.includes('Чтобы подключить уведомления:') && publicEntrySource.includes('Откройте MAX-чат, где установлен бот.'), 'public chat-specific connection copy remains client-safe');
+  assert(publicEntrySource.includes('🔔 Мои уведомления'), 'PR186 public B2C entrypoint remains visible');
+  assert(publicEntrySource.includes('➕ Подключить чат') && publicEntrySource.includes('1. Откройте MAX-чат, где установлен бот.') && publicEntrySource.includes('2. Отправьте /push.'), 'separate public chat connection screen remains concise and client-safe');
   assert.strictEqual(pkg.buildVersion, 'CC8.3.52-PR177-CHANNELS-PUSH-UX', 'runtime marker advances to PR173');
   assert.strictEqual(pkg.sourceMarker, 'adminkit-pr177-channels-push-ux', 'source marker advances to PR173');
   assert(entrypoint.includes("const RUNTIME='CC8.3.52-PR177-CHANNELS-PUSH-UX'"), 'active entrypoint has PR173 runtime marker');
