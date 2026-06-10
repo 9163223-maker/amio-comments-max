@@ -18,13 +18,13 @@ function channelTitle(channel = {}) { return clean(channel.title || channel.chan
 
 function activationScreen() {
   return {
-    id: 'pr185_client_start',
-    text: ['АдминКИТ', '', 'Здесь можно подключить уведомления для MAX-чатов, где установлен бот.'].join('\n'),
+    id: 'pr186_customer_start',
+    text: ['АдминКИТ', '', 'Здесь можно подключить уведомления для MAX-чатов и узнать, что умеет АдминКИТ для MAX.'].join('\n'),
     attachments: keyboard([
-      [button('🔔 Уведомления чатов', 'account_push_notifications')],
-      [button('Как подключить', 'account_push_notifications_help')],
-      [button('Поддержка', 'account_support')],
-      [button('Я администратор', 'account_activate_code')]
+      [button('🔔 Мои уведомления', 'account_push_notifications')],
+      [button('➕ Подключить чат', 'account_push_notifications_help')],
+      [button('Помощь', 'account_support')],
+      [button('Что умеет АдминКИТ для MAX', 'account_capabilities')]
     ])
   };
 }
@@ -45,7 +45,6 @@ function expiredScreen(maxUserId = '') {
 function accessGateScreen(maxUserId = '') {
   const state = access.getAccessState(maxUserId);
   if (state.admin || state.active) return menu.mainScreen();
-  if (state.status === 'expired') return expiredScreen(maxUserId);
   return activationScreen();
 }
 
@@ -81,11 +80,11 @@ function activationPrompt(maxUserId = '') {
   access.setPendingActivation(maxUserId, true);
   return {
     id: 'account_activate_code',
-    text: ['🔐 Активировать код', '', 'Отправьте код доступа одним сообщением.', 'Если кода нет — нажмите «Поддержка».'].join('\n'),
+    text: ['Ввести код активации', '', 'Пришлите код доступа.'].join('\n'),
     attachments: keyboard([
-      [button('🔔 Уведомления чатов', 'account_push_notifications')],
       [button('Попробовать снова', 'account_activate_code')],
-      [button('Поддержка', 'account_support')]
+      [button('Помощь', 'account_support')],
+      [button('Главное меню', 'customer_main')]
     ])
   };
 }
@@ -103,10 +102,11 @@ function activationResultScreen(result = {}, maxUserId = '') {
   }
   return {
     id: 'account_activation_error',
-    text: ['⚠️ Код не активирован', '', result.message || 'Проверьте код и попробуйте снова.'].join('\n'),
+    text: ['Код не найден. Проверьте код или напишите в помощь.'].join('\n'),
     attachments: keyboard([
       [button('Попробовать снова', 'account_activate_code')],
-      [button('Поддержка', 'account_support')]
+      [button('Помощь', 'account_support')],
+      [button('Главное меню', 'customer_main')]
     ])
   };
 }
@@ -124,7 +124,7 @@ function paymentScreen(maxUserId = '') {
       'Варианты тарифов:',
       ...tariffs.listTariffs().filter((plan) => plan.id !== 'trial').map((plan) => `• ${plan.name}: до ${plan.maxChannels} канал(ов)`),
       '',
-      'В PR106 оплата подключается через поддержку. Здесь нет fake payment success и не запускается неработающий эквайринг.'
+      'Для оплаты или продления напишите в помощь.'
     ].join('\n'),
     attachments: keyboard([
       [button('Связаться с поддержкой для оплаты', 'account_support')],
@@ -183,13 +183,15 @@ function channelsScreen(maxUserId = '') {
 
 function supportScreen() {
   const contact = clean(process.env.ADMINKIT_SUPPORT_CONTACT || process.env.SUPPORT_CONTACT || '');
-  const line = contact ? `Напишите в поддержку: ${contact}` : 'Напишите менеджеру, у которого получили код доступа.';
+  const line = contact ? `Напишите нам: ${contact}` : 'Напишите нам, и мы поможем с подключением уведомлений.';
   return {
     id: 'account_support',
-    text: ['🧑‍💻 Поддержка', '', line, 'Сообщите, что вам нужен доступ, продление или помощь с подключением канала.'].join('\n'),
+    text: ['Помощь', '', 'Если не получается подключить уведомления или чат не появляется в списке, напишите нам.', '', line].join('\n'),
     attachments: keyboard([
-      [button('Активировать код', 'account_activate_code')],
-      [button('Оплата / продление', 'account_payment')]
+      [button('Задать вопрос', 'account_ask_question')],
+      [button('Мои уведомления', 'account_push_notifications')],
+      [button('Подключить чат', 'account_push_notifications_help')],
+      [button('Главное меню', 'customer_main')]
     ])
   };
 }
@@ -197,72 +199,67 @@ function supportScreen() {
 function capabilitiesScreen() {
   return {
     id: 'account_capabilities',
-    text: ['АдминКИТ умеет:', '', '• подключать каналы;', '• управлять комментариями;', '• добавлять кнопки под постами;', '• смотреть статистику;', '• работать с подарками, опросами и рекламными ссылками на подходящих тарифах.'].join('\n'),
+    text: [
+      'Что умеет АдминКИТ для MAX', '',
+      'АдминКИТ помогает вести MAX-каналы и чаты без лишней ручной работы.', '',
+      'Что можно делать:', '',
+      '💬 Комментарии', 'Подключать обсуждения к постам, включать реакции и ответы.', '',
+      '🎁 Подарки и лид-магниты', 'Выдавать файл, картинку, промокод, ссылку или текст после действия пользователя.', '',
+      '🔘 Кнопки под постами', 'Добавлять кнопки, ссылки и переходы к нужным материалам.', '',
+      '📊 Статистика', 'Смотреть активность, клики, реакции и вовлечённость.', '',
+      '🔔 Уведомления', 'Подключать push-уведомления для участников MAX-чатов.', '',
+      '🛡 Модерация', 'Управлять комментариями и снижать ручную нагрузку.', '',
+      'АдминКИТ подходит авторам, экспертам, сообществам и бизнесу, которые ведут MAX и хотят больше контроля над каналом.'
+    ].join('\n'),
     attachments: keyboard([
-      [button('Активировать код', 'account_activate_code')],
-      [button('Поддержка', 'account_support')]
+      [button('Задать вопрос', 'account_ask_question')],
+      [button('Получить доступ', 'account_get_access')],
+      [button('Ввести код активации', 'account_activate_code')],
+      [button('Мои уведомления', 'account_push_notifications')],
+      [button('Главное меню', 'customer_main')]
     ])
   };
 }
 
-
-
 function pushNotificationsScreen(maxUserId = '', options = {}) {
-  const state = access.getAccessState(maxUserId);
-  const chats = (Array.isArray(options.chats) ? options.chats : [])
-    .map((item) => clean(item && (item.chatTitle || item.title)))
-    .filter(Boolean)
-    .filter((title, index, items) => items.indexOf(title) === index)
-    .slice(0, 12);
-  const pendingTitle = clean(options.pendingChatTitle).slice(0, 120);
-  const pendingUrl = clean(options.pendingUrl);
-  if (pendingTitle && pendingUrl) {
-    return {
-      id: 'account_push_notifications_pending',
-      text: ['🔔 Уведомления чатов', '', `Чат найден: ${pendingTitle}. Откройте АдминКИТ PUSH и подключите уведомления.`].join('\n'),
-      attachments: keyboard([[link('Открыть подключение', pendingUrl)], [button('Поддержка', 'account_support')]])
-    };
+  const chatMap = new Map();
+  for (const item of (Array.isArray(options.chats) ? options.chats : [])) {
+    const title = clean(item && (item.chatTitle || item.title));
+    if (!title) continue;
+    const key = title.toLocaleLowerCase();
+    const next = { title, enabled: item && item.enabledOnThisDevice === true, reconnect: item && item.needsReconnect === true };
+    const current = chatMap.get(key);
+    if (!current || next.enabled) chatMap.set(key, next);
   }
-  const text = chats.length
-    ? ['🔔 Уведомления чатов', '', 'У вас уже подключены уведомления для чатов:', '', ...chats.map((title) => `• ${title}`)].join('\n')
-    : [
-      '🔔 Уведомления чатов',
-      '',
-      'Чтобы подключить уведомления:',
-      '',
-      '1. Откройте MAX-чат, где установлен бот.',
-      '2. Нажмите кнопку «Подключить уведомления» или отправьте /push.',
-      '3. Откройте ссылку на iPhone/iPad и включите уведомления.'
-    ].join('\n');
+  const chats = [...chatMap.values()].slice(0, 12);
+  const enabled = chats.filter((item) => item.enabled);
+  const reconnect = chats.filter((item) => !item.enabled && item.reconnect);
+  let text;
+  if (enabled.length || reconnect.length) {
+    text = ['🔔 Мои уведомления', '', ...(enabled.length ? ['На этом устройстве:', ...enabled.map((item) => `• ${item.title} — включены`), ''] : []), ...(reconnect.length ? ['Нужно подключить:', ...reconnect.map((item) => `• ${item.title} — подключить`)] : [])].join('\n').trim();
+  } else {
+    text = ['🔔 Мои уведомления', '', 'У вас пока нет подключённых чатов.', 'Чтобы получать уведомления, подключите нужный MAX-чат.'].join('\n');
+  }
   return {
     id: 'account_push_notifications',
     text,
-    attachments: keyboard(chats.length ? [
+    attachments: keyboard([
+      [button(chats.length ? '➕ Подключить ещё чат' : '➕ Подключить чат', 'account_push_notifications_help')],
       [link('Открыть АдминКИТ PUSH', publicPushUrl())],
-      [button('Как добавить ещё чат', 'account_push_notifications_help')],
-      [button(state.active || state.admin ? 'Главное меню' : 'Поддержка', state.active || state.admin ? 'admin_section_main' : 'account_support')]
-    ] : [
-      [button('Как подключить чат', 'account_push_notifications_help')],
-      [link('Открыть АдминКИТ PUSH', publicPushUrl())],
-      [button('Поддержка', 'account_support')]
+      [button('Помощь', 'account_support')],
+      [button('Главное меню', 'customer_main')]
     ])
   };
 }
-function pushNotificationsHelpScreen(maxUserId = '') {
+function pushNotificationsHelpScreen() {
   return {
     id: 'account_push_notifications_help',
-    text: [
-      '🔔 Как подключить чат',
-      '',
-      '1. Откройте MAX-чат, где установлен бот.',
-      '2. Нажмите «Подключить уведомления» или отправьте /push.',
-      '3. Откройте ссылку на iPhone/iPad.',
-      '4. Добавьте АдминКИТ PUSH на экран Домой и включите уведомления.'
-    ].join('\n'),
+    text: ['➕ Подключить чат', '', '1. Откройте MAX-чат, где установлен бот.', '2. Отправьте /push.', '3. Откройте ссылку и включите уведомления в АдминКИТ PUSH.'].join('\n'),
     attachments: keyboard([
       [link('Открыть АдминКИТ PUSH', publicPushUrl())],
-      [button('Уведомления чатов', 'account_push_notifications')],
-      [button('Поддержка', 'account_support')]
+      [button('Мои уведомления', 'account_push_notifications')],
+      [button('Помощь', 'account_support')],
+      [button('Главное меню', 'customer_main')]
     ])
   };
 }
@@ -319,16 +316,18 @@ function accountKeyboard(current = '', state = {}) {
 
 function screenForAction(action = '', maxUserId = '') {
   const a = clean(action);
-  if (a === 'admin_section_tariffs' || a === 'account_home') return accountHome(maxUserId);
-  if (a === 'account_my_access' || a === 'billing_current_plan') return myAccessScreen(maxUserId);
+  if (a === 'customer_main') return activationScreen();
+  if (a === 'admin_section_tariffs' || a === 'account_home') return access.getAccessState(maxUserId).active || access.getAccessState(maxUserId).admin ? accountHome(maxUserId) : activationScreen();
+  if (a === 'account_my_access' || a === 'billing_current_plan') return access.getAccessState(maxUserId).active || access.getAccessState(maxUserId).admin ? myAccessScreen(maxUserId) : activationScreen();
   if (a === 'account_push_notifications') return pushNotificationsScreen(maxUserId);
   if (a === 'account_push_notifications_help') return pushNotificationsHelpScreen(maxUserId);
   if (a === 'account_activate_code') return activationPrompt(maxUserId);
-  if (a === 'account_payment' || a === 'billing_upgrade') return paymentScreen(maxUserId);
-  if (a === 'account_limits' || a === 'billing_limits') return limitsScreen(maxUserId);
-  if (a === 'account_channels') return channelsScreen(maxUserId);
+  if (a === 'account_payment' || a === 'billing_upgrade') return access.getAccessState(maxUserId).active || access.getAccessState(maxUserId).admin ? paymentScreen(maxUserId) : supportScreen(maxUserId);
+  if (a === 'account_limits' || a === 'billing_limits') return access.getAccessState(maxUserId).active || access.getAccessState(maxUserId).admin ? limitsScreen(maxUserId) : capabilitiesScreen(maxUserId);
+  if (a === 'account_channels') return access.getAccessState(maxUserId).active || access.getAccessState(maxUserId).admin ? channelsScreen(maxUserId) : activationScreen();
   if (a === 'account_support' || a === 'billing_referral') return supportScreen(maxUserId);
   if (a === 'account_capabilities') return capabilitiesScreen(maxUserId);
+  if (a === 'account_ask_question' || a === 'account_get_access') return supportScreen(maxUserId);
   return null;
 }
 

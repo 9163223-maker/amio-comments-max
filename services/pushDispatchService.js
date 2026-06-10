@@ -2,6 +2,7 @@
 
 const storage = require('./webPushStorage');
 const payloadService = require('./pushNotificationPayloadService');
+const dispatchLog = require('./pushDispatchLogService');
 
 function clean(value) { return String(value || '').trim(); }
 
@@ -112,7 +113,30 @@ async function sendPushToChat({ chatId, payload, webPushClient } = {}) {
   const enrichedPayload = clean(source.source) === 'max_group'
     ? { ...source, resolvedChatTitle: await resolvedBindingTitle(chat, devices) }
     : source;
-  return sendToDevices({ devices, payload: enrichedPayload, webPushClient, forbidden: [clean(source.token)] });
+  const normalizedPayload = normalizeDispatchPayload(enrichedPayload);
+  const logContext = {
+    chatId: chat,
+    chatTitle: clean(enrichedPayload.resolvedChatTitle || enrichedPayload.chatTitle),
+    senderName: clean(enrichedPayload.senderName),
+    messageText: clean(enrichedPayload.messageText),
+    messageType: Array.isArray(enrichedPayload.attachments) && enrichedPayload.attachments.length ? 'other' : 'text',
+    selectedEndpointsCount: devices.length,
+    activeBindingsCount: devices.length,
+    notificationTitlePreview: normalizedPayload.title,
+    notificationBodyPreview: normalizedPayload.body,
+    route: clean(source.source) === 'max_group' ? 'group_message' : 'direct_test'
+  };
+  await dispatchLog.record({ event: devices.length ? 'dispatch_started' : 'dispatch_skipped', ...logContext, skippedReason: devices.length ? '' : 'no_bound_devices' });
+  const result = await sendToDevices({ devices, payload: enrichedPayload, webPushClient, forbidden: [clean(source.token)] });
+  await dispatchLog.record({
+    event: devices.length ? 'dispatch_completed' : 'dispatch_skipped',
+    ...logContext,
+    successCount: result.success,
+    failureCount: result.failed,
+    removedExpiredCount: Array.isArray(result.results) ? result.results.filter((item) => item.disabled && [404, 410].includes(item.statusCode)).length : 0,
+    skippedReason: devices.length ? '' : 'no_bound_devices'
+  });
+  return { ...result, removedExpiredCount: Array.isArray(result.results) ? result.results.filter((item) => item.disabled && [404, 410].includes(item.statusCode)).length : 0 };
 }
 
 async function sendPushToChatMembers({ chatId, userIds, payloadBuilder, webPushClient } = {}) {

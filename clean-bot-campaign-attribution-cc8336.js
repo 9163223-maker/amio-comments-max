@@ -153,7 +153,7 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
       await sendOrEditScreen({ update, callback, message, config, screen, edit: false });
       return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'start_menu_access_gate', screenId: screen.id });
     }
-    if (text && !isSlashCommand(text) && access.hasPendingActivation(uid)) {
+    if (text && !isSlashCommand(text) && isPrivateUserChat(message) && access.hasPendingActivation(uid)) {
       const result = access.activateCode({ maxUserId: uid, code: text });
       access.clearPendingActivation(uid);
       const screen = accountScreens.activationResultScreen(result, uid);

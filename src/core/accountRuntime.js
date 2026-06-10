@@ -21,7 +21,10 @@ const ACCOUNT_ACTIONS = new Set([
   'account_limits',
   'account_channels',
   'account_support',
-  'account_capabilities'
+  'account_capabilities',
+  'customer_main',
+  'account_ask_question',
+  'account_get_access'
 ]);
 
 function clean(value) {

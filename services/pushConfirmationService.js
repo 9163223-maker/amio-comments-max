@@ -12,10 +12,22 @@ function shortId(value) { return clean(value).slice(0, 16); }
 function safeChatItem(value) {
   const source = value && typeof value === 'object' ? value : {};
   const title = clean(source.chatTitle || source.title).slice(0, 120);
-  const chatId = clean(source.chatId).replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
-  const channelId = clean(source.channelId).replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80);
-  if (!title && !chatId && !channelId) return null;
-  return { chatId, channelId, title: title || 'Чат MAX', status: 'Уведомления включены' };
+  const chatRef = clean(source.chatRef || source.chatId || source.channelId).replace(/[^A-Za-z0-9_-]/g, '').slice(-4);
+  if (!title && !chatRef) return null;
+  const enabledOnThisDevice = source.enabledOnThisDevice === true;
+  const knownForUser = source.knownForUser !== false;
+  const needsReconnect = knownForUser && !enabledOnThisDevice;
+  return {
+    chatId: clean(source.chatId).replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80),
+    channelId: clean(source.channelId).replace(/[^A-Za-z0-9_.:@-]/g, '').slice(0, 80),
+    title: title || 'Чат MAX',
+    chatRef,
+    enabledOnThisDevice,
+    knownForUser,
+    needsReconnect,
+    status: enabledOnThisDevice ? 'enabled' : 'needs_reconnect',
+    lastConnectedAt: clean(source.lastConnectedAt).slice(0, 40)
+  };
 }
 function safeChats(value) {
   return Array.isArray(value) ? value.map(safeChatItem).filter(Boolean).slice(0, 20) : [];

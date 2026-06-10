@@ -10,3 +10,6 @@ data/comment-files/
 public/comment-uploads/
 *.runtime-backup-*
 *.tmp-*
+
+# Runtime push delivery diagnostics
+runtime/push-dispatch-log.json
