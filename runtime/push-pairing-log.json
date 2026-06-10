@@ -1,10 +1,10 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-10T11:51:56.352Z",
+  "updatedAt": "2026-06-10T11:51:57.638Z",
   "limit": 100,
   "latest": {
     "timestamp": "2026-06-10T11:51:55.753Z",
-    "event": "pair_success",
+    "event": "binding_created",
     "flowId": "7f42f30292eeb5281627",
     "handoffIdHash": "c2a42230ad090acfde4b",
     "maxUserIdHash": "1775fd6d0edf20cd46ff",
@@ -17,13 +17,34 @@
     "hasHandoffCookie": true,
     "openedAs": "unknown",
     "route": "/api/push/pair",
-    "result": "pair_success",
+    "result": "binding_created",
     "chatsCount": 1,
     "rawBindingsCount": 1,
     "uniqueChatsCount": 1,
     "missingTitleCount": 0
   },
   "items": [
+    {
+      "timestamp": "2026-06-10T11:51:55.753Z",
+      "event": "binding_created",
+      "flowId": "7f42f30292eeb5281627",
+      "handoffIdHash": "c2a42230ad090acfde4b",
+      "maxUserIdHash": "1775fd6d0edf20cd46ff",
+      "chatIdHash": "eeefd1e52698fddb3ec5",
+      "deviceIdHash": "f7ff4d80f2df792259db",
+      "hasPairingToken": true,
+      "hasHandoff": true,
+      "tokenSource": "cookie",
+      "hasPairingCookie": true,
+      "hasHandoffCookie": true,
+      "openedAs": "unknown",
+      "route": "/api/push/pair",
+      "result": "binding_created",
+      "chatsCount": 1,
+      "rawBindingsCount": 1,
+      "uniqueChatsCount": 1,
+      "missingTitleCount": 0
+    },
     {
       "timestamp": "2026-06-10T11:51:55.753Z",
       "event": "pair_success",
