@@ -68,7 +68,7 @@ const sections = [
     ],
   },
   {
-    id: 'push', title: '🔔 Push-уведомления', route: 'push:home', clientVisible: true, adminOnly: false,
+    id: 'push', title: '🔔 Уведомления', route: 'push:home', clientVisible: true, adminOnly: false,
     featureKey: 'channels', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
       action({ id: 'push.publish', title: 'Опубликовать приглашение', section: 'push', existingAction: 'admin_push_select_chat', featureKey: 'channels' }),

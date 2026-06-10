@@ -90,6 +90,11 @@ async function maxApi(path, { token, method = "GET", query = null, body, timeout
   return data;
 }
 
+
+async function getBotInfo({ botToken }) {
+  return maxApi("/me", { token: botToken, method: "GET" });
+}
+
 async function getSubscriptions({ botToken }) {
   return maxApi("/subscriptions", { token: botToken, method: "GET" });
 }
@@ -163,6 +168,10 @@ async function getChatMembers({ botToken, chatId, userIds, marker, count }) {
     method: "GET",
     query: { ...(Array.isArray(userIds) && userIds.length ? { user_ids: userIds } : {}), ...(marker ? { marker } : {}), ...(count ? { count } : {}) }
   });
+}
+
+async function getChats({ botToken, marker, count = 100 }) {
+  return maxApi("/chats", { token: botToken, method: "GET", query: { ...(marker ? { marker } : {}), count } });
 }
 
 async function getChat({ botToken, chatId, timeoutMs = CHAT_INFO_TIMEOUT_MS }) {
@@ -366,6 +375,7 @@ module.exports = {
   API_BASE_URL,
   WEBHOOK_UPDATE_TYPES,
   maxApi,
+  getBotInfo,
   getSubscriptions,
   registerWebhook,
   editMessage,
@@ -373,6 +383,7 @@ module.exports = {
   answerCallback,
   deleteMessage,
   getChatMembers,
+  getChats,
   getAllChatMembers,
   getChat,
   getBotChatMember,

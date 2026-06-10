@@ -53,8 +53,8 @@ function messageUpdate({ text = '/push', userId = 'message-user-pr157', chatId =
     const inviteText = groupPush.buildGroupInviteText('Все свои MAX');
     const inviteKeyboard = groupPush.buildGroupInviteKeyboard();
     const inviteButton = inviteKeyboard[0].payload.buttons[0][0];
-    assert(inviteText.includes('Нажмите кнопку — бот отправит персональную ссылку в личные сообщения.'), 'group invite text promotes private callback onboarding');
-    assert(inviteText.includes('/push'), 'group invite text keeps /push as fallback only');
+    assert(inviteText.includes('Нажмите кнопку ниже — бот отправит персональную ссылку в личные сообщения.'), 'group invite text promotes private callback onboarding');
+    assert(!inviteText.includes('/push/join?t='), 'group invite text never contains a personal join link');
     assert.strictEqual(inviteButton.type, 'callback', 'group invite button is type callback');
     assert.notStrictEqual(inviteButton.type, 'message', 'group invite button is not message');
     assert.strictEqual(inviteButton.text, '🔔 Подключить уведомления', 'group invite button text is exact');
@@ -85,7 +85,7 @@ function messageUpdate({ text = '/push', userId = 'message-user-pr157', chatId =
       const groupSend = maxCalls.find((call) => call.url.includes('/messages') && call.url.includes('chat_id=chat-pr157'));
       assert(groupSend, 'group invite endpoint sends to selected chat only');
       const publicPayload = JSON.stringify(groupSend.body);
-      assert(publicPayload.includes('/push'), 'published invite contains /push fallback wording only');
+      assert(!publicPayload.includes('/push'), 'published invite contains no command or personal link');
       assert(publicPayload.includes('"type":"callback"'), 'published invite uses callback button');
       assert(!publicPayload.includes('"type":"message"'), 'published invite does not use message button');
       assert(!publicPayload.includes('"payload":"/push"'), 'published invite button does not send /push');
@@ -178,7 +178,7 @@ function messageUpdate({ text = '/push', userId = 'message-user-pr157', chatId =
     await bot.handleWebhook({ get: () => '', body: messageUpdate({ text: '/push', userId: 'dm-fails-pr157', chatId: 'dm-fails-chat-pr157' }) }, res, { botToken: 'BOT_TOKEN_PR157', appBaseUrl: 'https://push.example.test' });
     assert.strictEqual(sentMessages.length, 2, 'DM failure attempts private DM then minimal safe group fallback');
     const dmFailGroup = sentMessages.find((msg) => msg.chatId === 'dm-fails-chat-pr157');
-    assert(dmFailGroup && dmFailGroup.text === 'Откройте бота в личке и нажмите «Подключить уведомления».', 'DM failure returns minimal safe group message');
+    assert(dmFailGroup && dmFailGroup.text === 'Откройте личный чат с ботом и нажмите Старт, затем повторите подключение.', 'DM failure returns minimal safe group message');
     assert(!dmFailGroup.text.includes('/push/join?t=') && !dmFailGroup.text.includes('clck.ru'), 'DM failure group reply has no personal link');
 
     sentMessages.length = 0; answers.length = 0; clckCalls = [];

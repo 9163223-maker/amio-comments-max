@@ -57,7 +57,7 @@ assert(!rawId.test(visible(channelCard)));
 const pushRoot = adapter.render('push:home');
 assert.deepStrictEqual(labels(pushRoot), ['Опубликовать приглашение', 'Как это работает', 'Главное меню']);
 assert(!visible(pushRoot).includes('Опубликовать приглашение в чат'));
-assert(pushRoot.text.includes('MAX-чат или канал'));
+assert(pushRoot.text.includes('MAX-чате или канале'));
 const pushHelp = adapter.render('push:help');
 assert(pushHelp.text.includes('Как это работает'));
 assert(pushHelp.text.includes('администратор или владелец выбранного чата/канала'));
@@ -68,7 +68,7 @@ for (const forbidden of ['Админ-панель', 'MAX API', 'endpoint', '/pus
 const bot = read('bot.js');
 assert(bot.includes('Выберите чат или канал, где нужно опубликовать кнопку подключения.'));
 assert(bot.includes("text: buildPushPublishResultText({ ok: Boolean(result?.ok)"), 'selection renders a final result');
-assert(bot.includes('Приглашение опубликовано.'));
+assert(bot.includes('Приглашение опубликовано в «'));
 assert(bot.includes("text: ok ? 'Опубликовать ещё' : 'Выбрать другой чат'"));
 assert(bot.includes("text: 'Главное меню'"));
 assert(bot.includes('Публиковать кнопку может только администратор или владелец выбранного чата/канала.'));
@@ -110,7 +110,7 @@ function api(role = 'owner') {
   assert(publishing.NON_ADMIN_MESSAGE.includes('администратор или владелец'));
   assert(publishing.VERIFICATION_FAILURE_MESSAGE.includes('бот добавлен туда администратором'));
 
-  assert(bot.includes('return performGroupPushOnboarding({ userId, chatId, chatTitle, config, callbackId });'));
+  assert(bot.includes('return performGroupPushOnboarding({ userId, chatId, chatTitle, message'));
   assert(onboarding.createPersonalJoinLinkForMessage, 'personal onboarding remains DM-only after callback');
   console.log('PR177 Channels and Push UX assertions passed');
 })().catch((error) => { console.error(error?.stack || error); process.exit(1); });

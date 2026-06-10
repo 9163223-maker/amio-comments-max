@@ -43,12 +43,18 @@ jobs:
           node --check services/accessGateService.js
           node --check services/groupPushAdminPublishingService.js
           node --check services/groupPushOnboardingService.js
+          node --check services/maxCommandRegistryService.js
+          node --check performance-debug-routes-pr73.js
+          node --check pr191-push-admin-invite-title-commands-bootstrap.js
           node --check services/pushPairingService.js
           node --check v3-menu-core-1539.js
           node --check web-push-routes.js
 
       - name: Run AdminKIT regression tests
         run: |
+          node scripts/test-push-join-chat-title-pr191.js
+          node scripts/test-push-admin-invite-publish-pr191.js
+          node scripts/test-max-command-sync-pr191.js
           if [ -f scripts/test-channels-push-ux-pr177.js ]; then
             node scripts/test-channels-push-ux-pr177.js
           else

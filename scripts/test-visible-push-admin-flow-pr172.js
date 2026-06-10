@@ -32,13 +32,13 @@ function apiFor({ role = 'administrator', requesterId = 'user-pr172', members = 
 }
 
 (async () => {
-  assert(canonicalMenu.clientSections.some((section) => section.title === '🔔 Push-уведомления' && section.route === 'push:home'), 'active canonical menu exposes visible Push section');
+  assert(canonicalMenu.clientSections.some((section) => section.title === '🔔 Уведомления' && section.route === 'push:home'), 'active canonical menu exposes visible Push section');
   const activePushScreen = menuAdapter.render('push:home');
   const activePushLabels = activePushScreen.attachments[0].payload.buttons.flat().map((button) => button.text);
   assert.deepStrictEqual(activePushLabels, ['Опубликовать приглашение', 'Как это работает', 'Главное меню'], 'active Push section has the required three buttons');
-  assert(activePushScreen.text.includes('Опубликуйте кнопку подключения в MAX-чат или канал, чтобы участники могли получать уведомления на iPhone через АдминКИТ PUSH.'), 'active canonical Push screen has required product copy');
-  assert(botSource.includes("text: '🔔 Push-уведомления'") && botSource.includes("buildAdminCallbackPayload('admin_section_push')"), 'legacy activated/admin main menu also exposes visible Push section');
-  assert(botSource.includes("'🔔 Push-уведомления'") && botSource.includes('Опубликуйте кнопку подключения в MAX-чат или канал, чтобы участники могли получать уведомления на iPhone через АдминКИТ PUSH.'), 'Push section has required title and product copy');
+  assert(activePushScreen.text.includes('Опубликуйте кнопку подключения в нужном MAX-чате или канале.'), 'active canonical Push screen has required product copy');
+  assert(botSource.includes("text: '🔔 Уведомления'") && botSource.includes("buildAdminCallbackPayload('admin_section_push')"), 'legacy activated/admin main menu also exposes visible Push section');
+  assert(botSource.includes("'🔔 Уведомления'") && botSource.includes('Опубликуйте кнопку подключения в нужном MAX-чате или канале.'), 'Push section has required title and product copy');
   for (const label of ['Опубликовать приглашение', 'Как это работает', 'Главное меню']) assert(botSource.includes(`text: '${label}'`), `Push section includes ${label}`);
   assert(botSource.includes("buildAdminCallbackPayload('admin_push_select_chat')"), 'publish action opens a chat/channel picker');
   assert(botSource.includes("buildAdminCallbackPayload('admin_push_publish_invite', {"), 'selected chat id is embedded in scoped publish callback');
@@ -87,16 +87,16 @@ function apiFor({ role = 'administrator', requesterId = 'user-pr172', members = 
 
   assert(onboarding.isGroupPushCommandText('/push'), 'ordinary members retain /push');
   assert(onboarding.isGroupPushEnablePayload('group_push_enable'), 'ordinary members retain group_push_enable callback');
-  assert(botSource.includes('return performGroupPushOnboarding({ userId, chatId, chatTitle, config, callbackId });'), 'group callback still enters private onboarding');
+  assert(botSource.includes('return performGroupPushOnboarding({ userId, chatId, chatTitle, message'), 'group callback still enters private onboarding');
   assert(botSource.includes('sentPrivate') && botSource.includes('commandDeleteAttempted'), 'private onboarding safeguards remain wired');
 
   assert(linkChatSource.includes("app.post('/api/push/link-chat'"), 'PR168 /api/push/link-chat remains unchanged and present');
   assert(publicEntrySource.includes('🔔 Мои уведомления'), 'PR186 public B2C entrypoint remains visible');
   assert(publicEntrySource.includes('➕ Подключить чат') && publicEntrySource.includes('1. Откройте MAX-чат, где установлен бот.') && publicEntrySource.includes('2. Отправьте /push.'), 'separate public chat connection screen remains concise and client-safe');
-  assert.strictEqual(pkg.buildVersion, 'CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF', 'runtime marker advances to PR173');
-  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr188-push-multi-chat-handoff', 'source marker advances to PR173');
-  assert(entrypoint.includes("const RUNTIME='CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF'"), 'active entrypoint has PR173 runtime marker');
-  assert(entrypoint.includes("const SOURCE='adminkit-pr188-push-multi-chat-handoff'"), 'active entrypoint has PR173 source marker');
+  assert.strictEqual(pkg.buildVersion, 'CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS', 'runtime marker advances to PR173');
+  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr191-push-admin-invite-title-commands', 'source marker advances to PR173');
+  assert(entrypoint.includes("const RUNTIME='CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS'"), 'active entrypoint has PR173 runtime marker');
+  assert(entrypoint.includes("const SOURCE='adminkit-pr191-push-admin-invite-title-commands'"), 'active entrypoint has PR173 source marker');
 
   console.log('visible push admin flow pr172 ok');
 })().catch((error) => { console.error(error && error.stack || error); process.exit(1); });

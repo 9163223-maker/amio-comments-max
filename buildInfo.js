@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const SERVER_STARTED_AT = new Date().toISOString();
-const CURRENT_RUNTIME = 'CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF';
+const CURRENT_RUNTIME = 'CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS';
 
 function clean(value) { return String(value || '').trim(); }
 function readJsonSafe(filePath) {
@@ -29,6 +29,7 @@ const envSourceMarker = clean(process.env.BUILD_SOURCE_MARKER);
 const envGitCommit = clean(process.env.GIT_COMMIT || process.env.COMMIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION);
 const pr178PushPairingBinding = packageJson.pr178PushPairingBinding === true;
 const pr188PushMultiChatHandoff = packageJson.pr188PushMultiChatHandoff === true;
+const pr191PushAdminInviteTitleCommands = packageJson.pr191PushAdminInviteTitleCommands === true;
 
 const runtimeVersion = firstFresh(packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.runtimeVersion, markerJson.displayVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
 const buildVersion = firstFresh(packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.buildVersion, markerJson.runtimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
@@ -57,8 +58,11 @@ const BUILD_INFO = Object.freeze({
   expectedRuntimeVersion: CURRENT_RUNTIME,
   pr178PushPairingBinding,
   pr188PushMultiChatHandoff,
+  pr191PushAdminInviteTitleCommands,
   pushPairingRuntimeVersion: pr178PushPairingBinding ? CURRENT_RUNTIME : '',
-  pushPairingSourceMarker: pr178PushPairingBinding ? 'adminkit-pr188-push-multi-chat-handoff' : '',
+  pushRuntimeSourceMarker: pr178PushPairingBinding ? sourceMarker : '',
+  pushPairingBaseSourceMarker: pr178PushPairingBinding ? 'adminkit-pr188-push-multi-chat-handoff' : '',
+  pushPairingSourceMarker: pr178PushPairingBinding ? sourceMarker : '',
   pr165RuntimeWired: Boolean(markerJson.pr165RuntimeWired || process.env.PR165_RUNTIME_WIRED === '1'),
   pr165LiveChatPushRuntime: clean(markerJson.pr165LiveChatPushRuntime || '')
 });
