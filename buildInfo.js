@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const SERVER_STARTED_AT = new Date().toISOString();
-const CURRENT_RUNTIME = 'CC8.3.52-PR178-PUSH-PAIRING-BINDING';
+const CURRENT_RUNTIME = 'CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF';
 
 function clean(value) { return String(value || '').trim(); }
 function readJsonSafe(filePath) {
@@ -28,6 +28,7 @@ const envRuntimeVersion = clean(process.env.RUNTIME_VERSION);
 const envSourceMarker = clean(process.env.BUILD_SOURCE_MARKER);
 const envGitCommit = clean(process.env.GIT_COMMIT || process.env.COMMIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION);
 const pr178PushPairingBinding = packageJson.pr178PushPairingBinding === true;
+const pr188PushMultiChatHandoff = packageJson.pr188PushMultiChatHandoff === true;
 
 const runtimeVersion = firstFresh(packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.runtimeVersion, markerJson.displayVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
 const buildVersion = firstFresh(packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.buildVersion, markerJson.runtimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
@@ -55,8 +56,9 @@ const BUILD_INFO = Object.freeze({
   activeEntrypoint: clean(process.argv?.[1] ? path.basename(process.argv[1]) : process.env.npm_package_main || packageJson.main || 'index.js'),
   expectedRuntimeVersion: CURRENT_RUNTIME,
   pr178PushPairingBinding,
+  pr188PushMultiChatHandoff,
   pushPairingRuntimeVersion: pr178PushPairingBinding ? CURRENT_RUNTIME : '',
-  pushPairingSourceMarker: pr178PushPairingBinding ? 'adminkit-pr187-push-product-perfect' : '',
+  pushPairingSourceMarker: pr178PushPairingBinding ? 'adminkit-pr188-push-multi-chat-handoff' : '',
   pr165RuntimeWired: Boolean(markerJson.pr165RuntimeWired || process.env.PR165_RUNTIME_WIRED === '1'),
   pr165LiveChatPushRuntime: clean(markerJson.pr165LiveChatPushRuntime || '')
 });

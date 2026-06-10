@@ -47,10 +47,10 @@ function body(token, suffix) { return { method: 'POST', headers: { 'content-type
     assert(pushClient.includes('storePendingHandoffId(pageHandoff)') && pushClient.includes('readPendingHandoffId()'), '/push can recover pending handoff after standalone launch');
     assert(pushClient.includes('const pageHandoff = safeHandoffId(state.join && state.join.handoffId);'), 'page handoff wins over stored handoff');
     assert(pushClient.includes('clearJoinState();') && pushClient.includes('clearPendingHandoffId();'), 'successful pairing clears pending handoff');
-    assert(pushClient.includes('JOIN_TOKEN_FOUND_MESSAGE') && pushClient.includes('Персональная ссылка найдена. Теперь нажмите «Включить уведомления».'), 'token-found UX is present');
-    assert(pushClient.includes('Откройте персональную ссылку подключения из MAX.'), 'missing token UX remains safe');
-    assert(pushClient.includes('Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.'), 'expired token UX is safe');
-    assert(pushClient.includes('Готово — чат добавлен.'), 'success UX is clear');
+    assert(pushClient.includes("const JOIN_TOKEN_FOUND_MESSAGE = 'Нажмите кнопку, чтобы получать уведомления этого чата.'"), 'token-found UX is present');
+    assert(pushClient.includes("const JOIN_TOKEN_MISSING_MESSAGE = 'Откройте ссылку из MAX-чата, чтобы подключить уведомления.'"), 'missing token UX remains safe');
+    assert(pushClient.includes('Ссылка истекла. Откройте новую ссылку из MAX'), 'expired token UX is safe');
+    assert(pushClient.includes('Готово. Уведомления включены для чата'), 'success UX is clear');
     assert(pushClient.includes('handoffId: pendingHandoff'), 'recovered opaque handoff is sent explicitly to /api/push/pair');
     assert(pushRoutes.includes('pushManifestHref(options.token)') && pushRoutes.includes('start_url: startUrl') && pushRoutes.includes("const startUrl = token ? `/push/join/${encodeURIComponent(token)}?source=manifest-start-url` : '/push';"), 'dynamic join manifest/start_url preserves token while normal manifest stays /push');
     assert(edgeDiagnostics.includes("/push/join?t=[redacted]") && inboundDiagnostics.includes("/push/join?t=[redacted]"), 'public diagnostics redact personal join URLs');

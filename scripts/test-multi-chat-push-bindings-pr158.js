@@ -86,7 +86,7 @@ async function request(server, target, options = {}) { const res = await origina
     res = responseStub(); sentMessages.length = 0;
     await bot.handleWebhook({ get: () => '', body: messageUpdate({ userId: 'multi-user', chatId: 'chat-two', title: 'Второй чат' }) }, res, { botToken: 'BOT_TOKEN_PR158', appBaseUrl: 'https://push.example.test' });
     assert.strictEqual((await storage.listChatBindingsForUser('multi-user')).filter((b) => b.chatId === 'chat-two').length, 0, 'repeated /push still waits for confirmation');
-    assert(sentMessages.some((message) => message.userId === 'multi-user' && String(message.text || '').includes('Включить уведомления')), 'repeated /push sends private multi-device link safely');
+    assert(sentMessages.some((message) => message.userId === 'multi-user' && String(message.text || '').includes('подключите этот чат')), 'repeated /push sends private multi-device link safely');
 
     await storage.savePairedDevice(validSubscription('active-two'), { maxUserId: 'multi-user', chatId: 'chat-one', status: 'active' });
     await storage.upsertChatBindingForUserDevices({ maxUserId: 'multi-user', chatId: 'chat-three', chatTitle: 'Третий чат' });

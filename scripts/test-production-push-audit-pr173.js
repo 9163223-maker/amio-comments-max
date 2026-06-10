@@ -78,15 +78,15 @@ function apiFor({ role = 'owner', fail = '' } = {}) {
   assert(bot.includes("if (groupPushOnboarding.isGroupPushCommandText(normalized)) return 'push_command';"), '/push command is excluded from live dispatch');
   assert(routes.includes("app.post('/api/push/link-chat'"), 'PR168 link-chat route remains present');
   assert(client.includes("fetchJson('/api/push/pair', { method: 'POST'") && client.includes('normalizePushSubscription(subscription)'), 'every chat link uses the confirmed pairing endpoint');
-  assert(client.includes("showPrimaryAction('Включить уведомления')") && !client.includes("showPrimaryAction('Подключить этот чат')"), 'all chat links use the same explicit enable action');
+  assert(client.includes("hasConnectedChats ? 'Подключить этот чат' : 'Включить уведомления'"), 'first and subsequent chat links use explicit contextual actions');
 
-  assert.strictEqual(pkg.version, 'CC8.3.53-PR187-PUSH-PRODUCT-PERFECT');
-  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr187-push-product-perfect');
+  assert.strictEqual(pkg.version, 'CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF');
+  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr188-push-multi-chat-handoff');
   assert.strictEqual(buildInfo.runtimeVersion, pkg.version);
   assert.strictEqual(buildInfo.buildVersion, pkg.version);
   assert.strictEqual(buildInfo.sourceMarker, pkg.sourceMarker);
-  assert(entrypoint.includes("const RUNTIME='CC8.3.53-PR187-PUSH-PRODUCT-PERFECT'"));
-  assert(entrypoint.includes("const SOURCE='adminkit-pr187-push-product-perfect'"));
+  assert(entrypoint.includes("const RUNTIME='CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF'"));
+  assert(entrypoint.includes("const SOURCE='adminkit-pr188-push-multi-chat-handoff'"));
 
   console.log('production push audit pr173 ok');
 })().catch((error) => { console.error(error && error.stack || error); process.exit(1); });

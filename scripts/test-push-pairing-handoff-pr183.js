@@ -70,7 +70,7 @@ function handoffFrom(response) {
       assert.strictEqual(pairA.status, 200);
       assert.strictEqual(pairA.body.status, 'active');
       assert(pairA.body.chats.some((chat) => chat.chatId === 'chat-a-pr183'), 'first handoff creates first chat binding');
-      assert(events.some((event) => event.event === 'pair_started' && event.tokenSource === 'handoff' && event.hasHandoff), 'pair starts from handoff recovery');
+      assert(events.some((event) => event.event === 'pair_started' && event.tokenSource === 'pending_handoff' && event.hasHandoff), 'pair starts from handoff recovery');
       assert(events.some((event) => event.event === 'pair_success' && event.result === 'pair_success'), 'pair success is logged');
       assert(events.some((event) => event.event === 'binding_created' && event.chatsCount > 0), 'first binding is logged');
 
@@ -89,9 +89,14 @@ function handoffFrom(response) {
       assert.strictEqual(joinB.status, 200);
       const handoffB = handoffFrom(joinB);
       assert(joinB.text.includes('"existingActiveDevicesFound":true'), 'later-chat page recognizes an existing active device');
-      const genericB = await request(server, '/push', { headers: { cookie: `push_pairing_handoff=${encodeURIComponent(handoffB)}` } });
-      assert(genericB.text.includes(`"handoffId":"${handoffB}"`), 'later-chat handoff is recoverable from generic /push');
-      const pairB = await request(server, '/api/push/pair', postJson({ handoffId: handoffB, subscription: deviceSubscription }));
+      const genericB = await request(server, '/push');
+      assert(genericB.text.includes('"landingMode":true') && !genericB.text.includes(handoffB), 'standalone PWA may launch without Safari cookies');
+      events.length = 0;
+      const pendingB = await request(server, '/api/push/pending', postJson({ subscription: deviceSubscription }));
+      assert.strictEqual(pendingB.status, 200);
+      assert.strictEqual(pendingB.body.pending[0].handoffId, handoffB, 'existing endpoint discovers the server-side pending handoff');
+      assert(events.some((event) => event.event === 'pending_lookup' && event.result === 'pending_found' && event.selectedPendingChatTitle === 'Chat B'), 'pending lookup path is safely logged');
+      const pairB = await request(server, '/api/push/pair', postJson({ handoffId: pendingB.body.pending[0].handoffId, subscription: deviceSubscription }, { cookie: `push_pairing_token=${encodeURIComponent(tokenA)}` }));
       assert.strictEqual(pairB.status, 200);
       assert(pairB.body.chats.length >= 2, 'later chat is added to the existing device/user chat list');
       const deviceIds = new Set([pairA.body.deviceId, pairB.body.deviceId]);

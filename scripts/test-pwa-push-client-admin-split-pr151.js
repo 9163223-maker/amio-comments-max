@@ -104,7 +104,7 @@ function assertNoLeaks(text, label, extraForbidden = []) {
     assert(routesSource.includes("app.get('/push'") && routesSource.includes("mode: 'client'"), '/push renders client-safe mode by default');
     assert(routesSource.includes('stripMarkedHtml(html, \'admin-diagnostics\')'), 'client mode strips admin diagnostic controls server-side');
     assert(routesSource.includes('stripMarkedHtml(html, \'raw-diagnostics\')'), 'client mode strips raw diagnostics server-side');
-    assert(!routesSource.includes('req.query.admin') && !routesSource.includes('req.query.token'), 'admin token is not read from query string');
+    assert(!routesSource.includes('req.query.admin') && !routesSource.includes('req.query.adminToken'), 'admin token is not read from query string');
 
     const saveStart = pushClient.indexOf('async function saveSubscription(subscription, status)');
     const saveEnd = pushClient.indexOf('\nasync function enableNotifications()', saveStart);

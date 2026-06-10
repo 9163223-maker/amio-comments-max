@@ -45,13 +45,13 @@ const JOIN_TOKEN_EXPIRED_MESSAGE = 'Ссылка истекла. Откройт�
 const JOIN_SUCCESS_MESSAGE = 'Готово. Уведомления включены.';
 const LINK_CHAT_SUCCESS_MESSAGE = 'Готово. Уведомления включены.';
 const LINK_CHAT_EXPLAIN_MESSAGE = 'Нажмите кнопку, чтобы получать уведомления этого чата.';
+const PENDING_CHAT_MESSAGE = 'Найден новый чат';
 const JOIN_READY_MESSAGE = 'Ваши уведомления на этом устройстве';
 
 // Legacy diagnostic test markers retained to prove earlier UX guarantees remain documented:
 // Разрешение не выдано. Проверьте настройки iOS для АдминКИТ PUSH.
 // Устройство подключено и ожидает подтверждения в MAX.
 // Откройте MAX и нажмите «Подтвердить устройство».
-// Персональная ссылка найдена. Теперь нажмите «Включить уведомления».
 // Откройте персональную ссылку подключения из MAX.
 // Ссылка истекла. Вернитесь в MAX и отправьте /push ещё раз.
 // Готово. Уведомления этого чата подключены.
@@ -67,7 +67,8 @@ const state = {
   currentSteps: new Map(),
   join: window.__ADMINKIT_PUSH_JOIN__ || { joinMode: false },
   adminMode: Boolean(window.__ADMINKIT_PUSH_JOIN__ && window.__ADMINKIT_PUSH_JOIN__.adminMode),
-  selectedMaxChat: null
+  selectedMaxChat: null,
+  pendingLookupDone: false
 };
 
 function $(id) { return document.getElementById(id); }
@@ -90,7 +91,7 @@ function safeChatItem(value) {
   if (!title && !chatRef) return null;
   const enabledOnThisDevice = source.enabledOnThisDevice === true || source.status === 'enabled';
   const knownForUser = source.knownForUser !== false;
-  return { title: title || 'Чат MAX', chatRef, enabledOnThisDevice, knownForUser, needsReconnect: knownForUser && !enabledOnThisDevice, status: enabledOnThisDevice ? 'включены' : 'откройте ссылку из этого чата' };
+  return { title: title || 'Чат MAX', chatRef, enabledOnThisDevice, knownForUser, needsReconnect: knownForUser && !enabledOnThisDevice, status: enabledOnThisDevice ? 'включены' : 'отправьте /push в этом чате и откройте ссылку' };
 }
 
 function uniqueChatItems(values) {
@@ -132,7 +133,7 @@ function renderConnectedChats(chats) {
   const available = safeChats.filter((chat) => !chat.enabledOnThisDevice);
   node.innerHTML = '';
   appendChatGroup(node, 'Подключены на этом устройстве:', enabled, 'включены');
-  appendChatGroup(node, 'Другие доступные чаты:', available, 'откройте ссылку из этого чата');
+  appendChatGroup(node, 'Другие доступные чаты:', available, 'отправьте /push в этом чате и откройте ссылку');
   if (!safeChats.length) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
@@ -203,7 +204,7 @@ function clearPendingHandoffId() {
 function safePairedContext(value) {
   const source = value && typeof value === 'object' ? value : {};
   const status = ['active', 'pending'].includes(String(source.status || '')) ? String(source.status) : 'active';
-  const deviceId = String(source.deviceId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 16);
+  const deviceId = String(source.deviceId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
   const pairedAt = String(source.pairedAt || '').slice(0, 40);
   const chats = uniqueChatItems(source.chats).slice(0, 20);
   return source.paired === true ? { paired: true, status, deviceId, pairedAt, chats } : null;
@@ -266,8 +267,11 @@ function setNotificationsBadge(visible) {
 }
 
 function applyChatLinkMode() {
+  setHidden('browserInstructions', true);
+  setHidden('connectedChatsSection', false);
   const title = String(state.join && state.join.chatTitle || '').trim().slice(0, 120);
-  setText('introText', title ? `Чат найден: ${title}` : 'Чат найден');
+  const hasConnectedChats = Boolean(readPairedContext() && readPairedContext().chats.some((chat) => chat.enabledOnThisDevice));
+  setText('introText', title ? `${hasConnectedChats ? PENDING_CHAT_MESSAGE : 'Чат найден'}: «${title}»` : (hasConnectedChats ? PENDING_CHAT_MESSAGE : 'Чат найден'));
   setHidden('pairingNotice', true);
   setHidden('subscribeTokenRow', true);
   setHidden('adminTokenRow', true);
@@ -277,10 +281,12 @@ function applyChatLinkMode() {
   setClientStatus(LINK_CHAT_EXPLAIN_MESSAGE, 'info');
   setText('pairingStatus', 'link-chat-ready');
   setNotificationsBadge(false);
-  showPrimaryAction('Включить уведомления');
+  showPrimaryAction(hasConnectedChats ? 'Подключить этот чат' : 'Включить уведомления');
 }
 
 function applyPairedReadyState(message = '') {
+  setHidden('browserInstructions', true);
+  setHidden('connectedChatsSection', false);
   setText('introText', 'Ваши чаты');
   setHidden('pairingNotice', true);
   setHidden('subscribeTokenRow', true);
@@ -564,7 +570,22 @@ async function fetchJson(url, options) {
   return data;
 }
 
+
+function applyInformationalJoin() {
+  const title = String(state.join && state.join.chatTitle || '').trim().slice(0, 120);
+  setText('introText', title ? `Чат найден: «${title}»` : 'Чат найден');
+  setClientStatus('Откройте АдминКИТ PUSH с экрана Домой и продолжите подключение там.', 'info');
+  setHidden('browserInstructions', false);
+  setHidden('connectedChatsSection', true);
+  setNotificationsBadge(false);
+  hidePrimaryAction();
+}
+
 function applyJoinMode() {
+  if (state.join && state.join.informationalJoin) {
+    applyInformationalJoin();
+    return;
+  }
   const pendingHandoff = recoverJoinHandoff();
   const pendingToken = recoverJoinToken();
   if (pendingHandoff) renderStoredConnectedChats();
@@ -661,8 +682,12 @@ async function refreshStatus() {
       try {
         const deviceStatus = await confirmPairedSubscription(state.subscription);
         if (deviceStatus && deviceStatus.ok) {
-          const currentStatus = $('clientStatus');
-          applyPairedReadyState(currentStatus && currentStatus.dataset.kind === 'success' ? currentStatus.textContent : '');
+          const pending = await lookupPendingHandoff(state.subscription);
+          if (pending) applyChatLinkMode();
+          else {
+            const currentStatus = $('clientStatus');
+            applyPairedReadyState(currentStatus && currentStatus.dataset.kind === 'success' ? currentStatus.textContent : '');
+          }
         }
       } catch (error) {
         if (error && error.data && error.data.error === 'push_device_not_paired') clearPairedContext();
@@ -729,6 +754,22 @@ async function ensureActiveRegistration(registration) {
     'service worker active/ready timed out'
   );
   return state.registration;
+}
+
+
+async function lookupPendingHandoff(subscription) {
+  if (!subscription) return null;
+  const result = await withTimeout(fetchJson('/api/push/pending', { method: 'POST', body: JSON.stringify({ subscription: normalizePushSubscription(subscription) }) }), TIMEOUTS.status, 'pending handoff lookup timed out');
+  state.pendingLookupDone = true;
+  const pending = result && Array.isArray(result.pending) ? result.pending[0] : null;
+  if (!pending || !safeHandoffId(pending.handoffId)) return null;
+  state.join.handoffId = safeHandoffId(pending.handoffId);
+  state.join.handoffStatus = 'found';
+  state.join.joinMode = true;
+  state.join.informationalJoin = false;
+  state.join.chatTitle = String(pending.chatTitle || '').trim().slice(0, 120);
+  storePendingHandoffId(state.join.handoffId);
+  return pending;
 }
 
 async function confirmPairedSubscription(subscription) {

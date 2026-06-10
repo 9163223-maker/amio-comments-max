@@ -61,11 +61,11 @@ function assertNoSecretLeak(label, value, forbidden) { const text = typeof value
     assert(!/\/push\/join\?t=|clck\.ru|token|PUSH_ADMIN_TOKEN|BOT_TOKEN/i.test(inviteText), 'group invite has no personal link/token/secret text');
 
     assert(pushHtml.includes('АдминКИТ PUSH') && pushHtml.includes('Включить уведомления') && pushHtml.includes('Ваши чаты'), 'PWA product UI keeps title, enable button, connected chats');
-    assert(pushClient.includes("showPrimaryAction('Включить уведомления')") && pushClient.includes("fetchJson('/api/push/pair'") && pushRoutes.includes("app.post('/api/push/link-chat'"), 'existing-device flow reuses confirmed pairing while legacy endpoint remains compatible');
+    assert(pushClient.includes("hasConnectedChats ? 'Подключить этот чат' : 'Включить уведомления'") && pushClient.includes("fetchJson('/api/push/pair'") && pushRoutes.includes("app.post('/api/push/link-chat'"), 'existing-device flow reuses confirmed pairing while legacy endpoint remains compatible');
     assert(pushClient.includes('Готово. Уведомления включены для чата') && pushClient.includes('Нажмите «Включить уведомления»'), 'add-chat flow has product copy');
     assert(!pushHtml.replace(/[\s\S]*<!-- raw-diagnostics-start -->[\s\S]*/m, '').includes('Последний результат'), 'normal PWA shell hides raw diagnostics before marker strip');
     assert(!/appendResult\([^)]*(endpoint|p256dh|auth|PUSH_ADMIN_TOKEN|BOT_TOKEN|pairingToken)/.test(pushClient), 'client does not append raw push or secret fields');
-    assert(entrypoint.includes('PR187-PUSH-PRODUCT-PERFECT') && pkg.sourceMarker === 'adminkit-pr187-push-product-perfect', 'active PR173 runtime keeps the PR168 link-chat behavior');
+    assert(entrypoint.includes('PR188-PUSH-MULTI-CHAT-HANDOFF') && pkg.sourceMarker === 'adminkit-pr188-push-multi-chat-handoff', 'active PR173 runtime keeps the PR168 link-chat behavior');
 
     const pairing = fresh('../services/pushPairingService');
     const storage = fresh('../services/webPushStorage');

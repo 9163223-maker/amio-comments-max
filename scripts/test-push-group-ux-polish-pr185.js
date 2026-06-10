@@ -27,17 +27,17 @@ function buttons(screen) {
 
   const existing = accountScreens.pushNotificationsScreen('ordinary-user', { chats: [{ chatTitle: 'Мож Хвост 3', enabledOnThisDevice: true }, { title: 'Все свои MAX', needsReconnect: true }, { chatTitle: 'Мож Хвост 3', enabledOnThisDevice: true }] });
   assert(existing.text.includes('Подключены на этом устройстве:') && existing.text.includes('Другие доступные чаты:'), 'existing chats have device-scoped headings');
-  assert(existing.text.includes('откройте ссылку из этого чата') && !existing.text.includes('нужно подключить'), 'inactive chats explain the actual next action');
+  assert(existing.text.includes('отправьте /push в этом чате и откройте ссылку') && !existing.text.includes('нужно подключить'), 'inactive chats explain the actual next action');
   assert.strictEqual((existing.text.match(/Мож Хвост 3/g) || []).length, 1, 'existing chat names are unique');
   assert(buttons(existing).includes('➕ Подключить ещё чат'), 'existing-chat flow offers adding another chat');
 
   const first = groupPush.buildPrivateJoinMessage({ chatTitle: 'Мож Хвост 3', joinUrl: 'https://example.test/join' });
-  assert(first.includes('АдминКИТ PUSH') && first.includes('Включить уведомления'), 'first-device group flow uses unified friendly install copy');
+  assert(first.includes('АдминКИТ PUSH') && first.includes('включите уведомления'), 'first-device group flow uses unified friendly install copy');
   assert(!/API|token|endpoint|binding|handoff|PWA|auth|p256dh/i.test(first), 'first-device group flow is non-technical');
   assert.strictEqual(groupPush.buildPrivateJoinKeyboard('https://example.test/join')[0].payload.buttons[0][0].text, 'Открыть подключение', 'first-device CTA opens connection');
 
   const later = groupPush.buildPrivateJoinMessage({ chatTitle: 'Все свои MAX', joinUrl: 'https://example.test/join', alreadyHadActiveDevice: true });
-  assert(later.includes('Включить уведомления'), 'existing-device flow always issues a fresh enable flow');
+  assert(later.includes('подключите этот чат'), 'existing-device flow always issues a fresh enable flow');
   assert(!later.includes('переустанов'), 'existing-device flow does not request reinstall');
   assert.strictEqual(groupPush.buildPrivateJoinKeyboard('https://example.test/join', { alreadyHadActiveDevice: true })[0].payload.buttons[0][0].text, 'Открыть подключение', 'existing-device CTA always opens a fresh connection');
 
@@ -66,7 +66,7 @@ function buttons(screen) {
   assert(client.includes('Готово. Уведомления включены для чата'), 'chat success names the linked chat');
   assert(!client.includes("setText('enableBtn', 'Уведомления подключены')"), 'success is not rendered as a primary CTA');
   assert(html.includes('.chat-card { display: flex;') && html.includes('padding: 9px 11px'), 'connected chat rows are compact');
-  assert(client.includes("'откройте ссылку из этого чата'") && client.includes('uniqueChatItems'), 'compact connected chat items are unique and actionable');
+  assert(client.includes("'отправьте /push в этом чате и откройте ссылку'") && client.includes('uniqueChatItems'), 'compact connected chat items are unique and actionable');
 
   console.log('push group ux polish pr185 ok');
 })();
