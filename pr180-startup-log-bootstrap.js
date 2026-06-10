@@ -22,7 +22,9 @@ function runtimeInfo() {
     pr191PushAdminInviteTitleCommands: buildInfo.pr191PushAdminInviteTitleCommands === true || process.env.ADMINKIT_PR191_PUSH_ADMIN_INVITE_TITLE_COMMANDS === '1',
     pr178PushPairingBinding: buildInfo.pr178PushPairingBinding === true || process.env.ADMINKIT_PR178_PUSH_PAIRING_BINDING === '1',
     pushPairingRuntimeVersion: clean(buildInfo.pushPairingRuntimeVersion || 'CC8.3.54-PR188-PUSH-MULTI-CHAT-HANDOFF'),
-    pushPairingSourceMarker: clean(buildInfo.pushPairingSourceMarker || 'adminkit-pr188-push-multi-chat-handoff'),
+    pushRuntimeSourceMarker: clean(buildInfo.pushRuntimeSourceMarker || buildInfo.sourceMarker || process.env.BUILD_SOURCE_MARKER),
+    pushPairingBaseSourceMarker: clean(buildInfo.pushPairingBaseSourceMarker || 'adminkit-pr188-push-multi-chat-handoff'),
+    pushPairingSourceMarker: clean(buildInfo.pushPairingSourceMarker || buildInfo.sourceMarker || process.env.BUILD_SOURCE_MARKER),
     pr165RuntimeWired: buildInfo.pr165RuntimeWired === true || process.env.PR165_RUNTIME_WIRED === '1',
     postgresConfigured: Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_CONNECTION_STRING || process.env.PGHOST),
     canonicalPublicBaseUrl: clean(process.env.ADMINKIT_PUBLIC_BASE_URL || 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run')

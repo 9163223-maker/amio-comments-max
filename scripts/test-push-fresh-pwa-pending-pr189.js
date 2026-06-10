@@ -9,6 +9,10 @@ assert.strictEqual(pkg.sourceMarker, 'adminkit-pr191-push-admin-invite-title-com
 assert.strictEqual(pkg.pr189PushFreshPwaPending, true);
 assert.strictEqual(pkg.pr190PushPolishAutorefresh, true);
 assert.strictEqual(pkg.pr191PushAdminInviteTitleCommands, true);
+const buildInfo = require('../buildInfo').getBuildInfo();
+assert.strictEqual(buildInfo.pushRuntimeSourceMarker, 'adminkit-pr191-push-admin-invite-title-commands');
+assert.strictEqual(buildInfo.pushPairingSourceMarker, 'adminkit-pr191-push-admin-invite-title-commands');
+assert.strictEqual(buildInfo.pushPairingBaseSourceMarker, 'adminkit-pr188-push-multi-chat-handoff');
 
 const html = '<!doctype html><html><head></head><body><script src="/public/push-client.js"></script></body></html>';
 const patched = fresh.patchPushHtml(html);

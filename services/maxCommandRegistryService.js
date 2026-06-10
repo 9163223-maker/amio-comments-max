@@ -47,25 +47,17 @@ async function commandStatus({ botToken = '', api } = {}) {
 }
 
 async function syncCommands({ botToken = '', api } = {}) {
-  const before = await commandStatus({ botToken, api });
+  const status = await commandStatus({ botToken, api });
   const desiredCommands = commandsPayload().commands;
-  const actualCommands = before.actualCommands || [];
-  if (!api || typeof api.updateBotCommands !== 'function') {
-    return { ok: false, error: UNSUPPORTED_ERROR, desiredCommands, actualCommands, mismatch: commandsMismatch(desiredCommands, actualCommands), note: EXTERNAL_CATALOG_NOTE };
-  }
-  try {
-    const write = await api.updateBotCommands({ botToken, commands: desiredCommands });
-    if (write?.supported === false) {
-      return { ok: false, error: UNSUPPORTED_ERROR, desiredCommands, actualCommands, mismatch: commandsMismatch(desiredCommands, actualCommands), note: EXTERNAL_CATALOG_NOTE };
-    }
-    const after = await commandStatus({ botToken, api });
-    return { ok: Boolean(after.ok && !after.mismatch), desiredCommands, actualCommands: after.actualCommands || actualCommands, mismatch: after.mismatch !== false, synced: Boolean(after.ok && !after.mismatch), method: clean(write?.method) || undefined };
-  } catch (error) {
-    if (error?.code === UNSUPPORTED_ERROR) {
-      return { ok: false, error: UNSUPPORTED_ERROR, desiredCommands, actualCommands, mismatch: commandsMismatch(desiredCommands, actualCommands), note: EXTERNAL_CATALOG_NOTE };
-    }
-    return { ok: false, error: 'max_command_sync_failed', statusCode: Number(error?.status) || undefined, desiredCommands, actualCommands, mismatch: true };
-  }
+  const actualCommands = status.actualCommands || [];
+  return {
+    ok: false,
+    error: UNSUPPORTED_ERROR,
+    desiredCommands,
+    actualCommands,
+    mismatch: commandsMismatch(desiredCommands, actualCommands),
+    note: EXTERNAL_CATALOG_NOTE
+  };
 }
 
 module.exports = {

@@ -60,7 +60,9 @@ const BUILD_INFO = Object.freeze({
   pr188PushMultiChatHandoff,
   pr191PushAdminInviteTitleCommands,
   pushPairingRuntimeVersion: pr178PushPairingBinding ? CURRENT_RUNTIME : '',
-  pushPairingSourceMarker: pr178PushPairingBinding ? 'adminkit-pr188-push-multi-chat-handoff' : '',
+  pushRuntimeSourceMarker: pr178PushPairingBinding ? sourceMarker : '',
+  pushPairingBaseSourceMarker: pr178PushPairingBinding ? 'adminkit-pr188-push-multi-chat-handoff' : '',
+  pushPairingSourceMarker: pr178PushPairingBinding ? sourceMarker : '',
   pr165RuntimeWired: Boolean(markerJson.pr165RuntimeWired || process.env.PR165_RUNTIME_WIRED === '1'),
   pr165LiveChatPushRuntime: clean(markerJson.pr165LiveChatPushRuntime || '')
 });

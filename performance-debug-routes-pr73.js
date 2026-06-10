@@ -105,6 +105,16 @@ function adminAllowed(req) {
   return requestToken(req) === config.giftAdminToken;
 }
 
+function operatorHeaderToken(req) {
+  const bearer = String(req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  return String(req.get('x-admin-token') || '').trim() || bearer;
+}
+
+function operatorAllowed(req) {
+  if (!config.giftAdminToken) return false;
+  return operatorHeaderToken(req) === config.giftAdminToken;
+}
+
 function normalizeCommands(commands) {
   if (!Array.isArray(commands)) return [];
   return commands
@@ -240,20 +250,19 @@ async function maxCommandsSyncPayload(req) {
     currentCommands: before.commands || [],
     currentCommandsCount: before.commandsCount || 0,
     currentHasNativeCommands: Boolean(before.hasNativeCommands),
-    candidateWrite: {
-      method: 'PATCH',
-      path: '/me',
-      body: payloads.canonical,
-      note: 'MAX has no public command scopes or documented setter. If PATCH /me is accepted, write only the client-safe global catalog.'
+    commandUpdate: {
+      supported: false,
+      documentedSetterAvailable: false,
+      note: maxCommandRegistry.EXTERNAL_CATALOG_NOTE
     },
     alternativePayloads: {
       slashNameVariant: payloads.slashNameVariant,
       telegramStyleVariant: payloads.telegramStyleVariant
     },
     safety: {
-      probeModeDoesNotWrite: mode !== 'patch-me',
-      patchRequiresConfirm: true,
-      patchRequiresAdminToken: true,
+      readOnlyProbe: mode !== 'sync',
+      undocumentedWritesDisabled: true,
+      syncRequiresAdminToken: true,
       hasAdminTokenConfigured: Boolean(config.giftAdminToken)
     },
     before,
@@ -262,25 +271,16 @@ async function maxCommandsSyncPayload(req) {
     noMaxApiCall: false
   };
 
-  if (mode !== 'patch-me') return base;
-
-  if (String(req.query?.confirm || '') !== '1') {
-    return {
-      ...base,
-      ok: false,
-      error: 'confirm_required',
-      hint: 'Use mode=patch-me&confirm=1 and provide adminToken or X-Admin-Token. This write probe is intentionally guarded.'
-    };
-  }
+  if (mode !== 'sync') return base;
 
   if (!adminAllowed(req)) {
     return {
       ...base,
       ok: false,
-      error: config.giftAdminToken ? 'admin_forbidden' : 'admin_token_not_configured_for_write_probe',
+      error: config.giftAdminToken ? 'admin_forbidden' : 'admin_token_not_configured_for_sync',
       hint: config.giftAdminToken
         ? 'Provide adminToken query parameter or X-Admin-Token header.'
-        : 'Set GIFT_ADMIN_TOKEN/ADMIN_TOKEN before allowing a MAX commands write probe.'
+        : 'Set GIFT_ADMIN_TOKEN/ADMIN_TOKEN before allowing the MAX commands sync audit.'
     };
   }
 
@@ -288,7 +288,7 @@ async function maxCommandsSyncPayload(req) {
   return {
     ...base,
     ...sync,
-    patchAttempted: sync.error !== maxCommandRegistry.UNSUPPORTED_ERROR,
+    writeAttempted: false,
     conclusion: sync.ok
       ? 'Command catalog synchronized and verified against GET /me.'
       : (sync.error === maxCommandRegistry.UNSUPPORTED_ERROR
@@ -312,7 +312,7 @@ async function internalMaxCommandSyncPayload(options = {}) {
 }
 
 function requireOperator(req, res) {
-  if (adminAllowed(req)) return true;
+  if (operatorAllowed(req)) return true;
   send(res, { ok: false, error: config.giftAdminToken ? 'admin_forbidden' : 'admin_token_not_configured' }, config.giftAdminToken ? 403 : 503);
   return false;
 }
@@ -725,5 +725,7 @@ module.exports = {
   getMaxBotInfoPayload,
   maxCommandsSyncPayload,
   internalMaxCommandStatusPayload,
-  internalMaxCommandSyncPayload
+  internalMaxCommandSyncPayload,
+  operatorHeaderToken,
+  operatorAllowed
 };

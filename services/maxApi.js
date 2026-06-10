@@ -95,15 +95,6 @@ async function getBotInfo({ botToken }) {
   return maxApi("/me", { token: botToken, method: "GET" });
 }
 
-async function updateBotCommands({ botToken, commands }) {
-  const method = String(process.env.MAX_COMMAND_SYNC_METHOD || '').trim().toLowerCase();
-  if (method !== 'patch-me') {
-    return { supported: false, method: '' };
-  }
-  const data = await maxApi("/me", { token: botToken, method: "PATCH", body: { commands } });
-  return { supported: true, method: 'PATCH /me', data };
-}
-
 async function getSubscriptions({ botToken }) {
   return maxApi("/subscriptions", { token: botToken, method: "GET" });
 }
@@ -385,7 +376,6 @@ module.exports = {
   WEBHOOK_UPDATE_TYPES,
   maxApi,
   getBotInfo,
-  updateBotCommands,
   getSubscriptions,
   registerWebhook,
   editMessage,

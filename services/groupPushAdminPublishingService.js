@@ -2,6 +2,7 @@
 
 const NON_ADMIN_MESSAGE = 'Не удалось опубликовать приглашение. Публиковать кнопку может только администратор или владелец выбранного чата/канала.';
 const VERIFICATION_FAILURE_MESSAGE = 'Не удалось проверить права в выбранном чате/канале. Проверьте, что бот добавлен туда администратором, и попробуйте ещё раз.';
+const BOT_CANNOT_PUBLISH_MESSAGE = 'Бот не может опубликовать приглашение в этом чате/канале.\nПроверьте, что бот добавлен в чат/канал и имеет право отправлять сообщения.';
 const ADMIN_ROLES = new Set(['admin', 'administrator', 'owner', 'creator']);
 
 function clean(value) {
@@ -86,6 +87,7 @@ module.exports = {
   ADMIN_ROLES,
   NON_ADMIN_MESSAGE,
   VERIFICATION_FAILURE_MESSAGE,
+  BOT_CANNOT_PUBLISH_MESSAGE,
   memberRole,
   botCanPublish,
   memberUserId,

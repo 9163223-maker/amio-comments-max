@@ -383,7 +383,7 @@ function chatsFromResponse(response = {}) {
   return [];
 }
 
-async function getPushPublishDestinations(config, userId) {
+function mergePushPublishDestinations({ scoped = [], global = [], allowGlobal = false } = {}) {
   const byId = new Map();
   const add = (item = {}) => {
     const channelId = String(item.chat_id || item.chatId || item.channelId || item.id || '').trim();
@@ -394,12 +394,21 @@ async function getPushPublishDestinations(config, userId) {
     const previous = byId.get(channelId) || {};
     byId.set(channelId, { ...previous, ...item, channelId, title: title || previous.title || '', type: type || previous.type || 'chat', chatType: type || previous.chatType || 'chat', isChannel: type === 'channel' });
   };
-  for (const item of await getVisibleChannelsForUser(config, userId, { adminView: clientAccessService.isAdmin(userId) })) add(item);
-  try {
-    const response = await getChats({ botToken: config?.botToken, count: 100 });
-    for (const item of chatsFromResponse(response)) add(item);
-  } catch {}
+  for (const item of Array.isArray(scoped) ? scoped : []) add(item);
+  if (allowGlobal === true) for (const item of Array.isArray(global) ? global : []) add(item);
   return Array.from(byId.values()).slice(0, 50);
+}
+
+async function getPushPublishDestinations(config, userId, options = {}) {
+  const operatorView = options.operatorView === true && clientAccessService.isAdmin(userId);
+  const scoped = await getVisibleChannelsForUser(config, userId, { adminView: operatorView });
+  if (!operatorView) return mergePushPublishDestinations({ scoped });
+
+  let global = [];
+  try {
+    global = chatsFromResponse(await getChats({ botToken: config?.botToken, count: 100 }));
+  } catch {}
+  return mergePushPublishDestinations({ scoped, global, allowGlobal: true });
 }
 
 function findStoredChannel(channelId) {
@@ -3720,9 +3729,10 @@ function buildPushAdminChatPickerKeyboard(channels = []) {
   return [{ type: 'inline_keyboard', payload: { buttons: rows } }];
 }
 
-function buildPushPublishResultText({ ok = false, title = '', verificationFailed = false } = {}) {
+function buildPushPublishResultText({ ok = false, title = '', verificationFailed = false, botCannotPublish = false } = {}) {
   const safeTitle = getSafeClientDestinationTitle({ title }, 0).replace(/\s+1$/, '');
   if (ok) return `Приглашение опубликовано в «${safeTitle}».`;
+  if (botCannotPublish) return groupPushAdminPublishing.BOT_CANNOT_PUBLISH_MESSAGE;
   if (verificationFailed) return ['Не удалось проверить права в выбранном чате/канале.', 'Проверьте, что бот добавлен туда администратором, и попробуйте ещё раз.'].join('\n');
   return ['Не удалось опубликовать приглашение.', '', 'Публиковать кнопку может только администратор или владелец выбранного чата/канала.'].join('\n');
 }
@@ -5599,7 +5609,7 @@ async function handleMessageCallback(update, config) {
         await upsertBotMessage({
           config,
           message,
-          text: buildPushPublishResultText({ ok: Boolean(result?.ok), title: selectedTitle, verificationFailed: result?.error === 'verification_failed' || result?.error === 'publish_failed' }),
+          text: buildPushPublishResultText({ ok: Boolean(result?.ok), title: selectedTitle, verificationFailed: result?.error === 'verification_failed' || result?.error === 'publish_failed', botCannotPublish: result?.error === 'bot_cannot_publish' }),
           attachments: buildPushPublishResultKeyboard(Boolean(result?.ok)),
           editCurrent: true
         });
@@ -6873,5 +6883,6 @@ module.exports = {
   clearGroupPushInboundDiagnostics,
   getPushDispatchDiagnostics,
   clearPushDispatchDiagnostics,
-  __testBuildCommentsPostAdminText: buildCommentsPostAdminText
+  __testBuildCommentsPostAdminText: buildCommentsPostAdminText,
+  __testMergePushPublishDestinations: mergePushPublishDestinations
 };

@@ -50,6 +50,8 @@ function sanitizeEntry(input = {}) {
     pr178PushPairingBinding: sanitizeBool(input.pr178PushPairingBinding),
     pr191PushAdminInviteTitleCommands: sanitizeBool(input.pr191PushAdminInviteTitleCommands),
     pushPairingRuntimeVersion: short(input.pushPairingRuntimeVersion, 120),
+    pushRuntimeSourceMarker: short(input.pushRuntimeSourceMarker, 160),
+    pushPairingBaseSourceMarker: short(input.pushPairingBaseSourceMarker, 160),
     pushPairingSourceMarker: short(input.pushPairingSourceMarker, 160),
     pr165RuntimeWired: sanitizeBool(input.pr165RuntimeWired),
     postgresConfigured: sanitizeBool(input.postgresConfigured),
