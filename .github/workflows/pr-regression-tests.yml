@@ -33,6 +33,7 @@ jobs:
         run: |
           node --check bot.js
           node --check buildInfo.js
+          node --check channel-post-picker-core.js
           node --check clean-bot-campaign-attribution-cc8336.js
           node --check clean-entrypoint-1.53.10-pr89.js
           node --check features/admin-activation-screens-pr108.js
@@ -52,6 +53,7 @@ jobs:
 
       - name: Run AdminKIT regression tests
         run: |
+          node scripts/test-channels-tenant-hydration-pr193a.js
           node scripts/test-push-join-chat-title-pr191.js
           node scripts/test-push-admin-invite-publish-pr191.js
           node scripts/test-max-command-sync-pr191.js
