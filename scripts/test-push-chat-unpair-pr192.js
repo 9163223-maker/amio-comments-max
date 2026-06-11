@@ -57,6 +57,8 @@ const postJson = (body) => ({ method: 'POST', headers: { 'content-type': 'applic
       const chatOneDevices = await storage.listActiveDevicesForChat('chat-one');
       assert(!chatOneDevices.some((device) => device.endpointHash === savedA.endpointHash), 'unpaired endpoint is excluded from dispatch');
       assert(chatOneDevices.some((device) => device.endpointHash === savedB.endpointHash), 'other endpoint remains in dispatch');
+      const chatTwoDevices = await storage.listActiveDevicesForChat('chat-two');
+      assert(chatTwoDevices.some((device) => device.endpointHash === savedA.endpointHash), 'other chat remains dispatchable on the current endpoint');
       assert((await storage.findDeviceByEndpointHash(savedA.endpointHash)).status === 'active', 'subscription remains active when another chat exists');
       assert(events.some((event) => event.event === 'unpair_success'));
 

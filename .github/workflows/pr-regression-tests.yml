@@ -63,6 +63,7 @@ jobs:
           node scripts/test-push-device-autoconnect-pr192.js
           node scripts/test-push-device-scoped-ui-pr192.js
           node scripts/test-push-chat-unpair-pr192.js
+          node scripts/test-pr192-does-not-touch-admin-identity-bridge.js
           if [ -f scripts/test-channels-push-ux-pr177.js ]; then
             node scripts/test-channels-push-ux-pr177.js
           else
