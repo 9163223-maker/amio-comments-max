@@ -1,11 +1,25 @@
 'use strict';
 
 const startupLog = require('./services/startupLogService');
+const runtimeContract = require('./services/runtimeContractService');
 
 const startedAt = new Date().toISOString();
 let scheduled = false;
 
 function clean(value) { return String(value || '').trim(); }
+function safeContract() {
+  try { return runtimeContract.buildContract(); }
+  catch (error) {
+    return {
+      runtime: runtimeContract.RUNTIME || 'RUNTIME-CONTRACT-PR196',
+      sourceMarker: runtimeContract.SOURCE || 'adminkit-runtime-contract-pr196',
+      safe: true,
+      contractLiveOk: false,
+      mismatches: ['runtime_contract_build_failed'],
+      error: clean(error && error.message || error).slice(0, 160)
+    };
+  }
+}
 
 function runtimeInfo() {
   let buildInfo = {};
@@ -27,7 +41,8 @@ function runtimeInfo() {
     pushPairingSourceMarker: clean(buildInfo.pushPairingSourceMarker || buildInfo.sourceMarker || process.env.BUILD_SOURCE_MARKER),
     pr165RuntimeWired: buildInfo.pr165RuntimeWired === true || process.env.PR165_RUNTIME_WIRED === '1',
     postgresConfigured: Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_CONNECTION_STRING || process.env.PGHOST),
-    canonicalPublicBaseUrl: clean(process.env.ADMINKIT_PUBLIC_BASE_URL || 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run')
+    canonicalPublicBaseUrl: clean(process.env.ADMINKIT_PUBLIC_BASE_URL || 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run'),
+    runtimeContract: safeContract()
   };
 }
 
@@ -44,4 +59,4 @@ function scheduleStartupLog() {
 
 scheduleStartupLog();
 
-module.exports = { ok: true, marker: 'adminkit-pr180-startup-log-bootstrap', scheduleStartupLog, info: startupLog.info };
+module.exports = { ok: true, marker: 'adminkit-pr180-startup-log-bootstrap', scheduleStartupLog, info: startupLog.info, runtimeInfo };
