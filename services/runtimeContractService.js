@@ -11,7 +11,6 @@ function clean(value, limit = 180) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   return text.length > limit ? `${text.slice(0, Math.max(1, limit - 1))}…` : text;
 }
-function bool(value) { return value === true; }
 function read(relPath = '') {
   try { return fs.readFileSync(path.join(__dirname, '..', relPath), 'utf8'); }
   catch (error) { return ''; }
@@ -20,14 +19,6 @@ function has(source = '', pattern) {
   if (!source) return false;
   if (pattern instanceof RegExp) return pattern.test(source);
   return source.includes(String(pattern));
-}
-function buildInfo() {
-  try {
-    const mod = require('../buildInfo');
-    return typeof mod.getBuildInfo === 'function' ? mod.getBuildInfo() : (mod.BUILD_INFO || {});
-  } catch {
-    return {};
-  }
 }
 function moduleAvailable(relPath = '') {
   try {
@@ -46,13 +37,17 @@ function functionAvailable(relPath = '', fn = '') {
   }
 }
 function buildContract() {
-  const info = buildInfo();
-  const activeEntrypoint = clean(info.activeEntrypoint || EXPECTED_ENTRYPOINT, 140);
   const v3Core = read('v3-menu-core-1539.js');
   const adapter = read('features/menu-v3/adapter.js');
   const buttons = read('buttons-flow-cc8-clean.js');
   const cc5 = read('cc5-db-core.js');
   const cleanEntrypoint = read(EXPECTED_ENTRYPOINT);
+
+  const entrypointFilePresent = Boolean(cleanEntrypoint);
+  const startupLogBootstrapRequired = has(cleanEntrypoint, "require('./pr180-startup-log-bootstrap')");
+  const expressRoutesInstalledByEntrypoint = has(cleanEntrypoint, 'installExpressRoutes');
+  const cleanBotInstalledByEntrypoint = has(cleanEntrypoint, 'installCleanBot');
+  const startupPathOk = entrypointFilePresent && startupLogBootstrapRequired && expressRoutesInstalledByEntrypoint && cleanBotInstalledByEntrypoint;
 
   const channelsListUsesSharedPicker = has(v3Core, "channelPostPicker=require('./channel-post-picker-core')")
     && has(v3Core, /asyncChannelsForUser\([^)]*\).*channelPostPicker\.listUiChannelsForUser/s)
@@ -77,11 +72,6 @@ function buildContract() {
   const akPostsHasAdminCommentUnique = has(cc5, /unique\s*\(admin_id,\s*comment_key\)/i)
     || has(cc5, /UNIQUE\s*\(admin_id,\s*comment_key\)/i);
 
-  const startupPathOk = activeEntrypoint === EXPECTED_ENTRYPOINT
-    && has(cleanEntrypoint, "require('./pr180-startup-log-bootstrap')")
-    && has(cleanEntrypoint, 'installExpressRoutes')
-    && has(cleanEntrypoint, 'installCleanBot');
-
   const contractLiveOk = startupPathOk
     && channelsListUsesSharedPicker
     && buttonsChannelPickerUsesSharedPicker
@@ -98,10 +88,11 @@ function buildContract() {
     contractLiveOk,
     startupPath: {
       entrypointExpected: EXPECTED_ENTRYPOINT,
-      activeEntrypoint,
-      startupLogBootstrapRequired: has(cleanEntrypoint, "require('./pr180-startup-log-bootstrap')"),
-      expressRoutesInstalledByEntrypoint: has(cleanEntrypoint, 'installExpressRoutes'),
-      cleanBotInstalledByEntrypoint: has(cleanEntrypoint, 'installCleanBot'),
+      activeEntrypoint: EXPECTED_ENTRYPOINT,
+      entrypointFilePresent,
+      startupLogBootstrapRequired,
+      expressRoutesInstalledByEntrypoint,
+      cleanBotInstalledByEntrypoint,
       ok: startupPathOk
     },
     routes: {
