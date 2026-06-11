@@ -30,8 +30,62 @@ function short(value, max = 160) { return clean(value).slice(0, max); }
 function b64(value) { return Buffer.from(String(value || ''), 'utf8').toString('base64'); }
 function fromB64(value) { return Buffer.from(String(value || ''), 'base64').toString('utf8'); }
 function bootId() { return `${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}`; }
-
 function sanitizeBool(value) { return value === true; }
+function sanitizeObject(value = {}) { return value && typeof value === 'object' && !Array.isArray(value) ? value : {}; }
+function sanitizeList(value = [], limit = 20) { return Array.isArray(value) ? value.slice(0, limit).map((item) => short(item, 160)).filter(Boolean) : []; }
+function sanitizeRuntimeContract(input = {}) {
+  const c = sanitizeObject(input);
+  const startupPath = sanitizeObject(c.startupPath);
+  const routes = sanitizeObject(c.routes);
+  const dataProviders = sanitizeObject(c.dataProviders);
+  const route = (name) => {
+    const r = sanitizeObject(routes[name]);
+    return {
+      action: short(r.action, 120),
+      active: sanitizeBool(r.active),
+      module: short(r.module, 120),
+      renderer: short(r.renderer, 120),
+      channelsProvider: short(r.channelsProvider, 160),
+      postsProvider: short(r.postsProvider, 160),
+      expectedPostsProvider: short(r.expectedPostsProvider, 160),
+      usesSharedPicker: sanitizeBool(r.usesSharedPicker),
+      dbBacked: sanitizeBool(r.dbBacked),
+      stillStoreBacked: sanitizeBool(r.stillStoreBacked),
+      ok: sanitizeBool(r.ok)
+    };
+  };
+  return {
+    runtime: short(c.runtime, 120),
+    sourceMarker: short(c.sourceMarker, 160),
+    generatedAt: short(c.generatedAt, 64),
+    safe: true,
+    contractLiveOk: sanitizeBool(c.contractLiveOk),
+    startupPath: {
+      entrypointExpected: short(startupPath.entrypointExpected, 120),
+      activeEntrypoint: short(startupPath.activeEntrypoint, 120),
+      startupLogBootstrapRequired: sanitizeBool(startupPath.startupLogBootstrapRequired),
+      expressRoutesInstalledByEntrypoint: sanitizeBool(startupPath.expressRoutesInstalledByEntrypoint),
+      cleanBotInstalledByEntrypoint: sanitizeBool(startupPath.cleanBotInstalledByEntrypoint),
+      ok: sanitizeBool(startupPath.ok)
+    },
+    routes: {
+      channelsList: route('channelsList'),
+      buttonsChannelPicker: route('buttonsChannelPicker'),
+      buttonsPostPicker: route('buttonsPostPicker')
+    },
+    dataProviders: {
+      cc5DbCoreLoaded: sanitizeBool(dataProviders.cc5DbCoreLoaded),
+      cc5GetChannelsAvailable: sanitizeBool(dataProviders.cc5GetChannelsAvailable),
+      cc5GetPostsAvailable: sanitizeBool(dataProviders.cc5GetPostsAvailable),
+      akPostsHasAdminChannelPostKey: sanitizeBool(dataProviders.akPostsHasAdminChannelPostKey),
+      akPostsHasAdminCommentUnique: sanitizeBool(dataProviders.akPostsHasAdminCommentUnique),
+      buttonsReadsPostsFromCc5: sanitizeBool(dataProviders.buttonsReadsPostsFromCc5),
+      buttonsReadsPostsFromStore: sanitizeBool(dataProviders.buttonsReadsPostsFromStore),
+      ok: sanitizeBool(dataProviders.ok)
+    },
+    mismatches: sanitizeList(c.mismatches, 30)
+  };
+}
 function sanitizeEntry(input = {}) {
   const safe = {
     startedAt: short(input.startedAt || nowIso(), 64),
@@ -56,6 +110,7 @@ function sanitizeEntry(input = {}) {
     pr165RuntimeWired: sanitizeBool(input.pr165RuntimeWired),
     postgresConfigured: sanitizeBool(input.postgresConfigured),
     canonicalPublicBaseUrl: short(input.canonicalPublicBaseUrl || process.env.ADMINKIT_PUBLIC_BASE_URL, 200),
+    runtimeContract: sanitizeRuntimeContract(input.runtimeContract),
     safe: true
   };
   if (!safe.commitSource) safe.commitSource = safe.gitCommit ? 'runtime-env' : (safe.githubMainHeadSha ? 'github-main-head' : 'unknown');
@@ -187,7 +242,7 @@ async function recordStartup(input = {}) {
     state.lastError = '';
     state.lastSyncedAt = log.updatedAt;
     state.latest = entry;
-    console.log('[startup-log] synced', JSON.stringify({ branch, path, runtimeVersion: entry.runtimeVersion, gitCommit: entry.gitCommit, githubMainHeadSha: entry.githubMainHeadSha }));
+    console.log('[startup-log] synced', JSON.stringify({ branch, path, runtimeVersion: entry.runtimeVersion, gitCommit: entry.gitCommit, githubMainHeadSha: entry.githubMainHeadSha, contractLiveOk: entry.runtimeContract && entry.runtimeContract.contractLiveOk }));
     return { ok: true, branch, path, latest: entry };
   } catch (error) {
     state.lastOk = false;
@@ -213,4 +268,4 @@ function info() {
   };
 }
 
-module.exports = { recordStartup, info, sanitizeEntry, getBranchHead, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
+module.exports = { recordStartup, info, sanitizeEntry, sanitizeRuntimeContract, getBranchHead, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
