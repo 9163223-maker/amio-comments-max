@@ -8,7 +8,7 @@ const clientAccessService = require('./services/clientAccessService');
 const channelTitles = require('./human-channel-title-helper');
 const pickerCore = require('./channel-post-picker-core');
 
-const RUNTIME = 'CC8.3.4-BUTTONS-DIRECT-LINKS-CHANNEL-HYDRATE';
+const RUNTIME = 'CC8.3.5-BUTTONS-POST-PICKER-TENANT-CHANNELS';
 const MAX_POSTS = 8;
 const CLEAN_BUTTON_ACTIONS = [
   'admin_section_buttons', 'button_admin_recent_posts', 'button_admin_channel_pick', 'button_admin_select_post', 'button_admin_show_current',
@@ -56,7 +56,8 @@ function postTitle(post = {}) {
 function postTime(post = {}) { const ts = n(post.updatedAt || post.createdAt || post.ts || 0); if (!ts) return ''; try { return new Date(ts).toISOString().slice(0, 16).replace('T', ' '); } catch { return ''; } }
 function targetRecord(post = {}, userId = '') { return tenant.stampRecord({ channelId: clean(post.channelId), channelTitle: channelTitle(post, userId), postId: clean(post.postId), messageId: clean(post.messageId), commentKey: clean(post.commentKey), originalText: clean(post.originalText || post.postText || post.text || ''), linkedAt: Date.now() }, getTenant(userId), post); }
 function findPost(commentKey = '', userId = '') { const key = clean(commentKey); if (!key) return null; const post = safeCall(() => store.getPost(key), null) || safeCall(() => array(store.getPostsList()).find((item) => clean(item && item.commentKey) === key), null) || null; const channelIds = visibleChannelIds(userId); return post && tenant.belongsToTenant(post, getTenant(userId)) && channelVisibleToClient(post, channelIds, userId) && !postLooksInternal(post) ? post : null; }
-function visibleChannelIds(userId = '') { const ids = safeCall(() => clientAccessService.getClientChannels(userId), []).map((channel) => clean(channel.channelId || channel.id)).filter(Boolean); return new Set(ids); }
+function tenantPostChannelIds(userId = '') { const ctx = getTenant(userId); return safeCall(() => array(store.getPostsList()), []).filter((post) => post && tenant.belongsToTenant(post, ctx) && !postLooksInternal(post)).map((post) => clean(post.channelId || post.requiredChatId || '')).filter(Boolean); }
+function visibleChannelIds(userId = '') { const ids = safeCall(() => clientAccessService.getClientChannels(userId), []).map((channel) => clean(channel.channelId || channel.id)).filter(Boolean); tenantPostChannelIds(userId).forEach((id) => ids.push(id)); return new Set(ids); }
 function channelVisibleToClient(post = {}, channelIds = new Set(), userId = '') { return !clean(userId) || channelIds.has(clean(post.channelId || post.requiredChatId || '')); }
 function postLooksInternal(post = {}) { return pickerCore.looksInternal([post.channelId, post.requiredChatId, post.channelTitle, post.title, post.originalText, post.postText, post.text, post.caption, post.commentKey].join(' ')); }
 function sameStoredTarget(stored = {}, post = {}) { const storedChannelId = clean(stored.channelId || stored.requiredChatId); const postChannelId = clean(post.channelId || post.requiredChatId); if (!clean(stored.commentKey) || clean(stored.commentKey) !== clean(post.commentKey)) return false; if (storedChannelId && postChannelId && storedChannelId !== postChannelId) return false; if (clean(stored.postId) && clean(post.postId) && clean(stored.postId) !== clean(post.postId)) return false; if (clean(stored.messageId) && clean(post.messageId) && clean(stored.messageId) !== clean(post.messageId)) return false; return true; }
