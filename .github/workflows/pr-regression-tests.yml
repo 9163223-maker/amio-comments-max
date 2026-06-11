@@ -50,10 +50,12 @@ jobs:
           node --check services/pushPairingService.js
           node --check v3-menu-core-1539.js
           node --check web-push-routes.js
+          node --check scripts/test-v3-channels-list-hydration-pr194.js
 
       - name: Run AdminKIT regression tests
         run: |
           node scripts/test-channels-tenant-hydration-pr193a.js
+          node scripts/test-v3-channels-list-hydration-pr194.js
           node scripts/test-push-join-chat-title-pr191.js
           node scripts/test-push-admin-invite-publish-pr191.js
           node scripts/test-max-command-sync-pr191.js
