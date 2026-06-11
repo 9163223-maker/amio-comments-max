@@ -6,7 +6,7 @@ const clientAccessService = require('./services/clientAccessService');
 const maxApi = require('./services/maxApi');
 const channelTitles = require('./human-channel-title-helper');
 
-const RUNTIME = 'PR134-CHANNEL-POST-PICKER-CORE-1.1';
+const RUNTIME = 'PR193C-CHANNEL-POST-PICKER-CORE-TENANT-DATA-1.2';
 const UNTITLED_CHANNEL = channelTitles.UNTITLED_CHANNEL || 'Канал без названия';
 const diagnosticsByUser = new Map();
 
@@ -37,6 +37,7 @@ function storedChannel(channelId = '') { const id = clean(channelId); if (!id) r
 function accessChannels(userId = '') { return array(safe(() => clientAccessService.getClientChannels(clean(userId)), [])); }
 function accessChannel(userId = '', channelId = '') { const id = clean(channelId); return accessChannels(userId).find((item) => clean(item.channelId || item.id || item.chatId) === id) || null; }
 function channelIdOf(raw = {}) { return clean(raw.channelId || raw.channel_id || raw.id || raw.chatId || raw.chat_id || ''); }
+function destinationTypeOf(raw = {}) { return clean(raw.type || raw.chatType || raw.chat_type || raw.kind || ''); }
 function mergeChannelSources(...sources) {
   const byId = new Map();
   const add = (raw = {}) => {
@@ -168,7 +169,18 @@ async function listUiChannelsForUser(userId = '', config = {}) {
       diagnostics.push({ ...resolved.diagnostic, error: 'titleless_channel_without_visible_posts_hidden' });
       continue;
     }
-    channels.push({ ...raw, channelId, title: hasSafeTitle ? resolved.title : UNTITLED_CHANNEL, titleSource: resolved.diagnostic.titleSource, diagnostic: resolved.diagnostic });
+    const sourceType = destinationTypeOf(raw);
+    channels.push({
+      ...raw,
+      channelId,
+      sourceType: clean(raw.sourceType || sourceType),
+      chatType: clean(raw.chatType || raw.chat_type || sourceType),
+      type: 'channel',
+      isChannel: true,
+      title: hasSafeTitle ? resolved.title : UNTITLED_CHANNEL,
+      titleSource: resolved.diagnostic.titleSource,
+      diagnostic: resolved.diagnostic
+    });
   }
   record(userId, 'channel_picker', { warning: channels.length ? '' : 'no_tenant_visible_channels' });
   diagnostics.forEach((item) => record(userId, 'channel_picker', item));
