@@ -135,6 +135,26 @@ function clearPendingPreview(store, userId = '') {
     return false;
   }
 }
+function patchSetupState(store) {
+  if (!store || typeof store.setSetupState !== 'function' || store.__adminkitPr199SetupStatePatched) return false;
+  const original = store.setSetupState;
+  store.setSetupState = function setSetupStatePr199(userId, patch = {}) {
+    let next = patch;
+    try {
+      if (patch && typeof patch === 'object' && !Array.isArray(patch) && !Object.prototype.hasOwnProperty.call(patch, 'buttonsPendingPreview')) {
+        const clearsFlow = Object.prototype.hasOwnProperty.call(patch, 'buttonFlow') && !patch.buttonFlow;
+        const leavesButton = Object.prototype.hasOwnProperty.call(patch, 'activeAdminFlowKind') && clean(patch.activeAdminFlowKind) !== 'button';
+        const current = setup(store, userId);
+        if ((clearsFlow || leavesButton) && current && current.buttonsPendingPreview) {
+          next = { ...patch, buttonsPendingPreview: null, buttonsPendingPreviewAt: 0, buttonsPendingPreviewClearedAt: Date.now(), buttonsPendingPreviewClearedRuntime: RUNTIME };
+        }
+      }
+    } catch {}
+    return original.call(this, userId, next);
+  };
+  store.__adminkitPr199SetupStatePatched = true;
+  return true;
+}
 
 function install() {
   if (installed) return installState;
@@ -143,6 +163,7 @@ function install() {
     const max = require('./services/maxApi');
     const store = require('./store');
     const buttons = require('./buttons-flow-cc8-clean');
+    const setupStatePatched = patchSetupState(store);
     const originalSendMessage = max.sendMessage;
     const originalEditMessage = max.editMessage;
     const originalHandleTextInput = buttons.handleTextInput;
@@ -224,7 +245,7 @@ function install() {
       buttons.__adminkitPr199ScreenPatched = true;
     }
 
-    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, maxEditPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, buttonsCancelClearsPendingPreview: true, buttonsPreviewBackClearsPendingPreview: true, buttonsRecordsActiveScreenOnEdit: true, buttonsPendingEditMessageScoped: true, buttonsPendingPreviewConsumedBeforeSave: true, callbackFlatMessageIdSupported: true, installOrder: 'after-persistent-store-bootstrap' };
+    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, maxEditPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, buttonsCancelClearsPendingPreview: true, buttonsPreviewBackClearsPendingPreview: true, buttonsRecordsActiveScreenOnEdit: true, buttonsPendingEditMessageScoped: true, buttonsPendingPreviewConsumedBeforeSave: true, callbackFlatMessageIdSupported: true, buttonsPendingPreviewClearedOnFlowClear: setupStatePatched, installOrder: 'after-persistent-store-bootstrap' };
   } catch (error) {
     installState = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, error: short(error && error.message || error, 240) };
   }
@@ -232,4 +253,4 @@ function install() {
   return installState;
 }
 
-module.exports = { RUNTIME, SOURCE, install, info: () => installState, isButtonsWizardText, isButtonFlowReady, isCancelOrExitAction, rememberButtonScreen, restorePendingPreview, updateMessageId };
+module.exports = { RUNTIME, SOURCE, install, info: () => installState, isButtonsWizardText, isButtonFlowReady, isCancelOrExitAction, rememberButtonScreen, restorePendingPreview, updateMessageId, patchSetupState };
