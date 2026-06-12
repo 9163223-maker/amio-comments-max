@@ -47,10 +47,13 @@ const bootstrap = require('../pr199-buttons-wizard-inplace-save-bootstrap');
 assert.strictEqual(bootstrap.info().installed, false);
 assert.strictEqual(bootstrap.install().ok, true);
 assert.strictEqual(bootstrap.info().buttonsRecordsActiveScreenOnEdit, true);
+assert.strictEqual(bootstrap.info().buttonsPendingEditMessageScoped, true);
 assert.strictEqual(buttons.isCleanButtonAction('admin_section_main'), true);
 
 (async () => {
-  const first = await buttons.screenForPayload({}, { action: 'button_admin_start_add' }, { userId: USER_ID });
+  const first = await buttons.screenForPayload({}, { action: 'button_admin_start_add' }, { userId: USER_ID, update: { callback: { message: { body: { mid: 'callback-message' } } } } });
+  await max.editMessage({ botToken: 'token', messageId: 'other-message', text: first.text, attachments: first.attachments });
+  assert.notStrictEqual(state.buttonsActiveScreenMessageId, 'other-message');
   await max.editMessage({ botToken: 'token', messageId: 'callback-message', text: first.text, attachments: first.attachments });
   assert.strictEqual(state.buttonsActiveScreenMessageId, 'callback-message');
 
