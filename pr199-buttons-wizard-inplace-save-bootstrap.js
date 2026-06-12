@@ -19,9 +19,11 @@ function clonePlain(value) { try { return value && typeof value === 'object' ? J
 function setup(store, userId = '') { try { return store.getSetupState(clean(userId)) || {}; } catch { return {}; } }
 function resultMessageId(result = {}, fallback = '') { return clean(result?.message?.body?.mid || result?.message?.id || result?.body?.mid || result?.message_id || result?.messageId || result?.id || fallback); }
 function updateMessageId(update = {}) {
-  const msg = update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || update?.data?.message?.callback?.message || {};
+  const callback = update?.callback || update?.data?.callback || update?.message?.callback || update?.data?.message?.callback || {};
+  const msg = update?.message || update?.data?.message || callback.message || {};
   const body = msg && msg.body && typeof msg.body === 'object' ? msg.body : {};
-  return clean(body.mid || body.message_id || body.messageId || body.id || msg.mid || msg.message_id || msg.messageId || msg.id);
+  const cbBody = callback.message && callback.message.body && typeof callback.message.body === 'object' ? callback.message.body : {};
+  return clean(body.mid || body.message_id || body.messageId || body.id || msg.mid || msg.message_id || msg.messageId || msg.id || cbBody.mid || cbBody.message_id || cbBody.messageId || cbBody.id || callback.message_id || callback.messageId || callback.mid || callback.id);
 }
 function rememberButtonScreen(store, userId = '', messageId = '', text = '') {
   const uid = clean(userId);
@@ -222,7 +224,7 @@ function install() {
       buttons.__adminkitPr199ScreenPatched = true;
     }
 
-    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, maxEditPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, buttonsCancelClearsPendingPreview: true, buttonsPreviewBackClearsPendingPreview: true, buttonsRecordsActiveScreenOnEdit: true, buttonsPendingEditMessageScoped: true, buttonsPendingPreviewConsumedBeforeSave: true, installOrder: 'after-persistent-store-bootstrap' };
+    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, maxEditPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, buttonsCancelClearsPendingPreview: true, buttonsPreviewBackClearsPendingPreview: true, buttonsRecordsActiveScreenOnEdit: true, buttonsPendingEditMessageScoped: true, buttonsPendingPreviewConsumedBeforeSave: true, callbackFlatMessageIdSupported: true, installOrder: 'after-persistent-store-bootstrap' };
   } catch (error) {
     installState = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, error: short(error && error.message || error, 240) };
   }
