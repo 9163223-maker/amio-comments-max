@@ -43,15 +43,18 @@ require.cache[buttonsPath] = { id: buttonsPath, filename: buttonsPath, loaded: t
 
 const max = require('../services/maxApi');
 const buttons = require('../buttons-flow-cc8-clean');
+const store = require('../store');
 const bootstrap = require('../pr199-buttons-wizard-inplace-save-bootstrap');
 assert.strictEqual(bootstrap.info().installed, false);
+assert.strictEqual(bootstrap.updateMessageId({ callback: { message_id: 'flat-callback-message' } }), 'flat-callback-message');
 assert.strictEqual(bootstrap.install().ok, true);
 assert.strictEqual(bootstrap.info().buttonsRecordsActiveScreenOnEdit, true);
 assert.strictEqual(bootstrap.info().buttonsPendingEditMessageScoped, true);
+assert.strictEqual(bootstrap.info().buttonsPendingPreviewClearedOnFlowClear, true);
 assert.strictEqual(buttons.isCleanButtonAction('admin_section_main'), true);
 
 (async () => {
-  const first = await buttons.screenForPayload({}, { action: 'button_admin_start_add' }, { userId: USER_ID, update: { callback: { message: { body: { mid: 'callback-message' } } } } });
+  const first = await buttons.screenForPayload({}, { action: 'button_admin_start_add' }, { userId: USER_ID, update: { callback: { message_id: 'callback-message' } } });
   await max.editMessage({ botToken: 'token', messageId: 'other-message', text: first.text, attachments: first.attachments });
   assert.notStrictEqual(state.buttonsActiveScreenMessageId, 'other-message');
   await max.editMessage({ botToken: 'token', messageId: 'callback-message', text: first.text, attachments: first.attachments });
@@ -82,6 +85,10 @@ assert.strictEqual(buttons.isCleanButtonAction('admin_section_main'), true);
   await buttons.handleTextInput({}, { userId: USER_ID, text: 'https://olga.style' });
   assert(state.buttonsPendingPreview);
   assert.strictEqual((await buttons.screenForPayload({}, { action: 'button_admin_cancel' }, { userId: USER_ID })).text, 'cancelled');
+  assert.strictEqual(state.buttonsPendingPreview, null);
+
+  state = { activeAdminFlowKind: 'button', buttonsActiveScreenMessageId: 'callback-message', buttonFlow: READY_FLOW, buttonsPendingPreview: READY_FLOW, buttonsPendingPreviewAt: Date.now() };
+  store.setSetupState(USER_ID, { buttonFlow: null, activeAdminFlowKind: '' });
   assert.strictEqual(state.buttonsPendingPreview, null);
   console.log('PR199 buttons wizard assertions passed');
 })().catch((error) => { console.error(error && error.stack || error); process.exit(1); });
