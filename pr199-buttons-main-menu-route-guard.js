@@ -8,6 +8,7 @@ let installState = { ok: false, runtime: RUNTIME, source: SOURCE, installed: fal
 function clean(value) { return String(value || '').trim(); }
 function isWizard(text = '') { return /Добавление кнопки|Предпросмотр кнопки/i.test(clean(text)); }
 function resultMid(result = {}, fallback = '') { return clean(result?.message?.body?.mid || result?.message?.id || result?.body?.mid || result?.message_id || result?.messageId || result?.id || fallback); }
+function short(value, max = 160) { const s = clean(value).replace(/\s+/g, ' '); return s.length <= max ? s : `${s.slice(0, Math.max(1, max - 1))}…`; }
 
 function install() {
   if (installed) return installState;
@@ -35,9 +36,15 @@ function install() {
           const state = store.getSetupState(effectiveUserId) || {};
           const activeMessageId = clean(state.buttonsActiveScreenMessageId || '');
           if (activeMessageId && typeof max.editMessage === 'function') {
-            const edited = await max.editMessage({ messageId: activeMessageId, text: args.text, attachments: args.attachments, format: args.format, link: args.link, notify: false });
-            store.setSetupState(effectiveUserId, { buttonsActiveScreenMessageId: activeMessageId, buttonsActiveScreenAt: Date.now(), buttonsActiveScreenRuntime: RUNTIME, activeAdminFlowKind: 'button' });
-            return edited || { message: { id: activeMessageId, body: { mid: activeMessageId } }, pr199ChatIdInplaceEdit: true };
+            try {
+              const edited = await max.editMessage({ botToken: args.botToken, messageId: activeMessageId, text: args.text, attachments: args.attachments, format: args.format, link: args.link, notify: false });
+              store.setSetupState(effectiveUserId, { buttonsActiveScreenMessageId: activeMessageId, buttonsActiveScreenAt: Date.now(), buttonsActiveScreenRuntime: RUNTIME, activeAdminFlowKind: 'button' });
+              return edited || { message: { id: activeMessageId, body: { mid: activeMessageId } }, pr199ChatIdInplaceEdit: true };
+            } catch (error) {
+              try {
+                store.setSetupState(effectiveUserId, { buttonsChatIdInplaceEditFailedAt: Date.now(), buttonsChatIdInplaceEditFailedRuntime: RUNTIME, buttonsChatIdInplaceEditFailedMessage: short(error && error.message || error) });
+              } catch {}
+            }
           }
         }
         const result = await originalSend.call(this, args);
@@ -49,7 +56,7 @@ function install() {
       };
       max.__adminkitPr199ChatIdWizardSendGuard = true;
     }
-    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, mainMenuUsesPublicRoute: true, chatIdWizardSendGuard: true };
+    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, mainMenuUsesPublicRoute: true, chatIdWizardSendGuard: true, chatIdWizardEditForwardsBotToken: true, chatIdWizardEditFallsBackToSend: true };
   } catch (error) {
     installState = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, error: clean(error && error.message || error).slice(0, 240) };
   }
