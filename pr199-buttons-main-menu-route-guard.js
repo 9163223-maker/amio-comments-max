@@ -6,21 +6,50 @@ let installed = false;
 let installState = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false };
 
 function clean(value) { return String(value || '').trim(); }
+function isWizard(text = '') { return /Добавление кнопки|Предпросмотр кнопки/i.test(clean(text)); }
+function resultMid(result = {}, fallback = '') { return clean(result?.message?.body?.mid || result?.message?.id || result?.body?.mid || result?.message_id || result?.messageId || result?.id || fallback); }
 
 function install() {
   if (installed) return installState;
   installed = true;
   try {
     const buttons = require('./buttons-flow-cc8-clean');
+    const max = require('./services/maxApi');
+    const store = require('./store');
     const original = buttons.isCleanButtonAction;
     if (typeof original === 'function' && !buttons.__adminkitPr199MainMenuRouteGuard) {
       buttons.isCleanButtonAction = function isCleanButtonActionPr199MainMenuGuard(action = '') {
         if (clean(action) === 'admin_section_main') return false;
-        return original.apply(this, arguments);
+        return original.call(this, action);
       };
       buttons.__adminkitPr199MainMenuRouteGuard = true;
     }
-    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, mainMenuUsesPublicRoute: true };
+    const originalSend = max.sendMessage;
+    if (typeof originalSend === 'function' && !max.__adminkitPr199ChatIdWizardSendGuard) {
+      max.sendMessage = async function sendMessagePr199ChatIdGuard(args = {}) {
+        const explicitUserId = clean(args.userId || '');
+        const chatId = clean(args.chatId || '');
+        const text = clean(args.text || '');
+        const effectiveUserId = explicitUserId || (chatId && isWizard(text) ? chatId : '');
+        if (!explicitUserId && effectiveUserId && isWizard(text)) {
+          const state = store.getSetupState(effectiveUserId) || {};
+          const activeMessageId = clean(state.buttonsActiveScreenMessageId || '');
+          if (activeMessageId && typeof max.editMessage === 'function') {
+            const edited = await max.editMessage({ messageId: activeMessageId, text: args.text, attachments: args.attachments, format: args.format, link: args.link, notify: false });
+            store.setSetupState(effectiveUserId, { buttonsActiveScreenMessageId: activeMessageId, buttonsActiveScreenAt: Date.now(), buttonsActiveScreenRuntime: RUNTIME, activeAdminFlowKind: 'button' });
+            return edited || { message: { id: activeMessageId, body: { mid: activeMessageId } }, pr199ChatIdInplaceEdit: true };
+          }
+        }
+        const result = await originalSend.call(this, args);
+        if (!explicitUserId && effectiveUserId && isWizard(text)) {
+          const messageId = resultMid(result);
+          if (messageId) store.setSetupState(effectiveUserId, { buttonsActiveScreenMessageId: messageId, buttonsActiveScreenAt: Date.now(), buttonsActiveScreenRuntime: RUNTIME, activeAdminFlowKind: 'button' });
+        }
+        return result;
+      };
+      max.__adminkitPr199ChatIdWizardSendGuard = true;
+    }
+    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, mainMenuUsesPublicRoute: true, chatIdWizardSendGuard: true };
   } catch (error) {
     installState = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, error: clean(error && error.message || error).slice(0, 240) };
   }
