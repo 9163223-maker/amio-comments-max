@@ -70,7 +70,8 @@ assert.strictEqual(bootstrap.info().buttonsRecordsActiveScreenOnEdit, true);
 assert.strictEqual(bootstrap.info().buttonsPendingEditMessageScoped, true);
 assert.strictEqual(bootstrap.info().buttonsPendingPreviewClearedOnFlowClear, true);
 assert.strictEqual(bootstrap.info().buttonsDuplicateSaveGuarded, true);
-assert.strictEqual(buttons.isCleanButtonAction('admin_section_main'), true);
+assert.strictEqual(bootstrap.info().buttonsSaveGuardClearedOnExit, true);
+assert.strictEqual(buttons.isCleanButtonAction('admin_section_main'), false);
 
 (async () => {
   const first = await buttons.screenForPayload({}, { action: 'button_admin_start_add' }, { userId: USER_ID, update: { callback: { message_id: 'callback-message' } } });
@@ -120,11 +121,10 @@ assert.strictEqual(buttons.isCleanButtonAction('admin_section_main'), true);
   assert.strictEqual((await buttons.screenForPayload({}, { action: 'button_admin_save' }, { userId: USER_ID })).text, 'need_preview');
   assert.strictEqual(patches.filter((p) => p.buttonsPendingPreviewRestoredRuntime === bootstrap.RUNTIME).length, restoresAfterBack);
 
-  state = { activeAdminFlowKind: 'button', buttonsActiveScreenMessageId: 'callback-message', buttonFlow: READY_FLOW };
-  await buttons.handleTextInput({}, { userId: USER_ID, text: 'https://olga.style' });
-  assert(state.buttonsPendingPreview);
+  state = { activeAdminFlowKind: 'button', buttonsActiveScreenMessageId: 'callback-message', buttonFlow: READY_FLOW, buttonsPendingPreview: READY_FLOW, buttonsPendingPreviewAt: Date.now(), buttonsPendingPreviewSaveInFlightAt: Date.now(), buttonsPendingPreviewSaveInFlightToken: 'x' };
   assert.strictEqual((await buttons.screenForPayload({}, { action: 'button_admin_cancel' }, { userId: USER_ID })).text, 'cancelled');
   assert.strictEqual(state.buttonsPendingPreview, null);
+  assert.strictEqual(Number(state.buttonsPendingPreviewSaveInFlightAt || 0), 0);
 
   state = { activeAdminFlowKind: 'button', buttonsActiveScreenMessageId: 'callback-message', buttonFlow: READY_FLOW, buttonsPendingPreview: READY_FLOW, buttonsPendingPreviewAt: Date.now(), buttonsPendingPreviewSaveInFlightAt: Date.now(), buttonsPendingPreviewSaveInFlightToken: 'x' };
   store.setSetupState(USER_ID, { buttonFlow: null, activeAdminFlowKind: '' });
