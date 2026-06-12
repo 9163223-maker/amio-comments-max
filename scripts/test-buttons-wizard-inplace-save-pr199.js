@@ -56,7 +56,10 @@ require.cache[buttonsPath] = {
 const max = require('../services/maxApi');
 const buttons = require('../buttons-flow-cc8-clean');
 const bootstrap = require('../pr199-buttons-wizard-inplace-save-bootstrap');
-assert.strictEqual(bootstrap.info().ok, true);
+assert.strictEqual(bootstrap.info().installed, false, 'bootstrap must not auto-install at require time');
+assert.strictEqual(bootstrap.install().ok, true, 'bootstrap installs only when explicitly called after persistent store bootstrap');
+assert.strictEqual(bootstrap.info().installed, true);
+assert.strictEqual(bootstrap.info().installOrder, 'after-persistent-store-bootstrap');
 
 (async () => {
   await max.sendMessage({ botToken: 'token', userId: USER_ID, text: '➕ Добавление кнопки\nШаг 2/3', attachments: [{ type: 'inline_keyboard' }] });
