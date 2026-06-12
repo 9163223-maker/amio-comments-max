@@ -1,10 +1,10 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-12T10:30:20.020Z",
+  "updatedAt": "2026-06-12T12:48:04.591Z",
   "limit": 50,
   "latest": {
-    "startedAt": "2026-06-12T10:30:15.622Z",
-    "bootId": "mqascdhp-ebcb9c76",
+    "startedAt": "2026-06-12T12:47:59.901Z",
+    "bootId": "mqax9ik6-f6afd646",
     "runtimeVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
     "buildVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
     "displayVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
@@ -12,8 +12,8 @@
     "entrypoint": "clean-entrypoint-1.53.10-pr89.js",
     "gitCommit": "",
     "githubMainBranch": "main",
-    "githubMainHeadSha": "3cc168055a3d070e8279822a964920d999ba9a7b",
-    "githubMainHeadCheckedAt": "2026-06-12T10:30:17.916Z",
+    "githubMainHeadSha": "826c48629311f68c5fbd29392eaffd2b9f1646ef",
+    "githubMainHeadCheckedAt": "2026-06-12T12:48:02.587Z",
     "commitSource": "github-main-head",
     "nodeEnv": "",
     "pr178PushPairingBinding": true,
@@ -25,9 +25,174 @@
     "pr165RuntimeWired": true,
     "postgresConfigured": true,
     "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
+    "runtimeContract": {
+      "runtime": "RUNTIME-CONTRACT-PR196",
+      "sourceMarker": "adminkit-runtime-contract-pr196",
+      "generatedAt": "2026-06-12T12:48:02.586Z",
+      "safe": true,
+      "contractLiveOk": false,
+      "startupPath": {
+        "entrypointExpected": "clean-entrypoint-1.53.10-pr89.js",
+        "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
+        "startupLogBootstrapRequired": true,
+        "expressRoutesInstalledByEntrypoint": true,
+        "cleanBotInstalledByEntrypoint": true,
+        "ok": true
+      },
+      "routes": {
+        "channelsList": {
+          "action": "channels:list",
+          "active": true,
+          "module": "v3-menu-core-1539.js",
+          "renderer": "features/menu-v3/adapter.js",
+          "channelsProvider": "channel-post-picker-core.listUiChannelsForUser",
+          "postsProvider": "",
+          "expectedPostsProvider": "",
+          "usesSharedPicker": true,
+          "dbBacked": false,
+          "stillStoreBacked": false,
+          "ok": true
+        },
+        "buttonsChannelPicker": {
+          "action": "button_admin_recent_posts/button_admin_channel_pick",
+          "active": true,
+          "module": "buttons-flow-cc8-clean.js",
+          "renderer": "",
+          "channelsProvider": "channel-post-picker-core.buildChannelPickerRows",
+          "postsProvider": "",
+          "expectedPostsProvider": "",
+          "usesSharedPicker": true,
+          "dbBacked": false,
+          "stillStoreBacked": false,
+          "ok": true
+        },
+        "buttonsPostPicker": {
+          "action": "button_admin_channel_pick -> listPosts",
+          "active": true,
+          "module": "buttons-flow-cc8-clean.js",
+          "renderer": "",
+          "channelsProvider": "",
+          "postsProvider": "store.getPostsList",
+          "expectedPostsProvider": "cc5-db-core.getPosts",
+          "usesSharedPicker": false,
+          "dbBacked": false,
+          "stillStoreBacked": true,
+          "ok": false
+        }
+      },
+      "dataProviders": {
+        "cc5DbCoreLoaded": true,
+        "cc5GetChannelsAvailable": true,
+        "cc5GetPostsAvailable": true,
+        "akPostsHasAdminChannelPostKey": true,
+        "akPostsHasAdminCommentUnique": true,
+        "buttonsReadsPostsFromCc5": false,
+        "buttonsReadsPostsFromStore": true,
+        "ok": true
+      },
+      "mismatches": [
+        "buttons_post_picker_not_db_backed",
+        "buttons_post_picker_still_store_backed"
+      ]
+    },
     "safe": true
   },
   "items": [
+    {
+      "startedAt": "2026-06-12T12:47:59.901Z",
+      "bootId": "mqax9ik6-f6afd646",
+      "runtimeVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
+      "buildVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
+      "displayVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
+      "sourceMarker": "adminkit-pr191-push-admin-invite-title-commands",
+      "entrypoint": "clean-entrypoint-1.53.10-pr89.js",
+      "gitCommit": "",
+      "githubMainBranch": "main",
+      "githubMainHeadSha": "826c48629311f68c5fbd29392eaffd2b9f1646ef",
+      "githubMainHeadCheckedAt": "2026-06-12T12:48:02.587Z",
+      "commitSource": "github-main-head",
+      "nodeEnv": "",
+      "pr178PushPairingBinding": true,
+      "pr191PushAdminInviteTitleCommands": true,
+      "pushPairingRuntimeVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
+      "pushRuntimeSourceMarker": "adminkit-pr191-push-admin-invite-title-commands",
+      "pushPairingBaseSourceMarker": "adminkit-pr188-push-multi-chat-handoff",
+      "pushPairingSourceMarker": "adminkit-pr191-push-admin-invite-title-commands",
+      "pr165RuntimeWired": true,
+      "postgresConfigured": true,
+      "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
+      "runtimeContract": {
+        "runtime": "RUNTIME-CONTRACT-PR196",
+        "sourceMarker": "adminkit-runtime-contract-pr196",
+        "generatedAt": "2026-06-12T12:48:02.586Z",
+        "safe": true,
+        "contractLiveOk": false,
+        "startupPath": {
+          "entrypointExpected": "clean-entrypoint-1.53.10-pr89.js",
+          "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
+          "startupLogBootstrapRequired": true,
+          "expressRoutesInstalledByEntrypoint": true,
+          "cleanBotInstalledByEntrypoint": true,
+          "ok": true
+        },
+        "routes": {
+          "channelsList": {
+            "action": "channels:list",
+            "active": true,
+            "module": "v3-menu-core-1539.js",
+            "renderer": "features/menu-v3/adapter.js",
+            "channelsProvider": "channel-post-picker-core.listUiChannelsForUser",
+            "postsProvider": "",
+            "expectedPostsProvider": "",
+            "usesSharedPicker": true,
+            "dbBacked": false,
+            "stillStoreBacked": false,
+            "ok": true
+          },
+          "buttonsChannelPicker": {
+            "action": "button_admin_recent_posts/button_admin_channel_pick",
+            "active": true,
+            "module": "buttons-flow-cc8-clean.js",
+            "renderer": "",
+            "channelsProvider": "channel-post-picker-core.buildChannelPickerRows",
+            "postsProvider": "",
+            "expectedPostsProvider": "",
+            "usesSharedPicker": true,
+            "dbBacked": false,
+            "stillStoreBacked": false,
+            "ok": true
+          },
+          "buttonsPostPicker": {
+            "action": "button_admin_channel_pick -> listPosts",
+            "active": true,
+            "module": "buttons-flow-cc8-clean.js",
+            "renderer": "",
+            "channelsProvider": "",
+            "postsProvider": "store.getPostsList",
+            "expectedPostsProvider": "cc5-db-core.getPosts",
+            "usesSharedPicker": false,
+            "dbBacked": false,
+            "stillStoreBacked": true,
+            "ok": false
+          }
+        },
+        "dataProviders": {
+          "cc5DbCoreLoaded": true,
+          "cc5GetChannelsAvailable": true,
+          "cc5GetPostsAvailable": true,
+          "akPostsHasAdminChannelPostKey": true,
+          "akPostsHasAdminCommentUnique": true,
+          "buttonsReadsPostsFromCc5": false,
+          "buttonsReadsPostsFromStore": true,
+          "ok": true
+        },
+        "mismatches": [
+          "buttons_post_picker_not_db_backed",
+          "buttons_post_picker_still_store_backed"
+        ]
+      },
+      "safe": true
+    },
     {
       "startedAt": "2026-06-12T10:30:15.622Z",
       "bootId": "mqascdhp-ebcb9c76",
