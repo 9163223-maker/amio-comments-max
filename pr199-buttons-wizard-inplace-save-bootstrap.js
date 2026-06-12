@@ -87,6 +87,7 @@ function rememberPendingPreview(store, userId = '', flow = null) {
 }
 function saveInFlight(state = null) { return Boolean(Number(state && state.buttonsPendingPreviewSaveInFlightAt || 0)); }
 function saveInFlightScreen() { return { id: 'buttons_clean_save_inflight', text: 'Сохранение кнопки уже выполняется. Подождите результат.', attachments: [] }; }
+function clearSaveInFlightPatch() { return { buttonsPendingPreviewSaveInFlightAt: 0, buttonsPendingPreviewSaveInFlightRuntime: '', buttonsPendingPreviewSaveInFlightToken: '' }; }
 function beginButtonSave(store, userId = '') {
   const uid = clean(userId);
   if (!uid) return { ok: false, reason: 'missing_user' };
@@ -131,9 +132,7 @@ function finishButtonSave(store, userId = '', token = '', screen = null, error =
   try {
     const state = setup(store, uid);
     const patch = {
-      buttonsPendingPreviewSaveInFlightAt: 0,
-      buttonsPendingPreviewSaveInFlightRuntime: '',
-      buttonsPendingPreviewSaveInFlightToken: '',
+      ...clearSaveInFlightPatch(),
       buttonsPendingPreviewSaveFinishedAt: Date.now(),
       buttonsPendingPreviewSaveFinishedRuntime: RUNTIME,
       buttonsPendingPreviewSaveFinishedText: short(screen && screen.text || '', 120)
@@ -157,7 +156,8 @@ function clearPendingPreview(store, userId = '') {
       buttonsPendingPreview: null,
       buttonsPendingPreviewAt: 0,
       buttonsPendingPreviewClearedAt: Date.now(),
-      buttonsPendingPreviewClearedRuntime: RUNTIME
+      buttonsPendingPreviewClearedRuntime: RUNTIME,
+      ...clearSaveInFlightPatch()
     });
     return true;
   } catch {
@@ -175,16 +175,7 @@ function patchSetupState(store) {
         const leavesButton = Object.prototype.hasOwnProperty.call(patch, 'activeAdminFlowKind') && clean(patch.activeAdminFlowKind) !== 'button';
         const current = setup(store, userId);
         if ((clearsFlow || leavesButton) && current && (current.buttonsPendingPreview || saveInFlight(current))) {
-          next = {
-            ...patch,
-            buttonsPendingPreview: null,
-            buttonsPendingPreviewAt: 0,
-            buttonsPendingPreviewClearedAt: Date.now(),
-            buttonsPendingPreviewClearedRuntime: RUNTIME,
-            buttonsPendingPreviewSaveInFlightAt: 0,
-            buttonsPendingPreviewSaveInFlightRuntime: '',
-            buttonsPendingPreviewSaveInFlightToken: ''
-          };
+          next = { ...patch, buttonsPendingPreview: null, buttonsPendingPreviewAt: 0, buttonsPendingPreviewClearedAt: Date.now(), buttonsPendingPreviewClearedRuntime: RUNTIME, ...clearSaveInFlightPatch() };
         }
       }
     } catch {}
@@ -299,7 +290,7 @@ function install() {
       buttons.__adminkitPr199ScreenPatched = true;
     }
 
-    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, maxEditPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, buttonsCancelClearsPendingPreview: true, buttonsPreviewBackClearsPendingPreview: true, buttonsRecordsActiveScreenOnEdit: true, buttonsPendingEditMessageScoped: true, buttonsPendingPreviewConsumedBeforeSave: true, buttonsDuplicateSaveGuarded: true, callbackFlatMessageIdSupported: true, buttonsPendingPreviewClearedOnFlowClear: setupStatePatched, installOrder: 'after-persistent-store-bootstrap' };
+    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, maxEditPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, buttonsCancelClearsPendingPreview: true, buttonsPreviewBackClearsPendingPreview: true, buttonsRecordsActiveScreenOnEdit: true, buttonsPendingEditMessageScoped: true, buttonsPendingPreviewConsumedBeforeSave: true, buttonsDuplicateSaveGuarded: true, buttonsSaveGuardClearedOnExit: true, callbackFlatMessageIdSupported: true, buttonsPendingPreviewClearedOnFlowClear: setupStatePatched, installOrder: 'after-persistent-store-bootstrap' };
   } catch (error) {
     installState = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, error: short(error && error.message || error, 240) };
   }
@@ -307,4 +298,4 @@ function install() {
   return installState;
 }
 
-module.exports = { RUNTIME, SOURCE, install, info: () => installState, isButtonsWizardText, isButtonFlowReady, isCancelOrExitAction, rememberButtonScreen, restorePendingPreview, updateMessageId, patchSetupState, beginButtonSave, finishButtonSave };
+module.exports = { RUNTIME, SOURCE, install, info: () => installState, isButtonsWizardText, isButtonFlowReady, isCancelOrExitAction, rememberButtonScreen, restorePendingPreview, updateMessageId, patchSetupState, beginButtonSave, finishButtonSave, clearPendingPreview };
