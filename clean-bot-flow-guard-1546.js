@@ -10,7 +10,7 @@ const store = require('./store');
 const timing = require('./v3-ui-timing-cc8');
 const { tryPatchChannelPost } = require('./services/postPatcher');
 
-const RUNTIME = 'CC8.1.18-DIRECT-CHANNEL-PRELEGACY-PATCH-PR82';
+const RUNTIME = 'CC8.1.19-BUTTONS-WIZARD-SINGLE-SCREEN-LINK-PREVIEW';
 const EDIT_FLOW_KIND = 'post_edit_text';
 
 function find(value, predicate, depth = 6, seen = new Set()) {
@@ -23,7 +23,7 @@ function find(value, predicate, depth = 6, seen = new Set()) {
   }
   return null;
 }
-function message(update = {}) { return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || find(update, (x) => x && typeof x === 'object' && (x.body?.text || x.text) && (x.recipient || x.sender || x.message_id || x.id), 5) || null; }
+function message(update = {}) { return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || find(update, (x) => x && typeof x === 'object' && (x.body?.text || x.text || x.body?.link || x.link) && (x.recipient || x.sender || x.message_id || x.id), 5) || null; }
 function directCallback(update = {}) { return update?.callback || update?.data?.callback || update?.message?.callback || update?.data?.message?.callback || null; }
 function callback(update = {}) { return directCallback(update) || find(update, (x) => x && typeof x === 'object' && (x.callback_id || x.callbackId || x.payload || x.callback_data || x.callbackData) && !(x.body && x.body.text), 6) || null; }
 function clean(value) { return String(value || '').trim(); }
@@ -69,12 +69,34 @@ function hasActivePostsTextFlow(state = {}) {
   return clean(state.activeAdminFlowKind) === EDIT_FLOW_KIND || clean(state.postEditFlow?.mode) === 'edit_text';
 }
 function isGiftScreen(screen = null) { return /^(gifts?|adminkit_gift)/i.test(clean(screen && screen.id)); }
+function isButtonScreen(screen = null) { return /^buttons?_?clean|^buttons_/i.test(clean(screen && screen.id)); }
 function resultMessageId(result, fallback = '') { return clean(result?.message?.body?.mid || result?.message?.id || result?.body?.mid || result?.message_id || result?.messageId || result?.id || fallback); }
 function rememberGiftScreen(uid = '', messageId = '', screen = null) {
   const user = clean(uid);
   const mid = clean(messageId);
   if (!user || !mid || !isGiftScreen(screen)) return;
   try { store.setSetupState(user, { giftActiveScreenMessageId: mid, giftActiveScreenId: clean(screen.id), giftActiveScreenAt: Date.now() }); } catch {}
+}
+function rememberButtonScreen(uid = '', messageId = '', screen = null) {
+  const user = clean(uid);
+  const mid = clean(messageId);
+  if (!user || !mid || !isButtonScreen(screen)) return;
+  try { store.setSetupState(user, { buttonsActiveScreenMessageId: mid, buttonsActiveScreenId: clean(screen.id), buttonsActiveScreenAt: Date.now() }); } catch {}
+}
+async function closePreviousButtonScreen(config = {}, uid = '', nextScreen = null, skipMessageId = '') {
+  const user = clean(uid);
+  if (!user || !isButtonScreen(nextScreen)) return false;
+  const state = setup(user);
+  const previousMessageId = clean(state.buttonsActiveScreenMessageId);
+  if (!previousMessageId || previousMessageId === clean(skipMessageId)) return false;
+  try {
+    await max.editMessage({ botToken: config.botToken, messageId: previousMessageId, text: '✅ Предыдущий шаг закрыт', attachments: [], notify: false });
+    try { store.setSetupState(user, { buttonsClosedScreenMessageId: previousMessageId, buttonsClosedScreenAt: Date.now() }); } catch {}
+    return true;
+  } catch (error) {
+    timing.log('buttons_wizard_close_previous_failed', { userId: timing.mask(user), messageId: timing.mask(previousMessageId), error: clean(error && error.message || error) });
+    return false;
+  }
 }
 async function ack(config, id, notification) {
   if (!id) return null;
@@ -88,11 +110,15 @@ async function show(config, update, msg, screen, edit = false, options = {}) {
     try {
       const result = await max.editMessage({ botToken: config.botToken, messageId, text: screen.text, attachments: screen.attachments, notify: false });
       rememberGiftScreen(uid, messageId, screen);
+      rememberButtonScreen(uid, messageId, screen);
       return result;
     } catch {}
   }
+  if (!edit && isButtonScreen(screen)) await closePreviousButtonScreen(config, uid, screen);
   const result = await max.sendMessage({ botToken: config.botToken, userId: cid ? '' : uid, chatId: cid, text: screen.text, attachments: screen.attachments, notify: false });
-  rememberGiftScreen(uid, resultMessageId(result), screen);
+  const sentId = resultMessageId(result);
+  rememberGiftScreen(uid, sentId, screen);
+  rememberButtonScreen(uid, sentId, screen);
   return result;
 }
 
@@ -113,6 +139,12 @@ function findFirstDeepValue(value, keys = [], seen = new Set()) {
   return '';
 }
 function body(msg = {}) { return msg?.body && typeof msg.body === 'object' ? msg.body : {}; }
+function linkPreviewText(msg = {}) {
+  const b = body(msg);
+  const fromLink = findFirstDeepValue([b.link, msg.link, b.preview, msg.preview, b.message?.link, msg.message?.link, msg.message?.body?.link], ['url', 'uri', 'href', 'canonical_url', 'canonicalUrl', 'target_url', 'targetUrl']);
+  const raw = clean(fromLink);
+  return /^https?:\/\//i.test(raw) ? raw : '';
+}
 function messageId(msg = {}) { const b = body(msg); return clean(b.mid || b.message_id || b.messageId || msg.mid || msg.message_id || msg.messageId || msg.id); }
 function messageIdCandidates(msg = {}) {
   const b = body(msg);
@@ -204,6 +236,7 @@ function createCleanBot(legacy) {
       const uid = userId(update, cb, msg);
       const state = setup(uid);
       const incomingText = text(msg);
+      const incomingButtonText = incomingText || linkPreviewText(msg);
       try {
         if (!realCb && msg && isDirectPatchCandidate(msg)) {
           const result = await timing.measure('direct_channel_pr82_total', { updateType: updateType(update), channelId: timing.mask(chatId(msg)), postId: timing.mask(postId(msg)), messageId: timing.mask(messageId(msg) || postId(msg)) }, () => patchDirectChannelPostFast(update, msg, config));
@@ -232,11 +265,12 @@ function createCleanBot(legacy) {
           }
         }
 
-        if (!realCb && msg && incomingText && !/^\/?start(?:\s|$)/i.test(incomingText) && !isChannelMessage(msg) && hasButtonFlowPriority(state)) {
-          const screen = await timing.measure('buttons_text_flow_clean', { userId: timing.mask(uid), textLen: incomingText.length, fakeCallbackIgnored: Boolean(rawCb && !realCb) }, () => buttonsFlow.handleTextInput(menu, { config, userId: uid, text: incomingText, update }));
+        if (!realCb && msg && incomingButtonText && !/^\/?start(?:\s|$)/i.test(incomingButtonText) && !isChannelMessage(msg) && hasButtonFlowPriority(state)) {
+          const fromLinkPreview = Boolean(!incomingText && incomingButtonText);
+          const screen = await timing.measure('buttons_text_flow_clean', { userId: timing.mask(uid), textLen: incomingButtonText.length, fakeCallbackIgnored: Boolean(rawCb && !realCb), fromLinkPreview }, () => buttonsFlow.handleTextInput(menu, { config, userId: uid, text: incomingButtonText, update }));
           if (screen) {
             await show(config, update, msg, screen, false, { userId: uid });
-            return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'button_text_input', screenId: screen.id, buttonsCleanFlow: true });
+            return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'button_text_input', screenId: screen.id, buttonsCleanFlow: true, buttonsSingleScreen: true, buttonsLinkPreviewText: fromLinkPreview });
           }
         }
 
@@ -251,7 +285,7 @@ function createCleanBot(legacy) {
         timing.log('clean_flow_guard_error', { durationMs: Date.now() - started, error: String(error?.message || error), userId: timing.mask(uid) });
       } finally {
         const action = cb ? clean(parsePayload(cb).action || parsePayload(cb).raw) : 'message_created';
-        timing.log('posts_text_flow_guard', { durationMs: Date.now() - started, action, active: hasActivePostsTextFlow(state), giftActive: hasGiftFlowPriority(state), buttonActive: hasButtonFlowPriority(state), realCallback: realCb, fakeCallbackIgnored: Boolean(rawCb && !realCb), userId: timing.mask(uid), updateType: updateType(update) });
+        timing.log('posts_text_flow_guard', { durationMs: Date.now() - started, action, active: hasActivePostsTextFlow(state), giftActive: hasGiftFlowPriority(state), buttonActive: hasButtonFlowPriority(state), realCallback: realCb, fakeCallbackIgnored: Boolean(rawCb && !realCb), buttonInputFromLinkPreview: Boolean(!incomingText && incomingButtonText), userId: timing.mask(uid), updateType: updateType(update) });
       }
       return wrapped.handleWebhook(req, res, config);
     }
