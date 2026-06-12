@@ -85,40 +85,69 @@ function rememberPendingPreview(store, userId = '', flow = null) {
     return false;
   }
 }
-function restorePendingPreview(store, userId = '') {
+function saveInFlight(state = null) { return Boolean(Number(state && state.buttonsPendingPreviewSaveInFlightAt || 0)); }
+function saveInFlightScreen() { return { id: 'buttons_clean_save_inflight', text: 'Сохранение кнопки уже выполняется. Подождите результат.', attachments: [] }; }
+function beginButtonSave(store, userId = '') {
   const uid = clean(userId);
-  if (!uid) return false;
+  if (!uid) return { ok: false, reason: 'missing_user' };
   const state = setup(store, uid);
+  if (saveInFlight(state)) return { ok: false, duplicate: true, reason: 'save_in_flight' };
   const now = Date.now();
-  if (state.buttonFlow) {
-    if (state.buttonsPendingPreview) {
-      try {
-        store.setSetupState(uid, {
-          buttonsPendingPreview: null,
-          buttonsPendingPreviewAt: 0,
-          buttonsPendingPreviewConsumedAt: now,
-          buttonsPendingPreviewConsumedRuntime: RUNTIME
-        });
-      } catch {}
+  const token = `${now}:${Math.random().toString(36).slice(2, 10)}`;
+  const basePatch = {
+    activeAdminFlowKind: 'button',
+    buttonsPendingPreview: null,
+    buttonsPendingPreviewAt: 0,
+    buttonsPendingPreviewConsumedAt: state.buttonsPendingPreview ? now : Number(state.buttonsPendingPreviewConsumedAt || 0),
+    buttonsPendingPreviewConsumedRuntime: state.buttonsPendingPreview ? RUNTIME : clean(state.buttonsPendingPreviewConsumedRuntime || ''),
+    buttonsPendingPreviewSaveInFlightAt: now,
+    buttonsPendingPreviewSaveInFlightRuntime: RUNTIME,
+    buttonsPendingPreviewSaveInFlightToken: token
+  };
+  if (isButtonFlowReady(state.buttonFlow)) {
+    try {
+      store.setSetupState(uid, basePatch);
+      return { ok: true, restored: false, token };
+    } catch (error) {
+      return { ok: false, reason: 'store_error', error };
     }
-    return isButtonFlowReady(state.buttonFlow);
   }
-  if (!isButtonFlowReady(state.buttonsPendingPreview)) return false;
+  if (!isButtonFlowReady(state.buttonsPendingPreview)) return { ok: false, reason: 'no_ready_draft' };
   try {
     store.setSetupState(uid, {
+      ...basePatch,
       buttonFlow: clonePlain(state.buttonsPendingPreview),
-      activeAdminFlowKind: 'button',
-      buttonsPendingPreview: null,
-      buttonsPendingPreviewAt: 0,
-      buttonsPendingPreviewConsumedAt: now,
-      buttonsPendingPreviewConsumedRuntime: RUNTIME,
       buttonsPendingPreviewRestoredAt: now,
       buttonsPendingPreviewRestoredRuntime: RUNTIME
     });
+    return { ok: true, restored: true, token };
+  } catch (error) {
+    return { ok: false, reason: 'store_error', error };
+  }
+}
+function finishButtonSave(store, userId = '', token = '', screen = null, error = null) {
+  const uid = clean(userId);
+  if (!uid) return false;
+  try {
+    const state = setup(store, uid);
+    const patch = {
+      buttonsPendingPreviewSaveInFlightAt: 0,
+      buttonsPendingPreviewSaveInFlightRuntime: '',
+      buttonsPendingPreviewSaveInFlightToken: '',
+      buttonsPendingPreviewSaveFinishedAt: Date.now(),
+      buttonsPendingPreviewSaveFinishedRuntime: RUNTIME,
+      buttonsPendingPreviewSaveFinishedText: short(screen && screen.text || '', 120)
+    };
+    if (token && clean(state.buttonsPendingPreviewSaveInFlightToken) !== clean(token)) return false;
+    if (error) patch.buttonsPendingPreviewSaveFinishedError = short(error && error.message || error, 160);
+    store.setSetupState(uid, patch);
     return true;
   } catch {
     return false;
   }
+}
+function restorePendingPreview(store, userId = '') {
+  return Boolean(beginButtonSave(store, userId).ok);
 }
 function clearPendingPreview(store, userId = '') {
   const uid = clean(userId);
@@ -145,8 +174,17 @@ function patchSetupState(store) {
         const clearsFlow = Object.prototype.hasOwnProperty.call(patch, 'buttonFlow') && !patch.buttonFlow;
         const leavesButton = Object.prototype.hasOwnProperty.call(patch, 'activeAdminFlowKind') && clean(patch.activeAdminFlowKind) !== 'button';
         const current = setup(store, userId);
-        if ((clearsFlow || leavesButton) && current && current.buttonsPendingPreview) {
-          next = { ...patch, buttonsPendingPreview: null, buttonsPendingPreviewAt: 0, buttonsPendingPreviewClearedAt: Date.now(), buttonsPendingPreviewClearedRuntime: RUNTIME };
+        if ((clearsFlow || leavesButton) && current && (current.buttonsPendingPreview || saveInFlight(current))) {
+          next = {
+            ...patch,
+            buttonsPendingPreview: null,
+            buttonsPendingPreviewAt: 0,
+            buttonsPendingPreviewClearedAt: Date.now(),
+            buttonsPendingPreviewClearedRuntime: RUNTIME,
+            buttonsPendingPreviewSaveInFlightAt: 0,
+            buttonsPendingPreviewSaveInFlightRuntime: '',
+            buttonsPendingPreviewSaveInFlightToken: ''
+          };
         }
       }
     } catch {}
@@ -231,9 +269,25 @@ function install() {
     if (typeof originalScreenForPayload === 'function' && !buttons.__adminkitPr199ScreenPatched) {
       buttons.screenForPayload = async function screenForPayloadPr199(menu, payload = {}, ctx = {}) {
         const action = clean(payload && payload.action || '');
+        let saveToken = '';
         if (isCancelOrExitAction(action)) clearPendingPreview(store, ctx.userId);
-        if (action === 'button_admin_save') restorePendingPreview(store, ctx.userId);
-        const screen = await originalScreenForPayload.apply(this, arguments);
+        if (action === 'button_admin_save') {
+          const saveStart = beginButtonSave(store, ctx.userId);
+          if (saveStart.duplicate) {
+            const duplicateScreen = saveInFlightScreen();
+            rememberPendingWizardEdit(ctx.userId, duplicateScreen, ctx.update);
+            return duplicateScreen;
+          }
+          if (saveStart.ok) saveToken = saveStart.token || '';
+        }
+        let screen;
+        try {
+          screen = await originalScreenForPayload.apply(this, arguments);
+        } catch (error) {
+          if (action === 'button_admin_save' && saveToken) finishButtonSave(store, ctx.userId, saveToken, null, error);
+          throw error;
+        }
+        if (action === 'button_admin_save' && saveToken) finishButtonSave(store, ctx.userId, saveToken, screen);
         if (action === 'button_admin_save') {
           const text = clean(screen && screen.text || '');
           if (/Кнопка сохранена/i.test(text)) clearPendingPreview(store, ctx.userId);
@@ -245,7 +299,7 @@ function install() {
       buttons.__adminkitPr199ScreenPatched = true;
     }
 
-    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, maxEditPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, buttonsCancelClearsPendingPreview: true, buttonsPreviewBackClearsPendingPreview: true, buttonsRecordsActiveScreenOnEdit: true, buttonsPendingEditMessageScoped: true, buttonsPendingPreviewConsumedBeforeSave: true, callbackFlatMessageIdSupported: true, buttonsPendingPreviewClearedOnFlowClear: setupStatePatched, installOrder: 'after-persistent-store-bootstrap' };
+    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, maxEditPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, buttonsCancelClearsPendingPreview: true, buttonsPreviewBackClearsPendingPreview: true, buttonsRecordsActiveScreenOnEdit: true, buttonsPendingEditMessageScoped: true, buttonsPendingPreviewConsumedBeforeSave: true, buttonsDuplicateSaveGuarded: true, callbackFlatMessageIdSupported: true, buttonsPendingPreviewClearedOnFlowClear: setupStatePatched, installOrder: 'after-persistent-store-bootstrap' };
   } catch (error) {
     installState = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, error: short(error && error.message || error, 240) };
   }
@@ -253,4 +307,4 @@ function install() {
   return installState;
 }
 
-module.exports = { RUNTIME, SOURCE, install, info: () => installState, isButtonsWizardText, isButtonFlowReady, isCancelOrExitAction, rememberButtonScreen, restorePendingPreview, updateMessageId, patchSetupState };
+module.exports = { RUNTIME, SOURCE, install, info: () => installState, isButtonsWizardText, isButtonFlowReady, isCancelOrExitAction, rememberButtonScreen, restorePendingPreview, updateMessageId, patchSetupState, beginButtonSave, finishButtonSave };
