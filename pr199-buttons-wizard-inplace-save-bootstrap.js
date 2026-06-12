@@ -18,6 +18,11 @@ function isButtonFlowReady(flow = null) { const draft = flow && flow.draft || {}
 function clonePlain(value) { try { return value && typeof value === 'object' ? JSON.parse(JSON.stringify(value)) : null; } catch { return null; } }
 function setup(store, userId = '') { try { return store.getSetupState(clean(userId)) || {}; } catch { return {}; } }
 function resultMessageId(result = {}, fallback = '') { return clean(result?.message?.body?.mid || result?.message?.id || result?.body?.mid || result?.message_id || result?.messageId || result?.id || fallback); }
+function updateMessageId(update = {}) {
+  const msg = update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || update?.data?.message?.callback?.message || {};
+  const body = msg && msg.body && typeof msg.body === 'object' ? msg.body : {};
+  return clean(body.mid || body.message_id || body.messageId || body.id || msg.mid || msg.message_id || msg.messageId || msg.id);
+}
 function rememberButtonScreen(store, userId = '', messageId = '', text = '') {
   const uid = clean(userId);
   const mid = clean(messageId);
@@ -35,25 +40,28 @@ function rememberButtonScreen(store, userId = '', messageId = '', text = '') {
     return false;
   }
 }
-function rememberPendingWizardEdit(userId = '', screen = null) {
+function rememberPendingWizardEdit(userId = '', screen = null, update = null) {
   const uid = clean(userId);
-  if (!uid || !isButtonsWizardScreen(screen)) return false;
+  const messageId = updateMessageId(update || {});
+  if (!uid || !messageId || !isButtonsWizardScreen(screen)) return false;
   const text = short(screen.text, 80);
   const now = Date.now();
-  pendingWizardEdits.push({ userId: uid, text, at: now });
+  pendingWizardEdits.push({ userId: uid, messageId, text, at: now });
   while (pendingWizardEdits.length > 20) pendingWizardEdits.shift();
   return true;
 }
-function consumePendingWizardEdit(text = '') {
+function consumePendingWizardEdit(text = '', messageId = '') {
   const now = Date.now();
   const sig = short(text, 80);
+  const mid = clean(messageId);
+  if (!mid) return null;
   for (let i = pendingWizardEdits.length - 1; i >= 0; i -= 1) {
     const item = pendingWizardEdits[i];
     if (!item || now - Number(item.at || 0) > PENDING_EDIT_TTL_MS) {
       pendingWizardEdits.splice(i, 1);
       continue;
     }
-    if (item.text === sig || isButtonsWizardText(text)) {
+    if (clean(item.messageId) === mid && item.text === sig) {
       pendingWizardEdits.splice(i, 1);
       return item;
     }
@@ -125,10 +133,11 @@ function install() {
     if (typeof originalEditMessage === 'function' && !max.__adminkitPr199ButtonsWizardEditPatched) {
       max.editMessage = async function editMessagePr199(args = {}) {
         const text = clean(args.text || '');
-        const pending = isButtonsWizardText(text) ? consumePendingWizardEdit(text) : null;
+        const mid = clean(args.messageId || '');
+        const pending = isButtonsWizardText(text) ? consumePendingWizardEdit(text, mid) : null;
         const result = await originalEditMessage.apply(this, arguments);
-        const mid = clean(args.messageId || resultMessageId(result));
-        if (pending && mid) rememberButtonScreen(store, pending.userId, mid, text);
+        const resultMid = clean(args.messageId || resultMessageId(result));
+        if (pending && resultMid) rememberButtonScreen(store, pending.userId, resultMid, text);
         return result;
       };
       max.__adminkitPr199ButtonsWizardEditPatched = true;
@@ -173,7 +182,7 @@ function install() {
           const state = setup(store, ctx.userId);
           rememberPendingPreview(store, ctx.userId, state.buttonFlow);
         }
-        rememberPendingWizardEdit(ctx.userId, screen);
+        rememberPendingWizardEdit(ctx.userId, screen, ctx.update);
         return screen;
       };
       buttons.__adminkitPr199HandlePatched = true;
@@ -190,13 +199,13 @@ function install() {
           if (/Кнопка сохранена/i.test(text)) clearPendingPreview(store, ctx.userId);
         }
         if (isCancelOrExitAction(action)) clearPendingPreview(store, ctx.userId);
-        rememberPendingWizardEdit(ctx.userId, screen);
+        rememberPendingWizardEdit(ctx.userId, screen, ctx.update);
         return screen;
       };
       buttons.__adminkitPr199ScreenPatched = true;
     }
 
-    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, maxEditPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, buttonsCancelClearsPendingPreview: true, buttonsPreviewBackClearsPendingPreview: true, buttonsRecordsActiveScreenOnEdit: true, installOrder: 'after-persistent-store-bootstrap' };
+    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, maxEditPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, buttonsCancelClearsPendingPreview: true, buttonsPreviewBackClearsPendingPreview: true, buttonsRecordsActiveScreenOnEdit: true, buttonsPendingEditMessageScoped: true, installOrder: 'after-persistent-store-bootstrap' };
   } catch (error) {
     installState = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, error: short(error && error.message || error, 240) };
   }
@@ -204,4 +213,4 @@ function install() {
   return installState;
 }
 
-module.exports = { RUNTIME, SOURCE, install, info: () => installState, isButtonsWizardText, isButtonFlowReady, isCancelOrExitAction, rememberButtonScreen, restorePendingPreview };
+module.exports = { RUNTIME, SOURCE, install, info: () => installState, isButtonsWizardText, isButtonFlowReady, isCancelOrExitAction, rememberButtonScreen, restorePendingPreview, updateMessageId };
