@@ -49,10 +49,11 @@ function buildContract() {
   const cleanBotInstalledByEntrypoint = has(cleanEntrypoint, 'installCleanBot');
   const startupPathOk = entrypointFilePresent && startupLogBootstrapRequired && expressRoutesInstalledByEntrypoint && cleanBotInstalledByEntrypoint;
 
+  const channelsListRendererActive = has(adapter, /function\s+channelsList\s*\(/) || has(adapter, "route: 'channels:list'");
   const channelsListUsesSharedPicker = has(v3Core, "channelPostPicker=require('./channel-post-picker-core')")
     && has(v3Core, /asyncChannelsForUser\([^)]*\).*channelPostPicker\.listUiChannelsForUser/s)
     && has(v3Core, /unifiedScreenAsync\([^)]*\).*asyncChannelsForUser/s)
-    && has(adapter, "case 'channels:list'");
+    && channelsListRendererActive;
 
   const buttonsChannelPickerUsesSharedPicker = has(buttons, "pickerCore.buildChannelPickerRows")
     || has(buttons, /listChannelsFromPosts\([^)]*\).*pickerCore\.listUiChannelsForUser/s);
@@ -98,7 +99,7 @@ function buildContract() {
     routes: {
       channelsList: {
         action: 'channels:list',
-        active: has(adapter, "case 'channels:list'"),
+        active: channelsListRendererActive,
         module: 'v3-menu-core-1539.js',
         renderer: 'features/menu-v3/adapter.js',
         channelsProvider: channelsListUsesSharedPicker ? 'channel-post-picker-core.listUiChannelsForUser' : 'clientAccessService.getClientChannels_or_context_only',
