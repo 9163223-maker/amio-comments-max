@@ -20,6 +20,7 @@ const sendCalls=[];
 const patches=[];
 let saveCalls=0;
 let saveGate=null;
+let failNextEdit=false;
 function deferred(){let resolve;const promise=new Promise((res)=>{resolve=res;});return{promise,resolve};}
 
 require.cache[storePath]={id:storePath,filename:storePath,loaded:true,exports:{
@@ -28,7 +29,7 @@ require.cache[storePath]={id:storePath,filename:storePath,loaded:true,exports:{
   store:{growth:{byChannel:{}}},saveStore:()=>{},savePost:()=>{}
 }};
 require.cache[maxPath]={id:maxPath,filename:maxPath,loaded:true,exports:{
-  editMessage:async(args)=>{editCalls.push(args);return{message:{id:args.messageId,body:{mid:args.messageId}}};},
+  editMessage:async(args)=>{editCalls.push(args);if(failNextEdit){failNextEdit=false;throw new Error('edit failed for test');}return{message:{id:args.messageId,body:{mid:args.messageId}}};},
   sendMessage:async(args)=>{sendCalls.push(args);return{message:{id:'new-message',body:{mid:'new-message'}}};}
 }};
 require.cache[buttonsPath]={id:buttonsPath,filename:buttonsPath,loaded:true,exports:{
@@ -64,6 +65,9 @@ assert.strictEqual(bootstrap.info().buttonsPendingPreviewClearedOnFlowClear,true
 assert.strictEqual(bootstrap.info().buttonsDuplicateSaveGuarded,true);
 assert.strictEqual(bootstrap.info().buttonsSaveGuardClearedOnExit,true);
 assert.strictEqual(guard.info().mainMenuUsesPublicRoute,true);
+assert.strictEqual(guard.info().chatIdWizardSendGuard,true);
+assert.strictEqual(guard.info().chatIdWizardEditForwardsBotToken,true);
+assert.strictEqual(guard.info().chatIdWizardEditFallsBackToSend,true);
 assert.strictEqual(buttons.isCleanButtonAction('admin_section_main'),false);
 
 (async()=>{
@@ -75,6 +79,18 @@ assert.strictEqual(buttons.isCleanButtonAction('admin_section_main'),false);
   await max.sendMessage({userId:USER_ID,text:STEP2_TEXT,attachments:[]});
   assert.strictEqual(editCalls.filter((c)=>c.messageId==='callback-message').length>=2,true);
   assert.strictEqual(sendCalls.length,0);
+
+  state={activeAdminFlowKind:'button',buttonsActiveScreenMessageId:'callback-message',buttonFlow:READY_FLOW};
+  await max.sendMessage({chatId:USER_ID,botToken:'test-bot-token',text:STEP2_TEXT,attachments:[]});
+  assert.strictEqual(editCalls.at(-1).messageId,'callback-message');
+  assert.strictEqual(editCalls.at(-1).botToken,'test-bot-token');
+  assert.strictEqual(sendCalls.length,0);
+  failNextEdit=true;
+  await max.sendMessage({chatId:USER_ID,botToken:'test-bot-token',text:STEP2_TEXT,attachments:[]});
+  assert.strictEqual(sendCalls.length,1);
+  assert(Number(state.buttonsChatIdInplaceEditFailedAt)>0);
+  assert.strictEqual(state.buttonsChatIdInplaceEditFailedRuntime,guard.RUNTIME);
+  assert(/edit failed for test/.test(state.buttonsChatIdInplaceEditFailedMessage));
 
   await buttons.handleTextInput({},{userId:USER_ID,text:'https://olga.style'});
   assert(state.buttonsPendingPreview);
