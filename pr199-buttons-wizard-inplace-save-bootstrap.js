@@ -4,7 +4,7 @@ const RUNTIME = 'PR199-BUTTONS-WIZARD-INPLACE-SAVE-FALLBACK';
 const SOURCE = 'adminkit-pr199-buttons-wizard-inplace-save-fallback';
 
 let installed = false;
-let installState = { ok: false, runtime: RUNTIME, source: SOURCE };
+let installState = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false };
 
 function clean(value) { return String(value || '').trim(); }
 function short(value, max = 120) { const s = clean(value).replace(/\s+/g, ' '); return s.length <= max ? s : `${s.slice(0, Math.max(1, max - 1))}…`; }
@@ -143,14 +143,12 @@ function install() {
       buttons.__adminkitPr199ScreenPatched = true;
     }
 
-    installState = { ok: true, runtime: RUNTIME, source: SOURCE, maxSendPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true };
+    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, installOrder: 'after-persistent-store-bootstrap' };
   } catch (error) {
-    installState = { ok: false, runtime: RUNTIME, source: SOURCE, error: short(error && error.message || error, 240) };
+    installState = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, error: short(error && error.message || error, 240) };
   }
   try { console.log('[pr199-buttons-wizard]', JSON.stringify(installState)); } catch {}
   return installState;
 }
-
-install();
 
 module.exports = { RUNTIME, SOURCE, install, info: () => installState, isButtonsWizardText, isButtonFlowReady };
