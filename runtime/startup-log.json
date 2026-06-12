@@ -1,10 +1,10 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-12T14:13:35.013Z",
+  "updatedAt": "2026-06-12T14:38:56.356Z",
   "limit": 50,
   "latest": {
-    "startedAt": "2026-06-12T14:13:30.215Z",
-    "bootId": "mqb0bh4y-1c6e6366",
+    "startedAt": "2026-06-12T14:38:51.859Z",
+    "bootId": "mqb18368-4eeb82d0",
     "runtimeVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
     "buildVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
     "displayVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
@@ -12,8 +12,8 @@
     "entrypoint": "clean-entrypoint-1.53.10-pr89.js",
     "gitCommit": "",
     "githubMainBranch": "main",
-    "githubMainHeadSha": "4580d750e6afea13c060a95382405044e8329aa8",
-    "githubMainHeadCheckedAt": "2026-06-12T14:13:32.910Z",
+    "githubMainHeadSha": "2962dd4cb3bc5f35653cd02a97f6e886bf26bbea",
+    "githubMainHeadCheckedAt": "2026-06-12T14:38:54.454Z",
     "commitSource": "github-main-head",
     "nodeEnv": "",
     "pr178PushPairingBinding": true,
@@ -28,7 +28,7 @@
     "runtimeContract": {
       "runtime": "RUNTIME-CONTRACT-PR196",
       "sourceMarker": "adminkit-runtime-contract-pr196",
-      "generatedAt": "2026-06-12T14:13:32.910Z",
+      "generatedAt": "2026-06-12T14:38:54.453Z",
       "safe": true,
       "contractLiveOk": false,
       "startupPath": {
@@ -98,6 +98,101 @@
     "safe": true
   },
   "items": [
+    {
+      "startedAt": "2026-06-12T14:38:51.859Z",
+      "bootId": "mqb18368-4eeb82d0",
+      "runtimeVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
+      "buildVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
+      "displayVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
+      "sourceMarker": "adminkit-pr191-push-admin-invite-title-commands",
+      "entrypoint": "clean-entrypoint-1.53.10-pr89.js",
+      "gitCommit": "",
+      "githubMainBranch": "main",
+      "githubMainHeadSha": "2962dd4cb3bc5f35653cd02a97f6e886bf26bbea",
+      "githubMainHeadCheckedAt": "2026-06-12T14:38:54.454Z",
+      "commitSource": "github-main-head",
+      "nodeEnv": "",
+      "pr178PushPairingBinding": true,
+      "pr191PushAdminInviteTitleCommands": true,
+      "pushPairingRuntimeVersion": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
+      "pushRuntimeSourceMarker": "adminkit-pr191-push-admin-invite-title-commands",
+      "pushPairingBaseSourceMarker": "adminkit-pr188-push-multi-chat-handoff",
+      "pushPairingSourceMarker": "adminkit-pr191-push-admin-invite-title-commands",
+      "pr165RuntimeWired": true,
+      "postgresConfigured": true,
+      "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
+      "runtimeContract": {
+        "runtime": "RUNTIME-CONTRACT-PR196",
+        "sourceMarker": "adminkit-runtime-contract-pr196",
+        "generatedAt": "2026-06-12T14:38:54.453Z",
+        "safe": true,
+        "contractLiveOk": false,
+        "startupPath": {
+          "entrypointExpected": "clean-entrypoint-1.53.10-pr89.js",
+          "activeEntrypoint": "clean-entrypoint-1.53.10-pr89.js",
+          "startupLogBootstrapRequired": true,
+          "expressRoutesInstalledByEntrypoint": true,
+          "cleanBotInstalledByEntrypoint": true,
+          "ok": true
+        },
+        "routes": {
+          "channelsList": {
+            "action": "channels:list",
+            "active": true,
+            "module": "v3-menu-core-1539.js",
+            "renderer": "features/menu-v3/adapter.js",
+            "channelsProvider": "channel-post-picker-core.listUiChannelsForUser",
+            "postsProvider": "",
+            "expectedPostsProvider": "",
+            "usesSharedPicker": true,
+            "dbBacked": false,
+            "stillStoreBacked": false,
+            "ok": true
+          },
+          "buttonsChannelPicker": {
+            "action": "button_admin_recent_posts/button_admin_channel_pick",
+            "active": true,
+            "module": "buttons-flow-cc8-clean.js",
+            "renderer": "",
+            "channelsProvider": "channel-post-picker-core.buildChannelPickerRows",
+            "postsProvider": "",
+            "expectedPostsProvider": "",
+            "usesSharedPicker": true,
+            "dbBacked": false,
+            "stillStoreBacked": false,
+            "ok": true
+          },
+          "buttonsPostPicker": {
+            "action": "button_admin_channel_pick -> listPosts",
+            "active": true,
+            "module": "buttons-flow-cc8-clean.js",
+            "renderer": "",
+            "channelsProvider": "",
+            "postsProvider": "store.getPostsList",
+            "expectedPostsProvider": "cc5-db-core.getPosts",
+            "usesSharedPicker": false,
+            "dbBacked": false,
+            "stillStoreBacked": true,
+            "ok": false
+          }
+        },
+        "dataProviders": {
+          "cc5DbCoreLoaded": true,
+          "cc5GetChannelsAvailable": true,
+          "cc5GetPostsAvailable": true,
+          "akPostsHasAdminChannelPostKey": true,
+          "akPostsHasAdminCommentUnique": true,
+          "buttonsReadsPostsFromCc5": false,
+          "buttonsReadsPostsFromStore": true,
+          "ok": true
+        },
+        "mismatches": [
+          "buttons_post_picker_not_db_backed",
+          "buttons_post_picker_still_store_backed"
+        ]
+      },
+      "safe": true
+    },
     {
       "startedAt": "2026-06-12T14:13:30.215Z",
       "bootId": "mqb0bh4y-1c6e6366",
