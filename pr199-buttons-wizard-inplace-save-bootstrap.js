@@ -10,6 +10,7 @@ function clean(value) { return String(value || '').trim(); }
 function short(value, max = 120) { const s = clean(value).replace(/\s+/g, ' '); return s.length <= max ? s : `${s.slice(0, Math.max(1, max - 1))}…`; }
 function isButtonsWizardText(text = '') { return /^(➕\s*)?Добавление кнопки|^(👀\s*)?Предпросмотр кнопки/i.test(clean(text)); }
 function isReadyPreviewScreen(screen = null) { return clean(screen && screen.id) === 'buttons_clean_add_preview'; }
+function isCancelOrExitAction(action = '') { return ['button_admin_cancel', 'admin_section_main', 'admin_section_buttons'].includes(clean(action)); }
 function isButtonFlowReady(flow = null) { const draft = flow && flow.draft || {}; return Boolean(flow && Number(flow.stepIndex || 0) >= 2 && clean(draft.text) && clean(draft.url) && flow.targetPost && clean(flow.targetPost.commentKey)); }
 function clonePlain(value) { try { return value && typeof value === 'object' ? JSON.parse(JSON.stringify(value)) : null; } catch { return null; } }
 function setup(store, userId = '') { try { return store.getSetupState(clean(userId)) || {}; } catch { return {}; } }
@@ -132,18 +133,20 @@ function install() {
     if (typeof originalScreenForPayload === 'function' && !buttons.__adminkitPr199ScreenPatched) {
       buttons.screenForPayload = async function screenForPayloadPr199(menu, payload = {}, ctx = {}) {
         const action = clean(payload && payload.action || '');
+        if (isCancelOrExitAction(action)) clearPendingPreview(store, ctx.userId);
         if (action === 'button_admin_save') restorePendingPreview(store, ctx.userId);
         const screen = await originalScreenForPayload.apply(this, arguments);
         if (action === 'button_admin_save') {
           const text = clean(screen && screen.text || '');
           if (/Кнопка сохранена/i.test(text)) clearPendingPreview(store, ctx.userId);
         }
+        if (isCancelOrExitAction(action)) clearPendingPreview(store, ctx.userId);
         return screen;
       };
       buttons.__adminkitPr199ScreenPatched = true;
     }
 
-    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, installOrder: 'after-persistent-store-bootstrap' };
+    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, buttonsCancelClearsPendingPreview: true, installOrder: 'after-persistent-store-bootstrap' };
   } catch (error) {
     installState = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, error: short(error && error.message || error, 240) };
   }
@@ -151,4 +154,4 @@ function install() {
   return installState;
 }
 
-module.exports = { RUNTIME, SOURCE, install, info: () => installState, isButtonsWizardText, isButtonFlowReady };
+module.exports = { RUNTIME, SOURCE, install, info: () => installState, isButtonsWizardText, isButtonFlowReady, isCancelOrExitAction };
