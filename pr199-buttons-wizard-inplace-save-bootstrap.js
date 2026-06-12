@@ -87,13 +87,30 @@ function restorePendingPreview(store, userId = '') {
   const uid = clean(userId);
   if (!uid) return false;
   const state = setup(store, uid);
-  if (state.buttonFlow) return isButtonFlowReady(state.buttonFlow);
+  const now = Date.now();
+  if (state.buttonFlow) {
+    if (state.buttonsPendingPreview) {
+      try {
+        store.setSetupState(uid, {
+          buttonsPendingPreview: null,
+          buttonsPendingPreviewAt: 0,
+          buttonsPendingPreviewConsumedAt: now,
+          buttonsPendingPreviewConsumedRuntime: RUNTIME
+        });
+      } catch {}
+    }
+    return isButtonFlowReady(state.buttonFlow);
+  }
   if (!isButtonFlowReady(state.buttonsPendingPreview)) return false;
   try {
     store.setSetupState(uid, {
       buttonFlow: clonePlain(state.buttonsPendingPreview),
       activeAdminFlowKind: 'button',
-      buttonsPendingPreviewRestoredAt: Date.now(),
+      buttonsPendingPreview: null,
+      buttonsPendingPreviewAt: 0,
+      buttonsPendingPreviewConsumedAt: now,
+      buttonsPendingPreviewConsumedRuntime: RUNTIME,
+      buttonsPendingPreviewRestoredAt: now,
       buttonsPendingPreviewRestoredRuntime: RUNTIME
     });
     return true;
@@ -205,7 +222,7 @@ function install() {
       buttons.__adminkitPr199ScreenPatched = true;
     }
 
-    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, maxEditPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, buttonsCancelClearsPendingPreview: true, buttonsPreviewBackClearsPendingPreview: true, buttonsRecordsActiveScreenOnEdit: true, buttonsPendingEditMessageScoped: true, installOrder: 'after-persistent-store-bootstrap' };
+    installState = { ok: true, runtime: RUNTIME, source: SOURCE, installed: true, maxSendPatched: true, maxEditPatched: true, buttonsHandlePatched: true, buttonsSavePatched: true, buttonsCancelClearsPendingPreview: true, buttonsPreviewBackClearsPendingPreview: true, buttonsRecordsActiveScreenOnEdit: true, buttonsPendingEditMessageScoped: true, buttonsPendingPreviewConsumedBeforeSave: true, installOrder: 'after-persistent-store-bootstrap' };
   } catch (error) {
     installState = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, error: short(error && error.message || error, 240) };
   }
