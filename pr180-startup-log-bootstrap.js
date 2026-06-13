@@ -3,7 +3,6 @@
 const startupLog = require('./services/startupLogService');
 const runtimeContract = require('./services/runtimeContractService');
 const liveVersionSnapshotService = require('./services/liveVersionSnapshotService');
-try { require('./pr202-post-start-bootstrap'); } catch (error) { try { console.warn('[pr202-post-start] unavailable', error && error.message || error); } catch {} }
 
 const startedAt = new Date().toISOString();
 let scheduled = false;
@@ -23,7 +22,6 @@ function safeContract() {
     };
   }
 }
-
 function runtimeInfo() {
   let buildInfo = {};
   try { buildInfo = require('./buildInfo').getBuildInfo(); } catch {}
@@ -49,26 +47,32 @@ function runtimeInfo() {
     liveVersionSnapshot: liveVersionSnapshotService.buildLiveVersionSnapshot()
   };
 }
-
 function recordStartupNow(extra = {}) {
   return startupLog.recordStartup({ ...runtimeInfo(), ...extra });
 }
-function markPr199InstallComplete() { startupInProgress = false; return { ok: true, startupInProgress }; }
+function markRuntimeReadinessInstallComplete() { startupInProgress = false; return { ok: true, startupInProgress }; }
+function markPr199InstallComplete() { return markRuntimeReadinessInstallComplete(); }
 function shouldDeferStartupLog(info) {
-  return startupInProgress && info && info.liveVersionSnapshot && info.liveVersionSnapshot.liveVersionSummary && info.liveVersionSnapshot.liveVersionSummary.pr199Ready === false;
+  const summary = info && info.liveVersionSnapshot && info.liveVersionSnapshot.liveVersionSummary || {};
+  return startupInProgress && summary.buttonsWizardPhysicalInplaceReady !== true;
 }
 function writeScheduledStartupLog(attempt = 0) {
   const info = runtimeInfo();
-  if (shouldDeferStartupLog(info) && attempt < 6) {
+  if (shouldDeferStartupLog(info) && attempt < 60) {
     const retry = setTimeout(() => writeScheduledStartupLog(attempt + 1), 500);
     if (retry && typeof retry.unref === 'function') retry.unref();
+    return;
+  }
+  if (shouldDeferStartupLog(info)) {
+    startupLog.recordStartup({ ...info, startupLogRefreshReason: 'deferred-startup-timeout-before-final-runtime-readiness' }).catch((error) => {
+      console.warn('[startup-log] unhandled failure', error && error.message || error);
+    });
     return;
   }
   startupLog.recordStartup(info).catch((error) => {
     console.warn('[startup-log] unhandled failure', error && error.message || error);
   });
 }
-
 function scheduleStartupLog() {
   if (scheduled) return { ok: true, already: true };
   scheduled = true;
@@ -76,7 +80,5 @@ function scheduleStartupLog() {
   if (timer && typeof timer.unref === 'function') timer.unref();
   return { ok: true, scheduled: true };
 }
-
 scheduleStartupLog();
-
-module.exports = { ok: true, marker: 'adminkit-pr180-startup-log-bootstrap', scheduleStartupLog, recordStartupNow, markPr199InstallComplete, shouldDeferStartupLog, info: startupLog.info, runtimeInfo };
+module.exports = { ok: true, marker: 'adminkit-pr180-startup-log-bootstrap', scheduleStartupLog, recordStartupNow, markRuntimeReadinessInstallComplete, markPr199InstallComplete, shouldDeferStartupLog, info: startupLog.info, runtimeInfo };
