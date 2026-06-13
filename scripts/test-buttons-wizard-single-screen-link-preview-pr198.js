@@ -85,7 +85,7 @@ const res = { status(code) { responseStatus = code; return this; }, json(payload
   assert.strictEqual(responseStatus, 200);
   assert.strictEqual(responseBody.action, 'button_text_input');
   assert.strictEqual(responseBody.buttonsLinkPreviewText, true);
-  assert.strictEqual(seenText, 'HTTP://olga.style/');
+  assert.strictEqual(seenText, 'http://olga.style/');
   assert.strictEqual(editCalls.length, 1, 'next button wizard step edits the active wizard message in place');
   assert.strictEqual(editCalls[0].messageId, 'old-button-step');
   assert.strictEqual(editCalls[0].text, 'Шаг 3/3. Проверьте кнопку');

@@ -16,6 +16,7 @@ function buildGate(snapshot = {}) {
     pr199Ready: bool(summary.pr199Ready),
     pr202Ready: bool(summary.pr202Ready),
     buttonsWizardPhysicalRouteProbeOk: bool(summary.buttonsWizardPhysicalRouteProbeOk),
+    urlLinkPreviewProbeOk: bool(summary.urlLinkPreviewProbeOk),
     buttonsWizardPhysicalInplaceReady: bool(summary.buttonsWizardPhysicalInplaceReady),
     plusSignWizardTextSupported: bool(summary.plusSignWizardTextSupported)
   };

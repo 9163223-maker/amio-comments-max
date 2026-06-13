@@ -71,7 +71,8 @@ function summarize(snapshot = {}) {
   };
   const pr199Ready = Object.values(pr199Gates).every(Boolean);
   const pr202Ready = Object.values(pr202Gates).every(Boolean);
-  const buttonsWizardPhysicalRouteProbeOk = bool(physicalProbe.ok);
+  const urlLinkPreviewProbeOk = bool(physicalProbe.urlLinkPreviewProbeOk);
+  const buttonsWizardPhysicalRouteProbeOk = bool(physicalProbe.ok) && urlLinkPreviewProbeOk;
   return {
     ok: snapshot.ok === true,
     runtimeVersion: clean(snapshot.runtimeVersion),
@@ -85,6 +86,9 @@ function summarize(snapshot = {}) {
     pr199Ready,
     pr202Ready,
     buttonsWizardPhysicalRouteProbeOk,
+    urlPlainTextProbeOk: bool(physicalProbe.urlPlainTextProbeOk),
+    urlLinkPreviewProbeOk,
+    uppercaseUrlProbeOk: bool(physicalProbe.uppercaseUrlProbeOk),
     buttonsWizardPhysicalInplaceReady: pr199Ready && pr202Ready && buttonsWizardPhysicalRouteProbeOk,
     ...pr199Gates,
     ...pr202Gates
@@ -171,6 +175,10 @@ function buildLiveVersionSnapshot() {
         sameMessageAcrossSteps: bool(physicalProbe.sameMessageAcrossSteps),
         wizardSendMessageCount: Number(physicalProbe.wizardSendMessageCount || 0),
         cleanupTouchedWizardMessage: bool(physicalProbe.cleanupTouchedWizardMessage),
+        urlPlainTextProbeOk: bool(physicalProbe.urlPlainTextProbeOk),
+        urlLinkPreviewProbeOk: bool(physicalProbe.urlLinkPreviewProbeOk),
+        uppercaseUrlProbeOk: bool(physicalProbe.uppercaseUrlProbeOk),
+        step3FromLinkPreviewTransport: clean(physicalProbe.step3FromLinkPreviewTransport),
         diagnostics: Array.isArray(physicalProbe.diagnostics) ? physicalProbe.diagnostics.slice(0, 10).map((item) => clean(item).slice(0, 160)).filter(Boolean) : []
       },
       commentsMatrixSelftest: true,
