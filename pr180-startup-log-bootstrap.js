@@ -2,9 +2,11 @@
 
 const startupLog = require('./services/startupLogService');
 const runtimeContract = require('./services/runtimeContractService');
+const liveVersionSnapshotService = require('./services/liveVersionSnapshotService');
 
 const startedAt = new Date().toISOString();
 let scheduled = false;
+let startupInProgress = true;
 
 function clean(value) { return String(value || '').trim(); }
 function safeContract() {
@@ -42,21 +44,36 @@ function runtimeInfo() {
     pr165RuntimeWired: buildInfo.pr165RuntimeWired === true || process.env.PR165_RUNTIME_WIRED === '1',
     postgresConfigured: Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_CONNECTION_STRING || process.env.PGHOST),
     canonicalPublicBaseUrl: clean(process.env.ADMINKIT_PUBLIC_BASE_URL || 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run'),
-    runtimeContract: safeContract()
+    runtimeContract: safeContract(),
+    liveVersionSnapshot: liveVersionSnapshotService.buildLiveVersionSnapshot()
   };
+}
+
+function recordStartupNow(extra = {}) {
+  return startupLog.recordStartup({ ...runtimeInfo(), ...extra });
+}
+function markPr199InstallComplete() { startupInProgress = false; return { ok: true, startupInProgress }; }
+function shouldDeferStartupLog(info) {
+  return startupInProgress && info && info.liveVersionSnapshot && info.liveVersionSnapshot.liveVersionSummary && info.liveVersionSnapshot.liveVersionSummary.pr199Ready === false;
+}
+function writeScheduledStartupLog(attempt = 0) {
+  const info = runtimeInfo();
+  if (shouldDeferStartupLog(info) && attempt < 6) {
+    setTimeout(() => writeScheduledStartupLog(attempt + 1), 500);
+    return;
+  }
+  startupLog.recordStartup(info).catch((error) => {
+    console.warn('[startup-log] unhandled failure', error && error.message || error);
+  });
 }
 
 function scheduleStartupLog() {
   if (scheduled) return { ok: true, already: true };
   scheduled = true;
-  setTimeout(() => {
-    startupLog.recordStartup(runtimeInfo()).catch((error) => {
-      console.warn('[startup-log] unhandled failure', error && error.message || error);
-    });
-  }, 1500);
+  setTimeout(() => writeScheduledStartupLog(), 1500);
   return { ok: true, scheduled: true };
 }
 
 scheduleStartupLog();
 
-module.exports = { ok: true, marker: 'adminkit-pr180-startup-log-bootstrap', scheduleStartupLog, info: startupLog.info, runtimeInfo };
+module.exports = { ok: true, marker: 'adminkit-pr180-startup-log-bootstrap', scheduleStartupLog, recordStartupNow, markPr199InstallComplete, shouldDeferStartupLog, info: startupLog.info, runtimeInfo };
