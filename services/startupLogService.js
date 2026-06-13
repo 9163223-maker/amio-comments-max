@@ -115,6 +115,7 @@ function sanitizeLiveVersionSnapshot(input = {}) {
   const guard = sanitizeObject(snap.pr199ButtonsMainMenuRouteGuard);
   const realShow = sanitizeObject(snap.pr202ButtonsRealShowPath);
   const postStart = sanitizeObject(snap.pr202PostStartInstaller);
+  const physicalProbe = sanitizeObject(snap.buttonsWizardPhysicalRouteProbe);
   const summary = sanitizeObject(snap.liveVersionSummary);
   const contract = sanitizeObject(snap.runtimeContract);
   return {
@@ -176,6 +177,18 @@ function sanitizeLiveVersionSnapshot(input = {}) {
       startupLogRefreshReason: short(postStart.startupLogRefreshReason, 120),
       error: short(postStart.error, 160)
     },
+    buttonsWizardPhysicalRouteProbe: {
+      ok: sanitizeBool(physicalProbe.ok),
+      runtime: short(physicalProbe.runtime, 120),
+      source: short(physicalProbe.source, 160),
+      step1Transport: short(physicalProbe.step1Transport, 80),
+      step2Transport: short(physicalProbe.step2Transport, 80),
+      step3Transport: short(physicalProbe.step3Transport, 80),
+      sameMessageAcrossSteps: sanitizeBool(physicalProbe.sameMessageAcrossSteps),
+      wizardSendMessageCount: Number(physicalProbe.wizardSendMessageCount || 0),
+      cleanupTouchedWizardMessage: sanitizeBool(physicalProbe.cleanupTouchedWizardMessage),
+      diagnostics: sanitizeList(physicalProbe.diagnostics, 10)
+    },
     liveVersionSummary: {
       ok: sanitizeBool(summary.ok),
       runtimeVersion: short(summary.runtimeVersion, 120),
@@ -188,6 +201,7 @@ function sanitizeLiveVersionSnapshot(input = {}) {
       runtimeContractLiveOk: sanitizeBool(summary.runtimeContractLiveOk),
       pr199Ready: sanitizeBool(summary.pr199Ready),
       pr202Ready: sanitizeBool(summary.pr202Ready),
+      buttonsWizardPhysicalRouteProbeOk: sanitizeBool(summary.buttonsWizardPhysicalRouteProbeOk),
       buttonsWizardPhysicalInplaceReady: sanitizeBool(summary.buttonsWizardPhysicalInplaceReady),
       pr199ButtonsWizardOk: sanitizeBool(summary.pr199ButtonsWizardOk),
       pr199ButtonsMainMenuRouteGuardOk: sanitizeBool(summary.pr199ButtonsMainMenuRouteGuardOk),

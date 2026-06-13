@@ -4,6 +4,7 @@ const path = require('path');
 const { getBuildInfo } = require('../buildInfo');
 const liveIdentity = require('./liveIdentityService');
 const runtimeContract = require('./runtimeContractService');
+const buttonsWizardProbe = require('./buttonsWizardPhysicalRouteProbeService');
 
 const ROUTE_RUNTIME = 'CC8.3.51-PR165-PUSH-RUNTIME-WIRED-ROUTES';
 const STARTED_AT = new Date().toISOString();
@@ -50,6 +51,7 @@ function summarize(snapshot = {}) {
   const wizard = snapshot.pr199ButtonsWizard || {};
   const guard = snapshot.pr199ButtonsMainMenuRouteGuard || {};
   const realShow = snapshot.pr202ButtonsRealShowPath || {};
+  const physicalProbe = snapshot.buttonsWizardPhysicalRouteProbe || {};
   const pr199Gates = {
     pr199ButtonsWizardOk: bool(wizard.ok),
     pr199ButtonsMainMenuRouteGuardOk: bool(guard.ok),
@@ -69,6 +71,7 @@ function summarize(snapshot = {}) {
   };
   const pr199Ready = Object.values(pr199Gates).every(Boolean);
   const pr202Ready = Object.values(pr202Gates).every(Boolean);
+  const buttonsWizardPhysicalRouteProbeOk = bool(physicalProbe.ok);
   return {
     ok: snapshot.ok === true,
     runtimeVersion: clean(snapshot.runtimeVersion),
@@ -81,7 +84,8 @@ function summarize(snapshot = {}) {
     runtimeContractLiveOk: bool(snapshot.runtimeContract && snapshot.runtimeContract.contractLiveOk),
     pr199Ready,
     pr202Ready,
-    buttonsWizardPhysicalInplaceReady: pr199Ready && pr202Ready,
+    buttonsWizardPhysicalRouteProbeOk,
+    buttonsWizardPhysicalInplaceReady: pr199Ready && pr202Ready && buttonsWizardPhysicalRouteProbeOk,
     ...pr199Gates,
     ...pr202Gates
   };
@@ -97,6 +101,7 @@ function buildLiveVersionSnapshot() {
     const guard = safeInfo('../pr199-buttons-main-menu-route-guard');
     const realShow = safeInfo('../pr202-buttons-real-show-path-inplace');
     const postStart = safeInfo('../pr202-post-start-bootstrap');
+    const physicalProbe = buttonsWizardProbe.getLatestProbe();
     const snapshot = {
       ok: true,
       runtimeVersion,
@@ -156,6 +161,18 @@ function buildLiveVersionSnapshot() {
         startupLogRefreshReason: clean(postStart.startupLogRefreshReason),
         error: clean(postStart.error).slice(0, 160)
       },
+      buttonsWizardPhysicalRouteProbe: {
+        ok: bool(physicalProbe.ok),
+        runtime: clean(physicalProbe.runtime),
+        source: clean(physicalProbe.source),
+        step1Transport: clean(physicalProbe.step1Transport),
+        step2Transport: clean(physicalProbe.step2Transport),
+        step3Transport: clean(physicalProbe.step3Transport),
+        sameMessageAcrossSteps: bool(physicalProbe.sameMessageAcrossSteps),
+        wizardSendMessageCount: Number(physicalProbe.wizardSendMessageCount || 0),
+        cleanupTouchedWizardMessage: bool(physicalProbe.cleanupTouchedWizardMessage),
+        diagnostics: Array.isArray(physicalProbe.diagnostics) ? physicalProbe.diagnostics.slice(0, 10).map((item) => clean(item).slice(0, 160)).filter(Boolean) : []
+      },
       commentsMatrixSelftest: true,
       productionCommentsMatrixProbe: true,
       commentsTimingTraceV2: true,
@@ -186,7 +203,8 @@ function buildLiveVersionSnapshot() {
       pr199ButtonsWizard: { ok: false, installed: false, installOrder: '', buttonsDuplicateSaveGuarded: false, buttonsPendingPreviewConsumedBeforeSave: false },
       pr199ButtonsMainMenuRouteGuard: { ok: false, installed: false, chatIdWizardEditForwardsBotToken: false, chatIdWizardEditFallsBackToSend: false },
       pr202ButtonsRealShowPath: { ok: false, installed: false, buttonsWizardRealShowPathInplace: false, buttonsWizardTraceCoversShowPath: false, plusSignWizardTextSupported: false, patchesMaxSendMessageAfterPr199: false },
-      pr202PostStartInstaller: { ok: false, installed: false, scheduled: false }
+      pr202PostStartInstaller: { ok: false, installed: false, scheduled: false },
+      buttonsWizardPhysicalRouteProbe: { ok: false, diagnostics: ['snapshot_build_failed'] }
     };
     fallback.liveVersionSummary = summarize(fallback);
     return fallback;

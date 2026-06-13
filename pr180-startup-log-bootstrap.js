@@ -54,7 +54,7 @@ function markRuntimeReadinessInstallComplete() { startupInProgress = false; retu
 function markPr199InstallComplete() { return markRuntimeReadinessInstallComplete(); }
 function shouldDeferStartupLog(info) {
   const summary = info && info.liveVersionSnapshot && info.liveVersionSnapshot.liveVersionSummary || {};
-  return startupInProgress && summary.buttonsWizardPhysicalInplaceReady !== true;
+  return summary.buttonsWizardPhysicalInplaceReady !== true;
 }
 function writeScheduledStartupLog(attempt = 0) {
   const info = runtimeInfo();

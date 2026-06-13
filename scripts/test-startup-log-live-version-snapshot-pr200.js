@@ -9,7 +9,9 @@ const guard = require('../pr199-buttons-main-menu-route-guard');
 const realShow = require('../pr202-buttons-real-show-path-inplace');
 const postStart = require('../pr202-post-start-bootstrap');
 const debugRoutes = require('../admin-walkthrough-trace-routes');
+const buttonsWizardProbe = require('../services/buttonsWizardPhysicalRouteProbeService');
 
+(async () => {
 const early = liveSnapshot.buildLiveVersionSnapshot();
 assert.strictEqual(early.liveVersionSummary.pr199Ready, false);
 assert.strictEqual(early.liveVersionSummary.pr202Ready, false);
@@ -21,6 +23,12 @@ guard.install();
 bootstrap.markPr199InstallComplete();
 realShow.install();
 postStart.installNow('test-pr202-runtime-gates');
+const pending = liveSnapshot.buildLiveVersionSnapshot();
+assert.strictEqual(pending.liveVersionSummary.buttonsWizardPhysicalInplaceReady, false, 'post-start sync path cannot mark physical route ready');
+assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: pending }), true);
+const probe = await buttonsWizardProbe.runProbe();
+assert.strictEqual(probe.ok, true, 'real production route probe succeeds before readiness is green');
+assert.strictEqual(probe.source, 'adminkit-buttons-wizard-production-webhook-route-probe');
 
 const final = liveSnapshot.buildLiveVersionSnapshot();
 const debugPayload = debugRoutes.liveVersionPayload();
@@ -77,3 +85,4 @@ assert.strictEqual(log.latest.liveVersionSummary.pr202Ready, true);
 assert.strictEqual(log.latest.liveVersionSummary.buttonsWizardPhysicalInplaceReady, true);
 assert.strictEqual(log.latest.liveVersionSnapshot.pr202ButtonsRealShowPath.plusSignWizardTextSupported, true);
 console.log('PR200/PR204 startup-log live version snapshot regression assertions passed');
+})().catch((error) => { console.error(error && error.stack || error); process.exit(1); });

@@ -31,8 +31,10 @@ function rememberButtonScreen(store, userId = '', messageId = '', text = '') {
   if (!uid || !mid) return false;
   try {
     store.setSetupState(uid, {
+      buttonsWizardScreenMessageId: mid,
       buttonsActiveScreenMessageId: mid,
       buttonsActiveScreenAt: Date.now(),
+      buttonsWizardScreenRecordedAt: Date.now(),
       buttonsActiveScreenRuntime: RUNTIME,
       buttonsActiveScreenText: short(text, 80),
       activeAdminFlowKind: 'button'
@@ -219,7 +221,7 @@ function install() {
         const text = clean(args.text || '');
         if (userId && !chatId && isButtonsWizardText(text)) {
           const state = setup(store, userId);
-          const previousMessageId = clean(state.buttonsActiveScreenMessageId || '');
+          const previousMessageId = clean(state.buttonsWizardScreenMessageId || state.buttonsActiveScreenMessageId || '');
           if (previousMessageId) {
             try {
               const edited = await max.editMessage({ botToken: args.botToken, messageId: previousMessageId, text: args.text, attachments: args.attachments, format: args.format, link: args.link, notify: false });
