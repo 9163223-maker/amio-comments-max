@@ -37,10 +37,10 @@ async function main() {
       return res.status(200).json({ ok: true, delegated: true });
     }
   });
-  const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(value) { this.body = value; return value; } };
-  const update = { update_type: 'message_created', message: { sender: { user_id: userId }, recipient: { chat_id: chatId, chat_type: 'dialog' }, body: { text: '/start' } } };
+  const res = { statusCode: 200, headersSent: false, status(code) { this.statusCode = code; return this; }, json(value) { this.headersSent = true; this.body = value; return value; } };
+  const update = { update_type: 'message_created', message: { sender: { user_id: userId }, recipient: { chat_id: chatId, chat_type: 'dialog' }, body: { text: 'neutral message' } } };
 
-  store.setSetupState(userId, { activeAdminFlowKind: 'button', buttonFlow: { step: 'url' }, buttonsActiveScreenMessageId: 'wizard-mid' });
+  store.setSetupState(userId, { buttonsActiveScreenMessageId: 'wizard-mid' });
 
   await bot.handleWebhook({ body: update }, res, { botToken: 'test-token' });
 
