@@ -93,8 +93,27 @@ function sanitizeLiveVersionSnapshot(input = {}) {
   const wizard = sanitizeObject(snap.pr199ButtonsWizard);
   const guard = sanitizeObject(snap.pr199ButtonsMainMenuRouteGuard);
   const summary = sanitizeObject(snap.liveVersionSummary);
+  const contract = sanitizeObject(snap.runtimeContract);
   return {
     ok: sanitizeBool(snap.ok),
+    runtimeVersion: short(snap.runtimeVersion, 120),
+    buildVersion: short(snap.buildVersion || snap.runtimeVersion, 120),
+    displayVersion: short(snap.displayVersion || snap.runtimeVersion, 120),
+    packageVersion: short(snap.packageVersion || snap.runtimeVersion, 120),
+    sourceMarker: short(snap.sourceMarker, 160),
+    gitCommit: short(snap.gitCommit, 80),
+    activeEntrypoint: short(snap.activeEntrypoint, 120),
+    staleEndpointDetected: sanitizeBool(snap.staleEndpointDetected),
+    debugVersionSource: short(snap.debugVersionSource, 120),
+    runtimeContract: {
+      runtime: short(contract.runtime, 120),
+      sourceMarker: short(contract.sourceMarker, 160),
+      contractLiveOk: sanitizeBool(contract.contractLiveOk),
+      startupPathOk: sanitizeBool(contract.startupPathOk),
+      dataProvidersOk: sanitizeBool(contract.dataProvidersOk),
+      mismatches: sanitizeList(contract.mismatches, 20),
+      safe: true
+    },
     safe: true,
     generatedAt: short(snap.generatedAt, 64),
     error: short(snap.error, 160),
@@ -113,6 +132,14 @@ function sanitizeLiveVersionSnapshot(input = {}) {
     },
     liveVersionSummary: {
       ok: sanitizeBool(summary.ok),
+      runtimeVersion: short(summary.runtimeVersion, 120),
+      buildVersion: short(summary.buildVersion, 120),
+      sourceMarker: short(summary.sourceMarker, 160),
+      gitCommit: short(summary.gitCommit, 80),
+      activeEntrypoint: short(summary.activeEntrypoint, 120),
+      staleEndpointDetected: sanitizeBool(summary.staleEndpointDetected),
+      debugVersionSource: short(summary.debugVersionSource, 120),
+      runtimeContractLiveOk: sanitizeBool(summary.runtimeContractLiveOk),
       pr199Ready: sanitizeBool(summary.pr199Ready),
       pr199ButtonsWizardOk: sanitizeBool(summary.pr199ButtonsWizardOk),
       pr199ButtonsMainMenuRouteGuardOk: sanitizeBool(summary.pr199ButtonsMainMenuRouteGuardOk),
