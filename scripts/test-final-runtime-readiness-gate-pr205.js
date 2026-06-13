@@ -27,49 +27,51 @@ async function main() {
 
   const state = await finalGate.installAndRecord({ skipRecord: true });
   assert.strictEqual(state.ok, true);
-  assert.strictEqual(state.finalRuntimeReadinessGate.ok, true);
-  assert.strictEqual(state.finalRuntimeReadinessGate.readyForManualMaxTest, true);
-  assert.deepStrictEqual(state.finalRuntimeReadinessGate.missing, []);
+  assert.strictEqual(state.finalRuntimeReadinessGate.ok, false);
+  assert.strictEqual(state.finalRuntimeReadinessGate.readyForManualMaxTest, false);
+  assert(state.finalRuntimeReadinessGate.missing.includes('buttonsWizardPhysicalRouteProbeOk'));
+  assert(state.finalRuntimeReadinessGate.missing.includes('urlLinkPreviewProbeOk'));
+  assert(state.finalRuntimeReadinessGate.missing.includes('buttonsWizardPhysicalInplaceReady'));
 
   const final = liveSnapshot.buildLiveVersionSnapshot();
   assert.strictEqual(final.liveVersionSummary.pr199Ready, true);
   assert.strictEqual(final.liveVersionSummary.pr202Ready, true);
-  assert.strictEqual(final.liveVersionSummary.buttonsWizardPhysicalInplaceReady, true);
+  assert.strictEqual(final.liveVersionSummary.buttonsWizardPhysicalInplaceReady, false);
   assert.strictEqual(final.liveVersionSummary.plusSignWizardTextSupported, true);
-  assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: final }), false);
+  assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: final }), true);
 
   const entry = startupLog.sanitizeEntry({
     runtimeVersion: 'final-runtime-test',
     liveVersionSnapshot: final,
     finalRuntimeReadinessGate: state.finalRuntimeReadinessGate
   });
-  assert.strictEqual(entry.liveVersionSummary.buttonsWizardPhysicalInplaceReady, true);
-  assert.strictEqual(entry.finalRuntimeReadinessGate.ok, true);
-  assert.strictEqual(entry.finalRuntimeReadinessGate.readyForManualMaxTest, true);
-  assert.deepStrictEqual(entry.finalRuntimeReadinessGate.missing, []);
+  assert.strictEqual(entry.liveVersionSummary.buttonsWizardPhysicalInplaceReady, false);
+  assert.strictEqual(entry.finalRuntimeReadinessGate.ok, false);
+  assert.strictEqual(entry.finalRuntimeReadinessGate.readyForManualMaxTest, false);
+  assert(entry.finalRuntimeReadinessGate.missing.includes('buttonsWizardPhysicalRouteProbeOk'));
   assert.strictEqual(entry.finalRuntimeReadinessGate.required.pr199Ready, true);
   assert.strictEqual(entry.finalRuntimeReadinessGate.required.pr202Ready, true);
-  assert.strictEqual(entry.finalRuntimeReadinessGate.required.buttonsWizardPhysicalInplaceReady, true);
+  assert.strictEqual(entry.finalRuntimeReadinessGate.required.buttonsWizardPhysicalInplaceReady, false);
 
   const derivedEntry = startupLog.sanitizeEntry({
     runtimeVersion: 'final-runtime-derived-test',
     liveVersionSnapshot: final
   });
-  assert.strictEqual(derivedEntry.liveVersionSummary.buttonsWizardPhysicalRouteProbeOk, true);
-  assert.strictEqual(derivedEntry.liveVersionSummary.buttonsWizardPhysicalInplaceReady, true);
-  assert.strictEqual(derivedEntry.finalRuntimeReadinessGate.ok, true);
-  assert.strictEqual(derivedEntry.finalRuntimeReadinessGate.readyForManualMaxTest, true);
+  assert.strictEqual(derivedEntry.liveVersionSummary.buttonsWizardPhysicalRouteProbeOk, false);
+  assert.strictEqual(derivedEntry.liveVersionSummary.buttonsWizardPhysicalInplaceReady, false);
+  assert.strictEqual(derivedEntry.finalRuntimeReadinessGate.ok, false);
+  assert.strictEqual(derivedEntry.finalRuntimeReadinessGate.readyForManualMaxTest, false);
   assert.strictEqual(derivedEntry.finalRuntimeReadinessGate.githubMainHeadVerifiedByStartupLog, true);
-  assert.strictEqual(derivedEntry.finalRuntimeReadinessGate.required.buttonsWizardPhysicalRouteProbeOk, true);
-  assert.strictEqual(derivedEntry.finalRuntimeReadinessGate.required.buttonsWizardPhysicalInplaceReady, true);
-  assert.deepStrictEqual(derivedEntry.finalRuntimeReadinessGate.missing, []);
+  assert.strictEqual(derivedEntry.finalRuntimeReadinessGate.required.buttonsWizardPhysicalRouteProbeOk, false);
+  assert.strictEqual(derivedEntry.finalRuntimeReadinessGate.required.buttonsWizardPhysicalInplaceReady, false);
+  assert(derivedEntry.finalRuntimeReadinessGate.missing.includes('buttonsWizardPhysicalRouteProbeOk'));
 
   const runtimeInfo = bootstrap.runtimeInfo();
-  assert.strictEqual(runtimeInfo.liveVersionSnapshot.liveVersionSummary.buttonsWizardPhysicalRouteProbeOk, true);
-  assert.strictEqual(runtimeInfo.liveVersionSnapshot.liveVersionSummary.buttonsWizardPhysicalInplaceReady, true);
-  assert.strictEqual(runtimeInfo.finalRuntimeReadinessGate.ok, true);
-  assert.strictEqual(runtimeInfo.finalRuntimeReadinessGate.readyForManualMaxTest, true);
-  assert.strictEqual(bootstrap.shouldDeferStartupLog(runtimeInfo), false);
+  assert.strictEqual(runtimeInfo.liveVersionSnapshot.liveVersionSummary.buttonsWizardPhysicalRouteProbeOk, false);
+  assert.strictEqual(runtimeInfo.liveVersionSnapshot.liveVersionSummary.buttonsWizardPhysicalInplaceReady, false);
+  assert.strictEqual(runtimeInfo.finalRuntimeReadinessGate.ok, false);
+  assert.strictEqual(runtimeInfo.finalRuntimeReadinessGate.readyForManualMaxTest, false);
+  assert.strictEqual(bootstrap.shouldDeferStartupLog(runtimeInfo), true);
 
   console.log('PR205 final runtime readiness gate regression assertions passed');
 }

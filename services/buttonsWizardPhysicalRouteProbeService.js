@@ -24,9 +24,14 @@ function pendingProbe(reason = 'pending_real_production_route_probe') {
     diagnostics: [reason]
   };
 }
-function runProbeSync() {
-  latest = pendingProbe();
+function runProbeSync(reason) {
+  latest = pendingProbe(reason);
   return latest;
+}
+function startupProbeEnabled() { return process.env.ADMINKIT_RUN_STARTUP_PRODUCTION_PROBE === '1'; }
+async function runStartupProbe() {
+  if (!startupProbeEnabled()) return runProbeSync('startup_production_probe_disabled');
+  return runProbe();
 }
 async function runProbe() {
   try {
@@ -55,4 +60,4 @@ async function runProbe() {
 function getLatestProbe() { return latest; }
 function setLatestProbeForTests(probe) { latest = probe || latest; return latest; }
 
-module.exports = { runProbe, runProbeSync, getLatestProbe, setLatestProbeForTests, pendingProbe };
+module.exports = { runProbe, runStartupProbe, runProbeSync, startupProbeEnabled, getLatestProbe, setLatestProbeForTests, pendingProbe };
