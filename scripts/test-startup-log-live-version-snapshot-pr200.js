@@ -6,19 +6,27 @@ const liveSnapshot = require('../services/liveVersionSnapshotService');
 const bootstrap = require('../pr180-startup-log-bootstrap');
 const wizard = require('../pr199-buttons-wizard-inplace-save-bootstrap');
 const guard = require('../pr199-buttons-main-menu-route-guard');
+const realShow = require('../pr202-buttons-real-show-path-inplace');
+const postStart = require('../pr202-post-start-bootstrap');
 const debugRoutes = require('../admin-walkthrough-trace-routes');
 
 const early = liveSnapshot.buildLiveVersionSnapshot();
 assert.strictEqual(early.liveVersionSummary.pr199Ready, false);
+assert.strictEqual(early.liveVersionSummary.pr202Ready, false);
+assert.strictEqual(early.liveVersionSummary.buttonsWizardPhysicalInplaceReady, false);
 assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: early }), true);
 
 wizard.install();
 guard.install();
 bootstrap.markPr199InstallComplete();
+realShow.install();
+postStart.installNow('test-pr202-runtime-gates');
 
 const final = liveSnapshot.buildLiveVersionSnapshot();
 const debugPayload = debugRoutes.liveVersionPayload();
 assert.strictEqual(debugPayload.liveVersionSummary.pr199Ready, final.liveVersionSummary.pr199Ready);
+assert.strictEqual(debugPayload.liveVersionSummary.pr202Ready, final.liveVersionSummary.pr202Ready);
+assert.strictEqual(debugPayload.liveVersionSummary.buttonsWizardPhysicalInplaceReady, final.liveVersionSummary.buttonsWizardPhysicalInplaceReady);
 assert.strictEqual(debugPayload.runtimeVersion, final.runtimeVersion);
 assert.strictEqual(debugPayload.buildVersion, final.buildVersion);
 assert.strictEqual(debugPayload.sourceMarker, final.sourceMarker);
@@ -36,6 +44,14 @@ assert.strictEqual(final.pr199ButtonsWizard.buttonsDuplicateSaveGuarded, true);
 assert.strictEqual(final.pr199ButtonsWizard.buttonsPendingPreviewConsumedBeforeSave, true);
 assert.strictEqual(final.pr199ButtonsWizard.installOrder, 'after-persistent-store-bootstrap');
 assert.strictEqual(final.liveVersionSummary.pr199Ready, true);
+assert.strictEqual(final.pr202ButtonsRealShowPath.ok, true);
+assert.strictEqual(final.pr202ButtonsRealShowPath.installed, true);
+assert.strictEqual(final.pr202ButtonsRealShowPath.buttonsWizardRealShowPathInplace, true);
+assert.strictEqual(final.pr202ButtonsRealShowPath.buttonsWizardTraceCoversShowPath, true);
+assert.strictEqual(final.pr202ButtonsRealShowPath.plusSignWizardTextSupported, true);
+assert.strictEqual(final.pr202ButtonsRealShowPath.patchesMaxSendMessageAfterPr199, true);
+assert.strictEqual(final.liveVersionSummary.pr202Ready, true);
+assert.strictEqual(final.liveVersionSummary.buttonsWizardPhysicalInplaceReady, true);
 assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: final }), false);
 
 const log = { latest: null, items: [] };
@@ -46,6 +62,7 @@ function publish(input) {
 }
 publish({ runtimeVersion: 'early', liveVersionSnapshot: early });
 assert.strictEqual(log.latest.liveVersionSummary.pr199Ready, false);
+assert.strictEqual(log.latest.liveVersionSummary.pr202Ready, false);
 publish({ runtimeVersion: 'final', liveVersionSnapshot: final });
 assert.strictEqual(log.latest.runtimeVersion, 'final');
 assert.strictEqual(log.latest.liveVersionSnapshot.runtimeVersion, final.runtimeVersion);
@@ -56,4 +73,7 @@ assert.strictEqual(log.latest.liveVersionSnapshot.activeEntrypoint, final.active
 assert.strictEqual(log.latest.liveVersionSnapshot.debugVersionSource, final.debugVersionSource);
 assert.strictEqual(log.latest.liveVersionSnapshot.runtimeContract.contractLiveOk, final.runtimeContract.contractLiveOk);
 assert.strictEqual(log.latest.liveVersionSummary.pr199Ready, true);
-console.log('PR200 startup-log live version snapshot regression assertions passed');
+assert.strictEqual(log.latest.liveVersionSummary.pr202Ready, true);
+assert.strictEqual(log.latest.liveVersionSummary.buttonsWizardPhysicalInplaceReady, true);
+assert.strictEqual(log.latest.liveVersionSnapshot.pr202ButtonsRealShowPath.plusSignWizardTextSupported, true);
+console.log('PR200/PR204 startup-log live version snapshot regression assertions passed');

@@ -49,7 +49,8 @@ function safeRuntimeContractSummary() {
 function summarize(snapshot = {}) {
   const wizard = snapshot.pr199ButtonsWizard || {};
   const guard = snapshot.pr199ButtonsMainMenuRouteGuard || {};
-  const gates = {
+  const realShow = snapshot.pr202ButtonsRealShowPath || {};
+  const pr199Gates = {
     pr199ButtonsWizardOk: bool(wizard.ok),
     pr199ButtonsMainMenuRouteGuardOk: bool(guard.ok),
     chatIdWizardEditForwardsBotToken: bool(guard.chatIdWizardEditForwardsBotToken),
@@ -58,6 +59,16 @@ function summarize(snapshot = {}) {
     buttonsPendingPreviewConsumedBeforeSave: bool(wizard.buttonsPendingPreviewConsumedBeforeSave),
     installOrderAfterPersistentStoreBootstrap: clean(wizard.installOrder) === 'after-persistent-store-bootstrap'
   };
+  const pr202Gates = {
+    pr202ButtonsRealShowPathOk: bool(realShow.ok),
+    pr202ButtonsRealShowPathInstalled: bool(realShow.installed),
+    buttonsWizardRealShowPathInplace: bool(realShow.buttonsWizardRealShowPathInplace),
+    buttonsWizardTraceCoversShowPath: bool(realShow.buttonsWizardTraceCoversShowPath),
+    plusSignWizardTextSupported: bool(realShow.plusSignWizardTextSupported),
+    patchesMaxSendMessageAfterPr199: bool(realShow.patchesMaxSendMessageAfterPr199)
+  };
+  const pr199Ready = Object.values(pr199Gates).every(Boolean);
+  const pr202Ready = Object.values(pr202Gates).every(Boolean);
   return {
     ok: snapshot.ok === true,
     runtimeVersion: clean(snapshot.runtimeVersion),
@@ -68,8 +79,11 @@ function summarize(snapshot = {}) {
     staleEndpointDetected: bool(snapshot.staleEndpointDetected),
     debugVersionSource: clean(snapshot.debugVersionSource),
     runtimeContractLiveOk: bool(snapshot.runtimeContract && snapshot.runtimeContract.contractLiveOk),
-    pr199Ready: Object.values(gates).every(Boolean),
-    ...gates
+    pr199Ready,
+    pr202Ready,
+    buttonsWizardPhysicalInplaceReady: pr199Ready && pr202Ready,
+    ...pr199Gates,
+    ...pr202Gates
   };
 }
 
@@ -81,6 +95,8 @@ function buildLiveVersionSnapshot() {
     const warning = liveIdentity.warningForExpected('', identity.gitCommit);
     const wizard = safeInfo('../pr199-buttons-wizard-inplace-save-bootstrap');
     const guard = safeInfo('../pr199-buttons-main-menu-route-guard');
+    const realShow = safeInfo('../pr202-buttons-real-show-path-inplace');
+    const postStart = safeInfo('../pr202-post-start-bootstrap');
     const snapshot = {
       ok: true,
       runtimeVersion,
@@ -117,6 +133,29 @@ function buildLiveVersionSnapshot() {
         chatIdWizardEditForwardsBotToken: bool(guard.chatIdWizardEditForwardsBotToken),
         chatIdWizardEditFallsBackToSend: bool(guard.chatIdWizardEditFallsBackToSend)
       },
+      pr202ButtonsRealShowPath: {
+        ok: bool(realShow.ok),
+        installed: bool(realShow.installed),
+        runtime: clean(realShow.runtime),
+        source: clean(realShow.source),
+        buttonsWizardRealShowPathInplace: bool(realShow.buttonsWizardRealShowPathInplace),
+        buttonsWizardTraceCoversShowPath: bool(realShow.buttonsWizardTraceCoversShowPath),
+        plusSignWizardTextSupported: bool(realShow.plusSignWizardTextSupported),
+        patchesMaxSendMessageAfterPr199: bool(realShow.patchesMaxSendMessageAfterPr199),
+        already: bool(realShow.already),
+        error: clean(realShow.error).slice(0, 160)
+      },
+      pr202PostStartInstaller: {
+        ok: bool(postStart.ok),
+        installed: bool(postStart.installed),
+        scheduled: bool(postStart.scheduled),
+        runtime: clean(postStart.runtime),
+        reason: clean(postStart.reason),
+        delayMs: Number(postStart.delayMs || 0),
+        startupLogRefreshRequested: bool(postStart.startupLogRefreshRequested),
+        startupLogRefreshReason: clean(postStart.startupLogRefreshReason),
+        error: clean(postStart.error).slice(0, 160)
+      },
       commentsMatrixSelftest: true,
       productionCommentsMatrixProbe: true,
       commentsTimingTraceV2: true,
@@ -145,7 +184,9 @@ function buildLiveVersionSnapshot() {
       debugVersionSource: 'live-identity-service-pr141',
       runtimeContract: safeRuntimeContractSummary(),
       pr199ButtonsWizard: { ok: false, installed: false, installOrder: '', buttonsDuplicateSaveGuarded: false, buttonsPendingPreviewConsumedBeforeSave: false },
-      pr199ButtonsMainMenuRouteGuard: { ok: false, installed: false, chatIdWizardEditForwardsBotToken: false, chatIdWizardEditFallsBackToSend: false }
+      pr199ButtonsMainMenuRouteGuard: { ok: false, installed: false, chatIdWizardEditForwardsBotToken: false, chatIdWizardEditFallsBackToSend: false },
+      pr202ButtonsRealShowPath: { ok: false, installed: false, buttonsWizardRealShowPathInplace: false, buttonsWizardTraceCoversShowPath: false, plusSignWizardTextSupported: false, patchesMaxSendMessageAfterPr199: false },
+      pr202PostStartInstaller: { ok: false, installed: false, scheduled: false }
     };
     fallback.liveVersionSummary = summarize(fallback);
     return fallback;

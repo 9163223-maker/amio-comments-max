@@ -4,10 +4,23 @@ const RUNTIME = 'PR202-POST-START-BUTTONS-REAL-SHOW-PATH-INPLACE';
 let scheduled = false;
 let state = { ok: false, runtime: RUNTIME, installed: false, scheduled: false };
 
+function refreshStartupLog(reason = 'post-pr202-install') {
+  try {
+    const bootstrap = require('./pr180-startup-log-bootstrap');
+    if (bootstrap && typeof bootstrap.recordStartupNow === 'function') {
+      state = { ...state, startupLogRefreshRequested: true, startupLogRefreshReason: reason };
+      bootstrap.recordStartupNow({ startupLogRefreshReason: reason }).catch(() => undefined);
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
 function installNow(reason = 'timer') {
   try {
     const patch = require('./pr202-buttons-real-show-path-inplace');
     state = { ...patch.install(), runtime: RUNTIME, scheduled: true, reason };
+    refreshStartupLog('post-pr202-install');
   } catch (error) {
     state = { ok: false, runtime: RUNTIME, installed: false, scheduled: true, reason, error: String(error && error.message || error).slice(0, 180) };
   }
@@ -28,4 +41,4 @@ if (process.env.ADMINKIT_PR202_DISABLE_AUTO_INSTALL !== '1') {
   schedule(Number(process.env.ADMINKIT_PR202_INSTALL_DELAY_MS || 2500));
 }
 
-module.exports = { RUNTIME, schedule, installNow, info: () => state };
+module.exports = { RUNTIME, schedule, installNow, refreshStartupLog, info: () => state };
