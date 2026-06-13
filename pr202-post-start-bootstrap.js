@@ -37,7 +37,7 @@ function schedule(delayMs = 2500) {
   return state;
 }
 
-if (process.env.ADMINKIT_PR202_DISABLE_AUTO_INSTALL !== '1') {
+if (process.env.ADMINKIT_PR202_ENABLE_AUTO_INSTALL === '1') {
   schedule(Number(process.env.ADMINKIT_PR202_INSTALL_DELAY_MS || 2500));
 }
 
