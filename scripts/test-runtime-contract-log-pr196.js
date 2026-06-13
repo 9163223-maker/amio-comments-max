@@ -32,4 +32,5 @@ assert.strictEqual(payload.ok, true);
 assert.strictEqual(payload.contract.runtime, 'RUNTIME-CONTRACT-PR196');
 require('./test-buttons-post-picker-db-backed-pr197');
 require('./test-buttons-wizard-single-screen-link-preview-pr198');
+require('./test-buttons-wizard-inplace-save-pr199');
 console.log('PR196 runtime contract green assertions passed');
