@@ -31,17 +31,22 @@ async function main() {
   patch.install();
 
   const cleanGuard = require('../clean-bot-flow-guard-1546');
-  const bot = cleanGuard.createCleanBot({ handleWebhook: async (req, res) => res.status(200).json({ ok: true, delegated: true }) });
+  const bot = cleanGuard.createCleanBot({
+    handleWebhook: async (req, res) => {
+      await max.sendMessage({ botToken: 'test-token', chatId, text: '➕ Добавление кнопки\nШаг 2/3. Пришлите ссылку для кнопки.', attachments: [] });
+      return res.status(200).json({ ok: true, delegated: true });
+    }
+  });
   const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(value) { this.body = value; return value; } };
-  const update = { update_type: 'message_created', message: { sender: { user_id: userId }, recipient: { chat_id: chatId, chat_type: 'dialog' }, body: { text: 'noop' } } };
+  const update = { update_type: 'message_created', message: { sender: { user_id: userId }, recipient: { chat_id: chatId, chat_type: 'dialog' }, body: { text: '/start' } } };
 
   store.setSetupState(userId, { activeAdminFlowKind: 'button', buttonFlow: { step: 'url' }, buttonsActiveScreenMessageId: 'wizard-mid' });
 
   await bot.handleWebhook({ body: update }, res, { botToken: 'test-token' });
-  await max.sendMessage({ botToken: 'test-token', chatId, text: '➕ Добавление кнопки\nШаг 2/3. Пришлите ссылку для кнопки.', attachments: [] });
 
   assert.strictEqual(sendCalls.length, 0, 'chatId-only wizard send must be converted to edit when user context has active screen');
   assert.strictEqual(editCalls.at(-1).messageId, 'wizard-mid');
+  assert.strictEqual(editCalls.at(-1).botToken, 'test-token');
   assert.strictEqual(store.getSetupState(userId).buttonsActiveScreenMessageId, 'wizard-mid');
   assert.strictEqual(store.getSetupState(chatId).buttonsActiveScreenMessageId, 'wizard-mid');
 
