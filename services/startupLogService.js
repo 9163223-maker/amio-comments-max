@@ -92,6 +92,8 @@ function sanitizeLiveVersionSnapshot(input = {}) {
   const snap = sanitizeObject(input);
   const wizard = sanitizeObject(snap.pr199ButtonsWizard);
   const guard = sanitizeObject(snap.pr199ButtonsMainMenuRouteGuard);
+  const realShow = sanitizeObject(snap.pr202ButtonsRealShowPath);
+  const postStart = sanitizeObject(snap.pr202PostStartInstaller);
   const summary = sanitizeObject(snap.liveVersionSummary);
   const contract = sanitizeObject(snap.runtimeContract);
   return {
@@ -130,6 +132,29 @@ function sanitizeLiveVersionSnapshot(input = {}) {
       chatIdWizardEditForwardsBotToken: sanitizeBool(guard.chatIdWizardEditForwardsBotToken),
       chatIdWizardEditFallsBackToSend: sanitizeBool(guard.chatIdWizardEditFallsBackToSend)
     },
+    pr202ButtonsRealShowPath: {
+      ok: sanitizeBool(realShow.ok),
+      installed: sanitizeBool(realShow.installed),
+      runtime: short(realShow.runtime, 120),
+      source: short(realShow.source, 160),
+      buttonsWizardRealShowPathInplace: sanitizeBool(realShow.buttonsWizardRealShowPathInplace),
+      buttonsWizardTraceCoversShowPath: sanitizeBool(realShow.buttonsWizardTraceCoversShowPath),
+      plusSignWizardTextSupported: sanitizeBool(realShow.plusSignWizardTextSupported),
+      patchesMaxSendMessageAfterPr199: sanitizeBool(realShow.patchesMaxSendMessageAfterPr199),
+      already: sanitizeBool(realShow.already),
+      error: short(realShow.error, 160)
+    },
+    pr202PostStartInstaller: {
+      ok: sanitizeBool(postStart.ok),
+      installed: sanitizeBool(postStart.installed),
+      scheduled: sanitizeBool(postStart.scheduled),
+      runtime: short(postStart.runtime, 120),
+      reason: short(postStart.reason, 120),
+      delayMs: Number(postStart.delayMs || 0),
+      startupLogRefreshRequested: sanitizeBool(postStart.startupLogRefreshRequested),
+      startupLogRefreshReason: short(postStart.startupLogRefreshReason, 120),
+      error: short(postStart.error, 160)
+    },
     liveVersionSummary: {
       ok: sanitizeBool(summary.ok),
       runtimeVersion: short(summary.runtimeVersion, 120),
@@ -141,13 +166,21 @@ function sanitizeLiveVersionSnapshot(input = {}) {
       debugVersionSource: short(summary.debugVersionSource, 120),
       runtimeContractLiveOk: sanitizeBool(summary.runtimeContractLiveOk),
       pr199Ready: sanitizeBool(summary.pr199Ready),
+      pr202Ready: sanitizeBool(summary.pr202Ready),
+      buttonsWizardPhysicalInplaceReady: sanitizeBool(summary.buttonsWizardPhysicalInplaceReady),
       pr199ButtonsWizardOk: sanitizeBool(summary.pr199ButtonsWizardOk),
       pr199ButtonsMainMenuRouteGuardOk: sanitizeBool(summary.pr199ButtonsMainMenuRouteGuardOk),
       chatIdWizardEditForwardsBotToken: sanitizeBool(summary.chatIdWizardEditForwardsBotToken),
       chatIdWizardEditFallsBackToSend: sanitizeBool(summary.chatIdWizardEditFallsBackToSend),
       buttonsDuplicateSaveGuarded: sanitizeBool(summary.buttonsDuplicateSaveGuarded),
       buttonsPendingPreviewConsumedBeforeSave: sanitizeBool(summary.buttonsPendingPreviewConsumedBeforeSave),
-      installOrderAfterPersistentStoreBootstrap: sanitizeBool(summary.installOrderAfterPersistentStoreBootstrap)
+      installOrderAfterPersistentStoreBootstrap: sanitizeBool(summary.installOrderAfterPersistentStoreBootstrap),
+      pr202ButtonsRealShowPathOk: sanitizeBool(summary.pr202ButtonsRealShowPathOk),
+      pr202ButtonsRealShowPathInstalled: sanitizeBool(summary.pr202ButtonsRealShowPathInstalled),
+      buttonsWizardRealShowPathInplace: sanitizeBool(summary.buttonsWizardRealShowPathInplace),
+      buttonsWizardTraceCoversShowPath: sanitizeBool(summary.buttonsWizardTraceCoversShowPath),
+      plusSignWizardTextSupported: sanitizeBool(summary.plusSignWizardTextSupported),
+      patchesMaxSendMessageAfterPr199: sanitizeBool(summary.patchesMaxSendMessageAfterPr199)
     }
   };
 }
