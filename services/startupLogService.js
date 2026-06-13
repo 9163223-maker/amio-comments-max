@@ -2,6 +2,7 @@
 
 const https = require('https');
 const crypto = require('crypto');
+const liveVersionSnapshotService = require('./liveVersionSnapshotService');
 
 const DEFAULT_REPO = '9163223-maker/amio-comments-max';
 const DEFAULT_BRANCH = 'runtime-status';
@@ -86,6 +87,44 @@ function sanitizeRuntimeContract(input = {}) {
     mismatches: sanitizeList(c.mismatches, 30)
   };
 }
+
+function sanitizeLiveVersionSnapshot(input = {}) {
+  const snap = sanitizeObject(input);
+  const wizard = sanitizeObject(snap.pr199ButtonsWizard);
+  const guard = sanitizeObject(snap.pr199ButtonsMainMenuRouteGuard);
+  const summary = sanitizeObject(snap.liveVersionSummary);
+  return {
+    ok: sanitizeBool(snap.ok),
+    safe: true,
+    generatedAt: short(snap.generatedAt, 64),
+    error: short(snap.error, 160),
+    pr199ButtonsWizard: {
+      ok: sanitizeBool(wizard.ok),
+      installed: sanitizeBool(wizard.installed),
+      installOrder: short(wizard.installOrder, 80),
+      buttonsDuplicateSaveGuarded: sanitizeBool(wizard.buttonsDuplicateSaveGuarded),
+      buttonsPendingPreviewConsumedBeforeSave: sanitizeBool(wizard.buttonsPendingPreviewConsumedBeforeSave)
+    },
+    pr199ButtonsMainMenuRouteGuard: {
+      ok: sanitizeBool(guard.ok),
+      installed: sanitizeBool(guard.installed),
+      chatIdWizardEditForwardsBotToken: sanitizeBool(guard.chatIdWizardEditForwardsBotToken),
+      chatIdWizardEditFallsBackToSend: sanitizeBool(guard.chatIdWizardEditFallsBackToSend)
+    },
+    liveVersionSummary: {
+      ok: sanitizeBool(summary.ok),
+      pr199Ready: sanitizeBool(summary.pr199Ready),
+      pr199ButtonsWizardOk: sanitizeBool(summary.pr199ButtonsWizardOk),
+      pr199ButtonsMainMenuRouteGuardOk: sanitizeBool(summary.pr199ButtonsMainMenuRouteGuardOk),
+      chatIdWizardEditForwardsBotToken: sanitizeBool(summary.chatIdWizardEditForwardsBotToken),
+      chatIdWizardEditFallsBackToSend: sanitizeBool(summary.chatIdWizardEditFallsBackToSend),
+      buttonsDuplicateSaveGuarded: sanitizeBool(summary.buttonsDuplicateSaveGuarded),
+      buttonsPendingPreviewConsumedBeforeSave: sanitizeBool(summary.buttonsPendingPreviewConsumedBeforeSave),
+      installOrderAfterPersistentStoreBootstrap: sanitizeBool(summary.installOrderAfterPersistentStoreBootstrap)
+    }
+  };
+}
+
 function sanitizeEntry(input = {}) {
   const safe = {
     startedAt: short(input.startedAt || nowIso(), 64),
@@ -111,6 +150,8 @@ function sanitizeEntry(input = {}) {
     postgresConfigured: sanitizeBool(input.postgresConfigured),
     canonicalPublicBaseUrl: short(input.canonicalPublicBaseUrl || process.env.ADMINKIT_PUBLIC_BASE_URL, 200),
     runtimeContract: sanitizeRuntimeContract(input.runtimeContract),
+    liveVersionSnapshot: sanitizeLiveVersionSnapshot(input.liveVersionSnapshot),
+    liveVersionSummary: sanitizeLiveVersionSnapshot(input.liveVersionSnapshot).liveVersionSummary,
     safe: true
   };
   if (!safe.commitSource) safe.commitSource = safe.gitCommit ? 'runtime-env' : (safe.githubMainHeadSha ? 'github-main-head' : 'unknown');
@@ -222,9 +263,12 @@ async function recordStartup(input = {}) {
   state.path = path;
   state.limit = limit;
   try {
+    const liveVersionSnapshot = input.liveVersionSnapshot || liveVersionSnapshotService.buildLiveVersionSnapshot();
     const mainHead = await getBranchHead({ repo, branch: DEFAULT_MAIN_BRANCH, token });
     const entry = sanitizeEntry({
       ...input,
+      liveVersionSnapshot,
+      liveVersionSummary: input.liveVersionSummary || liveVersionSnapshot.liveVersionSummary,
       githubMainBranch: DEFAULT_MAIN_BRANCH,
       githubMainHeadSha: mainHead.sha,
       githubMainHeadCheckedAt: mainHead.checkedAt,
@@ -268,4 +312,4 @@ function info() {
   };
 }
 
-module.exports = { recordStartup, info, sanitizeEntry, sanitizeRuntimeContract, getBranchHead, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
+module.exports = { recordStartup, info, sanitizeEntry, sanitizeRuntimeContract, sanitizeLiveVersionSnapshot, getBranchHead, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };

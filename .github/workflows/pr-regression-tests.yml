@@ -48,6 +48,7 @@ jobs:
           node --check services/maxCommandRegistryService.js
           node --check services/runtimeContractService.js
           node --check services/startupLogService.js
+          node --check services/liveVersionSnapshotService.js
           node --check performance-debug-routes-pr73.js
           node --check pr180-startup-log-bootstrap.js
           node --check pr191-push-admin-invite-title-commands-bootstrap.js
@@ -57,10 +58,12 @@ jobs:
           node --check scripts/test-v3-channels-list-hydration-pr194.js
           node --check scripts/test-buttons-post-picker-tenant-channels-pr195.js
           node --check scripts/test-runtime-contract-log-pr196.js
+          node --check scripts/test-startup-log-live-version-snapshot-pr200.js
 
       - name: Run AdminKIT regression tests
         run: |
           node scripts/test-runtime-contract-log-pr196.js
+          node scripts/test-startup-log-live-version-snapshot-pr200.js
           node scripts/test-channels-tenant-hydration-pr193a.js
           node scripts/test-v3-channels-list-hydration-pr194.js
           node scripts/test-buttons-post-picker-tenant-channels-pr195.js
