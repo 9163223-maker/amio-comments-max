@@ -50,6 +50,7 @@ process.env.ADMINKIT_DISABLE_AUTOSTART = '1';
   assert.strictEqual(probe.variants.linkPreviewMetadataOnly.step3AfterUrl, true, 'metadata-only link preview advances after URL input');
   assert.strictEqual(probe.variants.linkPreviewMetadataOnly.sends, 0, 'metadata-only link preview does not send duplicate wizard messages');
   assert.strictEqual(probe.traceRedactedOk, true, 'URL timing trace redacts sensitive path/query/token/signature data');
+  assert.strictEqual(probe.postEditLinkPreviewRawTextOk, true, 'post edit flow receives raw empty text instead of link-preview URL fallback');
   assert.strictEqual(probe.mediaAttachmentIgnoredOk, true, 'photo/file attachment payload URLs are not accepted as button URLs');
   assert.strictEqual(probe.variants.mediaAttachment.step3Ok, false, 'media attachment payload URL does not advance to Step 3');
   assert.strictEqual(probe.variants.mediaAttachment.normalizedUrl, '', 'media attachment payload URL is not saved to the button draft');

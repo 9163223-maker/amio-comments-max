@@ -27,7 +27,8 @@ async function runProductionRouteProbe() {
   const access = require('./clientAccessService');
   const timing = require('../v3-ui-timing-cc8');
   const originalStore = clone(store.store);
-  const originals = { editMessage: max.editMessage, sendMessage: max.sendMessage, deleteMessage: max.deleteMessage, answerCallback: max.answerCallback, getChat: max.getChat };
+  const postsFlow = require('../posts-flow-cc8-clean-wrapper');
+  const originals = { editMessage: max.editMessage, sendMessage: max.sendMessage, deleteMessage: max.deleteMessage, answerCallback: max.answerCallback, getChat: max.getChat, postsHandleTextInput: postsFlow.handleTextInput };
   const editCalls = [];
   const sendCalls = [];
   const deleteCalls = [];
@@ -38,6 +39,8 @@ async function runProductionRouteProbe() {
     max.deleteMessage = async function deleteMessageStub(args = {}) { deleteCalls.push(args); return { ok: true }; };
     max.answerCallback = async function answerCallbackStub(args = {}) { answerCalls.push(args); return { ok: true }; };
     max.getChat = async function getChatStub() { return { title: 'Olga Style' }; };
+    let postEditLinkPreviewTextSeen = null;
+    postsFlow.handleTextInput = async function postEditTextProbe(menu, ctx = {}) { postEditLinkPreviewTextSeen = ctx.text; return { id: 'post_edit_probe_screen', text: 'Post edit probe screen', attachments: [] }; };
 
     store.store.posts = {}; store.store.comments = {}; store.store.likes = {}; store.store.reactions = {}; store.store.channels = {}; store.store.setup = {}; store.store.setupState = {}; store.store.growth = { byChannel: {}, clicks: [], pollVotes: [], memberSnapshots: {} };
     if (typeof store.saveStore === 'function') store.saveStore();
@@ -58,6 +61,10 @@ async function runProductionRouteProbe() {
     const flowGuard = require('../clean-bot-flow-guard-1546');
     const routeModules = ['clean-bot-channel-first-post-picker-pr90.js', 'clean-bot-flow-guard-1546.js'];
     const bot = channelFirstPostPicker.createCleanBot(flowGuard.createCleanBot(require('../bot')));
+
+    store.setSetupState(USER_ID, { activeAdminFlowKind: 'post_edit_text', postEditFlow: { mode: 'edit_text' }, buttonFlow: null, giftFlow: null });
+    await drive(bot, linkPreviewUpdate({ text: '', url: 'HTTP://olga.style/private/path?token=secret&signature=abc' }));
+    const postEditLinkPreviewRawTextOk = postEditLinkPreviewTextSeen === '';
 
     async function runVariant(name, urlUpdate) {
       editCalls.length = 0; sendCalls.length = 0; deleteCalls.length = 0; answerCalls.length = 0;
@@ -103,10 +110,11 @@ async function runProductionRouteProbe() {
     const linkPreviewTraceOk = requiredTraceMarkers.every((name) => linkPreviewMetadataOnly.traceNames.includes(name));
     const mediaAttachmentIgnoredOk = !mediaAttachment.step3Ok && !mediaAttachment.step3AfterUrl && mediaAttachment.sends === 0 && !mediaAttachment.normalizedUrl && mediaAttachment.traceNames.includes('buttons_url_input_no_text');
     const traceRedactedOk = plain.traceRedactedOk && linkPreviewWithText.traceRedactedOk && linkPreviewMetadataOnly.traceRedactedOk && mediaAttachment.traceRedactedOk;
-    const ok = step1Ok && step2Ok && step3Ok && sends === 0 && !cleanupTouched && sameOwner && urlPlainTextProbeOk && urlLinkPreviewProbeOk && uppercaseUrlProbeOk && linkPreviewTraceOk && mediaAttachmentIgnoredOk && traceRedactedOk;
-    return { ok, runtime: 'PR206-BUTTONS-WIZARD-PRODUCTION-ROUTE-PROBE', source: 'adminkit-buttons-wizard-production-webhook-route-probe', routeModules, step1Transport: step1Ok ? 'editMessage' : '', step2Transport: step2Ok ? 'editMessage' : '', step3Transport: step3Ok ? 'editMessage' : '', sameMessageAcrossSteps: step1Ok && step2Ok && step3Ok, wizardSendMessageCount: sends, cleanupTouchedWizardMessage: cleanupTouched, urlPlainTextProbeOk, urlLinkPreviewProbeOk, uppercaseUrlProbeOk, step3FromLinkPreviewTransport: linkPreviewMetadataOnly.step3Transport, linkPreviewTraceOk, mediaAttachmentIgnoredOk, traceRedactedOk, requiredTraceMarkers, linkPreviewVariantsTested: ['body.text', 'body.link.url', 'body.preview.url', 'attachments[].payload.url'], callbackUserId: USER_ID, textSenderUserId: USER_ID, canonicalOwnerUserId: finalState.buttonsWizardScreenOwnerUserId || USER_ID, diagnostics: ok ? [] : ['buttons_wizard_production_route_probe_failed'], variants: { plain, linkPreviewWithText, linkPreviewMetadataOnly, mediaAttachment } };
+    const ok = step1Ok && step2Ok && step3Ok && sends === 0 && !cleanupTouched && sameOwner && urlPlainTextProbeOk && urlLinkPreviewProbeOk && uppercaseUrlProbeOk && linkPreviewTraceOk && mediaAttachmentIgnoredOk && traceRedactedOk && postEditLinkPreviewRawTextOk;
+    return { ok, runtime: 'PR206-BUTTONS-WIZARD-PRODUCTION-ROUTE-PROBE', source: 'adminkit-buttons-wizard-production-webhook-route-probe', routeModules, step1Transport: step1Ok ? 'editMessage' : '', step2Transport: step2Ok ? 'editMessage' : '', step3Transport: step3Ok ? 'editMessage' : '', sameMessageAcrossSteps: step1Ok && step2Ok && step3Ok, wizardSendMessageCount: sends, cleanupTouchedWizardMessage: cleanupTouched, urlPlainTextProbeOk, urlLinkPreviewProbeOk, uppercaseUrlProbeOk, step3FromLinkPreviewTransport: linkPreviewMetadataOnly.step3Transport, linkPreviewTraceOk, mediaAttachmentIgnoredOk, traceRedactedOk, postEditLinkPreviewRawTextOk, requiredTraceMarkers, linkPreviewVariantsTested: ['body.text', 'body.link.url', 'body.preview.url', 'attachments[].payload.url'], callbackUserId: USER_ID, textSenderUserId: USER_ID, canonicalOwnerUserId: finalState.buttonsWizardScreenOwnerUserId || USER_ID, diagnostics: ok ? [] : ['buttons_wizard_production_route_probe_failed'], variants: { plain, linkPreviewWithText, linkPreviewMetadataOnly, mediaAttachment } };
   } finally {
-    Object.assign(max, originals);
+    postsFlow.handleTextInput = originals.postsHandleTextInput;
+    Object.assign(max, { editMessage: originals.editMessage, sendMessage: originals.sendMessage, deleteMessage: originals.deleteMessage, answerCallback: originals.answerCallback, getChat: originals.getChat });
     if (originalStore) {
       store.store = originalStore;
       if (typeof store.saveStore === 'function') store.saveStore();
