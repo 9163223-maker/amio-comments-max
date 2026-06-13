@@ -19,10 +19,13 @@ function schedule(delayMs = 2500) {
   if (scheduled) return state;
   scheduled = true;
   state = { ok: true, runtime: RUNTIME, installed: false, scheduled: true, delayMs };
-  setTimeout(() => installNow('post-start-delay'), Number(delayMs || 2500));
+  const timer = setTimeout(() => installNow('post-start-delay'), Number(delayMs || 2500));
+  if (timer && typeof timer.unref === 'function') timer.unref();
   return state;
 }
 
-schedule(Number(process.env.ADMINKIT_PR202_INSTALL_DELAY_MS || 2500));
+if (process.env.ADMINKIT_PR202_DISABLE_AUTO_INSTALL !== '1') {
+  schedule(Number(process.env.ADMINKIT_PR202_INSTALL_DELAY_MS || 2500));
+}
 
 module.exports = { RUNTIME, schedule, installNow, info: () => state };
