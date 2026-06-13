@@ -34,6 +34,10 @@ function bootId() { return `${Date.now().toString(36)}-${crypto.randomBytes(4).t
 function sanitizeBool(value) { return value === true; }
 function sanitizeObject(value = {}) { return value && typeof value === 'object' && !Array.isArray(value) ? value : {}; }
 function sanitizeList(value = [], limit = 20) { return Array.isArray(value) ? value.slice(0, limit).map((item) => short(item, 160)).filter(Boolean) : []; }
+function sanitizeBoolMap(value = {}) {
+  const input = sanitizeObject(value);
+  return Object.fromEntries(Object.entries(input).map(([key, val]) => [short(key, 120), sanitizeBool(val)]));
+}
 function sanitizeRuntimeContract(input = {}) {
   const c = sanitizeObject(input);
   const startupPath = sanitizeObject(c.startupPath);
@@ -87,7 +91,24 @@ function sanitizeRuntimeContract(input = {}) {
     mismatches: sanitizeList(c.mismatches, 30)
   };
 }
-
+function sanitizeFinalRuntimeReadinessGate(input = {}) {
+  const gate = sanitizeObject(input);
+  const required = sanitizeBoolMap(gate.required);
+  return {
+    ok: sanitizeBool(gate.ok),
+    runtime: short(gate.runtime, 120),
+    source: short(gate.source, 160),
+    generatedAt: short(gate.generatedAt, 64),
+    activeEntrypoint: short(gate.activeEntrypoint, 120),
+    runtimeVersion: short(gate.runtimeVersion, 120),
+    buildVersion: short(gate.buildVersion, 120),
+    sourceMarker: short(gate.sourceMarker, 160),
+    githubMainHeadVerifiedByStartupLog: sanitizeBool(gate.githubMainHeadVerifiedByStartupLog),
+    required,
+    missing: sanitizeList(gate.missing, 30),
+    readyForManualMaxTest: sanitizeBool(gate.readyForManualMaxTest)
+  };
+}
 function sanitizeLiveVersionSnapshot(input = {}) {
   const snap = sanitizeObject(input);
   const wizard = sanitizeObject(snap.pr199ButtonsWizard);
@@ -212,6 +233,7 @@ function sanitizeEntry(input = {}) {
     runtimeContract: sanitizeRuntimeContract(input.runtimeContract),
     liveVersionSnapshot: sanitizeLiveVersionSnapshot(input.liveVersionSnapshot),
     liveVersionSummary: sanitizeLiveVersionSnapshot(input.liveVersionSnapshot).liveVersionSummary,
+    finalRuntimeReadinessGate: sanitizeFinalRuntimeReadinessGate(input.finalRuntimeReadinessGate),
     safe: true
   };
   if (!safe.commitSource) safe.commitSource = safe.gitCommit ? 'runtime-env' : (safe.githubMainHeadSha ? 'github-main-head' : 'unknown');
@@ -372,4 +394,4 @@ function info() {
   };
 }
 
-module.exports = { recordStartup, info, sanitizeEntry, sanitizeRuntimeContract, sanitizeLiveVersionSnapshot, getBranchHead, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
+module.exports = { recordStartup, info, sanitizeEntry, sanitizeRuntimeContract, sanitizeLiveVersionSnapshot, sanitizeFinalRuntimeReadinessGate, getBranchHead, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
