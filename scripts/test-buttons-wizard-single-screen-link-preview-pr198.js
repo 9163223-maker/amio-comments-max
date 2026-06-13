@@ -10,10 +10,11 @@ const giftsPath = require.resolve('../gifts-flow-cc812-bottom');
 const buttonsPath = require.resolve('../buttons-flow-cc8-clean');
 const maxPath = require.resolve('../services/maxApi');
 const storePath = require.resolve('../store');
+const ownerPath = require.resolve('../buttons-wizard-screen-owner-pr206');
 const timingPath = require.resolve('../v3-ui-timing-cc8');
 const patcherPath = require.resolve('../services/postPatcher');
 
-[targetPath, guardPath, menuPath, postsPath, giftsPath, buttonsPath, maxPath, storePath, timingPath, patcherPath].forEach((p) => { delete require.cache[p]; });
+[targetPath, guardPath, menuPath, postsPath, giftsPath, buttonsPath, maxPath, storePath, ownerPath, timingPath, patcherPath].forEach((p) => { delete require.cache[p]; });
 
 const USER_ID = 'pr198-user';
 let setupState = {
@@ -84,15 +85,14 @@ const res = { status(code) { responseStatus = code; return this; }, json(payload
   assert.strictEqual(responseBody.action, 'button_text_input');
   assert.strictEqual(responseBody.buttonsLinkPreviewText, true);
   assert.strictEqual(seenText, 'HTTP://olga.style/');
-  assert.strictEqual(editCalls.length, 1, 'previous button wizard screen is closed');
+  assert.strictEqual(editCalls.length, 1, 'next button wizard step edits the active wizard message in place');
   assert.strictEqual(editCalls[0].messageId, 'old-button-step');
-  assert.deepStrictEqual(editCalls[0].attachments, []);
-  assert.strictEqual(sendCalls.length, 1, 'new preview screen is sent once');
-  assert.strictEqual(sendCalls[0].userId, USER_ID);
-  assert.strictEqual(sendCalls[0].text, 'Шаг 3/3. Проверьте кнопку');
-  assert.strictEqual(setupState.buttonsActiveScreenMessageId, 'new-button-step');
-  assert(patches.some((patch) => patch.buttonsClosedScreenMessageId === 'old-button-step'), 'closed screen is recorded');
-  assert(patches.some((patch) => patch.buttonsActiveScreenMessageId === 'new-button-step'), 'new active button screen is recorded');
+  assert.strictEqual(editCalls[0].text, 'Шаг 3/3. Проверьте кнопку');
+  assert.strictEqual(sendCalls.length, 0, 'new preview screen is not sent as a duplicate message');
+  assert.strictEqual(setupState.buttonsActiveScreenMessageId, 'old-button-step');
+  assert.strictEqual(setupState.buttonsWizardScreenMessageId, 'old-button-step');
+  assert(!patches.some((patch) => patch.buttonsClosedScreenMessageId === 'old-button-step'), 'active wizard message is not closed between steps');
+  assert(patches.some((patch) => patch.buttonsWizardLastEditMessageId === 'old-button-step'), 'in-place wizard edit is recorded');
 
   console.log('PR198 buttons wizard single-screen link preview assertions passed');
 })().catch((error) => {
