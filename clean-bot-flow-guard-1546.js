@@ -9,6 +9,7 @@ const max = require('./services/maxApi');
 const store = require('./store');
 const timing = require('./v3-ui-timing-cc8');
 const { tryPatchChannelPost } = require('./services/postPatcher');
+const buttonsWizardOwner = require('./buttons-wizard-screen-owner-pr206');
 
 const RUNTIME = 'CC8.1.19-BUTTONS-WIZARD-SINGLE-SCREEN-LINK-PREVIEW';
 const EDIT_FLOW_KIND = 'post_edit_text';
@@ -88,6 +89,7 @@ async function closePreviousButtonScreen(config = {}, uid = '', nextScreen = nul
   if (!user || !isButtonScreen(nextScreen)) return false;
   const state = setup(user);
   const previousMessageId = clean(state.buttonsActiveScreenMessageId);
+  if (buttonsWizardOwner.shouldSkipWizardCleanup({ state, messageId: previousMessageId, nextScreen })) return false;
   if (!previousMessageId || previousMessageId === clean(skipMessageId)) return false;
   try {
     await max.editMessage({ botToken: config.botToken, messageId: previousMessageId, text: '✅ Предыдущий шаг закрыт', attachments: [], notify: false });
@@ -111,6 +113,7 @@ async function show(config, update, msg, screen, edit = false, options = {}) {
       const result = await max.editMessage({ botToken: config.botToken, messageId, text: screen.text, attachments: screen.attachments, notify: false });
       rememberGiftScreen(uid, messageId, screen);
       rememberButtonScreen(uid, messageId, screen);
+      buttonsWizardOwner.recordButtonsWizardScreen({ userId: uid, chatId: cid, messageId, screen });
       return result;
     } catch {}
   }
@@ -119,6 +122,7 @@ async function show(config, update, msg, screen, edit = false, options = {}) {
   const sentId = resultMessageId(result);
   rememberGiftScreen(uid, sentId, screen);
   rememberButtonScreen(uid, sentId, screen);
+  buttonsWizardOwner.recordButtonsWizardScreen({ userId: uid, chatId: cid, messageId: sentId, screen });
   return result;
 }
 
@@ -269,7 +273,11 @@ function createCleanBot(legacy) {
           const fromLinkPreview = Boolean(!incomingText && incomingButtonText);
           const screen = await timing.measure('buttons_text_flow_clean', { userId: timing.mask(uid), textLen: incomingButtonText.length, fakeCallbackIgnored: Boolean(rawCb && !realCb), fromLinkPreview }, () => buttonsFlow.handleTextInput(menu, { config, userId: uid, text: incomingButtonText, update }));
           if (screen) {
-            await show(config, update, msg, screen, false, { userId: uid });
+            if (buttonsWizardOwner.isButtonsWizardScreen(screen)) {
+              await buttonsWizardOwner.updateButtonsWizardScreen({ config, update, msg, userId: uid, screen });
+            } else {
+              await show(config, update, msg, screen, false, { userId: uid });
+            }
             return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'button_text_input', screenId: screen.id, buttonsCleanFlow: true, buttonsSingleScreen: true, buttonsLinkPreviewText: fromLinkPreview });
           }
         }

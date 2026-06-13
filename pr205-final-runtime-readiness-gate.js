@@ -15,6 +15,7 @@ function buildGate(snapshot = {}) {
     runtimeContractLiveOk: bool(summary.runtimeContractLiveOk),
     pr199Ready: bool(summary.pr199Ready),
     pr202Ready: bool(summary.pr202Ready),
+    buttonsWizardPhysicalRouteProbeOk: bool(summary.buttonsWizardPhysicalRouteProbeOk),
     buttonsWizardPhysicalInplaceReady: bool(summary.buttonsWizardPhysicalInplaceReady),
     plusSignWizardTextSupported: bool(summary.plusSignWizardTextSupported)
   };
@@ -38,9 +39,11 @@ async function installAndRecord(options = {}) {
   const skipRecord = options && options.skipRecord === true;
   try {
     const pr202 = require('./pr202-buttons-real-show-path-inplace');
+    const buttonsWizardProbe = require('./services/buttonsWizardPhysicalRouteProbeService');
     const bootstrap = require('./pr180-startup-log-bootstrap');
     const liveSnapshot = require('./services/liveVersionSnapshotService');
     const pr202State = pr202.install();
+    await buttonsWizardProbe.runProbe();
     if (bootstrap && typeof bootstrap.markRuntimeReadinessInstallComplete === 'function') {
       bootstrap.markRuntimeReadinessInstallComplete();
     } else if (bootstrap && typeof bootstrap.markPr199InstallComplete === 'function') {

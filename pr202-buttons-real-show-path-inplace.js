@@ -20,8 +20,10 @@ function rememberButtonScreen(store, userId = '', messageId = '', text = '') {
   if (!uid || !mid || !isButtonsWizardText(text)) return false;
   try {
     store.setSetupState(uid, {
+      buttonsWizardScreenMessageId: mid,
       buttonsActiveScreenMessageId: mid,
       buttonsActiveScreenAt: Date.now(),
+      buttonsWizardScreenRecordedAt: Date.now(),
       buttonsActiveScreenRuntime: RUNTIME,
       buttonsActiveScreenText: short(text, 80),
       buttonsWizardRealShowPathLastDecision: 'remember_active_screen',
@@ -56,7 +58,7 @@ function install() {
       const isWizard = isButtonsWizardText(text);
       if (userId && !chatId && isWizard) {
         const state = setup(store, userId);
-        const previousMessageId = clean(state.buttonsActiveScreenMessageId || '');
+        const previousMessageId = clean(state.buttonsWizardScreenMessageId || state.buttonsActiveScreenMessageId || '');
         trace(timing, 'buttons_wizard_real_show_path_decision', {
           decision: previousMessageId ? 'edit_existing' : 'send_new_no_active_message',
           userId: timing && timing.mask ? timing.mask(userId) : '[masked]',

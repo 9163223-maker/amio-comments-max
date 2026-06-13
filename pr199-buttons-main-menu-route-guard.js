@@ -34,11 +34,12 @@ function install() {
         const effectiveUserId = explicitUserId || (chatId && isWizard(text) ? chatId : '');
         if (!explicitUserId && effectiveUserId && isWizard(text)) {
           const state = store.getSetupState(effectiveUserId) || {};
-          const activeMessageId = clean(state.buttonsActiveScreenMessageId || '');
+          const activeMessageId = clean(state.buttonsWizardScreenMessageId || state.buttonsActiveScreenMessageId || '');
           if (activeMessageId && typeof max.editMessage === 'function') {
             try {
               const edited = await max.editMessage({ botToken: args.botToken, messageId: activeMessageId, text: args.text, attachments: args.attachments, format: args.format, link: args.link, notify: false });
-              store.setSetupState(effectiveUserId, { buttonsActiveScreenMessageId: activeMessageId, buttonsActiveScreenAt: Date.now(), buttonsActiveScreenRuntime: RUNTIME, activeAdminFlowKind: 'button' });
+              store.setSetupState(effectiveUserId, { buttonsWizardScreenMessageId: activeMessageId, buttonsActiveScreenMessageId: activeMessageId, buttonActiveScreenMessageId: activeMessageId, buttonsActiveScreenAt: Date.now(),
+      buttonsWizardScreenRecordedAt: Date.now(), buttonsWizardScreenOwnerUserId: effectiveUserId, buttonsWizardScreenChatId: chatId, buttonsActiveScreenRuntime: RUNTIME, activeAdminFlowKind: 'button' });
               return edited || { message: { id: activeMessageId, body: { mid: activeMessageId } }, pr199ChatIdInplaceEdit: true };
             } catch (error) {
               try {
@@ -50,7 +51,8 @@ function install() {
         const result = await originalSend.call(this, args);
         if (!explicitUserId && effectiveUserId && isWizard(text)) {
           const messageId = resultMid(result);
-          if (messageId) store.setSetupState(effectiveUserId, { buttonsActiveScreenMessageId: messageId, buttonsActiveScreenAt: Date.now(), buttonsActiveScreenRuntime: RUNTIME, activeAdminFlowKind: 'button' });
+          if (messageId) store.setSetupState(effectiveUserId, { buttonsWizardScreenMessageId: messageId, buttonsActiveScreenMessageId: messageId, buttonActiveScreenMessageId: messageId, buttonsActiveScreenAt: Date.now(),
+      buttonsWizardScreenRecordedAt: Date.now(), buttonsWizardScreenOwnerUserId: effectiveUserId, buttonsWizardScreenChatId: chatId, buttonsActiveScreenRuntime: RUNTIME, activeAdminFlowKind: 'button' });
         }
         return result;
       };

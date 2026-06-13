@@ -19,6 +19,7 @@ function refreshStartupLog(reason = 'post-pr202-install') {
 function installNow(reason = 'timer') {
   try {
     const patch = require('./pr202-buttons-real-show-path-inplace');
+    try { require('./services/buttonsWizardPhysicalRouteProbeService').runProbeSync(); } catch {}
     state = { ...patch.install(), runtime: RUNTIME, scheduled: true, reason };
     refreshStartupLog('post-pr202-install');
   } catch (error) {
