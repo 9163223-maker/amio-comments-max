@@ -19,6 +19,10 @@ function resCollector() { return { statusCode: 0, payload: null, status(code) { 
 async function drive(bot, body) { const res = resCollector(); await bot.handleWebhook({ body }, res, { botToken: 'test-token', menuDeleteTimeoutMs: 1 }); assert.strictEqual(res.statusCode, 200); return res.payload; }
 
 async function runProductionRouteProbe() {
+  const originalEnv = {
+    ADMINKIT_TEST_MODE: process.env.ADMINKIT_TEST_MODE,
+    ADMINKIT_DISABLE_AUTOSTART: process.env.ADMINKIT_DISABLE_AUTOSTART
+  };
   process.env.ADMINKIT_TEST_MODE = '1';
   process.env.ADMINKIT_DISABLE_AUTOSTART = '1';
   const store = require('../store');
@@ -113,11 +117,15 @@ async function runProductionRouteProbe() {
     const ok = step1Ok && step2Ok && step3Ok && sends === 0 && !cleanupTouched && sameOwner && urlPlainTextProbeOk && urlLinkPreviewProbeOk && uppercaseUrlProbeOk && linkPreviewTraceOk && mediaAttachmentIgnoredOk && traceRedactedOk && postEditLinkPreviewRawTextOk;
     return { ok, runtime: 'PR206-BUTTONS-WIZARD-PRODUCTION-ROUTE-PROBE', source: 'adminkit-buttons-wizard-production-webhook-route-probe', routeModules, step1Transport: step1Ok ? 'editMessage' : '', step2Transport: step2Ok ? 'editMessage' : '', step3Transport: step3Ok ? 'editMessage' : '', sameMessageAcrossSteps: step1Ok && step2Ok && step3Ok, wizardSendMessageCount: sends, cleanupTouchedWizardMessage: cleanupTouched, urlPlainTextProbeOk, urlLinkPreviewProbeOk, uppercaseUrlProbeOk, step3FromLinkPreviewTransport: linkPreviewMetadataOnly.step3Transport, linkPreviewTraceOk, mediaAttachmentIgnoredOk, traceRedactedOk, postEditLinkPreviewRawTextOk, requiredTraceMarkers, linkPreviewVariantsTested: ['body.text', 'body.link.url', 'body.preview.url', 'attachments[].payload.url'], callbackUserId: USER_ID, textSenderUserId: USER_ID, canonicalOwnerUserId: finalState.buttonsWizardScreenOwnerUserId || USER_ID, diagnostics: ok ? [] : ['buttons_wizard_production_route_probe_failed'], variants: { plain, linkPreviewWithText, linkPreviewMetadataOnly, mediaAttachment } };
   } finally {
-    postsFlow.handleTextInput = originals.postsHandleTextInput;
-    Object.assign(max, { editMessage: originals.editMessage, sendMessage: originals.sendMessage, deleteMessage: originals.deleteMessage, answerCallback: originals.answerCallback, getChat: originals.getChat });
-    if (originalStore) {
-      store.store = originalStore;
-      if (typeof store.saveStore === 'function') store.saveStore();
+    try { postsFlow.handleTextInput = originals.postsHandleTextInput; } catch {}
+    try { Object.assign(max, { editMessage: originals.editMessage, sendMessage: originals.sendMessage, deleteMessage: originals.deleteMessage, answerCallback: originals.answerCallback, getChat: originals.getChat }); } catch {}
+    try { if (originalStore && typeof store.replaceStoreInPlace === 'function') store.replaceStoreInPlace(originalStore); } catch {}
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    if (originalStore && typeof store.saveStore === 'function') {
+      try { store.saveStore(); } catch {}
     }
   }
 }

@@ -281,6 +281,13 @@ function persist() {
   writeStoreFile(store);
 }
 
+function replaceStoreInPlace(nextStore) {
+  const normalized = normalizeStoreShape(nextStore || {});
+  Object.keys(store).forEach((key) => { delete store[key]; });
+  Object.assign(store, normalized);
+  return store;
+}
+
 function saveStore(nextStore) {
   if (nextStore && typeof nextStore === "object") {
     const normalized = normalizeStoreShape(nextStore);
@@ -1321,6 +1328,7 @@ module.exports = {
   store,
   loadStore,
   saveStore,
+  replaceStoreInPlace,
   normalizeKey,
   extractLookupCandidates,
   makeCommentKey,

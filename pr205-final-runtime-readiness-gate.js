@@ -44,7 +44,7 @@ async function installAndRecord(options = {}) {
     const bootstrap = require('./pr180-startup-log-bootstrap');
     const liveSnapshot = require('./services/liveVersionSnapshotService');
     const pr202State = pr202.install();
-    await buttonsWizardProbe.runProbe();
+    await buttonsWizardProbe.runStartupProbe();
     if (bootstrap && typeof bootstrap.markRuntimeReadinessInstallComplete === 'function') {
       bootstrap.markRuntimeReadinessInstallComplete();
     } else if (bootstrap && typeof bootstrap.markPr199InstallComplete === 'function') {

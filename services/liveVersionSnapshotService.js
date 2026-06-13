@@ -167,6 +167,7 @@ function buildLiveVersionSnapshot() {
       },
       buttonsWizardPhysicalRouteProbe: {
         ok: bool(physicalProbe.ok),
+        pending: bool(physicalProbe.pending),
         runtime: clean(physicalProbe.runtime),
         source: clean(physicalProbe.source),
         step1Transport: clean(physicalProbe.step1Transport),
