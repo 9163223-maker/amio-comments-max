@@ -25,6 +25,7 @@ function safeContract() {
 function runtimeInfo() {
   let buildInfo = {};
   try { buildInfo = require('./buildInfo').getBuildInfo(); } catch {}
+  const liveVersionSnapshot = liveVersionSnapshotService.buildLiveVersionSnapshot();
   return {
     startedAt,
     runtimeVersion: clean(buildInfo.runtimeVersion || process.env.RUNTIME_VERSION || process.env.BUILD_VERSION),
@@ -44,17 +45,35 @@ function runtimeInfo() {
     postgresConfigured: Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_CONNECTION_STRING || process.env.PGHOST),
     canonicalPublicBaseUrl: clean(process.env.ADMINKIT_PUBLIC_BASE_URL || 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run'),
     runtimeContract: safeContract(),
-    liveVersionSnapshot: liveVersionSnapshotService.buildLiveVersionSnapshot()
+    liveVersionSnapshot,
+    finalRuntimeReadinessGate: finalRuntimeReadinessGate(liveVersionSnapshot)
   };
 }
 function recordStartupNow(extra = {}) {
-  return startupLog.recordStartup({ ...runtimeInfo(), ...extra });
+  const payload = { ...runtimeInfo(), ...extra };
+  if (!payload.finalRuntimeReadinessGate) {
+    payload.finalRuntimeReadinessGate = finalRuntimeReadinessGate(payload.liveVersionSnapshot);
+  }
+  return startupLog.recordStartup(payload);
+}
+function finalRuntimeReadinessGate(snapshot = {}) {
+  try {
+    const gate = require('./pr205-final-runtime-readiness-gate');
+    const current = gate && typeof gate.info === 'function' ? gate.info() : {};
+    if (current && current.finalRuntimeReadinessGate) return current.finalRuntimeReadinessGate;
+    if (gate && typeof gate.buildGate === 'function') return gate.buildGate(snapshot);
+  } catch {}
+  if (startupLog && typeof startupLog.buildFinalRuntimeReadinessGateFromSnapshot === 'function') {
+    return startupLog.buildFinalRuntimeReadinessGateFromSnapshot(snapshot);
+  }
+  return null;
 }
 function markRuntimeReadinessInstallComplete() { startupInProgress = false; return { ok: true, startupInProgress }; }
 function markPr199InstallComplete() { return markRuntimeReadinessInstallComplete(); }
 function shouldDeferStartupLog(info) {
   const summary = info && info.liveVersionSnapshot && info.liveVersionSnapshot.liveVersionSummary || {};
-  return summary.buttonsWizardPhysicalInplaceReady !== true;
+  const gate = info && info.finalRuntimeReadinessGate || finalRuntimeReadinessGate(info && info.liveVersionSnapshot);
+  return summary.buttonsWizardPhysicalInplaceReady !== true || !gate || gate.ok !== true || gate.readyForManualMaxTest !== true;
 }
 function writeScheduledStartupLog(attempt = 0) {
   const info = runtimeInfo();
@@ -81,4 +100,4 @@ function scheduleStartupLog() {
   return { ok: true, scheduled: true };
 }
 scheduleStartupLog();
-module.exports = { ok: true, marker: 'adminkit-pr180-startup-log-bootstrap', scheduleStartupLog, recordStartupNow, markRuntimeReadinessInstallComplete, markPr199InstallComplete, shouldDeferStartupLog, info: startupLog.info, runtimeInfo };
+module.exports = { ok: true, marker: 'adminkit-pr180-startup-log-bootstrap', scheduleStartupLog, recordStartupNow, markRuntimeReadinessInstallComplete, markPr199InstallComplete, shouldDeferStartupLog, finalRuntimeReadinessGate, info: startupLog.info, runtimeInfo };

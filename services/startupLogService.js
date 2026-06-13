@@ -109,6 +109,34 @@ function sanitizeFinalRuntimeReadinessGate(input = {}) {
     readyForManualMaxTest: sanitizeBool(gate.readyForManualMaxTest)
   };
 }
+function buildFinalRuntimeReadinessGateFromSnapshot(snapshot = {}) {
+  const snap = sanitizeObject(snapshot);
+  const summary = sanitizeObject(snap.liveVersionSummary);
+  const required = {
+    runtimeSnapshotOk: sanitizeBool(snap.ok),
+    runtimeContractLiveOk: sanitizeBool(summary.runtimeContractLiveOk),
+    pr199Ready: sanitizeBool(summary.pr199Ready),
+    pr202Ready: sanitizeBool(summary.pr202Ready),
+    buttonsWizardPhysicalRouteProbeOk: sanitizeBool(summary.buttonsWizardPhysicalRouteProbeOk),
+    buttonsWizardPhysicalInplaceReady: sanitizeBool(summary.buttonsWizardPhysicalInplaceReady),
+    plusSignWizardTextSupported: sanitizeBool(summary.plusSignWizardTextSupported)
+  };
+  const missing = Object.entries(required).filter(([, value]) => value !== true).map(([key]) => key);
+  return {
+    ok: missing.length === 0,
+    runtime: 'PR205-FINAL-RUNTIME-READINESS-GATE',
+    source: 'adminkit-pr205-final-runtime-readiness-gate',
+    generatedAt: Date.now(),
+    activeEntrypoint: short(summary.activeEntrypoint || snap.activeEntrypoint, 120),
+    runtimeVersion: short(summary.runtimeVersion || snap.runtimeVersion, 120),
+    buildVersion: short(summary.buildVersion || snap.buildVersion, 120),
+    sourceMarker: short(summary.sourceMarker || snap.sourceMarker, 160),
+    githubMainHeadVerifiedByStartupLog: true,
+    required,
+    missing,
+    readyForManualMaxTest: missing.length === 0
+  };
+}
 function sanitizeLiveVersionSnapshot(input = {}) {
   const snap = sanitizeObject(input);
   const wizard = sanitizeObject(snap.pr199ButtonsWizard);
@@ -221,6 +249,8 @@ function sanitizeLiveVersionSnapshot(input = {}) {
 }
 
 function sanitizeEntry(input = {}) {
+  const liveVersionSnapshot = input.liveVersionSnapshot;
+  const finalRuntimeReadinessGate = input.finalRuntimeReadinessGate || buildFinalRuntimeReadinessGateFromSnapshot(liveVersionSnapshot);
   const safe = {
     startedAt: short(input.startedAt || nowIso(), 64),
     bootId: short(input.bootId || bootId(), 80),
@@ -245,9 +275,9 @@ function sanitizeEntry(input = {}) {
     postgresConfigured: sanitizeBool(input.postgresConfigured),
     canonicalPublicBaseUrl: short(input.canonicalPublicBaseUrl || process.env.ADMINKIT_PUBLIC_BASE_URL, 200),
     runtimeContract: sanitizeRuntimeContract(input.runtimeContract),
-    liveVersionSnapshot: sanitizeLiveVersionSnapshot(input.liveVersionSnapshot),
-    liveVersionSummary: sanitizeLiveVersionSnapshot(input.liveVersionSnapshot).liveVersionSummary,
-    finalRuntimeReadinessGate: sanitizeFinalRuntimeReadinessGate(input.finalRuntimeReadinessGate),
+    liveVersionSnapshot: sanitizeLiveVersionSnapshot(liveVersionSnapshot),
+    liveVersionSummary: sanitizeLiveVersionSnapshot(liveVersionSnapshot).liveVersionSummary,
+    finalRuntimeReadinessGate: sanitizeFinalRuntimeReadinessGate(finalRuntimeReadinessGate),
     safe: true
   };
   if (!safe.commitSource) safe.commitSource = safe.gitCommit ? 'runtime-env' : (safe.githubMainHeadSha ? 'github-main-head' : 'unknown');
@@ -408,4 +438,4 @@ function info() {
   };
 }
 
-module.exports = { recordStartup, info, sanitizeEntry, sanitizeRuntimeContract, sanitizeLiveVersionSnapshot, sanitizeFinalRuntimeReadinessGate, getBranchHead, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
+module.exports = { recordStartup, info, sanitizeEntry, sanitizeRuntimeContract, sanitizeLiveVersionSnapshot, sanitizeFinalRuntimeReadinessGate, buildFinalRuntimeReadinessGateFromSnapshot, getBranchHead, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
