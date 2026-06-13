@@ -13,6 +13,8 @@ function closedWizardEdits(editCalls) { return editCalls.filter((call) => call.m
 function callbackUpdate() { return { update_type: 'message_callback', callback: { callback_id: 'cb-step-1', user_id: USER_ID, payload: JSON.stringify({ action: 'button_admin_start_add', cardId: CARD_ID }), message: { id: MESSAGE_ID, body: { mid: MESSAGE_ID, text: 'selected post card' }, recipient: { chat_id: CHAT_ID, chat_type: 'dialog' } } } }; }
 function textUpdate(text) { return { update_type: 'message_created', message: { id: `user-msg-${text.length}`, body: { mid: `user-msg-${text.length}`, text }, sender: { user_id: USER_ID }, recipient: { chat_id: CHAT_ID, chat_type: 'dialog' } } }; }
 function linkPreviewUpdate({ text = '', url = 'HTTP://olga.style' } = {}) { return { update_type: 'message_created', message: { id: `user-msg-link-${text.length || 'metadata'}`, body: { mid: `user-msg-link-${text.length || 'metadata'}`, text, link: { url, canonical_url: url.toLowerCase(), targetUrl: url }, preview: { url, title: 'Olga Style' }, attachments: [{ type: 'link_preview', payload: { url, canonicalUrl: url } }] }, preview: { url }, attachments: [{ type: 'link', payload: { url } }], sender: { user_id: USER_ID }, recipient: { chat_id: CHAT_ID, chat_type: 'dialog' } } }; }
+function mediaAttachmentUpdate({ url = 'https://cdn.example.com/private-file.jpg?token=secret&signature=abc' } = {}) { return { update_type: 'message_created', message: { id: 'user-msg-photo-url', body: { mid: 'user-msg-photo-url', text: '', attachments: [{ type: 'photo', payload: { url } }] }, attachments: [{ type: 'file', payload: { url } }], sender: { user_id: USER_ID }, recipient: { chat_id: CHAT_ID, chat_type: 'dialog' } } }; }
+function traceText(events = []) { try { return JSON.stringify(events); } catch { return ''; } }
 function resCollector() { return { statusCode: 0, payload: null, status(code) { this.statusCode = code; return this; }, json(payload) { this.payload = payload; return payload; } }; }
 async function drive(bot, body) { const res = resCollector(); await bot.handleWebhook({ body }, res, { botToken: 'test-token', menuDeleteTimeoutMs: 1 }); assert.strictEqual(res.statusCode, 200); return res.payload; }
 
@@ -67,6 +69,8 @@ async function runProductionRouteProbe() {
       const payload = await drive(bot, urlUpdate);
       const traceEvents = timing && typeof timing.list === 'function' ? timing.list(100) : [];
       const traceNames = traceEvents.map((entry) => entry.name).filter(Boolean);
+      const traceJson = traceText(traceEvents);
+      const traceRedactedOk = !/token=|signature=|private\/path|private-file|\?token|https?:\/\/[^\"]+\//i.test(traceJson);
       const finalState = store.getSetupState(USER_ID);
       const step1Ok = editCalls.some((call) => call.messageId === MESSAGE_ID && /Шаг 1\/3/.test(call.text));
       const step2Ok = editCalls.some((call) => call.messageId === MESSAGE_ID && /Шаг 2\/3/.test(call.text));
@@ -75,28 +79,32 @@ async function runProductionRouteProbe() {
       const sends = wizardSendCalls(sendCalls).length;
       const cleanupTouched = closedWizardEdits(editCalls).length > 0 || deleteCalls.some((call) => call.messageId === MESSAGE_ID);
       const sameOwner = finalState.buttonsWizardScreenMessageId === MESSAGE_ID && finalState.buttonsWizardScreenOwnerUserId === USER_ID;
-      const normalizedUrlOk = finalState.buttonFlow?.draft?.url === 'http://olga.style' || finalState.buttonFlow?.draft?.url === 'https://olga.style';
+      const savedUrl = finalState.buttonFlow?.draft?.url || '';
+      const normalizedUrlOk = savedUrl === 'http://olga.style' || savedUrl === 'https://olga.style' || savedUrl.startsWith('http://olga.style/') || savedUrl.startsWith('https://olga.style/');
       const ok = step1Ok && step2Ok && step3Ok && step3AfterUrl && sends === 0 && !cleanupTouched && sameOwner && normalizedUrlOk && finalState.buttonsWizardRealShowPathLastDecision !== 'send_new' && finalState.buttonsWizardRealShowPathLastDecision !== 'fallback_send_after_edit_failed' && !finalState.buttonsWizardEditFailedAt;
-      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, sameOwner, normalizedUrl: finalState.buttonFlow?.draft?.url || '', step3Transport: step3Ok ? 'editMessage' : '', traceNames };
+      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, sameOwner, normalizedUrl: savedUrl, step3Transport: step3Ok ? 'editMessage' : '', traceNames, traceRedactedOk };
     }
 
     const plain = await runVariant('plain_text', textUpdate('https://olga.style'));
     const linkPreviewWithText = await runVariant('link_preview_with_text', linkPreviewUpdate({ text: 'HTTP://olga.style', url: 'HTTP://olga.style' }));
-    const linkPreviewMetadataOnly = await runVariant('link_preview_metadata_only', linkPreviewUpdate({ text: '', url: 'HTTP://olga.style' }));
+    const linkPreviewMetadataOnly = await runVariant('link_preview_metadata_only', linkPreviewUpdate({ text: '', url: 'HTTP://olga.style/private/path?token=secret&signature=abc' }));
+    const mediaAttachment = await runVariant('media_attachment_url', mediaAttachmentUpdate());
     const finalState = store.getSetupState(USER_ID);
     const step1Ok = plain.step1Ok && linkPreviewWithText.step1Ok && linkPreviewMetadataOnly.step1Ok;
     const step2Ok = plain.step2Ok && linkPreviewWithText.step2Ok && linkPreviewMetadataOnly.step2Ok;
     const step3Ok = plain.step3Ok && linkPreviewWithText.step3Ok && linkPreviewMetadataOnly.step3Ok;
-    const sends = plain.sends + linkPreviewWithText.sends + linkPreviewMetadataOnly.sends;
+    const sends = plain.sends + linkPreviewWithText.sends + linkPreviewMetadataOnly.sends + mediaAttachment.sends;
     const cleanupTouched = plain.cleanupTouched || linkPreviewWithText.cleanupTouched || linkPreviewMetadataOnly.cleanupTouched;
     const sameOwner = plain.sameOwner && linkPreviewWithText.sameOwner && linkPreviewMetadataOnly.sameOwner;
     const urlPlainTextProbeOk = plain.ok;
     const urlLinkPreviewProbeOk = linkPreviewWithText.ok && linkPreviewMetadataOnly.ok;
-    const uppercaseUrlProbeOk = linkPreviewWithText.normalizedUrl === 'http://olga.style' && linkPreviewMetadataOnly.normalizedUrl === 'http://olga.style';
+    const uppercaseUrlProbeOk = linkPreviewWithText.normalizedUrl === 'http://olga.style' && linkPreviewMetadataOnly.normalizedUrl.startsWith('http://olga.style/');
     const requiredTraceMarkers = ['buttons_url_input_seen', 'buttons_url_input_extracted', 'buttons_url_input_screen', 'buttons_url_input_edit_result'];
     const linkPreviewTraceOk = requiredTraceMarkers.every((name) => linkPreviewMetadataOnly.traceNames.includes(name));
-    const ok = step1Ok && step2Ok && step3Ok && sends === 0 && !cleanupTouched && sameOwner && urlPlainTextProbeOk && urlLinkPreviewProbeOk && uppercaseUrlProbeOk && linkPreviewTraceOk;
-    return { ok, runtime: 'PR206-BUTTONS-WIZARD-PRODUCTION-ROUTE-PROBE', source: 'adminkit-buttons-wizard-production-webhook-route-probe', routeModules, step1Transport: step1Ok ? 'editMessage' : '', step2Transport: step2Ok ? 'editMessage' : '', step3Transport: step3Ok ? 'editMessage' : '', sameMessageAcrossSteps: step1Ok && step2Ok && step3Ok, wizardSendMessageCount: sends, cleanupTouchedWizardMessage: cleanupTouched, urlPlainTextProbeOk, urlLinkPreviewProbeOk, uppercaseUrlProbeOk, step3FromLinkPreviewTransport: linkPreviewMetadataOnly.step3Transport, linkPreviewTraceOk, requiredTraceMarkers, linkPreviewVariantsTested: ['body.text', 'body.link.url', 'body.preview.url', 'attachments[].payload.url'], callbackUserId: USER_ID, textSenderUserId: USER_ID, canonicalOwnerUserId: finalState.buttonsWizardScreenOwnerUserId || USER_ID, diagnostics: ok ? [] : ['buttons_wizard_production_route_probe_failed'], variants: { plain, linkPreviewWithText, linkPreviewMetadataOnly } };
+    const mediaAttachmentIgnoredOk = !mediaAttachment.step3Ok && !mediaAttachment.step3AfterUrl && mediaAttachment.sends === 0 && !mediaAttachment.normalizedUrl && mediaAttachment.traceNames.includes('buttons_url_input_no_text');
+    const traceRedactedOk = plain.traceRedactedOk && linkPreviewWithText.traceRedactedOk && linkPreviewMetadataOnly.traceRedactedOk && mediaAttachment.traceRedactedOk;
+    const ok = step1Ok && step2Ok && step3Ok && sends === 0 && !cleanupTouched && sameOwner && urlPlainTextProbeOk && urlLinkPreviewProbeOk && uppercaseUrlProbeOk && linkPreviewTraceOk && mediaAttachmentIgnoredOk && traceRedactedOk;
+    return { ok, runtime: 'PR206-BUTTONS-WIZARD-PRODUCTION-ROUTE-PROBE', source: 'adminkit-buttons-wizard-production-webhook-route-probe', routeModules, step1Transport: step1Ok ? 'editMessage' : '', step2Transport: step2Ok ? 'editMessage' : '', step3Transport: step3Ok ? 'editMessage' : '', sameMessageAcrossSteps: step1Ok && step2Ok && step3Ok, wizardSendMessageCount: sends, cleanupTouchedWizardMessage: cleanupTouched, urlPlainTextProbeOk, urlLinkPreviewProbeOk, uppercaseUrlProbeOk, step3FromLinkPreviewTransport: linkPreviewMetadataOnly.step3Transport, linkPreviewTraceOk, mediaAttachmentIgnoredOk, traceRedactedOk, requiredTraceMarkers, linkPreviewVariantsTested: ['body.text', 'body.link.url', 'body.preview.url', 'attachments[].payload.url'], callbackUserId: USER_ID, textSenderUserId: USER_ID, canonicalOwnerUserId: finalState.buttonsWizardScreenOwnerUserId || USER_ID, diagnostics: ok ? [] : ['buttons_wizard_production_route_probe_failed'], variants: { plain, linkPreviewWithText, linkPreviewMetadataOnly, mediaAttachment } };
   } finally {
     Object.assign(max, originals);
     if (originalStore) {

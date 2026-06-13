@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const guard = require('./clean-bot-flow-guard-1544');
 const menu = require('./v3-menu-core-1539');
 const postsTextFlow = require('./posts-flow-cc8-text-flow');
@@ -143,12 +144,16 @@ function findFirstDeepValue(value, keys = [], seen = new Set()) {
   return '';
 }
 function body(msg = {}) { return msg?.body && typeof msg.body === 'object' ? msg.body : {}; }
+function isLinkPreviewAttachment(value = {}) { const type = clean(value?.type || value?.kind || value?.attachment_type || value?.attachmentType).toLowerCase(); return /^(link_preview|link|url)$/i.test(type); }
+function filterLinkPreviewAttachments(value = null) { return (Array.isArray(value) ? value : []).filter((item) => item && typeof item === 'object' && isLinkPreviewAttachment(item)); }
+function safeUrlTraceFields(value = '') { const normalized = normalizeUrlForInput(value); const out = { urlRedacted: true, urlHasQuery: false }; try { const parsed = new URL(normalized); out.urlScheme = clean(parsed.protocol).replace(/:$/, '').toLowerCase(); out.urlHost = clean(parsed.hostname).toLowerCase().slice(0, 120); out.urlHasQuery = Boolean(parsed.search); out.urlHash = crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 16); } catch { out.urlHash = crypto.createHash('sha256').update(clean(value)).digest('hex').slice(0, 16); } return out; }
 function normalizeUrlForInput(value = '') { const raw = clean(value); const m = raw.match(/https?:\/\/[^\s<>'\"]+/i); return m ? m[0].replace(/[)\],.]+$/, '').replace(/^https?:\/\//i, (scheme) => scheme.toLowerCase()) : ''; }
 function valueAtPath(source = null, path = '') {
   try { return path.split('.').reduce((obj, key) => (obj && obj[key] !== undefined ? obj[key] : undefined), source); } catch { return undefined; }
 }
 function collectUrlCandidates(source = null, path = 'msg', out = [], seen = new Set(), depth = 7) {
   if (source === null || source === undefined || depth < 0) return out;
+  if (Array.isArray(source) && /attachments/i.test(path)) { filterLinkPreviewAttachments(source).forEach((item, index) => collectUrlCandidates(item, `${path}[${index}]`, out, seen, depth - 1)); return out; }
   if (typeof source === 'string' || typeof source === 'number') {
     const url = normalizeUrlForInput(source);
     if (url) out.push({ url, path });
@@ -159,6 +164,7 @@ function collectUrlCandidates(source = null, path = 'msg', out = [], seen = new 
   const urlKeys = new Set(['url', 'uri', 'href', 'canonical_url', 'canonicalurl', 'target_url', 'targeturl']);
   for (const [key, raw] of Object.entries(source)) {
     const nextPath = `${path}.${key}`;
+    if (String(key || '').toLowerCase() === 'attachments' && Array.isArray(raw)) { filterLinkPreviewAttachments(raw).forEach((item, index) => collectUrlCandidates(item, `${nextPath}[${index}]`, out, seen, depth - 1)); continue; }
     if (urlKeys.has(String(key || '').toLowerCase())) {
       const url = normalizeUrlForInput(raw);
       if (url) out.push({ url, path: nextPath });
@@ -175,7 +181,6 @@ function linkPreviewInfo(msg = {}) {
   return { text: first ? first.url : '', path: first ? first.path : '', candidateCount: candidates.length };
 }
 function linkPreviewText(msg = {}) { return linkPreviewInfo(msg).text; }
-function shortUrlForTrace(value = '') { const url = normalizeUrlForInput(value) || clean(value); return url.length <= 96 ? url : `${url.slice(0, 95)}…`; }
 function messageShapeForTrace(msg = {}) {
   const b = body(msg);
   return [
@@ -311,7 +316,7 @@ function createCleanBot(legacy) {
           if (!incomingButtonText) {
             timing.log('buttons_url_input_no_text', { updateType: updateType(update), messageShape: messageShapeForTrace(msg), hasButtonFlowPriority: true, activeAdminFlowKind: state.activeAdminFlowKind, buttonFlowStepIndex: stepIndexBefore, userId: timing.mask(uid) });
           } else {
-            timing.log('buttons_url_input_extracted', { updateType: updateType(update), fromLinkPreview, linkPreviewPath: linkInfo.path, url: shortUrlForTrace(incomingButtonText), buttonFlowStepIndex: stepIndexBefore, userId: timing.mask(uid) });
+            timing.log('buttons_url_input_extracted', { updateType: updateType(update), fromLinkPreview, linkPreviewPath: linkInfo.path, ...safeUrlTraceFields(incomingButtonText), buttonFlowStepIndex: stepIndexBefore, userId: timing.mask(uid) });
             const screen = await timing.measure('buttons_text_flow_clean', { userId: timing.mask(uid), textLen: incomingButtonText.length, fakeCallbackIgnored: Boolean(rawCb && !realCb), fromLinkPreview }, () => buttonsFlow.handleTextInput(menu, { config, userId: uid, text: incomingButtonText, update }));
             timing.log('buttons_url_input_screen', { updateType: updateType(update), screenId: screen && screen.id, isWizardScreen: buttonsWizardOwner.isButtonsWizardScreen(screen), fromLinkPreview, buttonFlowStepIndex: stepIndexBefore, userId: timing.mask(uid) });
             if (screen) {
