@@ -49,6 +49,10 @@ process.env.ADMINKIT_DISABLE_AUTOSTART = '1';
   assert(Array.isArray(probe.linkPreviewVariantsTested) && probe.linkPreviewVariantsTested.includes('attachments[].payload.url'), 'probe explicitly covers link-preview metadata variants');
   assert.strictEqual(probe.variants.linkPreviewMetadataOnly.step3AfterUrl, true, 'metadata-only link preview advances after URL input');
   assert.strictEqual(probe.variants.linkPreviewMetadataOnly.sends, 0, 'metadata-only link preview does not send duplicate wizard messages');
+  assert.strictEqual(probe.linkPreviewTraceOk, true, 'metadata-only channel-first link preview emits required URL trace markers');
+  for (const marker of ['buttons_url_input_seen', 'buttons_url_input_extracted', 'buttons_url_input_screen', 'buttons_url_input_edit_result']) {
+    assert(probe.variants.linkPreviewMetadataOnly.traceNames.includes(marker), `metadata-only channel-first trace contains ${marker}`);
+  }
   assert.strictEqual(probe.callbackUserId, probe.textSenderUserId, 'callback and text sender resolve to same canonical owner');
   assert.strictEqual(probe.canonicalOwnerUserId, probe.callbackUserId, 'canonical owner remains callback/text user');
 

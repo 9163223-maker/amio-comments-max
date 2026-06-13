@@ -23,6 +23,7 @@ async function runProductionRouteProbe() {
   const tenant = require('../tenant-scope');
   const max = require('./maxApi');
   const access = require('./clientAccessService');
+  const timing = require('../v3-ui-timing-cc8');
   const originalStore = clone(store.store);
   const originals = { editMessage: max.editMessage, sendMessage: max.sendMessage, deleteMessage: max.deleteMessage, answerCallback: max.answerCallback, getChat: max.getChat };
   const editCalls = [];
@@ -62,7 +63,10 @@ async function runProductionRouteProbe() {
       await drive(bot, callbackUpdate());
       await drive(bot, textUpdate('Кнопка'));
       const beforeUrlEditCount = editCalls.length;
+      if (timing && typeof timing.clear === 'function') timing.clear();
       const payload = await drive(bot, urlUpdate);
+      const traceEvents = timing && typeof timing.list === 'function' ? timing.list(100) : [];
+      const traceNames = traceEvents.map((entry) => entry.name).filter(Boolean);
       const finalState = store.getSetupState(USER_ID);
       const step1Ok = editCalls.some((call) => call.messageId === MESSAGE_ID && /Шаг 1\/3/.test(call.text));
       const step2Ok = editCalls.some((call) => call.messageId === MESSAGE_ID && /Шаг 2\/3/.test(call.text));
@@ -73,7 +77,7 @@ async function runProductionRouteProbe() {
       const sameOwner = finalState.buttonsWizardScreenMessageId === MESSAGE_ID && finalState.buttonsWizardScreenOwnerUserId === USER_ID;
       const normalizedUrlOk = finalState.buttonFlow?.draft?.url === 'http://olga.style' || finalState.buttonFlow?.draft?.url === 'https://olga.style';
       const ok = step1Ok && step2Ok && step3Ok && step3AfterUrl && sends === 0 && !cleanupTouched && sameOwner && normalizedUrlOk && finalState.buttonsWizardRealShowPathLastDecision !== 'send_new' && finalState.buttonsWizardRealShowPathLastDecision !== 'fallback_send_after_edit_failed' && !finalState.buttonsWizardEditFailedAt;
-      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, sameOwner, normalizedUrl: finalState.buttonFlow?.draft?.url || '', step3Transport: step3Ok ? 'editMessage' : '' };
+      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, sameOwner, normalizedUrl: finalState.buttonFlow?.draft?.url || '', step3Transport: step3Ok ? 'editMessage' : '', traceNames };
     }
 
     const plain = await runVariant('plain_text', textUpdate('https://olga.style'));
@@ -89,8 +93,10 @@ async function runProductionRouteProbe() {
     const urlPlainTextProbeOk = plain.ok;
     const urlLinkPreviewProbeOk = linkPreviewWithText.ok && linkPreviewMetadataOnly.ok;
     const uppercaseUrlProbeOk = linkPreviewWithText.normalizedUrl === 'http://olga.style' && linkPreviewMetadataOnly.normalizedUrl === 'http://olga.style';
-    const ok = step1Ok && step2Ok && step3Ok && sends === 0 && !cleanupTouched && sameOwner && urlPlainTextProbeOk && urlLinkPreviewProbeOk && uppercaseUrlProbeOk;
-    return { ok, runtime: 'PR206-BUTTONS-WIZARD-PRODUCTION-ROUTE-PROBE', source: 'adminkit-buttons-wizard-production-webhook-route-probe', routeModules, step1Transport: step1Ok ? 'editMessage' : '', step2Transport: step2Ok ? 'editMessage' : '', step3Transport: step3Ok ? 'editMessage' : '', sameMessageAcrossSteps: step1Ok && step2Ok && step3Ok, wizardSendMessageCount: sends, cleanupTouchedWizardMessage: cleanupTouched, urlPlainTextProbeOk, urlLinkPreviewProbeOk, uppercaseUrlProbeOk, step3FromLinkPreviewTransport: linkPreviewMetadataOnly.step3Transport, linkPreviewVariantsTested: ['body.text', 'body.link.url', 'body.preview.url', 'attachments[].payload.url'], callbackUserId: USER_ID, textSenderUserId: USER_ID, canonicalOwnerUserId: finalState.buttonsWizardScreenOwnerUserId || USER_ID, diagnostics: ok ? [] : ['buttons_wizard_production_route_probe_failed'], variants: { plain, linkPreviewWithText, linkPreviewMetadataOnly } };
+    const requiredTraceMarkers = ['buttons_url_input_seen', 'buttons_url_input_extracted', 'buttons_url_input_screen', 'buttons_url_input_edit_result'];
+    const linkPreviewTraceOk = requiredTraceMarkers.every((name) => linkPreviewMetadataOnly.traceNames.includes(name));
+    const ok = step1Ok && step2Ok && step3Ok && sends === 0 && !cleanupTouched && sameOwner && urlPlainTextProbeOk && urlLinkPreviewProbeOk && uppercaseUrlProbeOk && linkPreviewTraceOk;
+    return { ok, runtime: 'PR206-BUTTONS-WIZARD-PRODUCTION-ROUTE-PROBE', source: 'adminkit-buttons-wizard-production-webhook-route-probe', routeModules, step1Transport: step1Ok ? 'editMessage' : '', step2Transport: step2Ok ? 'editMessage' : '', step3Transport: step3Ok ? 'editMessage' : '', sameMessageAcrossSteps: step1Ok && step2Ok && step3Ok, wizardSendMessageCount: sends, cleanupTouchedWizardMessage: cleanupTouched, urlPlainTextProbeOk, urlLinkPreviewProbeOk, uppercaseUrlProbeOk, step3FromLinkPreviewTransport: linkPreviewMetadataOnly.step3Transport, linkPreviewTraceOk, requiredTraceMarkers, linkPreviewVariantsTested: ['body.text', 'body.link.url', 'body.preview.url', 'attachments[].payload.url'], callbackUserId: USER_ID, textSenderUserId: USER_ID, canonicalOwnerUserId: finalState.buttonsWizardScreenOwnerUserId || USER_ID, diagnostics: ok ? [] : ['buttons_wizard_production_route_probe_failed'], variants: { plain, linkPreviewWithText, linkPreviewMetadataOnly } };
   } finally {
     Object.assign(max, originals);
     if (originalStore) {
