@@ -13,6 +13,7 @@ const config = require('./config');
 const { getBuildInfo } = require('./buildInfo');
 const liveIdentity = require('./services/liveIdentityService');
 const menu = require('./v3-menu-core-1539');
+const liveVersionSnapshot = require('./services/liveVersionSnapshotService');
 
 const RUNTIME = 'CC8.3.51-PR165-PUSH-RUNTIME-WIRED-ROUTES';
 const STARTED_AT = new Date().toISOString();
@@ -82,7 +83,42 @@ function summarizeSetupState(userId = '') {
   };
 }
 
-function liveVersionPayload() { const build = getBuildInfo(); const identity = liveIdentity.identity(); const runtimeVersion = liveRuntime() || build.runtimeVersion; const warning = liveIdentity.warningForExpected('', identity.gitCommit); return { ok: true, runtimeVersion, buildVersion: identity.buildVersion || build.buildVersion || runtimeVersion, displayVersion: identity.displayVersion || build.displayVersion || runtimeVersion, packageVersion: identity.packageVersion || build.packageVersion || runtimeVersion, sourceMarker: identity.sourceMarker || liveSourceMarker() || build.sourceMarker, gitCommit: identity.gitCommit || build.gitCommit, pr131MergeCommit: build.pr131MergeCommit, activeEntrypoint: identity.activeEntrypoint || clean(process.argv?.[1] ? path.basename(process.argv[1]) : process.env.ADMINKIT_CLEAN_ENTRYPOINT || build.activeEntrypoint || 'unknown'), activeBotModule: identity.activeBotModule, expectedRuntimeVersion: build.expectedRuntimeVersion || runtimeVersion, routeRuntimeVersion: RUNTIME, routeRuntimeCurrent: true, generatedAt: Date.now(), serverStartedAt: identity.serverStartedAt || process.env.ADMINKIT_SERVER_STARTED_AT || build.serverStartedAt || STARTED_AT, staleEndpointDetected: runtimeVersion !== (build.expectedRuntimeVersion || runtimeVersion), warning: warning || undefined, liveIdentity: identity, latestWebhookIdentity: liveIdentity.latestWebhookIdentity(), latestAdminCallback: liveIdentity.latestAdminCallback(), debugVersionSource: 'live-identity-service-pr141', commentsMatrixSelftest: true, productionCommentsMatrixProbe: true, commentsTimingTraceV2: true, pr97ReconciledOnCc8344: true, autoTenantChannelBind: true, tenantChannelBinding: true, channelTitleResolver: true, hybridChannelRegistry: true, getChatChannelTitles: true, campaignAttributionSupported: true, trackingLinksSupported: true, clckShortLinksSupported: true, campaignRedirectRoute: '/r/:slug', safe: true, noDatabaseRead: true, noMaxApiCall: true }; }
+function liveVersionPayload() {
+  const snapshot = liveVersionSnapshot.buildLiveVersionSnapshot();
+  const build = getBuildInfo();
+  const identity = liveIdentity.identity();
+  const warning = liveIdentity.warningForExpected('', identity.gitCommit);
+  return {
+    ...snapshot,
+    packageVersion: identity.packageVersion || build.packageVersion || snapshot.buildVersion || snapshot.runtimeVersion,
+    pr131MergeCommit: build.pr131MergeCommit,
+    activeBotModule: identity.activeBotModule,
+    expectedRuntimeVersion: build.expectedRuntimeVersion || snapshot.runtimeVersion,
+    routeRuntimeVersion: RUNTIME,
+    routeRuntimeCurrent: true,
+    serverStartedAt: identity.serverStartedAt || process.env.ADMINKIT_SERVER_STARTED_AT || build.serverStartedAt || STARTED_AT,
+    warning: warning || undefined,
+    liveIdentity: identity,
+    latestWebhookIdentity: liveIdentity.latestWebhookIdentity(),
+    latestAdminCallback: liveIdentity.latestAdminCallback(),
+    commentsMatrixSelftest: true,
+    productionCommentsMatrixProbe: true,
+    commentsTimingTraceV2: true,
+    pr97ReconciledOnCc8344: true,
+    autoTenantChannelBind: true,
+    tenantChannelBinding: true,
+    channelTitleResolver: true,
+    hybridChannelRegistry: true,
+    getChatChannelTitles: true,
+    campaignAttributionSupported: true,
+    trackingLinksSupported: true,
+    clckShortLinksSupported: true,
+    campaignRedirectRoute: '/r/:slug',
+    safe: true,
+    noDatabaseRead: true,
+    noMaxApiCall: true
+  };
+}
 
 function install(app) {
   if (!app || app.__adminkitWalkthroughTraceRoutes) return app;

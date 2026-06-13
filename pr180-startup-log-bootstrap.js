@@ -2,6 +2,7 @@
 
 const startupLog = require('./services/startupLogService');
 const runtimeContract = require('./services/runtimeContractService');
+const liveVersionSnapshot = require('./services/liveVersionSnapshotService');
 
 const startedAt = new Date().toISOString();
 let scheduled = false;
@@ -21,10 +22,30 @@ function safeContract() {
   }
 }
 
+
+function safeLiveVersionSnapshot(base = {}) {
+  try {
+    return liveVersionSnapshot.buildLiveVersionSnapshot(base);
+  } catch (error) {
+    return {
+      ok: false,
+      generatedAt: new Date().toISOString(),
+      debugVersionSource: liveVersionSnapshot.DEBUG_VERSION_SOURCE || 'live-version-snapshot-service-pr200',
+      runtimeContractEndpoint: liveVersionSnapshot.RUNTIME_CONTRACT_ENDPOINT || '/internal/runtime/contract',
+      error: {
+        code: 'live_version_snapshot_failed',
+        message: clean(error && error.message || error).slice(0, 160)
+      },
+      safe: true
+    };
+  }
+}
+
 function runtimeInfo() {
   let buildInfo = {};
   try { buildInfo = require('./buildInfo').getBuildInfo(); } catch {}
-  return {
+  const runtimeContractInfo = safeContract();
+  const info = {
     startedAt,
     runtimeVersion: clean(buildInfo.runtimeVersion || process.env.RUNTIME_VERSION || process.env.BUILD_VERSION),
     buildVersion: clean(buildInfo.buildVersion || process.env.BUILD_VERSION || process.env.RUNTIME_VERSION),
@@ -42,8 +63,10 @@ function runtimeInfo() {
     pr165RuntimeWired: buildInfo.pr165RuntimeWired === true || process.env.PR165_RUNTIME_WIRED === '1',
     postgresConfigured: Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_CONNECTION_STRING || process.env.PGHOST),
     canonicalPublicBaseUrl: clean(process.env.ADMINKIT_PUBLIC_BASE_URL || 'https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run'),
-    runtimeContract: safeContract()
+    runtimeContract: runtimeContractInfo
   };
+  info.liveVersionSnapshot = safeLiveVersionSnapshot({ ...info, runtimeContract: runtimeContractInfo });
+  return info;
 }
 
 function scheduleStartupLog() {
