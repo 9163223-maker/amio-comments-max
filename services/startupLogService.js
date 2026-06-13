@@ -207,6 +207,7 @@ function sanitizeLiveVersionSnapshot(input = {}) {
     },
     buttonsWizardPhysicalRouteProbe: {
       ok: sanitizeBool(physicalProbe.ok),
+      pending: sanitizeBool(physicalProbe.pending),
       runtime: short(physicalProbe.runtime, 120),
       source: short(physicalProbe.source, 160),
       step1Transport: short(physicalProbe.step1Transport, 80),

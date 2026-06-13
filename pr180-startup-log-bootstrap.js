@@ -70,7 +70,29 @@ function finalRuntimeReadinessGate(snapshot = {}) {
 }
 function markRuntimeReadinessInstallComplete() { startupInProgress = false; return { ok: true, startupInProgress }; }
 function markPr199InstallComplete() { return markRuntimeReadinessInstallComplete(); }
+function isFinalDisabledProductionProbeStartup(info = {}) {
+  const snapshot = info && info.liveVersionSnapshot || {};
+  const summary = snapshot.liveVersionSummary || {};
+  const probe = snapshot.buttonsWizardPhysicalRouteProbe || {};
+  const diagnostics = Array.isArray(probe.diagnostics) ? probe.diagnostics : [];
+  const gate = info && info.finalRuntimeReadinessGate || finalRuntimeReadinessGate(snapshot);
+  const missing = gate && Array.isArray(gate.missing) ? gate.missing : [];
+  const expectedMissing = ['buttonsWizardPhysicalRouteProbeOk', 'urlLinkPreviewProbeOk', 'buttonsWizardPhysicalInplaceReady'];
+  const onlyExpectedMissing = missing.length > 0 && missing.every((item) => expectedMissing.includes(item));
+  return snapshot.ok === true
+    && summary.pr199Ready === true
+    && summary.pr202Ready === true
+    && summary.plusSignWizardTextSupported === true
+    && probe.pending === true
+    && probe.ok !== true
+    && diagnostics.includes('startup_production_probe_disabled')
+    && gate
+    && gate.ok !== true
+    && gate.readyForManualMaxTest !== true
+    && onlyExpectedMissing;
+}
 function shouldDeferStartupLog(info) {
+  if (isFinalDisabledProductionProbeStartup(info)) return false;
   const summary = info && info.liveVersionSnapshot && info.liveVersionSnapshot.liveVersionSummary || {};
   const gate = info && info.finalRuntimeReadinessGate || finalRuntimeReadinessGate(info && info.liveVersionSnapshot);
   return summary.buttonsWizardPhysicalInplaceReady !== true || !gate || gate.ok !== true || gate.readyForManualMaxTest !== true;
@@ -100,4 +122,4 @@ function scheduleStartupLog() {
   return { ok: true, scheduled: true };
 }
 scheduleStartupLog();
-module.exports = { ok: true, marker: 'adminkit-pr180-startup-log-bootstrap', scheduleStartupLog, recordStartupNow, markRuntimeReadinessInstallComplete, markPr199InstallComplete, shouldDeferStartupLog, finalRuntimeReadinessGate, info: startupLog.info, runtimeInfo };
+module.exports = { ok: true, marker: 'adminkit-pr180-startup-log-bootstrap', scheduleStartupLog, recordStartupNow, markRuntimeReadinessInstallComplete, markPr199InstallComplete, shouldDeferStartupLog, isFinalDisabledProductionProbeStartup, finalRuntimeReadinessGate, info: startupLog.info, runtimeInfo };
