@@ -3,7 +3,7 @@
   "version": "CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
-    "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
+    "start": "node -r ./pr178-push-pairing-bootstrap.js -r ./pr202-post-start-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
     "test": "node scripts/smoke-test.js"
   },
   "dependencies": {
@@ -28,5 +28,6 @@
   "pr188PushMultiChatHandoff": true,
   "pr189PushFreshPwaPending": true,
   "pr190PushPolishAutorefresh": true,
-  "pr191PushAdminInviteTitleCommands": true
+  "pr191PushAdminInviteTitleCommands": true,
+  "pr202ButtonsRealShowPathInplace": true
 }
