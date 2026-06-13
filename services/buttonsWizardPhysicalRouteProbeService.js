@@ -17,6 +17,10 @@ function pendingProbe(reason = 'pending_real_production_route_probe') {
     sameMessageAcrossSteps: false,
     wizardSendMessageCount: 0,
     cleanupTouchedWizardMessage: false,
+    urlPlainTextProbeOk: false,
+    urlLinkPreviewProbeOk: false,
+    uppercaseUrlProbeOk: false,
+    step3FromLinkPreviewTransport: '',
     diagnostics: [reason]
   };
 }
@@ -39,6 +43,10 @@ async function runProbe() {
       sameMessageAcrossSteps: false,
       wizardSendMessageCount: -1,
       cleanupTouchedWizardMessage: false,
+      urlPlainTextProbeOk: false,
+      urlLinkPreviewProbeOk: false,
+      uppercaseUrlProbeOk: false,
+      step3FromLinkPreviewTransport: '',
       diagnostics: [String(error && error.message || error).slice(0, 180)]
     };
     return latest;

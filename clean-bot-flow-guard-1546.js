@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const guard = require('./clean-bot-flow-guard-1544');
 const menu = require('./v3-menu-core-1539');
 const postsTextFlow = require('./posts-flow-cc8-text-flow');
@@ -143,11 +144,49 @@ function findFirstDeepValue(value, keys = [], seen = new Set()) {
   return '';
 }
 function body(msg = {}) { return msg?.body && typeof msg.body === 'object' ? msg.body : {}; }
-function linkPreviewText(msg = {}) {
+function isLinkPreviewAttachment(value = {}) { const type = clean(value?.type || value?.kind || value?.attachment_type || value?.attachmentType).toLowerCase(); return /^(link_preview|link|url)$/i.test(type); }
+function filterLinkPreviewAttachments(value = null) { return (Array.isArray(value) ? value : []).filter((item) => item && typeof item === 'object' && isLinkPreviewAttachment(item)); }
+function safeUrlTraceFields(value = '') { const normalized = normalizeUrlForInput(value); const out = { urlRedacted: true, urlHasQuery: false }; try { const parsed = new URL(normalized); out.urlScheme = clean(parsed.protocol).replace(/:$/, '').toLowerCase(); out.urlHost = clean(parsed.hostname).toLowerCase().slice(0, 120); out.urlHasQuery = Boolean(parsed.search); out.urlHash = crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 16); } catch { out.urlHash = crypto.createHash('sha256').update(clean(value)).digest('hex').slice(0, 16); } return out; }
+function normalizeUrlForInput(value = '') { const raw = clean(value); const m = raw.match(/https?:\/\/[^\s<>'\"]+/i); return m ? m[0].replace(/[)\],.]+$/, '').replace(/^https?:\/\//i, (scheme) => scheme.toLowerCase()) : ''; }
+function valueAtPath(source = null, path = '') {
+  try { return path.split('.').reduce((obj, key) => (obj && obj[key] !== undefined ? obj[key] : undefined), source); } catch { return undefined; }
+}
+function collectUrlCandidates(source = null, path = 'msg', out = [], seen = new Set(), depth = 7) {
+  if (source === null || source === undefined || depth < 0) return out;
+  if (Array.isArray(source) && /attachments/i.test(path)) { filterLinkPreviewAttachments(source).forEach((item, index) => collectUrlCandidates(item, `${path}[${index}]`, out, seen, depth - 1)); return out; }
+  if (typeof source === 'string' || typeof source === 'number') {
+    const url = normalizeUrlForInput(source);
+    if (url) out.push({ url, path });
+    return out;
+  }
+  if (typeof source !== 'object' || seen.has(source)) return out;
+  seen.add(source);
+  const urlKeys = new Set(['url', 'uri', 'href', 'canonical_url', 'canonicalurl', 'target_url', 'targeturl']);
+  for (const [key, raw] of Object.entries(source)) {
+    const nextPath = `${path}.${key}`;
+    if (String(key || '').toLowerCase() === 'attachments' && Array.isArray(raw)) { filterLinkPreviewAttachments(raw).forEach((item, index) => collectUrlCandidates(item, `${nextPath}[${index}]`, out, seen, depth - 1)); continue; }
+    if (urlKeys.has(String(key || '').toLowerCase())) {
+      const url = normalizeUrlForInput(raw);
+      if (url) out.push({ url, path: nextPath });
+    }
+    collectUrlCandidates(raw, nextPath, out, seen, depth - 1);
+  }
+  return out;
+}
+function linkPreviewInfo(msg = {}) {
+  const paths = ['body.link', 'body.preview', 'body.message', 'body.message.body', 'link', 'preview', 'message', 'message.body', 'attachments', 'body.attachments'];
+  const candidates = [];
+  for (const path of paths) collectUrlCandidates(valueAtPath(msg, path), `msg.${path}`, candidates);
+  const first = candidates[0] || null;
+  return { text: first ? first.url : '', path: first ? first.path : '', candidateCount: candidates.length };
+}
+function linkPreviewText(msg = {}) { return linkPreviewInfo(msg).text; }
+function messageShapeForTrace(msg = {}) {
   const b = body(msg);
-  const fromLink = findFirstDeepValue([b.link, msg.link, b.preview, msg.preview, b.message?.link, msg.message?.link, msg.message?.body?.link], ['url', 'uri', 'href', 'canonical_url', 'canonicalUrl', 'target_url', 'targetUrl']);
-  const raw = clean(fromLink);
-  return /^https?:\/\//i.test(raw) ? raw : '';
+  return [
+    b.text ? 'body.text' : '', msg.text ? 'text' : '', b.link ? 'body.link' : '', msg.link ? 'link' : '', b.preview ? 'body.preview' : '', msg.preview ? 'preview' : '',
+    Array.isArray(b.attachments) ? 'body.attachments[]' : '', Array.isArray(msg.attachments) ? 'attachments[]' : '', b.message ? 'body.message' : '', msg.message ? 'message' : ''
+  ].filter(Boolean).join(',') || 'unknown';
 }
 function messageId(msg = {}) { const b = body(msg); return clean(b.mid || b.message_id || b.messageId || msg.mid || msg.message_id || msg.messageId || msg.id); }
 function messageIdCandidates(msg = {}) {
@@ -240,7 +279,8 @@ function createCleanBot(legacy) {
       const uid = userId(update, cb, msg);
       const state = setup(uid);
       const incomingText = text(msg);
-      const incomingButtonText = incomingText || linkPreviewText(msg);
+      const linkInfo = linkPreviewInfo(msg);
+      const incomingButtonText = incomingText || linkInfo.text;
       try {
         if (!realCb && msg && isDirectPatchCandidate(msg)) {
           const result = await timing.measure('direct_channel_pr82_total', { updateType: updateType(update), channelId: timing.mask(chatId(msg)), postId: timing.mask(postId(msg)), messageId: timing.mask(messageId(msg) || postId(msg)) }, () => patchDirectChannelPostFast(update, msg, config));
@@ -269,17 +309,28 @@ function createCleanBot(legacy) {
           }
         }
 
-        if (!realCb && msg && incomingButtonText && !/^\/?start(?:\s|$)/i.test(incomingButtonText) && !isChannelMessage(msg) && hasButtonFlowPriority(state)) {
+        if (!realCb && msg && (incomingButtonText || hasButtonFlowPriority(state)) && !/^\/?start(?:\s|$)/i.test(incomingButtonText) && !isChannelMessage(msg) && hasButtonFlowPriority(state)) {
           const fromLinkPreview = Boolean(!incomingText && incomingButtonText);
-          const screen = await timing.measure('buttons_text_flow_clean', { userId: timing.mask(uid), textLen: incomingButtonText.length, fakeCallbackIgnored: Boolean(rawCb && !realCb), fromLinkPreview }, () => buttonsFlow.handleTextInput(menu, { config, userId: uid, text: incomingButtonText, update }));
-          if (screen) {
-            if (buttonsWizardOwner.isButtonsWizardScreen(screen)) {
-              await buttonsWizardOwner.updateButtonsWizardScreen({ config, update, msg, userId: uid, screen });
-            } else {
-              await show(config, update, msg, screen, false, { userId: uid });
+          const stepIndexBefore = Number(state.buttonFlow?.stepIndex || 0);
+          timing.log('buttons_url_input_seen', { updateType: updateType(update), messageShape: messageShapeForTrace(msg), incomingTextLen: incomingText.length, hasLinkPreviewText: Boolean(linkInfo.text), fromLinkPreview, hasButtonFlowPriority: true, activeAdminFlowKind: state.activeAdminFlowKind, buttonFlowStepIndex: stepIndexBefore, userId: timing.mask(uid), chatId: timing.mask(chatId(msg)) });
+          if (!incomingButtonText) {
+            timing.log('buttons_url_input_no_text', { updateType: updateType(update), messageShape: messageShapeForTrace(msg), hasButtonFlowPriority: true, activeAdminFlowKind: state.activeAdminFlowKind, buttonFlowStepIndex: stepIndexBefore, userId: timing.mask(uid) });
+          } else {
+            timing.log('buttons_url_input_extracted', { updateType: updateType(update), fromLinkPreview, linkPreviewPath: linkInfo.path, ...safeUrlTraceFields(incomingButtonText), buttonFlowStepIndex: stepIndexBefore, userId: timing.mask(uid) });
+            const screen = await timing.measure('buttons_text_flow_clean', { userId: timing.mask(uid), textLen: incomingButtonText.length, fakeCallbackIgnored: Boolean(rawCb && !realCb), fromLinkPreview }, () => buttonsFlow.handleTextInput(menu, { config, userId: uid, text: incomingButtonText, update }));
+            timing.log('buttons_url_input_screen', { updateType: updateType(update), screenId: screen && screen.id, isWizardScreen: buttonsWizardOwner.isButtonsWizardScreen(screen), fromLinkPreview, buttonFlowStepIndex: stepIndexBefore, userId: timing.mask(uid) });
+            if (screen) {
+              if (buttonsWizardOwner.isButtonsWizardScreen(screen)) {
+                const editResult = await buttonsWizardOwner.updateButtonsWizardScreen({ config, update, msg, userId: uid, screen });
+                timing.log('buttons_url_input_edit_result', { updateType: updateType(update), screenId: screen.id, ok: editResult?.ok !== false, diagnostic: editResult?.diagnostic || editResult?.reason || '', messageId: editResult?.message?.body?.mid || editResult?.message?.id || '', fromLinkPreview, userId: timing.mask(uid) });
+              } else {
+                await show(config, update, msg, screen, false, { userId: uid });
+              }
+              return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'button_text_input', screenId: screen.id, buttonsCleanFlow: true, buttonsSingleScreen: true, buttonsLinkPreviewText: fromLinkPreview });
             }
-            return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'button_text_input', screenId: screen.id, buttonsCleanFlow: true, buttonsSingleScreen: true, buttonsLinkPreviewText: fromLinkPreview });
           }
+        } else if (!realCb && msg && hasButtonFlowPriority(state)) {
+          timing.log('buttons_url_input_no_flow', { updateType: updateType(update), hasMessage: Boolean(msg), hasIncomingButtonText: Boolean(incomingButtonText), isChannelMessage: isChannelMessage(msg), activeAdminFlowKind: state.activeAdminFlowKind, userId: timing.mask(uid) });
         }
 
         if (msg && incomingText && !/^\/?start(?:\s|$)/i.test(incomingText) && !isChannelMessage(msg) && hasActivePostsTextFlow(state)) {

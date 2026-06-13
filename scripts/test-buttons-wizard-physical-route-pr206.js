@@ -42,6 +42,23 @@ process.env.ADMINKIT_DISABLE_AUTOSTART = '1';
   assert.strictEqual(probe.sameMessageAcrossSteps, true, 'all wizard steps use the same message id');
   assert.strictEqual(probe.wizardSendMessageCount, 0, 'wizard sends no duplicate messages');
   assert.strictEqual(probe.cleanupTouchedWizardMessage, false, 'cleanup does not touch wizard host message');
+  assert.strictEqual(probe.urlPlainTextProbeOk, true, 'plain text URL advances to Step 3');
+  assert.strictEqual(probe.urlLinkPreviewProbeOk, true, 'MAX link-preview URL advances to Step 3');
+  assert.strictEqual(probe.uppercaseUrlProbeOk, true, 'uppercase HTTP:// URL is accepted and normalized');
+  assert.strictEqual(probe.step3FromLinkPreviewTransport, 'editMessage', 'link-preview Step 3 uses editMessage');
+  assert(Array.isArray(probe.linkPreviewVariantsTested) && probe.linkPreviewVariantsTested.includes('attachments[].payload.url'), 'probe explicitly covers link-preview metadata variants');
+  assert.strictEqual(probe.variants.linkPreviewMetadataOnly.step3AfterUrl, true, 'metadata-only link preview advances after URL input');
+  assert.strictEqual(probe.variants.linkPreviewMetadataOnly.sends, 0, 'metadata-only link preview does not send duplicate wizard messages');
+  assert.strictEqual(probe.traceRedactedOk, true, 'URL timing trace redacts sensitive path/query/token/signature data');
+  assert.strictEqual(probe.postEditLinkPreviewRawTextOk, true, 'post edit flow receives raw empty text instead of link-preview URL fallback');
+  assert.strictEqual(probe.mediaAttachmentIgnoredOk, true, 'photo/file attachment payload URLs are not accepted as button URLs');
+  assert.strictEqual(probe.variants.mediaAttachment.step3Ok, false, 'media attachment payload URL does not advance to Step 3');
+  assert.strictEqual(probe.variants.mediaAttachment.normalizedUrl, '', 'media attachment payload URL is not saved to the button draft');
+  assert.strictEqual(probe.variants.mediaAttachment.sends, 0, 'media attachment URL path does not send duplicate wizard messages');
+  assert.strictEqual(probe.linkPreviewTraceOk, true, 'metadata-only channel-first link preview emits required URL trace markers');
+  for (const marker of ['buttons_url_input_seen', 'buttons_url_input_extracted', 'buttons_url_input_screen', 'buttons_url_input_edit_result']) {
+    assert(probe.variants.linkPreviewMetadataOnly.traceNames.includes(marker), `metadata-only channel-first trace contains ${marker}`);
+  }
   assert.strictEqual(probe.callbackUserId, probe.textSenderUserId, 'callback and text sender resolve to same canonical owner');
   assert.strictEqual(probe.canonicalOwnerUserId, probe.callbackUserId, 'canonical owner remains callback/text user');
 
