@@ -50,7 +50,10 @@ async function runProductionRouteProbe() {
     const ctx = tenant.ensureTenantContext(USER_ID);
     const target = tenant.stampRecord({ channelId: 'channel-olga', channelTitle: 'Olga Style', postId: 'post-1', messageId: 'post-message-1', commentKey: 'channel-olga:post-1', originalText: 'Olga Style launch post', cardId: CARD_ID, createdAt: Date.now(), source: 'buttons_selected_post_card' }, ctx);
     store.setSetupState(USER_ID, { buttonsCurrentCard: target, buttonTargetPost: target, commentTargetPost: target, activeAdminFlowKind: '' });
-    const bot = require('../clean-bot-campaign-links-pr91').createCleanBot(require('../bot'));
+    const channelFirstPostPicker = require('../clean-bot-channel-first-post-picker-pr90');
+    const flowGuard = require('../clean-bot-flow-guard-1546');
+    const routeModules = ['clean-bot-channel-first-post-picker-pr90.js', 'clean-bot-flow-guard-1546.js'];
+    const bot = channelFirstPostPicker.createCleanBot(flowGuard.createCleanBot(require('../bot')));
 
     await drive(bot, callbackUpdate());
     await drive(bot, textUpdate('Кнопка'));
@@ -63,7 +66,7 @@ async function runProductionRouteProbe() {
     const cleanupTouched = closedWizardEdits(editCalls).length > 0 || deleteCalls.some((call) => call.messageId === MESSAGE_ID);
     const sameOwner = finalState.buttonsWizardScreenMessageId === MESSAGE_ID && finalState.buttonsWizardScreenOwnerUserId === USER_ID;
     const ok = step1Ok && step2Ok && step3Ok && sends === 0 && !cleanupTouched && sameOwner && finalState.buttonsWizardRealShowPathLastDecision !== 'send_new' && finalState.buttonsWizardRealShowPathLastDecision !== 'fallback_send_after_edit_failed' && !finalState.buttonsWizardEditFailedAt;
-    return { ok, runtime: 'PR206-BUTTONS-WIZARD-PRODUCTION-ROUTE-PROBE', source: 'adminkit-buttons-wizard-production-route-probe', step1Transport: step1Ok ? 'editMessage' : '', step2Transport: step2Ok ? 'editMessage' : '', step3Transport: step3Ok ? 'editMessage' : '', sameMessageAcrossSteps: step1Ok && step2Ok && step3Ok, wizardSendMessageCount: sends, cleanupTouchedWizardMessage: cleanupTouched, callbackUserId: USER_ID, textSenderUserId: USER_ID, canonicalOwnerUserId: finalState.buttonsWizardScreenOwnerUserId || '', diagnostics: ok ? [] : ['buttons_wizard_production_route_probe_failed'] };
+    return { ok, runtime: 'PR206-BUTTONS-WIZARD-PRODUCTION-ROUTE-PROBE', source: 'adminkit-buttons-wizard-production-webhook-route-probe', routeModules, step1Transport: step1Ok ? 'editMessage' : '', step2Transport: step2Ok ? 'editMessage' : '', step3Transport: step3Ok ? 'editMessage' : '', sameMessageAcrossSteps: step1Ok && step2Ok && step3Ok, wizardSendMessageCount: sends, cleanupTouchedWizardMessage: cleanupTouched, callbackUserId: USER_ID, textSenderUserId: USER_ID, canonicalOwnerUserId: finalState.buttonsWizardScreenOwnerUserId || '', diagnostics: ok ? [] : ['buttons_wizard_production_route_probe_failed'] };
   } finally {
     Object.assign(max, originals);
     if (originalStore) {

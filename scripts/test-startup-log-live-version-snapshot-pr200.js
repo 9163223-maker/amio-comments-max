@@ -28,7 +28,7 @@ assert.strictEqual(pending.liveVersionSummary.buttonsWizardPhysicalInplaceReady,
 assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: pending }), true);
 const probe = await buttonsWizardProbe.runProbe();
 assert.strictEqual(probe.ok, true, 'real production route probe succeeds before readiness is green');
-assert.strictEqual(probe.source, 'adminkit-buttons-wizard-production-route-probe');
+assert.strictEqual(probe.source, 'adminkit-buttons-wizard-production-webhook-route-probe');
 
 const final = liveSnapshot.buildLiveVersionSnapshot();
 const debugPayload = debugRoutes.liveVersionPayload();

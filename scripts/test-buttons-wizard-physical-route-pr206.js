@@ -34,7 +34,8 @@ process.env.ADMINKIT_DISABLE_AUTOSTART = '1';
 
   const probe = await service.runProbe();
   assert.strictEqual(probe.ok, true, `production route probe succeeds: ${(probe.diagnostics || []).join(',')}`);
-  assert.strictEqual(probe.source, 'adminkit-buttons-wizard-production-route-probe', 'readiness uses production route probe, not owner helper-only probe');
+  assert.strictEqual(probe.source, 'adminkit-buttons-wizard-production-webhook-route-probe', 'readiness uses production route probe, not owner helper-only probe');
+  assert.deepStrictEqual(probe.routeModules, ['clean-bot-channel-first-post-picker-pr90.js', 'clean-bot-flow-guard-1546.js'], 'probe runs through the production-relevant route modules');
   assert.strictEqual(probe.step1Transport, 'editMessage', 'Step 1 uses editMessage');
   assert.strictEqual(probe.step2Transport, 'editMessage', 'Step 2 uses editMessage');
   assert.strictEqual(probe.step3Transport, 'editMessage', 'Step 3 uses editMessage');
