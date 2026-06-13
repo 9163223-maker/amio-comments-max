@@ -2,6 +2,7 @@
 
 const https = require('https');
 const crypto = require('crypto');
+const liveVersionSnapshotService = require('./liveVersionSnapshotService');
 
 const DEFAULT_REPO = '9163223-maker/amio-comments-max';
 const DEFAULT_BRANCH = 'runtime-status';
@@ -33,6 +34,89 @@ function bootId() { return `${Date.now().toString(36)}-${crypto.randomBytes(4).t
 function sanitizeBool(value) { return value === true; }
 function sanitizeObject(value = {}) { return value && typeof value === 'object' && !Array.isArray(value) ? value : {}; }
 function sanitizeList(value = [], limit = 20) { return Array.isArray(value) ? value.slice(0, limit).map((item) => short(item, 160)).filter(Boolean) : []; }
+
+function redactSecrets(value) {
+  let text = short(value, 240);
+  const token = clean(process.env.GITHUB_DEBUG_TOKEN);
+  if (token) text = text.split(token).join('[redacted]');
+  text = text
+    .replace(/(token|secret|password|authorization|cookie)=([^\s&]+)/ig, '$1=[redacted]')
+    .replace(/Bearer\s+[^\s]+/ig, 'Bearer [redacted]')
+    .replace(/(postgres(?:ql)?:\/\/)[^\s]+/ig, '$1[redacted]');
+  return text;
+}
+function sanitizeLiveVersionRuntimeContract(input = {}) {
+  const c = sanitizeObject(input);
+  const startupPath = sanitizeObject(c.startupPath);
+  return {
+    contractLiveOk: sanitizeBool(c.contractLiveOk),
+    startupPath: {
+      ok: sanitizeBool(startupPath.ok),
+      activeEntrypoint: short(startupPath.activeEntrypoint, 120),
+      entrypointExpected: short(startupPath.entrypointExpected, 120)
+    }
+  };
+}
+function sanitizePr199ButtonsWizard(input = {}) {
+  const w = sanitizeObject(input);
+  return {
+    ok: sanitizeBool(w.ok),
+    installOrder: short(w.installOrder, 80),
+    buttonsDuplicateSaveGuarded: sanitizeBool(w.buttonsDuplicateSaveGuarded),
+    buttonsPendingPreviewConsumedBeforeSave: sanitizeBool(w.buttonsPendingPreviewConsumedBeforeSave),
+    buttonsSaveGuardClearedOnExit: sanitizeBool(w.buttonsSaveGuardClearedOnExit),
+    callbackFlatMessageIdSupported: sanitizeBool(w.callbackFlatMessageIdSupported)
+  };
+}
+function sanitizePr199MainMenuRouteGuard(input = {}) {
+  const g = sanitizeObject(input);
+  return {
+    ok: sanitizeBool(g.ok),
+    mainMenuUsesPublicRoute: sanitizeBool(g.mainMenuUsesPublicRoute),
+    chatIdWizardSendGuard: sanitizeBool(g.chatIdWizardSendGuard),
+    chatIdWizardEditForwardsBotToken: sanitizeBool(g.chatIdWizardEditForwardsBotToken),
+    chatIdWizardEditFallsBackToSend: sanitizeBool(g.chatIdWizardEditFallsBackToSend)
+  };
+}
+function sanitizeLiveVersionSnapshot(input = {}, fallbacks = {}) {
+  const source = sanitizeObject(input);
+  const runtimeContract = sanitizeLiveVersionRuntimeContract(source.runtimeContract);
+  const snapshot = {
+    ok: sanitizeBool(source.ok),
+    generatedAt: short(source.generatedAt || nowIso(), 64),
+    runtimeVersion: short(source.runtimeVersion || fallbacks.runtimeVersion, 120),
+    buildVersion: short(source.buildVersion || fallbacks.buildVersion || source.runtimeVersion || fallbacks.runtimeVersion, 120),
+    displayVersion: short(source.displayVersion || fallbacks.displayVersion || source.runtimeVersion || fallbacks.runtimeVersion, 120),
+    sourceMarker: short(source.sourceMarker || fallbacks.sourceMarker, 160),
+    entrypoint: short(source.entrypoint || fallbacks.entrypoint, 120),
+    activeEntrypoint: short(source.activeEntrypoint || fallbacks.activeEntrypoint || source.entrypoint || fallbacks.entrypoint, 120),
+    gitCommit: short(source.gitCommit || fallbacks.gitCommit, 80),
+    githubMainHeadSha: short(source.githubMainHeadSha || fallbacks.githubMainHeadSha, 80),
+    commitSource: short(source.commitSource || fallbacks.commitSource, 80),
+    staleEndpointDetected: sanitizeBool(source.staleEndpointDetected),
+    debugVersionSource: short(source.debugVersionSource || liveVersionSnapshotService.DEBUG_VERSION_SOURCE, 120),
+    runtimeContractEndpoint: short(source.runtimeContractEndpoint || liveVersionSnapshotService.RUNTIME_CONTRACT_ENDPOINT, 120),
+    runtimeContract,
+    pr199ButtonsWizard: sanitizePr199ButtonsWizard(source.pr199ButtonsWizard),
+    pr199ButtonsMainMenuRouteGuard: sanitizePr199MainMenuRouteGuard(source.pr199ButtonsMainMenuRouteGuard),
+    safe: true,
+    noPublicHttpCall: source.noPublicHttpCall !== false
+  };
+  if (!snapshot.commitSource) snapshot.commitSource = snapshot.gitCommit ? 'runtime-env' : (snapshot.githubMainHeadSha ? 'github-main-head' : 'unknown');
+  snapshot.pr199Ready = liveVersionSnapshotService.pr199Ready(snapshot);
+  if (source.error) {
+    const error = sanitizeObject(source.error);
+    snapshot.error = {
+      code: short(error.code || error.status || 'live_version_snapshot_failed', 80),
+      message: redactSecrets(error.message || source.error)
+    };
+  }
+  return snapshot;
+}
+function sanitizeLiveVersionSummary(snapshot = {}) {
+  return liveVersionSnapshotService.buildLiveVersionSummary(snapshot);
+}
+
 function sanitizeRuntimeContract(input = {}) {
   const c = sanitizeObject(input);
   const startupPath = sanitizeObject(c.startupPath);
@@ -114,6 +198,8 @@ function sanitizeEntry(input = {}) {
     safe: true
   };
   if (!safe.commitSource) safe.commitSource = safe.gitCommit ? 'runtime-env' : (safe.githubMainHeadSha ? 'github-main-head' : 'unknown');
+  safe.liveVersionSnapshot = sanitizeLiveVersionSnapshot(input.liveVersionSnapshot, safe);
+  safe.liveVersionSummary = sanitizeLiveVersionSummary(safe.liveVersionSnapshot);
   return safe;
 }
 
@@ -268,4 +354,4 @@ function info() {
   };
 }
 
-module.exports = { recordStartup, info, sanitizeEntry, sanitizeRuntimeContract, getBranchHead, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
+module.exports = { recordStartup, info, sanitizeEntry, sanitizeRuntimeContract, sanitizeLiveVersionSnapshot, sanitizeLiveVersionSummary, getBranchHead, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
