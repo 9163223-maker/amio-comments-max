@@ -61,7 +61,7 @@ async function updateButtonsWizardScreen({ config = {}, update = {}, msg = {}, u
   const cid = clean(chatId || chatIdFromMsg(msg));
   if (!isButtonsWizardScreen(screen)) return { ok: false, skipped: true, reason: 'not_buttons_wizard_screen' };
   const state = setupState(storeApi, uid);
-  const messageId = clean(state.buttonsWizardScreenMessageId || state.buttonsActiveScreenMessageId || state.buttonActiveScreenMessageId || '');
+  const messageId = clean(state.buttonsWizardScreenMessageId || '');
   if (!uid || !messageId) {
     try {
       storeApi.setSetupState(uid, {

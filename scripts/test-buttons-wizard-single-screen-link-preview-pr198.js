@@ -21,6 +21,7 @@ let setupState = {
   activeAdminFlowKind: 'button',
   buttonFlow: { mode: 'button_wizard', stepIndex: 1, draft: { text: 'HTTP://olga.style', url: '' } },
   buttonsActiveScreenMessageId: 'old-button-step',
+  buttonsWizardScreenMessageId: 'old-button-step',
   buttonsActiveScreenId: 'buttons_clean_add_url'
 };
 let seenText = '';

@@ -1,30 +1,32 @@
 'use strict';
 
 const owner = require('../buttons-wizard-screen-owner-pr206');
+const productionProbe = require('./buttonsWizardPhysicalRouteProductionProbe');
 
-let latest = { ok: false, diagnostics: ['not_run'] };
+let latest = { ok: false, pending: true, diagnostics: ['not_run'] };
 
-function successProbe() {
+function pendingProbe(reason = 'pending_real_production_route_probe') {
   return {
-    ok: true,
+    ok: false,
+    pending: true,
     runtime: owner.RUNTIME,
     source: 'adminkit-buttons-wizard-physical-route-probe',
-    step1Transport: 'editMessage',
-    step2Transport: 'editMessage',
-    step3Transport: 'editMessage',
-    sameMessageAcrossSteps: true,
+    step1Transport: '',
+    step2Transport: '',
+    step3Transport: '',
+    sameMessageAcrossSteps: false,
     wizardSendMessageCount: 0,
     cleanupTouchedWizardMessage: false,
-    diagnostics: []
+    diagnostics: [reason]
   };
 }
 function runProbeSync() {
-  latest = successProbe();
+  latest = pendingProbe();
   return latest;
 }
 async function runProbe() {
   try {
-    latest = await owner.probePhysicalRoute();
+    latest = await productionProbe.runProductionRouteProbe();
     return latest;
   } catch (error) {
     latest = {
@@ -45,4 +47,4 @@ async function runProbe() {
 function getLatestProbe() { return latest; }
 function setLatestProbeForTests(probe) { latest = probe || latest; return latest; }
 
-module.exports = { runProbe, runProbeSync, getLatestProbe, setLatestProbeForTests };
+module.exports = { runProbe, runProbeSync, getLatestProbe, setLatestProbeForTests, pendingProbe };
