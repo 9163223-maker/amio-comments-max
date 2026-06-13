@@ -3,6 +3,7 @@
 const startupLog = require('./services/startupLogService');
 const runtimeContract = require('./services/runtimeContractService');
 const liveVersionSnapshotService = require('./services/liveVersionSnapshotService');
+try { require('./pr202-post-start-bootstrap'); } catch (error) { try { console.warn('[pr202-post-start] unavailable', error && error.message || error); } catch {} }
 
 const startedAt = new Date().toISOString();
 let scheduled = false;
@@ -59,7 +60,8 @@ function shouldDeferStartupLog(info) {
 function writeScheduledStartupLog(attempt = 0) {
   const info = runtimeInfo();
   if (shouldDeferStartupLog(info) && attempt < 6) {
-    setTimeout(() => writeScheduledStartupLog(attempt + 1), 500);
+    const retry = setTimeout(() => writeScheduledStartupLog(attempt + 1), 500);
+    if (retry && typeof retry.unref === 'function') retry.unref();
     return;
   }
   startupLog.recordStartup(info).catch((error) => {
@@ -70,7 +72,8 @@ function writeScheduledStartupLog(attempt = 0) {
 function scheduleStartupLog() {
   if (scheduled) return { ok: true, already: true };
   scheduled = true;
-  setTimeout(() => writeScheduledStartupLog(), 1500);
+  const timer = setTimeout(() => writeScheduledStartupLog(), 1500);
+  if (timer && typeof timer.unref === 'function') timer.unref();
   return { ok: true, scheduled: true };
 }
 

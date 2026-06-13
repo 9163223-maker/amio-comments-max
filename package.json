@@ -28,5 +28,6 @@
   "pr188PushMultiChatHandoff": true,
   "pr189PushFreshPwaPending": true,
   "pr190PushPolishAutorefresh": true,
-  "pr191PushAdminInviteTitleCommands": true
+  "pr191PushAdminInviteTitleCommands": true,
+  "pr202ButtonsRealShowPathInplace": true
 }
