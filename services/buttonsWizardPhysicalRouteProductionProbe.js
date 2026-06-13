@@ -119,8 +119,7 @@ async function runProductionRouteProbe() {
   } finally {
     try { postsFlow.handleTextInput = originals.postsHandleTextInput; } catch {}
     try { Object.assign(max, { editMessage: originals.editMessage, sendMessage: originals.sendMessage, deleteMessage: originals.deleteMessage, answerCallback: originals.answerCallback, getChat: originals.getChat }); } catch {}
-    try { if (typeof access._resetForTests === 'function') access._resetForTests(); } catch {}
-    try { if (originalStore) store.store = originalStore; } catch {}
+    try { if (originalStore && typeof store.replaceStoreInPlace === 'function') store.replaceStoreInPlace(originalStore); } catch {}
     for (const [key, value] of Object.entries(originalEnv)) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
