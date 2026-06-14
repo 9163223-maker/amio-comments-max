@@ -219,7 +219,7 @@ function install() {
         const userId = clean(args.userId || '');
         const chatId = clean(args.chatId || '');
         const text = clean(args.text || '');
-        if (userId && !chatId && isButtonsWizardText(text)) {
+        if (userId && !chatId && isButtonsWizardText(text) && !args.pr215FreshWizard) {
           const state = setup(store, userId);
           const previousMessageId = clean(state.buttonsWizardScreenMessageId || state.buttonsActiveScreenMessageId || '');
           if (previousMessageId) {

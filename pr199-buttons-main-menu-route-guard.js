@@ -32,7 +32,7 @@ function install() {
         const chatId = clean(args.chatId || '');
         const text = clean(args.text || '');
         const effectiveUserId = explicitUserId || (chatId && isWizard(text) ? chatId : '');
-        if (!explicitUserId && effectiveUserId && isWizard(text)) {
+        if (!explicitUserId && effectiveUserId && isWizard(text) && !args.pr215FreshWizard) {
           const state = store.getSetupState(effectiveUserId) || {};
           const activeMessageId = clean(state.buttonsWizardScreenMessageId || state.buttonsActiveScreenMessageId || '');
           if (activeMessageId && typeof max.editMessage === 'function') {

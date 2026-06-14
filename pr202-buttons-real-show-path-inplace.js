@@ -56,7 +56,7 @@ function install() {
       const chatId = clean(args.chatId || '');
       const text = clean(args.text || '');
       const isWizard = isButtonsWizardText(text);
-      if (userId && !chatId && isWizard) {
+      if (userId && !chatId && isWizard && !args.pr215FreshWizard) {
         const state = setup(store, userId);
         const previousMessageId = clean(state.buttonsWizardScreenMessageId || state.buttonsActiveScreenMessageId || '');
         trace(timing, 'buttons_wizard_real_show_path_decision', {
@@ -116,7 +116,7 @@ function install() {
         }
       }
       const result = await originalSendMessage.apply(this, arguments);
-      if (userId && !chatId && isWizard) {
+      if (userId && !chatId && isWizard && !args.pr215FreshWizard) {
         const sentId = resultMessageId(result);
         rememberButtonScreen(store, userId, sentId, text);
         try {
