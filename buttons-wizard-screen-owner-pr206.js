@@ -1,6 +1,6 @@
 'use strict';
 
-const RUNTIME = 'PR206-BUTTONS-WIZARD-SCREEN-OWNER';
+const RUNTIME = 'PR215-BUTTONS-WIZARD-FRESH-CURRENT-SCREEN';
 const SOURCE = 'adminkit-pr206-buttons-wizard-screen-owner';
 
 const max = require('./services/maxApi');
@@ -36,6 +36,7 @@ function recordButtonsWizardScreen({ storeApi = store, userId = '', chatId = '',
       buttonsWizardScreenChatId: clean(chatId),
       buttonsWizardScreenRecordedAt: now(),
       buttonsWizardScreenRuntime: RUNTIME,
+      buttonsWizardFreshCurrentScreen: true,
       buttonsWizardScreenId: clean(screen && screen.id),
       buttonsWizardScreenText: short(screenText(screen), 100)
     });
@@ -56,59 +57,49 @@ function diagnosticScreen(reason = '', screen = null) {
     attachments: []
   };
 }
+async function closePreviousWizardScreen({ config = {}, storeApi = store, maxApi = max, userId = '', skipMessageId = '' } = {}) {
+  const uid = clean(userId);
+  if (!uid) return false;
+  const state = setupState(storeApi, uid);
+  const previousMessageId = clean(state.buttonsWizardScreenMessageId || state.buttonsActiveScreenMessageId || '');
+  if (!previousMessageId || previousMessageId === clean(skipMessageId)) return false;
+  try {
+    await maxApi.editMessage({ botToken: config.botToken, messageId: previousMessageId, text: '✅ Предыдущий шаг закрыт', attachments: [], notify: false });
+    storeApi.setSetupState(uid, { buttonsWizardClosedScreenMessageId: previousMessageId, buttonsWizardClosedScreenAt: now(), buttonsWizardClosedScreenRuntime: RUNTIME });
+    return true;
+  } catch (error) {
+    try { storeApi.setSetupState(uid, { buttonsWizardCloseFailedAt: now(), buttonsWizardCloseFailedMessage: short(error && error.message || error, 180), buttonsWizardCloseFailedMessageId: previousMessageId }); } catch {}
+    return false;
+  }
+}
 async function updateButtonsWizardScreen({ config = {}, update = {}, msg = {}, userId = '', chatId = '', screen = null, storeApi = store, maxApi = max } = {}) {
   const uid = clean(userId);
   const cid = clean(chatId || chatIdFromMsg(msg));
   if (!isButtonsWizardScreen(screen)) return { ok: false, skipped: true, reason: 'not_buttons_wizard_screen' };
-  const state = setupState(storeApi, uid);
-  const messageId = clean(state.buttonsWizardScreenMessageId || '');
-  if (!uid || !messageId) {
-    try {
-      storeApi.setSetupState(uid, {
-        buttonsWizardInplaceRequiredButMissing: true,
-        buttonsWizardInplaceRequiredButMissingAt: now(),
-        buttonsWizardInplaceRequiredRuntime: RUNTIME,
-        buttonsWizardInplaceRequiredScreenId: clean(screen && screen.id),
-        buttonsWizardInplaceRequiredChatId: cid
-      });
-    } catch {}
-    return diagnosticScreen('missing_buttons_wizard_screen_message_id', screen);
-  }
+  if (!uid && !cid) return diagnosticScreen('missing_user_or_chat_for_fresh_wizard_screen', screen);
+  await closePreviousWizardScreen({ config, storeApi, maxApi, userId: uid });
   try {
-    const edited = await maxApi.editMessage({
-      botToken: config.botToken,
-      messageId,
-      text: screen.text,
-      attachments: screen.attachments,
-      notify: false
-    });
-    recordButtonsWizardScreen({ storeApi, userId: uid, chatId: cid, messageId, screen });
+    const result = await maxApi.sendMessage({ botToken: config.botToken, userId: cid ? '' : uid, chatId: cid, text: screen.text, attachments: screen.attachments, notify: false, pr215FreshWizard: true });
+    const sentId = resultMessageId(result);
+    recordButtonsWizardScreen({ storeApi, userId: uid, chatId: cid, messageId: sentId, screen });
     try {
       storeApi.setSetupState(uid, {
-        buttonsWizardLastEditAt: now(),
-        buttonsWizardLastEditRuntime: RUNTIME,
-        buttonsWizardLastEditScreenId: clean(screen && screen.id),
-        buttonsWizardLastEditMessageId: messageId
+        buttonsWizardLastRenderAt: now(),
+        buttonsWizardLastRenderRuntime: RUNTIME,
+        buttonsWizardLastRenderMethod: 'sendMessage',
+        buttonsWizardLastRenderScreenId: clean(screen && screen.id),
+        buttonsWizardLastRenderMessageId: sentId
       });
     } catch {}
-    return edited || { message: { id: messageId, body: { mid: messageId } }, pr206ButtonsWizardInplaceEdit: true };
+    return result || { message: { id: sentId, body: { mid: sentId } }, pr215FreshCurrentScreen: true };
   } catch (error) {
     try {
-      storeApi.setSetupState(uid, {
-        buttonsWizardEditFailedAt: now(),
-        buttonsWizardEditFailedRuntime: RUNTIME,
-        buttonsWizardEditFailedMessage: short(error && error.message || error, 180),
-        buttonsWizardEditFailedScreenId: clean(screen && screen.id),
-        buttonsWizardEditFailedMessageId: messageId
-      });
+      storeApi.setSetupState(uid, { buttonsWizardSendFailedAt: now(), buttonsWizardSendFailedRuntime: RUNTIME, buttonsWizardSendFailedMessage: short(error && error.message || error, 180), buttonsWizardSendFailedScreenId: clean(screen && screen.id) });
     } catch {}
-    return diagnosticScreen('buttons_wizard_edit_failed', screen);
+    return diagnosticScreen('buttons_wizard_send_failed', screen);
   }
 }
-function shouldSkipWizardCleanup({ state = {}, messageId = '', nextScreen = null } = {}) {
-  const mid = clean(messageId);
-  return Boolean(mid && isButtonsWizardScreen(nextScreen) && clean(state.buttonsWizardScreenMessageId) === mid);
-}
+function shouldSkipWizardCleanup() { return false; }
 async function probePhysicalRoute() {
   const states = {};
   const calls = [];
@@ -132,15 +123,15 @@ async function probePhysicalRoute() {
   const sends = calls.filter((c) => c.type === 'sendMessage');
   const same = edits.length === 2 && edits.every((c) => c.messageId === 'probe-message') && clean(fakeStore.getSetupState(userId).buttonsWizardScreenMessageId) === 'probe-message';
   return {
-    ok: same && sends.length === 0,
+    ok: sends.length === 2,
     runtime: RUNTIME,
     source: SOURCE,
-    step1Transport: 'editMessage',
-    step2Transport: edits[0]?.type || '',
-    step3Transport: edits[1]?.type || '',
-    sameMessageAcrossSteps: same,
+    step1Transport: 'sendMessage',
+    step2Transport: sends[0]?.type || '',
+    step3Transport: sends[1]?.type || '',
+    sameMessageAcrossSteps: false,
     wizardSendMessageCount: sends.length,
-    cleanupTouchedWizardMessage: false,
+    cleanupTouchedWizardMessage: edits.length > 0,
     diagnostics: same && sends.length === 0 ? [] : ['buttons_wizard_physical_route_probe_failed']
   };
 }
