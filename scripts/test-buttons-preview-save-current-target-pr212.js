@@ -68,7 +68,8 @@ function textOf(screen) { return String(screen && screen.text || ''); }
   assert(/Предпросмотр кнопки/.test(textOf(step3)), 'URL opens preview');
   assert(/Сохранить кнопку/.test(JSON.stringify(step3.attachments)), 'preview has save callback button');
 
-  const saved = await buttons.screenForPayload(menu, { action: 'button_admin_save' }, { userId: USER_ID, config: {} });
+  const flowId = step3.attachments[0][0].payload.flowId;
+  const saved = await buttons.screenForPayload(menu, { action: 'button_admin_save', flowId }, { userId: USER_ID, config: {} });
   const savedText = textOf(saved);
   assert(/Кнопка сохранена\. Пост обновлён\./.test(savedText), 'save shows visible successful patch confirmation');
   assert(/Канал: PR212 Channel/.test(savedText), 'save keeps selected channel visible');
