@@ -53,6 +53,7 @@ process.env.ADMINKIT_DISABLE_AUTOSTART = '1';
   assert.strictEqual(probe.variants.plain.allRequiredWizardMessagesClosed, true, 'probe fails if any previous wizard message remains active');
   const partialCleanupIds = probe.variants.plain.requiredClosedWizardMessageIds.slice(0, 1);
   assert.strictEqual(probe.variants.plain.requiredClosedWizardMessageIds.every((id) => partialCleanupIds.includes(id)), false, 'partial cleanup/deletion cannot satisfy readiness');
+  assert.strictEqual(probe.variants.plain.savePreviewClosedOk, true, 'valid save closes original Step 3 preview before/during fresh result send');
   assert.strictEqual(probe.variants.plain.repeatStaleNoFreshMessageOk, true, 'repeated stale save edits original preview instead of sending duplicate stale messages');
   assert.strictEqual(probe.variants.plain.repeatStaleNewSends, 0, 'repeated stale save creates no fresh duplicate stale result');
   assert.strictEqual(probe.traceRedactedOk, true, 'URL timing trace redacts sensitive path/query/token/signature data');

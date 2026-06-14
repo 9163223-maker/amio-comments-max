@@ -115,11 +115,13 @@ async function runProductionRouteProbe() {
       const previewSend = sendCalls.slice(beforeUrlSendCount).find((call) => /Шаг 3\/3/.test(String(call.text || ''))) || null;
       const savePayload = findButtonPayload(previewSend, 'button_admin_save');
       const beforeSaveSendCount = sendCalls.length;
+      const beforeSaveEditCount = editCalls.length;
       if (savePayload.action && timing && typeof timing.clear === 'function') timing.clear();
       const saveResult = savePayload.action ? await drive(bot, callbackUpdateWithPayload(savePayload, previewSend?.mid || previewSend?.messageId || 'preview-msg', 'save')) : null;
       const saveTraceEvents = savePayload.action && timing && typeof timing.list === 'function' ? timing.list(100) : [];
       const saveTraceNames = saveTraceEvents.map((entry) => entry.name).filter(Boolean);
       const saveVisibleText = String((sendCalls.slice(beforeSaveSendCount).find((call) => /Кнопка сохранена|предпросмотр устарел|пост не обновился/i.test(String(call.text || ''))) || {}).text || '');
+      const savePreviewClosedOk = editCalls.slice(beforeSaveEditCount).some((call) => (call.messageId === (previewSend?.mid || previewSend?.messageId)) && /Предпросмотр закрыт/i.test(String(call.text || '')) && (!call.attachments || call.attachments.length === 0));
       const stateAfterSave = clone(store.getSetupState(USER_ID));
       const beforeRepeatStaleSendCount = sendCalls.length;
       const beforeRepeatStaleEditCount = editCalls.length;
@@ -154,10 +156,10 @@ async function runProductionRouteProbe() {
       const saveRouteTraceOk = saveTraceNames.includes('buttons_callback_received') && saveTraceNames.includes('buttons_callback_route_selected') && saveTraceNames.includes('buttons_callback_route_returned') && saveTraceNames.includes('buttons_callback_render_result');
       const saveDraftTraceOk = routeTraceSteps.includes('screenForPayload') && routeTraceSteps.includes('confirmSave') && routeTraceSteps.includes('saveDraft') && !routeTraceSteps.includes('staleSaveScreen') && !routeTraceSteps.includes('staleSaveScreen_returned');
       const saveVisibleSuccessOk = /Кнопка сохранена/i.test(saveVisibleText) && !/предпросмотр устарел/i.test(saveVisibleText);
-      const saveCallbackOk = Boolean(savePayloadCurrentOk && saveResult && saveResult.screenId && saveRouteTraceOk && saveDraftTraceOk && patchCalls.length > 0 && saveVisibleSuccessOk);
+      const saveCallbackOk = Boolean(savePayloadCurrentOk && saveResult && saveResult.screenId && saveRouteTraceOk && saveDraftTraceOk && patchCalls.length > 0 && saveVisibleSuccessOk && savePreviewClosedOk);
       const ok = step1Ok && step2Ok && step3Ok && step3AfterUrl && sends >= 2 && cleanupTouched && sameOwner && normalizedUrlOk && saveCallbackOk && repeatStaleNoFreshMessageOk && !finalState.buttonsWizardEditFailedAt;
       const step3Text = (sendCalls.slice(beforeUrlSendCount).find((call) => /Шаг 3\/3/.test(call.text)) || {}).text || '';
-      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, requiredClosedWizardMessageIds, closedWizardMessageIds, deletedWizardMessageIds, closedOrDeletedWizardMessageIds, allRequiredWizardMessagesClosed, sameOwner, normalizedUrl: savedUrl, step3Transport: step3Ok ? 'sendMessage' : '', traceNames, traceRedactedOk, step3Text, saveCallbackOk, saveRouteTraceOk, saveDraftTraceOk, savePayloadCurrentOk, savePatchCallCount: patchCalls.length, saveResultScreenId: saveResult && saveResult.screenId || '', saveVisibleText, repeatStaleNoFreshMessageOk, repeatStaleNewSends, repeatStaleResultScreenId: repeatStaleResult && repeatStaleResult.screenId || '' };
+      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, requiredClosedWizardMessageIds, closedWizardMessageIds, deletedWizardMessageIds, closedOrDeletedWizardMessageIds, allRequiredWizardMessagesClosed, sameOwner, normalizedUrl: savedUrl, step3Transport: step3Ok ? 'sendMessage' : '', traceNames, traceRedactedOk, step3Text, saveCallbackOk, saveRouteTraceOk, saveDraftTraceOk, savePayloadCurrentOk, savePatchCallCount: patchCalls.length, savePreviewClosedOk, saveResultScreenId: saveResult && saveResult.screenId || '', saveVisibleText, repeatStaleNoFreshMessageOk, repeatStaleNewSends, repeatStaleResultScreenId: repeatStaleResult && repeatStaleResult.screenId || '' };
     }
 
     const plain = await runVariant('plain_text', textUpdate('https://olga.style'));
