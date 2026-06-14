@@ -141,8 +141,10 @@ async function runProductionRouteProbe() {
       const sends = wizardSendCalls(sendCalls).length;
       const requiredClosedWizardMessageIds = [MESSAGE_ID, step2Send?.mid || step2Send?.messageId || ''].filter(Boolean);
       const closedWizardMessageIds = [...new Set(closedWizardEdits(editCalls).map((call) => String(call.messageId || '').trim()).filter(Boolean))];
-      const allRequiredWizardMessagesClosed = requiredClosedWizardMessageIds.every((id) => closedWizardMessageIds.includes(id));
-      const cleanupTouched = allRequiredWizardMessagesClosed || deleteCalls.some((call) => requiredClosedWizardMessageIds.includes(call.messageId));
+      const deletedWizardMessageIds = [...new Set(deleteCalls.map((call) => String(call.messageId || '').trim()).filter((id) => requiredClosedWizardMessageIds.includes(id)))];
+      const closedOrDeletedWizardMessageIds = [...new Set([...closedWizardMessageIds, ...deletedWizardMessageIds])];
+      const allRequiredWizardMessagesClosed = requiredClosedWizardMessageIds.every((id) => closedOrDeletedWizardMessageIds.includes(id));
+      const cleanupTouched = allRequiredWizardMessagesClosed;
       const sameOwner = /^sent-/.test(String(finalState.buttonsWizardScreenMessageId || '')) && finalState.buttonsWizardScreenOwnerUserId === USER_ID;
       const savedUrl = beforeSaveState.buttonFlow?.draft?.url || finalState.buttonFlow?.draft?.url || '';
       const normalizedUrlOk = savedUrl === 'http://olga.style' || savedUrl === 'https://olga.style' || savedUrl === 'http://sports.ru' || savedUrl.startsWith('http://olga.style/') || savedUrl.startsWith('https://olga.style/') || savedUrl.startsWith('http://sports.ru/');
@@ -155,7 +157,7 @@ async function runProductionRouteProbe() {
       const saveCallbackOk = Boolean(savePayloadCurrentOk && saveResult && saveResult.screenId && saveRouteTraceOk && saveDraftTraceOk && patchCalls.length > 0 && saveVisibleSuccessOk);
       const ok = step1Ok && step2Ok && step3Ok && step3AfterUrl && sends >= 2 && cleanupTouched && sameOwner && normalizedUrlOk && saveCallbackOk && repeatStaleNoFreshMessageOk && !finalState.buttonsWizardEditFailedAt;
       const step3Text = (sendCalls.slice(beforeUrlSendCount).find((call) => /Шаг 3\/3/.test(call.text)) || {}).text || '';
-      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, requiredClosedWizardMessageIds, closedWizardMessageIds, allRequiredWizardMessagesClosed, sameOwner, normalizedUrl: savedUrl, step3Transport: step3Ok ? 'sendMessage' : '', traceNames, traceRedactedOk, step3Text, saveCallbackOk, saveRouteTraceOk, saveDraftTraceOk, savePayloadCurrentOk, savePatchCallCount: patchCalls.length, saveResultScreenId: saveResult && saveResult.screenId || '', saveVisibleText, repeatStaleNoFreshMessageOk, repeatStaleNewSends, repeatStaleResultScreenId: repeatStaleResult && repeatStaleResult.screenId || '' };
+      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, requiredClosedWizardMessageIds, closedWizardMessageIds, deletedWizardMessageIds, closedOrDeletedWizardMessageIds, allRequiredWizardMessagesClosed, sameOwner, normalizedUrl: savedUrl, step3Transport: step3Ok ? 'sendMessage' : '', traceNames, traceRedactedOk, step3Text, saveCallbackOk, saveRouteTraceOk, saveDraftTraceOk, savePayloadCurrentOk, savePatchCallCount: patchCalls.length, saveResultScreenId: saveResult && saveResult.screenId || '', saveVisibleText, repeatStaleNoFreshMessageOk, repeatStaleNewSends, repeatStaleResultScreenId: repeatStaleResult && repeatStaleResult.screenId || '' };
     }
 
     const plain = await runVariant('plain_text', textUpdate('https://olga.style'));
