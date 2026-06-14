@@ -25,7 +25,7 @@ function find(value, predicate, depth = 6, seen = new Set()) {
   }
   return null;
 }
-function message(update = {}) { return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || find(update, (x) => x && typeof x === 'object' && (x.body?.text || x.text || x.body?.link || x.link) && (x.recipient || x.sender || x.message_id || x.id), 5) || null; }
+function message(update = {}) { return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || find(update, (x) => x && typeof x === 'object' && (x.body?.text || x.text || x.body?.link || x.link || x.body?.preview || x.preview || x.body?.attachments || x.attachments || x.body?.message?.link || x.body?.message?.preview || x.message?.link || x.message?.preview) && (x.recipient || x.sender || x.message_id || x.id), 5) || null; }
 function directCallback(update = {}) { return update?.callback || update?.data?.callback || update?.message?.callback || update?.data?.message?.callback || null; }
 function callback(update = {}) { return directCallback(update) || find(update, (x) => x && typeof x === 'object' && (x.callback_id || x.callbackId || x.payload || x.callback_data || x.callbackData) && !(x.body && x.body.text), 6) || null; }
 function clean(value) { return String(value || '').trim(); }
@@ -144,9 +144,9 @@ function findFirstDeepValue(value, keys = [], seen = new Set()) {
   return '';
 }
 function body(msg = {}) { return msg?.body && typeof msg.body === 'object' ? msg.body : {}; }
-function isLinkPreviewAttachment(value = {}) { const type = clean(value?.type || value?.kind || value?.attachment_type || value?.attachmentType).toLowerCase(); return /^(link_preview|link|url)$/i.test(type); }
+function isLinkPreviewAttachment(value = {}) { const type = clean(value?.type || value?.kind || value?.attachment_type || value?.attachmentType).toLowerCase(); return /^(link_preview|linkpreview|link-preview|url_preview|urlpreview|preview|link|url)$/i.test(type); }
 function filterLinkPreviewAttachments(value = null) { return (Array.isArray(value) ? value : []).filter((item) => item && typeof item === 'object' && isLinkPreviewAttachment(item)); }
-function safeUrlTraceFields(value = '') { const normalized = normalizeUrlForInput(value); const out = { urlRedacted: true, urlHasQuery: false }; try { const parsed = new URL(normalized); out.urlScheme = clean(parsed.protocol).replace(/:$/, '').toLowerCase(); out.urlHost = clean(parsed.hostname).toLowerCase().slice(0, 120); out.urlHasQuery = Boolean(parsed.search); out.urlHash = crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 16); } catch { out.urlHash = crypto.createHash('sha256').update(clean(value)).digest('hex').slice(0, 16); } return out; }
+function safeUrlTraceFields(value = '') { const normalized = normalizeUrlForInput(value); const out = { urlRedacted: true, scheme: '', host: '', hasQuery: false, hash: '', urlHasQuery: false }; try { const parsed = new URL(normalized); out.scheme = clean(parsed.protocol).replace(/:$/, '').toLowerCase(); out.host = clean(parsed.hostname).toLowerCase().slice(0, 120); out.hasQuery = Boolean(parsed.search); out.hash = crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 16); out.urlScheme = out.scheme; out.urlHost = out.host; out.urlHasQuery = out.hasQuery; out.urlHash = out.hash; } catch { out.hash = crypto.createHash('sha256').update(clean(value)).digest('hex').slice(0, 16); out.urlHash = out.hash; } return out; }
 function normalizeUrlForInput(value = '') { const raw = clean(value); const m = raw.match(/https?:\/\/[^\s<>'\"]+/i); return m ? m[0].replace(/[)\],.]+$/, '').replace(/^https?:\/\//i, (scheme) => scheme.toLowerCase()) : ''; }
 function valueAtPath(source = null, path = '') {
   try { return path.split('.').reduce((obj, key) => (obj && obj[key] !== undefined ? obj[key] : undefined), source); } catch { return undefined; }
@@ -312,7 +312,7 @@ function createCleanBot(legacy) {
         if (!realCb && msg && (incomingButtonText || hasButtonFlowPriority(state)) && !/^\/?start(?:\s|$)/i.test(incomingButtonText) && !isChannelMessage(msg) && hasButtonFlowPriority(state)) {
           const fromLinkPreview = Boolean(!incomingText && incomingButtonText);
           const stepIndexBefore = Number(state.buttonFlow?.stepIndex || 0);
-          timing.log('buttons_url_input_seen', { updateType: updateType(update), messageShape: messageShapeForTrace(msg), incomingTextLen: incomingText.length, hasLinkPreviewText: Boolean(linkInfo.text), fromLinkPreview, hasButtonFlowPriority: true, activeAdminFlowKind: state.activeAdminFlowKind, buttonFlowStepIndex: stepIndexBefore, userId: timing.mask(uid), chatId: timing.mask(chatId(msg)) });
+          timing.log('buttons_url_input_seen', { updateType: updateType(update), messageShape: messageShapeForTrace(msg), incomingTextLen: incomingText.length, incomingTextPresent: Boolean(incomingText), incomingTextUrlDetected: Boolean(normalizeUrlForInput(incomingText)), linkPreviewPath: linkInfo.path, linkPreviewCandidateCount: linkInfo.candidateCount, linkPreviewUrlDetected: Boolean(linkInfo.text), selectedIncomingButtonTextSource: incomingText ? 'plain_text' : (linkInfo.text ? 'link_preview' : 'none'), buttonsFlowHandleTextInputCalled: Boolean(incomingButtonText), hasLinkPreviewText: Boolean(linkInfo.text), fromLinkPreview, hasButtonFlowPriority: true, activeAdminFlowKind: state.activeAdminFlowKind, buttonFlowStepIndex: stepIndexBefore, userId: timing.mask(uid), chatId: timing.mask(chatId(msg)) });
           if (!incomingButtonText) {
             timing.log('buttons_url_input_no_text', { updateType: updateType(update), messageShape: messageShapeForTrace(msg), hasButtonFlowPriority: true, activeAdminFlowKind: state.activeAdminFlowKind, buttonFlowStepIndex: stepIndexBefore, userId: timing.mask(uid) });
           } else {
@@ -322,7 +322,7 @@ function createCleanBot(legacy) {
             if (screen) {
               if (buttonsWizardOwner.isButtonsWizardScreen(screen)) {
                 const editResult = await buttonsWizardOwner.updateButtonsWizardScreen({ config, update, msg, userId: uid, screen });
-                timing.log('buttons_url_input_edit_result', { updateType: updateType(update), screenId: screen.id, ok: editResult?.ok !== false, diagnostic: editResult?.diagnostic || editResult?.reason || '', messageId: editResult?.message?.body?.mid || editResult?.message?.id || '', fromLinkPreview, userId: timing.mask(uid) });
+                timing.log('buttons_url_input_edit_result', { updateType: updateType(update), screenId: screen.id, ok: editResult?.ok !== false, diagnostic: editResult?.diagnostic || editResult?.reason || '', messageId: timing.mask(editResult?.message?.body?.mid || editResult?.message?.id || ''), fromLinkPreview, userId: timing.mask(uid) }); if (editResult?.ok === false && normalizeUrlForInput(incomingButtonText)) { store.setSetupState(uid, { buttonsWizardUrlStepDiagnostic: editResult?.diagnostic || editResult?.reason || 'buttons_wizard_edit_failed', buttonsWizardUrlStepDiagnosticAt: Date.now() }); await max.sendMessage({ botToken: config.botToken, userId: chatId(msg) ? '' : uid, chatId: chatId(msg), text: 'Ссылку получил, но не смог обновить шаг. Нажмите «Отменить» и попробуйте ещё раз.', attachments: [], notify: false }); }
               } else {
                 await show(config, update, msg, screen, false, { userId: uid });
               }
