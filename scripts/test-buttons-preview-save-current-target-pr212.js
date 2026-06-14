@@ -19,6 +19,7 @@ const COMMENT_KEY = 'pr212-comment';
 const POST_ID = 'pr212-post';
 const state = {};
 const patches = [];
+const patchCalls = [];
 const posts = {
   [COMMENT_KEY]: {
     tenantKey: `tenant_${USER_ID}`,
@@ -41,12 +42,13 @@ const store = {
   saveChannel() {}
 };
 require.cache[storePath] = { id: storePath, filename: storePath, loaded: true, exports: store };
-require.cache[patcherPath] = { id: patcherPath, filename: patcherPath, loaded: true, exports: { patchStoredPost: async () => ({ ok: true }) } };
+require.cache[patcherPath] = { id: patcherPath, filename: patcherPath, loaded: true, exports: { patchStoredPost: async (opts = {}) => { patchCalls.push(opts); return { ok: true, customRowsCount: 1 }; } } };
 require.cache[accessPath] = { id: accessPath, filename: accessPath, loaded: true, exports: { getClientChannels: () => [{ channelId: CHANNEL_ID, title: 'PR212 Channel' }] } };
 require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: { getPosts: async () => [] } };
 require.cache[maxPath] = { id: maxPath, filename: maxPath, loaded: true, exports: { getChat: async () => ({ title: 'PR212 Channel' }) } };
 
 const buttons = require('../buttons-flow-cc8-clean');
+const { buildCustomKeyboardRows } = require('../services/keyboardBuilderService');
 const menu = {
   button: (text, action, extra = {}) => ({ text, payload: { action, ...extra } }),
   keyboard: (rows) => rows
@@ -68,7 +70,7 @@ function textOf(screen) { return String(screen && screen.text || ''); }
 
   const saved = await buttons.screenForPayload(menu, { action: 'button_admin_save' }, { userId: USER_ID, config: {} });
   const savedText = textOf(saved);
-  assert(/Кнопка сохранена/.test(savedText), 'save shows visible confirmation');
+  assert(/Кнопка сохранена\. Пост обновлён\./.test(savedText), 'save shows visible successful patch confirmation');
   assert(/Канал: PR212 Channel/.test(savedText), 'save keeps selected channel visible');
   assert(/Пост: PR212 post/.test(savedText), 'save keeps selected post visible');
   assert(/1\. Кнопка → http:\/\/olga\.style/.test(savedText), 'save screen shows saved button');
@@ -83,6 +85,10 @@ function textOf(screen) { return String(screen && screen.text || ''); }
   assert.strictEqual(bucket[0].channelId, CHANNEL_ID);
   assert.strictEqual(bucket[0].commentKey, COMMENT_KEY);
   assert.deepStrictEqual(bucket[0].postIds, [POST_ID]);
+  assert.strictEqual(patchCalls.length, 1, 'postPatcher called once after save');
+  assert.strictEqual(patchCalls[0].commentKey, COMMENT_KEY, 'postPatcher uses same commentKey as saved button');
+  const customRows = buildCustomKeyboardRows({ builder: posts[COMMENT_KEY].customKeyboard, channelId: CHANNEL_ID, postId: POST_ID, commentKey: COMMENT_KEY });
+  assert.strictEqual(customRows.length, 1, 'customKeyboard builds one MAX keyboard row');
 
   const current = await buttons.screenForPayload(menu, { action: 'button_admin_show_current' }, { userId: USER_ID, config: {} });
   assert(/Текущие кнопки/.test(textOf(current)), 'current buttons opens');
@@ -90,6 +96,10 @@ function textOf(screen) { return String(screen && screen.text || ''); }
 
   const routeSteps = (state[USER_ID].buttonSaveRouteTrace || []).map((entry) => entry.step);
   assert.deepStrictEqual(routeSteps.slice(-3), ['screenForPayload', 'confirmSave', 'saveDraft'], 'button_admin_save routes through screenForPayload -> confirmSave -> saveDraft');
+
+  const stale = await buttons.screenForPayload(menu, { action: 'button_admin_save' }, { userId: USER_ID, config: {} });
+  assert(/предпросмотр устарел/.test(textOf(stale)), 'stale save callback is explicitly rejected');
+  assert.strictEqual(state[USER_ID].buttonTargetPost.commentKey, COMMENT_KEY, 'stale save does not clear selected target');
   assert.strictEqual(state[USER_ID].buttonTargetPost.commentKey, COMMENT_KEY, 'selected target remains stored after save');
   assert.notStrictEqual(state[USER_ID].buttonsActiveScreenId, 'buttons_clean_channel_picker', 'old picker is not the active saved UI');
 
