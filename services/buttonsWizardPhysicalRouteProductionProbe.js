@@ -67,7 +67,7 @@ async function runProductionRouteProbe() {
   const patchCalls = [];
   try {
     max.editMessage = async function editMessageStub(args = {}) { editCalls.push(args); return { message: { id: args.messageId, body: { mid: args.messageId } } }; };
-    max.sendMessage = async function sendMessageStub(args = {}) { sendCalls.push(args); return { message: { id: `sent-${sendCalls.length}`, body: { mid: `sent-${sendCalls.length}` } } }; };
+    max.sendMessage = async function sendMessageStub(args = {}) { const mid = `sent-${sendCalls.length + 1}`; sendCalls.push({ ...args, mid, messageId: mid }); return { message: { id: mid, body: { mid } } }; };
     max.deleteMessage = async function deleteMessageStub(args = {}) { deleteCalls.push(args); return { ok: true }; };
     max.answerCallback = async function answerCallbackStub(args = {}) { answerCalls.push(args); return { ok: true }; };
     max.getChat = async function getChatStub() { return { title: 'Olga Style' }; };
@@ -101,10 +101,11 @@ async function runProductionRouteProbe() {
 
     async function runVariant(name, urlUpdate) {
       editCalls.length = 0; sendCalls.length = 0; deleteCalls.length = 0; answerCalls.length = 0; patchCalls.length = 0;
-      store.setSetupState(USER_ID, { buttonsCurrentCard: target, buttonTargetPost: target, commentTargetPost: target, buttonFlow: null, postEditFlow: null, activeAdminFlowKind: '', buttonsWizardScreenMessageId: '', buttonsWizardScreenOwnerUserId: '', buttonsWizardEditFailedAt: null, buttonsWizardRealShowPathLastDecision: '' });
+      store.setSetupState(USER_ID, { buttonsCurrentCard: target, buttonTargetPost: target, commentTargetPost: target, buttonFlow: null, postEditFlow: null, activeAdminFlowKind: '', buttonsWizardScreenMessageId: '', buttonsWizardScreenOwnerUserId: '', buttonsWizardEditFailedAt: null, buttonsWizardRealShowPathLastDecision: '', buttonSaveRouteTrace: [] });
       await drive(bot, callbackUpdate());
       await drive(bot, textUpdate('Кнопка'));
       const beforeUrlSendCount = sendCalls.length;
+      const step2Send = sendCalls.slice().reverse().find((call) => /Шаг 2\/3/.test(String(call.text || ''))) || null;
       if (timing && typeof timing.clear === 'function') timing.clear();
       const payload = await drive(bot, urlUpdate);
       const beforeSaveState = store.getSetupState(USER_ID);
@@ -119,30 +120,42 @@ async function runProductionRouteProbe() {
       const saveTraceEvents = savePayload.action && timing && typeof timing.list === 'function' ? timing.list(100) : [];
       const saveTraceNames = saveTraceEvents.map((entry) => entry.name).filter(Boolean);
       const saveVisibleText = String((sendCalls.slice(beforeSaveSendCount).find((call) => /Кнопка сохранена|предпросмотр устарел|пост не обновился/i.test(String(call.text || ''))) || {}).text || '');
+      const stateAfterSave = clone(store.getSetupState(USER_ID));
+      const beforeRepeatStaleSendCount = sendCalls.length;
+      const beforeRepeatStaleEditCount = editCalls.length;
+      const repeatStaleResult = savePayload.action ? await drive(bot, callbackUpdateWithPayload(savePayload, previewSend?.mid || previewSend?.messageId || 'preview-msg', 'stale-repeat')) : null;
+      const repeatStaleNewSends = sendCalls.length - beforeRepeatStaleSendCount;
+      const repeatStaleEdits = editCalls.slice(beforeRepeatStaleEditCount);
+      const repeatStaleVisibleEditOk = repeatStaleEdits.some((call) => (call.messageId === (previewSend?.mid || previewSend?.messageId)) && /предпросмотр устарел/i.test(String(call.text || '')));
+      const repeatStaleNoFreshMessageOk = repeatStaleNewSends === 0 && repeatStaleVisibleEditOk && repeatStaleResult && repeatStaleResult.screenId === 'buttons_clean_stale_save';
       const traceEvents = timing && typeof timing.list === 'function' ? timing.list(100) : [];
       const traceNames = urlTraceNames.length ? urlTraceNames : traceEvents.map((entry) => entry.name).filter(Boolean);
       const combinedTraceEvents = [...urlTraceEvents, ...saveTraceEvents, ...traceEvents];
       const traceRedactedOk = !hasSensitiveTraceLeak(combinedTraceEvents);
       const finalState = store.getSetupState(USER_ID);
+      const saveState = stateAfterSave || finalState;
       const step1Ok = editCalls.some((call) => call.messageId === MESSAGE_ID && /Шаг 1\/3/.test(call.text));
       const step2Ok = sendCalls.some((call) => /Шаг 2\/3/.test(call.text));
       const step3Ok = sendCalls.some((call) => /Шаг 3\/3/.test(call.text));
       const step3AfterUrl = sendCalls.slice(beforeUrlSendCount).some((call) => /Шаг 3\/3/.test(call.text));
       const sends = wizardSendCalls(sendCalls).length;
-      const cleanupTouched = closedWizardEdits(editCalls).length > 0 || deleteCalls.some((call) => call.messageId === MESSAGE_ID);
+      const requiredClosedWizardMessageIds = [MESSAGE_ID, step2Send?.mid || step2Send?.messageId || ''].filter(Boolean);
+      const closedWizardMessageIds = [...new Set(closedWizardEdits(editCalls).map((call) => String(call.messageId || '').trim()).filter(Boolean))];
+      const allRequiredWizardMessagesClosed = requiredClosedWizardMessageIds.every((id) => closedWizardMessageIds.includes(id));
+      const cleanupTouched = allRequiredWizardMessagesClosed || deleteCalls.some((call) => requiredClosedWizardMessageIds.includes(call.messageId));
       const sameOwner = /^sent-/.test(String(finalState.buttonsWizardScreenMessageId || '')) && finalState.buttonsWizardScreenOwnerUserId === USER_ID;
       const savedUrl = beforeSaveState.buttonFlow?.draft?.url || finalState.buttonFlow?.draft?.url || '';
       const normalizedUrlOk = savedUrl === 'http://olga.style' || savedUrl === 'https://olga.style' || savedUrl === 'http://sports.ru' || savedUrl.startsWith('http://olga.style/') || savedUrl.startsWith('https://olga.style/') || savedUrl.startsWith('http://sports.ru/');
-      const routeTraceSteps = Array.isArray(finalState.buttonSaveRouteTrace) ? finalState.buttonSaveRouteTrace.map((entry) => String(entry && entry.step || '')) : [];
+      const routeTraceSteps = Array.isArray(saveState.buttonSaveRouteTrace) ? saveState.buttonSaveRouteTrace.map((entry) => String(entry && entry.step || '')) : [];
       const savePayloadFlowId = String(savePayload.flowId || '').trim();
       const savePayloadCurrentOk = savePayload.action === 'button_admin_save' && Boolean(savePayloadFlowId) && savePayloadFlowId === activeFlowIdBeforeSave;
       const saveRouteTraceOk = saveTraceNames.includes('buttons_callback_received') && saveTraceNames.includes('buttons_callback_route_selected') && saveTraceNames.includes('buttons_callback_route_returned') && saveTraceNames.includes('buttons_callback_render_result');
       const saveDraftTraceOk = routeTraceSteps.includes('screenForPayload') && routeTraceSteps.includes('confirmSave') && routeTraceSteps.includes('saveDraft') && !routeTraceSteps.includes('staleSaveScreen') && !routeTraceSteps.includes('staleSaveScreen_returned');
       const saveVisibleSuccessOk = /Кнопка сохранена/i.test(saveVisibleText) && !/предпросмотр устарел/i.test(saveVisibleText);
       const saveCallbackOk = Boolean(savePayloadCurrentOk && saveResult && saveResult.screenId && saveRouteTraceOk && saveDraftTraceOk && patchCalls.length > 0 && saveVisibleSuccessOk);
-      const ok = step1Ok && step2Ok && step3Ok && step3AfterUrl && sends >= 2 && cleanupTouched && sameOwner && normalizedUrlOk && saveCallbackOk && !finalState.buttonsWizardEditFailedAt;
+      const ok = step1Ok && step2Ok && step3Ok && step3AfterUrl && sends >= 2 && cleanupTouched && sameOwner && normalizedUrlOk && saveCallbackOk && repeatStaleNoFreshMessageOk && !finalState.buttonsWizardEditFailedAt;
       const step3Text = (sendCalls.slice(beforeUrlSendCount).find((call) => /Шаг 3\/3/.test(call.text)) || {}).text || '';
-      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, sameOwner, normalizedUrl: savedUrl, step3Transport: step3Ok ? 'sendMessage' : '', traceNames, traceRedactedOk, step3Text, saveCallbackOk, saveRouteTraceOk, saveDraftTraceOk, savePayloadCurrentOk, savePatchCallCount: patchCalls.length, saveResultScreenId: saveResult && saveResult.screenId || '', saveVisibleText };
+      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, requiredClosedWizardMessageIds, closedWizardMessageIds, allRequiredWizardMessagesClosed, sameOwner, normalizedUrl: savedUrl, step3Transport: step3Ok ? 'sendMessage' : '', traceNames, traceRedactedOk, step3Text, saveCallbackOk, saveRouteTraceOk, saveDraftTraceOk, savePayloadCurrentOk, savePatchCallCount: patchCalls.length, saveResultScreenId: saveResult && saveResult.screenId || '', saveVisibleText, repeatStaleNoFreshMessageOk, repeatStaleNewSends, repeatStaleResultScreenId: repeatStaleResult && repeatStaleResult.screenId || '' };
     }
 
     const plain = await runVariant('plain_text', textUpdate('https://olga.style'));
@@ -158,7 +171,7 @@ async function runProductionRouteProbe() {
     const step2Ok = plain.step2Ok && linkPreviewWithText.step2Ok && linkPreviewMetadataOnly.step2Ok;
     const step3Ok = plain.step3Ok && linkPreviewWithText.step3Ok && linkPreviewMetadataOnly.step3Ok;
     const sends = plain.sends + linkPreviewWithText.sends + linkPreviewMetadataOnly.sends + mediaAttachment.sends;
-    const cleanupTouched = plain.cleanupTouched || linkPreviewWithText.cleanupTouched || linkPreviewMetadataOnly.cleanupTouched;
+    const cleanupTouched = plain.cleanupTouched && linkPreviewWithText.cleanupTouched && linkPreviewMetadataOnly.cleanupTouched;
     const sameOwner = plain.sameOwner && linkPreviewWithText.sameOwner && linkPreviewMetadataOnly.sameOwner;
     const saveCallbackProbeOk = plain.saveCallbackOk && plain.saveRouteTraceOk;
     const urlPlainTextProbeOk = plain.ok;
