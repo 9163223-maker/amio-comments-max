@@ -27,34 +27,32 @@ process.env.ADMINKIT_DISABLE_AUTOSTART = '1';
     userId: 'missing-owner-user',
     screen: { id: 'buttons_clean_add_url', text: '➕ Добавление кнопки\n\nШаг 2/3. Пришлите ссылку для кнопки.', attachments: [] }
   });
-  assert.strictEqual(missingResult.ok, false, 'missing canonical owner returns diagnostic screen');
-  assert.strictEqual(missingResult.diagnostic, 'missing_buttons_wizard_screen_message_id');
-  assert.strictEqual(missingEdits.length, 0, 'missing canonical owner does not edit legacy active-screen id');
-  assert(missingPatches.some((entry) => entry.patch.buttonsWizardInplaceRequiredButMissing === true), 'missing canonical owner diagnostic is recorded');
+  assert.strictEqual(missingResult.ok, false, 'missing chat/user send target returns diagnostic screen');
+  assert.strictEqual(missingResult.diagnostic, 'buttons_wizard_send_failed');
 
   const probe = await service.runProbe();
   assert.strictEqual(probe.ok, true, `production route probe succeeds: ${(probe.diagnostics || []).join(',')}`);
   assert.strictEqual(probe.source, 'adminkit-buttons-wizard-production-webhook-route-probe', 'readiness uses production route probe, not owner helper-only probe');
   assert.deepStrictEqual(probe.routeModules, ['clean-bot-channel-first-post-picker-pr90.js', 'clean-bot-flow-guard-1546.js'], 'probe runs through the production-relevant route modules');
   assert.strictEqual(probe.step1Transport, 'editMessage', 'Step 1 uses editMessage');
-  assert.strictEqual(probe.step2Transport, 'editMessage', 'Step 2 uses editMessage');
-  assert.strictEqual(probe.step3Transport, 'editMessage', 'Step 3 uses editMessage');
-  assert.strictEqual(probe.sameMessageAcrossSteps, true, 'all wizard steps use the same message id');
-  assert.strictEqual(probe.wizardSendMessageCount, 0, 'wizard sends no duplicate messages');
-  assert.strictEqual(probe.cleanupTouchedWizardMessage, false, 'cleanup does not touch wizard host message');
+  assert.strictEqual(probe.step2Transport, 'sendMessage', 'Step 2 uses fresh sendMessage');
+  assert.strictEqual(probe.step3Transport, 'sendMessage', 'Step 3 uses fresh sendMessage');
+  assert.strictEqual(probe.sameMessageAcrossSteps, false, 'wizard steps move to fresh current messages');
+  assert(probe.wizardSendMessageCount >= 6, 'wizard sends fresh current messages');
+  assert.strictEqual(probe.cleanupTouchedWizardMessage, true, 'cleanup closes previous wizard messages');
   assert.strictEqual(probe.urlPlainTextProbeOk, true, 'plain text URL advances to Step 3');
   assert.strictEqual(probe.urlLinkPreviewProbeOk, true, 'MAX link-preview URL advances to Step 3');
   assert.strictEqual(probe.uppercaseUrlProbeOk, true, 'uppercase HTTP:// URL is accepted and normalized');
-  assert.strictEqual(probe.step3FromLinkPreviewTransport, 'editMessage', 'link-preview Step 3 uses editMessage');
+  assert.strictEqual(probe.step3FromLinkPreviewTransport, 'sendMessage', 'link-preview Step 3 uses fresh sendMessage');
   assert(Array.isArray(probe.linkPreviewVariantsTested) && probe.linkPreviewVariantsTested.includes('attachments[].payload.url'), 'probe explicitly covers link-preview metadata variants');
   assert.strictEqual(probe.variants.linkPreviewMetadataOnly.step3AfterUrl, true, 'metadata-only link preview advances after URL input');
-  assert.strictEqual(probe.variants.linkPreviewMetadataOnly.sends, 0, 'metadata-only link preview does not send duplicate wizard messages');
+  assert(probe.variants.linkPreviewMetadataOnly.sends >= 2, 'metadata-only link preview sends fresh wizard messages');
   assert.strictEqual(probe.traceRedactedOk, true, 'URL timing trace redacts sensitive path/query/token/signature data');
   assert.strictEqual(probe.postEditLinkPreviewRawTextOk, true, 'post edit flow receives raw empty text instead of link-preview URL fallback');
   assert.strictEqual(probe.mediaAttachmentIgnoredOk, true, 'photo/file attachment payload URLs are not accepted as button URLs');
   assert.strictEqual(probe.variants.mediaAttachment.step3Ok, false, 'media attachment payload URL does not advance to Step 3');
   assert.strictEqual(probe.variants.mediaAttachment.normalizedUrl, '', 'media attachment payload URL is not saved to the button draft');
-  assert.strictEqual(probe.variants.mediaAttachment.sends, 0, 'media attachment URL path does not send duplicate wizard messages');
+  assert(probe.variants.mediaAttachment.sends >= 1, 'media attachment URL path keeps current fresh wizard screen');
   assert.strictEqual(probe.linkPreviewTraceOk, true, 'metadata-only channel-first link preview emits required URL trace markers');
   for (const marker of ['buttons_url_input_seen', 'buttons_url_input_extracted', 'buttons_url_input_screen', 'buttons_url_input_edit_result']) {
     assert(probe.variants.linkPreviewMetadataOnly.traceNames.includes(marker), `metadata-only channel-first trace contains ${marker}`);
