@@ -65,9 +65,11 @@ async function runProductionRouteProbe() {
   const deleteCalls = [];
   const answerCalls = [];
   const patchCalls = [];
+  let callSeq = 0;
+  let failNextSaveResultSend = false;
   try {
-    max.editMessage = async function editMessageStub(args = {}) { editCalls.push(args); return { message: { id: args.messageId, body: { mid: args.messageId } } }; };
-    max.sendMessage = async function sendMessageStub(args = {}) { const mid = `sent-${sendCalls.length + 1}`; sendCalls.push({ ...args, mid, messageId: mid }); return { message: { id: mid, body: { mid } } }; };
+    max.editMessage = async function editMessageStub(args = {}) { editCalls.push({ ...args, order: ++callSeq }); return { message: { id: args.messageId, body: { mid: args.messageId } } }; };
+    max.sendMessage = async function sendMessageStub(args = {}) { if (failNextSaveResultSend && /Кнопка сохранена|пост не обновился/i.test(String(args.text || ''))) { failNextSaveResultSend = false; throw new Error('save_result_send_failed_pr215_probe'); } const mid = `sent-${sendCalls.length + 1}`; sendCalls.push({ ...args, mid, messageId: mid, order: ++callSeq }); return { message: { id: mid, body: { mid } } }; };
     max.deleteMessage = async function deleteMessageStub(args = {}) { deleteCalls.push(args); return { ok: true }; };
     max.answerCallback = async function answerCallbackStub(args = {}) { answerCalls.push(args); return { ok: true }; };
     max.getChat = async function getChatStub() { return { title: 'Olga Style' }; };
@@ -120,7 +122,8 @@ async function runProductionRouteProbe() {
       const saveResult = savePayload.action ? await drive(bot, callbackUpdateWithPayload(savePayload, previewSend?.mid || previewSend?.messageId || 'preview-msg', 'save')) : null;
       const saveTraceEvents = savePayload.action && timing && typeof timing.list === 'function' ? timing.list(100) : [];
       const saveTraceNames = saveTraceEvents.map((entry) => entry.name).filter(Boolean);
-      const saveVisibleText = String((sendCalls.slice(beforeSaveSendCount).find((call) => /Кнопка сохранена|предпросмотр устарел|пост не обновился/i.test(String(call.text || ''))) || {}).text || '');
+      const saveVisibleSend = sendCalls.slice(beforeSaveSendCount).find((call) => /Кнопка сохранена|предпросмотр устарел|пост не обновился/i.test(String(call.text || ''))) || null;
+      const saveVisibleText = String((saveVisibleSend || {}).text || '');
       const savePreviewClosedOk = editCalls.slice(beforeSaveEditCount).some((call) => (call.messageId === (previewSend?.mid || previewSend?.messageId)) && /Предпросмотр закрыт/i.test(String(call.text || '')) && (!call.attachments || call.attachments.length === 0));
       const stateAfterSave = clone(store.getSetupState(USER_ID));
       const beforeRepeatStaleSendCount = sendCalls.length;
@@ -156,12 +159,33 @@ async function runProductionRouteProbe() {
       const saveRouteTraceOk = saveTraceNames.includes('buttons_callback_received') && saveTraceNames.includes('buttons_callback_route_selected') && saveTraceNames.includes('buttons_callback_route_returned') && saveTraceNames.includes('buttons_callback_render_result');
       const saveDraftTraceOk = routeTraceSteps.includes('screenForPayload') && routeTraceSteps.includes('confirmSave') && routeTraceSteps.includes('saveDraft') && !routeTraceSteps.includes('staleSaveScreen') && !routeTraceSteps.includes('staleSaveScreen_returned');
       const saveVisibleSuccessOk = /Кнопка сохранена/i.test(saveVisibleText) && !/предпросмотр устарел/i.test(saveVisibleText);
-      const saveCallbackOk = Boolean(savePayloadCurrentOk && saveResult && saveResult.screenId && saveRouteTraceOk && saveDraftTraceOk && patchCalls.length > 0 && saveVisibleSuccessOk && savePreviewClosedOk);
+      const savePreviewClosedAfterSendOk = Boolean(savePreviewClosedOk && saveVisibleSend && editCalls.slice(beforeSaveEditCount).some((call) => (call.messageId === (previewSend?.mid || previewSend?.messageId)) && /Предпросмотр закрыт/i.test(String(call.text || '')) && call.order > saveVisibleSend.order));
+      const saveCallbackOk = Boolean(savePayloadCurrentOk && saveResult && saveResult.screenId && saveRouteTraceOk && saveDraftTraceOk && patchCalls.length > 0 && saveVisibleSuccessOk && savePreviewClosedAfterSendOk);
       const ok = step1Ok && step2Ok && step3Ok && step3AfterUrl && sends >= 2 && cleanupTouched && sameOwner && normalizedUrlOk && saveCallbackOk && repeatStaleNoFreshMessageOk && !finalState.buttonsWizardEditFailedAt;
       const step3Text = (sendCalls.slice(beforeUrlSendCount).find((call) => /Шаг 3\/3/.test(call.text)) || {}).text || '';
-      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, requiredClosedWizardMessageIds, closedWizardMessageIds, deletedWizardMessageIds, closedOrDeletedWizardMessageIds, allRequiredWizardMessagesClosed, sameOwner, normalizedUrl: savedUrl, step3Transport: step3Ok ? 'sendMessage' : '', traceNames, traceRedactedOk, step3Text, saveCallbackOk, saveRouteTraceOk, saveDraftTraceOk, savePayloadCurrentOk, savePatchCallCount: patchCalls.length, savePreviewClosedOk, saveResultScreenId: saveResult && saveResult.screenId || '', saveVisibleText, repeatStaleNoFreshMessageOk, repeatStaleNewSends, repeatStaleResultScreenId: repeatStaleResult && repeatStaleResult.screenId || '' };
+      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, requiredClosedWizardMessageIds, closedWizardMessageIds, deletedWizardMessageIds, closedOrDeletedWizardMessageIds, allRequiredWizardMessagesClosed, sameOwner, normalizedUrl: savedUrl, step3Transport: step3Ok ? 'sendMessage' : '', traceNames, traceRedactedOk, step3Text, saveCallbackOk, saveRouteTraceOk, saveDraftTraceOk, savePayloadCurrentOk, savePatchCallCount: patchCalls.length, savePreviewClosedOk, savePreviewClosedAfterSendOk, saveResultScreenId: saveResult && saveResult.screenId || '', saveVisibleText, repeatStaleNoFreshMessageOk, repeatStaleNewSends, repeatStaleResultScreenId: repeatStaleResult && repeatStaleResult.screenId || '' };
     }
 
+
+    async function runSaveSendFailureFallbackVariant() {
+      editCalls.length = 0; sendCalls.length = 0; deleteCalls.length = 0; answerCalls.length = 0; patchCalls.length = 0;
+      store.setSetupState(USER_ID, { buttonsCurrentCard: target, buttonTargetPost: target, commentTargetPost: target, buttonFlow: null, postEditFlow: null, activeAdminFlowKind: '', buttonsWizardScreenMessageId: '', buttonsWizardScreenOwnerUserId: '', buttonsWizardEditFailedAt: null, buttonsWizardRealShowPathLastDecision: '', buttonSaveRouteTrace: [] });
+      await drive(bot, callbackUpdate());
+      await drive(bot, textUpdate('Кнопка'));
+      const beforeUrlSendCount = sendCalls.length;
+      await drive(bot, textUpdate('https://olga.style/fallback'));
+      const previewSend = sendCalls.slice(beforeUrlSendCount).find((call) => /Шаг 3\/3/.test(String(call.text || ''))) || null;
+      const savePayload = findButtonPayload(previewSend, 'button_admin_save');
+      const beforeSaveEditCount = editCalls.length;
+      const beforeSaveSendCount = sendCalls.length;
+      failNextSaveResultSend = true;
+      const saveResult = savePayload.action ? await drive(bot, callbackUpdateWithPayload(savePayload, previewSend?.mid || previewSend?.messageId || 'preview-msg', 'save-fallback')) : null;
+      const fallbackEdit = editCalls.slice(beforeSaveEditCount).find((call) => call.messageId === (previewSend?.mid || previewSend?.messageId) && /Кнопка сохранена/i.test(String(call.text || '')));
+      const freshResultSends = sendCalls.slice(beforeSaveSendCount).filter((call) => /Кнопка сохранена|пост не обновился/i.test(String(call.text || '')));
+      return { ok: Boolean(saveResult && saveResult.screenId === 'buttons_clean_home' && fallbackEdit && Array.isArray(fallbackEdit.attachments) && fallbackEdit.attachments.length > 0 && freshResultSends.length === 0), screenId: saveResult && saveResult.screenId || '', fallbackEditText: String(fallbackEdit && fallbackEdit.text || ''), freshResultSendCount: freshResultSends.length };
+    }
+
+    const saveSendFailureFallback = await runSaveSendFailureFallbackVariant();
     const plain = await runVariant('plain_text', textUpdate('https://olga.style'));
     const linkPreviewWithText = await runVariant('link_preview_with_text', linkPreviewUpdate({ text: 'HTTP://olga.style', url: 'HTTP://olga.style' }));
     const linkPreviewMetadataOnly = await runVariant('link_preview_metadata_only', linkPreviewUpdate({ text: '', url: 'HTTP://olga.style/private/path?token=secret&signature=abc' }));
@@ -177,7 +201,7 @@ async function runProductionRouteProbe() {
     const sends = plain.sends + linkPreviewWithText.sends + linkPreviewMetadataOnly.sends + mediaAttachment.sends;
     const cleanupTouched = plain.cleanupTouched && linkPreviewWithText.cleanupTouched && linkPreviewMetadataOnly.cleanupTouched;
     const sameOwner = plain.sameOwner && linkPreviewWithText.sameOwner && linkPreviewMetadataOnly.sameOwner;
-    const saveCallbackProbeOk = plain.saveCallbackOk && plain.saveRouteTraceOk;
+    const saveCallbackProbeOk = plain.saveCallbackOk && plain.saveRouteTraceOk && saveSendFailureFallback.ok;
     const urlPlainTextProbeOk = plain.ok;
     const urlLinkPreviewProbeOk = linkPreviewWithText.ok && linkPreviewMetadataOnly.ok;
     const uppercaseUrlProbeOk = linkPreviewWithText.normalizedUrl === 'http://olga.style' && linkPreviewMetadataOnly.normalizedUrl.startsWith('http://olga.style/');
@@ -187,7 +211,7 @@ async function runProductionRouteProbe() {
     const traceRedactedOk = plain.traceRedactedOk && linkPreviewWithText.traceRedactedOk && linkPreviewMetadataOnly.traceRedactedOk && mediaAttachment.traceRedactedOk;
     const realMaxUrlVariantsOk = Object.values(sportsVariants).every((variant) => variant.ok && variant.payload?.screenId === 'buttons_clean_add_preview' && /Предпросмотр кнопки/.test(variant.step3Text || '') !== false);
     const ok = step1Ok && step2Ok && step3Ok && realMaxUrlVariantsOk && sends >= 6 && cleanupTouched && sameOwner && urlPlainTextProbeOk && urlLinkPreviewProbeOk && uppercaseUrlProbeOk && linkPreviewTraceOk && mediaAttachmentIgnoredOk && traceRedactedOk && postEditLinkPreviewRawTextOk && saveCallbackProbeOk;
-    return { ok, runtime: 'PR215-BUTTONS-WIZARD-PRODUCTION-ROUTE-PROBE', source: 'adminkit-buttons-wizard-production-webhook-route-probe', routeModules, step1Transport: step1Ok ? 'editMessage' : '', step2Transport: step2Ok ? 'sendMessage' : '', step3Transport: step3Ok ? 'sendMessage' : '', sameMessageAcrossSteps: false, wizardSendMessageCount: sends, cleanupTouchedWizardMessage: cleanupTouched, urlPlainTextProbeOk, urlLinkPreviewProbeOk, uppercaseUrlProbeOk, step3FromLinkPreviewTransport: linkPreviewMetadataOnly.step3Transport, linkPreviewTraceOk, mediaAttachmentIgnoredOk, traceRedactedOk, postEditLinkPreviewRawTextOk, saveCallbackProbeOk, requiredTraceMarkers, linkPreviewVariantsTested: ['body.text', 'body.link.url', 'body.preview.url', 'body.message.preview.url', 'body.attachments.payload.url', 'attachments.url', 'attachments[].payload.url'], callbackUserId: USER_ID, textSenderUserId: USER_ID, canonicalOwnerUserId: finalState.buttonsWizardScreenOwnerUserId || USER_ID, diagnostics: ok ? [] : ['buttons_wizard_production_route_probe_failed'], variants: { plain, linkPreviewWithText, linkPreviewMetadataOnly, mediaAttachment, realMax: sportsVariants } };
+    return { ok, runtime: 'PR215-BUTTONS-WIZARD-PRODUCTION-ROUTE-PROBE', source: 'adminkit-buttons-wizard-production-webhook-route-probe', routeModules, step1Transport: step1Ok ? 'editMessage' : '', step2Transport: step2Ok ? 'sendMessage' : '', step3Transport: step3Ok ? 'sendMessage' : '', sameMessageAcrossSteps: false, wizardSendMessageCount: sends, cleanupTouchedWizardMessage: cleanupTouched, urlPlainTextProbeOk, urlLinkPreviewProbeOk, uppercaseUrlProbeOk, step3FromLinkPreviewTransport: linkPreviewMetadataOnly.step3Transport, linkPreviewTraceOk, mediaAttachmentIgnoredOk, traceRedactedOk, postEditLinkPreviewRawTextOk, saveCallbackProbeOk, requiredTraceMarkers, linkPreviewVariantsTested: ['body.text', 'body.link.url', 'body.preview.url', 'body.message.preview.url', 'body.attachments.payload.url', 'attachments.url', 'attachments[].payload.url'], callbackUserId: USER_ID, textSenderUserId: USER_ID, canonicalOwnerUserId: finalState.buttonsWizardScreenOwnerUserId || USER_ID, diagnostics: ok ? [] : ['buttons_wizard_production_route_probe_failed'], variants: { plain, linkPreviewWithText, linkPreviewMetadataOnly, mediaAttachment, saveSendFailureFallback, realMax: sportsVariants } };
   } finally {
     try { postsFlow.handleTextInput = originals.postsHandleTextInput; } catch {}
     try { postPatcher.patchStoredPost = originals.patchStoredPost; } catch {}

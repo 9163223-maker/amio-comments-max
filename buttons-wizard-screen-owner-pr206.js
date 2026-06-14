@@ -57,11 +57,11 @@ function diagnosticScreen(reason = '', screen = null) {
     attachments: []
   };
 }
-async function closePreviousWizardScreen({ config = {}, storeApi = store, maxApi = max, userId = '', skipMessageId = '' } = {}) {
+async function closePreviousWizardScreen({ config = {}, storeApi = store, maxApi = max, userId = '', skipMessageId = '', messageId = '' } = {}) {
   const uid = clean(userId);
   if (!uid) return false;
   const state = setupState(storeApi, uid);
-  const previousMessageId = clean(state.buttonsWizardScreenMessageId || state.buttonsActiveScreenMessageId || '');
+  const previousMessageId = clean(messageId || state.buttonsWizardScreenMessageId || state.buttonsActiveScreenMessageId || '');
   if (!previousMessageId || previousMessageId === clean(skipMessageId)) return false;
   try {
     await maxApi.editMessage({ botToken: config.botToken, messageId: previousMessageId, text: '✅ Предыдущий шаг закрыт', attachments: [], notify: false });
@@ -77,7 +77,8 @@ async function updateButtonsWizardScreen({ config = {}, update = {}, msg = {}, u
   const cid = clean(chatId || chatIdFromMsg(msg));
   if (!isButtonsWizardScreen(screen)) return { ok: false, skipped: true, reason: 'not_buttons_wizard_screen' };
   if (!uid && !cid) return diagnosticScreen('missing_user_or_chat_for_fresh_wizard_screen', screen);
-  await closePreviousWizardScreen({ config, storeApi, maxApi, userId: uid });
+  const stateBeforeSend = setupState(storeApi, uid);
+  const previousWizardMessageId = clean(stateBeforeSend.buttonsWizardScreenMessageId || stateBeforeSend.buttonsActiveScreenMessageId || '');
   try {
     const result = await maxApi.sendMessage({ botToken: config.botToken, userId: cid ? '' : uid, chatId: cid, text: screen.text, attachments: screen.attachments, notify: false, pr215FreshWizard: true });
     const sentId = resultMessageId(result);
@@ -91,6 +92,7 @@ async function updateButtonsWizardScreen({ config = {}, update = {}, msg = {}, u
         buttonsWizardLastRenderMessageId: sentId
       });
     } catch {}
+    await closePreviousWizardScreen({ config, storeApi, maxApi, userId: uid, skipMessageId: sentId, messageId: previousWizardMessageId });
     return result || { message: { id: sentId, body: { mid: sentId } }, pr215FreshCurrentScreen: true };
   } catch (error) {
     try {
