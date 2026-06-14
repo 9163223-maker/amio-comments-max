@@ -86,14 +86,16 @@ const res = { status(code) { responseStatus = code; return this; }, json(payload
   assert.strictEqual(responseBody.action, 'button_text_input');
   assert.strictEqual(responseBody.buttonsLinkPreviewText, true);
   assert.strictEqual(seenText, 'http://olga.style/');
-  assert.strictEqual(editCalls.length, 1, 'next button wizard step edits the active wizard message in place');
+  assert.strictEqual(editCalls.length, 1, 'previous button wizard step is closed before fresh preview');
   assert.strictEqual(editCalls[0].messageId, 'old-button-step');
-  assert.strictEqual(editCalls[0].text, 'Шаг 3/3. Проверьте кнопку');
-  assert.strictEqual(sendCalls.length, 0, 'new preview screen is not sent as a duplicate message');
-  assert.strictEqual(setupState.buttonsActiveScreenMessageId, 'old-button-step');
-  assert.strictEqual(setupState.buttonsWizardScreenMessageId, 'old-button-step');
-  assert(!patches.some((patch) => patch.buttonsClosedScreenMessageId === 'old-button-step'), 'active wizard message is not closed between steps');
-  assert(patches.some((patch) => patch.buttonsWizardLastEditMessageId === 'old-button-step'), 'in-place wizard edit is recorded');
+  assert(/Предыдущий шаг закрыт/.test(editCalls[0].text), 'old wizard message is marked closed');
+  assert.strictEqual(sendCalls.length, 1, 'new preview screen is sent as the current fresh wizard message');
+  assert.strictEqual(sendCalls[0].text, 'Шаг 3/3. Проверьте кнопку');
+  assert.strictEqual(sendCalls[0].pr215FreshWizard, true, 'fresh wizard send keeps PR215 wrapper bypass flag');
+  assert.strictEqual(setupState.buttonsActiveScreenMessageId, 'new-button-step');
+  assert.strictEqual(setupState.buttonsWizardScreenMessageId, 'new-button-step');
+  assert(patches.some((patch) => patch.buttonsWizardClosedScreenMessageId === 'old-button-step'), 'previous active wizard message closure is recorded');
+  assert(patches.some((patch) => patch.buttonsWizardLastRenderMessageId === 'new-button-step' && patch.buttonsWizardLastRenderMethod === 'sendMessage'), 'fresh wizard render is recorded');
 
   console.log('PR198 buttons wizard single-screen link preview assertions passed');
 })().catch((error) => {
