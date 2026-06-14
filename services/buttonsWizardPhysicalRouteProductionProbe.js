@@ -37,6 +37,10 @@ function realMaxUrlUpdate(shape = 'body.link.url', url = 'Http://sports.ru') {
 
 function mediaAttachmentUpdate({ url = 'https://cdn.example.com/private-file.jpg?token=secret&signature=abc' } = {}) { return { update_type: 'message_created', message: { id: 'user-msg-photo-url', body: { mid: 'user-msg-photo-url', text: '', attachments: [{ type: 'photo', payload: { url } }] }, attachments: [{ type: 'file', payload: { url } }], sender: { user_id: USER_ID }, recipient: { chat_id: CHAT_ID, chat_type: 'dialog' } } }; }
 function traceText(events = []) { try { return JSON.stringify(events); } catch { return ''; } }
+function hasSensitiveTraceLeak(events = []) {
+  const raw = traceText(events);
+  return /token=|signature=|private\/path|private-file|\?token|https?:\/\/[^\"]+\/[^\"]*(?:token|signature|private)/i.test(raw);
+}
 function resCollector() { return { statusCode: 0, payload: null, status(code) { this.statusCode = code; return this; }, json(payload) { this.payload = payload; return payload; } }; }
 async function drive(bot, body) { const res = resCollector(); await bot.handleWebhook({ body }, res, { botToken: 'test-token', menuDeleteTimeoutMs: 1 }); assert.strictEqual(res.statusCode, 200); return res.payload; }
 
@@ -60,13 +64,14 @@ async function runProductionRouteProbe() {
   const sendCalls = [];
   const deleteCalls = [];
   const answerCalls = [];
+  const patchCalls = [];
   try {
     max.editMessage = async function editMessageStub(args = {}) { editCalls.push(args); return { message: { id: args.messageId, body: { mid: args.messageId } } }; };
     max.sendMessage = async function sendMessageStub(args = {}) { sendCalls.push(args); return { message: { id: `sent-${sendCalls.length}`, body: { mid: `sent-${sendCalls.length}` } } }; };
     max.deleteMessage = async function deleteMessageStub(args = {}) { deleteCalls.push(args); return { ok: true }; };
     max.answerCallback = async function answerCallbackStub(args = {}) { answerCalls.push(args); return { ok: true }; };
     max.getChat = async function getChatStub() { return { title: 'Olga Style' }; };
-    postPatcher.patchStoredPost = async function patchStoredPostStub() { return { ok: true, customRowsCount: 1 }; };
+    postPatcher.patchStoredPost = async function patchStoredPostStub(args = {}) { patchCalls.push(args); return { ok: true, customRowsCount: 1 }; };
     let postEditLinkPreviewTextSeen = null;
     postsFlow.handleTextInput = async function postEditTextProbe(menu, ctx = {}) { postEditLinkPreviewTextSeen = ctx.text; return { id: 'post_edit_probe_screen', text: 'Post edit probe screen', attachments: [] }; };
 
@@ -95,7 +100,7 @@ async function runProductionRouteProbe() {
     const postEditLinkPreviewRawTextOk = postEditLinkPreviewTextSeen === '';
 
     async function runVariant(name, urlUpdate) {
-      editCalls.length = 0; sendCalls.length = 0; deleteCalls.length = 0; answerCalls.length = 0;
+      editCalls.length = 0; sendCalls.length = 0; deleteCalls.length = 0; answerCalls.length = 0; patchCalls.length = 0;
       store.setSetupState(USER_ID, { buttonsCurrentCard: target, buttonTargetPost: target, commentTargetPost: target, buttonFlow: null, postEditFlow: null, activeAdminFlowKind: '', buttonsWizardScreenMessageId: '', buttonsWizardScreenOwnerUserId: '', buttonsWizardEditFailedAt: null, buttonsWizardRealShowPathLastDecision: '' });
       await drive(bot, callbackUpdate());
       await drive(bot, textUpdate('Кнопка'));
@@ -103,6 +108,7 @@ async function runProductionRouteProbe() {
       if (timing && typeof timing.clear === 'function') timing.clear();
       const payload = await drive(bot, urlUpdate);
       const beforeSaveState = store.getSetupState(USER_ID);
+      const activeFlowIdBeforeSave = String(beforeSaveState.buttonFlow?.flowId || '').trim();
       const urlTraceEvents = timing && typeof timing.list === 'function' ? timing.list(100) : [];
       const urlTraceNames = urlTraceEvents.map((entry) => entry.name).filter(Boolean);
       const previewSend = sendCalls.slice(beforeUrlSendCount).find((call) => /Шаг 3\/3/.test(String(call.text || ''))) || null;
@@ -115,8 +121,8 @@ async function runProductionRouteProbe() {
       const saveVisibleText = String((sendCalls.slice(beforeSaveSendCount).find((call) => /Кнопка сохранена|предпросмотр устарел|пост не обновился/i.test(String(call.text || ''))) || {}).text || '');
       const traceEvents = timing && typeof timing.list === 'function' ? timing.list(100) : [];
       const traceNames = urlTraceNames.length ? urlTraceNames : traceEvents.map((entry) => entry.name).filter(Boolean);
-      const traceJson = traceText(traceEvents);
-      const traceRedactedOk = !/token=|signature=|private\/path|private-file|\?token|https?:\/\/[^\"]+\//i.test(traceJson);
+      const combinedTraceEvents = [...urlTraceEvents, ...saveTraceEvents, ...traceEvents];
+      const traceRedactedOk = !hasSensitiveTraceLeak(combinedTraceEvents);
       const finalState = store.getSetupState(USER_ID);
       const step1Ok = editCalls.some((call) => call.messageId === MESSAGE_ID && /Шаг 1\/3/.test(call.text));
       const step2Ok = sendCalls.some((call) => /Шаг 2\/3/.test(call.text));
@@ -127,11 +133,16 @@ async function runProductionRouteProbe() {
       const sameOwner = /^sent-/.test(String(finalState.buttonsWizardScreenMessageId || '')) && finalState.buttonsWizardScreenOwnerUserId === USER_ID;
       const savedUrl = beforeSaveState.buttonFlow?.draft?.url || finalState.buttonFlow?.draft?.url || '';
       const normalizedUrlOk = savedUrl === 'http://olga.style' || savedUrl === 'https://olga.style' || savedUrl === 'http://sports.ru' || savedUrl.startsWith('http://olga.style/') || savedUrl.startsWith('https://olga.style/') || savedUrl.startsWith('http://sports.ru/');
-      const saveCallbackOk = Boolean(savePayload.action === 'button_admin_save' && saveResult && saveResult.screenId && /Кнопка сохранена|предпросмотр устарел|пост не обновился/i.test(saveVisibleText));
+      const routeTraceSteps = Array.isArray(finalState.buttonSaveRouteTrace) ? finalState.buttonSaveRouteTrace.map((entry) => String(entry && entry.step || '')) : [];
+      const savePayloadFlowId = String(savePayload.flowId || '').trim();
+      const savePayloadCurrentOk = savePayload.action === 'button_admin_save' && Boolean(savePayloadFlowId) && savePayloadFlowId === activeFlowIdBeforeSave;
       const saveRouteTraceOk = saveTraceNames.includes('buttons_callback_received') && saveTraceNames.includes('buttons_callback_route_selected') && saveTraceNames.includes('buttons_callback_route_returned') && saveTraceNames.includes('buttons_callback_render_result');
-      const ok = step1Ok && step2Ok && step3Ok && step3AfterUrl && sends >= 2 && cleanupTouched && sameOwner && normalizedUrlOk && saveCallbackOk && saveRouteTraceOk && !finalState.buttonsWizardEditFailedAt;
+      const saveDraftTraceOk = routeTraceSteps.includes('screenForPayload') && routeTraceSteps.includes('confirmSave') && routeTraceSteps.includes('saveDraft') && !routeTraceSteps.includes('staleSaveScreen') && !routeTraceSteps.includes('staleSaveScreen_returned');
+      const saveVisibleSuccessOk = /Кнопка сохранена/i.test(saveVisibleText) && !/предпросмотр устарел/i.test(saveVisibleText);
+      const saveCallbackOk = Boolean(savePayloadCurrentOk && saveResult && saveResult.screenId && saveRouteTraceOk && saveDraftTraceOk && patchCalls.length > 0 && saveVisibleSuccessOk);
+      const ok = step1Ok && step2Ok && step3Ok && step3AfterUrl && sends >= 2 && cleanupTouched && sameOwner && normalizedUrlOk && saveCallbackOk && !finalState.buttonsWizardEditFailedAt;
       const step3Text = (sendCalls.slice(beforeUrlSendCount).find((call) => /Шаг 3\/3/.test(call.text)) || {}).text || '';
-      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, sameOwner, normalizedUrl: savedUrl, step3Transport: step3Ok ? 'sendMessage' : '', traceNames, traceRedactedOk, step3Text, saveCallbackOk, saveRouteTraceOk, saveResultScreenId: saveResult && saveResult.screenId || '', saveVisibleText };
+      return { name, ok, payload, step1Ok, step2Ok, step3Ok, step3AfterUrl, sends, cleanupTouched, sameOwner, normalizedUrl: savedUrl, step3Transport: step3Ok ? 'sendMessage' : '', traceNames, traceRedactedOk, step3Text, saveCallbackOk, saveRouteTraceOk, saveDraftTraceOk, savePayloadCurrentOk, savePatchCallCount: patchCalls.length, saveResultScreenId: saveResult && saveResult.screenId || '', saveVisibleText };
     }
 
     const plain = await runVariant('plain_text', textUpdate('https://olga.style'));
