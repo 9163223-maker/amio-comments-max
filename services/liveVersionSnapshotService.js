@@ -110,7 +110,11 @@ function buildLiveVersionSnapshot() {
   try {
     const build = getBuildInfo();
     const identity = liveIdentity.identity();
-    const runtimeVersion = liveRuntime() || build.runtimeVersion;
+    const runtimeVersion = build.runtimeVersion || build.displayVersion || liveRuntime();
+    const buildVersion = build.buildVersion || identity.buildVersion || runtimeVersion;
+    const displayVersion = build.displayVersion || identity.displayVersion || runtimeVersion;
+    const packageVersion = build.packageVersion || identity.packageVersion || runtimeVersion;
+    const sourceMarker = build.sourceMarker || identity.sourceMarker || liveSourceMarker();
     const warning = liveIdentity.warningForExpected('', identity.gitCommit);
     const wizard = safeInfo('../pr199-buttons-wizard-inplace-save-bootstrap');
     const guard = safeInfo('../pr199-buttons-main-menu-route-guard');
@@ -120,10 +124,10 @@ function buildLiveVersionSnapshot() {
     const snapshot = {
       ok: true,
       runtimeVersion,
-      buildVersion: identity.buildVersion || build.buildVersion || runtimeVersion,
-      displayVersion: identity.displayVersion || build.displayVersion || runtimeVersion,
-      packageVersion: identity.packageVersion || build.packageVersion || runtimeVersion,
-      sourceMarker: identity.sourceMarker || liveSourceMarker() || build.sourceMarker,
+      buildVersion,
+      displayVersion,
+      packageVersion,
+      sourceMarker,
       gitCommit: identity.gitCommit || build.gitCommit,
       pr131MergeCommit: build.pr131MergeCommit,
       activeEntrypoint: identity.activeEntrypoint || clean(process.argv && process.argv[1] ? path.basename(process.argv[1]) : process.env.ADMINKIT_CLEAN_ENTRYPOINT || build.activeEntrypoint || 'unknown'),
