@@ -201,7 +201,8 @@ async function targetFromPayload(payload = {}, ctx = {}) {
   const postChannelId = clean(post.channelId || post.requiredChatId || '');
   if (channelId && postChannelId && channelId !== postChannelId) return null;
   if (postId && clean(post.postId) && postId !== clean(post.postId)) return null;
-  return targetIsValid(post, ctx.userId) ? post : null;
+  const target = targetRecord(post, ctx.userId);
+  return targetIsValid(target, ctx.userId) ? target : null;
 }
 async function currentTarget(payload = {}, ctx = {}) {
   const fromPayload = await targetFromPayload(payload, ctx);
