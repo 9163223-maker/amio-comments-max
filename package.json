@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.58-PR219-CANONICAL-POST-FEATURE-BINDING",
+  "version": "CC8.3.59-MAIN-STRICT-RUNTIME-IDENTITY-GATE",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
@@ -18,9 +18,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.58-PR219-CANONICAL-POST-FEATURE-BINDING",
-  "displayVersion": "CC8.3.58-PR219-CANONICAL-POST-FEATURE-BINDING",
-  "sourceMarker": "adminkit-pr219-canonical-post-feature-binding",
+  "buildVersion": "CC8.3.59-MAIN-STRICT-RUNTIME-IDENTITY-GATE",
+  "displayVersion": "CC8.3.59-MAIN-STRICT-RUNTIME-IDENTITY-GATE",
+  "sourceMarker": "adminkit-main-strict-runtime-identity-gate",
   "gitCommit": "",
   "pr165RuntimeWired": true,
   "pr178PushPairingBinding": true,
@@ -30,5 +30,6 @@
   "pr190PushPolishAutorefresh": true,
   "pr191PushAdminInviteTitleCommands": true,
   "pr202ButtonsRealShowPathInplace": true,
-  "pr219CanonicalPostFeatureBinding": true
+  "pr219CanonicalPostFeatureBinding": true,
+  "mainStrictRuntimeIdentityGate": true
 }
