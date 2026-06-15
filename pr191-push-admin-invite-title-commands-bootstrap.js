@@ -1,7 +1,7 @@
 'use strict';
 
-const RUNTIME = 'CC8.3.58-PR219-CANONICAL-POST-FEATURE-BINDING';
-const SOURCE = 'adminkit-pr219-canonical-post-feature-binding';
+const RUNTIME = 'CC8.3.59-MAIN-STRICT-RUNTIME-IDENTITY-GATE';
+const SOURCE = 'adminkit-main-strict-runtime-identity-gate';
 
 process.env.ADMINKIT_PR191_PUSH_ADMIN_INVITE_TITLE_COMMANDS = '1';
 
