@@ -1,17 +1,44 @@
 'use strict';
 
-const RUNTIME = 'PR217-FINAL-RUNTIME-READINESS-GATE';
-const SOURCE = 'adminkit-pr217-db-bound-buttons-save-current';
+const RUNTIME = 'MAIN-STRICT-RUNTIME-IDENTITY-GATE';
+const SOURCE = 'adminkit-main-strict-runtime-identity-gate';
 let state = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, recorded: false };
 
 function clean(value) { return String(value || '').trim(); }
 function bool(value) { return value === true; }
 function short(value, max = 180) { return clean(value).slice(0, max); }
 function summaryFrom(snapshot = {}) { return snapshot && snapshot.liveVersionSummary || {}; }
+function buildIdentity(snapshot = {}, summary = {}) {
+  let buildInfo = {};
+  try { buildInfo = require('./buildInfo').getBuildInfo(); } catch {}
+  const actualRuntime = short(summary.runtimeVersion || snapshot.runtimeVersion, 120);
+  const actualBuild = short(summary.buildVersion || snapshot.buildVersion, 120);
+  const actualSource = short(summary.sourceMarker || snapshot.sourceMarker, 160);
+  const expectedRuntime = short(buildInfo.expectedRuntimeVersion || buildInfo.displayVersion || buildInfo.runtimeVersion, 120);
+  const expectedBuild = short(buildInfo.buildVersion || expectedRuntime, 120);
+  const expectedSource = short(buildInfo.sourceMarker, 160);
+  const runtimeMatches = Boolean(expectedRuntime && actualRuntime === expectedRuntime);
+  const buildMatches = !expectedBuild || actualBuild === expectedBuild;
+  const sourceMatches = !expectedSource || actualSource === expectedSource;
+  return {
+    ok: runtimeMatches && buildMatches && sourceMatches,
+    runtimeMatches,
+    buildMatches,
+    sourceMatches,
+    actualRuntimeVersion: actualRuntime,
+    actualBuildVersion: actualBuild,
+    actualSourceMarker: actualSource,
+    expectedRuntimeVersion: expectedRuntime,
+    expectedBuildVersion: expectedBuild,
+    expectedSourceMarker: expectedSource
+  };
+}
 function buildGate(snapshot = {}) {
   const summary = summaryFrom(snapshot);
+  const runtimeIdentity = buildIdentity(snapshot, summary);
   const required = {
     runtimeSnapshotOk: bool(snapshot.ok),
+    runtimeIdentityMatchesExpectedBuild: bool(runtimeIdentity.ok),
     runtimeContractLiveOk: bool(summary.runtimeContractLiveOk),
     pr199Ready: bool(summary.pr199Ready),
     pr202Ready: bool(summary.pr202Ready),
@@ -36,6 +63,7 @@ function buildGate(snapshot = {}) {
     buildVersion: short(summary.buildVersion || snapshot.buildVersion, 120),
     sourceMarker: short(summary.sourceMarker || snapshot.sourceMarker, 160),
     githubMainHeadVerifiedByStartupLog: true,
+    runtimeIdentity,
     required,
     missing,
     readyForManualMaxTest: missing.length === 0
@@ -75,7 +103,7 @@ async function installAndRecord(options = {}) {
       });
       state.recorded = true;
     }
-    try { console.log('[pr205-final-runtime-readiness]', JSON.stringify({ ok: state.ok, recorded: state.recorded, gateOk: finalRuntimeReadinessGate.ok, missing: finalRuntimeReadinessGate.missing })); } catch {}
+    try { console.log('[pr205-final-runtime-readiness]', JSON.stringify({ ok: state.ok, recorded: state.recorded, gateOk: finalRuntimeReadinessGate.ok, missing: finalRuntimeReadinessGate.missing, runtimeIdentity: finalRuntimeReadinessGate.runtimeIdentity })); } catch {}
     return state;
   } catch (error) {
     state = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, recorded: false, error: short(error && error.message || error, 240) };
@@ -84,4 +112,4 @@ async function installAndRecord(options = {}) {
   }
 }
 function info() { return state; }
-module.exports = { RUNTIME, SOURCE, installAndRecord, buildGate, info };
+module.exports = { RUNTIME, SOURCE, installAndRecord, buildGate, buildIdentity, info };
