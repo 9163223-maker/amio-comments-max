@@ -191,6 +191,16 @@ function buildLiveVersionSnapshot() {
         urlLinkPreviewProbeOk: bool(physicalProbe.urlLinkPreviewProbeOk),
         uppercaseUrlProbeOk: bool(physicalProbe.uppercaseUrlProbeOk),
         step3FromLinkPreviewTransport: clean(physicalProbe.step3FromLinkPreviewTransport),
+        saveCallbackProbeOk: bool(physicalProbe.saveCallbackProbeOk),
+        buttonsCurrentReadsCanonicalDbOk: bool(physicalProbe.buttonsCurrentReadsCanonicalDbOk),
+        buttonsGlobalNavFirstTapOk: bool(physicalProbe.buttonsGlobalNavFirstTapOk),
+        variants: {
+          plain: {
+            saveCallbackOk: bool(physicalProbe.variants && physicalProbe.variants.plain && physicalProbe.variants.plain.saveCallbackOk),
+            repeatSaveIdempotentOk: bool(physicalProbe.variants && physicalProbe.variants.plain && physicalProbe.variants.plain.repeatSaveIdempotentOk),
+            saveDraftTraceOk: bool(physicalProbe.variants && physicalProbe.variants.plain && physicalProbe.variants.plain.saveDraftTraceOk)
+          }
+        },
         diagnostics: Array.isArray(physicalProbe.diagnostics) ? physicalProbe.diagnostics.slice(0, 10).map((item) => clean(item).slice(0, 160)).filter(Boolean) : []
       },
       commentsMatrixSelftest: true,
