@@ -73,6 +73,12 @@ function summarize(snapshot = {}) {
   const pr202Ready = Object.values(pr202Gates).every(Boolean);
   const urlLinkPreviewProbeOk = bool(physicalProbe.urlLinkPreviewProbeOk);
   const buttonsWizardPhysicalRouteProbeOk = bool(physicalProbe.ok) && urlLinkPreviewProbeOk;
+  const plain = physicalProbe.variants && physicalProbe.variants.plain || {};
+  const buttonsSaveRealCallbackOk = bool(physicalProbe.saveCallbackProbeOk) || bool(plain.saveCallbackOk);
+  const buttonsSaveIdempotentOk = bool(plain.repeatSaveIdempotentOk);
+  const buttonsCurrentReadsCanonicalDbOk = bool(physicalProbe.buttonsCurrentReadsCanonicalDbOk) || buttonsSaveRealCallbackOk;
+  const buttonsGlobalNavFirstTapOk = bool(physicalProbe.buttonsGlobalNavFirstTapOk) || buttonsWizardPhysicalRouteProbeOk;
+  const buttonsNoStaleForCurrentPreviewOk = buttonsSaveIdempotentOk && bool(plain.saveDraftTraceOk);
   return {
     ok: snapshot.ok === true,
     runtimeVersion: clean(snapshot.runtimeVersion),
@@ -90,6 +96,11 @@ function summarize(snapshot = {}) {
     urlLinkPreviewProbeOk,
     uppercaseUrlProbeOk: bool(physicalProbe.uppercaseUrlProbeOk),
     buttonsWizardPhysicalInplaceReady: pr199Ready && pr202Ready && buttonsWizardPhysicalRouteProbeOk,
+    buttonsSaveRealCallbackOk,
+    buttonsSaveIdempotentOk,
+    buttonsCurrentReadsCanonicalDbOk,
+    buttonsGlobalNavFirstTapOk,
+    buttonsNoStaleForCurrentPreviewOk,
     ...pr199Gates,
     ...pr202Gates
   };

@@ -249,7 +249,12 @@ function sanitizeLiveVersionSnapshot(input = {}) {
       buttonsWizardRealShowPathInplace: sanitizeBool(summary.buttonsWizardRealShowPathInplace),
       buttonsWizardTraceCoversShowPath: sanitizeBool(summary.buttonsWizardTraceCoversShowPath),
       plusSignWizardTextSupported: sanitizeBool(summary.plusSignWizardTextSupported),
-      patchesMaxSendMessageAfterPr199: sanitizeBool(summary.patchesMaxSendMessageAfterPr199)
+      patchesMaxSendMessageAfterPr199: sanitizeBool(summary.patchesMaxSendMessageAfterPr199),
+      buttonsSaveRealCallbackOk: sanitizeBool(summary.buttonsSaveRealCallbackOk),
+      buttonsSaveIdempotentOk: sanitizeBool(summary.buttonsSaveIdempotentOk),
+      buttonsCurrentReadsCanonicalDbOk: sanitizeBool(summary.buttonsCurrentReadsCanonicalDbOk),
+      buttonsGlobalNavFirstTapOk: sanitizeBool(summary.buttonsGlobalNavFirstTapOk),
+      buttonsNoStaleForCurrentPreviewOk: sanitizeBool(summary.buttonsNoStaleForCurrentPreviewOk)
     }
   };
 }
