@@ -119,13 +119,18 @@ function buildFinalRuntimeReadinessGateFromSnapshot(snapshot = {}) {
     pr202Ready: sanitizeBool(summary.pr202Ready),
     buttonsWizardPhysicalRouteProbeOk: sanitizeBool(summary.buttonsWizardPhysicalRouteProbeOk),
     buttonsWizardPhysicalInplaceReady: sanitizeBool(summary.buttonsWizardPhysicalInplaceReady),
-    plusSignWizardTextSupported: sanitizeBool(summary.plusSignWizardTextSupported)
+    plusSignWizardTextSupported: sanitizeBool(summary.plusSignWizardTextSupported),
+    buttonsSaveRealCallbackOk: sanitizeBool(summary.buttonsSaveRealCallbackOk),
+    buttonsSaveIdempotentOk: sanitizeBool(summary.buttonsSaveIdempotentOk),
+    buttonsCurrentReadsCanonicalDbOk: sanitizeBool(summary.buttonsCurrentReadsCanonicalDbOk),
+    buttonsGlobalNavFirstTapOk: sanitizeBool(summary.buttonsGlobalNavFirstTapOk),
+    buttonsNoStaleForCurrentPreviewOk: sanitizeBool(summary.buttonsNoStaleForCurrentPreviewOk)
   };
   const missing = Object.entries(required).filter(([, value]) => value !== true).map(([key]) => key);
   return {
     ok: missing.length === 0,
-    runtime: 'PR205-FINAL-RUNTIME-READINESS-GATE',
-    source: 'adminkit-pr205-final-runtime-readiness-gate',
+    runtime: 'PR217-FINAL-RUNTIME-READINESS-GATE',
+    source: 'adminkit-pr217-db-bound-buttons-save-current',
     generatedAt: Date.now(),
     activeEntrypoint: short(summary.activeEntrypoint || snap.activeEntrypoint, 120),
     runtimeVersion: short(summary.runtimeVersion || snap.runtimeVersion, 120),

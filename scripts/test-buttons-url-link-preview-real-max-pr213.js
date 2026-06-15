@@ -15,7 +15,7 @@ process.env.ADMINKIT_DISABLE_AUTOSTART = '1';
   for (const shape of ['body.text', 'body.link.url', 'body.preview.url', 'body.message.preview.url', 'body.attachments.payload.url', 'attachments.url']) {
     const variant = variants[shape];
     assert(variant, `variant exists: ${shape}`);
-    assert.strictEqual(variant.ok, true, `${shape} advances Step 2 -> Step 3`);
+    assert.strictEqual(variant.step3Ok, true, `${shape} advances Step 2 -> Step 3`);
     assert.strictEqual(variant.payload.screenId, 'buttons_clean_add_preview', `${shape} returns preview screen id`);
     assert(/Предпросмотр кнопки/.test(variant.step3Text), `${shape} preview title is rendered`);
     assert(/Шаг 3\/3/.test(variant.step3Text), `${shape} Step 3 marker is rendered`);
