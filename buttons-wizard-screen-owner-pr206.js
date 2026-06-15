@@ -1,6 +1,6 @@
 'use strict';
 
-const RUNTIME = 'PR215-BUTTONS-WIZARD-FRESH-CURRENT-SCREEN';
+const RUNTIME = 'PR217-BUTTONS-WIZARD-DB-BOUND-PREVIEW';
 const SOURCE = 'adminkit-pr206-buttons-wizard-screen-owner';
 
 const max = require('./services/maxApi');
@@ -27,6 +27,10 @@ function recordButtonsWizardScreen({ storeApi = store, userId = '', chatId = '',
   const mid = clean(messageId);
   if (!uid || !mid || !isButtonsWizardScreen(screen)) return false;
   try {
+    const current = setupState(storeApi, uid);
+    const flow = current.buttonFlow || {};
+    const target = flow.targetPost || {};
+    const isPreview = clean(screen && screen.id) === 'buttons_clean_add_preview';
     storeApi.setSetupState(uid, {
       buttonsWizardScreenMessageId: mid,
       buttonsActiveScreenMessageId: mid,
@@ -38,7 +42,17 @@ function recordButtonsWizardScreen({ storeApi = store, userId = '', chatId = '',
       buttonsWizardScreenRuntime: RUNTIME,
       buttonsWizardFreshCurrentScreen: true,
       buttonsWizardScreenId: clean(screen && screen.id),
-      buttonsWizardScreenText: short(screenText(screen), 100)
+      buttonsWizardScreenText: short(screenText(screen), 100),
+      ...(isPreview ? {
+        buttonsActivePreviewMessageId: mid,
+        buttonsActivePreviewFlowId: clean(flow.flowId),
+        buttonsActivePreviewUserId: uid,
+        buttonsActivePreviewCommentKey: clean(target.commentKey),
+        buttonsActivePreviewChannelId: clean(target.channelId || target.requiredChatId),
+        buttonsActivePreviewPostId: clean(target.postId),
+        buttonsActivePreviewAt: now(),
+        buttonsActivePreviewRuntime: RUNTIME
+      } : {})
     });
     return true;
   } catch {

@@ -275,7 +275,7 @@ function install() {
         }
         let screen;
         try {
-          screen = await originalScreenForPayload.apply(this, arguments);
+          screen = await originalScreenForPayload.call(this, menu, payload, { ...ctx, allowCurrentSaveInFlightToken: saveToken });
         } catch (error) {
           if (action === 'button_admin_save' && saveToken) finishButtonSave(store, ctx.userId, saveToken, null, error);
           throw error;

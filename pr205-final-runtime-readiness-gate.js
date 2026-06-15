@@ -1,7 +1,7 @@
 'use strict';
 
-const RUNTIME = 'PR205-FINAL-RUNTIME-READINESS-GATE';
-const SOURCE = 'adminkit-pr205-final-runtime-readiness-gate';
+const RUNTIME = 'PR217-FINAL-RUNTIME-READINESS-GATE';
+const SOURCE = 'adminkit-pr217-db-bound-buttons-save-current';
 let state = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, recorded: false };
 
 function clean(value) { return String(value || '').trim(); }
@@ -18,7 +18,12 @@ function buildGate(snapshot = {}) {
     buttonsWizardPhysicalRouteProbeOk: bool(summary.buttonsWizardPhysicalRouteProbeOk),
     urlLinkPreviewProbeOk: bool(summary.urlLinkPreviewProbeOk),
     buttonsWizardPhysicalInplaceReady: bool(summary.buttonsWizardPhysicalInplaceReady),
-    plusSignWizardTextSupported: bool(summary.plusSignWizardTextSupported)
+    plusSignWizardTextSupported: bool(summary.plusSignWizardTextSupported),
+    buttonsSaveRealCallbackOk: bool(summary.buttonsSaveRealCallbackOk),
+    buttonsSaveIdempotentOk: bool(summary.buttonsSaveIdempotentOk),
+    buttonsCurrentReadsCanonicalDbOk: bool(summary.buttonsCurrentReadsCanonicalDbOk),
+    buttonsGlobalNavFirstTapOk: bool(summary.buttonsGlobalNavFirstTapOk),
+    buttonsNoStaleForCurrentPreviewOk: bool(summary.buttonsNoStaleForCurrentPreviewOk)
   };
   const missing = Object.entries(required).filter(([, value]) => !value).map(([key]) => key);
   return {

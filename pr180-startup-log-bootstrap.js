@@ -77,7 +77,7 @@ function isFinalDisabledProductionProbeStartup(info = {}) {
   const diagnostics = Array.isArray(probe.diagnostics) ? probe.diagnostics : [];
   const gate = info && info.finalRuntimeReadinessGate || finalRuntimeReadinessGate(snapshot);
   const missing = gate && Array.isArray(gate.missing) ? gate.missing : [];
-  const expectedMissing = ['buttonsWizardPhysicalRouteProbeOk', 'urlLinkPreviewProbeOk', 'buttonsWizardPhysicalInplaceReady'];
+  const expectedMissing = ['buttonsWizardPhysicalRouteProbeOk', 'urlLinkPreviewProbeOk', 'buttonsWizardPhysicalInplaceReady', 'buttonsSaveRealCallbackOk', 'buttonsSaveIdempotentOk', 'buttonsCurrentReadsCanonicalDbOk', 'buttonsGlobalNavFirstTapOk', 'buttonsNoStaleForCurrentPreviewOk'];
   const onlyExpectedMissing = missing.length > 0 && missing.every((item) => expectedMissing.includes(item));
   return snapshot.ok === true
     && summary.pr199Ready === true

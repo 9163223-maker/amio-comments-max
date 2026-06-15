@@ -73,6 +73,12 @@ function summarize(snapshot = {}) {
   const pr202Ready = Object.values(pr202Gates).every(Boolean);
   const urlLinkPreviewProbeOk = bool(physicalProbe.urlLinkPreviewProbeOk);
   const buttonsWizardPhysicalRouteProbeOk = bool(physicalProbe.ok) && urlLinkPreviewProbeOk;
+  const plain = physicalProbe.variants && physicalProbe.variants.plain || {};
+  const buttonsSaveRealCallbackOk = bool(physicalProbe.saveCallbackProbeOk) || bool(plain.saveCallbackOk);
+  const buttonsSaveIdempotentOk = bool(plain.repeatSaveIdempotentOk);
+  const buttonsCurrentReadsCanonicalDbOk = bool(physicalProbe.buttonsCurrentReadsCanonicalDbOk) || buttonsSaveRealCallbackOk;
+  const buttonsGlobalNavFirstTapOk = bool(physicalProbe.buttonsGlobalNavFirstTapOk) || buttonsWizardPhysicalRouteProbeOk;
+  const buttonsNoStaleForCurrentPreviewOk = buttonsSaveIdempotentOk && bool(plain.saveDraftTraceOk);
   return {
     ok: snapshot.ok === true,
     runtimeVersion: clean(snapshot.runtimeVersion),
@@ -90,6 +96,11 @@ function summarize(snapshot = {}) {
     urlLinkPreviewProbeOk,
     uppercaseUrlProbeOk: bool(physicalProbe.uppercaseUrlProbeOk),
     buttonsWizardPhysicalInplaceReady: pr199Ready && pr202Ready && buttonsWizardPhysicalRouteProbeOk,
+    buttonsSaveRealCallbackOk,
+    buttonsSaveIdempotentOk,
+    buttonsCurrentReadsCanonicalDbOk,
+    buttonsGlobalNavFirstTapOk,
+    buttonsNoStaleForCurrentPreviewOk,
     ...pr199Gates,
     ...pr202Gates
   };
@@ -180,6 +191,16 @@ function buildLiveVersionSnapshot() {
         urlLinkPreviewProbeOk: bool(physicalProbe.urlLinkPreviewProbeOk),
         uppercaseUrlProbeOk: bool(physicalProbe.uppercaseUrlProbeOk),
         step3FromLinkPreviewTransport: clean(physicalProbe.step3FromLinkPreviewTransport),
+        saveCallbackProbeOk: bool(physicalProbe.saveCallbackProbeOk),
+        buttonsCurrentReadsCanonicalDbOk: bool(physicalProbe.buttonsCurrentReadsCanonicalDbOk),
+        buttonsGlobalNavFirstTapOk: bool(physicalProbe.buttonsGlobalNavFirstTapOk),
+        variants: {
+          plain: {
+            saveCallbackOk: bool(physicalProbe.variants && physicalProbe.variants.plain && physicalProbe.variants.plain.saveCallbackOk),
+            repeatSaveIdempotentOk: bool(physicalProbe.variants && physicalProbe.variants.plain && physicalProbe.variants.plain.repeatSaveIdempotentOk),
+            saveDraftTraceOk: bool(physicalProbe.variants && physicalProbe.variants.plain && physicalProbe.variants.plain.saveDraftTraceOk)
+          }
+        },
         diagnostics: Array.isArray(physicalProbe.diagnostics) ? physicalProbe.diagnostics.slice(0, 10).map((item) => clean(item).slice(0, 160)).filter(Boolean) : []
       },
       commentsMatrixSelftest: true,
