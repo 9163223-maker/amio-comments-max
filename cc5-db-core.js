@@ -220,7 +220,7 @@ async function getChannels(adminId) {
 }
 async function getPosts(adminId, channelId, limit = 20) {
   if (!adminId || !channelId) return [];
-  const { rows } = await query(`select post_id as "postId", comment_key as "commentKey", title, message_id as "messageId", updated_at as "updatedAt" from ak_posts where admin_id=$1 and channel_id=$2 order by updated_at desc limit $3`, [adminId, channelId, Math.max(1, Math.min(Number(limit || 20), 100))]);
+  const { rows } = await query(`select post_id as "postId", comment_key as "commentKey", title, message_id as "messageId", raw, updated_at as "updatedAt" from ak_posts where admin_id=$1 and channel_id=$2 order by updated_at desc limit $3`, [adminId, channelId, Math.max(1, Math.min(Number(limit || 20), 100))]);
   return rows;
 }
 async function getRules({ adminId, channelId, scopeType = 'channel', postId = '' }) {

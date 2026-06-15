@@ -80,13 +80,13 @@ function apiFor({ role = 'owner', fail = '' } = {}) {
   assert(client.includes("fetchJson('/api/push/pair', { method: 'POST'") && client.includes('normalizePushSubscription(subscription)'), 'every chat link uses the confirmed pairing endpoint');
   assert(client.includes("hasConnectedChats ? 'Подключить этот чат' : 'Включить уведомления'"), 'first and subsequent chat links use explicit contextual actions');
 
-  assert.strictEqual(pkg.version, 'CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS');
-  assert.strictEqual(pkg.sourceMarker, 'adminkit-pr191-push-admin-invite-title-commands');
+  assert(/^CC8\.3\.\d+-PR\d+-/.test(pkg.version), 'package version uses current PR runtime marker');
+  assert(/^adminkit-pr\d+-/.test(pkg.sourceMarker), 'package source marker uses current PR marker');
   assert.strictEqual(buildInfo.runtimeVersion, pkg.version);
   assert.strictEqual(buildInfo.buildVersion, pkg.version);
   assert.strictEqual(buildInfo.sourceMarker, pkg.sourceMarker);
-  assert(entrypoint.includes("const RUNTIME='CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS'"));
-  assert(entrypoint.includes("const SOURCE='adminkit-pr191-push-admin-invite-title-commands'"));
+  assert(entrypoint.includes(`const RUNTIME='${pkg.version}'`));
+  assert(entrypoint.includes(`const SOURCE='${pkg.sourceMarker}'`));
 
   console.log('production push audit pr173 ok');
 })().catch((error) => { console.error(error && error.stack || error); process.exit(1); });

@@ -105,10 +105,10 @@ for (const payload of visibleScreens.flatMap(payloads)) assert.ok(!/production_c
 
 const entrypoint = read('clean-entrypoint-1.53.10-pr89.js');
 const pkg = JSON.parse(read('package.json'));
-assert.strictEqual(pkg.buildVersion, 'CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS');
-assert.strictEqual(pkg.sourceMarker, 'adminkit-pr191-push-admin-invite-title-commands');
-assert.ok(entrypoint.includes("const RUNTIME='CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS'"));
-assert.ok(entrypoint.includes("const SOURCE='adminkit-pr191-push-admin-invite-title-commands'"));
+assert.strictEqual(pkg.buildVersion, pkg.version);
+assert(/^adminkit-pr\d+-/.test(pkg.sourceMarker));
+assert.ok(entrypoint.includes(`const RUNTIME='${pkg.version}'`));
+assert.ok(entrypoint.includes(`const SOURCE='${pkg.sourceMarker}'`));
 
 if (previousAdminIds === undefined) delete process.env.ADMINKIT_ADMIN_MAX_USER_IDS;
 else process.env.ADMINKIT_ADMIN_MAX_USER_IDS = previousAdminIds;

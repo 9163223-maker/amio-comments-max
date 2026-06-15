@@ -85,10 +85,10 @@ function actionOf(item = {}) {
 
     const pkg = require('../package.json');
     const entrypoint = fs.readFileSync(path.join(repoRoot, 'clean-entrypoint-1.53.10-pr89.js'), 'utf8');
-    assert.strictEqual(pkg.buildVersion, 'CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS', 'package build marker advances to PR173');
-    assert.strictEqual(pkg.sourceMarker, 'adminkit-pr191-push-admin-invite-title-commands', 'package source marker advances to PR173');
-    assert(entrypoint.includes("const RUNTIME='CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS'"), 'active entrypoint runtime marker is PR173');
-    assert(entrypoint.includes("const SOURCE='adminkit-pr191-push-admin-invite-title-commands'"), 'active entrypoint source marker is PR173');
+    assert.strictEqual(pkg.buildVersion, pkg.version, 'package build marker matches active package version');
+    assert(/^adminkit-pr\d+-/.test(pkg.sourceMarker), 'package source marker uses current PR marker');
+    assert(entrypoint.includes(`const RUNTIME='${pkg.version}'`), 'active entrypoint runtime marker matches package');
+    assert(entrypoint.includes(`const SOURCE='${pkg.sourceMarker}'`), 'active entrypoint source marker matches package');
 
     console.log('public push entrypoint pr169 ok');
   } finally {
