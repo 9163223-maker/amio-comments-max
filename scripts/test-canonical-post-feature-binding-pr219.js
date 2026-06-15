@@ -38,15 +38,14 @@ async function harness({ messageId = 'msg-pr219', otherTenant = false, dbPostId 
   const repeat = await h.buttons.screenForPayload(h.menu, { action: 'button_admin_save', flowId }, h.ctx);
   assert(/уже сохранена|предпросмотр закрыт/i.test(textOf(repeat)), 'repeated save is idempotent/stale-safe');
 
-  const missing = await harness({ messageId: '', dbPostId: '' });
-  delete missing.posts[missing.commentKey].postId;
+  const missing = await harness({ messageId: '' });
   await missing.buttons.screenForPayload(missing.menu, { action: 'button_admin_select_post', channelId: missing.channelId, postId: missing.postId, commentKey: missing.commentKey }, missing.ctx);
   await missing.buttons.screenForPayload(missing.menu, { action: 'button_admin_start_add', cardId: missing.state[missing.userId].buttonsCurrentCard.cardId }, missing.ctx);
   await missing.buttons.handleTextInput(missing.menu, { ...missing.ctx, text: 'Кнопка2' });
   const mp = await missing.buttons.handleTextInput(missing.menu, { ...missing.ctx, text: 'https://sports.ru' });
   const ms = await missing.buttons.screenForPayload(missing.menu, { action: 'button_admin_save', flowId: mp.attachments[0][0].payload.flowId }, missing.ctx);
-  assert(/message_id_missing/.test(textOf(ms)), 'missing patch id is visible and actionable');
-  assert.strictEqual(missing.patchCalls.length, 0, 'missing id does not call patcher');
+  assert(/message_id_missing/.test(textOf(ms)), 'non-message postId without explicit messageId is not blindly used for patching');
+  assert.strictEqual(missing.patchCalls.length, 0, 'non-message postId does not call patcher without explicit messageId');
 
   const iso = await harness({ otherTenant: true });
   const denied = await iso.buttons.screenForPayload(iso.menu, { action: 'button_admin_show_current', channelId: iso.channelId, postId: iso.postId, commentKey: iso.commentKey }, iso.ctx);

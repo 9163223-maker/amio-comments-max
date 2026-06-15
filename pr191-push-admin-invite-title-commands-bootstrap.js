@@ -1,7 +1,7 @@
 'use strict';
 
-const RUNTIME = 'CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS';
-const SOURCE = 'adminkit-pr191-push-admin-invite-title-commands';
+const RUNTIME = 'CC8.3.58-PR219-CANONICAL-POST-FEATURE-BINDING';
+const SOURCE = 'adminkit-pr219-canonical-post-feature-binding';
 
 process.env.ADMINKIT_PR191_PUSH_ADMIN_INVITE_TITLE_COMMANDS = '1';
 

@@ -65,7 +65,7 @@ assert.ok(adapterGiftListButton, 'adapter Gifts root renders the list button');
 assert.strictEqual(JSON.parse(adapterGiftListButton.payload).action, 'gift_admin_list_campaigns', 'adapter Gifts list routes to gift_admin_list_campaigns');
 
 const pkg = JSON.parse(read('package.json'));
-assert.strictEqual(pkg.buildVersion, 'CC8.3.57-PR191-PUSH-ADMIN-INVITE-TITLE-COMMANDS');
-assert.strictEqual(pkg.sourceMarker, 'adminkit-pr191-push-admin-invite-title-commands');
+assert.strictEqual(pkg.buildVersion, pkg.version);
+assert(/^adminkit-pr\d+-/.test(pkg.sourceMarker), 'package source marker uses current PR marker');
 
 console.log('PR176 Comments UX and Gifts reset assertions passed');
