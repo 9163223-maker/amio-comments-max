@@ -3,8 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const RUNTIME = 'RUNTIME-CONTRACT-PR196';
-const SOURCE = 'adminkit-runtime-contract-pr196';
+const RUNTIME = 'RUNTIME-CONTRACT-MAIN-STRICT-IDENTITY';
+const SOURCE = 'adminkit-main-strict-runtime-identity-gate';
 const EXPECTED_ENTRYPOINT = 'clean-entrypoint-1.53.10-pr89.js';
 
 function clean(value, limit = 180) {
@@ -36,12 +36,32 @@ function functionAvailable(relPath = '', fn = '') {
     return false;
   }
 }
+function runtimeIdentityFromBuildInfo(cleanEntrypoint = '') {
+  let buildInfo = {};
+  try { buildInfo = require('../buildInfo').getBuildInfo(); } catch {}
+  const expectedRuntimeVersion = clean(buildInfo.expectedRuntimeVersion || buildInfo.displayVersion || buildInfo.runtimeVersion, 120);
+  const expectedBuildVersion = clean(buildInfo.buildVersion || expectedRuntimeVersion, 120);
+  const expectedSourceMarker = clean(buildInfo.sourceMarker, 160);
+  const entrypointRuntimeMatches = expectedRuntimeVersion ? has(cleanEntrypoint, `const RUNTIME='${expectedRuntimeVersion}'`) || has(cleanEntrypoint, `const RUNTIME = '${expectedRuntimeVersion}'`) : false;
+  const entrypointSourceMatches = expectedSourceMarker ? has(cleanEntrypoint, `const SOURCE='${expectedSourceMarker}'`) || has(cleanEntrypoint, `const SOURCE = '${expectedSourceMarker}'`) : false;
+  const ok = Boolean(expectedRuntimeVersion && expectedBuildVersion && expectedSourceMarker && entrypointRuntimeMatches && entrypointSourceMatches);
+  return {
+    ok,
+    expectedRuntimeVersion,
+    expectedBuildVersion,
+    expectedSourceMarker,
+    entrypointRuntimeMatches,
+    entrypointSourceMatches,
+    activeEntrypoint: EXPECTED_ENTRYPOINT
+  };
+}
 function buildContract() {
   const v3Core = read('v3-menu-core-1539.js');
   const adapter = read('features/menu-v3/adapter.js');
   const buttons = read('buttons-flow-cc8-clean.js');
   const cc5 = read('cc5-db-core.js');
   const cleanEntrypoint = read(EXPECTED_ENTRYPOINT);
+  const runtimeIdentity = runtimeIdentityFromBuildInfo(cleanEntrypoint);
 
   const entrypointFilePresent = Boolean(cleanEntrypoint);
   const startupLogBootstrapRequired = has(cleanEntrypoint, "require('./pr180-startup-log-bootstrap')");
@@ -73,7 +93,8 @@ function buildContract() {
   const akPostsHasAdminCommentUnique = has(cc5, /unique\s*\(admin_id,\s*comment_key\)/i)
     || has(cc5, /UNIQUE\s*\(admin_id,\s*comment_key\)/i);
 
-  const contractLiveOk = startupPathOk
+  const contractLiveOk = runtimeIdentity.ok
+    && startupPathOk
     && channelsListUsesSharedPicker
     && buttonsChannelPickerUsesSharedPicker
     && buttonsPostPickerDbBacked
@@ -87,6 +108,7 @@ function buildContract() {
     generatedAt: new Date().toISOString(),
     safe: true,
     contractLiveOk,
+    runtimeIdentity,
     startupPath: {
       entrypointExpected: EXPECTED_ENTRYPOINT,
       activeEntrypoint: EXPECTED_ENTRYPOINT,
@@ -136,6 +158,9 @@ function buildContract() {
       ok: cc5GetChannelsAvailable && cc5GetPostsAvailable && akPostsHasAdminChannelPostKey
     },
     mismatches: [
+      runtimeIdentity.ok ? '' : 'runtime_identity_not_current_build',
+      runtimeIdentity.entrypointRuntimeMatches ? '' : 'entrypoint_runtime_marker_mismatch',
+      runtimeIdentity.entrypointSourceMatches ? '' : 'entrypoint_source_marker_mismatch',
       startupPathOk ? '' : 'startup_path_not_confirmed',
       channelsListUsesSharedPicker ? '' : 'channels_list_not_shared_picker_backed',
       buttonsChannelPickerUsesSharedPicker ? '' : 'buttons_channel_picker_not_shared_picker_backed',
@@ -147,4 +172,4 @@ function buildContract() {
   };
 }
 
-module.exports = { RUNTIME, SOURCE, EXPECTED_ENTRYPOINT, buildContract };
+module.exports = { RUNTIME, SOURCE, EXPECTED_ENTRYPOINT, buildContract, runtimeIdentityFromBuildInfo };
