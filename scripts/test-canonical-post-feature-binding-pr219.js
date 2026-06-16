@@ -24,11 +24,11 @@ async function harness({ messageId = 'msg-pr219', otherTenant = false, dbPostId 
   const h = await harness();
   const selected = await h.buttons.screenForPayload(h.menu, { action: 'button_admin_select_post', channelId: h.channelId, postId: h.postId, commentKey: h.commentKey }, h.ctx);
   assert(/Найдены текущие кнопки: 1/.test(textOf(selected)), 'select imports visible customKeyboard');
-  assert(/Post selected: “Тест стикеры 2”/.test(textOf(selected)) && /Current buttons \(1\):/.test(textOf(selected)) && /1\. Кнопка/.test(textOf(selected)), 'select immediately renders existing button state');
+  assert(/Пост выбран: «Тест стикеры 2»/.test(textOf(selected)) && /Текущие кнопки \(1\):/.test(textOf(selected)) && /1\. Кнопка/.test(textOf(selected)), 'select immediately renders existing button state');
   const current = await h.buttons.screenForPayload(h.menu, { action: 'button_admin_show_current' }, h.ctx);
   assert(/1\. Кнопка/.test(textOf(current)), 'current shows existing button from canonical post');
   const addScreen = await h.buttons.screenForPayload(h.menu, { action: 'button_admin_start_add', cardId: h.state[h.userId].buttonsCurrentCard.cardId }, h.ctx);
-  assert(/This post already has 1 button/.test(textOf(addScreen)) && /The new button will be added/.test(textOf(addScreen)) && /1\. Кнопка/.test(textOf(addScreen)), 'add screen summarizes existing buttons before text entry');
+  assert(/У этого поста уже есть 1 кнопка/.test(textOf(addScreen)) && /Новая кнопка будет добавлена к существующим/.test(textOf(addScreen)) && /Введите текст новой кнопки/.test(textOf(addScreen)) && /1\. Кнопка/.test(textOf(addScreen)), 'add screen summarizes existing buttons before text entry');
   await h.buttons.handleTextInput(h.menu, { ...h.ctx, text: 'Кнопка2' });
   const preview = await h.buttons.handleTextInput(h.menu, { ...h.ctx, text: 'https://sports.ru' });
   const flowId = preview.attachments[0][0].payload.flowId;
