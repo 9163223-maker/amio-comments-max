@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.58-PR219-CANONICAL-POST-FEATURE-BINDING"
+    "activeRuntimeVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE"
   },
   "persistentStore": {
     "enabled": true,

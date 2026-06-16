@@ -10,7 +10,7 @@ const channelTitles = require('./human-channel-title-helper');
 const pickerCore = require('./channel-post-picker-core');
 const postFeatureBinding = require('./post-feature-binding');
 
-const RUNTIME = 'CC8.3.58-PR219-CANONICAL-POST-FEATURE-BINDING';
+const RUNTIME = 'CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE';
 const MAX_POSTS = 8;
 const CLEAN_BUTTON_ACTIONS = [
   'admin_section_buttons', 'button_admin_recent_posts', 'button_admin_channel_pick', 'button_admin_select_post', 'button_admin_show_current',

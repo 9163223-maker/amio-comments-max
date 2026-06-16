@@ -3,8 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const RUNTIME = 'RUNTIME-CONTRACT-MAIN-STRICT-IDENTITY';
-const SOURCE = 'adminkit-main-strict-runtime-identity-gate';
+const RUNTIME = 'RUNTIME-CONTRACT-PR196';
+const SOURCE = 'adminkit-pr220-buttons-selected-post-state';
 const EXPECTED_ENTRYPOINT = 'clean-entrypoint-1.53.10-pr89.js';
 
 function clean(value, limit = 180) {
