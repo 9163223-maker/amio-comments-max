@@ -1,9 +1,9 @@
 {
-  "runtimeVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
-  "buildVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
-  "displayVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
-  "packageVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
-  "sourceMarker": "adminkit-pr220-buttons-selected-post-state",
+  "runtimeVersion": "CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS",
+  "buildVersion": "CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS",
+  "displayVersion": "CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS",
+  "packageVersion": "CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS",
+  "sourceMarker": "adminkit-pr221-buttons-product-perfect-actions",
   "buildGeneratedAt": "2026-06-15T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE"
+    "activeRuntimeVersion": "CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS"
   },
   "persistentStore": {
     "enabled": true,
@@ -98,5 +98,6 @@
   "pr165LiveChatPushRuntime": "clean-bot-live-chat-push-pr165.js",
   "pr187PushProductPerfect": true,
   "pr188PushMultiChatHandoff": true,
-  "pr219CanonicalPostFeatureBinding": true
+  "pr219CanonicalPostFeatureBinding": true,
+  "pr221ButtonsProductPerfectActions": true
 }

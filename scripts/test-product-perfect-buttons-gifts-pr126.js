@@ -134,7 +134,7 @@ async function testButtons() {
   assert.ok(!/Шаг 1\/3/i.test(visible(home)), 'Buttons home with no target does not silently start wizard');
   assertNoUnsafeUi(home, 'buttons empty home');
 
-  const addPicker = await call(buttons, payloadFor(home, /Добавить кнопку/));
+  const addPicker = await call(buttons, payloadFor(home, /Выбрать пост|Добавить кнопку/));
   assert.strictEqual(addPicker.id, 'buttons_clean_channel_picker', 'Buttons add opens channel picker for multi-channel client');
   assertAllTenantAChannels(addPicker, 'buttons channel picker');
 
@@ -159,11 +159,11 @@ async function testButtons() {
   assertNoUnsafeUi(card, 'buttons selected card');
 
   const current = await call(buttons, { action: 'button_admin_show_current' });
-  assert.strictEqual(current.id, 'buttons_clean_current', 'Buttons current card opens for selected post');
+  assert.strictEqual(current.id, 'buttons_clean_selected_post', 'Buttons current callback redirects to selected post');
   assert.ok(/Канал: Отзывы|Пост: Отзывы клиентов/.test(visible(current)), 'Buttons current card shows selected channel/post');
   assert.ok(!/Удалить последнюю кнопку/.test(visible(current)), 'Buttons delete hidden when selected post has no buttons');
 
-  const step1 = await call(buttons, payloadFor(card, /Добавить кнопку к этому посту/));
+  const step1 = await call(buttons, payloadFor(current, /Добавить кнопку/));
   assert.strictEqual(step1.id, 'buttons_clean_add_label', 'Buttons add starts at text step after explicit selected context');
   const step2 = await buttons.handleTextInput(menu, { userId: TENANT_A_USER, text: 'Записаться', config: { botToken: '' } });
   assert.strictEqual(step2.id, 'buttons_clean_add_url', 'Buttons add flow advances text → URL');
@@ -176,10 +176,10 @@ async function testButtons() {
   assert.ok(!store.store.growth.byChannel[CHANNEL_B.id]?.buttonSets?.[POST_B], 'Buttons save does not affect Tenant B post');
 
   const withButtonCard = await call(buttons, { action: 'button_admin_show_current' });
-  assert.ok(/Удалить последнюю кнопку/.test(visible(withButtonCard)), 'Buttons delete appears only from current-buttons card with buttons');
-  const rawDelete = await call(buttons, { action: 'button_admin_delete' });
-  assert.ok(/Удаление доступно только из карточки/i.test(visible(rawDelete)), 'Buttons raw delete remains blocked');
-  assert.strictEqual(store.store.growth.byChannel[CHANNELS_A[1].id].buttonSets[POST_A2].length, 1, 'Buttons raw delete does not mutate saved buttons');
+  assert.ok(/Удалить кнопку/.test(visible(withButtonCard)), 'Buttons delete appears on selected post with buttons');
+  const confirmDelete = await call(buttons, payloadFor(withButtonCard, /Удалить кнопку/));
+  assert.ok(/Подтвердите удаление/.test(visible(confirmDelete)), 'Buttons delete requires confirmation');
+  assert.strictEqual(store.store.growth.byChannel[CHANNELS_A[1].id].buttonSets[POST_A2].length, 1, 'Buttons delete confirmation does not mutate saved buttons');
 }
 
 async function testGifts() {
