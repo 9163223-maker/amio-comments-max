@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.59-MAIN-STRICT-RUNTIME-IDENTITY-GATE",
+  "version": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
@@ -18,9 +18,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.59-MAIN-STRICT-RUNTIME-IDENTITY-GATE",
-  "displayVersion": "CC8.3.59-MAIN-STRICT-RUNTIME-IDENTITY-GATE",
-  "sourceMarker": "adminkit-main-strict-runtime-identity-gate",
+  "buildVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
+  "displayVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
+  "sourceMarker": "adminkit-pr220-buttons-selected-post-state",
   "gitCommit": "",
   "pr165RuntimeWired": true,
   "pr178PushPairingBinding": true,

@@ -4,11 +4,11 @@ process.env.ADMINKIT_TEST_MODE = '1';
 process.env.ADMINKIT_DISABLE_AUTOSTART = '1';
 function clear(paths) { paths.forEach((p) => { delete require.cache[p]; }); }
 function textOf(screen) { return String(screen && screen.text || ''); }
-async function harness({ messageId = 'msg-pr219', otherTenant = false, dbPostId = 'post-pr219' } = {}) {
+async function harness({ messageId = 'msg-pr219', otherTenant = false, dbPostId = 'post-pr219', withButton = true } = {}) {
   const paths = ['../store','../services/postPatcher','../services/clientAccessService','../cc5-db-core','../services/maxApi','../buttons-flow-cc8-clean','../post-feature-binding'].map(require.resolve); clear(paths);
   const userId = 'admin-pr219'; const channelId = 'channel-pr219'; const postId = dbPostId; const commentKey = `${channelId}:${postId}`;
   const state = {}; const patchCalls = [];
-  const posts = { [commentKey]: { tenantKey: `tenant_${userId}`, ownerUserId: userId, channelId, postId, messageId, commentKey, title: 'Тест стикеры 2', customKeyboard: { enabled: true, rows: [{ buttons: [{ text: 'Кнопка', type: 'link', url: 'https://old.example' }] }] } } };
+  const posts = { [commentKey]: { tenantKey: `tenant_${userId}`, ownerUserId: userId, channelId, postId, messageId, commentKey, title: 'Тест стикеры 2', customKeyboard: withButton ? { enabled: true, rows: [{ buttons: [{ text: 'Кнопка', type: 'link', url: 'https://old.example' }] }] } : { enabled: false, rows: [] } } };
   const store = { store: { setupState: state, posts, growth: { byChannel: {} }, channels: {} }, getSetupState: (u) => state[u] || null, setSetupState: (u,p) => (state[u] = { ...(state[u] || {}), ...(p || {}) }), savePost: (k,p) => (posts[k] = { ...(posts[k] || {}), ...(p || {}) }), getPost: (k) => posts[k] || null, saveStore() {}, saveChannel() {} };
   require.cache[require.resolve('../store')] = { loaded: true, exports: store };
   require.cache[require.resolve('../services/postPatcher')] = { loaded: true, exports: { patchStoredPost: async (opts) => { patchCalls.push(opts); return { ok: true }; } } };
@@ -24,9 +24,11 @@ async function harness({ messageId = 'msg-pr219', otherTenant = false, dbPostId 
   const h = await harness();
   const selected = await h.buttons.screenForPayload(h.menu, { action: 'button_admin_select_post', channelId: h.channelId, postId: h.postId, commentKey: h.commentKey }, h.ctx);
   assert(/Найдены текущие кнопки: 1/.test(textOf(selected)), 'select imports visible customKeyboard');
+  assert(/Пост выбран: «Тест стикеры 2»/.test(textOf(selected)) && /Текущие кнопки \(1\):/.test(textOf(selected)) && /1\. Кнопка/.test(textOf(selected)), 'select immediately renders existing button state');
   const current = await h.buttons.screenForPayload(h.menu, { action: 'button_admin_show_current' }, h.ctx);
   assert(/1\. Кнопка/.test(textOf(current)), 'current shows existing button from canonical post');
-  await h.buttons.screenForPayload(h.menu, { action: 'button_admin_start_add', cardId: h.state[h.userId].buttonsCurrentCard.cardId }, h.ctx);
+  const addScreen = await h.buttons.screenForPayload(h.menu, { action: 'button_admin_start_add', cardId: h.state[h.userId].buttonsCurrentCard.cardId }, h.ctx);
+  assert(/У этого поста уже есть 1 кнопка/.test(textOf(addScreen)) && /Новая кнопка будет добавлена к существующим/.test(textOf(addScreen)) && /Введите текст новой кнопки/.test(textOf(addScreen)) && /1\. Кнопка/.test(textOf(addScreen)), 'add screen summarizes existing buttons before text entry');
   await h.buttons.handleTextInput(h.menu, { ...h.ctx, text: 'Кнопка2' });
   const preview = await h.buttons.handleTextInput(h.menu, { ...h.ctx, text: 'https://sports.ru' });
   const flowId = preview.attachments[0][0].payload.flowId;
@@ -46,6 +48,11 @@ async function harness({ messageId = 'msg-pr219', otherTenant = false, dbPostId 
   const ms = await missing.buttons.screenForPayload(missing.menu, { action: 'button_admin_save', flowId: mp.attachments[0][0].payload.flowId }, missing.ctx);
   assert(/message_id_missing/.test(textOf(ms)), 'non-message postId without explicit messageId is not blindly used for patching');
   assert.strictEqual(missing.patchCalls.length, 0, 'non-message postId does not call patcher without explicit messageId');
+
+  const empty = await harness({ withButton: false, dbPostId: 'post-empty-pr220' });
+  const emptySelected = await empty.buttons.screenForPayload(empty.menu, { action: 'button_admin_select_post', channelId: empty.channelId, postId: empty.postId, commentKey: empty.commentKey }, empty.ctx);
+  assert(/Кнопок пока нет|пока нет кнопок/.test(textOf(emptySelected)), 'empty post shows clear empty state');
+  assert(!/1\. Кнопка/.test(textOf(emptySelected)), 'empty post does not show stale button from another post');
 
   const iso = await harness({ otherTenant: true });
   const denied = await iso.buttons.screenForPayload(iso.menu, { action: 'button_admin_show_current', channelId: iso.channelId, postId: iso.postId, commentKey: iso.commentKey }, iso.ctx);

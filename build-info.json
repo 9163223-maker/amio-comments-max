@@ -1,9 +1,9 @@
 {
-  "runtimeVersion": "CC8.3.58-PR219-CANONICAL-POST-FEATURE-BINDING",
-  "buildVersion": "CC8.3.58-PR219-CANONICAL-POST-FEATURE-BINDING",
-  "displayVersion": "CC8.3.58-PR219-CANONICAL-POST-FEATURE-BINDING",
-  "packageVersion": "CC8.3.58-PR219-CANONICAL-POST-FEATURE-BINDING",
-  "sourceMarker": "adminkit-pr219-canonical-post-feature-binding",
+  "runtimeVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
+  "buildVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
+  "displayVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
+  "packageVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
+  "sourceMarker": "adminkit-pr220-buttons-selected-post-state",
   "buildGeneratedAt": "2026-06-15T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.58-PR219-CANONICAL-POST-FEATURE-BINDING"
+    "activeRuntimeVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE"
   },
   "persistentStore": {
     "enabled": true,

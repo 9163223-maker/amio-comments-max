@@ -1,7 +1,7 @@
 'use strict';
 
-const RUNTIME = 'CC8.3.59-MAIN-STRICT-RUNTIME-IDENTITY-GATE';
-const SOURCE = 'adminkit-main-strict-runtime-identity-gate';
+const RUNTIME = 'CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE';
+const SOURCE = 'adminkit-pr220-buttons-selected-post-state';
 
 process.env.ADMINKIT_PR191_PUSH_ADMIN_INVITE_TITLE_COMMANDS = '1';
 
