@@ -1,6 +1,6 @@
 'use strict';require('./pr178-push-pairing-bootstrap');require('./pr180-startup-log-bootstrap');require('./pr189-push-fresh-pwa-bootstrap');require('./pr191-push-admin-invite-title-commands-bootstrap');
-const RUNTIME='CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE';
-const SOURCE='adminkit-pr220-buttons-selected-post-state';
+const RUNTIME='CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS';
+const SOURCE='adminkit-pr221-buttons-product-perfect-actions';
 const BASE='https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run';
 let persistentStoreState=null;
 let debugStoreSanitizerState=null;

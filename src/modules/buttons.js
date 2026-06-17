@@ -6,7 +6,7 @@ const postAddonManager = require('../core/postAddonManager');
 const flowEngine = require('../core/flowEngine');
 const flowScreen = require('../core/flowScreen');
 
-const RUNTIME = 'ADMINKIT-CORE-BUTTONS-SECTION-1.40.2-CHANNEL-POST-MANAGED';
+const RUNTIME = 'CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS';
 
 function clean(value = '') { return String(value ?? '').replace(/\s+/g, ' ').trim(); }
 function cut(value = '', max = 58) { const s = clean(value); return s.length > max ? `${s.slice(0, Math.max(1, max - 1))}…` : s; }
@@ -104,19 +104,19 @@ module.exports = {
     const summary = result.summary;
     const max = Number(summary.limits?.buttonsMaxPerPost || 1);
     const count = summary.buttons.length;
-    const body = [`Канал: ${channelLabel(scoped)}`, `Пост: ${postLabel(scoped)}`, `Кнопки: ${count} из ${max}`];
+    const body = [`Канал: ${channelLabel(scoped)}`, `Пост: ${postLabel(scoped)}`];
     if (!result.ok) body.push('', 'Не удалось прочитать кнопки этого поста.');
-    else if (!count) body.push('', 'У этого поста пока нет кнопок. Добавьте первую кнопку: название + ссылка.');
-    else summary.buttons.forEach((button, index) => { body.push('', `${index + 1}. ${button.title || button.text || 'Кнопка'}`, `   Ссылка: ${button.url || 'не указана'}`); });
+    else if (!count) body.push('', 'Текущие кнопки: пока нет кнопок');
+    else { body.push('', `Текущие кнопки (${count}):`); summary.buttons.forEach((button, index) => { body.push('', `${index + 1}. ${button.title || button.text || 'Кнопка'}`, `   Ссылка: ${button.url || 'не указана'}`); }); }
     const buttons = [];
-    if (result.ok && count < max) buttons.push({ text: '➕ Добавить кнопку', route: 'buttons.add', data: { channelId: scoped.channelId, channelTitle: scoped.channelTitle, postId: summary.postKey, postTitle: scoped.postTitle } });
+    if (result.ok && count < max) buttons.push({ text: count ? '➕ Добавить ещё кнопку' : '➕ Добавить кнопку', route: 'buttons.add', data: { channelId: scoped.channelId, channelTitle: scoped.channelTitle, postId: summary.postKey, postTitle: scoped.postTitle } });
     if (result.ok) summary.buttons.forEach((button, index) => {
       const suffix = summary.buttons.length > 1 ? ` ${index + 1}` : '';
       const data = { channelId: scoped.channelId, channelTitle: scoped.channelTitle, postId: summary.postKey, postTitle: scoped.postTitle, buttonId: String(button.id) };
-      buttons.push({ text: `📝 Редактировать${suffix}`, route: 'buttons.edit', data });
-      buttons.push({ text: `🗑 Удалить${suffix}`, route: 'buttons.delete_confirm', data });
+      buttons.push({ text: summary.buttons.length > 1 ? `✏️ Изменить кнопку${suffix}` : '✏️ Изменить кнопку', route: 'buttons.edit', data });
+      buttons.push({ text: summary.buttons.length > 1 ? `🗑 Удалить кнопку${suffix}` : '🗑 Удалить кнопку', route: 'buttons.delete_confirm', data });
     });
-    buttons.push({ text: '↩️ К постам канала', route: 'buttons.select_channel', data: { channelId: scoped.channelId, channelTitle: scoped.channelTitle } });
+    buttons.push({ text: '📌 Выбрать другой пост', route: 'buttons.select_channel', data: { channelId: scoped.channelId, channelTitle: scoped.channelTitle } });
     return menuRenderer.renderScreen({ title: '🔘 Кнопки поста', body, buttons, homeRoute: 'main.home' });
   },
 

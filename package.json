@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
+  "version": "CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
@@ -18,9 +18,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
-  "displayVersion": "CC8.3.60-PR220-BUTTONS-SELECTED-POST-STATE",
-  "sourceMarker": "adminkit-pr220-buttons-selected-post-state",
+  "buildVersion": "CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS",
+  "displayVersion": "CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS",
+  "sourceMarker": "adminkit-pr221-buttons-product-perfect-actions",
   "gitCommit": "",
   "pr165RuntimeWired": true,
   "pr178PushPairingBinding": true,
@@ -31,5 +31,6 @@
   "pr191PushAdminInviteTitleCommands": true,
   "pr202ButtonsRealShowPathInplace": true,
   "pr219CanonicalPostFeatureBinding": true,
-  "mainStrictRuntimeIdentityGate": true
+  "mainStrictRuntimeIdentityGate": true,
+  "pr221ButtonsProductPerfectActions": true
 }
