@@ -93,6 +93,8 @@ function buildContract() {
     statsRealEventProducers: has(statsProducers, 'recordAudienceUpdate') && has(botSource, 'recordCtaClick') && has(botSource, 'recordGiftClaimed') && has(commentService, 'recordCommentCreated') && has(statsTests, 'STAT-088'),
     statsOldDuplicateActionsRerouted: has(statsFlow, "action === 'admin_stats_buttons_cache') return pr226Funnel") && has(statsTests, 'STAT-094'),
     statsNoServiceOnlyGreenTests: has(statsTests, 'findPayload') && has(statsTests, 'handleTextInput') && has(redirectRoute, 'recordStatsTrackingClick'),
+    statsSanitizedExportRecursive: has(statsService, 'function sanitizeValue') && has(statsTests, 'parsedExport.growth.counts.joined'),
+    statsMessageStatSnapshotScoped: has(statsService, '!clean(c.postId)') && has(statsTests, 'otherProbe'),
     runtimeIdentity,
     startupPath: { entrypointExpected: EXPECTED_ENTRYPOINT, activeEntrypoint: EXPECTED_ENTRYPOINT, startupLogBootstrapRequired: has(cleanEntrypoint, "require('./pr180-startup-log-bootstrap')"), expressRoutesInstalledByEntrypoint: has(cleanEntrypoint, 'installExpressRoutes'), cleanBotInstalledByEntrypoint: has(cleanEntrypoint, 'installCleanBot'), ok: startupPathOk },
     routes: {

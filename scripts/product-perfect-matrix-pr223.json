@@ -146,6 +146,9 @@
     "messageStatRealProbeOrUnavailable": true,
     "realEventProducers": true,
     "oldDuplicateActionsRerouted": true,
-    "serviceShortcutTestsRejected": true
+    "serviceShortcutTestsRejected": true,
+    "sanitizedExportRecursive": true,
+    "messageStatSnapshotScoped": true,
+    "producerPathProofs": true
   }
 }

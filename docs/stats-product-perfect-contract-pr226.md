@@ -101,3 +101,9 @@ The Sources screen contains “Расходы вручную”. The flow stores
 ## Debug log policy
 
 `/debug/admin-action-log-live` remains debug-only and rolling. Statistics screens and exports read from the persistent `stats_events` dataset, never from the debug log.
+
+## Merge-readiness fixes after review
+
+- Export sanitization is recursive. Nested `growth`, `sources`, `funnel`, `content`, `postStats`, and `dataQuality` objects remain structured JSON; secret-like keys (`token`, `authorization`, `cookie`, `secret`, `stack`) are removed at every depth.
+- Message.stat snapshots are scoped. A snapshot is not applied to the generic Content screen unless a selected `postId`, `commentKey`, or `messageId` exists; matching also respects tenant/owner/channel/post/comment context.
+- Producer proof covers real paths: `/r/:slug` redirect, audience update adapters, clean button callbacks, gift claim callbacks, and real comment creation through `commentService.createComment()`.
