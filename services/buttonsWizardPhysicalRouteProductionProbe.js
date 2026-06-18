@@ -132,7 +132,7 @@ async function runProductionRouteProbe() {
       const repeatSaveNewSends = sendCalls.length - beforeRepeatStaleSendCount;
       const repeatStaleEdits = editCalls.slice(beforeRepeatStaleEditCount);
       const repeatStaleVisibleEditOk = repeatStaleEdits.some((call) => (call.messageId === (previewSend?.mid || previewSend?.messageId)) && /предпросмотр устарел/i.test(String(call.text || '')));
-      const repeatSaveIdempotentOk = repeatStaleResult && repeatStaleResult.screenId === 'buttons_clean_home' && !repeatStaleVisibleEditOk && repeatSaveNewSends >= 1;
+      const repeatSaveIdempotentOk = repeatStaleResult && ['buttons_clean_home', 'buttons_clean_selected_post'].includes(repeatStaleResult.screenId) && !repeatStaleVisibleEditOk && repeatSaveNewSends >= 1;
       const traceEvents = timing && typeof timing.list === 'function' ? timing.list(100) : [];
       const traceNames = urlTraceNames.length ? urlTraceNames : traceEvents.map((entry) => entry.name).filter(Boolean);
       const combinedTraceEvents = [...urlTraceEvents, ...saveTraceEvents, ...traceEvents];
@@ -201,7 +201,7 @@ async function runProductionRouteProbe() {
       const saveResult = savePayload.action ? await drive(bot, callbackUpdateWithPayload(savePayload, previewSend?.mid || previewSend?.messageId || 'preview-msg', 'save-fallback')) : null;
       const fallbackEdit = editCalls.slice(beforeSaveEditCount).find((call) => call.messageId === (previewSend?.mid || previewSend?.messageId) && /Кнопка сохранена/i.test(String(call.text || '')));
       const freshResultSends = sendCalls.slice(beforeSaveSendCount).filter((call) => /Кнопка сохранена|пост не обновился/i.test(String(call.text || '')));
-      return { ok: Boolean(saveResult && saveResult.screenId === 'buttons_clean_home' && fallbackEdit && Array.isArray(fallbackEdit.attachments) && fallbackEdit.attachments.length > 0 && freshResultSends.length === 0), screenId: saveResult && saveResult.screenId || '', fallbackEditText: String(fallbackEdit && fallbackEdit.text || ''), freshResultSendCount: freshResultSends.length };
+      return { ok: Boolean(saveResult && ['buttons_clean_home', 'buttons_clean_selected_post'].includes(saveResult.screenId) && fallbackEdit && Array.isArray(fallbackEdit.attachments) && fallbackEdit.attachments.length > 0 && freshResultSends.length === 0), screenId: saveResult && saveResult.screenId || '', fallbackEditText: String(fallbackEdit && fallbackEdit.text || ''), freshResultSendCount: freshResultSends.length };
     }
 
     const saveInFlight = await runSaveInFlightVariant();

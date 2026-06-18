@@ -68,6 +68,7 @@ jobs:
 
       - name: Run AdminKIT regression tests
         run: |
+          set -euxo pipefail
           node scripts/test-runtime-contract-log-pr196.js
           node scripts/test-startup-log-live-version-snapshot-pr200.js
           node scripts/test-final-runtime-readiness-gate-pr205.js
