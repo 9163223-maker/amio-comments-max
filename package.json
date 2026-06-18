@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.63-PR223-PRODUCT-PERFECT-MATRIX-AUDITOR",
+  "version": "CC8.3.64-PR224-BUTTONS-TRANSITION-CONTRACT-TRACE",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
@@ -18,9 +18,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.63-PR223-PRODUCT-PERFECT-MATRIX-AUDITOR",
-  "displayVersion": "CC8.3.63-PR223-PRODUCT-PERFECT-MATRIX-AUDITOR",
-  "sourceMarker": "adminkit-pr223-product-perfect-matrix-auditor",
+  "buildVersion": "CC8.3.64-PR224-BUTTONS-TRANSITION-CONTRACT-TRACE",
+  "displayVersion": "CC8.3.64-PR224-BUTTONS-TRANSITION-CONTRACT-TRACE",
+  "sourceMarker": "adminkit-pr224-buttons-transition-contract-trace",
   "gitCommit": "",
   "pr165RuntimeWired": true,
   "pr178PushPairingBinding": true,
