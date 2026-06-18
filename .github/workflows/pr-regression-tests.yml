@@ -64,6 +64,7 @@ jobs:
           node --check scripts/test-canonical-post-feature-binding-pr219.js
           node --check scripts/test-buttons-product-perfect-actions-pr221.js
           node --check scripts/test-buttons-flow-layer-audit-pr222.js
+          node --check scripts/test-product-perfect-matrix-pr223.js
 
       - name: Run AdminKIT regression tests
         run: |
@@ -76,6 +77,7 @@ jobs:
           node scripts/test-canonical-post-feature-binding-pr219.js
           node scripts/test-buttons-product-perfect-actions-pr221.js
           node scripts/test-buttons-flow-layer-audit-pr222.js
+          node scripts/test-product-perfect-matrix-pr223.js
           node scripts/test-push-join-chat-title-pr191.js
           node scripts/test-push-admin-invite-publish-pr191.js
           node scripts/test-max-command-sync-pr191.js

@@ -7,21 +7,23 @@ const { patchStoredPost } = require('./services/postPatcher');
 const channelTitles = require('./human-channel-title-helper');
 const pickerCore = require('./channel-post-picker-core');
 
-const RUNTIME = 'CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS';
+const RUNTIME = 'CC8.3.63-PR223-PRODUCT-PERFECT-MATRIX-AUDITOR';
 const EXTRA_ACTIONS = ['gift_admin_skip_message'];
 const CLEAN_GIFT_ACTIONS = Array.from(new Set([...(base.CLEAN_GIFT_ACTIONS || []), ...EXTRA_ACTIONS]));
 
-// PR222 gifts flow audit: selected post is stored in setup.giftFlow.targetPost or setup.giftsCurrentCard; gift state is loaded by the base gift flow and by findCampaignForTarget() from store.store.gifts.campaigns; campaign lookup is currently keyed by commentKey first, with channelId+postId/postIds as a fallback; post patching uses the stored target commentKey. This is safer than transient UI-only state, but not yet fully canonical Product Perfect because it does not use the buttons-style tenant/channel/post/commentKey context object everywhere. The visible-target guard limits wrong-post display across callbacks, but a future migration should move gifts to a single tenant/channel/post/commentKey loader before claiming full canonical alignment.
-const GIFTS_FLOW_AUDIT_PR222 = Object.freeze({
-  marker: 'CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS',
+// PR223 gifts flow audit: selected post is stored in setup.giftFlow.targetPost or setup.giftsCurrentCard; gift state is loaded by the base gift flow and by findCampaignForTarget() from store.store.gifts.campaigns; campaign lookup is currently keyed by commentKey first, with channelId+postId/postIds as a fallback; post patching uses the stored target commentKey. This is safer than transient UI-only state, but not yet fully canonical Product Perfect because it does not use the buttons-style tenant/channel/post/commentKey context object everywhere. The visible-target guard limits wrong-post display across callbacks, but a future migration should move gifts to a single tenant/channel/post/commentKey loader before claiming full canonical alignment.
+const GIFTS_FLOW_AUDIT_PR223 = Object.freeze({
+  marker: 'CC8.3.63-PR223-PRODUCT-PERFECT-MATRIX-AUDITOR',
   selectedPostStoredIn: ['setup.giftFlow.targetPost', 'setup.giftsCurrentCard'],
   giftStateLoadedFrom: ['base gifts flow state', 'store.store.gifts.campaigns via findCampaignForTarget'],
   keyedBy: 'commentKey primary; channelId+postId/postIds fallback; tenant context not yet centralized in this wrapper',
   wrongPostRisk: 'guarded by visible-target check and commentKey-first campaign lookup, but not fully canonical yet',
-  canLoseSelectedPostAcrossCallbacks: 'possible if base flow clears giftFlow/giftsCurrentCard; PR222 records this as remaining migration work',
+  canLoseSelectedPostAcrossCallbacks: 'possible if base flow clears giftFlow/giftsCurrentCard; PR223 records this as remaining migration work',
   fullyCanonical: false,
+  remainingTodo: ['Create resolveSelectedGiftsContext(ctx, payload).', 'Load current gift by tenant/channel/post/commentKey before rendering callbacks.', 'Make cancel/root reload canonical selected-post gift state.'],
   todo: 'Migrate gifts to a shared resolveSelectedGiftsContext/loadGiftFeatureState/mutateGiftFeatureState model.'
 });
+const GIFTS_FLOW_AUDIT_PR222 = GIFTS_FLOW_AUDIT_PR223;
 
 function clean(value) { return String(value || '').trim(); }
 function setup(userId = '') { try { return store.getSetupState(clean(userId)) || {}; } catch { return {}; } }
@@ -156,4 +158,4 @@ async function screenForPayload(menu, payload = {}, ctx = {}) { const action = c
 async function handleTextInput(menu, ctx = {}) { clearActiveGiftScreen(ctx.userId); return rewriteScreen(await base.handleTextInput(menu, ctx), ctx); }
 function isCleanGiftAction(action = '') { return CLEAN_GIFT_ACTIONS.includes(clean(action)) || (base.isCleanGiftAction ? base.isCleanGiftAction(action) : false); }
 
-module.exports = { ...base, RUNTIME, CLEAN_GIFT_ACTIONS, GIFTS_FLOW_AUDIT_PR222, isCleanGiftAction, screenForPayload, handleTextInput, homeScreen, patchGiftButton };
+module.exports = { ...base, RUNTIME, CLEAN_GIFT_ACTIONS, GIFTS_FLOW_AUDIT_PR223, GIFTS_FLOW_AUDIT_PR222, isCleanGiftAction, screenForPayload, handleTextInput, homeScreen, patchGiftButton };

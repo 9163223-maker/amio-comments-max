@@ -170,7 +170,7 @@ async function testButtons() {
   const preview = await buttons.handleTextInput(menu, { userId: TENANT_A_USER, text: 'https://example.com/signup', config: { botToken: '' } });
   assert.strictEqual(preview.id, 'buttons_clean_add_preview', 'Buttons add flow advances URL → preview');
   const saved = await call(buttons, payloadFor(preview, /Сохранить кнопку/));
-  assert.strictEqual(saved.id, 'buttons_clean_home', 'Buttons add flow saves from preview');
+  assert.strictEqual(saved.id, 'buttons_clean_selected_post', 'Buttons add flow saves from preview and returns canonical selected-post screen');
   assert.strictEqual(store.store.growth.byChannel[CHANNELS_A[1].id].buttonSets[POST_A2].length, 1, 'Buttons save affects selected Tenant A channel 2 post');
   assert.ok(!store.store.growth.byChannel[CHANNELS_A[0].id]?.buttonSets?.[POST_A1], 'Buttons save does not affect another Tenant A post');
   assert.ok(!store.store.growth.byChannel[CHANNEL_B.id]?.buttonSets?.[POST_B], 'Buttons save does not affect Tenant B post');

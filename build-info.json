@@ -1,9 +1,9 @@
 {
-  "runtimeVersion": "CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS",
-  "buildVersion": "CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS",
-  "displayVersion": "CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS",
-  "packageVersion": "CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS",
-  "sourceMarker": "adminkit-pr222-flow-layer-audit-buttons-gifts",
+  "runtimeVersion": "CC8.3.63-PR223-PRODUCT-PERFECT-MATRIX-AUDITOR",
+  "buildVersion": "CC8.3.63-PR223-PRODUCT-PERFECT-MATRIX-AUDITOR",
+  "displayVersion": "CC8.3.63-PR223-PRODUCT-PERFECT-MATRIX-AUDITOR",
+  "packageVersion": "CC8.3.63-PR223-PRODUCT-PERFECT-MATRIX-AUDITOR",
+  "sourceMarker": "adminkit-pr223-product-perfect-matrix-auditor",
   "buildGeneratedAt": "2026-06-15T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS"
+    "activeRuntimeVersion": "CC8.3.63-PR223-PRODUCT-PERFECT-MATRIX-AUDITOR"
   },
   "persistentStore": {
     "enabled": true,

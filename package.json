@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS",
+  "version": "CC8.3.63-PR223-PRODUCT-PERFECT-MATRIX-AUDITOR",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
@@ -18,9 +18,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS",
-  "displayVersion": "CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS",
-  "sourceMarker": "adminkit-pr222-flow-layer-audit-buttons-gifts",
+  "buildVersion": "CC8.3.63-PR223-PRODUCT-PERFECT-MATRIX-AUDITOR",
+  "displayVersion": "CC8.3.63-PR223-PRODUCT-PERFECT-MATRIX-AUDITOR",
+  "sourceMarker": "adminkit-pr223-product-perfect-matrix-auditor",
   "gitCommit": "",
   "pr165RuntimeWired": true,
   "pr178PushPairingBinding": true,
