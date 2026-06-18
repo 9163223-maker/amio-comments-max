@@ -7,9 +7,21 @@ const { patchStoredPost } = require('./services/postPatcher');
 const channelTitles = require('./human-channel-title-helper');
 const pickerCore = require('./channel-post-picker-core');
 
-const RUNTIME = 'CC8.3.7-GIFTS-SKIP-CLEAN-NO-IDS';
+const RUNTIME = 'CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS';
 const EXTRA_ACTIONS = ['gift_admin_skip_message'];
 const CLEAN_GIFT_ACTIONS = Array.from(new Set([...(base.CLEAN_GIFT_ACTIONS || []), ...EXTRA_ACTIONS]));
+
+// PR222 gifts flow audit: selected post is stored in setup.giftFlow.targetPost or setup.giftsCurrentCard; gift state is loaded by the base gift flow and by findCampaignForTarget() from store.store.gifts.campaigns; campaign lookup is currently keyed by commentKey first, with channelId+postId/postIds as a fallback; post patching uses the stored target commentKey. This is safer than transient UI-only state, but not yet fully canonical Product Perfect because it does not use the buttons-style tenant/channel/post/commentKey context object everywhere. The visible-target guard limits wrong-post display across callbacks, but a future migration should move gifts to a single tenant/channel/post/commentKey loader before claiming full canonical alignment.
+const GIFTS_FLOW_AUDIT_PR222 = Object.freeze({
+  marker: 'CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS',
+  selectedPostStoredIn: ['setup.giftFlow.targetPost', 'setup.giftsCurrentCard'],
+  giftStateLoadedFrom: ['base gifts flow state', 'store.store.gifts.campaigns via findCampaignForTarget'],
+  keyedBy: 'commentKey primary; channelId+postId/postIds fallback; tenant context not yet centralized in this wrapper',
+  wrongPostRisk: 'guarded by visible-target check and commentKey-first campaign lookup, but not fully canonical yet',
+  canLoseSelectedPostAcrossCallbacks: 'possible if base flow clears giftFlow/giftsCurrentCard; PR222 records this as remaining migration work',
+  fullyCanonical: false,
+  todo: 'Migrate gifts to a shared resolveSelectedGiftsContext/loadGiftFeatureState/mutateGiftFeatureState model.'
+});
 
 function clean(value) { return String(value || '').trim(); }
 function setup(userId = '') { try { return store.getSetupState(clean(userId)) || {}; } catch { return {}; } }
@@ -115,6 +127,20 @@ function appendPatchResult(screen = null, patchResult = null, target = null, ctx
 function isStartCreateScreen(screen = null) { const id = clean(screen && screen.id); return /^(gifts_clean_start_create|adminkit_gifts_clean_start_create|adminkit_gift_step_1_material)$/i.test(id); }
 function cleanGiftHome(screen = null, ctx = {}) { if (!screen || !/(^|_)gifts_clean_home$/.test(clean(screen.id))) return screen; const target = targetFromState(ctx.userId); const sourceText = clean(screen.text); const safeNotice = /Удаление доступно только из карточки текущего подарка/i.test(sourceText) ? 'Удаление доступно только из карточки текущего подарка. Откройте карточку подарка и удалите его оттуда.' : (/Замена материала доступна только из карточки текущего подарка/i.test(sourceText) ? 'Замена материала доступна только из карточки текущего подарка.' : ''); const text = ['Подарки / лид-магниты', '', safeNotice, safeNotice ? '' : '', 'Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку.', '', 'Сначала выберите действие.'].filter(Boolean).join('\n'); return { ...screen, text }; }
 function cleanTechnicalText(screen = null, ctx = {}) { if (!screen) return screen; const target = targetFromState(ctx.userId); let text = String(screen.text || ''); text = text.replace(/Clean Core экран подарков[\s\S]*?(?=Канал:|Пост выбран:|Пост:|Подарок для выбранного|Черновик:|Всего сохранённых|Доступны условия|$)/i, ''); text = text.replace(/^Post ID:.*$/gmi, ''); text = text.replace(/\b(?:postId|channelId|commentKey|token|payload|trace)\b\s*[:=][^\n]*/gmi, ''); text = text.replace(/^Канал:\s*(-?\d{6,}|id\d{6,})\s*$/gmi, `Канал: ${channelTitle(target, ctx.userId)}`); text = text.replace(/\n{3,}/g, '\n\n').trim(); return { ...screen, text }; }
+
+function withGiftSectionRoot(screen = null) {
+  if (!screen || !screen.attachments) return screen;
+  const rootButton = { type: 'callback', text: '↩️ В раздел «Подарки»', payload: { action: 'admin_section_gifts' } };
+  const addRows = (rows = []) => {
+    const flat = arr(rows).flat();
+    if (flat.some((btn) => /В раздел «Подарки»|В начало подарков/.test(clean(btn && btn.text)))) return rows;
+    return [...arr(rows), [rootButton]];
+  };
+  if (Array.isArray(screen.attachments)) return { ...screen, attachments: screen.attachments.map((att) => att && att.type === 'inline_keyboard' ? { ...att, payload: att.payload && Array.isArray(att.payload.buttons) ? { ...att.payload, buttons: addRows(att.payload.buttons) } : att.payload, rows: Array.isArray(att.rows) ? addRows(att.rows) : att.rows } : att) };
+  if (screen.attachments.type === 'inline_keyboard') return { ...screen, attachments: { ...screen.attachments, rows: Array.isArray(screen.attachments.rows) ? addRows(screen.attachments.rows) : screen.attachments.rows, payload: screen.attachments.payload && Array.isArray(screen.attachments.payload.buttons) ? { ...screen.attachments.payload, buttons: addRows(screen.attachments.payload.buttons) } : screen.attachments.payload } };
+  return screen;
+}
+
 function rewriteScreen(screen = null, ctx = {}) { if (!screen) return screen; let text = String(screen.text || ''); if (isStartCreateScreen(screen)) { const target = targetFromState(ctx.userId); return { ...screen, id: 'adminkit_gift_step_1_material', text: ['🎁 Создание подарка', '', 'Шаг 1 — материал подарка', '', 'Пришлите ссылку на материал подарка.', '', ...(target ? [`Пост: ${postTitle(target)}`] : []), '', 'Условия получения настроим дальше.'].filter(Boolean).join('\n') }; }
   if (/Шаг 3 — текст получателю|Шаг 3\/4/i.test(text)) text = text.replace(/Шаг 3(?:\/4)?\s*[—.]?\s*текст получателю/i, 'Шаг 2 — текст получателю').replace(/Шаг 3\/4\. Напишите текст[^\n]*/i, 'Шаг 2 — текст получателю');
   if (/Шаг 4 — условия|Шаг 4\/4/i.test(text)) text = text.replace(/Шаг 4(?:\/4)?\s*[—.]?\s*условия[^\n]*/i, 'Шаг 3 — условия получения подарка');
@@ -123,11 +149,11 @@ function rewriteScreen(screen = null, ctx = {}) { if (!screen) return screen; le
   let next = { ...screen, text };
   next = cleanGiftHome(next, ctx);
   next = cleanTechnicalText(next, ctx);
-  return next;
+  return withGiftSectionRoot(next);
 }
 function homeScreen(menu, payload = {}, ctx = {}) { return rewriteScreen(base.homeScreen ? base.homeScreen(menu, payload, ctx) : null, ctx); }
 async function screenForPayload(menu, payload = {}, ctx = {}) { const action = clean(payload.action || payload.raw); if (action === 'gifts:home' || payload.resetContext === true) { try { store.setSetupState(clean(ctx.userId), { giftTargetPost: null, giftsCurrentCard: null, giftFlow: null, activeAdminFlowKind: '' }); } catch {} } const normalized = action === 'gift_admin_skip_message' ? { ...payload, action: 'gift_admin_message_default' } : payload; const normalizedAction = clean(normalized.action || normalized.raw); if ((normalizedAction === 'gift_admin_start_create' || normalizedAction === 'gift_admin_create_from_target' || normalizedAction === 'gift_admin_pick_file') && !targetFromState(ctx.userId)) { try { store.setSetupState(clean(ctx.userId), { giftTargetPost: null, commentTargetPost: null, giftFlow: null, activeAdminFlowKind: '' }); } catch {} } if (normalizedAction === 'gift_admin_confirm_delete') return handleConfirmDelete(menu, normalized, ctx); if (normalizedAction === 'gift_admin_commit_save') { const target = targetFromState(ctx.userId); const screen = rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); if (/Подарок сохран/i.test(clean(screen && screen.text))) { const patchResult = await patchGiftButton(ctx, target); return appendPatchResult(screen, patchResult, target, ctx); } return screen; } return rewriteScreen(await base.screenForPayload(menu, normalized, ctx), ctx); }
 async function handleTextInput(menu, ctx = {}) { clearActiveGiftScreen(ctx.userId); return rewriteScreen(await base.handleTextInput(menu, ctx), ctx); }
 function isCleanGiftAction(action = '') { return CLEAN_GIFT_ACTIONS.includes(clean(action)) || (base.isCleanGiftAction ? base.isCleanGiftAction(action) : false); }
 
-module.exports = { ...base, RUNTIME, CLEAN_GIFT_ACTIONS, isCleanGiftAction, screenForPayload, handleTextInput, homeScreen, patchGiftButton };
+module.exports = { ...base, RUNTIME, CLEAN_GIFT_ACTIONS, GIFTS_FLOW_AUDIT_PR222, isCleanGiftAction, screenForPayload, handleTextInput, homeScreen, patchGiftButton };

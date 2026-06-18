@@ -1,9 +1,9 @@
 {
-  "runtimeVersion": "CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS",
-  "buildVersion": "CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS",
-  "displayVersion": "CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS",
-  "packageVersion": "CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS",
-  "sourceMarker": "adminkit-pr221-buttons-product-perfect-actions",
+  "runtimeVersion": "CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS",
+  "buildVersion": "CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS",
+  "displayVersion": "CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS",
+  "packageVersion": "CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS",
+  "sourceMarker": "adminkit-pr222-flow-layer-audit-buttons-gifts",
   "buildGeneratedAt": "2026-06-15T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.61-PR221-BUTTONS-PRODUCT-PERFECT-ACTIONS"
+    "activeRuntimeVersion": "CC8.3.62-PR222-FLOW-LAYER-AUDIT-BUTTONS-GIFTS"
   },
   "persistentStore": {
     "enabled": true,
@@ -99,5 +99,6 @@
   "pr187PushProductPerfect": true,
   "pr188PushMultiChatHandoff": true,
   "pr219CanonicalPostFeatureBinding": true,
-  "pr221ButtonsProductPerfectActions": true
+  "pr221ButtonsProductPerfectActions": true,
+  "pr222FlowLayerAuditButtonsGifts": true
 }
