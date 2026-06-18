@@ -62,7 +62,7 @@ function seed(userId = 'pr221-admin', withButton = true) {
   reset();
   const empty = await seed('pr221-empty', false);
   assert(empty.text.includes('Текущие кнопки: пока нет кнопок'), 'no-button selected state says no buttons');
-  assert.deepStrictEqual(labels(empty), ['➕ Добавить кнопку', '📌 Выбрать другой пост', '🏠 Главное меню'], 'no-button selected actions are add/choose/main only');
+  assert.deepStrictEqual(labels(empty), ['➕ Добавить кнопку', '📌 Выбрать другой пост', '🔘 В начало кнопок', '🏠 Главное меню'], 'no-button selected actions are add/choose/main only');
 
   const addScreen = await route('pr221-empty', 'button_admin_start_add', actionButton(empty, 'button_admin_start_add').payload);
   assert(addScreen.text.includes('У этого поста пока нет кнопок'), 'add flow preserves empty summary');
