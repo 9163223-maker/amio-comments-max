@@ -1,5 +1,5 @@
 {
-  "runtime": "CC8.3.64-PR224-BUTTONS-TRANSITION-CONTRACT-TRACE",
+  "runtime": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING",
   "buttons": [
     "BTN-001",
     "BTN-002",
@@ -64,7 +64,10 @@
     "BTN-061",
     "BTN-062",
     "BTN-063",
-    "BTN-064"
+    "BTN-064",
+    "BTN-065",
+    "BTN-066",
+    "BTN-067"
   ],
   "gifts": [
     "GIFT-001",
@@ -91,14 +94,35 @@
     "GIFT-022",
     "GIFT-023",
     "GIFT-024",
-    "GIFT-025"
+    "GIFT-025",
+    "GIFT-026",
+    "GIFT-027",
+    "GIFT-028",
+    "GIFT-029",
+    "GIFT-030",
+    "GIFT-031",
+    "GIFT-032",
+    "GIFT-033",
+    "GIFT-034",
+    "GIFT-035",
+    "GIFT-036",
+    "GIFT-037",
+    "GIFT-038"
   ],
   "giftsAudit": {
-    "fullyCanonical": false,
-    "remainingTodo": [
-      "Introduce one canonical gifts selected-post context resolver.",
-      "Bind current gift state by tenant/channel/post/commentKey.",
-      "Make callbacks/cancel reload gift state canonically instead of trusting draft/card state."
+    "fullyCanonical": true,
+    "auditOnly": false,
+    "canonicalContext": "resolveGiftContext(ctx,payload)",
+    "commitContract": "commitGiftFeatureState canonical write -> read-back -> verify -> MAX patch",
+    "traceTests": [
+      "GIFT-034",
+      "GIFT-035",
+      "GIFT-036"
+    ],
+    "antiResurrection": "delete tombstone blocks campaign_commentKey and migration_channel_post re-imports",
+    "renderedPayloadProof": [
+      "GIFT-037 rendered delete payload -> confirm -> canonical delete",
+      "GIFT-038 rendered replace payload -> replacement flow -> canonical replace"
     ]
   },
   "buttonStates": {

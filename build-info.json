@@ -1,9 +1,9 @@
 {
-  "runtimeVersion": "CC8.3.64-PR224-BUTTONS-TRANSITION-CONTRACT-TRACE",
-  "buildVersion": "CC8.3.64-PR224-BUTTONS-TRANSITION-CONTRACT-TRACE",
-  "displayVersion": "CC8.3.64-PR224-BUTTONS-TRANSITION-CONTRACT-TRACE",
-  "packageVersion": "CC8.3.64-PR224-BUTTONS-TRANSITION-CONTRACT-TRACE",
-  "sourceMarker": "adminkit-pr224-buttons-transition-contract-trace",
+  "runtimeVersion": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING",
+  "buildVersion": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING",
+  "displayVersion": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING",
+  "packageVersion": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING",
+  "sourceMarker": "adminkit-pr225-gifts-canonical-buttons-hardening",
   "buildGeneratedAt": "2026-06-15T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.64-PR224-BUTTONS-TRANSITION-CONTRACT-TRACE"
+    "activeRuntimeVersion": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING"
   },
   "persistentStore": {
     "enabled": true,

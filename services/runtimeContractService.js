@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const RUNTIME = 'RUNTIME-CONTRACT-PR196';
-const SOURCE = 'adminkit-pr224-buttons-transition-contract-trace';
+const SOURCE = 'adminkit-pr225-gifts-canonical-buttons-hardening';
 const EXPECTED_ENTRYPOINT = 'clean-entrypoint-1.53.10-pr89.js';
 
 function clean(value, limit = 180) {
