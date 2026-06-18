@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const SERVER_STARTED_AT = new Date().toISOString();
-const CURRENT_RUNTIME = 'CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING';
+const CURRENT_RUNTIME = 'CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS';
 
 function clean(value) { return String(value || '').trim(); }
 function readJsonSafe(filePath) {

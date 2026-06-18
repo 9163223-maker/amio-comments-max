@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const RUNTIME = 'RUNTIME-CONTRACT-PR196';
-const SOURCE = 'adminkit-pr225-gifts-canonical-buttons-hardening';
+const SOURCE = 'adminkit-pr226-growth-sources-funnel-stats';
 const EXPECTED_ENTRYPOINT = 'clean-entrypoint-1.53.10-pr89.js';
 
 function clean(value, limit = 180) {
@@ -44,6 +44,8 @@ function buildContract() {
   const buttons = read('buttons-flow-cc8-clean.js');
   const cc5 = read('cc5-db-core.js');
   const cleanEntrypoint = read(EXPECTED_ENTRYPOINT);
+  const statsFlow = read('stats-flow-cc8.js');
+  const statsService = read('services/statsProductPerfectPr226.js');
   const runtimeIdentity = runtimeIdentityFromBuildInfo();
 
   const startupPathOk = Boolean(cleanEntrypoint)
@@ -71,6 +73,12 @@ function buildContract() {
     generatedAt: new Date().toISOString(),
     safe: true,
     contractLiveOk,
+    statsProductPerfectPr226: has(statsFlow, 'stats_product_perfect_home_pr226') && has(statsService, 'stats_events'),
+    statsRootSectionsOk: has(statsFlow, '📈 Рост') && has(statsFlow, '🎯 Источники') && has(statsFlow, '🧭 Воронка') && has(statsFlow, '📝 Контент') && has(statsFlow, '📤 Отчёт и качество данных'),
+    statsNoDuplicateRootSections: has(statsFlow, "function homeRows(menu) { return [[button(menu, '📈 Рост'") && !has(statsFlow, "button(menu, '🔘 Кнопки под постами'"),
+    statsPersistentEvents: has(statsService, 'persistStatsEvent'),
+    statsMessageStatCapabilityProbe: has(statsService, 'detectMaxPostStatCapabilities'),
+    statsFakeMetricsBlocked: has(statsService, 'unavailableMetrics') && has(statsFlow, 'Просмотры недоступны'),
     runtimeIdentity,
     startupPath: { entrypointExpected: EXPECTED_ENTRYPOINT, activeEntrypoint: EXPECTED_ENTRYPOINT, startupLogBootstrapRequired: has(cleanEntrypoint, "require('./pr180-startup-log-bootstrap')"), expressRoutesInstalledByEntrypoint: has(cleanEntrypoint, 'installExpressRoutes'), cleanBotInstalledByEntrypoint: has(cleanEntrypoint, 'installCleanBot'), ok: startupPathOk },
     routes: {

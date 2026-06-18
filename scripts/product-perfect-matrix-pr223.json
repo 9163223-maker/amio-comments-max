@@ -1,5 +1,5 @@
 {
-  "runtime": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING",
+  "runtime": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS",
   "buttons": [
     "BTN-001",
     "BTN-002",
@@ -129,5 +129,14 @@
     "BL": "legacy/imported/previously patched button state exists, but canonical buttonSet is empty",
     "BA": "action availability mismatch: UI rendered edit/delete, but the next handler sees zero buttons",
     "BR": "recovery required: post is resolved but current buttons cannot be loaded"
+  },
+  "statsAudit": {
+    "fullyCanonical": true,
+    "rootSections": 5,
+    "duplicatedRootSections": false,
+    "fakeMetricsBlocked": true,
+    "messageStatCapabilityProbe": true,
+    "persistentStatsEvents": true,
+    "debugLogNotAnalyticsSource": true
   }
 }

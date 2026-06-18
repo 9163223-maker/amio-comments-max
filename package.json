@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING",
+  "version": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
@@ -18,9 +18,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING",
-  "displayVersion": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING",
-  "sourceMarker": "adminkit-pr225-gifts-canonical-buttons-hardening",
+  "buildVersion": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS",
+  "displayVersion": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS",
+  "sourceMarker": "adminkit-pr226-growth-sources-funnel-stats",
   "gitCommit": "",
   "pr165RuntimeWired": true,
   "pr178PushPairingBinding": true,

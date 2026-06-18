@@ -1,0 +1,48 @@
+'use strict';
+const assert = require('assert');
+const fs = require('fs');
+const statsFlow = require('../stats-flow-cc8');
+const svc = require('../services/statsProductPerfectPr226');
+function btn(t,a,p={}){return {text:t,action:a,...p};}
+const menu={button:btn,link:(text,url)=>({text,url,type:'link'}),keyboard:(rows)=>({rows})};
+async function run(){
+ const suffix=Date.now().toString(36); const ctx={userId:'owner1_'+suffix,tenantKey:'tenant1_'+suffix,ownerUserId:'owner1_'+suffix,channelId:'chan1_'+suffix};
+ const home=await statsFlow.screenForPayload(menu,{action:'admin_section_stats'},ctx); const root=home.attachments.rows.flat();
+ assert.strictEqual(root.filter(b=>/^📈|^🎯|^🧭|^📝|^📤/.test(b.text)).length,5,'STAT-001');
+ assert(!root.some(b=>/Кнопки|Подарки|Комментарии|Реферал|Расходы|Воронка продаж/.test(b.text)),'STAT-002');
+ assert(!/здесь будет|sampleCampaign|demo/i.test(home.text),'STAT-003');
+ for(const b of root.filter(b=>b.action!=='admin_section_main')) assert(await statsFlow.screenForPayload(menu,{action:b.action},ctx),'STAT-004');
+ const rc=svc.resolveStatsContext(ctx,{postId:'post1',commentKey:'ck1'}); assert(rc.tenantKey&&rc.channelId&&rc.postId==='post1'&&rc.commentKey==='ck1','STAT-005');
+ assert((await statsFlow.screenForPayload(menu,{action:'admin_stats_post',postId:'missing'},ctx)).text.includes('Просмотры недоступны'),'STAT-006');
+ svc.persistStatsEvent({eventType:'member_joined',tenantKey:'other',ownerUserId:'other',channelId:'chanX',confidence:'exact'}); assert.strictEqual(svc.loadStatsDataset(ctx,{}).growth.joined,0,'STAT-007');
+ assert.notStrictEqual(svc.loadStatsDataset(ctx,{period:'today'}).context.period,svc.loadStatsDataset(ctx,{period:'7d'}).context.period,'STAT-008');
+ svc.persistStatsEvent({...ctx,eventType:'member_joined',userId:'u1',confidence:'unattributed'}); svc.persistStatsEvent({...ctx,eventType:'member_left',userId:'u2'}); let d=svc.loadStatsDataset(ctx,{}); assert(d.growth.joined===1&&d.growth.left===1&&d.growth.net===0,'STAT-009');
+ assert((await statsFlow.screenForPayload(menu,{action:'admin_stats_growth'},ctx)).text.includes('Без метки: 1'),'STAT-010');
+ const link=svc.createTrackingLink(ctx,{source:'blogger_a',campaign:'camp',slug:'slug1'}); assert(link&&link.source==='blogger_a','STAT-011');
+ svc.trackLinkClick(ctx,{linkId:link.linkId,userId:'u3',source:'blogger_a',campaign:'camp'}); assert(svc.loadStatsEvents(ctx,{eventType:'tracking_link_clicked'}).length,'STAT-012');
+ svc.recordMemberJoined(ctx,{userId:'u3'}); assert(svc.loadStatsEvents(ctx,{eventType:'member_join_attributed'}).length,'STAT-013');
+ svc.recordMemberJoined(ctx,{userId:'u4'}); assert(svc.loadStatsDataset(ctx,{}).growth.unattributed>=2,'STAT-014');
+ assert((await statsFlow.screenForPayload(menu,{action:'admin_stats_sources'},ctx)).text.includes('Клики:'),'STAT-015');
+ const cost=svc.writeManualCost(ctx,{source:'blogger_a',campaign:'camp',amount:100},'added'); assert(cost.amount===100); svc.writeManualCost(ctx,{costId:cost.costId,amount:200},'updated'); svc.writeManualCost(ctx,{costId:cost.costId},'deleted'); assert(!svc.writeManualCost(ctx,{costId:'none'},'deleted'),'STAT-016');
+ assert((await statsFlow.screenForPayload(menu,{action:'admin_stats_sources'},ctx)).text.includes('CPA не показываем'),'STAT-017');
+ let funnel=await statsFlow.screenForPayload(menu,{action:'admin_stats_funnel'},ctx); assert(funnel.text.includes('tracking click → joined → action'),'STAT-018'); assert(/Точно:|Вероятно:|Без метки:/.test(funnel.text),'STAT-019');
+ svc.persistStatsEvent({...ctx,eventType:'cta_clicked'}); assert(svc.loadStatsDataset(ctx,{}).sources.ctaClicks>=1,'STAT-020');
+ svc.persistStatsEvent({...ctx,eventType:'gift_requested'}); svc.persistStatsEvent({...ctx,eventType:'gift_claimed'}); assert(svc.loadStatsDataset(ctx,{}).sources.giftClaims>=1,'STAT-021');
+ svc.persistStatsEvent({...ctx,eventType:'comment_created',postId:'p1',commentKey:'ck'}); assert(svc.loadStatsDataset(ctx,{}).content.comments>=1,'STAT-022');
+ assert((await statsFlow.screenForPayload(menu,{action:'admin_stats_content'},ctx)).text.includes('Комментарии:'),'STAT-023');
+ assert((await statsFlow.screenForPayload(menu,{action:'admin_stats_post',postId:'p1',commentKey:'ck'},ctx)).text.includes('CTA-клики'),'STAT-024');
+ assert(await statsFlow.screenForPayload(menu,{action:'admin_stats_post'},ctx),'STAT-025');
+ let content=await statsFlow.screenForPayload(menu,{action:'admin_stats_content',postId:'p-no'},ctx); assert(content.text.includes('Просмотры недоступны'),'STAT-026'); assert(!content.text.includes('Пересылки:'),'STAT-027');
+ svc.persistStatsEvent({...ctx,eventType:'observed_forward'}); assert(svc.loadStatsDataset(ctx,{}).content.observedForwards>=1,'STAT-028');
+ const caps=await svc.detectMaxPostStatCapabilities({...ctx,postId:'p2',rawStat:{views:42}}); assert(caps.hasViews,'STAT-029');
+ const unavailable=await svc.detectMaxPostStatCapabilities({...ctx,postId:'p3'}); assert(unavailable.status==='unavailable','STAT-030');
+ const q=await statsFlow.screenForPayload(menu,{action:'admin_stats_quality'},ctx); assert(q.text.includes('Точно:'),'STAT-031'); assert(q.text.includes('Вероятно:'),'STAT-032'); assert(q.text.includes('Снимки:'),'STAT-033'); assert(q.text.includes('Недоступно:'),'STAT-034');
+ for(const a of ['admin_stats_growth','admin_stats_sources','admin_stats_funnel','admin_stats_content','admin_stats_quality']) assert((await statsFlow.screenForPayload(menu,{action:a},ctx)).text.match(/Обновлено:|Нет свежих данных/),'STAT-035');
+ const exp=await statsFlow.screenForPayload(menu,{action:'admin_stats_export'},ctx); assert(exp.text.includes('санитарный'),'STAT-036'); assert(!/botToken|Authorization|cookie|secret|stack/i.test(svc.sanitizedExport({botToken:'x',Authorization:'y',cookie:'z',secret:'q',ok:1})),'STAT-037');
+ assert(svc.loadStatsDataset(ctx,{}).diagnostics.debugLogNotAnalyticsSource,'STAT-038');
+ const flowSrc=fs.readFileSync('stats-flow-cc8.js','utf8'); assert(flowSrc.includes('loadStatsDataset')&&!flowSrc.includes('/debug/admin-action-log-live'),'STAT-039'); assert(!home.text.match(/Кнопки|Подарки|Комментарии/),'STAT-040');
+ assert(!home.text.match(/reach|охват/i),'STAT-041'); assert(content.text.includes('Просмотры недоступны'),'STAT-042'); assert(!content.text.includes('Репосты: 0'),'STAT-043'); assert((await statsFlow.screenForPayload(menu,{action:'admin_stats_sources'},ctx)).text.includes('Расходы не внесены'),'STAT-044');
+ assert(svc.loadStatsDataset(ctx,{source:'blogger_a'}).context.source==='blogger_a','STAT-045'); assert(svc.loadStatsDataset(ctx,{channelId:'chan1'}).context.channelId==='chan1','STAT-046'); assert(svc.loadStatsDataset(ctx,{postId:'p1'}).context.postId==='p1','STAT-047'); assert((await statsFlow.screenForPayload(menu,{action:'admin_section_stats'}, {userId:'empty',tenantKey:'empty'})).text.includes('Рост'),'STAT-048'); assert(!q.text.includes('Недоступно: 0'),'STAT-049'); assert(svc.loadStatsDataset(ctx,{}).diagnostics.trace.includes('render → payload → handler → context → dataset → screen'),'STAT-050');
+ console.log(Array.from({length:50},(_,i)=>`STAT-${String(i+1).padStart(3,'0')} PASS`).join('\n'));
+}
+run().catch(e=>{console.error(e);process.exit(1);});

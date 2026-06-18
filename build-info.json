@@ -1,9 +1,9 @@
 {
-  "runtimeVersion": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING",
-  "buildVersion": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING",
-  "displayVersion": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING",
-  "packageVersion": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING",
-  "sourceMarker": "adminkit-pr225-gifts-canonical-buttons-hardening",
+  "runtimeVersion": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS",
+  "buildVersion": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS",
+  "displayVersion": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS",
+  "packageVersion": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS",
+  "sourceMarker": "adminkit-pr226-growth-sources-funnel-stats",
   "buildGeneratedAt": "2026-06-15T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.65-PR225-GIFTS-CANONICAL-BUTTONS-HARDENING"
+    "activeRuntimeVersion": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS"
   },
   "persistentStore": {
     "enabled": true,

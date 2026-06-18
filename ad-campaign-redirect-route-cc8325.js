@@ -1,6 +1,7 @@
 'use strict';
 
 const ads = require('./services/adCampaignService');
+const statsPr226 = require('./services/statsProductPerfectPr226');
 
 const RUNTIME = 'CC8.3.25-ADS-TRACKING-LINKS';
 
@@ -45,6 +46,7 @@ function redirectHandler(req, res) {
       query: safeQuery(req),
       config: { appBaseUrl: baseUrl() }
     });
+    if (result && result.ok !== false) { try { statsPr226.trackLinkClick({ tenantKey: clean(result.campaign && (result.campaign.tenantKey || result.campaign.ownerUserId)) || 'default', ownerUserId: clean(result.campaign && result.campaign.createdByUserId), channelId: clean(result.campaign && result.campaign.channelId) }, { linkId: slug, slug, userId: userIdFromQuery(req), source: clean(result.campaign && result.campaign.source), campaign: clean(result.campaign && result.campaign.campaign), payload: { query: safeQuery(req) } }); } catch {} }
     if (!result || result.ok === false || !result.targetUrl) {
       return sendJson(res, 404, {
         ok: false,
