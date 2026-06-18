@@ -105,7 +105,9 @@
     "GIFT-033",
     "GIFT-034",
     "GIFT-035",
-    "GIFT-036"
+    "GIFT-036",
+    "GIFT-037",
+    "GIFT-038"
   ],
   "giftsAudit": {
     "fullyCanonical": true,
@@ -117,7 +119,11 @@
       "GIFT-035",
       "GIFT-036"
     ],
-    "antiResurrection": "delete tombstone blocks campaign_commentKey and migration_channel_post re-imports"
+    "antiResurrection": "delete tombstone blocks campaign_commentKey and migration_channel_post re-imports",
+    "renderedPayloadProof": [
+      "GIFT-037 rendered delete payload -> confirm -> canonical delete",
+      "GIFT-038 rendered replace payload -> replacement flow -> canonical replace"
+    ]
   },
   "buttonStates": {
     "BL": "legacy/imported/previously patched button state exists, but canonical buttonSet is empty",

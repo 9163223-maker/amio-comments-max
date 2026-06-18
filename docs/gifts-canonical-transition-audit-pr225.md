@@ -33,6 +33,11 @@ PR225 adds explicit helpers: `clearGiftDraftOnly`, `bindGiftTarget`, `getGiftTar
 
 Gift actions are written through `admin-action-log-live` with `feature: "gifts"`, `screenId`, `canonicalKey`, resolved gift source/import diagnostics, commit verification fields, patch attempt/result, and contract violation flag. Sanitization avoids raw token/secret/cookie values.
 
+
+## Rendered current-gift actions
+
+PR225 now proves that current-gift buttons are executable with the exact payloads emitted by the previous screen. GIFT-037 extracts the rendered `gift_admin_delete_existing` payload, renders delete confirmation from canonical read-back, extracts the rendered `gift_admin_confirm_delete` payload, and verifies canonical delete/read-back plus no resurrection. GIFT-038 extracts the rendered `gift_admin_replace_existing` payload, starts a replacement flow tied to the same tenant/channel/post/commentKey, saves through canonical replace, and verifies only the new gift remains active. These tests do not shortcut directly to the final handlers.
+
 ## Anti-resurrection policy
 
 PR225 uses a delete tombstone for Gifts, not only Buttons. Once a canonical gift is deleted for a tenant/channel/post/commentKey, stale matching legacy or migration campaigns are not imported again for that key. GIFT-035 covers a second matching stale source after delete, and GIFT-036 confirms fresh import still works when no tombstone exists.
