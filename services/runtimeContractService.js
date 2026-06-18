@@ -46,6 +46,11 @@ function buildContract() {
   const cleanEntrypoint = read(EXPECTED_ENTRYPOINT);
   const statsFlow = read('stats-flow-cc8.js');
   const statsService = read('services/statsProductPerfectPr226.js');
+  const statsProducers = read('services/statsEventProducersPr226.js');
+  const redirectRoute = read('ad-campaign-redirect-route-cc8325.js');
+  const statsTests = read('scripts/test-stats-product-perfect-contract-pr226.js');
+  const botSource = read('bot.js');
+  const commentService = read('services/commentService.js');
   const runtimeIdentity = runtimeIdentityFromBuildInfo();
 
   const startupPathOk = Boolean(cleanEntrypoint)
@@ -79,6 +84,15 @@ function buildContract() {
     statsPersistentEvents: has(statsService, 'persistStatsEvent'),
     statsMessageStatCapabilityProbe: has(statsService, 'detectMaxPostStatCapabilities'),
     statsFakeMetricsBlocked: has(statsService, 'unavailableMetrics') && has(statsFlow, 'Просмотры недоступны'),
+    statsPeriodFiltering: has(statsService, 'periodBounds') && has(statsService, 'eventInPeriod') && has(statsTests, 'STAT-054'),
+    statsSourceFiltering: has(statsService, 'FILTER_FIELDS') && has(statsTests, 'STAT-059'),
+    statsTrackingLinkUiCanonical: has(statsFlow, 'createCanonicalTrackingLinkForCampaign') && has(statsFlow, 'Ссылка создана и подключена к статистике') && has(statsTests, 'STAT-060'),
+    statsManualCostUiCanonical: has(statsFlow, 'statsManualCostFlow') && has(statsTests, 'STAT-070'),
+    statsPostStatsRealHandler: has(statsFlow, 'function pr226PostStats') && !has(statsFlow, "if (action === 'admin_stats_post') return pr226Content") && has(statsTests, 'STAT-077'),
+    statsMessageStatProbeAdapter: has(statsService, 'fetchMaxMessageStat') && has(statsService, 'defaultMaxMessageStatAdapter') && has(statsTests, 'STAT-082'),
+    statsRealEventProducers: has(statsProducers, 'recordAudienceUpdate') && has(botSource, 'recordCtaClick') && has(botSource, 'recordGiftClaimed') && has(commentService, 'recordCommentCreated') && has(statsTests, 'STAT-088'),
+    statsOldDuplicateActionsRerouted: has(statsFlow, "action === 'admin_stats_buttons_cache') return pr226Funnel") && has(statsTests, 'STAT-094'),
+    statsNoServiceOnlyGreenTests: has(statsTests, 'findPayload') && has(statsTests, 'handleTextInput') && has(redirectRoute, 'recordStatsTrackingClick'),
     runtimeIdentity,
     startupPath: { entrypointExpected: EXPECTED_ENTRYPOINT, activeEntrypoint: EXPECTED_ENTRYPOINT, startupLogBootstrapRequired: has(cleanEntrypoint, "require('./pr180-startup-log-bootstrap')"), expressRoutesInstalledByEntrypoint: has(cleanEntrypoint, 'installExpressRoutes'), cleanBotInstalledByEntrypoint: has(cleanEntrypoint, 'installCleanBot'), ok: startupPathOk },
     routes: {

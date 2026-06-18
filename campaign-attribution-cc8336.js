@@ -1,6 +1,7 @@
 'use strict';
 
 const RUNTIME = 'CC8.3.36-CAMPAIGN-ATTRIBUTION';
+const pr226Producers = require('./services/statsEventProducersPr226');
 
 function clean(value) { return String(value || '').trim(); }
 function arr(value) { return Array.isArray(value) ? value : []; }
@@ -110,6 +111,7 @@ function saveAudienceEventFromUpdate(store, growth, update = {}, audit = () => {
     createdAt,
     attribution
   });
+  try { pr226Producers.recordAudienceUpdate({ type, tenantKey: clean(update.tenantKey || update.ownerUserId || 'default'), ownerUserId: clean(update.ownerUserId || update.adminId || ''), channelId, userId, memberUserId: userId, source: attribution.source, campaign: attribution.campaign, payload: update }); } catch {}
   audit('campaign_attribution.audience_event_saved', { updateType: kind, type, channelId, userId, attributionStatus: attribution.status, campaign: attribution.campaign || attribution.source, runtimeVersion: RUNTIME });
   return event;
 }

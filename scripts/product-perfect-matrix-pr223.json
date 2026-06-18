@@ -137,6 +137,15 @@
     "fakeMetricsBlocked": true,
     "messageStatCapabilityProbe": true,
     "persistentStatsEvents": true,
-    "debugLogNotAnalyticsSource": true
+    "debugLogNotAnalyticsSource": true,
+    "periodFiltering": true,
+    "sourceFiltering": true,
+    "trackingLinkUiCanonical": true,
+    "manualCostUiCanonical": true,
+    "postStatsRealHandler": true,
+    "messageStatRealProbeOrUnavailable": true,
+    "realEventProducers": true,
+    "oldDuplicateActionsRerouted": true,
+    "serviceShortcutTestsRejected": true
   }
 }

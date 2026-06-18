@@ -36,6 +36,16 @@ function sendJson(res, status, payload) {
   noCache(res);
   return res.status(status).type('application/json').send(JSON.stringify(payload, null, 2));
 }
+function recordStatsTrackingClick(result = {}, req = {}, slug = '') {
+  const c = result.campaign || result.item || result || {};
+  const tenantKey = clean(c.tenantKey || c.ownerUserId || c.createdByUserId || 'default');
+  const ownerUserId = clean(c.ownerUserId || c.createdByUserId || '');
+  const linkId = clean(c.id || c.linkId || slug);
+  return statsPr226.trackLinkClick({ tenantKey, ownerUserId, channelId: clean(c.channelId) }, {
+    linkId, slug, userId: userIdFromQuery(req), source: clean(c.source), medium: clean(c.medium), campaign: clean(c.campaign || c.name), content: clean(c.content || c.ad), term: clean(c.term || c.placement),
+    payload: { query: safeQuery(req), slug }
+  });
+}
 function redirectHandler(req, res) {
   const slug = clean(req && req.params && req.params.slug);
   noCache(res);
@@ -46,7 +56,7 @@ function redirectHandler(req, res) {
       query: safeQuery(req),
       config: { appBaseUrl: baseUrl() }
     });
-    if (result && result.ok !== false) { try { statsPr226.trackLinkClick({ tenantKey: clean(result.campaign && (result.campaign.tenantKey || result.campaign.ownerUserId)) || 'default', ownerUserId: clean(result.campaign && result.campaign.createdByUserId), channelId: clean(result.campaign && result.campaign.channelId) }, { linkId: slug, slug, userId: userIdFromQuery(req), source: clean(result.campaign && result.campaign.source), campaign: clean(result.campaign && result.campaign.campaign), payload: { query: safeQuery(req) } }); } catch {} }
+    if (result && result.ok !== false) { try { recordStatsTrackingClick(result, req, slug); } catch {} }
     if (!result || result.ok === false || !result.targetUrl) {
       return sendJson(res, 404, {
         ok: false,
@@ -84,4 +94,4 @@ function install(app) {
   return app;
 }
 
-module.exports = { RUNTIME, install, redirectHandler };
+module.exports = { RUNTIME, install, redirectHandler, recordStatsTrackingClick };

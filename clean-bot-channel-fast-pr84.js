@@ -8,6 +8,7 @@ const store = require('./store');
 const menuCore = require('./v3-menu-core-1539');
 const { tryPatchChannelPost, FAST_PATCH_RUNTIME } = require('./services/postPatcherFastPr84');
 const growthService = require('./services/growthService');
+const pr226Producers = require('./services/statsEventProducersPr226');
 
 const RUNTIME = FAST_PATCH_RUNTIME || 'CC8.1.19-DIRECT-CHANNEL-FAST-PATCH-NO-BOOTSTRAP-DB-PR84';
 
@@ -154,6 +155,7 @@ function recordAudienceWebhook(update = {}) {
   }
   if (kind === 'user_added' || kind === 'user_removed') {
     const event = growthService.saveAudienceEvent(channelId, { type: kind, profile, userId: profile.userId, username: profile.username, firstName: profile.firstName, lastName: profile.lastName, name: profile.name, source: 'webhook', createdAt: Date.now() });
+    try { pr226Producers.recordAudienceUpdate({ type: kind, tenantKey: clean(update.tenantKey || update.ownerUserId || 'default'), ownerUserId: clean(update.ownerUserId || update.adminId || ''), channelId, userId: profile.userId, memberUserId: profile.userId, payload: update }); } catch {}
     return { ok: true, updateType: kind, channelId, userId: event?.userId || profile.userId || '', eventId: event?.id || '' };
   }
   return { ok: true, updateType: kind, channelId, recorded: false };

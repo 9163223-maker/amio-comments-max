@@ -49,3 +49,55 @@ Current MAX updates do not provide explicit post-viewed or post-shared webhook e
 ## Future work
 
 Add configurable attribution windows, CSV streaming export, real MAX live probe wiring where bot token/channel/message are available, and external ad platform integrations only when credentials and API support exist.
+
+## Follow-up audit fixes
+
+The follow-up audit found that the first PR226 pass was too service-scaffold oriented. This update fixes the P1 blockers by proving product flows, not just helper functions:
+
+- Period selectors now change actual event windows through `periodBounds()` and `eventInPeriod()`.
+- Source, campaign, medium, content, term, link, channel, post, message, commentKey, and user filters are applied inside `loadStatsEvents()`.
+- Tracking link creation from the real campaign UI writes `tracking_link_created`, reads it back, and only shows “Ссылка создана и подключена к статистике.” after verification.
+- Manual costs have a real UI flow: source/campaign input, amount validation, canonical write, read-back verification, display in Sources, and delete read-back.
+- `admin_stats_post` is a real selected-post handler with picker/recovery states and same-post dataset filtering.
+- MAX `Message.stat` probing now has an adapter layer: local raw stat, injected adapter, or MAX `/messages` fetch when token and message id are available; errors return unavailable/max_api_error without breaking stats.
+- Old duplicate stats actions are rerouted to PR226 funnel/content/recovery screens.
+
+## Period filtering contract
+
+Supported periods are `today`, `7d`, `30d`, and `all`. `today` uses UTC day start consistently. Invalid timestamps are ignored safely; future timestamps do not break the dataset.
+
+## Source/campaign/link filtering contract
+
+Filters apply to `source`, `campaign`, `medium`, `content`, `term`, `linkId`, `channelId`, `postId`, `messageId`, `commentKey`, and `userId`. In unfiltered growth, unattributed joins remain visible as “Без метки”. In source/campaign/link filtered views, unrelated unattributed joins are not counted as source conversions.
+
+## Tracking link create canonical flow
+
+The real UI flow is:
+
+`admin_stats_campaign_create → channel/external target → campaign name → source → adCampaigns.createCampaign → createTrackingLink → verifyTrackingLinkCreated → success screen`.
+
+If stats write/read-back cannot be verified, the UI must warn that the link was created but stats are not confirmed.
+
+## Manual cost UX contract
+
+The Sources screen contains “Расходы вручную”. The flow stores `statsManualCostFlow`, asks for `source / campaign`, asks for amount, defaults currency to RUB, writes `manual_cost_added`, reads the cost back, and only then shows success. CPA appears only when manual cost and attributed joins/actions exist.
+
+## Post stats contract
+
+`admin_stats_post` resolves tenant/channel/post/commentKey context, loads `loadStatsDataset()` for the same selected post, hides raw technical ids in normal UI, and renders comments, CTA clicks, gifts, observed forwards, views if available, and share/forward counters only when the snapshot capability confirms them. Missing context shows a picker; stale data shows “Пост не найден или данные устарели. Выберите пост заново.”
+
+## Message.stat probe policy
+
+`fetchMaxMessageStat(context, adapter)` first accepts local raw/adapted stats for tests and local adapters. If a bot token and message id are present, it calls MAX `/messages?message_ids=...`. If token/message id is missing or MAX returns an error, stats screens continue and the quality report marks the metric unavailable.
+
+## Event producer wiring map
+
+- Tracking click producer: `/r/:slug` redirect records `tracking_link_clicked` through `recordStatsTrackingClick()`.
+- User added/removed producer: audience update adapters call `recordAudienceUpdate()` and persist `member_joined` / `member_left`.
+- CTA click producer: `recordCtaClick()` is the canonical adapter for AdminKIT button/CTA click paths.
+- Gift requested/claimed producer: `recordGiftRequested()` / `recordGiftClaimed()` are canonical adapters for gift request and delivery/claim paths.
+- Comment created producer: `recordCommentCreated()` is the canonical adapter for comment creation paths.
+
+## Debug log policy
+
+`/debug/admin-action-log-live` remains debug-only and rolling. Statistics screens and exports read from the persistent `stats_events` dataset, never from the debug log.
