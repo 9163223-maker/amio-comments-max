@@ -15,3 +15,5 @@ The mutating `resolveSelectedButtonsContext(ctx, payload)` remains available onl
 * BTN-065 proves pre-trace resolve is read-only with legacy buttons present and canonical empty.
 * BTN-066 proves the selected-post handler imports legacy state, records `imported=true`, and renders an executable edit payload.
 * BTN-067 proves pre-resolve alone cannot make the flow green; the actual handler must import and render the next screen.
+
+The PR regression workflow now runs `node --check scripts/test-buttons-readonly-pretrace-pr225.js` and `node scripts/test-buttons-readonly-pretrace-pr225.js`, so BTN-065…BTN-067 are enforced in CI before `npm test` and `git diff --check`.

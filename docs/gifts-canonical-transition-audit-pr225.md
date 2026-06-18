@@ -17,7 +17,7 @@ PR225 adds `resolveGiftContext(ctx, payload)` in `gifts-flow-cc812-bottom.js`. T
 3. migration fallback by channelId + postId;
 4. empty.
 
-Any fallback import is stamped into canonical state and reports `source`, `imported`, `sourceDiagnostics`, and `keyMatchOk`.
+Any fallback import is stamped into canonical state and reports `source`, `imported`, `sourceDiagnostics`, and `keyMatchOk`. After delete, the post-level `giftLegacyReimportBlocked` / `deletedGiftCanonicalKey` tombstone is checked before importing from `campaign_commentKey`, `migration_channel_post`, or legacy/current fallback sources; diagnostics include `legacy_reimport_blocked_by_delete_tombstone` when the tombstone blocks resurrection.
 
 ## Save / replace / delete contract
 
@@ -32,6 +32,10 @@ PR225 adds explicit helpers: `clearGiftDraftOnly`, `bindGiftTarget`, `getGiftTar
 ## Trace policy
 
 Gift actions are written through `admin-action-log-live` with `feature: "gifts"`, `screenId`, `canonicalKey`, resolved gift source/import diagnostics, commit verification fields, patch attempt/result, and contract violation flag. Sanitization avoids raw token/secret/cookie values.
+
+## Anti-resurrection policy
+
+PR225 uses a delete tombstone for Gifts, not only Buttons. Once a canonical gift is deleted for a tenant/channel/post/commentKey, stale matching legacy or migration campaigns are not imported again for that key. GIFT-035 covers a second matching stale source after delete, and GIFT-036 confirms fresh import still works when no tombstone exists.
 
 ## Known remaining limitations
 
