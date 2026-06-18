@@ -1,7 +1,7 @@
 'use strict';
 
 const RUNTIME = 'MAIN-STRICT-RUNTIME-IDENTITY-GATE';
-const SOURCE = 'adminkit-pr220-buttons-selected-post-state';
+const SOURCE = 'adminkit-pr224-buttons-transition-contract-trace';
 let state = { ok: false, runtime: RUNTIME, source: SOURCE, installed: false, recorded: false };
 
 function clean(value) { return String(value || '').trim(); }
