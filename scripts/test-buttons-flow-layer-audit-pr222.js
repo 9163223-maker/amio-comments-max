@@ -81,6 +81,6 @@ async function seed(userId, buttons = ['Кнопка22']) {
   assert(tenantA.text.includes('A →'));
   assert(!tenantB.text.includes('A →'), 'tenant isolation remains');
 
-  assert.strictEqual(gifts.GIFTS_FLOW_AUDIT_PR222.fullyCanonical, false, 'gifts audit records remaining canonical migration');
+  assert.strictEqual(gifts.GIFTS_FLOW_AUDIT_PR222.fullyCanonical, true, 'gifts audit records PR225 canonical migration complete');
   console.log('PR222 buttons flow-layer audit and gifts audit tests passed');
 })().catch((error) => { console.error(error); process.exit(1); });

@@ -84,7 +84,8 @@ function must(s, re, msg) { assert(re.test(txt(s)), msg + `\nTEXT:\n${txt(s)}`);
   console.log(`Required buttons: ${ok}/50 pass`);
 
   console.log('\nGifts matrix:');
-  matrix.gifts.forEach((id) => console.log(`${id} auditOnly: gifts canonical migration is documented but not fully implemented in PR223`));
-  console.log('Gifts fully canonical: false');
+  matrix.gifts.forEach((id) => console.log(`${id} ${matrix.giftsAudit.fullyCanonical ? 'pass' : 'auditOnly'}`));
+  console.log(`Gifts fully canonical: ${matrix.giftsAudit.fullyCanonical}`);
+  assert.strictEqual(matrix.giftsAudit.fullyCanonical, true, 'PR225 gifts must be fully canonical');
   if (ok !== 50 || results.some(([,st]) => st !== 'pass')) process.exit(1);
 })().catch((e)=>{ console.error(e && e.stack || e); process.exit(1); });
