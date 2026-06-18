@@ -18,7 +18,7 @@ The missing sources were post-bound feature state, legacy current-card/imported 
 
 ## 5. What PR224 now proves
 
-PR224 now proves that rendered edit/delete actions are executable, legacy state can be imported into canonical storage, and add/edit/delete commits are read-back verified before success. The mutation contract is: canonical write, canonical read-back through the same resolver path, canonical key/count/content verification, MAX patch from `commitResult.readBackButtons`, and selected-post rendering from the same read-back buttons. The live action trace records the chain including resolved context, commit verification, patch result, and any contract violation.
+PR224 now proves that rendered edit/delete actions are executable, legacy state can be imported into canonical storage, and add/edit/delete commits are read-back verified before success. The mutation contract is: canonical write, canonical read-back through the same resolver path, canonical key/count/content verification, MAX patch from `commitResult.readBackButtons`, and selected-post rendering from the same read-back buttons. Legacy import is tombstone-protected after intentional delete: a delete commit that writes an empty canonical button set records `legacyButtonReimportBlocked` with the deleted canonical key, so stale imported/legacy/patched metadata cannot resurrect the deleted button. The live action trace records the chain including resolved context, commit verification, patch result, and any contract violation.
 
 ## 6. Contract violation versus normal empty state
 
@@ -26,7 +26,7 @@ A real B0 empty state means canonical storage is empty, no legacy source exists,
 
 ## 7. Recovery screen policy
 
-The recovery/error screen protects the user after a contract violation or a genuine empty state. It is not a replacement for canonical persistence; user-facing success is only allowed after `commitButtonsFeatureState(...).ok === true`.
+The recovery/error screen protects the user after a contract violation or a genuine empty state. It is not a replacement for canonical persistence; user-facing success is only allowed after `commitButtonsFeatureState(...).ok === true`. Intentional delete must override stale legacy sources, and recovery is not allowed to hide resurrection bugs: tests must prove old legacy sources do not reappear after delete/reopen.
 
 ## 8. Remaining limitation
 
