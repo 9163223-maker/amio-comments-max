@@ -1,9 +1,9 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-19T16:48:28.603Z",
+  "updatedAt": "2026-06-19T16:50:27.206Z",
   "limit": 100,
   "latest": {
-    "timestamp": "2026-06-19T16:48:28.001Z",
+    "timestamp": "2026-06-19T16:50:26.882Z",
     "event": "push_opened",
     "tokenFound": false,
     "subscriptionCreated": false,
@@ -26,6 +26,29 @@
     "missingTitleCount": 0
   },
   "items": [
+    {
+      "timestamp": "2026-06-19T16:50:26.882Z",
+      "event": "push_opened",
+      "tokenFound": false,
+      "subscriptionCreated": false,
+      "linkedToChat": false,
+      "handoffPending": false,
+      "consumed": false,
+      "hasPairingToken": false,
+      "hasHandoff": false,
+      "source": "missing",
+      "tokenSource": "missing",
+      "hasPairingCookie": false,
+      "hasHandoffCookie": false,
+      "openedAs": "standalone-pwa",
+      "route": "/push",
+      "result": "binding_missing",
+      "pendingCount": 0,
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
+    },
     {
       "timestamp": "2026-06-19T16:48:28.001Z",
       "event": "push_opened",
@@ -2729,33 +2752,6 @@
       "chatsCount": 2,
       "rawBindingsCount": 2,
       "uniqueChatsCount": 2,
-      "missingTitleCount": 0
-    },
-    {
-      "timestamp": "2026-06-15T18:52:29.621Z",
-      "event": "pending_lookup",
-      "userId": "18400200",
-      "maxUserIdHash": "1775fd6d0edf20cd46ff",
-      "deviceIdHash": "384334cce44ded1ba3d7",
-      "endpointHash": "b0c27d1ea983896adf8a1400",
-      "tokenFound": false,
-      "subscriptionCreated": false,
-      "linkedToChat": false,
-      "handoffPending": false,
-      "consumed": false,
-      "hasPairingToken": false,
-      "hasHandoff": false,
-      "source": "missing",
-      "tokenSource": "missing",
-      "hasPairingCookie": false,
-      "hasHandoffCookie": false,
-      "openedAs": "unknown",
-      "route": "/api/push/pending",
-      "result": "pending_missing",
-      "pendingCount": 0,
-      "chatsCount": 0,
-      "rawBindingsCount": 0,
-      "uniqueChatsCount": 0,
       "missingTitleCount": 0
     }
   ]
