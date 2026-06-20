@@ -167,3 +167,29 @@ The old PR226 review threads are outdated against the current head. If GitHub al
 * Period filtering: fixed by `periodBounds()` / `eventInPeriod()` and dataset period filtering; proven by STAT-051…STAT-054.
 * Nested export metrics: fixed by recursive `sanitizeValue()` / `sanitizedExport()`; proven by STAT-122…STAT-125.
 * CTA admin-callback exclusion: fixed by `isUserFacingCtaClick()` denylist and public-marker requirement; proven by STAT-115…STAT-118, STAT-132, and explicit follow-up STAT-135…STAT-144 aliases. No AdminKIT button-management callback creates `cta_clicked`; a `public_cta` / published-post CTA creates exactly one `cta_clicked`.
+
+## P1/P2 follow-up closure policy
+
+### Audience webhook idempotency
+
+Audience webhooks use a deterministic idempotency key: `audience:${updateType}:${channelId}:${userId}:${timestamp/updateId/dateBucket}`. The campaign attribution path remains the canonical attribution-aware producer, and duplicate clean-bot/delegated calls return the existing stats event instead of incrementing Growth/Funnel twice.
+
+### Tracking URL policy
+
+Analytics-ready campaign screens hand out the tracked redirect URL `${publicBaseUrl}/r/${slug}` from canonical tracking-link read-back. The direct MAX target URL remains internal and is not the primary “Получить ссылку” link. Success copy instructs admins to use the tracked URL so clicks are counted.
+
+### Canonical tenant resolution from userId
+
+Stats context resolution uses explicit `tenantKey` first, then canonical tenant resolution through `tenantScope.ensureTenantContext(ownerUserId || userId)`. User-only stats screens therefore read `tenant_${userId}` records instead of raw-user tenant fallbacks.
+
+### Legacy audience period policy
+
+Legacy audience bridge events are filtered with the same `periodBounds()` / `eventInPeriod()` logic as canonical events. Timestampless legacy audience events are not counted as today/7d/30d and are tracked as `legacyUnknownPeriod`; period `all` can include them as legacy snapshots.
+
+### Unscoped unavailable event quarantine
+
+Events without tenant/owner scope are excluded from tenant Growth/Sources/Funnel/Content totals. They may be inspected only through diagnostics/data quality as unavailable/unscoped and cannot pollute tenant reports.
+
+### Sourced join attribution
+
+When an audience join arrives with `source`, `campaign`, or `linkId` but without a same-user click sidecar, PR226 emits a `member_join_attributed` sidecar with probable confidence. Exact click correlation remains exact; unsourced joins remain unattributed.

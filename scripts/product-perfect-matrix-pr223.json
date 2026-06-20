@@ -158,6 +158,12 @@
     "exportNestedMetricsPreserved": true,
     "snapshotScopedByTenantPost": true,
     "reviewThreadsAddressed": true,
-    "ctaUserFacingOnly": true
+    "ctaUserFacingOnly": true,
+    "audienceNoDoubleRecord": true,
+    "trackedUrlHandedOut": true,
+    "canonicalTenantResolution": true,
+    "legacyAudiencePeriodFiltered": true,
+    "unscopedEventsQuarantined": true,
+    "sourcedJoinsAttributed": true
   }
 }

@@ -107,6 +107,12 @@ function buildContract() {
     statsExportNestedMetricsPreserved: has(statsTests, 'STAT-122') && has(statsTests, "!rich.includes('[object]')") && has(statsService, 'sanitizeValue'),
     statsSnapshotScopedByTenantPost: has(statsService, 'function latestSnapshot') && has(statsService, 'return null; return state().postStatSnapshots.find') && has(statsTests, 'STAT-129'),
     statsReviewThreadsAddressed: has(statsDocs, 'Preserve nested metrics') && has(statsTests, 'STAT-125'),
+    statsAudienceNoDoubleRecord: has(statsProducers, 'audienceIdempotencyKey') && has(statsService, 'idempotencyKey') && has(statsTests, 'STAT-148'),
+    statsTrackedUrlHandedOut: has(statsFlow, 'trackedCampaignUrl') && has(statsFlow, 'Используйте именно эту ссылку') && has(statsTests, 'STAT-152'),
+    statsCanonicalTenantResolution: has(statsService, 'canonicalTenantKey') && has(statsService, 'ensureTenantContext') && has(statsTests, 'STAT-156'),
+    statsLegacyAudiencePeriodFiltered: has(statsService, 'legacyUnknownPeriod') && has(statsTests, 'STAT-160'),
+    statsUnscopedEventsQuarantined: has(statsService, 'if (!clean(e.tenantKey)) return false') && has(statsTests, 'STAT-164'),
+    statsSourcedJoinsAttributed: has(statsService, "eventType: 'member_join_attributed'") && has(statsTests, 'STAT-168'),
     runtimeIdentity,
     startupPath: { entrypointExpected: EXPECTED_ENTRYPOINT, activeEntrypoint: EXPECTED_ENTRYPOINT, startupLogBootstrapRequired: has(cleanEntrypoint, "require('./pr180-startup-log-bootstrap')"), expressRoutesInstalledByEntrypoint: has(cleanEntrypoint, 'installExpressRoutes'), cleanBotInstalledByEntrypoint: has(cleanEntrypoint, 'installCleanBot'), ok: startupPathOk },
     routes: {
