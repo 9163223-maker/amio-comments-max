@@ -157,3 +157,13 @@ CTA clicks are counted only when the event is explicitly identifiable as a publi
 The denylist includes `admin_section_buttons`, `button_admin_channel_pick`, `button_admin_recent_posts`, `button_admin_post_pick`, `button_admin_selected_post`, `button_admin_add`, `button_admin_edit`, `button_admin_delete`, `button_admin_save`, `button_admin_cancel`, `button_admin_back`, `button_admin_root`, `button_admin_set_text`, `button_admin_set_url`, and any action whose name is part of configuring, editing, deleting, saving, selecting, or setting up buttons.
 
 If a callback does not carry a reliable public/published CTA marker, PR226 does not record `cta_clicked` from the generic clean button flow. The CTA metric remains unavailable/unchanged until a reliable public CTA marker is present, so admin configuration callbacks cannot inflate funnel engagement.
+
+## Review-thread closure notes
+
+The old PR226 review threads are outdated against the current head. If GitHub allows resolving them, they should be resolved; otherwise these short replies can be used:
+
+* Message.stat snapshot tenant/post scoping: fixed by the selected-post `latestSnapshot()` scope guard; proven by STAT-126…STAT-129.
+* Existing stats data bridge / producer wiring: fixed by `loadLegacyStatsBridge()` and producer context wiring; proven by STAT-097…STAT-134.
+* Period filtering: fixed by `periodBounds()` / `eventInPeriod()` and dataset period filtering; proven by STAT-051…STAT-054.
+* Nested export metrics: fixed by recursive `sanitizeValue()` / `sanitizedExport()`; proven by STAT-122…STAT-125.
+* CTA admin-callback exclusion: fixed by `isUserFacingCtaClick()` denylist and public-marker requirement; proven by STAT-115…STAT-118, STAT-132, and explicit follow-up STAT-135…STAT-144 aliases. No AdminKIT button-management callback creates `cta_clicked`; a `public_cta` / published-post CTA creates exactly one `cta_clicked`.
