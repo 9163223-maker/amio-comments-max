@@ -113,6 +113,9 @@ function buildContract() {
     statsLegacyAudiencePeriodFiltered: has(statsService, 'legacyUnknownPeriod') && has(statsTests, 'STAT-160'),
     statsUnscopedEventsQuarantined: has(statsService, 'if (!clean(e.tenantKey)) return false') && has(statsTests, 'STAT-164'),
     statsSourcedJoinsAttributed: has(statsService, "eventType: 'member_join_attributed'") && has(statsTests, 'STAT-168'),
+    statsManualCostDraftCanonicalTenant: has(statsFlow, 'resolveStatsContext(ctx, payload)') && has(statsTests, 'STAT-169'),
+    statsManualCostScopedMutations: has(statsService, 'scopedIndex') && has(statsTests, 'STAT-172'),
+    statsLegacyCommentKeyScoped: has(statsService, 'legacy_commentKey_unscoped_or_stale') && has(statsTests, 'STAT-175'),
     runtimeIdentity,
     startupPath: { entrypointExpected: EXPECTED_ENTRYPOINT, activeEntrypoint: EXPECTED_ENTRYPOINT, startupLogBootstrapRequired: has(cleanEntrypoint, "require('./pr180-startup-log-bootstrap')"), expressRoutesInstalledByEntrypoint: has(cleanEntrypoint, 'installExpressRoutes'), cleanBotInstalledByEntrypoint: has(cleanEntrypoint, 'installCleanBot'), ok: startupPathOk },
     routes: {

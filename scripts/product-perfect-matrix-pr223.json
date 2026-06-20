@@ -164,6 +164,9 @@
     "canonicalTenantResolution": true,
     "legacyAudiencePeriodFiltered": true,
     "unscopedEventsQuarantined": true,
-    "sourcedJoinsAttributed": true
+    "sourcedJoinsAttributed": true,
+    "manualCostDraftCanonicalTenant": true,
+    "manualCostScopedMutations": true,
+    "legacyCommentKeyScoped": true
   }
 }

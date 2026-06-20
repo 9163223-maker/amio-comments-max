@@ -193,3 +193,17 @@ Events without tenant/owner scope are excluded from tenant Growth/Sources/Funnel
 ### Sourced join attribution
 
 When an audience join arrives with `source`, `campaign`, or `linkId` but without a same-user click sidecar, PR226 emits a `member_join_attributed` sidecar with probable confidence. Exact click correlation remains exact; unsourced joins remain unattributed.
+
+## Final scope hygiene follow-up
+
+### Manual cost tenant scope
+
+Manual cost drafts are seeded from `resolveStatsContext(ctx, payload)`, so a bot context containing only `userId` stores costs under the canonical tenant (`tenant_${userId}`) instead of the raw user id. Saved costs therefore remain visible when the Sources screen is opened with the same user-only context.
+
+### Scoped manual cost update/delete
+
+Manual cost update and delete operations are scoped by both `costId` and resolved tenant/owner/channel context. A tenant cannot update or delete another tenant's manual cost even if it knows the `costId`; the UI must not present cross-tenant not-found operations as successful deletion.
+
+### Scoped legacy comment bridge
+
+The legacy comment bridge only counts a supplied `commentKey` when that key belongs to a post scoped to the resolved tenant. Cross-tenant or stale `commentKey` values produce zero comments and a `legacy_commentKey_unscoped_or_stale` diagnostic instead of leaking another tenant's comments.
