@@ -149,3 +149,11 @@ Review thread: “Preserve nested metrics in the export”. The export is JSON-f
 * Legacy data is read as `legacy_snapshot` when dedupe cannot prove exact event identity.
 * MAX still does not expose who viewed or shared a post; those remain unavailable.
 * Automatic ad spend remains unavailable without manual costs or a real ad integration.
+
+## CTA clicks policy
+
+CTA clicks are counted only when the event is explicitly identifiable as a public or published user-facing action: for example `kind: "public_cta"`, `kind: "published_post_cta"`, `buttonSource: "published_post"`, `buttonSource: "public_cta"`, or an equivalent tracking/public CTA marker. AdminKIT setup and button-management callbacks are never engagement.
+
+The denylist includes `admin_section_buttons`, `button_admin_channel_pick`, `button_admin_recent_posts`, `button_admin_post_pick`, `button_admin_selected_post`, `button_admin_add`, `button_admin_edit`, `button_admin_delete`, `button_admin_save`, `button_admin_cancel`, `button_admin_back`, `button_admin_root`, `button_admin_set_text`, `button_admin_set_url`, and any action whose name is part of configuring, editing, deleting, saving, selecting, or setting up buttons.
+
+If a callback does not carry a reliable public/published CTA marker, PR226 does not record `cta_clicked` from the generic clean button flow. The CTA metric remains unavailable/unchanged until a reliable public CTA marker is present, so admin configuration callbacks cannot inflate funnel engagement.

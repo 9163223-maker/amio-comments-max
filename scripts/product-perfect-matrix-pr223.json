@@ -157,6 +157,7 @@
     "ctaAdminCallbacksExcluded": true,
     "exportNestedMetricsPreserved": true,
     "snapshotScopedByTenantPost": true,
-    "reviewThreadsAddressed": true
+    "reviewThreadsAddressed": true,
+    "ctaUserFacingOnly": true
   }
 }
