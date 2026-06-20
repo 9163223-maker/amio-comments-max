@@ -343,7 +343,7 @@ function createComment({ commentKey, userId, userName, text, avatarUrl, replyToI
       stickerId: queuedSticker.stickerId,
       editedAt: 0
     });
-    try { const parts = String(commentKey || "").split(":"); pr226StatsProducers.recordCommentCreated({ tenantKey: parts[0] || "default", channelId: parts[0] || "", postId: parts[1] || "", commentKey, userId }); } catch {}
+    try { pr226StatsProducers.recordCommentCreated({ commentKey, userId }); } catch {}
     scheduleCommentButtonRefresh(commentKey);
     return created;
   }
@@ -357,7 +357,7 @@ function createComment({ commentKey, userId, userName, text, avatarUrl, replyToI
   checkCommentsEnabled(commentKey, dbPolicy);
   checkModeration({ commentKey, userId, userName, text: cleanText, dbPolicy });
   const created = addComment(commentKey, { clientCommentId: cleanClientCommentId, userId: String(userId || "guest"), userName: String(userName || "Гость"), avatarUrl: String(avatarUrl || ""), text: cleanText, attachments: cleanAttachments, replyToId: String(replyToId || "").trim(), editedAt: 0 });
-  try { const parts = String(commentKey || "").split(":"); pr226StatsProducers.recordCommentCreated({ tenantKey: parts[0] || "default", channelId: parts[0] || "", postId: parts[1] || "", commentKey, userId }); } catch {}
+  try { pr226StatsProducers.recordCommentCreated({ commentKey, userId }); } catch {}
   scheduleCommentButtonRefresh(commentKey);
   return created;
 }

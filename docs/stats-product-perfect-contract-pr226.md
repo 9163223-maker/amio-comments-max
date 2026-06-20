@@ -107,3 +107,45 @@ The Sources screen contains “Расходы вручную”. The flow stores
 - Export sanitization is recursive. Nested `growth`, `sources`, `funnel`, `content`, `postStats`, and `dataQuality` objects remain structured JSON; secret-like keys (`token`, `authorization`, `cookie`, `secret`, `stack`) are removed at every depth.
 - Message.stat snapshots are scoped. A snapshot is not applied to the generic Content screen unless a selected `postId`, `commentKey`, or `messageId` exists; matching also respects tenant/owner/channel/post/comment context.
 - Producer proof covers real paths: `/r/:slug` redirect, audience update adapters, clean button callbacks, gift claim callbacks, and real comment creation through `commentService.createComment()`.
+
+## Follow-up audit closure for merge readiness
+
+The follow-up PR226 audit found that green CI was not enough: statistics had to prove real data sources, real producer context, scoped snapshots, and export safety. This section records the closure policy.
+
+### Legacy bridge policy
+
+`loadStatsDataset()` now calls the read-only `loadLegacyStatsBridge()` compatibility bridge. The bridge reads existing comments, ad-campaign/growth clicks, gift claims, button growth clicks, and audience snapshots without creating duplicate root UI. Bridged values are labelled as `legacy_snapshot`; canonical PR226 events remain labelled `canonical_event`; unavailable fields remain `unavailable`. When a canonical event exists for the same metric, the bridge does not merge the legacy count into that exact metric, preventing double counting.
+
+### Producer context resolver
+
+All PR226 producers resolve tenant/channel/post context through `resolveStatsProducerContext()` before writing stats. Resolution prefers trusted explicit owner fields, then post records by `commentKey`, then channel owner bindings, then campaign owner fields. If owner/tenant cannot be resolved, the event is written with `confidence: unavailable`; it is not written as an exact event for `default`.
+
+### Comment producer safety
+
+`commentService.createComment()` no longer derives tenant/channel/post from `commentKey.split(":")`. It passes the `commentKey` into the producer resolver, which loads the post record and channel binding. Malformed or stale comment keys are marked unavailable and surfaced in data quality instead of polluting another tenant.
+
+### Audience producer safety
+
+Audience update producers in `campaign-attribution-cc8336.js` and `clean-bot-channel-fast-pr84.js` no longer fall back to exact `default` tenant stats. They pass channel/update fields to the resolver; if the channel owner cannot be resolved, the resulting join/leave is unavailable/diagnostic rather than exact.
+
+### Admin callbacks are not CTA clicks
+
+`isUserFacingCtaClick()` excludes AdminKIT management callbacks such as `admin_section_buttons`, `button_admin_edit`, `button_admin_delete`, `button_admin_save`, channel/post pickers, cancel/save/edit/delete actions, and other admin-only button-management actions. Only public/published CTA actions are recorded as `cta_clicked`.
+
+### Gift producer context
+
+Gift requested/claimed producers use the same resolver as comments and CTA events. A gift tied to a known post/comment/channel is counted under that tenant; unresolved gifts are marked unavailable and never written as exact `default` stats.
+
+### Preserve nested metrics in export
+
+Review thread: “Preserve nested metrics in the export”. The export is JSON-first. `sanitizedExport()` recursively preserves nested safe metrics such as `growth.joined`, `sources.clicks`, `funnel.actions`, `content.comments`, `postStats.viewsAvailable`, and `dataQuality` arrays. Sensitive fields (`token`, `authorization`, `cookie`, `secret`, `password`, `stack`) are removed at any depth. Objects are never rendered as `[object]`.
+
+### Message.stat snapshot scoping
+
+`latestSnapshot()` only returns a snapshot when selected post context exists (`postId`, `commentKey`, or `messageId`). The snapshot must match tenant/owner/channel/post/comment/message context. Generic content screens do not pick arbitrary snapshots, so cross-tenant or cross-post views cannot leak into another stats screen.
+
+### Remaining known limitations
+
+* Legacy data is read as `legacy_snapshot` when dedupe cannot prove exact event identity.
+* MAX still does not expose who viewed or shared a post; those remain unavailable.
+* Automatic ad spend remains unavailable without manual costs or a real ad integration.

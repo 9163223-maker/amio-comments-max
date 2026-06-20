@@ -51,6 +51,9 @@ function buildContract() {
   const statsTests = read('scripts/test-stats-product-perfect-contract-pr226.js');
   const botSource = read('bot.js');
   const commentService = read('services/commentService.js');
+  const campaignAttribution = read('campaign-attribution-cc8336.js');
+  const cleanBotChannel = read('clean-bot-channel-fast-pr84.js');
+  const statsDocs = read('docs/stats-product-perfect-contract-pr226.md');
   const runtimeIdentity = runtimeIdentityFromBuildInfo();
 
   const startupPathOk = Boolean(cleanEntrypoint)
@@ -95,6 +98,14 @@ function buildContract() {
     statsNoServiceOnlyGreenTests: has(statsTests, 'findPayload') && has(statsTests, 'handleTextInput') && has(redirectRoute, 'recordStatsTrackingClick'),
     statsSanitizedExportRecursive: has(statsService, 'function sanitizeValue') && has(statsTests, 'parsedExport.growth.counts.joined'),
     statsMessageStatSnapshotScoped: has(statsService, '!clean(c.postId)') && has(statsTests, 'otherProbe'),
+    statsLegacyBridgePresent: has(statsService, 'function loadLegacyStatsBridge') && has(statsTests, 'STAT-102'),
+    statsProducerContextResolverPresent: has(statsProducers, 'resolveStatsProducerContext') && has(statsTests, 'STAT-106'),
+    statsCommentProducerNoSplitTenant: has(commentService, 'recordCommentCreated({ commentKey, userId })') && !has(commentService, 'split(":")'),
+    statsAudienceNoDefaultExactTenant: has(statsTests, 'STAT-113') && !has(campaignAttribution, "|| 'default'") && !has(cleanBotChannel, "|| 'default'"),
+    statsCtaAdminCallbacksExcluded: has(statsProducers, 'isUserFacingCtaClick') && has(statsProducers, 'button_admin_') && has(statsTests, 'STAT-116'),
+    statsExportNestedMetricsPreserved: has(statsTests, 'STAT-122') && has(statsTests, "!rich.includes('[object]')") && has(statsService, 'sanitizeValue'),
+    statsSnapshotScopedByTenantPost: has(statsService, 'function latestSnapshot') && has(statsService, 'return null; return state().postStatSnapshots.find') && has(statsTests, 'STAT-129'),
+    statsReviewThreadsAddressed: has(statsDocs, 'Preserve nested metrics') && has(statsTests, 'STAT-125'),
     runtimeIdentity,
     startupPath: { entrypointExpected: EXPECTED_ENTRYPOINT, activeEntrypoint: EXPECTED_ENTRYPOINT, startupLogBootstrapRequired: has(cleanEntrypoint, "require('./pr180-startup-log-bootstrap')"), expressRoutesInstalledByEntrypoint: has(cleanEntrypoint, 'installExpressRoutes'), cleanBotInstalledByEntrypoint: has(cleanEntrypoint, 'installCleanBot'), ok: startupPathOk },
     routes: {

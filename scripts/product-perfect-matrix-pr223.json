@@ -149,6 +149,14 @@
     "serviceShortcutTestsRejected": true,
     "sanitizedExportRecursive": true,
     "messageStatSnapshotScoped": true,
-    "producerPathProofs": true
+    "producerPathProofs": true,
+    "legacyBridgePresent": true,
+    "producerContextResolverPresent": true,
+    "commentProducerNoSplitTenant": true,
+    "audienceNoDefaultExactTenant": true,
+    "ctaAdminCallbacksExcluded": true,
+    "exportNestedMetricsPreserved": true,
+    "snapshotScopedByTenantPost": true,
+    "reviewThreadsAddressed": true
   }
 }

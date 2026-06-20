@@ -38,12 +38,12 @@ function sendJson(res, status, payload) {
 }
 function recordStatsTrackingClick(result = {}, req = {}, slug = '') {
   const c = result.campaign || result.item || result || {};
-  const tenantKey = clean(c.tenantKey || c.ownerUserId || c.createdByUserId || 'default');
+  const tenantKey = clean(c.tenantKey || c.ownerUserId || c.createdByUserId || '');
   const ownerUserId = clean(c.ownerUserId || c.createdByUserId || '');
   const linkId = clean(c.id || c.linkId || slug);
   return statsPr226.trackLinkClick({ tenantKey, ownerUserId, channelId: clean(c.channelId) }, {
     linkId, slug, userId: userIdFromQuery(req), source: clean(c.source), medium: clean(c.medium), campaign: clean(c.campaign || c.name), content: clean(c.content || c.ad), term: clean(c.term || c.placement),
-    payload: { query: safeQuery(req), slug }
+    confidence: tenantKey ? 'exact' : 'unavailable', payload: { query: safeQuery(req), slug }
   });
 }
 function redirectHandler(req, res) {

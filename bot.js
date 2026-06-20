@@ -5319,7 +5319,7 @@ async function handleMessageCallback(update, config) {
   if (buttonsFlow.isCleanButtonAction(payload?.action) && String(payload?.action || '').trim() !== 'admin_section_buttons') {
     await acknowledgeCallbackSilently(config, callbackId);
     const rendered = await renderCleanButtonsCallback({ config, message, payload, userId });
-    try { pr226StatsProducers.recordCtaClick({ tenantKey: payload.tenantKey || payload.ownerUserId || userId, ownerUserId: payload.ownerUserId || userId, userId, channelId: payload.channelId, postId: payload.postId, commentKey: payload.commentKey, buttonId: payload.buttonId || payload.action, buttonText: payload.buttonText || payload.text }); } catch {}
+    try { pr226StatsProducers.recordCtaClick({ tenantKey: payload.tenantKey, ownerUserId: payload.ownerUserId, action: payload.action, userId, channelId: payload.channelId, postId: payload.postId, commentKey: payload.commentKey, buttonId: payload.buttonId || payload.action, buttonText: payload.buttonText || payload.text }); } catch {}
     return { ok: true, action: payload.action, rendered: Boolean(rendered), resolver: 'buttons-flow-cc8-clean' };
   }
 
@@ -5337,7 +5337,7 @@ async function handleMessageCallback(update, config) {
       campaignId: payload.campaignId || '',
       userId
     });
-    try { pr226StatsProducers.recordGiftRequested({ tenantKey: payload.tenantKey || payload.ownerUserId || userId, ownerUserId: payload.ownerUserId || userId, userId, channelId: payload.channelId, postId: payload.postId, commentKey: payload.commentKey, campaignId: payload.campaignId }); if (result && result.ok !== false) pr226StatsProducers.recordGiftClaimed({ tenantKey: payload.tenantKey || payload.ownerUserId || userId, ownerUserId: payload.ownerUserId || userId, userId, channelId: payload.channelId, postId: payload.postId, commentKey: payload.commentKey, campaignId: payload.campaignId }); } catch {}
+    try { pr226StatsProducers.recordGiftRequested({ tenantKey: payload.tenantKey, ownerUserId: payload.ownerUserId, userId, channelId: payload.channelId, postId: payload.postId, commentKey: payload.commentKey, campaignId: payload.campaignId }); if (result && result.ok !== false) pr226StatsProducers.recordGiftClaimed({ tenantKey: payload.tenantKey, ownerUserId: payload.ownerUserId, userId, channelId: payload.channelId, postId: payload.postId, commentKey: payload.commentKey, campaignId: payload.campaignId }); } catch {}
     return { ok: true, action: 'gift_claim_processed', result };
   }
 
