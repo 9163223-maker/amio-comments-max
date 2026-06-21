@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const RUNTIME = 'RUNTIME-CONTRACT-PR196';
-const SOURCE = 'adminkit-pr225-gifts-canonical-buttons-hardening';
+const SOURCE = 'adminkit-pr226-growth-sources-funnel-stats';
 const EXPECTED_ENTRYPOINT = 'clean-entrypoint-1.53.10-pr89.js';
 
 function clean(value, limit = 180) {
@@ -44,6 +44,16 @@ function buildContract() {
   const buttons = read('buttons-flow-cc8-clean.js');
   const cc5 = read('cc5-db-core.js');
   const cleanEntrypoint = read(EXPECTED_ENTRYPOINT);
+  const statsFlow = read('stats-flow-cc8.js');
+  const statsService = read('services/statsProductPerfectPr226.js');
+  const statsProducers = read('services/statsEventProducersPr226.js');
+  const redirectRoute = read('ad-campaign-redirect-route-cc8325.js');
+  const statsTests = read('scripts/test-stats-product-perfect-contract-pr226.js');
+  const botSource = read('bot.js');
+  const commentService = read('services/commentService.js');
+  const campaignAttribution = read('campaign-attribution-cc8336.js');
+  const cleanBotChannel = read('clean-bot-channel-fast-pr84.js');
+  const statsDocs = read('docs/stats-product-perfect-contract-pr226.md');
   const runtimeIdentity = runtimeIdentityFromBuildInfo();
 
   const startupPathOk = Boolean(cleanEntrypoint)
@@ -71,6 +81,41 @@ function buildContract() {
     generatedAt: new Date().toISOString(),
     safe: true,
     contractLiveOk,
+    statsProductPerfectPr226: has(statsFlow, 'stats_product_perfect_home_pr226') && has(statsService, 'stats_events'),
+    statsRootSectionsOk: has(statsFlow, '📈 Рост') && has(statsFlow, '🎯 Источники') && has(statsFlow, '🧭 Воронка') && has(statsFlow, '📝 Контент') && has(statsFlow, '📤 Отчёт и качество данных'),
+    statsNoDuplicateRootSections: has(statsFlow, "function homeRows(menu) { return [[button(menu, '📈 Рост'") && !has(statsFlow, "button(menu, '🔘 Кнопки под постами'"),
+    statsPersistentEvents: has(statsService, 'persistStatsEvent'),
+    statsMessageStatCapabilityProbe: has(statsService, 'detectMaxPostStatCapabilities'),
+    statsFakeMetricsBlocked: has(statsService, 'unavailableMetrics') && has(statsFlow, 'Просмотры недоступны'),
+    statsPeriodFiltering: has(statsService, 'periodBounds') && has(statsService, 'eventInPeriod') && has(statsTests, 'STAT-054'),
+    statsSourceFiltering: has(statsService, 'FILTER_FIELDS') && has(statsTests, 'STAT-059'),
+    statsTrackingLinkUiCanonical: has(statsFlow, 'createCanonicalTrackingLinkForCampaign') && has(statsFlow, 'Ссылка создана и подключена к статистике') && has(statsTests, 'STAT-060'),
+    statsManualCostUiCanonical: has(statsFlow, 'statsManualCostFlow') && has(statsTests, 'STAT-070'),
+    statsPostStatsRealHandler: has(statsFlow, 'function pr226PostStats') && !has(statsFlow, "if (action === 'admin_stats_post') return pr226Content") && has(statsTests, 'STAT-077'),
+    statsMessageStatProbeAdapter: has(statsService, 'fetchMaxMessageStat') && has(statsService, 'defaultMaxMessageStatAdapter') && has(statsTests, 'STAT-082'),
+    statsRealEventProducers: has(statsProducers, 'recordAudienceUpdate') && has(botSource, 'recordCtaClick') && has(botSource, 'recordGiftClaimed') && has(commentService, 'recordCommentCreated') && has(statsTests, 'STAT-088'),
+    statsOldDuplicateActionsRerouted: has(statsFlow, "action === 'admin_stats_buttons_cache') return pr226Funnel") && has(statsTests, 'STAT-094'),
+    statsNoServiceOnlyGreenTests: has(statsTests, 'findPayload') && has(statsTests, 'handleTextInput') && has(redirectRoute, 'recordStatsTrackingClick'),
+    statsSanitizedExportRecursive: has(statsService, 'function sanitizeValue') && has(statsTests, 'parsedExport.growth.counts.joined'),
+    statsMessageStatSnapshotScoped: has(statsService, '!clean(c.postId)') && has(statsTests, 'otherProbe'),
+    statsLegacyBridgePresent: has(statsService, 'function loadLegacyStatsBridge') && has(statsTests, 'STAT-102'),
+    statsProducerContextResolverPresent: has(statsProducers, 'resolveStatsProducerContext') && has(statsTests, 'STAT-106'),
+    statsCommentProducerNoSplitTenant: has(commentService, 'recordCommentCreated({ commentKey, userId })') && !has(commentService, 'split(":")'),
+    statsAudienceNoDefaultExactTenant: has(statsTests, 'STAT-113') && !has(campaignAttribution, "|| 'default'") && !has(cleanBotChannel, "|| 'default'"),
+    statsCtaAdminCallbacksExcluded: has(statsProducers, 'isUserFacingCtaClick') && has(statsProducers, 'ADMIN_CTA_DENYLIST') && has(statsProducers, 'button_admin_channel_pick') && has(statsTests, 'STAT-141'),
+    statsCtaUserFacingOnly: has(statsProducers, "kind==='public_cta'") && has(statsProducers, 'buttonSource') && has(statsTests, 'STAT-142') && has(statsTests, 'STAT-144'),
+    statsExportNestedMetricsPreserved: has(statsTests, 'STAT-122') && has(statsTests, "!rich.includes('[object]')") && has(statsService, 'sanitizeValue'),
+    statsSnapshotScopedByTenantPost: has(statsService, 'function latestSnapshot') && has(statsService, 'return null; return state().postStatSnapshots.find') && has(statsTests, 'STAT-129'),
+    statsReviewThreadsAddressed: has(statsDocs, 'Preserve nested metrics') && has(statsTests, 'STAT-125'),
+    statsAudienceNoDoubleRecord: has(statsProducers, 'audienceIdempotencyKey') && has(statsService, 'idempotencyKey') && has(statsTests, 'STAT-148'),
+    statsTrackedUrlHandedOut: has(statsFlow, 'trackedCampaignUrl') && has(statsFlow, 'Используйте именно эту ссылку') && has(statsTests, 'STAT-152'),
+    statsCanonicalTenantResolution: has(statsService, 'canonicalTenantKey') && has(statsService, 'ensureTenantContext') && has(statsTests, 'STAT-156'),
+    statsLegacyAudiencePeriodFiltered: has(statsService, 'legacyUnknownPeriod') && has(statsTests, 'STAT-160'),
+    statsUnscopedEventsQuarantined: has(statsService, 'if (!clean(e.tenantKey)) return false') && has(statsTests, 'STAT-164'),
+    statsSourcedJoinsAttributed: has(statsService, "eventType: 'member_join_attributed'") && has(statsTests, 'STAT-168'),
+    statsManualCostDraftCanonicalTenant: has(statsFlow, 'resolveStatsContext(ctx, payload)') && has(statsTests, 'STAT-169'),
+    statsManualCostScopedMutations: has(statsService, 'scopedIndex') && has(statsTests, 'STAT-172'),
+    statsLegacyCommentKeyScoped: has(statsService, 'legacy_commentKey_unscoped_or_stale') && has(statsTests, 'STAT-175'),
     runtimeIdentity,
     startupPath: { entrypointExpected: EXPECTED_ENTRYPOINT, activeEntrypoint: EXPECTED_ENTRYPOINT, startupLogBootstrapRequired: has(cleanEntrypoint, "require('./pr180-startup-log-bootstrap')"), expressRoutesInstalledByEntrypoint: has(cleanEntrypoint, 'installExpressRoutes'), cleanBotInstalledByEntrypoint: has(cleanEntrypoint, 'installCleanBot'), ok: startupPathOk },
     routes: {

@@ -14,6 +14,7 @@ const {
 } = require("./services/giftService");
 const { sendMessage, editMessage, deleteMessage, answerCallback, getBotChatMember, getChat, getChats, getChatMembers, createUpload, uploadBinaryToUrl, buildUploadAttachmentPayload } = require("./services/maxApi");
 const { safeJson } = require("./services/helpers");
+const pr226StatsProducers = require("./services/statsEventProducersPr226");
 const {
   getSetupState,
   setSetupState,
@@ -5318,6 +5319,7 @@ async function handleMessageCallback(update, config) {
   if (buttonsFlow.isCleanButtonAction(payload?.action) && String(payload?.action || '').trim() !== 'admin_section_buttons') {
     await acknowledgeCallbackSilently(config, callbackId);
     const rendered = await renderCleanButtonsCallback({ config, message, payload, userId });
+    try { pr226StatsProducers.recordCtaClick({ tenantKey: payload.tenantKey, ownerUserId: payload.ownerUserId, action: payload.action, userId, channelId: payload.channelId, postId: payload.postId, commentKey: payload.commentKey, buttonId: payload.buttonId || payload.action, buttonText: payload.buttonText || payload.text }); } catch {}
     return { ok: true, action: payload.action, rendered: Boolean(rendered), resolver: 'buttons-flow-cc8-clean' };
   }
 
@@ -5335,6 +5337,7 @@ async function handleMessageCallback(update, config) {
       campaignId: payload.campaignId || '',
       userId
     });
+    try { pr226StatsProducers.recordGiftRequested({ tenantKey: payload.tenantKey, ownerUserId: payload.ownerUserId, userId, channelId: payload.channelId, postId: payload.postId, commentKey: payload.commentKey, campaignId: payload.campaignId }); if (pr226StatsProducers.isGiftClaimCompleted({ ...(result || {}), ok: result && result.ok })) pr226StatsProducers.recordGiftClaimed({ tenantKey: payload.tenantKey, ownerUserId: payload.ownerUserId, userId, channelId: payload.channelId, postId: payload.postId, commentKey: payload.commentKey, campaignId: payload.campaignId, ok: true, status: result && result.status }); } catch {}
     return { ok: true, action: 'gift_claim_processed', result };
   }
 

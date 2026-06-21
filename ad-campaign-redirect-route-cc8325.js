@@ -1,6 +1,8 @@
 'use strict';
 
 const ads = require('./services/adCampaignService');
+const statsPr226 = require('./services/statsProductPerfectPr226');
+const tenantScope = require('./tenant-scope');
 
 const RUNTIME = 'CC8.3.25-ADS-TRACKING-LINKS';
 
@@ -35,6 +37,16 @@ function sendJson(res, status, payload) {
   noCache(res);
   return res.status(status).type('application/json').send(JSON.stringify(payload, null, 2));
 }
+function recordStatsTrackingClick(result = {}, req = {}, slug = '') {
+  const c = result.campaign || result.item || result || {};
+  const ownerUserId = clean(c.ownerUserId || c.createdByUserId || '');
+  const tenantKey = clean(c.tenantKey) || (ownerUserId ? clean(tenantScope.ensureTenantContext(ownerUserId).tenantKey) : '');
+  const linkId = clean(c.id || c.linkId || slug);
+  return statsPr226.trackLinkClick({ tenantKey, ownerUserId, channelId: clean(c.channelId) }, {
+    linkId, slug, userId: userIdFromQuery(req), source: clean(c.source), medium: clean(c.medium), campaign: clean(c.campaign || c.name), content: clean(c.content || c.ad), term: clean(c.term || c.placement),
+    confidence: tenantKey ? 'exact' : 'unavailable', payload: { query: safeQuery(req), slug }
+  });
+}
 function redirectHandler(req, res) {
   const slug = clean(req && req.params && req.params.slug);
   noCache(res);
@@ -45,6 +57,7 @@ function redirectHandler(req, res) {
       query: safeQuery(req),
       config: { appBaseUrl: baseUrl() }
     });
+    if (result && result.ok !== false) { try { recordStatsTrackingClick(result, req, slug); } catch {} }
     if (!result || result.ok === false || !result.targetUrl) {
       return sendJson(res, 404, {
         ok: false,
@@ -82,4 +95,4 @@ function install(app) {
   return app;
 }
 
-module.exports = { RUNTIME, install, redirectHandler };
+module.exports = { RUNTIME, install, redirectHandler, recordStatsTrackingClick };
