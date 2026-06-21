@@ -128,7 +128,7 @@ function buildFinalRuntimeReadinessGateFromSnapshot(snapshot = {}) {
     statsCallbackContractWired: sanitizeBool(summary.statsCallbackContractWired),
     statsCallbackContractLiveOk: sanitizeBool(summary.statsCallbackContractLiveOk),
     statsCallbackContractOk: sanitizeBool(summary.statsCallbackContractOk),
-    statsMainMenuButtonRoutesToPr226: sanitizeBool(summary.statsMainMenuButtonRoutesToPr226),
+    statsMainMenuRoutesToCurrentStatsRoot: sanitizeBool(summary.statsMainMenuRoutesToCurrentStatsRoot),
     statsLegacyRootNotReturned: sanitizeBool(summary.statsLegacyRootNotReturned)
   };
   const missing = Object.entries(required).filter(([, value]) => value !== true).map(([key]) => key);
@@ -263,7 +263,7 @@ function sanitizeLiveVersionSnapshot(input = {}) {
       statsCallbackContractWired: sanitizeBool(summary.statsCallbackContractWired),
       statsCallbackContractLiveOk: sanitizeBool(summary.statsCallbackContractLiveOk),
       statsCallbackContractOk: sanitizeBool(summary.statsCallbackContractOk),
-      statsMainMenuButtonRoutesToPr226: sanitizeBool(summary.statsMainMenuButtonRoutesToPr226),
+      statsMainMenuRoutesToCurrentStatsRoot: sanitizeBool(summary.statsMainMenuRoutesToCurrentStatsRoot),
       statsLegacyRootNotReturned: sanitizeBool(summary.statsLegacyRootNotReturned)
     }
   };

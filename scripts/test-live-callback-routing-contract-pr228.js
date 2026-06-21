@@ -34,7 +34,8 @@ function installRoutes() {
   assert.ok(result.resolvedHandler && !/legacy-stub/.test(result.resolvedHandler), 'STAT-CB-003: payload must pass through production callback/router path');
   if (!/stats_(home|scope_empty|scope_selector)_pr229/.test(result.screenId)) for (const label of contract.EXPECTED_LABELS) assert.ok(result.expectedLabelsPresent.includes(label), `STAT-CB-004: missing current stats root button label ${label}`);
   assert.deepStrictEqual(result.legacyLabelsPresent, [], 'STAT-CB-005: legacy stats root button labels must not be returned');
-  assert.strictEqual(result.adminSectionStatsRoutesToPr226, true, 'STAT-CB-006: real main menu stats payload must route to current stats home');
+  assert.strictEqual(result.adminSectionStatsRoutesToCurrentStatsRoot, true, 'STAT-CB-006: real main menu stats payload must route to current stats home');
+  if (/pr229/.test(result.screenId)) assert.strictEqual(result.adminSectionStatsRoutesToPr226, false, 'STAT-CB-006b: PR229 root must not be reported as PR226');
   assert.strictEqual(result.ok, true, `STAT-CB-007: live callback contract failed: ${result.errors.join(', ')}`);
 
   const syncStatsScreen = menu.screenForPayload({ action: 'stats:home', route: 'stats:home' });
@@ -60,7 +61,7 @@ function installRoutes() {
   const endpointBody = JSON.parse(endpointRes.body);
   assert.strictEqual(endpointRes.statusCode, 200, 'STAT-CB-017: callback contract endpoint status must be 200');
   assert.ok(/no-store/.test(endpointRes.headers['Cache-Control'] || ''), 'STAT-CB-018: callback contract endpoint must be no-cache');
-  for (const key of ['ok','runtimeVersion','sourceMarker','entrypoint','checkedAt','mainMenuStatsButtonFound','mainMenuStatsPayload','resolvedHandler','screenId','screenTextPreview','renderedRootButtonLabels','expectedLabelsPresent','legacyLabelsPresent','adminSectionStatsRoutesToPr226','errors']) {
+  for (const key of ['ok','runtimeVersion','sourceMarker','entrypoint','checkedAt','mainMenuStatsButtonFound','mainMenuStatsPayload','resolvedHandler','screenId','screenTextPreview','renderedRootButtonLabels','expectedLabelsPresent','legacyLabelsPresent','adminSectionStatsRoutesToCurrentStatsRoot','adminSectionStatsRoutesToPr226','errors']) {
     assert.ok(Object.prototype.hasOwnProperty.call(endpointBody, key), `STAT-CB-019: endpoint JSON missing ${key}`);
   }
 })().catch((error) => {

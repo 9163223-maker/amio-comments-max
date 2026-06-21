@@ -124,7 +124,7 @@ function buildContract() {
     statsCallbackContractWired: has(callbackContract, 'runLiveCallbackContract') && has(callbackContractTest, 'STAT-CB-006') && has(callbackContractRoutes, '/debug/callback-contract-live'),
     statsCallbackContractLiveOk: callbackLive.statsCallbackContractLiveOk === true,
     statsCallbackContractOk: callbackLive.statsCallbackContractLiveOk === true,
-    statsMainMenuButtonRoutesToPr226: callbackLive.statsMainMenuButtonRoutesToPr226 === true,
+    statsMainMenuRoutesToCurrentStatsRoot: callbackLive.statsMainMenuRoutesToCurrentStatsRoot === true,
     statsLegacyRootNotReturned: callbackLive.statsLegacyRootNotReturned === true,
     callbackContractEndpoint: '/debug/callback-contract-live',
     ...statsScopeLive,

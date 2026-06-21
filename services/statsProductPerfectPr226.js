@@ -29,14 +29,21 @@ function makeId(prefix, payload) { return `${prefix}_${crypto.createHash('sha1')
 function periodBounds(period = 'today', now = Date.now()) { const p = clean(period || 'today').toLowerCase(); const end = Number.isFinite(Number(now)) ? Number(now) : Date.now(); if (p === 'all') return { period: 'all', start: null, end }; if (p === '7d') return { period: '7d', start: end - 7 * 86400000, end }; if (p === '30d') return { period: '30d', start: end - 30 * 86400000, end }; const d = new Date(end); const start = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); return { period: 'today', start, end }; }
 function eventInPeriod(event = {}, bounds = periodBounds()) { const rawTs = event.timestamp ?? event.createdAt ?? event.date ?? ''; const ts = typeof rawTs === 'number' ? rawTs : Date.parse(rawTs || ''); if (!Number.isFinite(ts)) return false; if (bounds.start !== null && ts < bounds.start) return false; return ts <= bounds.end + 5 * 60 * 1000; }
 function resolveStatsContext(ctx = {}, payload = {}) { const period = clean(payload.period || ctx.period || 'today'); const merged = { ...ctx, ...payload }; const hasTenantSeed = clean(merged.tenantKey || merged.ownerUserId || merged.userId); const explicitKind = clean(payload.targetKind || ctx.targetKind); const channelId = clean(payload.channelId || ctx.channelId); const chatId = clean(payload.chatId || ctx.chatId); const targetKind = ['channel','chat','all_channels','all_chats'].includes(explicitKind) ? explicitKind : (chatId ? 'chat' : (channelId ? 'channel' : 'all_channels')); const targetId = clean(payload.targetId || ctx.targetId || (targetKind === 'chat' ? chatId : (targetKind === 'channel' ? channelId : targetKind))); return { tenantKey: hasTenantSeed ? key(merged) : '', ownerUserId: clean(payload.ownerUserId || ctx.ownerUserId || ctx.userId), targetKind, targetId, channelId, chatId, postId: clean(payload.postId || ctx.postId), messageId: clean(payload.messageId || ctx.messageId), commentKey: clean(payload.commentKey || ctx.commentKey), period, source: clean(payload.source || ctx.source), campaign: clean(payload.campaign || ctx.campaign), medium: clean(payload.medium || ctx.medium), content: clean(payload.content || ctx.content), term: clean(payload.term || ctx.term), linkId: clean(payload.linkId || ctx.linkId), userId: clean(payload.userId || ctx.userIdFilter), metricCapabilities: payload.metricCapabilities || ctx.metricCapabilities || {} }; }
+function inferredTargetKind(e = {}) {
+  const kind = clean(e.targetKind);
+  if (kind) return kind;
+  if (clean(e.chatId)) return 'chat';
+  if (clean(e.channelId)) return 'channel';
+  return '';
+}
 function matchesContext(e = {}, c = {}) {
   if (c.targetKind === 'all_channels') {
-    const storedKind = clean(e.targetKind);
-    if (storedKind && storedKind !== 'channel' && storedKind !== 'all_channels') return false;
+    const storedKind = inferredTargetKind(e);
+    if (storedKind !== 'channel' && storedKind !== 'all_channels') return false;
     c = { ...c, targetKind: '', targetId: '', channelId: '', chatId: '' };
   }
   if (c.targetKind === 'all_chats') {
-    const storedKind = clean(e.targetKind);
+    const storedKind = inferredTargetKind(e);
     if (storedKind !== 'chat' && storedKind !== 'all_chats') return false;
     c = { ...c, targetKind: '', targetId: '', channelId: '', chatId: '' };
   }
