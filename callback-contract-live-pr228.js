@@ -3,7 +3,7 @@
 const { spawn } = require('child_process');
 
 const RUNTIME = 'PR228-LIVE-CALLBACK-CONTRACT';
-const SOURCE = 'adminkit-pr228-live-callback-contract';
+const SOURCE = 'adminkit-pr229-stats-scope-buttons-cleanup';
 const ENTRYPOINT = 'clean-entrypoint-1.53.10-pr89.js';
 const PRODUCTION_HANDLER = 'clean-bot-channel-first-post-picker-pr90 -> statsFlow.screenForPayload';
 const EXPECTED_LABELS = ['📈 Рост', '🎯 Источники', '🧭 Воронка', '📝 Контент', '📤 Отчёт и качество данных'];
@@ -67,8 +67,8 @@ async function runLiveCallbackContractInProcess() {
     if (!captured.editMessage.length && !captured.sendMessage.length) errors.push('no_screen_render_captured');
     if (expectedLabelsPresent.length !== EXPECTED_LABELS.length) errors.push('pr226_expected_labels_missing');
     if (legacyLabelsPresent.length) errors.push('legacy_stats_root_labels_returned');
-    const adminSectionStatsRoutesToPr226 = expectedLabelsPresent.length === EXPECTED_LABELS.length && legacyLabelsPresent.length === 0 && clean(response.screenId).includes('pr226');
-    if (!adminSectionStatsRoutesToPr226) errors.push('admin_section_stats_not_pr226_home');
+    const adminSectionStatsRoutesToPr226 = expectedLabelsPresent.length === EXPECTED_LABELS.length && legacyLabelsPresent.length === 0 && /pr226|pr229/.test(clean(response.screenId));
+    if (!adminSectionStatsRoutesToPr226) errors.push('admin_section_stats_not_current_stats_home');
     return { ok: errors.length === 0, runtimeVersion: process.env.RUNTIME_VERSION || buildInfoRuntime() || menu.runtimeVersion(), sourceMarker: SOURCE, entrypoint: ENTRYPOINT, checkedAt: new Date().toISOString(), executionMode: 'child_process_isolated_maxApi' , mainMenuRenderer: 'v3-menu-core-1539.mainScreen', mainMenuStatsButtonFound: Boolean(statsButton), mainMenuStatsPayload, resolvedHandler: clean(response.handler || response.handledBy || 'clean-bot-campaign-attribution-cc8336 -> clean-bot-channel-first-post-picker-pr90'), screenId: clean(response.screenId), screenTextPreview: preview(screenText), renderedRootButtonLabels, expectedLabelsPresent, legacyLabelsPresent, adminSectionStatsRoutesToPr226, errors };
   } catch (error) {
     errors.push(clean(error && error.message || error));

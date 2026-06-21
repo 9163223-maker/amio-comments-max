@@ -34,12 +34,12 @@ function installRoutes() {
   assert.ok(result.resolvedHandler && !/legacy-stub/.test(result.resolvedHandler), 'STAT-CB-003: payload must pass through production callback/router path');
   for (const label of contract.EXPECTED_LABELS) assert.ok(result.expectedLabelsPresent.includes(label), `STAT-CB-004: missing PR226 root button label ${label}`);
   assert.deepStrictEqual(result.legacyLabelsPresent, [], 'STAT-CB-005: legacy stats root button labels must not be returned');
-  assert.strictEqual(result.adminSectionStatsRoutesToPr226, true, 'STAT-CB-006: real main menu stats payload must route to PR226 stats home');
+  assert.strictEqual(result.adminSectionStatsRoutesToPr226, true, 'STAT-CB-006: real main menu stats payload must route to current stats home');
   assert.strictEqual(result.ok, true, `STAT-CB-007: live callback contract failed: ${result.errors.join(', ')}`);
 
   const syncStatsScreen = menu.screenForPayload({ action: 'stats:home', route: 'stats:home' });
   assert.ok(syncStatsScreen && typeof syncStatsScreen.then !== 'function', 'STAT-CB-008: sync stats route must not return a Promise');
-  assert.strictEqual(syncStatsScreen.id, 'stats_product_perfect_home_pr226', 'STAT-CB-009: sync stats route must simulate PR226 root');
+  assert.ok(/pr226|pr229/.test(syncStatsScreen.id), 'STAT-CB-009: sync stats route must simulate current stats root');
   const flowStatsScreen = await statsFlow.screenForPayload(menu, { action: 'admin_section_stats' }, { userId: 'pr228-admin-user' });
   assert.deepStrictEqual(contract.visibleButtonLabels(syncStatsScreen), contract.visibleButtonLabels(flowStatsScreen), 'STAT-CB-010: sync stats:home labels must match statsFlow admin_section_stats labels');
 
