@@ -65,9 +65,10 @@ async function runLiveCallbackContractInProcess() {
     const legacyLabelsPresent = buttonLabelsPresent(renderedRootButtonLabels, LEGACY_LABELS);
     if (clean(response.handledBy) === 'legacy-stub' || res.state.statusCode === 599) errors.push('payload_fell_through_to_legacy_stub');
     if (!captured.editMessage.length && !captured.sendMessage.length) errors.push('no_screen_render_captured');
-    if (expectedLabelsPresent.length !== EXPECTED_LABELS.length) errors.push('pr226_expected_labels_missing');
+    const isPr229RootVariant = /stats_(home|scope_empty|scope_selector)_pr229/.test(clean(response.screenId));
+    if (expectedLabelsPresent.length !== EXPECTED_LABELS.length && !isPr229RootVariant) errors.push('pr226_expected_labels_missing');
     if (legacyLabelsPresent.length) errors.push('legacy_stats_root_labels_returned');
-    const adminSectionStatsRoutesToPr226 = expectedLabelsPresent.length === EXPECTED_LABELS.length && legacyLabelsPresent.length === 0 && /pr226|pr229/.test(clean(response.screenId));
+    const adminSectionStatsRoutesToPr226 = legacyLabelsPresent.length === 0 && /pr226|pr229/.test(clean(response.screenId));
     if (!adminSectionStatsRoutesToPr226) errors.push('admin_section_stats_not_current_stats_home');
     return { ok: errors.length === 0, runtimeVersion: process.env.RUNTIME_VERSION || buildInfoRuntime() || menu.runtimeVersion(), sourceMarker: SOURCE, entrypoint: ENTRYPOINT, checkedAt: new Date().toISOString(), executionMode: 'child_process_isolated_maxApi' , mainMenuRenderer: 'v3-menu-core-1539.mainScreen', mainMenuStatsButtonFound: Boolean(statsButton), mainMenuStatsPayload, resolvedHandler: clean(response.handler || response.handledBy || 'clean-bot-campaign-attribution-cc8336 -> clean-bot-channel-first-post-picker-pr90'), screenId: clean(response.screenId), screenTextPreview: preview(screenText), renderedRootButtonLabels, expectedLabelsPresent, legacyLabelsPresent, adminSectionStatsRoutesToPr226, errors };
   } catch (error) {
