@@ -9,6 +9,7 @@ const PRODUCTION_HANDLER = 'clean-bot-channel-first-post-picker-pr90 -> statsFlo
 const EXPECTED_LABELS = ['📈 Рост', '🎯 Источники', '🧭 Воронка', '📝 Контент', '📤 Отчёт и качество данных'];
 const LEGACY_LABELS = ['Обзор', 'Подписчики', 'Посты', 'Комментарии', 'Реакции', 'Подарки', 'Кнопки под постам', 'Источники подписч', 'Обновить данные'];
 const CHILD_TIMEOUT_MS = 12000;
+const RESULT_MARKER = '__ADMINKIT_CALLBACK_CONTRACT_RESULT__';
 
 function clean(value) { return String(value || '').trim(); }
 function preview(value, max = 700) { const text = clean(value).replace(/\s+/g, ' '); return text.length > max ? `${text.slice(0, max - 1)}…` : text; }
@@ -26,6 +27,12 @@ function makeResponse() { const state = { statusCode: 200, body: null, headersSe
 function privateCallbackUpdate(payload) { return { update_type: 'message_callback', callback: { callback_id: 'pr228-callback-id', payload, user: { user_id: 'pr228-admin-user' }, message: { id: 'pr228-message-id', body: { mid: 'pr228-message-id', text: '🐋 АдминКИТ' }, sender: { user_id: 'pr228-admin-user' }, recipient: { chat_id: 'pr228-admin-user', chat_type: 'private' } } } }; }
 function buildInfoRuntime() { try { return require('./buildInfo').getBuildInfo().runtimeVersion; } catch { return ''; } }
 function failure(errors = []) { return remember({ ok: false, runtimeVersion: process.env.RUNTIME_VERSION || buildInfoRuntime(), sourceMarker: SOURCE, entrypoint: ENTRYPOINT, checkedAt: new Date().toISOString(), mainMenuStatsButtonFound: false, mainMenuStatsPayload: {}, resolvedHandler: '', screenId: '', screenTextPreview: '', renderedRootButtonLabels: [], expectedLabelsPresent: [], legacyLabelsPresent: [], adminSectionStatsRoutesToPr226: false, errors: errors.map((e) => clean(e)).filter(Boolean) }); }
+function parseChildResult(stdout = '') {
+  const lines = String(stdout || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const line = [...lines].reverse().find((item) => item.startsWith(RESULT_MARKER));
+  if (!line) throw new Error('callback_contract_result_marker_missing');
+  return JSON.parse(line.slice(RESULT_MARKER.length));
+}
 
 async function runLiveCallbackContractInProcess() {
   const errors = [];
@@ -77,7 +84,7 @@ function runLiveCallbackContract(options = {}) {
     return Promise.resolve(runLiveCallbackContractInProcess()).then(remember);
   }
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, ['-e', "require('./callback-contract-live-pr228').runLiveCallbackContractInProcess().then((r)=>{process.stdout.write(JSON.stringify(r));}).catch((e)=>{process.stdout.write(JSON.stringify({ok:false,errors:[String(e&&e.message||e)]}));process.exitCode=1;});"], { cwd: __dirname, env: { ...process.env, ADMINKIT_CALLBACK_CONTRACT_CHILD: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, ['-e', "const m=require('./callback-contract-live-pr228'); m.runLiveCallbackContractInProcess().then((r)=>{process.stdout.write(m.RESULT_MARKER+JSON.stringify(r)+'\\n');}).catch((e)=>{process.stdout.write(m.RESULT_MARKER+JSON.stringify({ok:false,errors:[String(e&&e.message||e)]})+'\\n');process.exitCode=1;});"], { cwd: __dirname, env: { ...process.env, ADMINKIT_CALLBACK_CONTRACT_CHILD: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = ''; let stderr = ''; let settled = false;
     const timer = setTimeout(() => { if (!settled) { settled = true; child.kill('SIGKILL'); resolve(failure(['child_process_timeout'])); } }, Number(options.timeoutMs || CHILD_TIMEOUT_MS));
     child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
@@ -87,7 +94,7 @@ function runLiveCallbackContract(options = {}) {
       if (settled) return;
       settled = true; clearTimeout(timer);
       try {
-        const parsed = JSON.parse(stdout || '{}');
+        const parsed = parseChildResult(stdout);
         if (!parsed.ok && stderr) parsed.errors = [...(parsed.errors || []), clean(stderr).slice(0, 240)];
         resolve(remember(parsed));
       } catch (error) {
@@ -97,4 +104,4 @@ function runLiveCallbackContract(options = {}) {
   });
 }
 
-module.exports = { RUNTIME, SOURCE, ENTRYPOINT, PRODUCTION_HANDLER, EXPECTED_LABELS, LEGACY_LABELS, visibleButtonLabels, runLiveCallbackContract, runLiveCallbackContractInProcess, latest, liveFlags };
+module.exports = { RUNTIME, SOURCE, ENTRYPOINT, PRODUCTION_HANDLER, EXPECTED_LABELS, LEGACY_LABELS, RESULT_MARKER, parseChildResult, visibleButtonLabels, runLiveCallbackContract, runLiveCallbackContractInProcess, latest, liveFlags };

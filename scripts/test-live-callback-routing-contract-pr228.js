@@ -24,6 +24,9 @@ function installRoutes() {
 }
 
 (async () => {
+  const parsedFromPollutedStdout = contract.parseChildResult(`module log before json\n${contract.RESULT_MARKER}{"ok":true,"sample":1}\n`);
+  assert.strictEqual(parsedFromPollutedStdout.sample, 1, 'STAT-CB-000: child result parser must ignore stdout noise before marker');
+
   const result = await contract.runLiveCallbackContract();
   console.log(JSON.stringify(result, null, 2));
   assert.strictEqual(result.mainMenuStatsButtonFound, true, 'STAT-CB-001: main menu Statistics button must be found');
