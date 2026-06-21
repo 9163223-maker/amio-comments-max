@@ -2,6 +2,7 @@
 
 const ads = require('./services/adCampaignService');
 const statsPr226 = require('./services/statsProductPerfectPr226');
+const tenantScope = require('./tenant-scope');
 
 const RUNTIME = 'CC8.3.25-ADS-TRACKING-LINKS';
 
@@ -38,8 +39,8 @@ function sendJson(res, status, payload) {
 }
 function recordStatsTrackingClick(result = {}, req = {}, slug = '') {
   const c = result.campaign || result.item || result || {};
-  const tenantKey = clean(c.tenantKey || c.ownerUserId || c.createdByUserId || '');
   const ownerUserId = clean(c.ownerUserId || c.createdByUserId || '');
+  const tenantKey = clean(c.tenantKey) || (ownerUserId ? clean(tenantScope.ensureTenantContext(ownerUserId).tenantKey) : '');
   const linkId = clean(c.id || c.linkId || slug);
   return statsPr226.trackLinkClick({ tenantKey, ownerUserId, channelId: clean(c.channelId) }, {
     linkId, slug, userId: userIdFromQuery(req), source: clean(c.source), medium: clean(c.medium), campaign: clean(c.campaign || c.name), content: clean(c.content || c.ad), term: clean(c.term || c.placement),
