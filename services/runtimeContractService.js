@@ -54,6 +54,9 @@ function buildContract() {
   const campaignAttribution = read('campaign-attribution-cc8336.js');
   const cleanBotChannel = read('clean-bot-channel-fast-pr84.js');
   const statsDocs = read('docs/stats-product-perfect-contract-pr226.md');
+  const callbackContract = read('callback-contract-live-pr228.js');
+  const callbackContractTest = read('scripts/test-live-callback-routing-contract-pr228.js');
+  const callbackContractRoutes = read('v3-menu-routes-1539.js');
   const runtimeIdentity = runtimeIdentityFromBuildInfo();
 
   const startupPathOk = Boolean(cleanEntrypoint)
@@ -116,6 +119,10 @@ function buildContract() {
     statsManualCostDraftCanonicalTenant: has(statsFlow, 'resolveStatsContext(ctx, payload)') && has(statsTests, 'STAT-169'),
     statsManualCostScopedMutations: has(statsService, 'scopedIndex') && has(statsTests, 'STAT-172'),
     statsLegacyCommentKeyScoped: has(statsService, 'legacy_commentKey_unscoped_or_stale') && has(statsTests, 'STAT-175'),
+    statsCallbackContractOk: has(callbackContract, 'runLiveCallbackContract') && has(callbackContractTest, 'STAT-CB-006') && has(callbackContractRoutes, '/debug/callback-contract-live'),
+    statsMainMenuButtonRoutesToPr226: has(callbackContract, 'findStatsButton(screen = {})') && has(callbackContract, 'const statsButton = findStatsButton(mainScreen)') && has(callbackContract, "'stats:home'") && (has(callbackContract, 'clean-bot-channel-first-post-picker-pr90 -> statsFlow.screenForPayload') || has(callbackContract, 'clean-bot-channel-first-post-picker-pr90.showFlowScreen')),
+    statsLegacyRootNotReturned: has(callbackContract, 'legacy_stats_root_labels_returned') && has(callbackContractTest, 'legacy stats root labels must not be returned'),
+    callbackContractEndpoint: '/debug/callback-contract-live',
     runtimeIdentity,
     startupPath: { entrypointExpected: EXPECTED_ENTRYPOINT, activeEntrypoint: EXPECTED_ENTRYPOINT, startupLogBootstrapRequired: has(cleanEntrypoint, "require('./pr180-startup-log-bootstrap')"), expressRoutesInstalledByEntrypoint: has(cleanEntrypoint, 'installExpressRoutes'), cleanBotInstalledByEntrypoint: has(cleanEntrypoint, 'installCleanBot'), ok: startupPathOk },
     routes: {
