@@ -29,7 +29,33 @@ function makeId(prefix, payload) { return `${prefix}_${crypto.createHash('sha1')
 function periodBounds(period = 'today', now = Date.now()) { const p = clean(period || 'today').toLowerCase(); const end = Number.isFinite(Number(now)) ? Number(now) : Date.now(); if (p === 'all') return { period: 'all', start: null, end }; if (p === '7d') return { period: '7d', start: end - 7 * 86400000, end }; if (p === '30d') return { period: '30d', start: end - 30 * 86400000, end }; const d = new Date(end); const start = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); return { period: 'today', start, end }; }
 function eventInPeriod(event = {}, bounds = periodBounds()) { const rawTs = event.timestamp ?? event.createdAt ?? event.date ?? ''; const ts = typeof rawTs === 'number' ? rawTs : Date.parse(rawTs || ''); if (!Number.isFinite(ts)) return false; if (bounds.start !== null && ts < bounds.start) return false; return ts <= bounds.end + 5 * 60 * 1000; }
 function resolveStatsContext(ctx = {}, payload = {}) { const period = clean(payload.period || ctx.period || 'today'); const merged = { ...ctx, ...payload }; const hasTenantSeed = clean(merged.tenantKey || merged.ownerUserId || merged.userId); const explicitKind = clean(payload.targetKind || ctx.targetKind); const channelId = clean(payload.channelId || ctx.channelId); const chatId = clean(payload.chatId || ctx.chatId); const targetKind = ['channel','chat','all_channels','all_chats'].includes(explicitKind) ? explicitKind : (chatId ? 'chat' : (channelId ? 'channel' : 'all_channels')); const targetId = clean(payload.targetId || ctx.targetId || (targetKind === 'chat' ? chatId : (targetKind === 'channel' ? channelId : targetKind))); return { tenantKey: hasTenantSeed ? key(merged) : '', ownerUserId: clean(payload.ownerUserId || ctx.ownerUserId || ctx.userId), targetKind, targetId, channelId, chatId, postId: clean(payload.postId || ctx.postId), messageId: clean(payload.messageId || ctx.messageId), commentKey: clean(payload.commentKey || ctx.commentKey), period, source: clean(payload.source || ctx.source), campaign: clean(payload.campaign || ctx.campaign), medium: clean(payload.medium || ctx.medium), content: clean(payload.content || ctx.content), term: clean(payload.term || ctx.term), linkId: clean(payload.linkId || ctx.linkId), userId: clean(payload.userId || ctx.userIdFilter), metricCapabilities: payload.metricCapabilities || ctx.metricCapabilities || {} }; }
-function matchesContext(e = {}, c = {}) { if (c.targetKind === 'all_channels') { if (clean(e.targetKind || 'channel') !== 'channel') return false; c = { ...c, targetKind: '', targetId: '', channelId: '', chatId: '' }; } if (c.targetKind === 'all_chats') { if (clean(e.targetKind) !== 'chat') return false; c = { ...c, targetKind: '', targetId: '', channelId: '', chatId: '' }; } if (c.tenantKey) { if (!clean(e.tenantKey)) return false; if (clean(e.tenantKey) !== c.tenantKey) return false; } if (!c.tenantKey && c.ownerUserId && !clean(e.ownerUserId)) return false; if (c.ownerUserId && clean(e.ownerUserId) && clean(e.ownerUserId) !== c.ownerUserId) return false; for (const f of FILTER_FIELDS) { const want = clean(c[f]); if (!want) continue; const got = clean(e[f]); if (got !== want) return false; } return true; }
+function matchesContext(e = {}, c = {}) {
+  if (c.targetKind === 'all_channels') {
+    const storedKind = clean(e.targetKind);
+    if (storedKind && storedKind !== 'channel' && storedKind !== 'all_channels') return false;
+    c = { ...c, targetKind: '', targetId: '', channelId: '', chatId: '' };
+  }
+  if (c.targetKind === 'all_chats') {
+    const storedKind = clean(e.targetKind);
+    if (storedKind !== 'chat' && storedKind !== 'all_chats') return false;
+    c = { ...c, targetKind: '', targetId: '', channelId: '', chatId: '' };
+  }
+  if (c.tenantKey) { if (!clean(e.tenantKey)) return false; if (clean(e.tenantKey) !== c.tenantKey) return false; }
+  if (!c.tenantKey && c.ownerUserId && !clean(e.ownerUserId)) return false;
+  if (c.ownerUserId && clean(e.ownerUserId) && clean(e.ownerUserId) !== c.ownerUserId) return false;
+  for (const f of FILTER_FIELDS) {
+    const want = clean(c[f]);
+    if (!want) continue;
+    const got = clean(e[f]);
+    if (got === want) continue;
+    if ((f === 'targetKind' || f === 'targetId') && !got) {
+      if (c.targetKind === 'channel' && c.channelId && clean(e.channelId) === c.channelId) continue;
+      if (c.targetKind === 'chat' && c.chatId && clean(e.chatId) === c.chatId) continue;
+    }
+    return false;
+  }
+  return true;
+}
 function persistStatsEvent(input = {}) { const s = state(); const eventType = clean(input.eventType); if (!EVENT_TYPES.has(eventType)) throw new Error('stats_event_type_unsupported'); const idempotencyKey = clean(input.idempotencyKey); const deterministicEventId = idempotencyKey ? `idem_${crypto.createHash('sha1').update(idempotencyKey).digest('hex').slice(0, 24)}` : ''; const existing = deterministicEventId ? s.statsEvents.find(e => e.eventId === deterministicEventId || e.idempotencyKey === idempotencyKey) : null; if (existing) return existing; const event = { eventId: clean(input.eventId) || deterministicEventId || makeId('evt', input), idempotencyKey, eventType, tenantKey: clean(input.tenantKey), ownerUserId: clean(input.ownerUserId), targetKind: clean(input.targetKind), targetId: clean(input.targetId), channelId: clean(input.channelId), chatId: clean(input.chatId), postId: clean(input.postId), messageId: clean(input.messageId), commentKey: clean(input.commentKey), userId: clean(input.userId), source: clean(input.source), medium: clean(input.medium), campaign: clean(input.campaign), content: clean(input.content), term: clean(input.term), linkId: clean(input.linkId || input.slug), attributionId: clean(input.attributionId), confidence: CONFIDENCE.has(clean(input.confidence)) ? clean(input.confidence) : 'exact', timestamp: normalizeTimestamp(input.timestamp ?? input.date ?? input.createdAt), payloadSanitized: sanitizePayload(input.payloadSanitized || input.payload || {}), createdAt: nowIso() }; s.statsEvents.push(event); saveState(s); return event; }
 function loadStatsEvents(context = {}, filters = {}) { const c = resolveStatsContext(context, filters); const bounds = periodBounds(filters.period || c.period || 'today', filters.now || Date.now()); return state().statsEvents.filter(e => matchesContext(e, c) && (!filters.eventType || e.eventType === filters.eventType) && eventInPeriod(e, bounds)); }
 function getTrackingLink(context = {}, input = {}) { const c = resolveStatsContext(context, input); const id = clean(input.linkId || input.slug); return state().trackingLinks.find(x => matchesContext(x, c) && (!id || x.linkId === id || x.slug === id)) || null; }
