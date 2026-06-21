@@ -111,7 +111,7 @@ function saveAudienceEventFromUpdate(store, growth, update = {}, audit = () => {
     createdAt,
     attribution
   });
-  try { pr226Producers.recordAudienceUpdate({ type, tenantKey: clean(update.tenantKey || ''), ownerUserId: clean(update.ownerUserId || update.adminId || ''), channelId, userId, memberUserId: userId, source: attribution.source, campaign: attribution.campaign, payload: update }); } catch {}
+  try { pr226Producers.recordAudienceUpdate({ type, tenantKey: clean(update.tenantKey || ''), ownerUserId: clean(update.ownerUserId || update.adminId || ''), channelId, userId, memberUserId: userId, source: attribution.source, campaign: attribution.campaign, updateId: update.updateId || update.update_id || update.id || update.eventId, timestamp: update.timestamp || update.date || update.createdAt, payload: update }); } catch {}
   audit('campaign_attribution.audience_event_saved', { updateType: kind, type, channelId, userId, attributionStatus: attribution.status, campaign: attribution.campaign || attribution.source, runtimeVersion: RUNTIME });
   return event;
 }
