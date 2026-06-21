@@ -1,10 +1,10 @@
 {
-  "runtimeVersion": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS",
-  "buildVersion": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS",
-  "displayVersion": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS",
-  "packageVersion": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS",
-  "sourceMarker": "adminkit-pr226-growth-sources-funnel-stats",
-  "buildGeneratedAt": "2026-06-15T00:00:00Z",
+  "runtimeVersion": "CC8.3.67-PR228-LIVE-CALLBACK-CONTRACT",
+  "buildVersion": "CC8.3.67-PR228-LIVE-CALLBACK-CONTRACT",
+  "displayVersion": "CC8.3.67-PR228-LIVE-CALLBACK-CONTRACT",
+  "packageVersion": "CC8.3.67-PR228-LIVE-CALLBACK-CONTRACT",
+  "sourceMarker": "adminkit-pr228-live-callback-contract",
+  "buildGeneratedAt": "2026-06-21T00:00:00Z",
   "canonicalPublicBaseUrl": "https://p01--amio-commnets-max--qkpwxnxqqrnw.code.run",
   "cleanMenuCore": {
     "version": "1.53.11",
@@ -22,7 +22,7 @@
     "storeFsWriteMirror": true,
     "noLongEntrypointChain": true,
     "legacyBotOnlyDelegatedForUnmigratedActions": true,
-    "activeRuntimeVersion": "CC8.3.66-PR226-GROWTH-SOURCES-FUNNEL-STATS"
+    "activeRuntimeVersion": "CC8.3.67-PR228-LIVE-CALLBACK-CONTRACT"
   },
   "persistentStore": {
     "enabled": true,

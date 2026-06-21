@@ -50,7 +50,12 @@ function buildGate(snapshot = {}) {
     buttonsSaveIdempotentOk: bool(summary.buttonsSaveIdempotentOk),
     buttonsCurrentReadsCanonicalDbOk: bool(summary.buttonsCurrentReadsCanonicalDbOk),
     buttonsGlobalNavFirstTapOk: bool(summary.buttonsGlobalNavFirstTapOk),
-    buttonsNoStaleForCurrentPreviewOk: bool(summary.buttonsNoStaleForCurrentPreviewOk)
+    buttonsNoStaleForCurrentPreviewOk: bool(summary.buttonsNoStaleForCurrentPreviewOk),
+    statsCallbackContractWired: bool(summary.statsCallbackContractWired),
+    statsCallbackContractLiveOk: bool(summary.statsCallbackContractLiveOk),
+    statsCallbackContractOk: bool(summary.statsCallbackContractOk),
+    statsMainMenuButtonRoutesToPr226: bool(summary.statsMainMenuButtonRoutesToPr226),
+    statsLegacyRootNotReturned: bool(summary.statsLegacyRootNotReturned)
   };
   const missing = Object.entries(required).filter(([, value]) => !value).map(([key]) => key);
   return {

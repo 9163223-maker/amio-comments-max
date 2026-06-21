@@ -38,7 +38,11 @@ async function main() {
   assert.strictEqual(final.liveVersionSummary.pr202Ready, true);
   assert.strictEqual(final.liveVersionSummary.buttonsWizardPhysicalInplaceReady, false);
   assert.strictEqual(final.liveVersionSummary.plusSignWizardTextSupported, true);
-  assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: final, finalRuntimeReadinessGate: state.finalRuntimeReadinessGate }), false);
+  assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: final, finalRuntimeReadinessGate: state.finalRuntimeReadinessGate }), true);
+  assert(state.finalRuntimeReadinessGate.missing.includes('statsCallbackContractLiveOk'));
+  assert(state.finalRuntimeReadinessGate.missing.includes('statsCallbackContractOk'));
+  assert(state.finalRuntimeReadinessGate.missing.includes('statsMainMenuButtonRoutesToPr226'));
+  assert(state.finalRuntimeReadinessGate.missing.includes('statsLegacyRootNotReturned'));
 
   const entry = startupLog.sanitizeEntry({
     runtimeVersion: 'final-runtime-test',
@@ -49,6 +53,9 @@ async function main() {
   assert.strictEqual(entry.finalRuntimeReadinessGate.ok, false);
   assert.strictEqual(entry.finalRuntimeReadinessGate.readyForManualMaxTest, false);
   assert(entry.finalRuntimeReadinessGate.missing.includes('buttonsWizardPhysicalRouteProbeOk'));
+  assert(entry.finalRuntimeReadinessGate.missing.includes('statsCallbackContractLiveOk'));
+  assert.strictEqual(entry.finalRuntimeReadinessGate.required.statsCallbackContractWired, true);
+  assert.strictEqual(entry.finalRuntimeReadinessGate.required.statsCallbackContractLiveOk, false);
   assert.strictEqual(entry.finalRuntimeReadinessGate.required.pr199Ready, true);
   assert.strictEqual(entry.finalRuntimeReadinessGate.required.pr202Ready, true);
   assert.strictEqual(entry.finalRuntimeReadinessGate.required.buttonsWizardPhysicalInplaceReady, false);
@@ -65,13 +72,17 @@ async function main() {
   assert.strictEqual(derivedEntry.finalRuntimeReadinessGate.required.buttonsWizardPhysicalRouteProbeOk, false);
   assert.strictEqual(derivedEntry.finalRuntimeReadinessGate.required.buttonsWizardPhysicalInplaceReady, false);
   assert(derivedEntry.finalRuntimeReadinessGate.missing.includes('buttonsWizardPhysicalRouteProbeOk'));
+  assert(derivedEntry.finalRuntimeReadinessGate.missing.includes('statsCallbackContractLiveOk'));
+  assert.strictEqual(derivedEntry.finalRuntimeReadinessGate.required.statsCallbackContractWired, true);
+  assert.strictEqual(derivedEntry.finalRuntimeReadinessGate.required.statsCallbackContractLiveOk, false);
 
   const runtimeInfo = bootstrap.runtimeInfo();
   assert.strictEqual(runtimeInfo.liveVersionSnapshot.liveVersionSummary.buttonsWizardPhysicalRouteProbeOk, false);
   assert.strictEqual(runtimeInfo.liveVersionSnapshot.liveVersionSummary.buttonsWizardPhysicalInplaceReady, false);
   assert.strictEqual(runtimeInfo.finalRuntimeReadinessGate.ok, false);
   assert.strictEqual(runtimeInfo.finalRuntimeReadinessGate.readyForManualMaxTest, false);
-  assert.strictEqual(bootstrap.shouldDeferStartupLog(runtimeInfo), false);
+  assert(runtimeInfo.finalRuntimeReadinessGate.missing.includes('statsCallbackContractLiveOk'));
+  assert.strictEqual(bootstrap.shouldDeferStartupLog(runtimeInfo), true);
 
   console.log('PR205 final runtime readiness gate regression assertions passed');
 }

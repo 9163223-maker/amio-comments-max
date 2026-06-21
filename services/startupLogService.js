@@ -124,7 +124,12 @@ function buildFinalRuntimeReadinessGateFromSnapshot(snapshot = {}) {
     buttonsSaveIdempotentOk: sanitizeBool(summary.buttonsSaveIdempotentOk),
     buttonsCurrentReadsCanonicalDbOk: sanitizeBool(summary.buttonsCurrentReadsCanonicalDbOk),
     buttonsGlobalNavFirstTapOk: sanitizeBool(summary.buttonsGlobalNavFirstTapOk),
-    buttonsNoStaleForCurrentPreviewOk: sanitizeBool(summary.buttonsNoStaleForCurrentPreviewOk)
+    buttonsNoStaleForCurrentPreviewOk: sanitizeBool(summary.buttonsNoStaleForCurrentPreviewOk),
+    statsCallbackContractWired: sanitizeBool(summary.statsCallbackContractWired),
+    statsCallbackContractLiveOk: sanitizeBool(summary.statsCallbackContractLiveOk),
+    statsCallbackContractOk: sanitizeBool(summary.statsCallbackContractOk),
+    statsMainMenuButtonRoutesToPr226: sanitizeBool(summary.statsMainMenuButtonRoutesToPr226),
+    statsLegacyRootNotReturned: sanitizeBool(summary.statsLegacyRootNotReturned)
   };
   const missing = Object.entries(required).filter(([, value]) => value !== true).map(([key]) => key);
   return {
@@ -254,7 +259,12 @@ function sanitizeLiveVersionSnapshot(input = {}) {
       buttonsSaveIdempotentOk: sanitizeBool(summary.buttonsSaveIdempotentOk),
       buttonsCurrentReadsCanonicalDbOk: sanitizeBool(summary.buttonsCurrentReadsCanonicalDbOk),
       buttonsGlobalNavFirstTapOk: sanitizeBool(summary.buttonsGlobalNavFirstTapOk),
-      buttonsNoStaleForCurrentPreviewOk: sanitizeBool(summary.buttonsNoStaleForCurrentPreviewOk)
+      buttonsNoStaleForCurrentPreviewOk: sanitizeBool(summary.buttonsNoStaleForCurrentPreviewOk),
+      statsCallbackContractWired: sanitizeBool(summary.statsCallbackContractWired),
+      statsCallbackContractLiveOk: sanitizeBool(summary.statsCallbackContractLiveOk),
+      statsCallbackContractOk: sanitizeBool(summary.statsCallbackContractOk),
+      statsMainMenuButtonRoutesToPr226: sanitizeBool(summary.statsMainMenuButtonRoutesToPr226),
+      statsLegacyRootNotReturned: sanitizeBool(summary.statsLegacyRootNotReturned)
     }
   };
 }

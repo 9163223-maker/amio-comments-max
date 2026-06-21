@@ -10,6 +10,7 @@ const realShow = require('../pr202-buttons-real-show-path-inplace');
 const postStart = require('../pr202-post-start-bootstrap');
 const debugRoutes = require('../admin-walkthrough-trace-routes');
 const buttonsWizardProbe = require('../services/buttonsWizardPhysicalRouteProbeService');
+const callbackContract = require('../callback-contract-live-pr228');
 
 (async () => {
 const early = liveSnapshot.buildLiveVersionSnapshot();
@@ -29,6 +30,8 @@ assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: pendin
 const probe = await buttonsWizardProbe.runProbe();
 assert.strictEqual(probe.ok, true, 'real production route probe succeeds before readiness is green');
 assert.strictEqual(probe.source, 'adminkit-buttons-wizard-production-webhook-route-probe');
+const callbackResult = await callbackContract.runLiveCallbackContract();
+assert.strictEqual(callbackResult.ok, true, 'PR228 callback contract succeeds before readiness is green');
 
 const final = liveSnapshot.buildLiveVersionSnapshot();
 const debugPayload = debugRoutes.liveVersionPayload();
@@ -65,6 +68,11 @@ assert.strictEqual(final.liveVersionSummary.buttonsSaveIdempotentOk, true);
 assert.strictEqual(final.liveVersionSummary.buttonsCurrentReadsCanonicalDbOk, true);
 assert.strictEqual(final.liveVersionSummary.buttonsGlobalNavFirstTapOk, true);
 assert.strictEqual(final.liveVersionSummary.buttonsNoStaleForCurrentPreviewOk, true);
+assert.strictEqual(final.liveVersionSummary.statsCallbackContractWired, true);
+assert.strictEqual(final.liveVersionSummary.statsCallbackContractLiveOk, true);
+assert.strictEqual(final.liveVersionSummary.statsCallbackContractOk, true);
+assert.strictEqual(final.liveVersionSummary.statsMainMenuButtonRoutesToPr226, true);
+assert.strictEqual(final.liveVersionSummary.statsLegacyRootNotReturned, true);
 assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: final }), false);
 
 const log = { latest: null, items: [] };
@@ -95,6 +103,11 @@ assert.strictEqual(log.latest.liveVersionSummary.buttonsSaveIdempotentOk, true);
 assert.strictEqual(log.latest.liveVersionSummary.buttonsCurrentReadsCanonicalDbOk, true);
 assert.strictEqual(log.latest.liveVersionSummary.buttonsGlobalNavFirstTapOk, true);
 assert.strictEqual(log.latest.liveVersionSummary.buttonsNoStaleForCurrentPreviewOk, true);
+assert.strictEqual(log.latest.liveVersionSummary.statsCallbackContractWired, true);
+assert.strictEqual(log.latest.liveVersionSummary.statsCallbackContractLiveOk, true);
+assert.strictEqual(log.latest.liveVersionSummary.statsCallbackContractOk, true);
+assert.strictEqual(log.latest.liveVersionSummary.statsMainMenuButtonRoutesToPr226, true);
+assert.strictEqual(log.latest.liveVersionSummary.statsLegacyRootNotReturned, true);
 assert.strictEqual(log.latest.finalRuntimeReadinessGate.ok, true);
 assert.strictEqual(log.latest.finalRuntimeReadinessGate.readyForManualMaxTest, true);
 assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.buttonsWizardPhysicalRouteProbeOk, true);
@@ -104,6 +117,11 @@ assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.buttonsSaveIdem
 assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.buttonsCurrentReadsCanonicalDbOk, true);
 assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.buttonsGlobalNavFirstTapOk, true);
 assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.buttonsNoStaleForCurrentPreviewOk, true);
+assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.statsCallbackContractWired, true);
+assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.statsCallbackContractLiveOk, true);
+assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.statsCallbackContractOk, true);
+assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.statsMainMenuButtonRoutesToPr226, true);
+assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.statsLegacyRootNotReturned, true);
 assert.deepStrictEqual(log.latest.finalRuntimeReadinessGate.missing, []);
 console.log('PR200/PR204 startup-log live version snapshot regression assertions passed');
 })().catch((error) => { console.error(error && error.stack || error); process.exit(1); });
