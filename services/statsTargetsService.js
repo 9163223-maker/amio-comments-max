@@ -4,7 +4,7 @@ const tenantScope = require('../tenant-scope');
 function clean(v){return String(v||'').replace(/\s+/g,' ').trim();}
 function arr(v){return Array.isArray(v)?v:[];}
 function visibleName(x, fallback){const s=clean(x.title||x.channelTitle||x.chatTitle||x.name||x.displayName);return s && !/^-?\d{5,}$/.test(s) ? s : fallback;}
-function ownerFields(x={}){return [x.ownerUserId,x.linkedByUserId,x.userId,x.createdByUserId,x.adminId,x.updatedByUserId].map(clean).filter(Boolean);}
+function ownerFields(x={}){return [x.ownerUserId,x.linkedByUserId,x.userId,x.maxUserId,x.createdByUserId,x.adminId,x.updatedByUserId].map(clean).filter(Boolean);}
 function tenantForUser(userId){try{return clean(tenantScope.ensureTenantContext(clean(userId)).tenantKey);}catch{return '';}}
 function channelPostBoundToUser(channelId,userId){return arr(store.getPostsList&&store.getPostsList()).some(p=>clean(p.channelId)===clean(channelId)&&ownerFields(p).includes(clean(userId)));}
 function boundToUser(x,userId,channelId=''){const uid=clean(userId); if(!uid)return false; if(ownerFields(x).includes(uid))return true; const tenant=tenantForUser(uid); if(tenant&&clean(x.tenantKey)===tenant)return true; if(channelId&&channelPostBoundToUser(channelId,uid))return true; return false;}
