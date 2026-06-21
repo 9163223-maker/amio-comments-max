@@ -14,6 +14,12 @@ function buttonRows(screen = {}) { return (screen.attachments || []).flatMap((a)
 function allButtons(screen = {}) { return buttonRows(screen).flatMap((row) => Array.isArray(row) ? row : [row]).filter(Boolean); }
 function findStatsButton(screen = {}) { return allButtons(screen).find((button) => /Статистика/i.test(clean(button.text))); }
 function labelsPresent(text = '', labels = []) { return labels.filter((label) => clean(text).includes(label)); }
+function visibleButtonLabels(screen = {}) { return allButtons(screen).map((button) => clean(button.text)).filter(Boolean); }
+function buttonLabelsPresent(labels = [], expected = []) { return expected.filter((label) => labels.some((buttonLabel) => clean(buttonLabel).includes(label))); }
+let latestResult = null;
+function remember(result = {}) { latestResult = { ...result, cachedAt: new Date().toISOString() }; return result; }
+function latest() { return latestResult ? { ...latestResult } : null; }
+function liveFlags() { const result = latest(); return { statsCallbackContractLiveOk: Boolean(result && result.ok), statsMainMenuButtonRoutesToPr226: Boolean(result && result.adminSectionStatsRoutesToPr226), statsLegacyRootNotReturned: Boolean(result && Array.isArray(result.legacyLabelsPresent) && result.legacyLabelsPresent.length === 0), callbackContractLastCheckedAt: result && result.checkedAt || '', callbackContractLastErrors: result && result.errors || [] }; }
 function makeResponse() { const state = { statusCode: 200, body: null, headersSent: false }; return { state, status(code) { state.statusCode = code; return this; }, json(body) { state.body = body; state.headersSent = true; return body; }, send(body) { state.body = body; state.headersSent = true; return body; }, type() { return this; }, set() { return this; } }; }
 function privateCallbackUpdate(payload) { return { update_type: 'message_callback', callback: { callback_id: 'pr228-callback-id', payload, user: { user_id: 'pr228-admin-user' }, message: { id: 'pr228-message-id', body: { mid: 'pr228-message-id', text: '🐋 АдминКИТ' }, sender: { user_id: 'pr228-admin-user' }, recipient: { chat_id: 'pr228-admin-user', chat_type: 'private' } } } }; }
 
@@ -43,22 +49,25 @@ async function runLiveCallbackContract() {
     const rendered = captured.editMessage[captured.editMessage.length - 1] || captured.sendMessage[captured.sendMessage.length - 1] || {};
     const response = res.state.body || {};
     const screenText = clean(rendered.text);
-    const expectedLabelsPresent = labelsPresent(`${screenText}\n${JSON.stringify(rendered.attachments || [])}`, EXPECTED_LABELS);
-    const legacyLabelsPresent = labelsPresent(`${screenText}\n${JSON.stringify(rendered.attachments || [])}`, LEGACY_LABELS);
+    const renderedRootButtonLabels = visibleButtonLabels({ attachments: rendered.attachments || [] });
+    const expectedLabelsPresent = buttonLabelsPresent(renderedRootButtonLabels, EXPECTED_LABELS);
+    const legacyLabelsPresent = buttonLabelsPresent(renderedRootButtonLabels, LEGACY_LABELS);
     if (clean(response.handledBy) === 'legacy-stub' || res.state.statusCode === 599) errors.push('payload_fell_through_to_legacy_stub');
     if (!captured.editMessage.length && !captured.sendMessage.length) errors.push('no_screen_render_captured');
     if (expectedLabelsPresent.length !== EXPECTED_LABELS.length) errors.push('pr226_expected_labels_missing');
     if (legacyLabelsPresent.length) errors.push('legacy_stats_root_labels_returned');
     const adminSectionStatsRoutesToPr226 = expectedLabelsPresent.length === EXPECTED_LABELS.length && legacyLabelsPresent.length === 0 && clean(response.screenId).includes('pr226');
     if (!adminSectionStatsRoutesToPr226) errors.push('admin_section_stats_not_pr226_home');
-    return { ok: errors.length === 0, runtimeVersion: process.env.RUNTIME_VERSION || menu.runtimeVersion(), sourceMarker: SOURCE, entrypoint: ENTRYPOINT, checkedAt: new Date().toISOString(), mainMenuRenderer: 'v3-menu-core-1539.mainScreen', mainMenuStatsButtonFound: Boolean(statsButton), mainMenuStatsPayload, resolvedHandler: clean(response.handler || response.handledBy || 'clean-bot-campaign-attribution-cc8336 -> clean-bot-channel-first-post-picker-pr90'), screenId: clean(response.screenId), screenTextPreview: preview(screenText), expectedLabelsPresent, legacyLabelsPresent, adminSectionStatsRoutesToPr226, errors };
+    const buildInfo = (() => { try { return require('./buildInfo').getBuildInfo(); } catch { return {}; } })();
+    return remember({ ok: errors.length === 0, runtimeVersion: process.env.RUNTIME_VERSION || buildInfo.runtimeVersion || menu.runtimeVersion(), sourceMarker: SOURCE, entrypoint: ENTRYPOINT, checkedAt: new Date().toISOString(), mainMenuRenderer: 'v3-menu-core-1539.mainScreen', mainMenuStatsButtonFound: Boolean(statsButton), mainMenuStatsPayload, resolvedHandler: clean(response.handler || response.handledBy || 'clean-bot-campaign-attribution-cc8336 -> clean-bot-channel-first-post-picker-pr90'), screenId: clean(response.screenId), screenTextPreview: preview(screenText), renderedRootButtonLabels, expectedLabelsPresent, legacyLabelsPresent, adminSectionStatsRoutesToPr226, errors });
   } catch (error) {
     errors.push(clean(error && error.message || error));
-    return { ok: false, runtimeVersion: process.env.RUNTIME_VERSION || '', sourceMarker: SOURCE, entrypoint: ENTRYPOINT, checkedAt: new Date().toISOString(), mainMenuStatsButtonFound: false, mainMenuStatsPayload: {}, resolvedHandler: '', screenId: '', screenTextPreview: '', expectedLabelsPresent: [], legacyLabelsPresent: [], adminSectionStatsRoutesToPr226: false, errors };
+    const buildInfo = (() => { try { return require('./buildInfo').getBuildInfo(); } catch { return {}; } })();
+    return remember({ ok: false, runtimeVersion: process.env.RUNTIME_VERSION || buildInfo.runtimeVersion || '', sourceMarker: SOURCE, entrypoint: ENTRYPOINT, checkedAt: new Date().toISOString(), mainMenuStatsButtonFound: false, mainMenuStatsPayload: {}, resolvedHandler: '', screenId: '', screenTextPreview: '', renderedRootButtonLabels: [], expectedLabelsPresent: [], legacyLabelsPresent: [], adminSectionStatsRoutesToPr226: false, errors });
   } finally {
     max.answerCallback = previousMax.answerCallback; max.editMessage = previousMax.editMessage; max.sendMessage = previousMax.sendMessage;
     if (previousAdminIds === undefined) delete process.env.ADMINKIT_ADMIN_MAX_USER_IDS; else process.env.ADMINKIT_ADMIN_MAX_USER_IDS = previousAdminIds;
   }
 }
 
-module.exports = { RUNTIME, SOURCE, ENTRYPOINT, PRODUCTION_HANDLER, EXPECTED_LABELS, LEGACY_LABELS, runLiveCallbackContract };
+module.exports = { RUNTIME, SOURCE, ENTRYPOINT, PRODUCTION_HANDLER, EXPECTED_LABELS, LEGACY_LABELS, visibleButtonLabels, runLiveCallbackContract, latest, liveFlags };

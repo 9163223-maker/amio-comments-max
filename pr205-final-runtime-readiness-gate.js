@@ -51,6 +51,8 @@ function buildGate(snapshot = {}) {
     buttonsCurrentReadsCanonicalDbOk: bool(summary.buttonsCurrentReadsCanonicalDbOk),
     buttonsGlobalNavFirstTapOk: bool(summary.buttonsGlobalNavFirstTapOk),
     buttonsNoStaleForCurrentPreviewOk: bool(summary.buttonsNoStaleForCurrentPreviewOk),
+    statsCallbackContractWired: bool(summary.statsCallbackContractWired),
+    statsCallbackContractLiveOk: bool(summary.statsCallbackContractLiveOk),
     statsCallbackContractOk: bool(summary.statsCallbackContractOk),
     statsMainMenuButtonRoutesToPr226: bool(summary.statsMainMenuButtonRoutesToPr226),
     statsLegacyRootNotReturned: bool(summary.statsLegacyRootNotReturned)
