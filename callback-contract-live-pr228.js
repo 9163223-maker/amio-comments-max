@@ -1,11 +1,14 @@
 'use strict';
 
+const { spawn } = require('child_process');
+
 const RUNTIME = 'PR228-LIVE-CALLBACK-CONTRACT';
 const SOURCE = 'adminkit-pr228-live-callback-contract';
 const ENTRYPOINT = 'clean-entrypoint-1.53.10-pr89.js';
 const PRODUCTION_HANDLER = 'clean-bot-channel-first-post-picker-pr90 -> statsFlow.screenForPayload';
 const EXPECTED_LABELS = ['📈 Рост', '🎯 Источники', '🧭 Воронка', '📝 Контент', '📤 Отчёт и качество данных'];
 const LEGACY_LABELS = ['Обзор', 'Подписчики', 'Посты', 'Комментарии', 'Реакции', 'Подарки', 'Кнопки под постам', 'Источники подписч', 'Обновить данные'];
+const CHILD_TIMEOUT_MS = 12000;
 
 function clean(value) { return String(value || '').trim(); }
 function preview(value, max = 700) { const text = clean(value).replace(/\s+/g, ' '); return text.length > max ? `${text.slice(0, max - 1)}…` : text; }
@@ -13,7 +16,6 @@ function parsePayload(raw) { if (raw && typeof raw === 'object') return raw; try
 function buttonRows(screen = {}) { return (screen.attachments || []).flatMap((a) => a && a.payload && Array.isArray(a.payload.buttons) ? a.payload.buttons : []); }
 function allButtons(screen = {}) { return buttonRows(screen).flatMap((row) => Array.isArray(row) ? row : [row]).filter(Boolean); }
 function findStatsButton(screen = {}) { return allButtons(screen).find((button) => /Статистика/i.test(clean(button.text))); }
-function labelsPresent(text = '', labels = []) { return labels.filter((label) => clean(text).includes(label)); }
 function visibleButtonLabels(screen = {}) { return allButtons(screen).map((button) => clean(button.text)).filter(Boolean); }
 function buttonLabelsPresent(labels = [], expected = []) { return expected.filter((label) => labels.some((buttonLabel) => clean(buttonLabel).includes(label))); }
 let latestResult = null;
@@ -22,8 +24,10 @@ function latest() { return latestResult ? { ...latestResult } : null; }
 function liveFlags() { const result = latest(); return { statsCallbackContractLiveOk: Boolean(result && result.ok), statsMainMenuButtonRoutesToPr226: Boolean(result && result.adminSectionStatsRoutesToPr226), statsLegacyRootNotReturned: Boolean(result && Array.isArray(result.legacyLabelsPresent) && result.legacyLabelsPresent.length === 0), callbackContractLastCheckedAt: result && result.checkedAt || '', callbackContractLastErrors: result && result.errors || [] }; }
 function makeResponse() { const state = { statusCode: 200, body: null, headersSent: false }; return { state, status(code) { state.statusCode = code; return this; }, json(body) { state.body = body; state.headersSent = true; return body; }, send(body) { state.body = body; state.headersSent = true; return body; }, type() { return this; }, set() { return this; } }; }
 function privateCallbackUpdate(payload) { return { update_type: 'message_callback', callback: { callback_id: 'pr228-callback-id', payload, user: { user_id: 'pr228-admin-user' }, message: { id: 'pr228-message-id', body: { mid: 'pr228-message-id', text: '🐋 АдминКИТ' }, sender: { user_id: 'pr228-admin-user' }, recipient: { chat_id: 'pr228-admin-user', chat_type: 'private' } } } }; }
+function buildInfoRuntime() { try { return require('./buildInfo').getBuildInfo().runtimeVersion; } catch { return ''; } }
+function failure(errors = []) { return remember({ ok: false, runtimeVersion: process.env.RUNTIME_VERSION || buildInfoRuntime(), sourceMarker: SOURCE, entrypoint: ENTRYPOINT, checkedAt: new Date().toISOString(), mainMenuStatsButtonFound: false, mainMenuStatsPayload: {}, resolvedHandler: '', screenId: '', screenTextPreview: '', renderedRootButtonLabels: [], expectedLabelsPresent: [], legacyLabelsPresent: [], adminSectionStatsRoutesToPr226: false, errors: errors.map((e) => clean(e)).filter(Boolean) }); }
 
-async function runLiveCallbackContract() {
+async function runLiveCallbackContractInProcess() {
   const errors = [];
   const captured = { answerCallback: [], editMessage: [], sendMessage: [] };
   const previousAdminIds = process.env.ADMINKIT_ADMIN_MAX_USER_IDS;
@@ -58,16 +62,39 @@ async function runLiveCallbackContract() {
     if (legacyLabelsPresent.length) errors.push('legacy_stats_root_labels_returned');
     const adminSectionStatsRoutesToPr226 = expectedLabelsPresent.length === EXPECTED_LABELS.length && legacyLabelsPresent.length === 0 && clean(response.screenId).includes('pr226');
     if (!adminSectionStatsRoutesToPr226) errors.push('admin_section_stats_not_pr226_home');
-    const buildInfo = (() => { try { return require('./buildInfo').getBuildInfo(); } catch { return {}; } })();
-    return remember({ ok: errors.length === 0, runtimeVersion: process.env.RUNTIME_VERSION || buildInfo.runtimeVersion || menu.runtimeVersion(), sourceMarker: SOURCE, entrypoint: ENTRYPOINT, checkedAt: new Date().toISOString(), mainMenuRenderer: 'v3-menu-core-1539.mainScreen', mainMenuStatsButtonFound: Boolean(statsButton), mainMenuStatsPayload, resolvedHandler: clean(response.handler || response.handledBy || 'clean-bot-campaign-attribution-cc8336 -> clean-bot-channel-first-post-picker-pr90'), screenId: clean(response.screenId), screenTextPreview: preview(screenText), renderedRootButtonLabels, expectedLabelsPresent, legacyLabelsPresent, adminSectionStatsRoutesToPr226, errors });
+    return { ok: errors.length === 0, runtimeVersion: process.env.RUNTIME_VERSION || buildInfoRuntime() || menu.runtimeVersion(), sourceMarker: SOURCE, entrypoint: ENTRYPOINT, checkedAt: new Date().toISOString(), executionMode: 'child_process_isolated_maxApi' , mainMenuRenderer: 'v3-menu-core-1539.mainScreen', mainMenuStatsButtonFound: Boolean(statsButton), mainMenuStatsPayload, resolvedHandler: clean(response.handler || response.handledBy || 'clean-bot-campaign-attribution-cc8336 -> clean-bot-channel-first-post-picker-pr90'), screenId: clean(response.screenId), screenTextPreview: preview(screenText), renderedRootButtonLabels, expectedLabelsPresent, legacyLabelsPresent, adminSectionStatsRoutesToPr226, errors };
   } catch (error) {
     errors.push(clean(error && error.message || error));
-    const buildInfo = (() => { try { return require('./buildInfo').getBuildInfo(); } catch { return {}; } })();
-    return remember({ ok: false, runtimeVersion: process.env.RUNTIME_VERSION || buildInfo.runtimeVersion || '', sourceMarker: SOURCE, entrypoint: ENTRYPOINT, checkedAt: new Date().toISOString(), mainMenuStatsButtonFound: false, mainMenuStatsPayload: {}, resolvedHandler: '', screenId: '', screenTextPreview: '', renderedRootButtonLabels: [], expectedLabelsPresent: [], legacyLabelsPresent: [], adminSectionStatsRoutesToPr226: false, errors });
+    return { ok: false, runtimeVersion: process.env.RUNTIME_VERSION || buildInfoRuntime(), sourceMarker: SOURCE, entrypoint: ENTRYPOINT, checkedAt: new Date().toISOString(), executionMode: 'child_process_isolated_maxApi', mainMenuStatsButtonFound: false, mainMenuStatsPayload: {}, resolvedHandler: '', screenId: '', screenTextPreview: '', renderedRootButtonLabels: [], expectedLabelsPresent: [], legacyLabelsPresent: [], adminSectionStatsRoutesToPr226: false, errors };
   } finally {
     max.answerCallback = previousMax.answerCallback; max.editMessage = previousMax.editMessage; max.sendMessage = previousMax.sendMessage;
     if (previousAdminIds === undefined) delete process.env.ADMINKIT_ADMIN_MAX_USER_IDS; else process.env.ADMINKIT_ADMIN_MAX_USER_IDS = previousAdminIds;
   }
 }
 
-module.exports = { RUNTIME, SOURCE, ENTRYPOINT, PRODUCTION_HANDLER, EXPECTED_LABELS, LEGACY_LABELS, visibleButtonLabels, runLiveCallbackContract, latest, liveFlags };
+function runLiveCallbackContract(options = {}) {
+  if (options.inProcess === true || process.env.ADMINKIT_CALLBACK_CONTRACT_CHILD === '1') {
+    return Promise.resolve(runLiveCallbackContractInProcess()).then(remember);
+  }
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, ['-e', "require('./callback-contract-live-pr228').runLiveCallbackContractInProcess().then((r)=>{process.stdout.write(JSON.stringify(r));}).catch((e)=>{process.stdout.write(JSON.stringify({ok:false,errors:[String(e&&e.message||e)]}));process.exitCode=1;});"], { cwd: __dirname, env: { ...process.env, ADMINKIT_CALLBACK_CONTRACT_CHILD: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = ''; let stderr = ''; let settled = false;
+    const timer = setTimeout(() => { if (!settled) { settled = true; child.kill('SIGKILL'); resolve(failure(['child_process_timeout'])); } }, Number(options.timeoutMs || CHILD_TIMEOUT_MS));
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    child.on('error', (error) => { if (!settled) { settled = true; clearTimeout(timer); resolve(failure([error && error.message || error])); } });
+    child.on('close', () => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      try {
+        const parsed = JSON.parse(stdout || '{}');
+        if (!parsed.ok && stderr) parsed.errors = [...(parsed.errors || []), clean(stderr).slice(0, 240)];
+        resolve(remember(parsed));
+      } catch (error) {
+        resolve(failure(['child_process_bad_json', clean(stderr || error && error.message || error).slice(0, 240)]));
+      }
+    });
+  });
+}
+
+module.exports = { RUNTIME, SOURCE, ENTRYPOINT, PRODUCTION_HANDLER, EXPECTED_LABELS, LEGACY_LABELS, visibleButtonLabels, runLiveCallbackContract, runLiveCallbackContractInProcess, latest, liveFlags };

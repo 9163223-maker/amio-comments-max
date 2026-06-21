@@ -5,6 +5,8 @@ const assert = require('assert');
 const contract = require('../callback-contract-live-pr228');
 const menu = require('../v3-menu-core-1539');
 const routes = require('../v3-menu-routes-1539');
+const statsFlow = require('../stats-flow-cc8');
+const maxApi = require('../services/maxApi');
 
 function createRouteRes() {
   const res = { statusCode: 0, body: '', headers: {} };
@@ -35,22 +37,28 @@ function installRoutes() {
   const syncStatsScreen = menu.screenForPayload({ action: 'stats:home', route: 'stats:home' });
   assert.ok(syncStatsScreen && typeof syncStatsScreen.then !== 'function', 'STAT-CB-008: sync stats route must not return a Promise');
   assert.strictEqual(syncStatsScreen.id, 'stats_product_perfect_home_pr226', 'STAT-CB-009: sync stats route must simulate PR226 root');
+  const flowStatsScreen = await statsFlow.screenForPayload(menu, { action: 'admin_section_stats' }, { userId: 'pr228-admin-user' });
+  assert.deepStrictEqual(contract.visibleButtonLabels(syncStatsScreen), contract.visibleButtonLabels(flowStatsScreen), 'STAT-CB-010: sync stats:home labels must match statsFlow admin_section_stats labels');
 
   const registered = installRoutes();
-  assert.strictEqual(typeof registered['/debug/callback-contract-live'], 'function', 'STAT-CB-010: callback contract endpoint must be registered');
-  assert.strictEqual(typeof registered['/debug/menu/routes'], 'function', 'STAT-CB-011: menu routes endpoint must be registered');
+  assert.strictEqual(typeof registered['/debug/callback-contract-live'], 'function', 'STAT-CB-011: callback contract endpoint must be registered');
+  assert.strictEqual(typeof registered['/debug/menu/routes'], 'function', 'STAT-CB-012: menu routes endpoint must be registered');
   const routesRes = createRouteRes();
   registered['/debug/menu/routes']({}, routesRes);
   const routesBody = JSON.parse(routesRes.body);
-  assert.ok(routesBody.routes.includes('/debug/callback-contract-live'), 'STAT-CB-012: callback contract endpoint must be listed in /debug/menu/routes');
+  assert.ok(routesBody.routes.includes('/debug/callback-contract-live'), 'STAT-CB-013: callback contract endpoint must be listed in /debug/menu/routes');
 
+  const beforeMaxRefs = { answerCallback: maxApi.answerCallback, editMessage: maxApi.editMessage, sendMessage: maxApi.sendMessage };
   const endpointRes = createRouteRes();
   await registered['/debug/callback-contract-live']({}, endpointRes);
+  assert.strictEqual(maxApi.answerCallback, beforeMaxRefs.answerCallback, 'STAT-CB-014: endpoint must not mutate maxApi.answerCallback in parent process');
+  assert.strictEqual(maxApi.editMessage, beforeMaxRefs.editMessage, 'STAT-CB-015: endpoint must not mutate maxApi.editMessage in parent process');
+  assert.strictEqual(maxApi.sendMessage, beforeMaxRefs.sendMessage, 'STAT-CB-016: endpoint must not mutate maxApi.sendMessage in parent process');
   const endpointBody = JSON.parse(endpointRes.body);
-  assert.strictEqual(endpointRes.statusCode, 200, 'STAT-CB-013: callback contract endpoint status must be 200');
-  assert.ok(/no-store/.test(endpointRes.headers['Cache-Control'] || ''), 'STAT-CB-014: callback contract endpoint must be no-cache');
-  for (const key of ['ok','runtimeVersion','sourceMarker','entrypoint','checkedAt','mainMenuStatsButtonFound','mainMenuStatsPayload','resolvedHandler','screenId','screenTextPreview','expectedLabelsPresent','legacyLabelsPresent','adminSectionStatsRoutesToPr226','errors']) {
-    assert.ok(Object.prototype.hasOwnProperty.call(endpointBody, key), `STAT-CB-015: endpoint JSON missing ${key}`);
+  assert.strictEqual(endpointRes.statusCode, 200, 'STAT-CB-017: callback contract endpoint status must be 200');
+  assert.ok(/no-store/.test(endpointRes.headers['Cache-Control'] || ''), 'STAT-CB-018: callback contract endpoint must be no-cache');
+  for (const key of ['ok','runtimeVersion','sourceMarker','entrypoint','checkedAt','mainMenuStatsButtonFound','mainMenuStatsPayload','resolvedHandler','screenId','screenTextPreview','renderedRootButtonLabels','expectedLabelsPresent','legacyLabelsPresent','adminSectionStatsRoutesToPr226','errors']) {
+    assert.ok(Object.prototype.hasOwnProperty.call(endpointBody, key), `STAT-CB-019: endpoint JSON missing ${key}`);
   }
 })().catch((error) => {
   console.error(error && error.stack || error);
