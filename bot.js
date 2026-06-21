@@ -5337,7 +5337,7 @@ async function handleMessageCallback(update, config) {
       campaignId: payload.campaignId || '',
       userId
     });
-    try { pr226StatsProducers.recordGiftRequested({ tenantKey: payload.tenantKey, ownerUserId: payload.ownerUserId, userId, channelId: payload.channelId, postId: payload.postId, commentKey: payload.commentKey, campaignId: payload.campaignId }); if (result && result.ok !== false) pr226StatsProducers.recordGiftClaimed({ tenantKey: payload.tenantKey, ownerUserId: payload.ownerUserId, userId, channelId: payload.channelId, postId: payload.postId, commentKey: payload.commentKey, campaignId: payload.campaignId }); } catch {}
+    try { pr226StatsProducers.recordGiftRequested({ tenantKey: payload.tenantKey, ownerUserId: payload.ownerUserId, userId, channelId: payload.channelId, postId: payload.postId, commentKey: payload.commentKey, campaignId: payload.campaignId }); if (pr226StatsProducers.isGiftClaimCompleted({ ...(result || {}), ok: result && result.ok })) pr226StatsProducers.recordGiftClaimed({ tenantKey: payload.tenantKey, ownerUserId: payload.ownerUserId, userId, channelId: payload.channelId, postId: payload.postId, commentKey: payload.commentKey, campaignId: payload.campaignId, ok: true, status: result && result.status }); } catch {}
     return { ok: true, action: 'gift_claim_processed', result };
   }
 
