@@ -71,7 +71,7 @@ assert.strictEqual(final.liveVersionSummary.buttonsNoStaleForCurrentPreviewOk, t
 assert.strictEqual(final.liveVersionSummary.statsCallbackContractWired, true);
 assert.strictEqual(final.liveVersionSummary.statsCallbackContractLiveOk, true);
 assert.strictEqual(final.liveVersionSummary.statsCallbackContractOk, true);
-assert.strictEqual(final.liveVersionSummary.statsMainMenuButtonRoutesToPr226, true);
+assert.strictEqual(final.liveVersionSummary.statsMainMenuRoutesToCurrentStatsRoot, true);
 assert.strictEqual(final.liveVersionSummary.statsLegacyRootNotReturned, true);
 assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: final }), false);
 
@@ -106,7 +106,7 @@ assert.strictEqual(log.latest.liveVersionSummary.buttonsNoStaleForCurrentPreview
 assert.strictEqual(log.latest.liveVersionSummary.statsCallbackContractWired, true);
 assert.strictEqual(log.latest.liveVersionSummary.statsCallbackContractLiveOk, true);
 assert.strictEqual(log.latest.liveVersionSummary.statsCallbackContractOk, true);
-assert.strictEqual(log.latest.liveVersionSummary.statsMainMenuButtonRoutesToPr226, true);
+assert.strictEqual(log.latest.liveVersionSummary.statsMainMenuRoutesToCurrentStatsRoot, true);
 assert.strictEqual(log.latest.liveVersionSummary.statsLegacyRootNotReturned, true);
 assert.strictEqual(log.latest.finalRuntimeReadinessGate.ok, true);
 assert.strictEqual(log.latest.finalRuntimeReadinessGate.readyForManualMaxTest, true);
@@ -120,7 +120,7 @@ assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.buttonsNoStaleF
 assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.statsCallbackContractWired, true);
 assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.statsCallbackContractLiveOk, true);
 assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.statsCallbackContractOk, true);
-assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.statsMainMenuButtonRoutesToPr226, true);
+assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.statsMainMenuRoutesToCurrentStatsRoot, true);
 assert.strictEqual(log.latest.finalRuntimeReadinessGate.required.statsLegacyRootNotReturned, true);
 assert.deepStrictEqual(log.latest.finalRuntimeReadinessGate.missing, []);
 console.log('PR200/PR204 startup-log live version snapshot regression assertions passed');

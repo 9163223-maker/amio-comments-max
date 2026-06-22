@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const RUNTIME = 'RUNTIME-CONTRACT-PR196';
-const SOURCE = 'adminkit-pr228-live-callback-contract';
+const SOURCE = 'adminkit-pr229-stats-scope-buttons-cleanup';
 const EXPECTED_ENTRYPOINT = 'clean-entrypoint-1.53.10-pr89.js';
 
 function clean(value, limit = 180) {
@@ -58,6 +58,7 @@ function buildContract() {
   const callbackContractTest = read('scripts/test-live-callback-routing-contract-pr228.js');
   const callbackContractRoutes = read('v3-menu-routes-1539.js');
   const callbackLive = (() => { try { return require('../callback-contract-live-pr228').liveFlags(); } catch { return {}; } })();
+  const statsScopeLive = (() => { try { return require('../stats-scope-buttons-live-pr229').liveFlags(); } catch { return {}; } })();
   const runtimeIdentity = runtimeIdentityFromBuildInfo();
 
   const startupPathOk = Boolean(cleanEntrypoint)
@@ -121,9 +122,10 @@ function buildContract() {
     statsManualCostScopedMutations: has(statsService, 'scopedIndex') && has(statsTests, 'STAT-172'),
     statsLegacyCommentKeyScoped: has(statsService, 'legacy_commentKey_unscoped_or_stale') && has(statsTests, 'STAT-175'),
     statsCallbackContractWired: has(callbackContract, 'runLiveCallbackContract') && has(callbackContractTest, 'STAT-CB-006') && has(callbackContractRoutes, '/debug/callback-contract-live'),
+    ...statsScopeLive,
     statsCallbackContractLiveOk: callbackLive.statsCallbackContractLiveOk === true,
     statsCallbackContractOk: callbackLive.statsCallbackContractLiveOk === true,
-    statsMainMenuButtonRoutesToPr226: callbackLive.statsMainMenuButtonRoutesToPr226 === true,
+    statsMainMenuRoutesToCurrentStatsRoot: callbackLive.statsMainMenuRoutesToCurrentStatsRoot === true,
     statsLegacyRootNotReturned: callbackLive.statsLegacyRootNotReturned === true,
     callbackContractEndpoint: '/debug/callback-contract-live',
     callbackContractLastCheckedAt: callbackLive.callbackContractLastCheckedAt || '',

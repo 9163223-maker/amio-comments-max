@@ -41,7 +41,7 @@ async function main() {
   assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: final, finalRuntimeReadinessGate: state.finalRuntimeReadinessGate }), true);
   assert(state.finalRuntimeReadinessGate.missing.includes('statsCallbackContractLiveOk'));
   assert(state.finalRuntimeReadinessGate.missing.includes('statsCallbackContractOk'));
-  assert(state.finalRuntimeReadinessGate.missing.includes('statsMainMenuButtonRoutesToPr226'));
+  assert(state.finalRuntimeReadinessGate.missing.includes('statsMainMenuRoutesToCurrentStatsRoot'));
   assert(state.finalRuntimeReadinessGate.missing.includes('statsLegacyRootNotReturned'));
 
   const entry = startupLog.sanitizeEntry({

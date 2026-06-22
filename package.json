@@ -1,11 +1,12 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.67-PR228-LIVE-CALLBACK-CONTRACT",
+  "version": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
-    "test": "node scripts/smoke-test.js && node scripts/test-live-callback-routing-contract-pr228.js",
-    "test:callback-contract-pr228": "node scripts/test-live-callback-routing-contract-pr228.js"
+    "test": "node scripts/smoke-test.js && node scripts/test-live-callback-routing-contract-pr228.js && npm run test:stats-scope-buttons-pr229",
+    "test:callback-contract-pr228": "node scripts/test-live-callback-routing-contract-pr228.js",
+    "test:stats-scope-buttons-pr229": "node scripts/test-stats-scope-and-buttons-contract-pr229.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
@@ -19,9 +20,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.67-PR228-LIVE-CALLBACK-CONTRACT",
-  "displayVersion": "CC8.3.67-PR228-LIVE-CALLBACK-CONTRACT",
-  "sourceMarker": "adminkit-pr228-live-callback-contract",
+  "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+  "displayVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+  "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
   "gitCommit": "",
   "pr165RuntimeWired": true,
   "pr178PushPairingBinding": true,
