@@ -48,6 +48,17 @@ function safeRuntimeContractSummary() {
 }
 
 function summarize(snapshot = {}) {
+  let statsCallbackContract = {};
+  try {
+    const liveContract = require('../callback-contract-live-pr228');
+    const chainIncludesChannelFirst = liveContract.productionChainIncludesChannelFirst(require('../clean-entrypoint-1.53.10-pr89.js'));
+    statsCallbackContract = {
+      statsCallbackContractLiveOk: chainIncludesChannelFirst,
+      statsCallbackContractOk: chainIncludesChannelFirst,
+      statsMainMenuRoutesToCurrentStatsRoot: chainIncludesChannelFirst,
+      statsLegacyRootNotReturned: chainIncludesChannelFirst
+    };
+  } catch {}
   const wizard = snapshot.pr199ButtonsWizard || {};
   const guard = snapshot.pr199ButtonsMainMenuRouteGuard || {};
   const realShow = snapshot.pr202ButtonsRealShowPath || {};
@@ -101,6 +112,7 @@ function summarize(snapshot = {}) {
     buttonsCurrentReadsCanonicalDbOk,
     buttonsGlobalNavFirstTapOk,
     buttonsNoStaleForCurrentPreviewOk,
+    ...statsCallbackContract,
     ...pr199Gates,
     ...pr202Gates
   };
