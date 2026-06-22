@@ -27,6 +27,12 @@ function installRoutes() {
   const parsedFromPollutedStdout = contract.parseChildResult(`module log before json\n${contract.RESULT_MARKER}{"ok":true,"sample":1}\n`);
   assert.strictEqual(parsedFromPollutedStdout.sample, 1, 'STAT-CB-000: child result parser must ignore stdout noise before marker');
 
+  contract._resetForTests && contract._resetForTests();
+  const lazyFlags = contract.liveFlags({ timeoutMs: 12000 });
+  assert.strictEqual(lazyFlags.statsCallbackContractLiveOk, true, 'STAT-CB-000b: liveFlags must lazily run isolated callback contract when no latest result exists');
+  assert.strictEqual(lazyFlags.statsMainMenuRoutesToCurrentStatsRoot, true, 'STAT-CB-000c: lazy liveFlags must reflect actual callback route result');
+  assert.strictEqual(lazyFlags.statsLegacyRootNotReturned, true, 'STAT-CB-000d: lazy liveFlags must reject legacy stats root');
+
   const result = await contract.runLiveCallbackContract();
   console.log(JSON.stringify(result, null, 2));
   assert.strictEqual(result.mainMenuStatsButtonFound, true, 'STAT-CB-001: main menu Statistics button must be found');
