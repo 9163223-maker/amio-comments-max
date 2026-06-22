@@ -36,6 +36,13 @@ function inferredTargetKind(e = {}) {
   if (clean(e.channelId)) return 'channel';
   return '';
 }
+function targetIdFor(e = {}, kind = inferredTargetKind(e)) {
+  const explicit = clean(e.targetId);
+  if (explicit) return explicit;
+  if (kind === 'chat') return clean(e.chatId);
+  if (kind === 'channel') return clean(e.channelId);
+  return '';
+}
 function matchesContext(e = {}, c = {}) {
   if (c.targetKind === 'all_channels') {
     const storedKind = inferredTargetKind(e);
@@ -50,9 +57,23 @@ function matchesContext(e = {}, c = {}) {
   if (c.tenantKey) { if (!clean(e.tenantKey)) return false; if (clean(e.tenantKey) !== c.tenantKey) return false; }
   if (!c.tenantKey && c.ownerUserId && !clean(e.ownerUserId)) return false;
   if (c.ownerUserId && clean(e.ownerUserId) && clean(e.ownerUserId) !== c.ownerUserId) return false;
+  const wantedKind = clean(c.targetKind);
+  const wantedTargetId = clean(c.targetId);
+  let targetMatched = false;
+  if (wantedKind || wantedTargetId) {
+    const storedKind = inferredTargetKind(e);
+    const storedTargetId = targetIdFor(e, storedKind);
+    if (wantedKind && storedKind && storedKind !== wantedKind) return false;
+    if (wantedTargetId) {
+      const legacyId = wantedKind === 'chat' ? clean(e.chatId) : wantedKind === 'channel' ? clean(e.channelId) : '';
+      if (storedTargetId !== wantedTargetId && legacyId !== wantedTargetId) return false;
+    }
+    targetMatched = true;
+  }
   for (const f of FILTER_FIELDS) {
     const want = clean(c[f]);
     if (!want) continue;
+    if (targetMatched && (f === 'targetKind' || f === 'targetId' || f === 'channelId' || f === 'chatId')) continue;
     const got = clean(e[f]);
     if (got === want) continue;
     if ((f === 'targetKind' || f === 'targetId') && !got) {
