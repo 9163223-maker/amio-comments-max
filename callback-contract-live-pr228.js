@@ -9,6 +9,7 @@ const PRODUCTION_HANDLER = 'clean-bot-channel-first-post-picker-pr90 -> statsFlo
 const EXPECTED_LABELS = ['📈 Рост', '🎯 Источники', '🧭 Воронка', '📝 Контент', '📤 Отчёт и качество данных'];
 const LEGACY_LABELS = ['Обзор', 'Подписчики', 'Посты', 'Комментарии', 'Реакции', 'Подарки', 'Кнопки под постам', 'Источники подписч', 'Обновить данные'];
 const CHILD_TIMEOUT_MS = 12000;
+const CHILD_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 const RESULT_MARKER = '__ADMINKIT_CALLBACK_CONTRACT_RESULT__';
 
 function clean(value) { return String(value || '').trim(); }
@@ -44,7 +45,7 @@ function parseChildResult(stdout = '') {
 function childEvalSource() { return "const m=require('./callback-contract-live-pr228'); m.runLiveCallbackContractInProcess().then((r)=>{process.stdout.write(m.RESULT_MARKER+JSON.stringify(r)+'\\n');}).catch((e)=>{process.stdout.write(m.RESULT_MARKER+JSON.stringify({ok:false,errors:[String(e&&e.message||e)]})+'\\n');process.exitCode=1;});"; }
 function runLiveCallbackContractSync(options = {}) {
   try {
-    const result = spawnSync(process.execPath, ['-e', childEvalSource()], { cwd: __dirname, env: { ...process.env, ADMINKIT_CALLBACK_CONTRACT_CHILD: '1' }, timeout: Number(options.timeoutMs || CHILD_TIMEOUT_MS), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    const result = spawnSync(process.execPath, ['-e', childEvalSource()], { cwd: __dirname, env: { ...process.env, ADMINKIT_CALLBACK_CONTRACT_CHILD: '1' }, timeout: Number(options.timeoutMs || CHILD_TIMEOUT_MS), maxBuffer: Number(options.maxBuffer || CHILD_MAX_BUFFER_BYTES), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     if (result.error) return failure([result.error.message || result.error]);
     const parsed = parseChildResult(result.stdout || '');
     if (!parsed.ok && result.stderr) parsed.errors = [...(parsed.errors || []), clean(result.stderr).slice(0, 240)];
