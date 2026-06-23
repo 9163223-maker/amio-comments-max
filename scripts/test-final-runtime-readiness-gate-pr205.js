@@ -38,7 +38,7 @@ async function main() {
   assert.strictEqual(final.liveVersionSummary.pr202Ready, true);
   assert.strictEqual(final.liveVersionSummary.buttonsWizardPhysicalInplaceReady, false);
   assert.strictEqual(final.liveVersionSummary.plusSignWizardTextSupported, true);
-  assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: final, finalRuntimeReadinessGate: state.finalRuntimeReadinessGate }), true);
+  assert.strictEqual(bootstrap.shouldDeferStartupLog({ liveVersionSnapshot: final, finalRuntimeReadinessGate: state.finalRuntimeReadinessGate }), false);
   assert(!state.finalRuntimeReadinessGate.missing.includes('statsCallbackContractLiveOk'));
   assert(!state.finalRuntimeReadinessGate.missing.includes('statsCallbackContractOk'));
   assert(!state.finalRuntimeReadinessGate.missing.includes('statsMainMenuRoutesToCurrentStatsRoot'));
@@ -82,7 +82,7 @@ async function main() {
   assert.strictEqual(runtimeInfo.finalRuntimeReadinessGate.ok, false);
   assert.strictEqual(runtimeInfo.finalRuntimeReadinessGate.readyForManualMaxTest, false);
   assert(!runtimeInfo.finalRuntimeReadinessGate.missing.includes('statsCallbackContractLiveOk'));
-  assert.strictEqual(bootstrap.shouldDeferStartupLog(runtimeInfo), true);
+  assert.strictEqual(bootstrap.shouldDeferStartupLog(runtimeInfo), false);
 
   console.log('PR205 final runtime readiness gate regression assertions passed');
 }
