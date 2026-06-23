@@ -42,7 +42,9 @@ function parseChildResult(stdout = '') {
   if (!line) throw new Error('callback_contract_result_marker_missing');
   return JSON.parse(line.slice(RESULT_MARKER.length));
 }
-function childEvalSource() { return "const m=require('./callback-contract-live-pr228'); m.runLiveCallbackContractInProcess().then((r)=>{process.stdout.write(m.RESULT_MARKER+JSON.stringify(r)+'\\n');}).catch((e)=>{process.stdout.write(m.RESULT_MARKER+JSON.stringify({ok:false,errors:[String(e&&e.message||e)]})+'\\n');process.exitCode=1;});"; }
+function childEvalSource() {
+  return "const m=require('./callback-contract-live-pr228'); function done(r){process.stdout.write(m.RESULT_MARKER+JSON.stringify(r)+'\\n',()=>process.exit(r&&r.ok?0:1));} m.runLiveCallbackContractInProcess().then(done).catch((e)=>done({ok:false,errors:[String(e&&e.message||e)]}));";
+}
 function runLiveCallbackContractSync(options = {}) {
   try {
     const result = spawnSync(process.execPath, ['-e', childEvalSource()], { cwd: __dirname, env: { ...process.env, ADMINKIT_CALLBACK_CONTRACT_CHILD: '1' }, timeout: Number(options.timeoutMs || CHILD_TIMEOUT_MS), maxBuffer: Number(options.maxBuffer || CHILD_MAX_BUFFER_BYTES), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
