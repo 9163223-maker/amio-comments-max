@@ -27,8 +27,14 @@ function installRoutes() {
   const parsedFromPollutedStdout = contract.parseChildResult(`module log before json\n${contract.RESULT_MARKER}{"ok":true,"sample":1}\n`);
   assert.strictEqual(parsedFromPollutedStdout.sample, 1, 'STAT-CB-000: child result parser must ignore stdout noise before marker');
 
-  const result = await contract.runLiveCallbackContract();
+  contract._resetForTests && contract._resetForTests();
+  const result = contract.runLiveCallbackContractSync({ timeoutMs: 30000 });
   console.log(JSON.stringify(result, null, 2));
+  const lazyFlags = contract.liveFlags({ timeoutMs: 30000 });
+  assert.strictEqual(lazyFlags.statsCallbackContractLiveOk, true, 'STAT-CB-000b: liveFlags must expose isolated callback contract result');
+  assert.strictEqual(lazyFlags.statsMainMenuRoutesToCurrentStatsRoot, true, 'STAT-CB-000c: liveFlags must reflect actual callback route result');
+  assert.strictEqual(lazyFlags.statsLegacyRootNotReturned, true, 'STAT-CB-000d: liveFlags must reject legacy stats root');
+
   assert.strictEqual(result.mainMenuStatsButtonFound, true, 'STAT-CB-001: main menu Statistics button must be found');
   assert.ok(result.mainMenuStatsPayload && ['admin_section_stats', 'stats:home'].includes(String(result.mainMenuStatsPayload.action || '')), 'STAT-CB-002: Statistics button payload must be the real production stats callback');
   assert.ok(result.resolvedHandler && !/legacy-stub/.test(result.resolvedHandler), 'STAT-CB-003: payload must pass through production callback/router path');

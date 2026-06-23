@@ -1,6 +1,6 @@
 'use strict';
 
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 
 const RUNTIME = 'PR228-LIVE-CALLBACK-CONTRACT';
 const SOURCE = 'adminkit-pr229-stats-scope-buttons-cleanup';
@@ -8,7 +8,8 @@ const ENTRYPOINT = 'clean-entrypoint-1.53.10-pr89.js';
 const PRODUCTION_HANDLER = 'clean-bot-channel-first-post-picker-pr90 -> statsFlow.screenForPayload';
 const EXPECTED_LABELS = ['📈 Рост', '🎯 Источники', '🧭 Воронка', '📝 Контент', '📤 Отчёт и качество данных'];
 const LEGACY_LABELS = ['Обзор', 'Подписчики', 'Посты', 'Комментарии', 'Реакции', 'Подарки', 'Кнопки под постам', 'Источники подписч', 'Обновить данные'];
-const CHILD_TIMEOUT_MS = 12000;
+const CHILD_TIMEOUT_MS = 30000;
+const CHILD_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 const RESULT_MARKER = '__ADMINKIT_CALLBACK_CONTRACT_RESULT__';
 
 function clean(value) { return String(value || '').trim(); }
@@ -22,7 +23,15 @@ function buttonLabelsPresent(labels = [], expected = []) { return expected.filte
 let latestResult = null;
 function remember(result = {}) { latestResult = { ...result, cachedAt: new Date().toISOString() }; return result; }
 function latest() { return latestResult ? { ...latestResult } : null; }
-function liveFlags() { const result = latest(); return { statsCallbackContractLiveOk: Boolean(result && result.ok), statsMainMenuRoutesToCurrentStatsRoot: Boolean(result && result.adminSectionStatsRoutesToCurrentStatsRoot), statsLegacyRootNotReturned: Boolean(result && Array.isArray(result.legacyLabelsPresent) && result.legacyLabelsPresent.length === 0), callbackContractLastCheckedAt: result && result.checkedAt || '', callbackContractLastErrors: result && result.errors || [] }; }
+function _resetForTests() { latestResult = null; }
+function flagsFromResult(result = null) { return { statsCallbackContractLiveOk: Boolean(result && result.ok), statsMainMenuRoutesToCurrentStatsRoot: Boolean(result && result.adminSectionStatsRoutesToCurrentStatsRoot), statsLegacyRootNotReturned: Boolean(result && Array.isArray(result.legacyLabelsPresent) && result.legacyLabelsPresent.length === 0), callbackContractLastCheckedAt: result && result.checkedAt || '', callbackContractLastErrors: result && result.errors || [] }; }
+function liveFlags(options = {}) {
+  let result = latest();
+  if (!result && options.skipAutoRun !== true && process.env.ADMINKIT_CALLBACK_CONTRACT_CHILD !== '1') {
+    result = runLiveCallbackContractSync({ timeoutMs: options.timeoutMs });
+  }
+  return flagsFromResult(result);
+}
 function makeResponse() { const state = { statusCode: 200, body: null, headersSent: false }; return { state, status(code) { state.statusCode = code; return this; }, json(body) { state.body = body; state.headersSent = true; return body; }, send(body) { state.body = body; state.headersSent = true; return body; }, type() { return this; }, set() { return this; } }; }
 function privateCallbackUpdate(payload) { return { update_type: 'message_callback', callback: { callback_id: 'pr228-callback-id', payload, user: { user_id: 'pr228-admin-user' }, message: { id: 'pr228-message-id', body: { mid: 'pr228-message-id', text: '🐋 АдминКИТ' }, sender: { user_id: 'pr228-admin-user' }, recipient: { chat_id: 'pr228-admin-user', chat_type: 'private' } } } }; }
 function buildInfoRuntime() { try { return require('./buildInfo').getBuildInfo().runtimeVersion; } catch { return ''; } }
@@ -32,6 +41,18 @@ function parseChildResult(stdout = '') {
   const line = [...lines].reverse().find((item) => item.startsWith(RESULT_MARKER));
   if (!line) throw new Error('callback_contract_result_marker_missing');
   return JSON.parse(line.slice(RESULT_MARKER.length));
+}
+function childEvalSource() { return "const m=require('./callback-contract-live-pr228'); m.runLiveCallbackContractInProcess().then((r)=>{process.stdout.write(m.RESULT_MARKER+JSON.stringify(r)+'\\n');}).catch((e)=>{process.stdout.write(m.RESULT_MARKER+JSON.stringify({ok:false,errors:[String(e&&e.message||e)]})+'\\n');process.exitCode=1;});"; }
+function runLiveCallbackContractSync(options = {}) {
+  try {
+    const result = spawnSync(process.execPath, ['-e', childEvalSource()], { cwd: __dirname, env: { ...process.env, ADMINKIT_CALLBACK_CONTRACT_CHILD: '1' }, timeout: Number(options.timeoutMs || CHILD_TIMEOUT_MS), maxBuffer: Number(options.maxBuffer || CHILD_MAX_BUFFER_BYTES), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    if (result.error) return failure([result.error.message || result.error]);
+    const parsed = parseChildResult(result.stdout || '');
+    if (!parsed.ok && result.stderr) parsed.errors = [...(parsed.errors || []), clean(result.stderr).slice(0, 240)];
+    return remember(parsed);
+  } catch (error) {
+    return failure(['sync_child_process_bad_json', clean(error && error.message || error).slice(0, 240)]);
+  }
 }
 
 async function runLiveCallbackContractInProcess() {
@@ -86,7 +107,7 @@ function runLiveCallbackContract(options = {}) {
     return Promise.resolve(runLiveCallbackContractInProcess()).then(remember);
   }
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, ['-e', "const m=require('./callback-contract-live-pr228'); m.runLiveCallbackContractInProcess().then((r)=>{process.stdout.write(m.RESULT_MARKER+JSON.stringify(r)+'\\n');}).catch((e)=>{process.stdout.write(m.RESULT_MARKER+JSON.stringify({ok:false,errors:[String(e&&e.message||e)]})+'\\n');process.exitCode=1;});"], { cwd: __dirname, env: { ...process.env, ADMINKIT_CALLBACK_CONTRACT_CHILD: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, ['-e', childEvalSource()], { cwd: __dirname, env: { ...process.env, ADMINKIT_CALLBACK_CONTRACT_CHILD: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = ''; let stderr = ''; let settled = false;
     const timer = setTimeout(() => { if (!settled) { settled = true; child.kill('SIGKILL'); resolve(failure(['child_process_timeout'])); } }, Number(options.timeoutMs || CHILD_TIMEOUT_MS));
     child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
@@ -106,4 +127,4 @@ function runLiveCallbackContract(options = {}) {
   });
 }
 
-module.exports = { RUNTIME, SOURCE, ENTRYPOINT, PRODUCTION_HANDLER, EXPECTED_LABELS, LEGACY_LABELS, RESULT_MARKER, parseChildResult, visibleButtonLabels, runLiveCallbackContract, runLiveCallbackContractInProcess, latest, liveFlags };
+module.exports = { RUNTIME, SOURCE, ENTRYPOINT, PRODUCTION_HANDLER, EXPECTED_LABELS, LEGACY_LABELS, RESULT_MARKER, parseChildResult, visibleButtonLabels, runLiveCallbackContract, runLiveCallbackContractSync, runLiveCallbackContractInProcess, latest, liveFlags, _resetForTests };
