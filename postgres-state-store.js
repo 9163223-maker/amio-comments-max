@@ -56,7 +56,12 @@ function hostConfigPresent() {
   return Boolean(clean(process.env.PGHOST || process.env.POSTGRES_HOST || process.env.DB_HOST || process.env.NF_POSTGRES_HOST));
 }
 
+function callbackContractChildNoDb() {
+  return process.env.ADMINKIT_CALLBACK_CONTRACT_CHILD === '1' || process.env.ADMINKIT_CALLBACK_CONTRACT_NO_DB === '1';
+}
+
 function isConfigured() {
+  if (callbackContractChildNoDb()) return false;
   return Boolean(connectionString() || hostConfigPresent());
 }
 
@@ -205,7 +210,8 @@ function info() {
     table: tableName(),
     key: stateKey(),
     postArchive: postArchive.info(),
-    pending: Boolean(pendingTimer || pendingSnapshot || pendingPromise)
+    pending: Boolean(pendingTimer || pendingSnapshot || pendingPromise),
+    callbackContractChildNoDb: callbackContractChildNoDb()
   };
 }
 
