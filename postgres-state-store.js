@@ -124,8 +124,9 @@ async function loadSnapshot() {
   lastInfo = { ...lastInfo, configured: Boolean(p), table: t, key };
   if (!p) return { ok: false, configured: false, found: false, error: 'postgres_env_missing', table: t, key };
 
-  const client = await p.connect();
+  let client = null;
   try {
+    client = await p.connect();
     await ensureTable(client);
     const result = await client.query(`SELECT value, updated_at FROM ${t} WHERE key = $1 LIMIT 1`, [key]);
     const row = result.rows && result.rows[0];
@@ -136,7 +137,7 @@ async function loadSnapshot() {
     lastInfo = { ...lastInfo, ok: false, configured: true, table: t, key, lastError: String(error && error.message || error) };
     return { ok: false, configured: true, found: false, error: String(error && error.message || error), table: t, key };
   } finally {
-    client.release();
+    if (client) client.release();
   }
 }
 
@@ -147,8 +148,9 @@ async function saveSnapshot(snapshot) {
   lastInfo = { ...lastInfo, configured: Boolean(p), table: t, key };
   if (!p) return { ok: false, configured: false, error: 'postgres_env_missing', table: t, key };
 
-  const client = await p.connect();
+  let client = null;
   try {
+    client = await p.connect();
     await ensureTable(client);
     await client.query(
       `INSERT INTO ${t} (key, value, updated_at)
@@ -163,7 +165,7 @@ async function saveSnapshot(snapshot) {
     lastInfo = { ...lastInfo, ok: false, configured: true, table: t, key, lastError: String(error && error.message || error) };
     return { ok: false, configured: true, error: String(error && error.message || error), table: t, key };
   } finally {
-    client.release();
+    if (client) client.release();
   }
 }
 
