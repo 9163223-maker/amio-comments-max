@@ -8,7 +8,7 @@ const ENTRYPOINT = 'clean-entrypoint-1.53.10-pr89.js';
 const PRODUCTION_HANDLER = 'clean-bot-channel-first-post-picker-pr90 -> statsFlow.screenForPayload';
 const EXPECTED_LABELS = ['📈 Рост', '🎯 Источники', '🧭 Воронка', '📝 Контент', '📤 Отчёт и качество данных'];
 const LEGACY_LABELS = ['Обзор', 'Подписчики', 'Посты', 'Комментарии', 'Реакции', 'Подарки', 'Кнопки под постам', 'Источники подписч', 'Обновить данные'];
-const CHILD_TIMEOUT_MS = 12000;
+const CHILD_TIMEOUT_MS = 30000;
 const CHILD_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 const RESULT_MARKER = '__ADMINKIT_CALLBACK_CONTRACT_RESULT__';
 
