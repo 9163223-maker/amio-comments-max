@@ -11,12 +11,16 @@ function asList(value) { return Array.isArray(value) ? value : []; }
 function parseIso(value) { const ts = Date.parse(clean(value)); return Number.isFinite(ts) ? ts : 0; }
 function decodeBase64(value) { return Buffer.from(String(value || ''), 'base64').toString('utf8'); }
 
-function packageVersion() {
+function packageMetadata() {
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
-    return clean(pkg.displayVersion || pkg.buildVersion || pkg.version);
+    return {
+      runtimeVersion: clean(pkg.displayVersion || pkg.buildVersion || pkg.version),
+      sourceMarker: clean(pkg.sourceMarker),
+      entrypoint: clean(pkg.main)
+    };
   } catch {
-    return '';
+    return { runtimeVersion: '', sourceMarker: '', entrypoint: '' };
   }
 }
 
@@ -57,9 +61,12 @@ async function loadStartupLog() {
 }
 
 function analyzeStartupLog(log, options = {}) {
+  const metadata = packageMetadata();
   const expectedSha = clean(options.expectedSha || process.env.EXPECTED_SHA || process.env.GITHUB_SHA);
   const minStartedAt = clean(options.minStartedAt || process.env.MERGED_AT || process.env.GITHUB_HEAD_COMMIT_TIMESTAMP);
-  const expectedRuntime = clean(options.expectedRuntime || process.env.EXPECTED_RUNTIME_VERSION || packageVersion());
+  const expectedRuntime = clean(options.expectedRuntime || process.env.EXPECTED_RUNTIME_VERSION || metadata.runtimeVersion);
+  const expectedSourceMarker = clean(options.expectedSourceMarker || process.env.EXPECTED_SOURCE_MARKER || metadata.sourceMarker);
+  const expectedEntrypoint = clean(options.expectedEntrypoint || process.env.EXPECTED_ENTRYPOINT || metadata.entrypoint);
   const finalGateRequired = ['1', 'true', 'yes', 'on'].includes(clean(options.requireFinalGate === undefined ? process.env.REQUIRE_FINAL_GATE : options.requireFinalGate).toLowerCase());
   const latest = log && log.latest || {};
   const summary = latest.liveVersionSummary || {};
@@ -83,8 +90,8 @@ function analyzeStartupLog(log, options = {}) {
     deployedShaMatches: expectedSha ? clean(latest.githubMainHeadSha) === expectedSha : true,
     startupFreshForMerge: minStartedTs ? startedAt >= minStartedTs : true,
     runtimeVersionOk: expectedRuntime ? clean(latest.runtimeVersion) === expectedRuntime : Boolean(clean(latest.runtimeVersion)),
-    sourceMarkerOk: clean(latest.sourceMarker) === 'adminkit-pr229-stats-scope-buttons-cleanup',
-    entrypointOk: clean(latest.entrypoint) === 'clean-entrypoint-1.53.10-pr89.js',
+    sourceMarkerOk: expectedSourceMarker ? clean(latest.sourceMarker) === expectedSourceMarker : Boolean(clean(latest.sourceMarker)),
+    entrypointOk: expectedEntrypoint ? clean(latest.entrypoint) === expectedEntrypoint : Boolean(clean(latest.entrypoint)),
     runtimeContractOk: bool(runtimeContract.contractLiveOk),
     startupPathOk: bool(startupPath.ok),
     dataProvidersOk: bool(dataProviders.ok),
@@ -103,6 +110,9 @@ function analyzeStartupLog(log, options = {}) {
     mode: 'post-merge-live-readiness-pr234',
     generatedAt: new Date().toISOString(),
     expectedSha,
+    expectedRuntime,
+    expectedSourceMarker,
+    expectedEntrypoint,
     deployedSha: clean(latest.githubMainHeadSha),
     latestStartedAt: clean(latest.startedAt),
     runtimeVersion: clean(latest.runtimeVersion),
@@ -128,4 +138,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch((error) => { console.error(error && error.stack || error); process.exit(1); });
-module.exports = { analyzeStartupLog };
+module.exports = { analyzeStartupLog, packageMetadata };
