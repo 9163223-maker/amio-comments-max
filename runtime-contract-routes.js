@@ -6,6 +6,20 @@ const runtimeContract = require('./services/runtimeContractService');
 const RUNTIME = 'RUNTIME-CONTRACT-ROUTES-PR196';
 const SOURCE = 'adminkit-runtime-contract-routes-pr196';
 const ROUTES = ['/internal/runtime/contract'];
+const PR237_KEYS = Object.freeze([
+  'slashSingleActiveMenuContractOk',
+  'slashPrivateCommandsUseSingleActiveMenu',
+  'slashPrivateSlashSkipsPreCleanup',
+  'slashPrivateUpsertTargetsLatestBotMenu',
+  'slashPrivateSlashClearsStaleFlowState',
+  'slashClearKeepsExplicitCleanup',
+  'slashGroupDeniedUsesGroupHelp',
+  'slashGroupHelpUsesUntrackedReply',
+  'slashGroupPushDoesNotRenderPrivateAdminScreen',
+  'slashSingleActiveOnlyPrivateAdminCommands',
+  'slashPreviewCatalogExternal',
+  'slashDesiredGlobalCommandsOnlyPushHelp'
+]);
 
 function clean(value, limit = 160) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -46,13 +60,23 @@ function guard(req, res) {
   }
   return true;
 }
+function pr237Summary(contract = {}) {
+  const flags = Object.fromEntries(PR237_KEYS.map((key) => [key, contract[key] === true]));
+  return {
+    ok: PR237_KEYS.every((key) => flags[key] === true),
+    source: 'services/nativeSlashCommands.pr237Contract',
+    flags
+  };
+}
 function payload() {
   const contract = runtimeContract.buildContract();
+  const pr237SingleActiveSlashUx = pr237Summary(contract);
   return {
-    ok: contract.contractLiveOk === true,
+    ok: contract.contractLiveOk === true && pr237SingleActiveSlashUx.ok === true,
     diagnosticRuntime: RUNTIME,
     diagnosticSourceMarker: SOURCE,
     route: ROUTES[0],
+    pr237SingleActiveSlashUx,
     contract
   };
 }
@@ -67,4 +91,4 @@ function install(app) {
   return { ok: true, runtimeVersion: RUNTIME, sourceMarker: SOURCE, routes: ROUTES };
 }
 
-module.exports = { RUNTIME, SOURCE, ROUTES, install, payload, guard };
+module.exports = { RUNTIME, SOURCE, ROUTES, PR237_KEYS, pr237Summary, install, payload, guard };
