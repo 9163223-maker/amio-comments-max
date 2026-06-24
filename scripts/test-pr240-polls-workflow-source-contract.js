@@ -21,8 +21,9 @@ assert(adapter.includes('pollsUnifiedWorkflowReady:true'), 'selfTest must expose
 assert(adapter.includes('pollsNotDevPlaceholder:true'), 'selfTest must expose non-dev placeholder readiness');
 
 const pollsBlock = canonical.slice(canonical.indexOf("id: 'polls'"), canonical.indexOf("id: 'highlights'"));
-assert(pollsBlock.includes("targetAction: 'polls:create'"), 'canonical polls.create must route to polls:create');
-assert(pollsBlock.includes("targetAction: 'polls:results'"), 'canonical polls.results must route to polls:results');
-assert(!pollsBlock.includes("existingAction: 'comments_select_post'"), 'canonical polls block must not use comments_select_post');
+assert(pollsBlock.includes("existingAction: 'polls:create'"), 'canonical polls.create root payload must route to polls:create');
+assert(pollsBlock.includes("existingAction: 'polls:results'"), 'canonical polls.results root payload must route to polls:results');
+assert(pollsBlock.includes("targetAction: 'comments_select_post'"), 'canonical keeps legacy targetAction compatibility for existing tests/callbacks');
+assert(!pollsBlock.includes("existingAction: 'comments_select_post'"), 'canonical visible polls root must not emit comments_select_post as action');
 
 console.log('PR240 polls workflow source contract ok');
