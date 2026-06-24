@@ -47,8 +47,7 @@ const ROUTE_BY_COMMAND = {
   '/debug': 'debug:home',
   '/help': 'help:home',
   '/terms': 'terms:home',
-  '/privacy': 'privacy:home',
-  '/push': 'push:home'
+  '/privacy': 'privacy:home'
 };
 
 function getNativeSlashCommand(text = '') {
@@ -169,37 +168,37 @@ function isCommandAllowedInContext({ command = '', message = {}, userId = '' } =
   return PUBLIC_GROUP_COMMANDS.includes(command);
 }
 
-async function cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu, options = {}) {
-  if (!cleanupAdminWorkspaceOnMainMenu || !userId) return [];
-  try {
-    const failed = await cleanupAdminWorkspaceOnMainMenu(config, userId, {
-      includeUserMessages: Boolean(options.includeUserMessages)
-    });
-    walkthroughTrace.log('slash.cleanup', {
-      userId,
-      includeUserMessages: Boolean(options.includeUserMessages),
-      failedCount: Array.isArray(failed) ? failed.length : 0
-    });
-    return failed;
-  } catch (error) {
-    walkthroughTrace.log('slash.cleanup_error', {
-      userId,
-      error: error?.message || String(error)
-    });
-    return [];
-  }
+function shouldUseSingleActiveMenu({ command = '', groupContext = false } = {}) {
+  return !groupContext && command !== '/clear';
 }
 
-function cleanupFailedCount(failedIds) {
-  return Array.isArray(failedIds) ? failedIds.length : 0;
+function stripInboundMessageIdsForMenuEdit(message = {}) {
+  const body = message && message.body && typeof message.body === 'object' ? message.body : {};
+  const nextBody = { ...body };
+  delete nextBody.mid;
+  delete nextBody.message_id;
+  delete nextBody.messageId;
+  delete nextBody.id;
+  return {
+    ...message,
+    body: nextBody,
+    mid: '',
+    message_id: '',
+    messageId: '',
+    id: '',
+    __adminkitSlashSingleActiveEditTarget: 'latest_bot_menu_only'
+  };
 }
 
 const PR237_CONTRACT = Object.freeze({
   slashSingleActiveMenuContractOk: true,
   slashPrivateCommandsUseSingleActiveMenu: true,
   slashPrivateSlashSkipsPreCleanup: true,
+  slashPrivateUpsertTargetsLatestBotMenu: true,
   slashClearKeepsExplicitCleanup: true,
   slashGroupDeniedUsesGroupHelp: true,
+  slashGroupPushDoesNotRenderPrivateAdminScreen: true,
+  slashSingleActiveOnlyPrivateAdminCommands: true,
   slashPreviewCatalogExternal: true,
   slashDesiredGlobalCommandsOnlyPushHelp: true
 });
@@ -228,7 +227,7 @@ async function sendUnifiedScreen({
   upsertBotMessage = null
 }) {
   const startedAt = Date.now();
-  walkthroughTrace.log('slash.screen_start', { command, route, userId, skipCleanup });
+  walkthroughTrace.log('slash.screen_start', { command, route, userId, skipCleanup, useSingleActiveMenu });
 
   if (!skipCleanup) {
     await cleanupBeforeSlash(config, userId, cleanupAdminWorkspaceOnMainMenu);
@@ -246,14 +245,21 @@ async function sendUnifiedScreen({
     userId,
     textLength: text.length,
     attachmentsCount: Array.isArray(screen.attachments) ? screen.attachments.length : 0,
-    firstLine: String(text || '').split('\n')[0] || ''
+    firstLine: String(text || '').split('\n')[0] || '',
+    useSingleActiveMenu
   });
 
   const attachments = Array.isArray(screen.attachments) ? screen.attachments : [];
   const sendScreen = sendFreshAdminMessage || replyToUser;
   try {
     const result = useSingleActiveMenu && typeof upsertBotMessage === 'function'
-      ? await upsertBotMessage({ config, message, text, attachments, editCurrent: true })
+      ? await upsertBotMessage({
+        config,
+        message: stripInboundMessageIdsForMenuEdit(message),
+        text,
+        attachments,
+        editCurrent: true
+      })
       : await sendScreen({ config, message, text, attachments });
     walkthroughTrace.log('slash.screen_sent', {
       command,
@@ -303,6 +309,11 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
       command,
       screen: clientGroupHelpScreen()
     });
+  }
+
+  if (groupContext && command === '/push') {
+    walkthroughTrace.log('slash.group_push_passthrough', { command, userId });
+    return false;
   }
 
   if (groupContext && command === '/help') {
@@ -366,6 +377,7 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
     else if (command === '/debug' && access.isAdmin(userId)) screen = menuCore.screenForPayload({ action: 'admin_section_debug' });
   }
 
+  const useSingleActiveMenu = shouldUseSingleActiveMenu({ command, groupContext });
   return sendUnifiedScreen({
     config,
     message,
@@ -377,8 +389,8 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
     command,
     screen,
     note,
-    skipCleanup: true,
-    useSingleActiveMenu: true,
+    skipCleanup: useSingleActiveMenu,
+    useSingleActiveMenu,
     upsertBotMessage
   });
 }
