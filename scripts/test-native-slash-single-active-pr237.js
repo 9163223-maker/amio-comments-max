@@ -5,12 +5,34 @@ process.env.ADMIN_ID = [process.env.ADMIN_ID, 'admin-pr237'].filter(Boolean).joi
 const assert = require('assert');
 const slash = require('../services/nativeSlashCommands');
 const runtimeContract = require('../services/runtimeContractService');
+const store = require('../store');
 
-function privateChat() {
-  return { id: 'slash-user-message', body: { mid: 'slash-user-mid' }, sender: { user_id: 'admin-pr237' }, recipient: { chat_id: 'admin-pr237', user_id: 'admin-pr237', chat_type: 'chat' } };
+const USER_ID = 'admin-pr237';
+const INBOUND_ID = 'slash-user-message';
+const INBOUND_MESSAGE_ID = 'slash-user-message-id';
+const INBOUND_MESSAGE_ID_CAMEL = 'slash-user-message-id-camel';
+const INBOUND_BODY_MID = 'slash-user-mid';
+const INBOUND_BODY_MESSAGE_ID = 'slash-user-body-message-id';
+const INBOUND_BODY_MESSAGE_ID_CAMEL = 'slash-user-body-message-id-camel';
+
+function privateChat(overrides = {}) {
+  return {
+    id: INBOUND_ID,
+    message_id: INBOUND_MESSAGE_ID,
+    messageId: INBOUND_MESSAGE_ID_CAMEL,
+    body: {
+      mid: INBOUND_BODY_MID,
+      message_id: INBOUND_BODY_MESSAGE_ID,
+      messageId: INBOUND_BODY_MESSAGE_ID_CAMEL,
+      ...(overrides.body || {})
+    },
+    sender: { user_id: USER_ID },
+    recipient: { chat_id: USER_ID, user_id: USER_ID, chat_type: 'chat' },
+    ...overrides
+  };
 }
 function groupChat() {
-  return { id: 'group-slash-user-message', sender: { user_id: 'admin-pr237' }, recipient: { chat_id: 'group-pr237', chat_type: 'group', title: 'Group' } };
+  return { id: 'group-slash-user-message', sender: { user_id: USER_ID }, recipient: { chat_id: 'group-pr237', chat_type: 'group', title: 'Group' } };
 }
 function helpers(events, opts = {}) {
   return {
@@ -26,17 +48,21 @@ async function run(command, message = privateChat(), opts = {}) {
   const result = await slash.handleNativeSlashCommand({ config: {}, message, command, helpers: helpers(events, opts) });
   return { events, result };
 }
-function assertPrivateSingleActive(command) {
-  return run(command).then(({ events }) => {
-    assert.strictEqual(events.filter((event) => event.kind === 'upsert').length, 1, `${command} uses single-active upsert`);
-    assert.strictEqual(events[0].kind, 'upsert', `${command} does not cleanup before render`);
-    assert.strictEqual(events[0].editCurrent, true, `${command} edits latest active menu`);
-    assert.strictEqual(events.some((event) => event.kind === 'cleanup'), false, `${command} skips pre-cleanup`);
-    assert.strictEqual(events.some((event) => event.kind === 'fresh' || event.kind === 'reply'), false, `${command} does not force fresh send`);
-    assert.notStrictEqual(events[0].payload.message?.id, 'slash-user-message', `${command} strips inbound message id before upsert`);
-    assert.notStrictEqual(events[0].payload.message?.body?.mid, 'slash-user-mid', `${command} strips inbound body mid before upsert`);
-    assert.strictEqual(events[0].payload.message?.__adminkitSlashSingleActiveEditTarget, 'latest_bot_menu_only', `${command} marks latest bot menu edit target`);
-  });
+async function assertPrivateSingleActive(command) {
+  const { events } = await run(command);
+  assert.strictEqual(events.filter((event) => event.kind === 'upsert').length, 1, `${command} uses single-active upsert`);
+  assert.strictEqual(events[0].kind, 'upsert', `${command} does not cleanup before render`);
+  assert.strictEqual(events[0].editCurrent, true, `${command} edits latest active menu`);
+  assert.strictEqual(events.some((event) => event.kind === 'cleanup'), false, `${command} skips pre-cleanup`);
+  assert.strictEqual(events.some((event) => event.kind === 'fresh' || event.kind === 'reply'), false, `${command} does not force fresh send`);
+  const target = events[0].payload.message || {};
+  assert.notStrictEqual(target.id, INBOUND_ID, `${command} strips inbound id before upsert`);
+  assert.notStrictEqual(target.message_id, INBOUND_MESSAGE_ID, `${command} strips inbound message_id before upsert`);
+  assert.notStrictEqual(target.messageId, INBOUND_MESSAGE_ID_CAMEL, `${command} strips inbound messageId before upsert`);
+  assert.notStrictEqual(target.body?.mid, INBOUND_BODY_MID, `${command} strips inbound body.mid before upsert`);
+  assert.notStrictEqual(target.body?.message_id, INBOUND_BODY_MESSAGE_ID, `${command} strips inbound body.message_id before upsert`);
+  assert.notStrictEqual(target.body?.messageId, INBOUND_BODY_MESSAGE_ID_CAMEL, `${command} strips inbound body.messageId before upsert`);
+  assert.strictEqual(target.__adminkitSlashSingleActiveEditTarget, 'latest_bot_menu_only', `${command} marks latest bot menu edit target`);
 }
 function assertGroupHelp(events, label) {
   const render = events.find((event) => event.kind === 'fresh' || event.kind === 'reply' || event.kind === 'upsert');
@@ -48,16 +74,41 @@ function assertNoPrivateAdminPush(events, label) {
   assert(!events.some((event) => event.kind === 'upsert'), `${label} must not use single-active admin delivery`);
   assert(!events.some((event) => /Уведомления MAX|Опубликовать приглашение/.test(String(event.payload?.text || ''))), `${label} must not render private/admin push screen`);
 }
+function seedStaleFlowState() {
+  store.clearSetupState(USER_ID);
+  store.setSetupState(USER_ID, {
+    latestBotMessageId: 'latest-bot-menu-mid',
+    adminMessageIds: ['old-menu-mid', 'latest-bot-menu-mid'],
+    currentScreen: { id: 'main:home' },
+    giftFlow: { step: 'gift-title' },
+    commentAdminFlow: { step: 'comment-text' },
+    activeAdminFlowKind: 'gift'
+  });
+}
+function assertStaleFlowClearedAndMenuPreserved() {
+  const state = store.getSetupState(USER_ID) || {};
+  assert.strictEqual(state.giftFlow, undefined, 'giftFlow is cleared by private slash navigation');
+  assert.strictEqual(state.commentAdminFlow, undefined, 'commentAdminFlow is cleared by private slash navigation');
+  assert.strictEqual(state.activeAdminFlowKind, undefined, 'activeAdminFlowKind is cleared by private slash navigation');
+  assert.strictEqual(state.latestBotMessageId, 'latest-bot-menu-mid', 'latest active bot menu is preserved');
+  assert.deepStrictEqual(state.adminMessageIds, ['old-menu-mid', 'latest-bot-menu-mid'], 'admin menu id history is preserved');
+  assert.deepStrictEqual(state.currentScreen, { id: 'main:home' }, 'non-flow setup state is preserved');
+}
 
 (async function main() {
-  for (const command of ['/channels', '/polls', '/stats', '/menu']) await assertPrivateSingleActive(command);
+  const privateSingleActiveCommands = ['/channels', '/polls', '/stats', '/menu', '/buttons', '/comments', '/gifts'];
+  for (const command of privateSingleActiveCommands) await assertPrivateSingleActive(command);
+
+  seedStaleFlowState();
+  await assertPrivateSingleActive('/channels');
+  assertStaleFlowClearedAndMenuPreserved();
 
   const clearEvents = (await run('/clear')).events;
   assert.deepStrictEqual(clearEvents.map((event) => event.kind), ['cleanup', 'fresh'], '/clear uses explicit cleanup then fresh screen');
   assert.strictEqual(clearEvents[0].includeUserMessages, true, '/clear includes user messages in cleanup');
 
-  assertGroupHelp((await run('/debug', groupChat())).events, 'group /debug denied');
-  assertGroupHelp((await run('/clear', groupChat())).events, 'group /clear denied');
+  const groupDeniedCommands = ['/debug', '/clear', '/buttons', '/stats', '/channels'];
+  for (const command of groupDeniedCommands) assertGroupHelp((await run(command, groupChat())).events, `group ${command} denied`);
   assertGroupHelp((await run('/help', groupChat())).events, 'group /help allowed help');
   const pushRun = await run('/push', groupChat());
   assertNoPrivateAdminPush(pushRun.events, 'group /push');
@@ -70,5 +121,6 @@ function assertNoPrivateAdminPush(events, label) {
     assert.strictEqual(snapshot[key], true, `runtime snapshot contract ${key}`);
   }
   assert.deepStrictEqual(require('../services/maxCommandRegistryService').GLOBAL_COMMAND_NAMES, ['/push', '/help'], 'global MAX registry remains push/help only');
+  store.clearSetupState(USER_ID);
   console.log('PR237 native slash single-active contract assertions passed');
 })().catch((error) => { console.error(error); process.exit(1); });
