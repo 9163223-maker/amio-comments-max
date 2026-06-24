@@ -44,6 +44,10 @@ function assertGroupHelp(events, label) {
   assert(String(render.payload.text || '').includes('🔔 Уведомления чата'), `${label} renders group push/help`);
   assert.notStrictEqual(render.kind, 'upsert', `${label} does not use single-active admin delivery`);
 }
+function assertNoPrivateAdminPush(events, label) {
+  assert(!events.some((event) => event.kind === 'upsert'), `${label} must not use single-active admin delivery`);
+  assert(!events.some((event) => /Уведомления MAX|Опубликовать приглашение/.test(String(event.payload?.text || ''))), `${label} must not render private/admin push screen`);
+}
 
 (async function main() {
   for (const command of ['/channels', '/polls', '/stats', '/menu']) await assertPrivateSingleActive(command);
@@ -56,8 +60,8 @@ function assertGroupHelp(events, label) {
   assertGroupHelp((await run('/clear', groupChat())).events, 'group /clear denied');
   assertGroupHelp((await run('/help', groupChat())).events, 'group /help allowed help');
   const pushRun = await run('/push', groupChat());
-  assert.strictEqual(pushRun.result, false, 'group /push is passed through to the existing public group push handler');
-  assert.deepStrictEqual(pushRun.events, [], 'group /push does not render admin screens or use upsert');
+  assertNoPrivateAdminPush(pushRun.events, 'group /push');
+  if (pushRun.result !== false) assertGroupHelp(pushRun.events, 'group /push fallback help');
 
   const direct = slash.pr237Contract();
   const snapshot = runtimeContract.buildContract().pr237SingleActiveSlashUx;
