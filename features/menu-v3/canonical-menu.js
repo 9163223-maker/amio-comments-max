@@ -57,8 +57,8 @@ const sections = [
     action({ id: 'ad_links.disable', title: 'Отключить ссылку', section: 'ad_links', existingAction: 'admin_stats_campaign_disable', clientVisible: false, implemented: false, hiddenReason: 'inside_ad_link_card' }),
   ] },
   { id: 'polls', title: 'Опросы / голосования', route: 'polls:home', clientVisible: true, adminOnly: false, featureKey: 'polls', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
-    action({ id: 'polls.create', title: 'Создать опрос', section: 'polls', targetAction: 'comments_select_post', existingAction: 'polls:create', requiresChannel: true, requiresPost: true, payload: { source: 'polls' } }),
-    action({ id: 'polls.results', title: 'Результаты опросов', section: 'polls', targetAction: 'poll_status', existingAction: 'polls:results' }),
+    action({ id: 'polls.create', title: 'Создать опрос', section: 'polls', targetAction: 'polls:create', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'polls' } }),
+    action({ id: 'polls.results', title: 'Результаты опросов', section: 'polls', targetAction: 'polls:results', existingAction: 'poll_status' }),
     action({ id: 'polls.stop', title: 'Остановить опрос', section: 'polls', existingAction: 'poll_stop', clientVisible: false, implemented: false, hiddenReason: 'inside_active_poll_card' }),
   ] },
   { id: 'highlights', title: 'Выделение постов', route: 'highlights:home', aliases: ['highlight:home'], clientVisible: true, adminOnly: false, featureKey: 'highlights', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
