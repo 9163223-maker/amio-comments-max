@@ -58,26 +58,48 @@ function getNativeSlashCommand(text = '') {
   return COMMANDS.has(command) ? command : '';
 }
 
+function isPositiveCount(value) {
+  if (value === undefined || value === null || value === '') return false;
+  const count = Number(value);
+  return Number.isFinite(count) ? count > 0 : Boolean(value);
+}
+
+function hasExplicitGroupHints(source = {}) {
+  return Boolean(
+    source.is_group || source.isGroup ||
+    source.is_public || source.isPublic ||
+    source.is_channel || source.isChannel ||
+    source.is_shared_chat || source.isSharedChat ||
+    isPositiveCount(source.members_count || source.membersCount) ||
+    isPositiveCount(source.participants_count || source.participantsCount) ||
+    isPositiveCount(source.chat_members_count || source.chatMembersCount)
+  );
+}
+
+function isNegativeChatId(value = '') {
+  return /^-\d+$/.test(String(value || '').trim());
+}
+
 function isGroupContext(message = {}) {
   const body = message && message.body && typeof message.body === 'object' ? message.body : {};
   const recipient = message && message.recipient && typeof message.recipient === 'object' ? message.recipient : (body.recipient || {});
   const chat = message && message.chat && typeof message.chat === 'object' ? message.chat : {};
-  const type = String(recipient.chat_type || recipient.type || message.chat_type || chat.type || '').trim().toLowerCase();
-  if (['group', 'public', 'channel', 'supergroup', 'shared', 'shared_chat'].includes(type)) return true;
-  if (['private', 'direct', 'dialog', 'user', 'bot'].includes(type)) return false;
+  const recipientType = String(recipient.chat_type || recipient.type || message.chat_type || '').trim().toLowerCase();
+  const chatType = String(chat.type || chat.chat_type || '').trim().toLowerCase();
+  const groupTypes = ['group', 'public', 'channel', 'supergroup', 'shared', 'shared_chat'];
+  const privateTypes = ['private', 'direct', 'dialog', 'user', 'bot'];
+  if (groupTypes.includes(recipientType) || groupTypes.includes(chatType)) return true;
 
   const chatId = String(recipient.chat_id || recipient.id || message.chat_id || body.chat_id || chat.id || '').trim();
   const senderId = String(message?.sender?.user_id || message?.sender?.id || body?.sender?.user_id || body?.sender?.id || message?.user_id || '').trim();
   const recipientUserId = String(recipient.user_id || recipient.userId || recipient.uid || body?.recipient?.user_id || body?.recipient?.id || '').trim();
+
+  if (hasExplicitGroupHints(recipient) || hasExplicitGroupHints(chat)) return true;
+  if (isNegativeChatId(chatId)) return true;
+  if (privateTypes.includes(recipientType) || privateTypes.includes(chatType)) return false;
   if (recipientUserId && senderId && recipientUserId === senderId) return false;
-  if (type === 'chat') {
-    const hasGroupHints = Boolean(
-      recipient.is_public || recipient.is_channel || recipient.is_group || recipient.is_shared_chat ||
-      recipient.members_count || recipient.participants_count || recipient.chat_members_count
-    );
-    if (hasGroupHints) return true;
-    return Boolean(chatId && senderId && chatId !== senderId);
-  }
+
+  if (recipientType === 'chat' || chatType === 'chat') return Boolean(chatId && senderId && chatId !== senderId);
   return Boolean(chatId && senderId && chatId !== senderId);
 }
 
