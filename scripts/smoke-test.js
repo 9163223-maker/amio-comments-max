@@ -38,7 +38,7 @@ assert.strictEqual(postPatcher.PATCH_COMPUTE_BREAKDOWN_RUNTIME, 'CC8.1.15-PATCH-
 runSmoke('timing-menu-audit-test.js', 'timing/menu audit smoke test');
 runSmoke('comment-skeleton-consumer-pr67-test.js', 'comment skeleton consumer PR67 smoke test');
 runSmoke('patch-coalescing-pr68-test.js', 'patch coalescing PR68 smoke test');
-runSmoke('core-fast-text-send-pr70-test.js', 'core fast text send PR70 smoke test');
+runSmoke('core-fast-text-send-pr70-test.js', 'core fast text send PR70 test');
 runSmoke('wire-pr73-active-entrypoint-test.js', 'wire PR73 active entrypoint smoke test');
 runSmoke('patch-compute-breakdown-pr75-test.js', 'patch compute breakdown PR75 test');
 runSmoke('comment-runtime-media-contract-test.js', 'comment runtime media contract smoke test');
@@ -47,6 +47,7 @@ runSmoke('test-canonical-client-menu.js', 'PR105 canonical client menu smoke tes
 runSmoke('test-push-product-perfect-pr187.js', 'PR187 push product-perfect regression test');
 runSmoke('test-push-multi-chat-handoff-pr188.js', 'PR188 push multi-chat handoff smoke test');
 runSmoke('test-native-slash-private-context-pr236.js', 'PR236 native slash private context regression test');
+runSmoke('test-native-slash-single-active-menu-pr237.js', 'PR237 native slash single active menu UX contract test');
 runSmoke('test-postgres-store-connect-timeout-pr232.js', 'PR232 postgres connect timeout smoke test');
 runSmoke('test-post-merge-live-readiness-pr234.js', 'PR234 post-merge live readiness checker smoke test');
 
