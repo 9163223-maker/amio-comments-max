@@ -68,10 +68,13 @@ function assertGroupHelp(events, label) {
   const render = events.find((event) => event.kind === 'fresh' || event.kind === 'reply' || event.kind === 'upsert');
   assert(render, `${label} renders`);
   assert(String(render.payload.text || '').includes('🔔 Уведомления чата'), `${label} renders group push/help`);
-  assert.notStrictEqual(render.kind, 'upsert', `${label} does not use single-active admin delivery`);
+  assert.strictEqual(render.kind, 'reply', `${label} uses untracked reply delivery`);
+  assert(!events.some((event) => event.kind === 'fresh'), `${label} must not use tracked sendFreshAdminMessage`);
+  assert(!events.some((event) => event.kind === 'upsert'), `${label} must not use single-active admin delivery`);
 }
 function assertNoPrivateAdminPush(events, label) {
   assert(!events.some((event) => event.kind === 'upsert'), `${label} must not use single-active admin delivery`);
+  assert(!events.some((event) => event.kind === 'fresh'), `${label} must not use tracked sendFreshAdminMessage`);
   assert(!events.some((event) => /Уведомления MAX|Опубликовать приглашение/.test(String(event.payload?.text || ''))), `${label} must not render private/admin push screen`);
 }
 function seedStaleFlowState() {
