@@ -4,8 +4,8 @@
 // Single source of truth for the client-visible production menu.
 // Legacy production-menu-map-v3-fixed.js and production-menu-v3-renderer.js are reference-only.
 
-const VERSION = 'pr177-channels-push-ux-v1';
-const SOURCE = 'adminkit-pr177-channels-push-ux';
+const VERSION = 'pr240-polls-unified-workflow-v1';
+const SOURCE = 'adminkit-pr240-polls-unified-post-workflow';
 
 function action({ id, title, section, targetAction = '', existingAction = '', clientVisible = true, adminOnly = false, requiresChannel = false, requiresPost = false, implemented = true, hiddenReason = '', payload = {}, featureKey = '', minPlan = 'free', requiresActiveAccess = true, availableInPlans = [], accountOnlyWhenExpired = false }) {
   return { id, title, section, targetAction: targetAction || existingAction || id, existingAction: existingAction || targetAction || id, clientVisible: Boolean(clientVisible && !adminOnly && implemented), adminOnly: Boolean(adminOnly), requiresChannel: Boolean(requiresChannel), requiresPost: Boolean(requiresPost), implemented: Boolean(implemented), hiddenReason: hiddenReason || '', payload: payload || {}, featureKey: featureKey || section || id, minPlan, requiresActiveAccess: Boolean(requiresActiveAccess), availableInPlans, accountOnlyWhenExpired: Boolean(accountOnlyWhenExpired) };
@@ -88,8 +88,8 @@ const sections = [
     id: 'polls', title: 'Опросы / голосования', route: 'polls:home', clientVisible: true, adminOnly: false,
     featureKey: 'polls', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false,
     actions: [
-      action({ id: 'polls.create', title: 'Создать опрос', section: 'polls', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'polls' } }),
-      action({ id: 'polls.results', title: 'Результаты опросов', section: 'polls', existingAction: 'poll_status' }),
+      action({ id: 'polls.create', title: 'Создать опрос', section: 'polls', targetAction: 'polls:create', requiresChannel: true, requiresPost: true, payload: { source: 'polls' } }),
+      action({ id: 'polls.results', title: 'Результаты опросов', section: 'polls', targetAction: 'polls:results' }),
       action({ id: 'polls.stop', title: 'Остановить опрос', section: 'polls', existingAction: 'poll_stop', clientVisible: false, implemented: false, hiddenReason: 'inside_active_poll_card' }),
     ],
   },
@@ -165,15 +165,10 @@ for (const section of sections) {
   for (const alias of section.aliases || []) routeToSectionId[alias] = section.id;
 }
 
-function clientActions(sectionId) {
-  const section = sectionById[sectionId];
-  return section ? section.actions.filter((item) => item.clientVisible && !item.adminOnly && item.implemented) : [];
-}
-
+function clientActions(sectionId) { const section = sectionById[sectionId]; return section ? section.actions.filter((item) => item.clientVisible && !item.adminOnly && item.implemented) : []; }
 function allActions() { return sections.flatMap((section) => section.actions).concat(hidden); }
 function visibleLabels() { return clientSections.flatMap((section) => [section.title, ...clientActions(section.id).map((item) => item.title)]); }
 function resolveSectionByRoute(route = '') { return sectionById[routeToSectionId[String(route || '').trim()]] || null; }
-
 function validate() {
   const labels = visibleLabels();
   const joined = labels.join('\n');
