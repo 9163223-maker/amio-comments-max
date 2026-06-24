@@ -58,6 +58,14 @@ function getNativeSlashCommand(text = '') {
   return COMMANDS.has(command) ? command : '';
 }
 
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    const text = String(value || '').trim();
+    if (text) return text;
+  }
+  return '';
+}
+
 function isPositiveCount(value) {
   if (value === undefined || value === null || value === '') return false;
   const count = Number(value);
@@ -83,23 +91,67 @@ function isNegativeChatId(value = '') {
 function isGroupContext(message = {}) {
   const body = message && message.body && typeof message.body === 'object' ? message.body : {};
   const recipient = message && message.recipient && typeof message.recipient === 'object' ? message.recipient : (body.recipient || {});
-  const chat = message && message.chat && typeof message.chat === 'object' ? message.chat : {};
-  const recipientType = String(recipient.chat_type || recipient.type || message.chat_type || '').trim().toLowerCase();
-  const chatType = String(chat.type || chat.chat_type || '').trim().toLowerCase();
+  const chat = message && message.chat && typeof message.chat === 'object'
+    ? message.chat
+    : (body.chat && typeof body.chat === 'object' ? body.chat : {});
+  const recipientType = String(recipient.chat_type || recipient.type || '').trim().toLowerCase();
+  const messageType = String(message.chat_type || message.chatType || message.type || body.chat_type || body.chatType || body.type || '').trim().toLowerCase();
+  const chatType = String(chat.type || chat.chat_type || chat.chatType || '').trim().toLowerCase();
   const groupTypes = ['group', 'public', 'channel', 'supergroup', 'shared', 'shared_chat'];
   const privateTypes = ['private', 'direct', 'dialog', 'user', 'bot'];
-  if (groupTypes.includes(recipientType) || groupTypes.includes(chatType)) return true;
+  if (groupTypes.includes(recipientType) || groupTypes.includes(messageType) || groupTypes.includes(chatType)) return true;
 
-  const chatId = String(recipient.chat_id || recipient.id || message.chat_id || body.chat_id || chat.id || '').trim();
-  const senderId = String(message?.sender?.user_id || message?.sender?.id || body?.sender?.user_id || body?.sender?.id || message?.user_id || '').trim();
-  const recipientUserId = String(recipient.user_id || recipient.userId || recipient.uid || body?.recipient?.user_id || body?.recipient?.id || '').trim();
+  const chatId = firstNonEmpty(
+    recipient.chat_id,
+    recipient.chatId,
+    recipient.id,
+    message.chat_id,
+    message.chatId,
+    body.chat_id,
+    body.chatId,
+    chat.id,
+    chat.chat_id,
+    chat.chatId
+  );
+  const senderId = firstNonEmpty(
+    message?.sender?.user_id,
+    message?.sender?.userId,
+    message?.sender?.id,
+    body?.sender?.user_id,
+    body?.sender?.userId,
+    body?.sender?.id,
+    message?.from?.user_id,
+    message?.from?.userId,
+    message?.from?.id,
+    body?.from?.user_id,
+    body?.from?.userId,
+    body?.from?.id,
+    message?.user?.user_id,
+    message?.user?.userId,
+    message?.user?.id,
+    body?.user?.user_id,
+    body?.user?.userId,
+    body?.user?.id,
+    message?.user_id,
+    message?.userId,
+    body?.user_id,
+    body?.userId
+  );
+  const recipientUserId = firstNonEmpty(
+    recipient.user_id,
+    recipient.userId,
+    recipient.uid,
+    body?.recipient?.user_id,
+    body?.recipient?.userId,
+    body?.recipient?.id
+  );
 
-  if (hasExplicitGroupHints(recipient) || hasExplicitGroupHints(chat)) return true;
+  if (hasExplicitGroupHints(recipient) || hasExplicitGroupHints(chat) || hasExplicitGroupHints(body.chat || {})) return true;
   if (isNegativeChatId(chatId)) return true;
-  if (privateTypes.includes(recipientType) || privateTypes.includes(chatType)) return false;
+  if (privateTypes.includes(recipientType) || privateTypes.includes(messageType) || privateTypes.includes(chatType)) return false;
   if (recipientUserId && senderId && recipientUserId === senderId) return false;
 
-  if (recipientType === 'chat' || chatType === 'chat') return Boolean(chatId && senderId && chatId !== senderId);
+  if (recipientType === 'chat' || messageType === 'chat' || chatType === 'chat') return Boolean(chatId && senderId && chatId !== senderId);
   return Boolean(chatId && senderId && chatId !== senderId);
 }
 
