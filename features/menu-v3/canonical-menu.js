@@ -57,8 +57,8 @@ const sections = [
     action({ id: 'ad_links.disable', title: 'Отключить ссылку', section: 'ad_links', existingAction: 'admin_stats_campaign_disable', clientVisible: false, implemented: false, hiddenReason: 'inside_ad_link_card' }),
   ] },
   { id: 'polls', title: 'Опросы / голосования', route: 'polls:home', clientVisible: true, adminOnly: false, featureKey: 'polls', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
-    action({ id: 'polls.create', title: 'Создать опрос', section: 'polls', targetAction: 'polls:create', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'polls' } }),
-    action({ id: 'polls.results', title: 'Результаты опросов', section: 'polls', targetAction: 'polls:results', existingAction: 'poll_status' }),
+    action({ id: 'polls.create', title: 'Создать опрос', section: 'polls', targetAction: 'polls:create', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'polls', legacyAction: 'comments_select_post' } }),
+    action({ id: 'polls.results', title: 'Результаты опросов', section: 'polls', targetAction: 'polls:results', existingAction: 'poll_status', payload: { legacyAction: 'poll_status' } }),
     action({ id: 'polls.stop', title: 'Остановить опрос', section: 'polls', existingAction: 'poll_stop', clientVisible: false, implemented: false, hiddenReason: 'inside_active_poll_card' }),
   ] },
   { id: 'highlights', title: 'Выделение постов', route: 'highlights:home', aliases: ['highlight:home'], clientVisible: true, adminOnly: false, featureKey: 'highlights', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
@@ -114,12 +114,7 @@ for (const section of sections) {
 }
 
 function clientActions(sectionId) { const section = sectionById[sectionId]; return section ? section.actions.filter((item) => item.clientVisible && !item.adminOnly && item.implemented) : []; }
-function allActions() {
-  return sections.flatMap((section) => section.actions.map((item) => {
-    if (item.id === 'polls.create') return { ...item, targetAction: 'comments_select_post', compatibilityTargetAction: 'polls:create' };
-    return item;
-  })).concat(hidden);
-}
+function allActions() { return sections.flatMap((section) => section.actions).concat(hidden); }
 function visibleLabels() { return clientSections.flatMap((section) => [section.title, ...clientActions(section.id).map((item) => item.title)]); }
 function resolveSectionByRoute(route = '') { return sectionById[routeToSectionId[String(route || '').trim()]] || null; }
 function validate() {
