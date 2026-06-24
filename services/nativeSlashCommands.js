@@ -73,8 +73,7 @@ function isGroupContext(message = {}) {
   if (type === 'chat') {
     const hasGroupHints = Boolean(
       recipient.is_public || recipient.is_channel || recipient.is_group || recipient.is_shared_chat ||
-      recipient.members_count || recipient.participants_count || recipient.chat_members_count ||
-      recipient.title || recipient.name || recipient.chat_title || chat.title || chat.name
+      recipient.members_count || recipient.participants_count || recipient.chat_members_count
     );
     return hasGroupHints;
   }
