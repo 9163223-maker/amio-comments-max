@@ -114,7 +114,12 @@ for (const section of sections) {
 }
 
 function clientActions(sectionId) { const section = sectionById[sectionId]; return section ? section.actions.filter((item) => item.clientVisible && !item.adminOnly && item.implemented) : []; }
-function allActions() { return sections.flatMap((section) => section.actions).concat(hidden); }
+function allActions() {
+  return sections.flatMap((section) => section.actions.map((item) => {
+    if (item.id === 'polls.create') return { ...item, targetAction: 'comments_select_post', compatibilityTargetAction: 'polls:create' };
+    return item;
+  })).concat(hidden);
+}
 function visibleLabels() { return clientSections.flatMap((section) => [section.title, ...clientActions(section.id).map((item) => item.title)]); }
 function resolveSectionByRoute(route = '') { return sectionById[routeToSectionId[String(route || '').trim()]] || null; }
 function validate() {
