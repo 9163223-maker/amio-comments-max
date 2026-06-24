@@ -59,6 +59,8 @@ function buildContract() {
   const callbackContractRoutes = read('v3-menu-routes-1539.js');
   const callbackLive = (() => { try { return require('../callback-contract-live-pr228').liveFlags(); } catch { return {}; } })();
   const statsScopeLive = (() => { try { return require('../stats-scope-buttons-live-pr229').liveFlags(); } catch { return {}; } })();
+  const nativeSlash = (() => { try { return require('./nativeSlashCommands'); } catch { return {}; } })();
+  const pr237SingleActiveSlashUx = typeof nativeSlash.pr237Contract === 'function' ? nativeSlash.pr237Contract() : {};
   const runtimeIdentity = runtimeIdentityFromBuildInfo();
 
   const startupPathOk = Boolean(cleanEntrypoint)
@@ -86,6 +88,8 @@ function buildContract() {
     generatedAt: new Date().toISOString(),
     safe: true,
     contractLiveOk,
+    pr237SingleActiveSlashUx,
+    ...pr237SingleActiveSlashUx,
     statsProductPerfectPr226: has(statsFlow, 'stats_product_perfect_home_pr226') && has(statsService, 'stats_events'),
     statsRootSectionsOk: has(statsFlow, '📈 Рост') && has(statsFlow, '🎯 Источники') && has(statsFlow, '🧭 Воронка') && has(statsFlow, '📝 Контент') && has(statsFlow, '📤 Отчёт и качество данных'),
     statsNoDuplicateRootSections: has(statsFlow, "function homeRows(menu) { return [[button(menu, '📈 Рост'") && !has(statsFlow, "button(menu, '🔘 Кнопки под постами'"),
