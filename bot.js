@@ -6609,7 +6609,8 @@ async function handleWebhook(req, res, config) {
           cleanupAdminWorkspaceOnMainMenu,
           sendSectionMenu,
           sendChannelsSection,
-          sendStatsMenuResponse
+          sendStatsMenuResponse,
+          upsertBotMessage
         }
       });
 

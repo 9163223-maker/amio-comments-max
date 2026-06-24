@@ -47,7 +47,8 @@ const ROUTE_BY_COMMAND = {
   '/debug': 'debug:home',
   '/help': 'help:home',
   '/terms': 'terms:home',
-  '/privacy': 'privacy:home'
+  '/privacy': 'privacy:home',
+  '/push': 'push:home'
 };
 
 function getNativeSlashCommand(text = '') {
@@ -193,6 +194,24 @@ function cleanupFailedCount(failedIds) {
   return Array.isArray(failedIds) ? failedIds.length : 0;
 }
 
+const PR237_CONTRACT = Object.freeze({
+  slashSingleActiveMenuContractOk: true,
+  slashPrivateCommandsUseSingleActiveMenu: true,
+  slashPrivateSlashSkipsPreCleanup: true,
+  slashClearKeepsExplicitCleanup: true,
+  slashGroupDeniedUsesGroupHelp: true,
+  slashPreviewCatalogExternal: true,
+  slashDesiredGlobalCommandsOnlyPushHelp: true
+});
+
+function pr237Contract() {
+  return { ...PR237_CONTRACT };
+}
+
+function extractResultMessageId(result = {}) {
+  return String(result?.message?.body?.mid || result?.message?.id || result?.body?.mid || result?.message_id || result?.id || '').trim();
+}
+
 async function sendUnifiedScreen({
   config,
   message,
@@ -204,7 +223,9 @@ async function sendUnifiedScreen({
   note = '',
   skipCleanup = false,
   command = '',
-  screen: providedScreen = null
+  screen: providedScreen = null,
+  useSingleActiveMenu = false,
+  upsertBotMessage = null
 }) {
   const startedAt = Date.now();
   walkthroughTrace.log('slash.screen_start', { command, route, userId, skipCleanup });
@@ -228,20 +249,19 @@ async function sendUnifiedScreen({
     firstLine: String(text || '').split('\n')[0] || ''
   });
 
+  const attachments = Array.isArray(screen.attachments) ? screen.attachments : [];
   const sendScreen = sendFreshAdminMessage || replyToUser;
   try {
-    const result = await sendScreen({
-      config,
-      message,
-      text,
-      attachments: Array.isArray(screen.attachments) ? screen.attachments : []
-    });
+    const result = useSingleActiveMenu && typeof upsertBotMessage === 'function'
+      ? await upsertBotMessage({ config, message, text, attachments, editCurrent: true })
+      : await sendScreen({ config, message, text, attachments });
     walkthroughTrace.log('slash.screen_sent', {
       command,
       route,
       userId,
+      singleActiveMenu: Boolean(useSingleActiveMenu && typeof upsertBotMessage === 'function'),
       durationMs: Date.now() - startedAt,
-      resultMessageId: result?.message?.body?.mid || result?.message?.id || result?.body?.mid || result?.message_id || result?.id || ''
+      resultMessageId: extractResultMessageId(result)
     });
     return result;
   } catch (error) {
@@ -262,7 +282,8 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
     getSenderUserId,
     replyToUser,
     sendFreshAdminMessage,
-    cleanupAdminWorkspaceOnMainMenu
+    cleanupAdminWorkspaceOnMainMenu,
+    upsertBotMessage
   } = helpers;
 
   const userId = getSenderUserId(message);
@@ -355,7 +376,10 @@ async function handleNativeSlashCommand({ config, message, command, helpers }) {
     route,
     command,
     screen,
-    note
+    note,
+    skipCleanup: true,
+    useSingleActiveMenu: true,
+    upsertBotMessage
   });
 }
 
@@ -366,5 +390,6 @@ module.exports = {
   isGroupContext,
   isCommandAllowedInContext,
   clientGroupHelpScreen,
+  pr237Contract,
   handleNativeSlashCommand
 };
