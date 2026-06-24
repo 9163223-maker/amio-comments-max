@@ -4,7 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const SERVER_STARTED_AT = new Date().toISOString();
 const CURRENT_RUNTIME = 'CC8.3.69-PR237-SINGLE-ACTIVE-SLASH-UX';
-const CURRENT_SOURCE_MARKER = 'adminkit-pr237-single-active-slash-ux';
 
 function clean(value) { return String(value || '').trim(); }
 function readJsonSafe(filePath) {
@@ -14,16 +13,12 @@ function isStaleDiagnosticVersion(value) {
   const text = clean(value);
   return /^SP38\.3(?:$|[-_])/i.test(text) || /safe[-_ ]?diag|stable[-_ ]?media[-_ ]?compat/i.test(text) || /CC7[.\-_]?5[.\-_]?(40|45|62|64)/i.test(text);
 }
-function isPrePr237Identity(value) {
-  const text = clean(value);
-  return /PR229-STATS-SCOPE-BUTTONS-CLEANUP/i.test(text) || /adminkit-pr229-stats-scope-buttons-cleanup/i.test(text);
-}
 function firstFresh(...values) {
   for (const value of values) {
     const text = clean(value);
-    if (text && !isStaleDiagnosticVersion(text) && !isPrePr237Identity(text)) return text;
+    if (text && !isStaleDiagnosticVersion(text)) return text;
   }
-  return clean(values.find((value) => clean(value) && !isStaleDiagnosticVersion(value)) || values.find((value) => clean(value)) || '');
+  return clean(values.find((value) => clean(value)) || '');
 }
 
 const packageJson = readJsonSafe(path.join(__dirname, 'package.json'));
@@ -35,36 +30,37 @@ const envGitCommit = clean(process.env.GIT_COMMIT || process.env.COMMIT_SHA || p
 const pr178PushPairingBinding = packageJson.pr178PushPairingBinding === true;
 const pr188PushMultiChatHandoff = packageJson.pr188PushMultiChatHandoff === true;
 const pr191PushAdminInviteTitleCommands = packageJson.pr191PushAdminInviteTitleCommands === true;
+const pr237SingleActiveSlashUx = packageJson.pr237SingleActiveSlashUx === true;
 
-const runtimeVersion = firstFresh(envBuildVersion, envRuntimeVersion, CURRENT_RUNTIME, markerJson.runtimeVersion, markerJson.displayVersion, packageJson.displayVersion, packageJson.buildVersion, packageJson.version) || CURRENT_RUNTIME;
-const buildVersion = firstFresh(envBuildVersion, envRuntimeVersion, CURRENT_RUNTIME, markerJson.buildVersion, markerJson.runtimeVersion, packageJson.buildVersion, packageJson.version, runtimeVersion) || CURRENT_RUNTIME;
-const displayVersion = firstFresh(envBuildVersion, envRuntimeVersion, CURRENT_RUNTIME, markerJson.displayVersion, markerJson.runtimeVersion, packageJson.displayVersion, packageJson.buildVersion, packageJson.version, runtimeVersion) || CURRENT_RUNTIME;
-const sourceMarker = firstFresh(envSourceMarker, CURRENT_SOURCE_MARKER, markerJson.sourceMarker, packageJson.sourceMarker, `adminkit-${displayVersion}-local`) || CURRENT_SOURCE_MARKER;
+const runtimeVersion = firstFresh(packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.runtimeVersion, markerJson.displayVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
+const buildVersion = firstFresh(packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.buildVersion, markerJson.runtimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
+const displayVersion = firstFresh(packageJson.displayVersion, packageJson.buildVersion, packageJson.version, envBuildVersion, envRuntimeVersion, markerJson.displayVersion, markerJson.runtimeVersion, runtimeVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME;
+const sourceMarker = firstFresh(packageJson.sourceMarker, envSourceMarker, markerJson.sourceMarker, `adminkit-${displayVersion}-local`) || `adminkit-${CURRENT_RUNTIME.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
 const BUILD_INFO = Object.freeze({
   runtimeVersion,
   buildVersion,
   displayVersion,
-  packageVersion: firstFresh(CURRENT_RUNTIME, clean(packageJson.version), buildVersion) || CURRENT_RUNTIME,
+  packageVersion: firstFresh(clean(packageJson.version), buildVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME,
   packageName: clean(packageJson.name || 'amio-comments-max'),
   sourceMarker,
   gitCommit: firstFresh(envGitCommit, markerJson.gitCommit, '') || '',
   pr131MergeCommit: firstFresh(markerJson.pr165MergeCommit, markerJson.pr131MergeCommit, '') || '',
   buildGeneratedAt: clean(markerJson.buildGeneratedAt),
   serverStartedAt: SERVER_STARTED_AT,
-  buildInfoSource: 'package.json/build-info.json/env-fresh-only-pr178-pr237-identity',
+  buildInfoSource: 'package.json/build-info.json/env-fresh-only-pr178-pr237',
   staleEnvIgnored: {
-    BUILD_VERSION: Boolean(envBuildVersion && (isStaleDiagnosticVersion(envBuildVersion) || isPrePr237Identity(envBuildVersion))),
-    RUNTIME_VERSION: Boolean(envRuntimeVersion && (isStaleDiagnosticVersion(envRuntimeVersion) || isPrePr237Identity(envRuntimeVersion))),
-    BUILD_SOURCE_MARKER: Boolean(envSourceMarker && (isStaleDiagnosticVersion(envSourceMarker) || isPrePr237Identity(envSourceMarker)))
+    BUILD_VERSION: Boolean(envBuildVersion && isStaleDiagnosticVersion(envBuildVersion)),
+    RUNTIME_VERSION: Boolean(envRuntimeVersion && isStaleDiagnosticVersion(envRuntimeVersion)),
+    BUILD_SOURCE_MARKER: Boolean(envSourceMarker && isStaleDiagnosticVersion(envSourceMarker))
   },
-  staleEndpointDetected: isStaleDiagnosticVersion(runtimeVersion) || isPrePr237Identity(runtimeVersion) || (runtimeVersion !== CURRENT_RUNTIME && !pr178PushPairingBinding),
+  staleEndpointDetected: isStaleDiagnosticVersion(runtimeVersion) || (runtimeVersion !== CURRENT_RUNTIME && !pr178PushPairingBinding),
   activeEntrypoint: clean(process.argv?.[1] ? path.basename(process.argv[1]) : process.env.npm_package_main || packageJson.main || 'index.js'),
   expectedRuntimeVersion: CURRENT_RUNTIME,
   pr178PushPairingBinding,
   pr188PushMultiChatHandoff,
   pr191PushAdminInviteTitleCommands,
-  pr237SingleActiveSlashUx: true,
+  pr237SingleActiveSlashUx,
   pushPairingRuntimeVersion: pr178PushPairingBinding ? CURRENT_RUNTIME : '',
   pushRuntimeSourceMarker: pr178PushPairingBinding ? sourceMarker : '',
   pushPairingBaseSourceMarker: pr178PushPairingBinding ? 'adminkit-pr188-push-multi-chat-handoff' : '',
