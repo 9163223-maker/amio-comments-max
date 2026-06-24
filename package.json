@@ -1,6 +1,6 @@
 {
   "name": "amio-comments-max",
-  "version": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+  "version": "CC8.3.69-PR237-SINGLE-ACTIVE-SLASH-UX",
   "main": "clean-entrypoint-1.53.10-pr89.js",
   "scripts": {
     "start": "node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js",
@@ -20,9 +20,9 @@
     "pg": "^8.13.1",
     "web-push": "^3.6.7"
   },
-  "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
-  "displayVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
-  "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+  "buildVersion": "CC8.3.69-PR237-SINGLE-ACTIVE-SLASH-UX",
+  "displayVersion": "CC8.3.69-PR237-SINGLE-ACTIVE-SLASH-UX",
+  "sourceMarker": "adminkit-pr237-single-active-slash-ux",
   "gitCommit": "",
   "pr165RuntimeWired": true,
   "pr178PushPairingBinding": true,
@@ -35,5 +35,6 @@
   "pr219CanonicalPostFeatureBinding": true,
   "mainStrictRuntimeIdentityGate": true,
   "pr221ButtonsProductPerfectActions": true,
-  "pr222FlowLayerAuditButtonsGifts": true
+  "pr222FlowLayerAuditButtonsGifts": true,
+  "pr237SingleActiveSlashUx": true
 }
