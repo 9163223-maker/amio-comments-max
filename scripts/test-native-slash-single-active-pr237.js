@@ -7,10 +7,10 @@ const slash = require('../services/nativeSlashCommands');
 const runtimeContract = require('../services/runtimeContractService');
 
 function privateChat() {
-  return { sender: { user_id: 'admin-pr237' }, recipient: { chat_id: 'admin-pr237', user_id: 'admin-pr237', chat_type: 'chat' } };
+  return { id: 'slash-user-message', body: { mid: 'slash-user-mid' }, sender: { user_id: 'admin-pr237' }, recipient: { chat_id: 'admin-pr237', user_id: 'admin-pr237', chat_type: 'chat' } };
 }
 function groupChat() {
-  return { sender: { user_id: 'admin-pr237' }, recipient: { chat_id: 'group-pr237', chat_type: 'group', title: 'Group' } };
+  return { id: 'group-slash-user-message', sender: { user_id: 'admin-pr237' }, recipient: { chat_id: 'group-pr237', chat_type: 'group', title: 'Group' } };
 }
 function helpers(events, opts = {}) {
   return {
@@ -23,37 +23,41 @@ function helpers(events, opts = {}) {
 }
 async function run(command, message = privateChat(), opts = {}) {
   const events = [];
-  await slash.handleNativeSlashCommand({ config: {}, message, command, helpers: helpers(events, opts) });
-  return events;
+  const result = await slash.handleNativeSlashCommand({ config: {}, message, command, helpers: helpers(events, opts) });
+  return { events, result };
 }
 function assertPrivateSingleActive(command) {
-  return run(command).then((events) => {
+  return run(command).then(({ events }) => {
     assert.strictEqual(events.filter((event) => event.kind === 'upsert').length, 1, `${command} uses single-active upsert`);
     assert.strictEqual(events[0].kind, 'upsert', `${command} does not cleanup before render`);
-    assert.strictEqual(events[0].editCurrent, true, `${command} edits current/latest active menu`);
+    assert.strictEqual(events[0].editCurrent, true, `${command} edits latest active menu`);
     assert.strictEqual(events.some((event) => event.kind === 'cleanup'), false, `${command} skips pre-cleanup`);
     assert.strictEqual(events.some((event) => event.kind === 'fresh' || event.kind === 'reply'), false, `${command} does not force fresh send`);
+    assert.notStrictEqual(events[0].payload.message?.id, 'slash-user-message', `${command} strips inbound message id before upsert`);
+    assert.notStrictEqual(events[0].payload.message?.body?.mid, 'slash-user-mid', `${command} strips inbound body mid before upsert`);
+    assert.strictEqual(events[0].payload.message?.__adminkitSlashSingleActiveEditTarget, 'latest_bot_menu_only', `${command} marks latest bot menu edit target`);
   });
 }
 function assertGroupHelp(events, label) {
   const render = events.find((event) => event.kind === 'fresh' || event.kind === 'reply' || event.kind === 'upsert');
   assert(render, `${label} renders`);
   assert(String(render.payload.text || '').includes('🔔 Уведомления чата'), `${label} renders group push/help`);
+  assert.notStrictEqual(render.kind, 'upsert', `${label} does not use single-active admin delivery`);
 }
 
 (async function main() {
   for (const command of ['/channels', '/polls', '/stats', '/menu']) await assertPrivateSingleActive(command);
 
-  const clearEvents = await run('/clear');
+  const clearEvents = (await run('/clear')).events;
   assert.deepStrictEqual(clearEvents.map((event) => event.kind), ['cleanup', 'fresh'], '/clear uses explicit cleanup then fresh screen');
   assert.strictEqual(clearEvents[0].includeUserMessages, true, '/clear includes user messages in cleanup');
 
-  assertGroupHelp(await run('/debug', groupChat()), 'group /debug denied');
-  assertGroupHelp(await run('/clear', groupChat()), 'group /clear denied');
-  assertGroupHelp(await run('/help', groupChat()), 'group /help allowed help');
-  const pushEvents = await run('/push', groupChat());
-  assert(pushEvents.length >= 1, 'group /push remains allowed');
-  assert(!pushEvents.some((event) => String(event.payload?.text || '').includes('Кнопки под постами')), 'group /push does not render private admin screens');
+  assertGroupHelp((await run('/debug', groupChat())).events, 'group /debug denied');
+  assertGroupHelp((await run('/clear', groupChat())).events, 'group /clear denied');
+  assertGroupHelp((await run('/help', groupChat())).events, 'group /help allowed help');
+  const pushRun = await run('/push', groupChat());
+  assert.strictEqual(pushRun.result, false, 'group /push is passed through to the existing public group push handler');
+  assert.deepStrictEqual(pushRun.events, [], 'group /push does not render admin screens or use upsert');
 
   const direct = slash.pr237Contract();
   const snapshot = runtimeContract.buildContract().pr237SingleActiveSlashUx;
