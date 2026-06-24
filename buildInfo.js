@@ -36,16 +36,16 @@ const pr178PushPairingBinding = packageJson.pr178PushPairingBinding === true;
 const pr188PushMultiChatHandoff = packageJson.pr188PushMultiChatHandoff === true;
 const pr191PushAdminInviteTitleCommands = packageJson.pr191PushAdminInviteTitleCommands === true;
 
-const runtimeVersion = firstFresh(envBuildVersion, envRuntimeVersion, markerJson.runtimeVersion, markerJson.displayVersion, CURRENT_RUNTIME, packageJson.displayVersion, packageJson.buildVersion, packageJson.version) || CURRENT_RUNTIME;
-const buildVersion = firstFresh(envBuildVersion, envRuntimeVersion, markerJson.buildVersion, markerJson.runtimeVersion, CURRENT_RUNTIME, packageJson.buildVersion, packageJson.version, runtimeVersion) || CURRENT_RUNTIME;
-const displayVersion = firstFresh(envBuildVersion, envRuntimeVersion, markerJson.displayVersion, markerJson.runtimeVersion, CURRENT_RUNTIME, packageJson.displayVersion, packageJson.buildVersion, packageJson.version, runtimeVersion) || CURRENT_RUNTIME;
-const sourceMarker = firstFresh(envSourceMarker, markerJson.sourceMarker, CURRENT_SOURCE_MARKER, packageJson.sourceMarker, `adminkit-${displayVersion}-local`) || CURRENT_SOURCE_MARKER;
+const runtimeVersion = firstFresh(envBuildVersion, envRuntimeVersion, CURRENT_RUNTIME, markerJson.runtimeVersion, markerJson.displayVersion, packageJson.displayVersion, packageJson.buildVersion, packageJson.version) || CURRENT_RUNTIME;
+const buildVersion = firstFresh(envBuildVersion, envRuntimeVersion, CURRENT_RUNTIME, markerJson.buildVersion, markerJson.runtimeVersion, packageJson.buildVersion, packageJson.version, runtimeVersion) || CURRENT_RUNTIME;
+const displayVersion = firstFresh(envBuildVersion, envRuntimeVersion, CURRENT_RUNTIME, markerJson.displayVersion, markerJson.runtimeVersion, packageJson.displayVersion, packageJson.buildVersion, packageJson.version, runtimeVersion) || CURRENT_RUNTIME;
+const sourceMarker = firstFresh(envSourceMarker, CURRENT_SOURCE_MARKER, markerJson.sourceMarker, packageJson.sourceMarker, `adminkit-${displayVersion}-local`) || CURRENT_SOURCE_MARKER;
 
 const BUILD_INFO = Object.freeze({
   runtimeVersion,
   buildVersion,
   displayVersion,
-  packageVersion: firstFresh(clean(packageJson.version), buildVersion, CURRENT_RUNTIME) || CURRENT_RUNTIME,
+  packageVersion: firstFresh(CURRENT_RUNTIME, clean(packageJson.version), buildVersion) || CURRENT_RUNTIME,
   packageName: clean(packageJson.name || 'amio-comments-max'),
   sourceMarker,
   gitCommit: firstFresh(envGitCommit, markerJson.gitCommit, '') || '',
