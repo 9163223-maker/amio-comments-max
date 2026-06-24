@@ -120,7 +120,6 @@ async function verifyActiveRuntimePath() {
   assert.ok(!/PR115 Tenant B Channel|PR115 Global Hidden Channel/.test(channelsVisible), 'channels:list active callback must hide foreign/global channels');
   assert.ok(!/-pr115-tenant-a-channel|post-a|commentKey|postId|channelId|token|payload|trace/i.test(channelsVisible), 'channels:list active callback must not expose technical identifiers');
 
-
   const syncGiftsHome = menuCore.screenForPayload({ action: 'gifts:home' });
   assert.ok(/(^|_)gifts_clean_home$/.test(String(syncGiftsHome?.id || '')), 'sync gifts:home must resolve clean Gifts home before unified route rendering');
   const syncGiftsVisible = sentTextAndLabels(syncGiftsHome);
@@ -247,7 +246,6 @@ for (const item of canonical.allActions().filter((action) => action.clientVisibl
   assert.strictEqual(item.requiresChannel, true, `${item.id} requires post and must require channel first`);
 }
 
-
 for (const section of canonical.clientSections) {
   const root = adapter.render(section.route);
   const rootLabels = labels(root);
@@ -292,7 +290,6 @@ const channelCard = adapter.render('channels:card', { payload: { channelId: 'raw
 assert.ok(/Новости компании/.test(channelCard.text), 'channel card must use human-readable channel title');
 assert.ok(!/raw-channel-123|postId|channelId|commentKey|token|payload|trace/i.test(channelCard.text), 'channel card must not expose technical identifiers');
 
-
 const highlightPlainCard = adapter.render('highlights:post', { payload: { postTitle: 'Анонс недели' } });
 assert.ok(labels(highlightPlainCard).includes('Применить'), 'highlight post card should expose apply action');
 assert.ok(!labels(highlightPlainCard).includes('Снять выделение'), 'highlight post card without selected highlight must not expose remove');
@@ -301,7 +298,6 @@ assert.ok(labels(highlightMarkedCard).includes('Снять выделение'),
 const highlightRemoveButton = buttons(highlightMarkedCard).flat().find((item) => item.text === 'Снять выделение');
 assert.strictEqual(payloadOf(highlightRemoveButton).source, 'highlight_card', 'highlight remove action must be card-marked');
 assert.ok(!/postId|channelId|commentKey|token|payload|trace/i.test(highlightMarkedCard.text), 'highlight post card must not expose technical identifiers');
-
 
 const pickerAudit = adapter.postPickerAudit();
 assert.strictEqual(pickerAudit.ok, true, `post picker audit failed: ${JSON.stringify(pickerAudit)}`);
@@ -322,7 +318,10 @@ assert.strictEqual(canonicalActionById['gifts.current'].targetAction, 'gift_admi
 assert.strictEqual(canonicalActionById['gifts.list'].targetAction, 'gift_admin_list_campaigns', 'gifts list production action must use the campaign list action');
 assert.strictEqual(canonicalActionById['buttons.add'].targetAction, 'button_admin_start_add', 'buttons add production action must keep existing flow action');
 assert.strictEqual(canonicalActionById['buttons.current'].targetAction, 'button_admin_show_current', 'buttons current production action must keep existing flow action');
-assert.strictEqual(canonicalActionById['polls.create'].targetAction, 'comments_select_post', 'polls production action must keep existing tenant-aware picker action');
+assert.strictEqual(canonicalActionById['polls.create'].targetAction, 'polls:create', 'polls visible production action must use polls workflow root action');
+assert.strictEqual(canonicalActionById['polls.create'].existingAction, 'comments_select_post', 'polls legacy picker may remain only as compatibility metadata');
+assert.strictEqual(canonicalActionById['polls.results'].targetAction, 'polls:results', 'polls results visible production action must use polls workflow route');
+assert.strictEqual(canonicalActionById['polls.results'].existingAction, 'poll_status', 'poll status may remain only as compatibility metadata');
 assert.strictEqual(canonicalActionById['highlights.apply'].targetAction, 'comments_select_post', 'highlights apply production action must keep existing tenant-aware picker action');
 assert.strictEqual(canonicalActionById['highlights.remove'].targetAction, 'comments_select_post', 'highlights remove production action must keep existing tenant-aware picker action');
 assert.strictEqual(canonicalActionById['editor.change_text'].targetAction, 'admin_posts_picker', 'editor production action must keep existing post picker action');
