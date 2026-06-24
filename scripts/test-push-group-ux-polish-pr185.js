@@ -48,7 +48,7 @@ function buttons(screen) {
 
   assert.deepStrictEqual(slash.PUBLIC_GROUP_COMMANDS, ['/push', '/help'], 'group-visible command model is client-safe only');
   for (const command of ['/menu', '/channels', '/comments', '/gifts', '/debug']) assert(slash.ADMIN_PRIVATE_COMMANDS.includes(command), `${command} remains available in private/admin handling`);
-  const groupMessage = { recipient: { chat_id: 'group-1', chat_type: 'chat' }, sender: { user_id: 'ordinary-user' } };
+  const groupMessage = { recipient: { chat_id: 'group-1', chat_type: 'group' }, sender: { user_id: 'ordinary-user' } };
   for (const command of ['/menu', '/channels', '/comments', '/gifts', '/debug']) assert.strictEqual(slash.isCommandAllowedInContext({ command, message: groupMessage, userId: 'ordinary-user' }), false, `${command} fails closed for ordinary group user`);
   assert.strictEqual(slash.isCommandAllowedInContext({ command: '/help', message: groupMessage, userId: 'ordinary-user' }), true, '/help remains available in groups');
   assert.strictEqual(slash.getNativeSlashCommand('/menu'), '/menu', 'private/admin command parser remains intact');

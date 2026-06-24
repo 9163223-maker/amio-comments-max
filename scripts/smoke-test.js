@@ -46,6 +46,7 @@ runSmoke('media-lifecycle-clean-test.js', 'media lifecycle clean contract smoke 
 runSmoke('test-canonical-client-menu.js', 'PR105 canonical client menu smoke test');
 runSmoke('test-push-product-perfect-pr187.js', 'PR187 push product-perfect regression test');
 runSmoke('test-push-multi-chat-handoff-pr188.js', 'PR188 push multi-chat handoff smoke test');
+runSmoke('test-native-slash-private-context-pr236.js', 'PR236 native slash private context regression test');
 runSmoke('test-postgres-store-connect-timeout-pr232.js', 'PR232 postgres connect timeout smoke test');
 runSmoke('test-post-merge-live-readiness-pr234.js', 'PR234 post-merge live readiness checker smoke test');
 

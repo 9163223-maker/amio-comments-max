@@ -61,10 +61,23 @@ function getNativeSlashCommand(text = '') {
 function isGroupContext(message = {}) {
   const body = message && message.body && typeof message.body === 'object' ? message.body : {};
   const recipient = message && message.recipient && typeof message.recipient === 'object' ? message.recipient : (body.recipient || {});
-  const type = String(recipient.chat_type || recipient.type || message.chat_type || (message.chat && message.chat.type) || '').trim().toLowerCase();
-  if (['chat', 'group', 'public', 'channel'].includes(type)) return true;
-  const chatId = String(recipient.chat_id || recipient.id || message.chat_id || body.chat_id || '').trim();
+  const chat = message && message.chat && typeof message.chat === 'object' ? message.chat : {};
+  const type = String(recipient.chat_type || recipient.type || message.chat_type || chat.type || '').trim().toLowerCase();
+  if (['group', 'public', 'channel', 'supergroup', 'shared', 'shared_chat'].includes(type)) return true;
+  if (['private', 'direct', 'dialog', 'user', 'bot'].includes(type)) return false;
+
+  const chatId = String(recipient.chat_id || recipient.id || message.chat_id || body.chat_id || chat.id || '').trim();
   const senderId = String(message?.sender?.user_id || message?.sender?.id || body?.sender?.user_id || body?.sender?.id || message?.user_id || '').trim();
+  const recipientUserId = String(recipient.user_id || recipient.userId || recipient.uid || body?.recipient?.user_id || body?.recipient?.id || '').trim();
+  if (recipientUserId && senderId && recipientUserId === senderId) return false;
+  if (type === 'chat') {
+    const hasGroupHints = Boolean(
+      recipient.is_public || recipient.is_channel || recipient.is_group || recipient.is_shared_chat ||
+      recipient.members_count || recipient.participants_count || recipient.chat_members_count ||
+      recipient.title || recipient.name || recipient.chat_title || chat.title || chat.name
+    );
+    return hasGroupHints;
+  }
   return Boolean(chatId && senderId && chatId !== senderId);
 }
 
