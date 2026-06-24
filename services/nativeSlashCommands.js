@@ -75,7 +75,8 @@ function isGroupContext(message = {}) {
       recipient.is_public || recipient.is_channel || recipient.is_group || recipient.is_shared_chat ||
       recipient.members_count || recipient.participants_count || recipient.chat_members_count
     );
-    return hasGroupHints;
+    if (hasGroupHints) return true;
+    return Boolean(chatId && senderId && chatId !== senderId);
   }
   return Boolean(chatId && senderId && chatId !== senderId);
 }

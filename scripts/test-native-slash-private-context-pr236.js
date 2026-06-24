@@ -41,16 +41,21 @@ async function render(command, message) {
   assert.strictEqual(slash.isGroupContext(privateChat({ recipient: { chat_id: 'opaque-private-chat-id', user_id: 'admin-private' } })), false, 'opaque private chat id with recipient user id matching sender is private');
   const titledPrivateChat = {
     sender: { user_id: 'admin-private' },
-    recipient: { chat_id: 'opaque-private-chat-id', chat_type: 'chat', title: 'АдминКИТ Bot' },
-    chat: { id: 'opaque-private-chat-id', title: 'АдминКИТ Bot' }
+    recipient: { chat_id: 'opaque-private-chat-id', user_id: 'admin-private', chat_type: 'chat', title: 'АдминКИТ Bot', name: 'АдминКИТ' },
+    chat: { id: 'opaque-private-chat-id', title: 'АдминКИТ Bot', name: 'АдминКИТ' }
   };
-  assert.strictEqual(slash.isGroupContext(titledPrivateChat), false, 'chat_type=chat with title but no explicit group/member flags is private-like');
+  assert.strictEqual(slash.isGroupContext(titledPrivateChat), false, 'chat_type=chat with title/name and matching recipient user id is private-like');
+
+  const minimalChatGroup = { recipient: { chat_id: 'group-1', chat_type: 'chat' }, sender: { user_id: 'ordinary-user' } };
+  const ambiguousTitledChat = { recipient: { chat_id: 'opaque-chat-id', chat_type: 'chat', title: 'АдминКИТ Bot', name: 'АдминКИТ' }, sender: { user_id: 'ordinary-user' } };
+  assert.strictEqual(slash.isGroupContext(minimalChatGroup), true, 'minimal chat_type=chat payload with chatId different from sender fails closed as group');
+  assert.strictEqual(slash.isGroupContext(ambiguousTitledChat), true, 'chat_type=chat with title/name but no private identity and chatId different from sender fails closed as group');
 
   const realContextTypes = ['group', 'channel', 'public', 'supergroup', 'shared_chat', 'shared'];
   for (const type of realContextTypes) {
     assert.strictEqual(slash.isGroupContext(groupChat(type)), true, `${type} is group/channel context`);
   }
-  assert.strictEqual(slash.isGroupContext(groupChat('chat', { title: 'Group title' })), false, 'chat_type=chat title alone is not a group hint');
+  assert.strictEqual(slash.isGroupContext({ recipient: { chat_type: 'chat', title: 'Group title' }, sender: { user_id: 'ordinary-user' } }), false, 'chat_type=chat title alone is not a group hint without id mismatch');
   assert.strictEqual(slash.isGroupContext(groupChat('chat', { is_group: true })), true, 'chat_type=chat with explicit group flag is group context');
   assert.strictEqual(slash.isGroupContext(groupChat('chat', { members_count: 3 })), true, 'chat_type=chat with member count is group context');
 
@@ -79,6 +84,12 @@ async function render(command, message) {
 
   const clearGroup = await render('/clear', groupChat('group'));
   assert(clearGroup.text.includes('🔔 Уведомления чата') && clearGroup.text.includes('/push'), '/clear in group renders group help/push screen');
+
+  const clearMinimalChatGroup = await render('/clear', minimalChatGroup);
+  assert(clearMinimalChatGroup.text.includes('🔔 Уведомления чата') && clearMinimalChatGroup.text.includes('/push'), '/clear in minimal chat_type=chat group-like payload renders group help/push screen');
+
+  const debugMinimalChatGroup = await render('/debug', minimalChatGroup);
+  assert(debugMinimalChatGroup.text.includes('🔔 Уведомления чата') && debugMinimalChatGroup.text.includes('/push'), '/debug in minimal chat_type=chat group-like payload renders group help/push screen');
 
   console.log('native slash private context pr236 ok');
 })().catch((error) => {
