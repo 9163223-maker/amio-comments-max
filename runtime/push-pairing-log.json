@@ -1,9 +1,9 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-23T20:26:47.950Z",
+  "updatedAt": "2026-06-25T15:42:38.095Z",
   "limit": 100,
   "latest": {
-    "timestamp": "2026-06-23T20:26:46.052Z",
+    "timestamp": "2026-06-25T15:42:37.621Z",
     "event": "push_opened",
     "tokenFound": false,
     "subscriptionCreated": false,
@@ -26,6 +26,29 @@
     "missingTitleCount": 0
   },
   "items": [
+    {
+      "timestamp": "2026-06-25T15:42:37.621Z",
+      "event": "push_opened",
+      "tokenFound": false,
+      "subscriptionCreated": false,
+      "linkedToChat": false,
+      "handoffPending": false,
+      "consumed": false,
+      "hasPairingToken": false,
+      "hasHandoff": false,
+      "source": "missing",
+      "tokenSource": "missing",
+      "hasPairingCookie": false,
+      "hasHandoffCookie": false,
+      "openedAs": "standalone-pwa",
+      "route": "/push",
+      "result": "binding_missing",
+      "pendingCount": 0,
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
+    },
     {
       "timestamp": "2026-06-23T20:26:46.052Z",
       "event": "push_opened",
@@ -2686,29 +2709,6 @@
       "chatsCount": 2,
       "rawBindingsCount": 2,
       "uniqueChatsCount": 2,
-      "missingTitleCount": 0
-    },
-    {
-      "timestamp": "2026-06-17T09:34:17.937Z",
-      "event": "push_opened",
-      "tokenFound": false,
-      "subscriptionCreated": false,
-      "linkedToChat": false,
-      "handoffPending": false,
-      "consumed": false,
-      "hasPairingToken": false,
-      "hasHandoff": false,
-      "source": "missing",
-      "tokenSource": "missing",
-      "hasPairingCookie": false,
-      "hasHandoffCookie": false,
-      "openedAs": "standalone-pwa",
-      "route": "/push",
-      "result": "binding_missing",
-      "pendingCount": 0,
-      "chatsCount": 0,
-      "rawBindingsCount": 0,
-      "uniqueChatsCount": 0,
       "missingTitleCount": 0
     }
   ]
