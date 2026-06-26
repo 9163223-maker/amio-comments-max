@@ -1,6 +1,7 @@
 'use strict';
 
 const groupPushOnboarding = require('./groupPushOnboardingService');
+const pr247Trace = require('./rootMenuLiveParityTraceService');
 
 const LIMIT = 50;
 const events = [];
@@ -50,6 +51,7 @@ function sanitizeString(text, max = 80) {
   safe = safe.replace(/\/push\/join\?t=[^\s]+/gi, '/push/join?t=[redacted]');
   safe = safe.replace(/https?:\/\/clck\.ru\/[^\s]+/gi, '[clck-url-redacted]');
   safe = safe.replace(/([?&])(?:access_token|token|authorization|secret|password|api[_-]?key|endpoint|auth|p256dh|vapid|private[_-]?key)=([^\s&#]+)/gi, '$1[redacted-query-field]=[redacted]');
+  safe = safe.replace(/([\"'])(?:token|authorization|secret|password|apiKey|accessToken|refreshToken|commentKey|callbackId|userId|chatId|messageId|channelId|postId|url)\1\s*:\s*([\"'])(?:\\.|(?!\2).)*\2/gi, '$1[redacted-key]$1:$2[redacted]$2');
   safe = safe.replace(/\b(?:access_token|token|authorization|secret|password|api[_-]?key|endpoint|auth|p256dh|vapid|private[_-]?key)=([^\s&]+)/gi, (match) => match.replace(/=.*/, '=[redacted]'));
   return truncate(safe.replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim(), max);
 }
@@ -196,6 +198,9 @@ function record(input = {}) {
   Object.defineProperty(event, '_seq', { value: ++seq, enumerable: false, configurable: false });
   events.push(event);
   if (events.length > LIMIT) events.splice(0, events.length - LIMIT);
+  try {
+    if (event.hasCallback) pr247Trace.record({ req: input.req, body: input.body !== undefined ? input.body : (input.req && input.req.body), eventKind: 'webhook_edge_received', updateType: event.updateType, hasCallback: true, hasMessage: event.hasMessage, hasUserId: event.hasSenderUserId, textPreview: event.textPreview, resultKind: 'edge_recorded', delivery: event.handedToBot ? 'handed_to_bot' : 'not_handed_to_bot' });
+  } catch {}
   return event;
 }
 
@@ -204,6 +209,9 @@ function update(event, patch = {}) {
   if (Object.prototype.hasOwnProperty.call(patch, 'handedToBot')) event.handedToBot = Boolean(patch.handedToBot);
   if (Object.prototype.hasOwnProperty.call(patch, 'botResultKind')) event.botResultKind = sanitizeString(patch.botResultKind, 80);
   if (Object.prototype.hasOwnProperty.call(patch, 'errorCode')) event.errorCode = sanitizeString(patch.errorCode, 80);
+  try {
+    if (event.hasCallback) pr247Trace.record({ body: { update_type: event.updateType, callback: { payload: event.action } }, eventKind: 'handler_returned', updateType: event.updateType, hasCallback: true, hasMessage: event.hasMessage, hasUserId: event.hasSenderUserId, textPreview: event.textPreview, resultKind: event.botResultKind || (event.handedToBot ? 'handed_to_bot' : 'not_handed_to_bot'), delivery: event.handedToBot ? 'handed_to_bot' : 'not_handed_to_bot', errorCode: event.errorCode, handlerName: 'bot.handleWebhook', traceExportStatus: pr247Trace.payload('manual').traceExportStatus });
+  } catch {}
   return publicEvent(event);
 }
 

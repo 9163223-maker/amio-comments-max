@@ -44,6 +44,7 @@ const pushDispatchDiagnostics = require("./services/pushDispatchDiagnostics");
 const pushDispatchLog = require("./services/pushDispatchLogService");
 const botAudit = require("./admin-bot-audit-trace");
 const runtimeBotAuditTrace = require("./services/runtimeBotAuditTraceService");
+const pr247Trace = require("./services/rootMenuLiveParityTraceService");
 const v3MenuCore1539 = require("./v3-menu-core-1539");
 const buttonsFlow = require("./buttons-flow-cc8-clean");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
@@ -5443,6 +5444,8 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
     resolver: resolved.resolver
   };
   botAudit.log('root_section_callback_received', baseAudit);
+  try { pr247Trace.record({ eventKind: resolved.legacyAction ? 'legacy_compatibility_resolved' : 'root_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, legacyAction: resolved.legacyAction || '', handlerName: 'handleRootSectionCallback', resultKind: 'resolved' }); } catch {}
+  try { pr247Trace.record({ eventKind: 'render_started', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload' }); } catch {}
   applyRootSectionAdminState(userId, resolved.route);
   if (resolved.route === 'gifts:home') {
     botAudit.log('gifts_root_callback_received', { action: String(payload.action || ''), route: resolved.route, r: String(payload.r || ''), hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs: 0, renderMs: 0, deliveryMs: 0 });
@@ -5455,6 +5458,7 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
     const renderStartedAt = Date.now();
     screen = await v3MenuCore1539.asyncScreenForPayload({ ...payload, route: resolved.route, action: resolved.route }, { userId, config, rootSectionContract: true });
     renderMs = Date.now() - renderStartedAt;
+    try { pr247Trace.record({ eventKind: 'render_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload', resultKind: 'screen_rendered', renderMs }); } catch {}
   } catch (error) {
     renderMs = Date.now() - startedAt;
     const totalMs = Date.now() - startedAt;
@@ -5471,6 +5475,7 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
   try {
     const deliveryStartedAt = Date.now();
     let delivery = '';
+    try { pr247Trace.record({ eventKind: 'delivery_started', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'handleRootSectionCallback' }); } catch {}
     if (message) {
       await upsertBotMessage({ config, message, text: screen.text, attachments: screen.attachments, editCurrent: true });
       delivery = 'edit_or_upsert_current_message';
@@ -5490,6 +5495,7 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
     deliveryMs = Date.now() - deliveryStartedAt;
     const totalMs = Date.now() - startedAt;
     botAudit.log('root_section_callback_resolved', { ...baseAudit, delivery, totalMs, renderMs, deliveryMs });
+    try { pr247Trace.record({ eventKind: 'delivery_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'handleRootSectionCallback', resultKind: 'delivered', delivery, totalMs, renderMs, deliveryMs }); } catch {}
     if (resolved.route === 'gifts:home') {
       if (delivery === 'fresh_private_fallback') {
         botAudit.log('gifts_root_callback_private_fallback_sent', { action: String(payload.action || ''), route: resolved.route, hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs, renderMs, deliveryMs });
@@ -5525,6 +5531,7 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
     resolver: resolved.resolver
   };
   botAudit.log('v3_route_callback_received', baseAudit);
+  try { pr247Trace.record({ eventKind: 'v3_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedV3Route: resolved.route, resolver: resolved.resolver, legacyAction: baseAudit.legacyAction, handlerName: 'handleV3RouteCallback', resultKind: 'resolved' }); } catch {}
   if (resolved.route === 'main:home') resetAdminStateForMainRoute(userId);
   await acknowledgeCallbackSilently(config, callbackId);
   let screen = null;
@@ -5554,6 +5561,7 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
   try {
     const deliveryStartedAt = Date.now();
     let delivery = '';
+    try { pr247Trace.record({ eventKind: 'delivery_started', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedV3Route: resolved.route, resolver: resolved.resolver, handlerName: 'handleV3RouteCallback' }); } catch {}
     if (message) {
       await upsertBotMessage({ config, message, text: screen.text, attachments: screen.attachments, editCurrent: true });
       delivery = 'edit_or_upsert_current_message';
@@ -5570,6 +5578,7 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
     deliveryMs = Date.now() - deliveryStartedAt;
     const totalMs = Date.now() - startedAt;
     botAudit.log('v3_route_callback_resolved', { ...baseAudit, delivery, totalMs, renderMs, deliveryMs });
+    try { pr247Trace.record({ eventKind: 'delivery_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedV3Route: resolved.route, resolver: resolved.resolver, handlerName: 'handleV3RouteCallback', resultKind: 'delivered', delivery, totalMs, renderMs, deliveryMs }); } catch {}
     await flushBotAuditTraceSafe('v3_route_callback_resolved', { route: resolved.route, sectionId: resolved.sectionId });
     return { ok: true, action: String(payload.action || resolved.route), route: resolved.route, sectionId: resolved.sectionId, screenId: screen.id || screen.route || resolved.route, resolver: resolved.resolver, delivery };
   } catch (error) {
@@ -5732,6 +5741,7 @@ async function handleMessageCallback(update, config) {
     callbackMessageIdPresent: Boolean(callbackMessageIdForDedupe)
   };
   botAudit.log('callback_received_pre_dedupe', safeCallbackAuditFields);
+  try { pr247Trace.record({ eventKind: 'callback_received', updateType: 'message_callback', payload, callback, message, hasCallback: true, hasMessage: Boolean(message), hasUserId: Boolean(String(userId || '').trim()), hasCallbackId: Boolean(callbackId), handlerName: 'handleMessageCallback' }); } catch {}
 
   const rootSection = resolveRootSectionCallback(payload);
   if (rootSection.ok) {
@@ -5761,6 +5771,7 @@ async function handleMessageCallback(update, config) {
 
   if (isDuplicateCallback(callbackId, actionKey)) {
     const duplicateReason = getDuplicateCallbackReason(callbackId, actionKey) || 'unknown';
+    try { pr247Trace.record({ eventKind: 'duplicate_skipped', payload, message, hasCallback: true, hasMessage: Boolean(message), hasUserId: Boolean(String(userId || '').trim()), hasCallbackId: Boolean(callbackId), dedupeDecision: 'duplicate_callback_skipped', resultKind: 'skipped' }); } catch {}
     botAudit.log('duplicate_callback_skipped', {
       action: String(payload?.action || ''),
       route: String(payload?.route || ''),
@@ -6954,6 +6965,7 @@ async function handleMessageCallback(update, config) {
     }
   }
 
+  try { pr247Trace.record({ eventKind: 'unsupported_callback', payload, message, hasCallback: true, hasMessage: Boolean(message), hasUserId: Boolean(String(userId || '').trim()), handlerName: 'handleMessageCallback', resultKind: 'unsupported_callback' }); } catch {}
   botAudit.log('unsupported_callback', { action: String(payload?.action || ''), route: String(payload?.route || ''), r: String(payload?.r || ''), hasMessage: Boolean(message), hasUserId: Boolean(String(userId || '').trim()) });
   return { ok: true, skipped: true, reason: 'unsupported_callback', payload };
   } finally {
