@@ -10,6 +10,12 @@ const RUNTIME_EXPORT_TYPES = new Set([
   'gifts_root_callback_resolved',
   'gifts_root_callback_delivery_target_missing',
   'gifts_root_callback_private_fallback_sent',
+  'root_section_callback_received',
+  'root_section_callback_resolved',
+  'root_section_callback_failed',
+  'v3_route_callback_received',
+  'v3_route_callback_resolved',
+  'v3_route_callback_failed',
   'unsupported_callback'
 ]);
 

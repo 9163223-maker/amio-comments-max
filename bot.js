@@ -43,6 +43,7 @@ const pushDispatch = require("./services/pushDispatchService");
 const pushDispatchDiagnostics = require("./services/pushDispatchDiagnostics");
 const pushDispatchLog = require("./services/pushDispatchLogService");
 const botAudit = require("./admin-bot-audit-trace");
+const runtimeBotAuditTrace = require("./services/runtimeBotAuditTraceService");
 const v3MenuCore1539 = require("./v3-menu-core-1539");
 const buttonsFlow = require("./buttons-flow-cc8-clean");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
@@ -5268,6 +5269,332 @@ function isGiftsRootPayload(payload = {}) {
     || payload?.r === 'gifts:home';
 }
 
+const ROOT_SECTION_ROUTES = new Set([
+  'channels:home',
+  'comments:home',
+  'gifts:home',
+  'buttons:home',
+  'stats:home',
+  'push:home',
+  'ad_links:home',
+  'polls:home',
+  'highlights:home',
+  'editor:home',
+  'archive:home',
+  'account:home',
+  'settings:home'
+]);
+
+const V3_ROUTE_OWNERS = new Set([
+  'main',
+  'channels',
+  'comments',
+  'gifts',
+  'buttons',
+  'stats',
+  'push',
+  'ad_links',
+  'polls',
+  'highlights',
+  'editor',
+  'archive',
+  'account',
+  'settings',
+  'terms',
+  'privacy'
+]);
+
+const LEGACY_ROOT_ACTION_ROUTES = {
+  admin_section_channels: 'channels:home',
+  admin_section_comments: 'comments:home',
+  admin_section_gifts: 'gifts:home',
+  gift_admin_open_menu: 'gifts:home',
+  admin_section_buttons: 'buttons:home',
+  admin_section_stats: 'stats:home',
+  admin_section_push: 'push:home',
+  admin_section_polls: 'polls:home',
+  admin_section_posts: 'editor:home',
+  admin_section_archive: 'archive:home',
+  admin_section_tariffs: 'account:home'
+};
+
+const ROOT_SECTION_ADMIN_STATE = {
+  'channels:home': { section: 'channels', rootAction: 'admin_section_channels' },
+  'comments:home': { section: 'comments', rootAction: 'admin_section_comments', selectMode: 'comments' },
+  'gifts:home': { section: 'gifts', rootAction: 'admin_section_gifts', selectMode: 'gifts' },
+  'buttons:home': { section: 'buttons', rootAction: 'admin_section_buttons', selectMode: 'buttons' },
+  'stats:home': { section: 'stats', rootAction: 'admin_section_stats', selectMode: 'stats' },
+  'push:home': { section: 'push', rootAction: 'admin_section_push' },
+  'ad_links:home': { section: 'ad_links', rootAction: 'stats:home' },
+  'polls:home': { section: 'polls', rootAction: 'polls:home', selectMode: 'polls' },
+  'highlights:home': { section: 'highlights', rootAction: 'highlights:home', selectMode: 'highlights' },
+  'editor:home': { section: 'posts', rootAction: 'admin_section_posts', selectMode: 'posts' },
+  'archive:home': { section: 'archive', rootAction: 'admin_section_archive' },
+  'account:home': { section: 'account', rootAction: 'admin_section_tariffs' },
+  'settings:home': { section: 'settings', rootAction: 'settings:home' }
+};
+
+const V3_ROUTE_LEGACY_ACTION_ALLOWLIST = {
+  'polls:create': { legacyAction: 'comments_select_post', required: { source: 'polls' } },
+  'polls:results': { legacyAction: 'poll_status', required: {} }
+};
+
+function resolveRootSectionCallback(payload = {}) {
+  const route = String(payload.route || '').trim();
+  if (ROOT_SECTION_ROUTES.has(route)) return { ok: true, route, sectionId: route.split(':')[0], resolver: 'payload.route' };
+  const r = String(payload.r || '').trim();
+  if (ROOT_SECTION_ROUTES.has(r)) return { ok: true, route: r, sectionId: r.split(':')[0], resolver: 'payload.r' };
+  const action = String(payload.action || '').trim();
+  if (ROOT_SECTION_ROUTES.has(action)) return { ok: true, route: action, sectionId: action.split(':')[0], resolver: 'payload.action.canonical' };
+  if (LEGACY_ROOT_ACTION_ROUTES[action]) return { ok: true, route: LEGACY_ROOT_ACTION_ROUTES[action], sectionId: LEGACY_ROOT_ACTION_ROUTES[action].split(':')[0], resolver: 'legacy.compatibility', legacyAction: action };
+  return { ok: false, route: '', sectionId: '', resolver: 'none' };
+}
+
+function isCanonicalV3Route(value = '') {
+  const route = String(value || '').trim();
+  if (!/^[a-z][a-z0-9_]*:[a-z0-9_]+$/i.test(route)) return false;
+  const owner = route.split(':')[0];
+  return V3_ROUTE_OWNERS.has(owner);
+}
+
+function resolveV3RouteCallback(payload = {}) {
+  const route = String(payload.route || '').trim();
+  if (isCanonicalV3Route(route)) return { ok: true, route, sectionId: route.split(':')[0], resolver: 'payload.route' };
+  const r = String(payload.r || '').trim();
+  if (isCanonicalV3Route(r)) return { ok: true, route: r, sectionId: r.split(':')[0], resolver: 'payload.r' };
+  const action = String(payload.action || '').trim();
+  if (isCanonicalV3Route(action)) return { ok: true, route: action, sectionId: action.split(':')[0], resolver: 'payload.action.canonical' };
+  return { ok: false, route: '', sectionId: '', resolver: 'none' };
+}
+
+function productionLegacyActionFromV3Payload(route = '', payload = {}) {
+  const allow = V3_ROUTE_LEGACY_ACTION_ALLOWLIST[String(route || '').trim()];
+  if (!allow) return '';
+  const legacyAction = String(payload.legacyAction || '').trim();
+  if (legacyAction !== allow.legacyAction) return '';
+  for (const [key, value] of Object.entries(allow.required || {})) {
+    if (String(payload[key] || '').trim() !== String(value || '').trim()) return '';
+  }
+  return legacyAction;
+}
+
+function applyRootSectionAdminState(userId = '', route = '') {
+  const normalizedUserId = String(userId || '').trim();
+  const state = ROOT_SECTION_ADMIN_STATE[String(route || '').trim()];
+  if (!normalizedUserId || !state) return null;
+  if (state.section === 'gifts') {
+    clearCommentAdminFlow(normalizedUserId);
+    clearActiveAdminFlowKind(normalizedUserId);
+  } else if (['buttons', 'posts', 'comments', 'stats', 'push', 'channels', 'ad_links', 'polls', 'highlights', 'editor', 'archive', 'settings'].includes(state.section)) {
+    clearCommentAdminFlow(normalizedUserId);
+    clearGiftFlow(normalizedUserId);
+    clearActiveAdminFlowKind(normalizedUserId);
+  }
+  return rememberAdminScreen(normalizedUserId, {
+    section: state.section,
+    backAction: 'admin_section_main',
+    rootAction: state.rootAction,
+    selectMode: state.selectMode || state.section
+  });
+}
+
+function resetAdminStateForMainRoute(userId = '') {
+  const normalizedUserId = String(userId || '').trim();
+  if (!normalizedUserId) return null;
+  clearCommentAdminFlow(normalizedUserId);
+  clearGiftFlow(normalizedUserId);
+  clearActiveAdminFlowKind(normalizedUserId);
+  return rememberAdminScreen(normalizedUserId, { section: 'main', backAction: 'admin_section_main', rootAction: 'admin_section_main', selectMode: '' });
+}
+
+function isPollFlowCallbackPayload(payload = {}) {
+  const action = String(payload.action || '').trim();
+  const source = String(payload.source || '').trim().toLowerCase();
+  if ((action === 'comments_select_post' || action === 'comments_pick_post') && source === 'polls') return true;
+  return ['poll_status', 'poll_results', 'poll_create'].includes(action);
+}
+
+async function flushBotAuditTraceSafe(reason, extra = {}) {
+  try {
+    if (runtimeBotAuditTrace && typeof runtimeBotAuditTrace.flushScheduledExport === 'function') {
+      await runtimeBotAuditTrace.flushScheduledExport({ reason, ...(extra || {}) });
+    }
+  } catch (error) {
+    try {
+      botAudit.log('runtime_trace_flush_failed', { reason, error: String(error?.message || error).slice(0, 120) });
+    } catch {}
+  }
+}
+
+async function handleRootSectionCallback({ config, message, payload = {}, userId = '', callbackId = '' } = {}) {
+  const startedAt = Date.now();
+  const resolved = resolveRootSectionCallback(payload);
+  if (!resolved.ok) return { ok: false, skipped: true, reason: 'not_root_section_callback' };
+  const hasMessage = Boolean(message);
+  const hasUserId = Boolean(String(userId || '').trim());
+  const hasCallbackId = Boolean(String(callbackId || '').trim());
+  const baseAudit = {
+    route: resolved.route,
+    action: String(payload.action || ''),
+    sectionId: resolved.sectionId,
+    hasMessage,
+    hasUserId,
+    hasCallbackId,
+    resolver: resolved.resolver
+  };
+  botAudit.log('root_section_callback_received', baseAudit);
+  applyRootSectionAdminState(userId, resolved.route);
+  if (resolved.route === 'gifts:home') {
+    botAudit.log('gifts_root_callback_received', { action: String(payload.action || ''), route: resolved.route, r: String(payload.r || ''), hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs: 0, renderMs: 0, deliveryMs: 0 });
+  }
+  await acknowledgeCallbackSilently(config, callbackId);
+  let screen = null;
+  let renderMs = 0;
+  let deliveryMs = 0;
+  try {
+    const renderStartedAt = Date.now();
+    screen = await v3MenuCore1539.asyncScreenForPayload({ ...payload, route: resolved.route, action: resolved.route }, { userId, config, rootSectionContract: true });
+    renderMs = Date.now() - renderStartedAt;
+  } catch (error) {
+    renderMs = Date.now() - startedAt;
+    const totalMs = Date.now() - startedAt;
+    botAudit.log('root_section_callback_failed', { ...baseAudit, delivery: 'none', error: 'render_failed', status: String(error?.message || error).slice(0, 120), totalMs, renderMs, deliveryMs });
+    await flushBotAuditTraceSafe('root_section_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
+    return { ok: false, action: String(payload.action || ''), route: resolved.route, sectionId: resolved.sectionId, error: 'root_section_render_failed' };
+  }
+  if (!isRenderableScreen(screen)) {
+    const totalMs = Date.now() - startedAt;
+    botAudit.log('root_section_callback_failed', { ...baseAudit, delivery: 'none', error: 'screen_not_renderable', status: 'empty_screen', totalMs, renderMs, deliveryMs });
+    await flushBotAuditTraceSafe('root_section_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
+    return { ok: false, action: String(payload.action || ''), route: resolved.route, sectionId: resolved.sectionId, error: 'root_section_screen_not_renderable' };
+  }
+  try {
+    const deliveryStartedAt = Date.now();
+    let delivery = '';
+    if (message) {
+      await upsertBotMessage({ config, message, text: screen.text, attachments: screen.attachments, editCurrent: true });
+      delivery = 'edit_or_upsert_current_message';
+    } else if (hasUserId) {
+      await sendMessage({ botToken: config.botToken, userId, text: screen.text, attachments: screen.attachments, notify: false });
+      delivery = 'fresh_private_fallback';
+    } else {
+      deliveryMs = Date.now() - deliveryStartedAt;
+      const totalMs = Date.now() - startedAt;
+      botAudit.log('root_section_callback_failed', { ...baseAudit, delivery: 'none', error: 'delivery_target_missing', status: 'no_message_no_user', totalMs, renderMs, deliveryMs });
+      if (resolved.route === 'gifts:home') {
+        botAudit.log('gifts_root_callback_delivery_target_missing', { action: String(payload.action || ''), route: resolved.route, hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs, renderMs, deliveryMs });
+      }
+      await flushBotAuditTraceSafe('root_section_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
+      return { ok: false, action: String(payload.action || ''), route: resolved.route, sectionId: resolved.sectionId, error: 'root_section_delivery_target_missing' };
+    }
+    deliveryMs = Date.now() - deliveryStartedAt;
+    const totalMs = Date.now() - startedAt;
+    botAudit.log('root_section_callback_resolved', { ...baseAudit, delivery, totalMs, renderMs, deliveryMs });
+    if (resolved.route === 'gifts:home') {
+      if (delivery === 'fresh_private_fallback') {
+        botAudit.log('gifts_root_callback_private_fallback_sent', { action: String(payload.action || ''), route: resolved.route, hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs, renderMs, deliveryMs });
+      }
+      botAudit.log('gifts_root_callback_resolved', { action: String(payload.action || ''), route: resolved.route, resolver: 'v3-menu-core', hasMessage, hasUserId, totalMs, renderMs, deliveryMs });
+    }
+    await flushBotAuditTraceSafe('root_section_callback_resolved', { route: resolved.route, sectionId: resolved.sectionId });
+    return { ok: true, action: String(payload.action || resolved.route), route: resolved.route, sectionId: resolved.sectionId, screenId: screen.id || screen.route || resolved.route, resolver: resolved.resolver, delivery };
+  } catch (error) {
+    const totalMs = Date.now() - startedAt;
+    botAudit.log('root_section_callback_failed', { ...baseAudit, delivery: 'failed', error: 'delivery_failed', status: String(error?.message || error).slice(0, 120), totalMs, renderMs, deliveryMs });
+    await flushBotAuditTraceSafe('root_section_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
+    throw error;
+  }
+}
+
+async function handleV3RouteCallback({ config, message, payload = {}, userId = '', callbackId = '' } = {}) {
+  const startedAt = Date.now();
+  const resolved = resolveV3RouteCallback(payload);
+  if (!resolved.ok || ROOT_SECTION_ROUTES.has(resolved.route)) return { ok: false, skipped: true, reason: 'not_v3_child_route_callback' };
+  const hasMessage = Boolean(message);
+  const hasUserId = Boolean(String(userId || '').trim());
+  const hasCallbackId = Boolean(String(callbackId || '').trim());
+  const baseAudit = {
+    route: resolved.route,
+    action: String(payload.action || ''),
+    legacyAction: productionLegacyActionFromV3Payload(resolved.route, payload),
+    ignoredLegacyAction: payload.legacyAction && !productionLegacyActionFromV3Payload(resolved.route, payload) ? String(payload.legacyAction || '').slice(0, 80) : '',
+    sectionId: resolved.sectionId,
+    hasMessage,
+    hasUserId,
+    hasCallbackId,
+    resolver: resolved.resolver
+  };
+  botAudit.log('v3_route_callback_received', baseAudit);
+  if (resolved.route === 'main:home') resetAdminStateForMainRoute(userId);
+  await acknowledgeCallbackSilently(config, callbackId);
+  let screen = null;
+  let renderMs = 0;
+  let deliveryMs = 0;
+  try {
+    const renderStartedAt = Date.now();
+    const legacyAction = productionLegacyActionFromV3Payload(resolved.route, payload);
+    const renderPayload = legacyAction
+      ? { ...payload, route: '', r: '', action: legacyAction, delegatedFromRoute: resolved.route }
+      : { ...payload, route: resolved.route, action: resolved.route };
+    screen = await v3MenuCore1539.asyncScreenForPayload(renderPayload, { userId, config, v3RouteContract: true, delegatedFromRoute: legacyAction ? resolved.route : '' });
+    renderMs = Date.now() - renderStartedAt;
+  } catch (error) {
+    renderMs = Date.now() - startedAt;
+    const totalMs = Date.now() - startedAt;
+    botAudit.log('v3_route_callback_failed', { ...baseAudit, delivery: 'none', error: 'render_failed', status: String(error?.message || error).slice(0, 120), totalMs, renderMs, deliveryMs });
+    await flushBotAuditTraceSafe('v3_route_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
+    return { ok: false, action: String(payload.action || ''), route: resolved.route, sectionId: resolved.sectionId, error: 'v3_route_render_failed' };
+  }
+  if (!isRenderableScreen(screen)) {
+    const totalMs = Date.now() - startedAt;
+    botAudit.log('v3_route_callback_failed', { ...baseAudit, delivery: 'none', error: 'screen_not_renderable', status: 'empty_screen', totalMs, renderMs, deliveryMs });
+    await flushBotAuditTraceSafe('v3_route_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
+    return { ok: false, action: String(payload.action || ''), route: resolved.route, sectionId: resolved.sectionId, error: 'v3_route_screen_not_renderable' };
+  }
+  try {
+    const deliveryStartedAt = Date.now();
+    let delivery = '';
+    if (message) {
+      await upsertBotMessage({ config, message, text: screen.text, attachments: screen.attachments, editCurrent: true });
+      delivery = 'edit_or_upsert_current_message';
+    } else if (hasUserId) {
+      await sendMessage({ botToken: config.botToken, userId, text: screen.text, attachments: screen.attachments, notify: false });
+      delivery = 'fresh_private_fallback';
+    } else {
+      deliveryMs = Date.now() - deliveryStartedAt;
+      const totalMs = Date.now() - startedAt;
+      botAudit.log('v3_route_callback_failed', { ...baseAudit, delivery: 'none', error: 'delivery_target_missing', status: 'no_message_no_user', totalMs, renderMs, deliveryMs });
+      await flushBotAuditTraceSafe('v3_route_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
+      return { ok: false, action: String(payload.action || ''), route: resolved.route, sectionId: resolved.sectionId, error: 'v3_route_delivery_target_missing' };
+    }
+    deliveryMs = Date.now() - deliveryStartedAt;
+    const totalMs = Date.now() - startedAt;
+    botAudit.log('v3_route_callback_resolved', { ...baseAudit, delivery, totalMs, renderMs, deliveryMs });
+    await flushBotAuditTraceSafe('v3_route_callback_resolved', { route: resolved.route, sectionId: resolved.sectionId });
+    return { ok: true, action: String(payload.action || resolved.route), route: resolved.route, sectionId: resolved.sectionId, screenId: screen.id || screen.route || resolved.route, resolver: resolved.resolver, delivery };
+  } catch (error) {
+    const totalMs = Date.now() - startedAt;
+    botAudit.log('v3_route_callback_failed', { ...baseAudit, delivery: 'failed', error: 'delivery_failed', status: String(error?.message || error).slice(0, 120), totalMs, renderMs, deliveryMs });
+    await flushBotAuditTraceSafe('v3_route_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
+    throw error;
+  }
+}
+
+async function handlePollFlowCallback({ config, message, payload = {}, userId = '', callbackId = '' } = {}) {
+  await acknowledgeCallbackSilently(config, callbackId);
+  const screen = await v3MenuCore1539.asyncScreenForPayload(payload, { userId, config, pollFlowContract: true });
+  if (!isRenderableScreen(screen)) return { ok: false, action: String(payload.action || ''), source: String(payload.source || ''), error: 'poll_flow_screen_not_renderable' };
+  if (message) {
+    await upsertBotMessage({ config, message, text: screen.text, attachments: screen.attachments, editCurrent: true });
+    return { ok: true, action: String(payload.action || ''), source: String(payload.source || ''), resolver: 'poll_flow_v3_core', delivery: 'edit_or_upsert_current_message' };
+  }
+  if (userId) {
+    await sendMessage({ botToken: config.botToken, userId, text: screen.text, attachments: screen.attachments, notify: false });
+    return { ok: true, action: String(payload.action || ''), source: String(payload.source || ''), resolver: 'poll_flow_v3_core', delivery: 'fresh_private_fallback' };
+  }
+  return { ok: false, action: String(payload.action || ''), source: String(payload.source || ''), error: 'poll_flow_delivery_target_missing' };
+}
+
 function safeGiftsRootAttachments() {
   return [{
     type: 'inline_keyboard',
@@ -5406,14 +5733,30 @@ async function handleMessageCallback(update, config) {
   };
   botAudit.log('callback_received_pre_dedupe', safeCallbackAuditFields);
 
-  if (isGiftsRootPayload(payload)) {
-    logVerbose(config, 'CALLBACK GIFTS ROOT PRE-DEDUPE', {
+  const rootSection = resolveRootSectionCallback(payload);
+  if (rootSection.ok) {
+    logVerbose(config, 'CALLBACK ROOT SECTION PRE-DEDUPE', {
       callbackId,
       userId,
       userName,
-      payload
+      payload,
+      route: rootSection.route,
+      resolver: rootSection.resolver
     });
-    return handleGiftsRootCallback({ config, message, payload, userId, callbackId });
+    return handleRootSectionCallback({ config, message, payload, userId, callbackId });
+  }
+
+  const v3Route = resolveV3RouteCallback(payload);
+  if (v3Route.ok) {
+    logVerbose(config, 'CALLBACK V3 ROUTE PRE-DEDUPE', {
+      callbackId,
+      userId,
+      userName,
+      payload,
+      route: v3Route.route,
+      resolver: v3Route.resolver
+    });
+    return handleV3RouteCallback({ config, message, payload, userId, callbackId });
   }
 
   if (isDuplicateCallback(callbackId, actionKey)) {
@@ -5439,6 +5782,10 @@ async function handleMessageCallback(update, config) {
     userName,
     payload
   });
+
+  if (isPollFlowCallbackPayload(payload)) {
+    return handlePollFlowCallback({ config, message, payload, userId, callbackId });
+  }
 
   if (groupPushOnboarding.isGroupPushEnablePayload(payload)) {
     const chatId = getCallbackChatId(update, callback, message);

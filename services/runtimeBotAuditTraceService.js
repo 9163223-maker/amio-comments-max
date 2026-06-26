@@ -104,6 +104,18 @@ function scheduleExport(input = {}) {
   }
 }
 
+async function flushScheduledExport(input = {}) {
+  try {
+    state.pendingInput = { ...(state.pendingInput || {}), ...(input || {}) };
+    state.pending = true;
+    return await runScheduledExport();
+  } catch (error) {
+    state.lastOk = false;
+    state.lastError = safeError(error);
+    return { ok: false, error: state.lastError };
+  }
+}
+
 function _setExportLatestTraceForTests(fn) { state.exporter = typeof fn === 'function' ? fn : null; }
 function _setDebounceMsForTests(ms) { state.debounceMs = Number.isFinite(Number(ms)) ? Math.max(0, Math.floor(Number(ms))) : null; }
 function _resetSchedulerForTests() {
@@ -119,4 +131,4 @@ function _resetSchedulerForTests() {
 }
 
 function info() { const { timer, exporter, pendingInput, ...safeState } = state; return { ...safeState, scheduled: Boolean(timer), defaultPath: DEFAULT_PATH, safe: true }; }
-module.exports = { buildTracePayload, exportLatestTrace, scheduleExport, info, DEFAULT_PATH, DEFAULT_BRANCH, DEFAULT_LIMIT, _setExportLatestTraceForTests, _setDebounceMsForTests, _resetSchedulerForTests };
+module.exports = { buildTracePayload, exportLatestTrace, scheduleExport, flushScheduledExport, info, DEFAULT_PATH, DEFAULT_BRANCH, DEFAULT_LIMIT, _setExportLatestTraceForTests, _setDebounceMsForTests, _resetSchedulerForTests };
