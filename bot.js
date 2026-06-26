@@ -143,6 +143,14 @@ function isDuplicateCallback(callbackId, actionKey = '') {
   return false;
 }
 
+function getDuplicateCallbackReason(callbackId, actionKey = '') {
+  pruneDedupeMap(processedCallbacks, CALLBACK_DEDUPE_TTL_MS);
+  pruneDedupeMap(processedCallbackActions, CALLBACK_ACTION_TTL_MS);
+  if (callbackId && processedCallbacks.has(String(callbackId))) return 'callback_id';
+  if (actionKey && processedCallbackActions.has(String(actionKey))) return 'action_key';
+  return '';
+}
+
 function shouldSkipMenuForUser(userId) {
   const key = String(userId || '').trim();
   if (!key) return false;
@@ -5387,9 +5395,41 @@ async function handleMessageCallback(update, config) {
   try {
   const callbackMessageIdForDedupe = String(getMessageId(message) || '').trim();
   const actionKey = callbackId ? '' : [userId, payload?.action || '', payload?.commentKey || '', payload?.campaignId || '', payload?.page || '', callbackMessageIdForDedupe].join(':');
+  const safeCallbackAuditFields = {
+    action: String(payload?.action || ''),
+    route: String(payload?.route || ''),
+    r: String(payload?.r || ''),
+    hasMessage: Boolean(message),
+    hasUserId: Boolean(String(userId || '').trim()),
+    hasCallbackId: Boolean(callbackId),
+    callbackMessageIdPresent: Boolean(callbackMessageIdForDedupe)
+  };
+  botAudit.log('callback_received_pre_dedupe', safeCallbackAuditFields);
+
+  if (isGiftsRootPayload(payload)) {
+    logVerbose(config, 'CALLBACK GIFTS ROOT PRE-DEDUPE', {
+      callbackId,
+      userId,
+      userName,
+      payload
+    });
+    return handleGiftsRootCallback({ config, message, payload, userId, callbackId });
+  }
+
   if (isDuplicateCallback(callbackId, actionKey)) {
+    const duplicateReason = getDuplicateCallbackReason(callbackId, actionKey) || 'unknown';
+    botAudit.log('duplicate_callback_skipped', {
+      action: String(payload?.action || ''),
+      route: String(payload?.route || ''),
+      r: String(payload?.r || ''),
+      hasMessage: Boolean(message),
+      hasUserId: Boolean(String(userId || '').trim()),
+      hasCallbackId: Boolean(callbackId),
+      duplicateReason,
+      actionKeyPresent: Boolean(actionKey)
+    });
     logVerbose(config, 'CALLBACK DUPLICATE', { callbackId, actionKey, userId, payload });
-    return { ok: true, skipped: true, reason: 'duplicate_callback', callbackId, actionKey };
+    return { ok: true, skipped: true, reason: 'duplicate_callback', duplicateReason, callbackId, actionKey };
   }
   markCallbackSeen(callbackId, actionKey);
 
@@ -5418,10 +5458,6 @@ async function handleMessageCallback(update, config) {
     const result = await pushConfirmation.handleCallback({ callbackId, confirmingUserId: userId, payload, botToken: config.botToken });
     logInfo(config, 'PUSH CONFIRM DEVICE', { ok: result.ok, status: result.status, userId });
     return result;
-  }
-
-  if (isGiftsRootPayload(payload)) {
-    return handleGiftsRootCallback({ config, message, payload, userId, callbackId });
   }
 
   if (buttonsFlow.isCleanButtonAction(payload?.action) && String(payload?.action || '').trim() !== 'admin_section_buttons') {
