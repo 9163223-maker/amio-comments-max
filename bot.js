@@ -5312,6 +5312,7 @@ const LEGACY_ROOT_ACTION_ROUTES = {
   admin_section_buttons: 'buttons:home',
   admin_section_stats: 'stats:home',
   admin_section_push: 'push:home',
+  admin_section_polls: 'polls:home',
   admin_section_posts: 'editor:home',
   admin_section_archive: 'archive:home',
   admin_section_tariffs: 'account:home'
@@ -5343,6 +5344,13 @@ function resolveV3RouteCallback(payload = {}) {
   const action = String(payload.action || '').trim();
   if (isCanonicalV3Route(action)) return { ok: true, route: action, sectionId: action.split(':')[0], resolver: 'payload.action.canonical' };
   return { ok: false, route: '', sectionId: '', resolver: 'none' };
+}
+
+function productionLegacyActionFromV3Payload(payload = {}) {
+  const legacyAction = String(payload.legacyAction || '').trim();
+  if (!legacyAction || legacyAction.includes(':')) return '';
+  if (!/^[a-z][a-z0-9_]*(?:_[a-z0-9]+)*$/i.test(legacyAction)) return '';
+  return legacyAction;
 }
 
 async function flushBotAuditTraceSafe(reason, extra = {}) {
@@ -5446,6 +5454,7 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
   const baseAudit = {
     route: resolved.route,
     action: String(payload.action || ''),
+    legacyAction: productionLegacyActionFromV3Payload(payload),
     sectionId: resolved.sectionId,
     hasMessage,
     hasUserId,
@@ -5459,7 +5468,11 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
   let deliveryMs = 0;
   try {
     const renderStartedAt = Date.now();
-    screen = await v3MenuCore1539.asyncScreenForPayload({ ...payload, route: resolved.route, action: resolved.route }, { userId, config, v3RouteContract: true });
+    const legacyAction = productionLegacyActionFromV3Payload(payload);
+    const renderPayload = legacyAction
+      ? { ...payload, route: '', r: '', action: legacyAction, delegatedFromRoute: resolved.route }
+      : { ...payload, route: resolved.route, action: resolved.route };
+    screen = await v3MenuCore1539.asyncScreenForPayload(renderPayload, { userId, config, v3RouteContract: true, delegatedFromRoute: legacyAction ? resolved.route : '' });
     renderMs = Date.now() - renderStartedAt;
   } catch (error) {
     renderMs = Date.now() - startedAt;

@@ -123,6 +123,30 @@ async function main() {
     assert.ok(!botAudit.list().some((event) => event.type === 'unsupported_callback' && (event.route === route || event.action === route)), `${route} does not hit unsupported_callback`);
   }
 
+
+  const pollsHome = rootScreens.get('polls:home');
+  const pollsCreate = buttons(pollsHome).find((button) => /Создать опрос/i.test(String(button.text || '')));
+  assert.ok(pollsCreate, 'polls:home emits Создать опрос');
+  const createPayload = parsePayload(pollsCreate);
+  const beforePollCreate = sent.length;
+  await webhook(bot, callbackUpdate(createPayload, { callbackId: 'polls-create-regression', messageId: 'polls-create-msg', mid: 'polls-create-mid' }));
+  assert.ok(sent.length > beforePollCreate, 'polls:create delegates to a visible production polls screen');
+  assert.ok(!/Раздел подготовлен\. Действие будет включено после безопасной реализации/i.test(visible(sent.at(-1))), 'polls:create does not render generic placeholder');
+  assert.strictEqual(createPayload.legacyAction, 'comments_select_post', 'polls:create carries comments_select_post delegation metadata');
+  assert.strictEqual(createPayload.source, 'polls', 'polls:create preserves source polls');
+  assert.ok(botAudit.list().some((event) => event.type === 'v3_route_callback_resolved' && event.route === 'polls:create' && event.legacyAction === 'comments_select_post'), 'polls:create is audited as delegated to production comments_select_post path');
+
+  const pollsResults = buttons(pollsHome).find((button) => /Результаты опросов/i.test(String(button.text || '')));
+  assert.ok(pollsResults, 'polls:home emits Результаты опросов');
+  const resultsPayload = parsePayload(pollsResults);
+  const beforePollResults = sent.length;
+  await webhook(bot, callbackUpdate(resultsPayload, { callbackId: 'polls-results-regression', messageId: 'polls-results-msg', mid: 'polls-results-mid' }));
+  assert.ok(sent.length > beforePollResults, 'polls:results delegates to a visible production poll status screen');
+  assert.ok(!/Раздел подготовлен\. Действие будет включено после безопасной реализации/i.test(visible(sent.at(-1))), 'polls:results does not render generic placeholder');
+  assert.strictEqual(resultsPayload.legacyAction, 'poll_status', 'polls:results carries poll_status delegation metadata');
+  assert.ok(/Результаты|Активных опросов|Опрос/i.test(visible(sent.at(-1))), 'polls:results opens production poll status/results text');
+  assert.ok(botAudit.list().some((event) => event.type === 'v3_route_callback_resolved' && event.route === 'polls:results' && event.legacyAction === 'poll_status'), 'polls:results is audited as delegated to production poll_status path');
+
   const giftCall = rootScreens.get('gifts:home');
   assert.ok(giftCall, 'gifts:home opens Gifts root screen');
   for (const label of ['Создать подарок', 'Текущий подарок', 'Список подарков', 'Главное меню']) assert.ok(labels(giftCall).includes(label), `Gifts keyboard contains ${label}`);
