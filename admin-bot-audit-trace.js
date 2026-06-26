@@ -7,6 +7,7 @@ const RUNTIME_EXPORT_TYPES = new Set([
   'gifts_root_callback_received',
   'gifts_root_callback_resolved',
   'gifts_root_callback_delivery_target_missing',
+  'gifts_root_callback_private_fallback_sent',
   'unsupported_callback'
 ]);
 
@@ -55,7 +56,7 @@ function maybeExportRuntimeTrace(type) {
   if (!RUNTIME_EXPORT_TYPES.has(clean(type))) return;
   try {
     const svc = require('./services/runtimeBotAuditTraceService');
-    if (svc && svc.exportLatestTrace) setImmediate(() => { svc.exportLatestTrace().catch(() => {}); });
+    if (svc && svc.scheduleExport) svc.scheduleExport({ reason: 'bot_audit_event', eventType: clean(type) });
   } catch {}
 }
 function log(type, payload = {}) {

@@ -47,6 +47,7 @@ function callbackUpdate(payload, options = {}) {
 }
 function labels(call) { return (call?.attachments?.find((item) => item?.type === 'inline_keyboard')?.payload?.buttons || []).flat().map((button) => String(button.text || '').trim()).filter(Boolean); }
 function visible(call) { return [String(call?.text || ''), ...labels(call)].join('\n'); }
+function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 async function webhook(bot, update) {
   const res = jsonRes();
   await bot.handleWebhook(update, res, { botToken: 'test-token', menuDeleteTimeoutMs: 1, appBaseUrl: 'https://example.test', botUsername: 'adminkit_test_bot' });
@@ -89,6 +90,38 @@ async function main() {
   assert.ok(payload.events.some((event) => event.type === 'gifts_root_callback_private_fallback_sent'), 'runtime trace includes private fallback event');
   assert.strictEqual(runtimeTrace.DEFAULT_PATH, 'runtime/bot-audit-trace.json', 'runtime trace writes expected path');
   assert.ok(!JSON.stringify(payload).includes('test-token'), 'runtime trace payload does not expose bot token');
+  assert.strictEqual(runtimeTrace.DEFAULT_BRANCH, 'runtime-status', 'runtime trace writes diagnostic runtime-status branch only');
+  assert.strictEqual(typeof runtimeTrace.scheduleExport, 'function', 'runtime trace exposes debounced scheduleExport API');
+
+  runtimeTrace._resetSchedulerForTests();
+  runtimeTrace._setDebounceMsForTests(10);
+  let calls = 0;
+  let active = 0;
+  let maxActive = 0;
+  let releaseFirst;
+  const firstWrite = new Promise((resolve) => { releaseFirst = resolve; });
+  runtimeTrace._setExportLatestTraceForTests(async () => {
+    calls += 1;
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    if (calls === 1) await firstWrite;
+    active -= 1;
+    return { ok: true, branch: runtimeTrace.DEFAULT_BRANCH, path: runtimeTrace.DEFAULT_PATH };
+  });
+  botAudit.log('gifts_root_callback_received', { userId: TEST_USER });
+  botAudit.log('gifts_root_callback_resolved', { userId: TEST_USER });
+  botAudit.log('gifts_root_callback_private_fallback_sent', { userId: TEST_USER });
+  await sleep(35);
+  assert.strictEqual(calls, 1, 'debounced selected audit burst starts one raw export');
+  assert.strictEqual(maxActive, 1, 'raw export writer is not concurrent');
+  botAudit.log('gifts_root_callback_resolved', { userId: TEST_USER });
+  await sleep(20);
+  assert.strictEqual(calls, 1, 'events during in-flight export are coalesced, not concurrent');
+  releaseFirst();
+  await sleep(40);
+  assert.strictEqual(calls, 2, 'coalesced in-flight events flush in next latest snapshot');
+  assert.strictEqual(maxActive, 1, 'coalesced export remains serialized');
+  runtimeTrace._resetSchedulerForTests();
 
   console.log(JSON.stringify({ ok: true, test: 'PR243 gifts no-message callback and runtime trace export' }, null, 2));
 }

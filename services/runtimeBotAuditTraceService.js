@@ -10,7 +10,7 @@ const DEFAULT_PATH = 'runtime/bot-audit-trace.json';
 const DEFAULT_LIMIT = 80;
 const USER_AGENT = 'adminkit-bot-audit-trace-pr243';
 
-const state = { enabled: false, lastOk: false, lastError: '', lastAttemptAt: '', lastSyncedAt: '', path: DEFAULT_PATH, branch: DEFAULT_BRANCH };
+const state = { enabled: false, lastOk: false, lastError: '', lastAttemptAt: '', lastSyncedAt: '', path: DEFAULT_PATH, branch: DEFAULT_BRANCH, timer: null, inFlight: false, pending: false, pendingInput: {}, debounceMs: null, exporter: null };
 
 function clean(value) { return String(value || '').trim(); }
 function nowIso() { return new Date().toISOString(); }
@@ -21,6 +21,11 @@ function safeError(error) { return short(error && (error.code || error.status ||
 function limit() {
   const n = Number(process.env.ADMINKIT_BOT_AUDIT_RUNTIME_TRACE_LIMIT || DEFAULT_LIMIT);
   return Number.isFinite(n) && n > 0 ? Math.min(Math.max(Math.floor(n), 50), 80) : DEFAULT_LIMIT;
+}
+function debounceMs() {
+  if (Number.isFinite(state.debounceMs) && state.debounceMs >= 0) return state.debounceMs;
+  const n = Number(process.env.ADMINKIT_BOT_AUDIT_EXPORT_DEBOUNCE_MS || 1500);
+  return Number.isFinite(n) ? Math.min(Math.max(Math.floor(n), 1000), 3000) : 1500;
 }
 function buildTracePayload(input = {}) {
   const audit = input.audit || botAudit.info();
@@ -56,5 +61,62 @@ async function exportLatestTrace(input = {}) {
   const repo = DEFAULT_REPO; const branch = DEFAULT_BRANCH; const path = DEFAULT_PATH;
   try { await ensureBranch({ repo, branch, token }); const current = await readFile({ repo, branch, path, token }); const log = buildTracePayload(input); await writeFile({ repo, branch, path, token, sha: current.sha, log }); state.lastOk = true; state.lastError = ''; state.lastSyncedAt = log.updatedAt; return { ok: true, branch, path, latest: log }; } catch (error) { state.lastOk = false; state.lastError = safeError(error); return { ok: false, error: state.lastError }; }
 }
-function info() { return { ...state, defaultPath: DEFAULT_PATH, safe: true }; }
-module.exports = { buildTracePayload, exportLatestTrace, info, DEFAULT_PATH, DEFAULT_LIMIT };
+
+async function runScheduledExport() {
+  if (state.inFlight) return { ok: true, skipped: true, reason: 'export_in_flight' };
+  if (state.timer) {
+    clearTimeout(state.timer);
+    state.timer = null;
+  }
+  const input = state.pendingInput || {};
+  state.pendingInput = {};
+  state.pending = false;
+  state.inFlight = true;
+  try {
+    const exporter = state.exporter || exportLatestTrace;
+    const result = await exporter(input);
+    if (result && result.ok === false && result.error) state.lastError = safeError(result.error);
+    return result;
+  } catch (error) {
+    state.lastOk = false;
+    state.lastError = safeError(error);
+    return { ok: false, error: state.lastError };
+  } finally {
+    state.inFlight = false;
+    if (state.pending) scheduleExport(state.pendingInput);
+  }
+}
+
+function scheduleExport(input = {}) {
+  try {
+    state.pendingInput = { ...(state.pendingInput || {}), ...(input || {}) };
+    state.pending = true;
+    if (state.inFlight) return { ok: true, scheduled: true, inFlight: true, debounceMs: debounceMs() };
+    if (state.timer) clearTimeout(state.timer);
+    const delay = debounceMs();
+    state.timer = setTimeout(() => { runScheduledExport().catch(() => {}); }, delay);
+    if (state.timer && typeof state.timer.unref === 'function') state.timer.unref();
+    return { ok: true, scheduled: true, debounceMs: delay };
+  } catch (error) {
+    state.lastOk = false;
+    state.lastError = safeError(error);
+    return { ok: false, error: state.lastError };
+  }
+}
+
+function _setExportLatestTraceForTests(fn) { state.exporter = typeof fn === 'function' ? fn : null; }
+function _setDebounceMsForTests(ms) { state.debounceMs = Number.isFinite(Number(ms)) ? Math.max(0, Math.floor(Number(ms))) : null; }
+function _resetSchedulerForTests() {
+  if (state.timer) clearTimeout(state.timer);
+  state.timer = null;
+  state.inFlight = false;
+  state.pending = false;
+  state.pendingInput = {};
+  state.exporter = null;
+  state.debounceMs = null;
+  state.lastOk = false;
+  state.lastError = '';
+}
+
+function info() { const { timer, exporter, pendingInput, ...safeState } = state; return { ...safeState, scheduled: Boolean(timer), defaultPath: DEFAULT_PATH, safe: true }; }
+module.exports = { buildTracePayload, exportLatestTrace, scheduleExport, info, DEFAULT_PATH, DEFAULT_BRANCH, DEFAULT_LIMIT, _setExportLatestTraceForTests, _setDebounceMsForTests, _resetSchedulerForTests };
