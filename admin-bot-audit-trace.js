@@ -4,6 +4,8 @@ const liveIdentity = require('./services/liveIdentityService');
 
 const DEFAULT_LIMIT = 800;
 const RUNTIME_EXPORT_TYPES = new Set([
+  'callback_received_pre_dedupe',
+  'duplicate_callback_skipped',
   'gifts_root_callback_received',
   'gifts_root_callback_resolved',
   'gifts_root_callback_delivery_target_missing',
@@ -44,7 +46,7 @@ function safePayload(payload = {}, depth = 0) {
     const k = clean(key);
     if (!k || value === undefined) return;
     if (isSensitiveKey(k)) return;
-    if (/userId|user_id|chatId|chat_id|messageId|message_id|channelId|channel_id|postId|post_id|commentKey|callbackId|callback_id|mid|id$/i.test(k)) {
+    if (/userId|user_id|chatId|chat_id|messageId|message_id|channelId|channel_id|postId|post_id|commentKey|callbackId|callback_id|mid|id$/i.test(k) && typeof value !== 'boolean') {
       out[k] = mask(value);
       return;
     }
