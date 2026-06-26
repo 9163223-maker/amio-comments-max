@@ -8,6 +8,7 @@ const botAudit = require('../admin-bot-audit-trace');
 const runtimeTrace = require('../services/runtimeBotAuditTraceService');
 const maxApi = require('../services/maxApi');
 const postPatcher = require('../services/postPatcher');
+const store = require('../store');
 
 const TEST_USER = 'pr245-admin-user';
 const ROUTES = [
@@ -53,6 +54,10 @@ function installMaxStubs(sent, answers) {
   maxApi.getBotChatMember = async () => ({ ok: true });
   postPatcher.tryPatchChannelPost = async (payload) => ({ ok: true, commentKey: `${payload.channelId}:${payload.postId}` });
 }
+function seedPollPost() {
+  store.saveChannel('pr245-poll-channel', { title: 'PR245 Poll Channel', linkedByUserId: TEST_USER });
+  store.savePost('pr245-poll-channel:poll-post', { channelId: 'pr245-poll-channel', channelTitle: 'PR245 Poll Channel', postId: 'poll-post', messageId: 'poll-message', originalText: 'Poll source post' });
+}
 function forwardedPostUpdate(label = 'post') {
   return { body: { update_type: 'message_created', message: { id: `forward-${label}`, body: { mid: `forward-mid-${label}`, text: `Forwarded ${label}`, forward: { chat_id: 'pr245-channel', chat_title: 'PR245 Канал', message: { seq: `post-${label}`, mid: `orig-${label}`, text: `Original ${label}` } } }, sender: { user_id: TEST_USER, first_name: 'PR245' }, recipient: { chat_id: `${TEST_USER}-chat`, chat_type: 'user' } } } };
 }
@@ -75,6 +80,7 @@ async function main() {
   reset();
   const sent = []; const answers = [];
   installMaxStubs(sent, answers);
+  seedPollPost();
   delete require.cache[require.resolve('../bot')];
   const bot = require('../bot');
 
@@ -140,6 +146,24 @@ async function main() {
   assert.strictEqual(createPayload.legacyAction, 'comments_select_post', 'polls:create carries comments_select_post delegation metadata');
   assert.strictEqual(createPayload.source, 'polls', 'polls:create preserves source polls');
   assert.ok(botAudit.list().some((event) => event.type === 'v3_route_callback_resolved' && event.route === 'polls:create' && event.legacyAction === 'comments_select_post'), 'polls:create is audited as delegated to production comments_select_post path');
+  const pollPostButton = buttons(sent.at(-1)).find((button) => {
+    const payload = parsePayload(button);
+    return payload.action === 'comments_pick_post' && payload.source === 'polls';
+  });
+  assert.ok(pollPostButton, 'polls:create picker emits poll-specific comments_pick_post');
+  const pollPickPayload = parsePayload(pollPostButton);
+  const beforePollPick = sent.length;
+  await webhook(bot, callbackUpdate(pollPickPayload, { callbackId: 'polls-pick-post-regression', messageId: 'polls-pick-msg', mid: 'polls-pick-mid' }));
+  assert.ok(sent.length > beforePollPick, 'comments_pick_post source polls visibly opens poll picked/card flow');
+  assert.ok(!/Комментарии под постом|Настройте комментарии|Раздел подготовлен\. Действие будет включено после безопасной реализации/i.test(visible(sent.at(-1))), 'comments_pick_post source polls does not render comments fallback or generic placeholder');
+  assert.ok(/Карточка выбранного поста|Свой вопрос|Быстро: Да|Опрос/i.test(visible(sent.at(-1))), 'comments_pick_post source polls reaches poll picked/create-card flow');
+  assert.ok(!botAudit.list().some((event) => event.type === 'unsupported_callback' && event.action === 'comments_pick_post' && event.source === 'polls'), 'comments_pick_post source polls does not hit unsupported_callback');
+
+  const beforeForgedNonPollPick = sent.length;
+  await webhook(bot, callbackUpdate({ action: 'comments_pick_post', source: 'comments', commentKey: pollPickPayload.commentKey }, { callbackId: 'forged-non-polls-pick', messageId: 'forged-non-polls-msg', mid: 'forged-non-polls-mid' }));
+  assert.ok(sent.length > beforeForgedNonPollPick, 'comments_pick_post without source polls is handled by existing non-poll path');
+  assert.ok(!/Карточка выбранного поста|Свой вопрос|Быстро: Да/i.test(visible(sent.at(-1))), 'comments_pick_post without source polls does not enter poll flow accidentally');
+
 
   const pollsResults = buttons(pollsHome).find((button) => /Результаты опросов/i.test(String(button.text || '')));
   assert.ok(pollsResults, 'polls:home emits Результаты опросов');
@@ -166,6 +190,16 @@ async function main() {
     await webhook(bot, forwardedPostUpdate(route.replace(':home', '')));
     assert.ok(sent.length > beforeForward, `${route} forwarded post produces a section-aware update`);
     assert.ok(expectedSection.test(visible(sent.at(-1))), `${route} preserves forwarded-post admin section state`);
+  }
+
+
+  for (const route of ['buttons:home', 'gifts:home', 'editor:home']) {
+    await webhook(bot, callbackUpdate({ route }, { callbackId: `main-reset-open-${route}`, messageId: `main-reset-msg-${route}`, mid: `main-reset-mid-${route}` }));
+    await webhook(bot, callbackUpdate({ route: 'main:home', action: 'main:home' }, { callbackId: `main-reset-main-${route}`, messageId: `main-reset-main-msg-${route}`, mid: `main-reset-main-mid-${route}` }));
+    const beforeForward = sent.length;
+    await webhook(bot, forwardedPostUpdate(`main-reset-${route.replace(':home', '')}`));
+    assert.ok(sent.length > beforeForward, `${route} -> main:home -> forward produces neutral/default update`);
+    assert.ok(!/Раздел: Кнопки под постами|Раздел: Подарки|Раздел: Редактор постов|Меню кнопок сохранено|Открываю подарки|Меню редактора постов сохранено/i.test(visible(sent.at(-1))), `${route} -> main:home clears stale forwarded-post section state`);
   }
 
   for (const forged of [

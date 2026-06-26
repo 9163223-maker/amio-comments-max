@@ -5398,6 +5398,22 @@ function applyRootSectionAdminState(userId = '', route = '') {
   });
 }
 
+function resetAdminStateForMainRoute(userId = '') {
+  const normalizedUserId = String(userId || '').trim();
+  if (!normalizedUserId) return null;
+  clearCommentAdminFlow(normalizedUserId);
+  clearGiftFlow(normalizedUserId);
+  clearActiveAdminFlowKind(normalizedUserId);
+  return rememberAdminScreen(normalizedUserId, { section: 'main', backAction: 'admin_section_main', rootAction: 'admin_section_main', selectMode: '' });
+}
+
+function isPollFlowCallbackPayload(payload = {}) {
+  const action = String(payload.action || '').trim();
+  const source = String(payload.source || '').trim().toLowerCase();
+  if ((action === 'comments_select_post' || action === 'comments_pick_post') && source === 'polls') return true;
+  return ['poll_status', 'poll_results', 'poll_create'].includes(action);
+}
+
 async function flushBotAuditTraceSafe(reason, extra = {}) {
   try {
     if (runtimeBotAuditTrace && typeof runtimeBotAuditTrace.flushScheduledExport === 'function') {
@@ -5509,6 +5525,7 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
     resolver: resolved.resolver
   };
   botAudit.log('v3_route_callback_received', baseAudit);
+  if (resolved.route === 'main:home') resetAdminStateForMainRoute(userId);
   await acknowledgeCallbackSilently(config, callbackId);
   let screen = null;
   let renderMs = 0;
@@ -5561,6 +5578,21 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
     await flushBotAuditTraceSafe('v3_route_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
     throw error;
   }
+}
+
+async function handlePollFlowCallback({ config, message, payload = {}, userId = '', callbackId = '' } = {}) {
+  await acknowledgeCallbackSilently(config, callbackId);
+  const screen = await v3MenuCore1539.asyncScreenForPayload(payload, { userId, config, pollFlowContract: true });
+  if (!isRenderableScreen(screen)) return { ok: false, action: String(payload.action || ''), source: String(payload.source || ''), error: 'poll_flow_screen_not_renderable' };
+  if (message) {
+    await upsertBotMessage({ config, message, text: screen.text, attachments: screen.attachments, editCurrent: true });
+    return { ok: true, action: String(payload.action || ''), source: String(payload.source || ''), resolver: 'poll_flow_v3_core', delivery: 'edit_or_upsert_current_message' };
+  }
+  if (userId) {
+    await sendMessage({ botToken: config.botToken, userId, text: screen.text, attachments: screen.attachments, notify: false });
+    return { ok: true, action: String(payload.action || ''), source: String(payload.source || ''), resolver: 'poll_flow_v3_core', delivery: 'fresh_private_fallback' };
+  }
+  return { ok: false, action: String(payload.action || ''), source: String(payload.source || ''), error: 'poll_flow_delivery_target_missing' };
 }
 
 function safeGiftsRootAttachments() {
@@ -5750,6 +5782,10 @@ async function handleMessageCallback(update, config) {
     userName,
     payload
   });
+
+  if (isPollFlowCallbackPayload(payload)) {
+    return handlePollFlowCallback({ config, message, payload, userId, callbackId });
+  }
 
   if (groupPushOnboarding.isGroupPushEnablePayload(payload)) {
     const chatId = getCallbackChatId(update, callback, message);
