@@ -5279,8 +5279,10 @@ async function handleGiftsRootCallback({ config, message, payload = {}, userId =
   let renderMs = 0;
   let deliveryMs = 0;
   let resolver = 'none';
+  const hasMessage = Boolean(message);
+  const hasUserId = Boolean(String(userId || '').trim());
   const rootAction = payload.action === 'admin_section_gifts' ? 'admin_section_gifts' : 'gifts:home';
-  botAudit.log('gifts_root_callback_received', { action: String(payload.action || ''), route: String(payload.route || ''), r: String(payload.r || '') });
+  botAudit.log('gifts_root_callback_received', { action: String(payload.action || ''), route: String(payload.route || ''), r: String(payload.r || ''), hasMessage, hasUserId, resolver, totalMs: 0, renderMs, deliveryMs });
   await acknowledgeCallbackSilently(config, callbackId);
   if (payload.resetContext === true) {
     clearGiftFlow(userId);
@@ -5295,6 +5297,9 @@ async function handleGiftsRootCallback({ config, message, payload = {}, userId =
     botAudit.log('gifts_root_callback_v3_error', { action: rootAction, error: error?.message || String(error) });
   }
   renderMs = Date.now() - renderStartedAt;
+
+  const fallbackText = 'Подарки / лид-магниты. Выберите действие.';
+  const fallbackAttachments = safeGiftsRootAttachments();
 
   if (message && isRenderableScreen(screen)) {
     resolver = 'v3-menu-core';
@@ -5313,20 +5318,36 @@ async function handleGiftsRootCallback({ config, message, payload = {}, userId =
       await upsertBotMessage({
         config,
         message,
-        text: 'Подарки / лид-магниты. Выберите действие.',
-        attachments: safeGiftsRootAttachments(),
+        text: fallbackText,
+        attachments: fallbackAttachments,
         editCurrent: true
       });
       deliveryMs = Date.now() - deliveryStartedAt;
       resolver = 'safe-fallback';
     }
+  } else if (hasUserId) {
+    resolver = isRenderableScreen(screen) ? 'v3-menu-core-private-fallback' : 'safe-fallback-private';
+    const deliveryStartedAt = Date.now();
+    await sendMessage({
+      botToken: config.botToken,
+      userId,
+      text: isRenderableScreen(screen) ? screen.text : fallbackText,
+      attachments: isRenderableScreen(screen) ? screen.attachments : fallbackAttachments,
+      notify: false
+    });
+    deliveryMs = Date.now() - deliveryStartedAt;
+    botAudit.log('gifts_root_callback_private_fallback_sent', { action: rootAction, hasMessage, hasUserId, resolver, totalMs: Date.now() - startedAt, renderMs, deliveryMs });
   } else {
     resolver = isRenderableScreen(screen) ? 'v3-menu-core' : 'safe-fallback';
+    const totalMs = Date.now() - startedAt;
+    botAudit.log('gifts_root_callback_delivery_target_missing', { action: rootAction, hasMessage, hasUserId, resolver, totalMs, renderMs, deliveryMs });
+    if (callbackId) await answerCallback({ botToken: config.botToken, callbackId, notification: 'Откройте бота в личных сообщениях и нажмите «Подарки» ещё раз.' });
+    return { ok: false, action: rootAction, error: 'gifts_root_delivery_target_missing', resolver, totalMs, renderMs, deliveryMs, rendered: false };
   }
 
   const totalMs = Date.now() - startedAt;
-  botAudit.log('gifts_root_callback_resolved', { action: rootAction, resolver, totalMs, renderMs, deliveryMs });
-  return { ok: true, action: rootAction, screenId: String(screen?.id || (resolver === 'safe-fallback' ? 'gifts_safe_fallback' : 'gifts_legacy_home')), resolver, totalMs, renderMs, deliveryMs, rendered: true };
+  botAudit.log('gifts_root_callback_resolved', { action: rootAction, resolver, hasMessage, hasUserId, totalMs, renderMs, deliveryMs });
+  return { ok: true, action: rootAction, screenId: String(screen?.id || (resolver.includes('safe-fallback') ? 'gifts_safe_fallback' : 'gifts_legacy_home')), resolver, totalMs, renderMs, deliveryMs, rendered: true };
 }
 
 async function renderCleanButtonsCallback({ config, message, payload, userId }) {
@@ -6550,6 +6571,7 @@ async function handleMessageCallback(update, config) {
     }
   }
 
+  botAudit.log('unsupported_callback', { action: String(payload?.action || ''), route: String(payload?.route || ''), r: String(payload?.r || ''), hasMessage: Boolean(message), hasUserId: Boolean(String(userId || '').trim()) });
   return { ok: true, skipped: true, reason: 'unsupported_callback', payload };
   } finally {
     activeCallbackUiContext = null;

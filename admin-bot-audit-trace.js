@@ -3,6 +3,12 @@
 const liveIdentity = require('./services/liveIdentityService');
 
 const DEFAULT_LIMIT = 800;
+const RUNTIME_EXPORT_TYPES = new Set([
+  'gifts_root_callback_received',
+  'gifts_root_callback_resolved',
+  'gifts_root_callback_delivery_target_missing',
+  'unsupported_callback'
+]);
 
 function clean(value) { return String(value || '').trim(); }
 function runtime() { return process.env.RUNTIME_VERSION || process.env.BUILD_VERSION || 'unknown'; }
@@ -45,13 +51,22 @@ function safePayload(payload = {}, depth = 0) {
   });
   return out;
 }
+function maybeExportRuntimeTrace(type) {
+  if (!RUNTIME_EXPORT_TYPES.has(clean(type))) return;
+  try {
+    const svc = require('./services/runtimeBotAuditTraceService');
+    if (svc && svc.exportLatestTrace) setImmediate(() => { svc.exportLatestTrace().catch(() => {}); });
+  } catch {}
+}
 function log(type, payload = {}) {
   try {
     const st = state();
-    const entry = { seq: ++st.seq, at: new Date().toISOString(), runtimeVersion: runtime(), type: clean(type) || 'event', ...safePayload(payload), liveIdentity: liveIdentity.fingerprint() };
+    const eventType = clean(type) || 'event';
+    const entry = { seq: ++st.seq, at: new Date().toISOString(), runtimeVersion: runtime(), type: eventType, ...safePayload(payload), liveIdentity: liveIdentity.fingerprint() };
     st.events.push(entry);
     const cap = limit();
     if (st.events.length > cap) st.events.splice(0, st.events.length - cap);
+    maybeExportRuntimeTrace(eventType);
     return entry;
   } catch { return null; }
 }

@@ -459,4 +459,4 @@ function info() {
   };
 }
 
-module.exports = { recordStartup, info, sanitizeEntry, sanitizeRuntimeContract, sanitizeLiveVersionSnapshot, sanitizeFinalRuntimeReadinessGate, buildFinalRuntimeReadinessGateFromSnapshot, getBranchHead, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
+module.exports = { recordStartup, info, sanitizeEntry, sanitizeRuntimeContract, sanitizeLiveVersionSnapshot, sanitizeFinalRuntimeReadinessGate, buildFinalRuntimeReadinessGateFromSnapshot, getBranchHead, ensureBranch, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
