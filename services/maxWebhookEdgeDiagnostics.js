@@ -1,6 +1,7 @@
 'use strict';
 
 const groupPushOnboarding = require('./groupPushOnboardingService');
+const rootMenuLiveParityTrace = require('./rootMenuLiveParityTraceService');
 
 const LIMIT = 50;
 const events = [];
@@ -114,6 +115,22 @@ function pickCallback(body = {}) {
   return body.data && typeof body.data === 'object' && body.data.callback && typeof body.data.callback === 'object' ? body.data.callback : null;
 }
 
+function pickCallbackPayload(body = {}, callback = null) {
+  const cb = callback || pickCallback(body);
+  if (!cb || typeof cb !== 'object') return '';
+  if (Object.prototype.hasOwnProperty.call(cb, 'payload')) return cb.payload;
+  if (Object.prototype.hasOwnProperty.call(cb, 'data')) return cb.data;
+  if (Object.prototype.hasOwnProperty.call(cb, 'value')) return cb.value;
+  if (Object.prototype.hasOwnProperty.call(cb, 'callback_data')) return cb.callback_data;
+  if (Object.prototype.hasOwnProperty.call(cb, 'callbackData')) return cb.callbackData;
+  return '';
+}
+
+function pickCallbackId(callback = null) {
+  if (!callback || typeof callback !== 'object') return '';
+  return firstString(callback.callback_id, callback.callbackId, callback.id);
+}
+
 function pickSender(message = null, callback = null) {
   return (message && (message.sender || message.from || message.user)) || (callback && (callback.user || callback.sender || callback.from)) || null;
 }
@@ -192,10 +209,33 @@ function safeEvent(input = {}) {
 }
 
 function record(input = {}) {
+  const req = input.req || {};
+  const body = input.body !== undefined ? input.body : req.body;
+  const callback = pickCallback(body);
   const event = safeEvent(input);
+  const callbackPayload = pickCallbackPayload(body, callback);
+  const startedAt = Date.now();
   Object.defineProperty(event, '_seq', { value: ++seq, enumerable: false, configurable: false });
+  Object.defineProperty(event, '_pr246Payload', { value: callbackPayload, enumerable: false, configurable: false });
+  Object.defineProperty(event, '_pr246StartedAt', { value: startedAt, enumerable: false, configurable: false });
   events.push(event);
   if (events.length > LIMIT) events.splice(0, events.length - LIMIT);
+  if (event.hasCallback) {
+    try {
+      rootMenuLiveParityTrace.record('webhook_edge_received', {
+        updateType: event.updateType,
+        hasCallback: event.hasCallback,
+        hasMessage: event.hasMessage,
+        hasUserId: event.hasSenderUserId,
+        hasCallbackId: Boolean(pickCallbackId(callback)),
+        payload: callbackPayload,
+        messagePresentSource: event.hasMessage ? 'http_webhook_edge' : '',
+        textPreview: event.textPreview,
+        handlerName: 'index.webhook.edge',
+        resultKind: 'received'
+      });
+    } catch {}
+  }
   return event;
 }
 
@@ -204,11 +244,29 @@ function update(event, patch = {}) {
   if (Object.prototype.hasOwnProperty.call(patch, 'handedToBot')) event.handedToBot = Boolean(patch.handedToBot);
   if (Object.prototype.hasOwnProperty.call(patch, 'botResultKind')) event.botResultKind = sanitizeString(patch.botResultKind, 80);
   if (Object.prototype.hasOwnProperty.call(patch, 'errorCode')) event.errorCode = sanitizeString(patch.errorCode, 80);
+  if (event.hasCallback) {
+    try {
+      rootMenuLiveParityTrace.record('handler_returned', {
+        updateType: event.updateType,
+        hasCallback: event.hasCallback,
+        hasMessage: event.hasMessage,
+        hasUserId: event.hasSenderUserId,
+        hasCallbackId: false,
+        payload: event._pr246Payload || { action: event.action },
+        messagePresentSource: event.hasMessage ? 'http_webhook_edge' : '',
+        textPreview: event.textPreview,
+        handlerName: 'index.webhook.edge',
+        resultKind: event.botResultKind || 'handler_returned',
+        errorCode: event.errorCode || '',
+        totalMs: Date.now() - Number(event._pr246StartedAt || Date.now())
+      });
+    } catch {}
+  }
   return publicEvent(event);
 }
 
 function publicEvent(event) {
-  const { _seq, ...safe } = event || {};
+  const { _seq, _pr246Payload, _pr246StartedAt, ...safe } = event || {};
   return { ...safe, topLevelKeys: Array.isArray(safe.topLevelKeys) ? safe.topLevelKeys.slice(0, 20) : [] };
 }
 

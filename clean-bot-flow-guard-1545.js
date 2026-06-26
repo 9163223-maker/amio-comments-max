@@ -12,6 +12,7 @@ const pollTrace = require('./poll-debug-trace');
 const uiTrace = require('./v3-ui-trace-1539');
 const timing = require('./v3-ui-timing-cc8');
 const accountRuntime = require('./src/core/accountRuntime');
+const pr246Trace = require('./services/rootMenuLiveParityTraceService');
 
 const RUNTIME = 'CC8.1.17-DIRECT-CHANNEL-FAST-DELEGATE-PR80';
 
@@ -53,8 +54,10 @@ function createCleanBot(legacy){
     const u=req.body||{}, c=cb(u), m=msg(u);
     try{
       uiTrace.log('webhook_in',{updateType:String(u.update_type||u.type||''),hasCallback:!!c,hasMessage:!!m,messageId:uiTrace.mask(mid(m)),chatId:uiTrace.mask(chat(m)),chatType:chatType(m),isChannel:isChannelMessage(m)});
+      try { if (c) pr246Trace.record('webhook_edge_received', { updateType:String(u.update_type||u.type||''), hasCallback:!!c, hasMessage:!!m, hasUserId:!!(uid(u,c,m)||sender(m)), hasCallbackId:!!cbid(c), payload:pv(c), messagePresentSource:m?'webhook_edge':'' }); } catch {}
       if(c){
         const p=parse(c), a=String(p.action||''), userId=uid(u,c,m)||sender(m), raw=rawPayload(c); timingAction=a;
+        try { pr246Trace.record('callback_received', { updateType:String(u.update_type||u.type||''), hasCallback:true, hasMessage:!!m, hasUserId:!!userId, hasCallbackId:!!cbid(c), payload:p, messagePresentSource:m?'callback':'' }); } catch {}
         uiTrace.log('callback_received',{action:a,payload:uiTrace.lightPayload(p),rawLen:raw.length,callbackId:uiTrace.mask(cbid(c)),userId:uiTrace.mask(userId),messageId:uiTrace.mask(mid(m)),chatId:uiTrace.mask(chat(m)),isChannel:isChannelMessage(m)});
 
         if(isChannelMessage(m)){
@@ -116,7 +119,7 @@ function createCleanBot(legacy){
       uiTrace.log('delegate_legacy',{reason:'no_wrapper_match'}); timingPath='delegate_legacy_no_match';
       return await timing.measure('delegate_legacy',{action:timingAction||String(u.update_type||u.type||''),path:timingPath},()=>wrapped.handleWebhook(req,res,config));
     }catch(e){ uiTrace.log('flow_guard_error',{error:String(e?.message||e),stack:String(e?.stack||'').slice(0,400)}); pollTrace.add('flow_guard_error',{error:String(e?.message||e),stack:String(e?.stack||'').slice(0,400)}); if(!res.headersSent) return res.status(500).json({ok:false,error:e?.message||'flow_guard_failed',handledBy:RUNTIME}); return null; }
-    finally{ timing.log('webhook_total',{durationMs:Date.now()-requestStartedAt,action:timingAction,screenId:timingScreen,path:timingPath,updateType:String(u.update_type||u.type||''),hasCallback:!!c,hasMessage:!!m,isChannel:isChannelMessage(m)}); }
+    finally{ try { if (c) pr246Trace.record('handler_returned', { updateType:String(u.update_type||u.type||''), hasCallback:!!c, hasMessage:!!m, hasUserId:!!(uid(u,c,m)||sender(m)), hasCallbackId:!!cbid(c), payload: c ? parse(c) : {}, handlerName:RUNTIME, resultKind:timingPath||'returned', totalMs:Date.now()-requestStartedAt }); } catch {} timing.log('webhook_total',{durationMs:Date.now()-requestStartedAt,action:timingAction,screenId:timingScreen,path:timingPath,updateType:String(u.update_type||u.type||''),hasCallback:!!c,hasMessage:!!m,isChannel:isChannelMessage(m)}); }
   }};
 }
 module.exports={createCleanBot,RUNTIME};
