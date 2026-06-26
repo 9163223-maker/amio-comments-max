@@ -5268,6 +5268,120 @@ function isGiftsRootPayload(payload = {}) {
     || payload?.r === 'gifts:home';
 }
 
+const ROOT_SECTION_ROUTES = new Set([
+  'channels:home',
+  'comments:home',
+  'gifts:home',
+  'buttons:home',
+  'stats:home',
+  'push:home',
+  'ad_links:home',
+  'polls:home',
+  'highlights:home',
+  'editor:home',
+  'archive:home',
+  'account:home',
+  'settings:home'
+]);
+
+const LEGACY_ROOT_ACTION_ROUTES = {
+  admin_section_channels: 'channels:home',
+  admin_section_comments: 'comments:home',
+  admin_section_gifts: 'gifts:home',
+  gift_admin_open_menu: 'gifts:home',
+  admin_section_buttons: 'buttons:home',
+  admin_section_stats: 'stats:home',
+  admin_section_push: 'push:home',
+  admin_section_posts: 'editor:home',
+  admin_section_archive: 'archive:home',
+  admin_section_tariffs: 'account:home'
+};
+
+function resolveRootSectionCallback(payload = {}) {
+  const route = String(payload.route || '').trim();
+  if (ROOT_SECTION_ROUTES.has(route)) return { ok: true, route, sectionId: route.split(':')[0], resolver: 'payload.route' };
+  const r = String(payload.r || '').trim();
+  if (ROOT_SECTION_ROUTES.has(r)) return { ok: true, route: r, sectionId: r.split(':')[0], resolver: 'payload.r' };
+  const action = String(payload.action || '').trim();
+  if (ROOT_SECTION_ROUTES.has(action)) return { ok: true, route: action, sectionId: action.split(':')[0], resolver: 'payload.action.canonical' };
+  if (LEGACY_ROOT_ACTION_ROUTES[action]) return { ok: true, route: LEGACY_ROOT_ACTION_ROUTES[action], sectionId: LEGACY_ROOT_ACTION_ROUTES[action].split(':')[0], resolver: 'legacy.compatibility', legacyAction: action };
+  return { ok: false, route: '', sectionId: '', resolver: 'none' };
+}
+
+async function handleRootSectionCallback({ config, message, payload = {}, userId = '', callbackId = '' } = {}) {
+  const startedAt = Date.now();
+  const resolved = resolveRootSectionCallback(payload);
+  if (!resolved.ok) return { ok: false, skipped: true, reason: 'not_root_section_callback' };
+  const hasMessage = Boolean(message);
+  const hasUserId = Boolean(String(userId || '').trim());
+  const hasCallbackId = Boolean(String(callbackId || '').trim());
+  const baseAudit = {
+    route: resolved.route,
+    action: String(payload.action || ''),
+    sectionId: resolved.sectionId,
+    hasMessage,
+    hasUserId,
+    hasCallbackId,
+    resolver: resolved.resolver
+  };
+  botAudit.log('root_section_callback_received', baseAudit);
+  if (resolved.route === 'gifts:home') {
+    botAudit.log('gifts_root_callback_received', { action: String(payload.action || ''), route: resolved.route, r: String(payload.r || ''), hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs: 0, renderMs: 0, deliveryMs: 0 });
+  }
+  await acknowledgeCallbackSilently(config, callbackId);
+  let screen = null;
+  let renderMs = 0;
+  let deliveryMs = 0;
+  try {
+    const renderStartedAt = Date.now();
+    screen = await v3MenuCore1539.asyncScreenForPayload({ ...payload, route: resolved.route, action: resolved.route }, { userId, config, rootSectionContract: true });
+    renderMs = Date.now() - renderStartedAt;
+  } catch (error) {
+    renderMs = Date.now() - startedAt;
+    const totalMs = Date.now() - startedAt;
+    botAudit.log('root_section_callback_failed', { ...baseAudit, delivery: 'none', error: 'render_failed', status: String(error?.message || error).slice(0, 120), totalMs, renderMs, deliveryMs });
+    return { ok: false, action: String(payload.action || ''), route: resolved.route, sectionId: resolved.sectionId, error: 'root_section_render_failed' };
+  }
+  if (!isRenderableScreen(screen)) {
+    const totalMs = Date.now() - startedAt;
+    botAudit.log('root_section_callback_failed', { ...baseAudit, delivery: 'none', error: 'screen_not_renderable', status: 'empty_screen', totalMs, renderMs, deliveryMs });
+    return { ok: false, action: String(payload.action || ''), route: resolved.route, sectionId: resolved.sectionId, error: 'root_section_screen_not_renderable' };
+  }
+  try {
+    const deliveryStartedAt = Date.now();
+    let delivery = '';
+    if (message) {
+      await upsertBotMessage({ config, message, text: screen.text, attachments: screen.attachments, editCurrent: true });
+      delivery = 'edit_or_upsert_current_message';
+    } else if (hasUserId) {
+      await sendMessage({ botToken: config.botToken, userId, text: screen.text, attachments: screen.attachments, notify: false });
+      delivery = 'fresh_private_fallback';
+    } else {
+      deliveryMs = Date.now() - deliveryStartedAt;
+      const totalMs = Date.now() - startedAt;
+      botAudit.log('root_section_callback_failed', { ...baseAudit, delivery: 'none', error: 'delivery_target_missing', status: 'no_message_no_user', totalMs, renderMs, deliveryMs });
+      if (resolved.route === 'gifts:home') {
+        botAudit.log('gifts_root_callback_delivery_target_missing', { action: String(payload.action || ''), route: resolved.route, hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs, renderMs, deliveryMs });
+      }
+      return { ok: false, action: String(payload.action || ''), route: resolved.route, sectionId: resolved.sectionId, error: 'root_section_delivery_target_missing' };
+    }
+    deliveryMs = Date.now() - deliveryStartedAt;
+    const totalMs = Date.now() - startedAt;
+    botAudit.log('root_section_callback_resolved', { ...baseAudit, delivery, totalMs, renderMs, deliveryMs });
+    if (resolved.route === 'gifts:home') {
+      if (delivery === 'fresh_private_fallback') {
+        botAudit.log('gifts_root_callback_private_fallback_sent', { action: String(payload.action || ''), route: resolved.route, hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs, renderMs, deliveryMs });
+      }
+      botAudit.log('gifts_root_callback_resolved', { action: String(payload.action || ''), route: resolved.route, resolver: 'v3-menu-core', hasMessage, hasUserId, totalMs, renderMs, deliveryMs });
+    }
+    return { ok: true, action: String(payload.action || resolved.route), route: resolved.route, sectionId: resolved.sectionId, screenId: screen.id || screen.route || resolved.route, resolver: resolved.resolver, delivery };
+  } catch (error) {
+    const totalMs = Date.now() - startedAt;
+    botAudit.log('root_section_callback_failed', { ...baseAudit, delivery: 'failed', error: 'delivery_failed', status: String(error?.message || error).slice(0, 120), totalMs, renderMs, deliveryMs });
+    throw error;
+  }
+}
+
 function safeGiftsRootAttachments() {
   return [{
     type: 'inline_keyboard',
@@ -5406,14 +5520,17 @@ async function handleMessageCallback(update, config) {
   };
   botAudit.log('callback_received_pre_dedupe', safeCallbackAuditFields);
 
-  if (isGiftsRootPayload(payload)) {
-    logVerbose(config, 'CALLBACK GIFTS ROOT PRE-DEDUPE', {
+  const rootSection = resolveRootSectionCallback(payload);
+  if (rootSection.ok) {
+    logVerbose(config, 'CALLBACK ROOT SECTION PRE-DEDUPE', {
       callbackId,
       userId,
       userName,
-      payload
+      payload,
+      route: rootSection.route,
+      resolver: rootSection.resolver
     });
-    return handleGiftsRootCallback({ config, message, payload, userId, callbackId });
+    return handleRootSectionCallback({ config, message, payload, userId, callbackId });
   }
 
   if (isDuplicateCallback(callbackId, actionKey)) {
