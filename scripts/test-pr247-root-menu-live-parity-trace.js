@@ -56,6 +56,42 @@ async function main() {
   assertNoLeaks({ edge: edge.summary(), pr247: pr247.payload('manual') });
 
   reset();
+  const objectPayloadBody = callbackBody({ route: 'gifts:home' });
+  objectPayloadBody.callback.payload = { route: 'gifts:home' };
+  const objectPayloadEvent = edge.record({ body: objectPayloadBody, handedToBot: false });
+  edge.update(objectPayloadEvent, { handedToBot: true, botResultKind: 'ok' });
+  const objectPayloadTrace = pr247.listManual();
+  const objectEdgeReceived = objectPayloadTrace.find((e) => e.eventKind === 'webhook_edge_received');
+  const objectHandlerReturned = objectPayloadTrace.find((e) => e.eventKind === 'handler_returned');
+  for (const event of [objectEdgeReceived, objectHandlerReturned]) {
+    assert(event, 'object-payload edge trace event exists');
+    assert.strictEqual(event.callbackRoute, 'gifts:home', 'object-payload event keeps callbackRoute');
+    assert.strictEqual(event.resolvedRootRoute, 'gifts:home', 'object-payload event keeps resolvedRootRoute');
+    assert.strictEqual(event.payloadShape, 'object', 'object-payload event keeps payloadShape');
+    assert.strictEqual(event.resolver, 'payload.route', 'object-payload event keeps resolver');
+  }
+  assert.strictEqual(objectHandlerReturned.resultKind, 'ok', 'object-payload handler_returned keeps resultKind');
+  assert.strictEqual(objectHandlerReturned.delivery, 'handed_to_bot', 'object-payload handler_returned keeps delivery');
+  assertNoLeaks({ edge: edge.summary(), pr247: pr247.payload('manual') });
+
+  reset();
+  delete process.env.GITHUB_DEBUG_TOKEN;
+  pr247.record({ body: callbackBody({ route: 'gifts:home' }), eventKind: 'webhook_edge_received' });
+  const manualStatus = pr247.payload('manual').traceExportStatus;
+  const rootStatus = pr247.payload('root').traceExportStatus;
+  assert.strictEqual(manualStatus.attempted, true, 'missing-token manual export is marked attempted');
+  assert.strictEqual(manualStatus.targetBranch, 'runtime-status', 'missing-token manual export targets runtime-status');
+  assert.strictEqual(manualStatus.targetPath, 'runtime/manual-ui-walkthrough-trace.json', 'missing-token manual path is correct');
+  assert.strictEqual(manualStatus.ok, false, 'missing-token manual export is not ok');
+  assert.strictEqual(manualStatus.reasonCategory, 'missing_token', 'missing-token manual reason is visible');
+  assert.ok(manualStatus.lastAttemptAt, 'missing-token manual lastAttemptAt is visible');
+  assert.ok(manualStatus.errorMessage, 'missing-token manual error message is visible');
+  assert.strictEqual(rootStatus.attempted, true, 'missing-token root export is marked attempted');
+  assert.strictEqual(rootStatus.targetBranch, 'runtime-status', 'missing-token root export targets runtime-status');
+  assert.strictEqual(rootStatus.targetPath, 'runtime/root-menu-live-parity-trace.json', 'missing-token root path is correct');
+  assert.strictEqual(rootStatus.reasonCategory, 'missing_token', 'missing-token root reason is visible');
+
+  reset();
   const sensitive = '{"route":"gifts:home","action":"gifts:home","token":"secret-token","authorization":"Bearer abc","commentKey":"comment-key-secret","url":"https://x.test/?token=abc","callbackId":"raw-callback-id","userId":"raw-user-id","chatId":"raw-chat-id","messageId":"raw-message-id","channelId":"raw-channel-id","postId":"raw-post-id"}';
   edge.record({ body: callbackBody(sensitive), handedToBot: false });
   const combined = { info: pr247.payload('manual'), summary: edge.summary(), html: edge.renderHtml(edge.summary()) };

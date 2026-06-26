@@ -196,10 +196,17 @@ function safeEvent(input = {}) {
 function record(input = {}) {
   const event = safeEvent(input);
   Object.defineProperty(event, '_seq', { value: ++seq, enumerable: false, configurable: false });
+  const pr247Body = input.body !== undefined ? input.body : (input.req && input.req.body);
+  const pr247Callback = pickCallback(pr247Body);
+  if (event.hasCallback) {
+    Object.defineProperty(event, '_pr247Body', { value: pr247Body, enumerable: false, configurable: false });
+    Object.defineProperty(event, '_pr247CallbackPayload', { value: pr247Callback && (pr247Callback.payload ?? pr247Callback.data), enumerable: false, configurable: false });
+    Object.defineProperty(event, '_pr247UpdateType', { value: event.updateType, enumerable: false, configurable: false });
+  }
   events.push(event);
   if (events.length > LIMIT) events.splice(0, events.length - LIMIT);
   try {
-    if (event.hasCallback) pr247Trace.record({ req: input.req, body: input.body !== undefined ? input.body : (input.req && input.req.body), eventKind: 'webhook_edge_received', updateType: event.updateType, hasCallback: true, hasMessage: event.hasMessage, hasUserId: event.hasSenderUserId, textPreview: event.textPreview, resultKind: 'edge_recorded', delivery: event.handedToBot ? 'handed_to_bot' : 'not_handed_to_bot' });
+    if (event.hasCallback) pr247Trace.record({ req: input.req, body: pr247Body, eventKind: 'webhook_edge_received', updateType: event.updateType, hasCallback: true, hasMessage: event.hasMessage, hasUserId: event.hasSenderUserId, textPreview: event.textPreview, resultKind: 'edge_recorded', delivery: event.handedToBot ? 'handed_to_bot' : 'not_handed_to_bot' });
   } catch {}
   return event;
 }
@@ -210,7 +217,10 @@ function update(event, patch = {}) {
   if (Object.prototype.hasOwnProperty.call(patch, 'botResultKind')) event.botResultKind = sanitizeString(patch.botResultKind, 80);
   if (Object.prototype.hasOwnProperty.call(patch, 'errorCode')) event.errorCode = sanitizeString(patch.errorCode, 80);
   try {
-    if (event.hasCallback) pr247Trace.record({ body: { update_type: event.updateType, callback: { payload: event.action } }, eventKind: 'handler_returned', updateType: event.updateType, hasCallback: true, hasMessage: event.hasMessage, hasUserId: event.hasSenderUserId, textPreview: event.textPreview, resultKind: event.botResultKind || (event.handedToBot ? 'handed_to_bot' : 'not_handed_to_bot'), delivery: event.handedToBot ? 'handed_to_bot' : 'not_handed_to_bot', errorCode: event.errorCode, handlerName: 'bot.handleWebhook', traceExportStatus: pr247Trace.payload('manual').traceExportStatus });
+    if (event.hasCallback) {
+      const body = event._pr247Body || { update_type: event._pr247UpdateType || event.updateType, callback: { payload: event._pr247CallbackPayload !== undefined ? event._pr247CallbackPayload : event.action } };
+      pr247Trace.record({ body, eventKind: 'handler_returned', updateType: event._pr247UpdateType || event.updateType, hasCallback: true, hasMessage: event.hasMessage, hasUserId: event.hasSenderUserId, textPreview: event.textPreview, resultKind: event.botResultKind || (event.handedToBot ? 'handed_to_bot' : 'not_handed_to_bot'), delivery: event.handedToBot ? 'handed_to_bot' : 'not_handed_to_bot', errorCode: event.errorCode, handlerName: 'bot.handleWebhook', traceExportStatus: pr247Trace.payload('manual').traceExportStatus });
+    }
   } catch {}
   return publicEvent(event);
 }
