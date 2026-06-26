@@ -75,6 +75,7 @@ function log(type, payload = {}) {
     st.events.push(entry);
     const cap = limit();
     if (st.events.length > cap) st.events.splice(0, st.events.length - cap);
+    try { const pr246 = require('./services/rootMenuLiveParityTraceService'); if (pr246 && pr246.ingestAuditEvent) pr246.ingestAuditEvent(eventType, payload); } catch {}
     maybeExportRuntimeTrace(eventType);
     return entry;
   } catch { return null; }

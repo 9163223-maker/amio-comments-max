@@ -54,6 +54,7 @@ runSmoke('test-post-merge-live-readiness-pr234.js', 'PR234 post-merge live readi
 runSmoke('test-pr243-gifts-no-message-trace.js', 'PR243 gifts no-message callback and runtime trace smoke test');
 runSmoke('test-pr244-gifts-root-pre-dedupe-trace.js', 'PR244 gifts root pre-dedupe trace smoke test');
 runSmoke('test-pr245-root-section-opening-contract.js', 'PR245 root section opening contract smoke test');
+runSmoke('test-pr246-root-menu-live-parity-trace.js', 'PR246 root menu live parity trace smoke test');
 runSmoke('test-pr241-gifts-stats-tenant-contract.js', 'PR241 gifts/stats tenant contract test');
 runSmoke('test-pr242-gifts-root-callback.js', 'PR242 gifts root callback test');
 

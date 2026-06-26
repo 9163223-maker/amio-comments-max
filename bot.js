@@ -44,6 +44,7 @@ const pushDispatchDiagnostics = require("./services/pushDispatchDiagnostics");
 const pushDispatchLog = require("./services/pushDispatchLogService");
 const botAudit = require("./admin-bot-audit-trace");
 const runtimeBotAuditTrace = require("./services/runtimeBotAuditTraceService");
+const pr246Trace = require("./services/rootMenuLiveParityTraceService");
 const v3MenuCore1539 = require("./v3-menu-core-1539");
 const buttonsFlow = require("./buttons-flow-cc8-clean");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
@@ -5443,6 +5444,7 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
     resolver: resolved.resolver
   };
   botAudit.log('root_section_callback_received', baseAudit);
+  try { pr246Trace.record('root_resolved', { ...baseAudit, payload, resolvedRootRoute: resolved.route, handlerName: 'handleRootSectionCallback' }); } catch {}
   applyRootSectionAdminState(userId, resolved.route);
   if (resolved.route === 'gifts:home') {
     botAudit.log('gifts_root_callback_received', { action: String(payload.action || ''), route: resolved.route, r: String(payload.r || ''), hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs: 0, renderMs: 0, deliveryMs: 0 });
@@ -5453,8 +5455,10 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
   let deliveryMs = 0;
   try {
     const renderStartedAt = Date.now();
+    try { pr246Trace.record('render_started', { ...baseAudit, payload, resolvedRootRoute: resolved.route, handlerName: 'v3MenuCore1539.asyncScreenForPayload' }); } catch {}
     screen = await v3MenuCore1539.asyncScreenForPayload({ ...payload, route: resolved.route, action: resolved.route }, { userId, config, rootSectionContract: true });
     renderMs = Date.now() - renderStartedAt;
+    try { pr246Trace.record('render_resolved', { ...baseAudit, payload, resolvedRootRoute: resolved.route, renderMs, resultKind: screen && (screen.id || screen.route) || 'screen' }); } catch {}
   } catch (error) {
     renderMs = Date.now() - startedAt;
     const totalMs = Date.now() - startedAt;
@@ -5470,6 +5474,7 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
   }
   try {
     const deliveryStartedAt = Date.now();
+    try { pr246Trace.record('delivery_started', { ...baseAudit, payload, resolvedRootRoute: resolved.route }); } catch {}
     let delivery = '';
     if (message) {
       await upsertBotMessage({ config, message, text: screen.text, attachments: screen.attachments, editCurrent: true });
@@ -5490,6 +5495,7 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
     deliveryMs = Date.now() - deliveryStartedAt;
     const totalMs = Date.now() - startedAt;
     botAudit.log('root_section_callback_resolved', { ...baseAudit, delivery, totalMs, renderMs, deliveryMs });
+    try { pr246Trace.record('delivery_resolved', { ...baseAudit, payload, resolvedRootRoute: resolved.route, delivery, totalMs, renderMs, deliveryMs, resultKind: 'ok' }); } catch {}
     if (resolved.route === 'gifts:home') {
       if (delivery === 'fresh_private_fallback') {
         botAudit.log('gifts_root_callback_private_fallback_sent', { action: String(payload.action || ''), route: resolved.route, hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs, renderMs, deliveryMs });
@@ -5525,6 +5531,7 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
     resolver: resolved.resolver
   };
   botAudit.log('v3_route_callback_received', baseAudit);
+  try { pr246Trace.record('v3_resolved', { ...baseAudit, payload, resolvedV3Route: resolved.route, handlerName: 'handleV3RouteCallback' }); } catch {}
   if (resolved.route === 'main:home') resetAdminStateForMainRoute(userId);
   await acknowledgeCallbackSilently(config, callbackId);
   let screen = null;
@@ -5532,12 +5539,14 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
   let deliveryMs = 0;
   try {
     const renderStartedAt = Date.now();
+    try { pr246Trace.record('render_started', { ...baseAudit, payload, resolvedV3Route: resolved.route, handlerName: 'v3MenuCore1539.asyncScreenForPayload' }); } catch {}
     const legacyAction = productionLegacyActionFromV3Payload(resolved.route, payload);
     const renderPayload = legacyAction
       ? { ...payload, route: '', r: '', action: legacyAction, delegatedFromRoute: resolved.route }
       : { ...payload, route: resolved.route, action: resolved.route };
     screen = await v3MenuCore1539.asyncScreenForPayload(renderPayload, { userId, config, v3RouteContract: true, delegatedFromRoute: legacyAction ? resolved.route : '' });
     renderMs = Date.now() - renderStartedAt;
+    try { pr246Trace.record('render_resolved', { ...baseAudit, payload, resolvedV3Route: resolved.route, renderMs, resultKind: screen && (screen.id || screen.route) || 'screen' }); } catch {}
   } catch (error) {
     renderMs = Date.now() - startedAt;
     const totalMs = Date.now() - startedAt;
@@ -5553,6 +5562,7 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
   }
   try {
     const deliveryStartedAt = Date.now();
+    try { pr246Trace.record('delivery_started', { ...baseAudit, payload, resolvedV3Route: resolved.route }); } catch {}
     let delivery = '';
     if (message) {
       await upsertBotMessage({ config, message, text: screen.text, attachments: screen.attachments, editCurrent: true });
@@ -5570,6 +5580,7 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
     deliveryMs = Date.now() - deliveryStartedAt;
     const totalMs = Date.now() - startedAt;
     botAudit.log('v3_route_callback_resolved', { ...baseAudit, delivery, totalMs, renderMs, deliveryMs });
+    try { pr246Trace.record('delivery_resolved', { ...baseAudit, payload, resolvedV3Route: resolved.route, delivery, totalMs, renderMs, deliveryMs, resultKind: 'ok' }); } catch {}
     await flushBotAuditTraceSafe('v3_route_callback_resolved', { route: resolved.route, sectionId: resolved.sectionId });
     return { ok: true, action: String(payload.action || resolved.route), route: resolved.route, sectionId: resolved.sectionId, screenId: screen.id || screen.route || resolved.route, resolver: resolved.resolver, delivery };
   } catch (error) {
