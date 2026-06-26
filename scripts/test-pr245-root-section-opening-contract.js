@@ -7,6 +7,7 @@ delete process.env.GITHUB_DEBUG_TOKEN;
 const botAudit = require('../admin-bot-audit-trace');
 const runtimeTrace = require('../services/runtimeBotAuditTraceService');
 const maxApi = require('../services/maxApi');
+const postPatcher = require('../services/postPatcher');
 
 const TEST_USER = 'pr245-admin-user';
 const ROUTES = [
@@ -50,6 +51,10 @@ function installMaxStubs(sent, answers) {
   maxApi.answerCallback = async (payload) => { answers.push(payload); return { ok: true }; };
   maxApi.getChat = async () => ({ title: 'PR245 Канал' });
   maxApi.getBotChatMember = async () => ({ ok: true });
+  postPatcher.tryPatchChannelPost = async (payload) => ({ ok: true, commentKey: `${payload.channelId}:${payload.postId}` });
+}
+function forwardedPostUpdate(label = 'post') {
+  return { body: { update_type: 'message_created', message: { id: `forward-${label}`, body: { mid: `forward-mid-${label}`, text: `Forwarded ${label}`, forward: { chat_id: 'pr245-channel', chat_title: 'PR245 Канал', message: { seq: `post-${label}`, mid: `orig-${label}`, text: `Original ${label}` } } }, sender: { user_id: TEST_USER, first_name: 'PR245' }, recipient: { chat_id: `${TEST_USER}-chat`, chat_type: 'user' } } } };
 }
 async function webhook(bot, update) {
   const res = jsonRes();
@@ -146,6 +151,33 @@ async function main() {
   assert.strictEqual(resultsPayload.legacyAction, 'poll_status', 'polls:results carries poll_status delegation metadata');
   assert.ok(/Результаты|Активных опросов|Опрос/i.test(visible(sent.at(-1))), 'polls:results opens production poll status/results text');
   assert.ok(botAudit.list().some((event) => event.type === 'v3_route_callback_resolved' && event.route === 'polls:results' && event.legacyAction === 'poll_status'), 'polls:results is audited as delegated to production poll_status path');
+
+
+  for (const [route, expectedSection] of [
+    ['buttons:home', /Раздел: Кнопки под постами|Меню кнопок сохранено/i],
+    ['gifts:home', /Раздел: Подарки|Открываю подарки/i],
+    ['editor:home', /Раздел: Редактор постов|Меню редактора постов сохранено/i],
+    ['comments:home', /Раздел: Комментарии|Пост подключён к комментариям/i]
+  ]) {
+    const beforeOpen = sent.length;
+    await webhook(bot, callbackUpdate({ route }, { callbackId: `state-${route}`, messageId: `state-msg-${route}`, mid: `state-mid-${route}` }));
+    assert.ok(sent.length > beforeOpen, `${route} opens before forwarded-post state check`);
+    const beforeForward = sent.length;
+    await webhook(bot, forwardedPostUpdate(route.replace(':home', '')));
+    assert.ok(sent.length > beforeForward, `${route} forwarded post produces a section-aware update`);
+    assert.ok(expectedSection.test(visible(sent.at(-1))), `${route} preserves forwarded-post admin section state`);
+  }
+
+  for (const forged of [
+    { route: 'settings:help', action: 'settings:help', legacyAction: 'admin_section_debug' },
+    { route: 'settings:help', action: 'settings:help', legacyAction: 'admin_section_production_checklist' }
+  ]) {
+    const before = sent.length;
+    await webhook(bot, callbackUpdate(forged, { callbackId: `forged-${forged.legacyAction}`, messageId: `forged-msg-${forged.legacyAction}`, mid: `forged-mid-${forged.legacyAction}` }));
+    assert.ok(sent.length > before, `${forged.legacyAction} forged legacyAction renders safe v3 screen`);
+    assert.ok(!/debug|production checklist|чеклист/i.test(visible(sent.at(-1))), `${forged.legacyAction} forged legacyAction does not render service/debug screen`);
+    assert.ok(botAudit.list().some((event) => event.type === 'v3_route_callback_resolved' && event.route === 'settings:help' && event.ignoredLegacyAction === forged.legacyAction), `${forged.legacyAction} forged legacyAction is ignored and audited`);
+  }
 
   const giftCall = rootScreens.get('gifts:home');
   assert.ok(giftCall, 'gifts:home opens Gifts root screen');

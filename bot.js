@@ -5318,6 +5318,27 @@ const LEGACY_ROOT_ACTION_ROUTES = {
   admin_section_tariffs: 'account:home'
 };
 
+const ROOT_SECTION_ADMIN_STATE = {
+  'channels:home': { section: 'channels', rootAction: 'admin_section_channels' },
+  'comments:home': { section: 'comments', rootAction: 'admin_section_comments', selectMode: 'comments' },
+  'gifts:home': { section: 'gifts', rootAction: 'admin_section_gifts', selectMode: 'gifts' },
+  'buttons:home': { section: 'buttons', rootAction: 'admin_section_buttons', selectMode: 'buttons' },
+  'stats:home': { section: 'stats', rootAction: 'admin_section_stats', selectMode: 'stats' },
+  'push:home': { section: 'push', rootAction: 'admin_section_push' },
+  'ad_links:home': { section: 'ad_links', rootAction: 'stats:home' },
+  'polls:home': { section: 'polls', rootAction: 'polls:home', selectMode: 'polls' },
+  'highlights:home': { section: 'highlights', rootAction: 'highlights:home', selectMode: 'highlights' },
+  'editor:home': { section: 'posts', rootAction: 'admin_section_posts', selectMode: 'posts' },
+  'archive:home': { section: 'archive', rootAction: 'admin_section_archive' },
+  'account:home': { section: 'account', rootAction: 'admin_section_tariffs' },
+  'settings:home': { section: 'settings', rootAction: 'settings:home' }
+};
+
+const V3_ROUTE_LEGACY_ACTION_ALLOWLIST = {
+  'polls:create': { legacyAction: 'comments_select_post', required: { source: 'polls' } },
+  'polls:results': { legacyAction: 'poll_status', required: {} }
+};
+
 function resolveRootSectionCallback(payload = {}) {
   const route = String(payload.route || '').trim();
   if (ROOT_SECTION_ROUTES.has(route)) return { ok: true, route, sectionId: route.split(':')[0], resolver: 'payload.route' };
@@ -5346,11 +5367,35 @@ function resolveV3RouteCallback(payload = {}) {
   return { ok: false, route: '', sectionId: '', resolver: 'none' };
 }
 
-function productionLegacyActionFromV3Payload(payload = {}) {
+function productionLegacyActionFromV3Payload(route = '', payload = {}) {
+  const allow = V3_ROUTE_LEGACY_ACTION_ALLOWLIST[String(route || '').trim()];
+  if (!allow) return '';
   const legacyAction = String(payload.legacyAction || '').trim();
-  if (!legacyAction || legacyAction.includes(':')) return '';
-  if (!/^[a-z][a-z0-9_]*(?:_[a-z0-9]+)*$/i.test(legacyAction)) return '';
+  if (legacyAction !== allow.legacyAction) return '';
+  for (const [key, value] of Object.entries(allow.required || {})) {
+    if (String(payload[key] || '').trim() !== String(value || '').trim()) return '';
+  }
   return legacyAction;
+}
+
+function applyRootSectionAdminState(userId = '', route = '') {
+  const normalizedUserId = String(userId || '').trim();
+  const state = ROOT_SECTION_ADMIN_STATE[String(route || '').trim()];
+  if (!normalizedUserId || !state) return null;
+  if (state.section === 'gifts') {
+    clearCommentAdminFlow(normalizedUserId);
+    clearActiveAdminFlowKind(normalizedUserId);
+  } else if (['buttons', 'posts', 'comments', 'stats', 'push', 'channels', 'ad_links', 'polls', 'highlights', 'editor', 'archive', 'settings'].includes(state.section)) {
+    clearCommentAdminFlow(normalizedUserId);
+    clearGiftFlow(normalizedUserId);
+    clearActiveAdminFlowKind(normalizedUserId);
+  }
+  return rememberAdminScreen(normalizedUserId, {
+    section: state.section,
+    backAction: 'admin_section_main',
+    rootAction: state.rootAction,
+    selectMode: state.selectMode || state.section
+  });
 }
 
 async function flushBotAuditTraceSafe(reason, extra = {}) {
@@ -5382,6 +5427,7 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
     resolver: resolved.resolver
   };
   botAudit.log('root_section_callback_received', baseAudit);
+  applyRootSectionAdminState(userId, resolved.route);
   if (resolved.route === 'gifts:home') {
     botAudit.log('gifts_root_callback_received', { action: String(payload.action || ''), route: resolved.route, r: String(payload.r || ''), hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs: 0, renderMs: 0, deliveryMs: 0 });
   }
@@ -5454,7 +5500,8 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
   const baseAudit = {
     route: resolved.route,
     action: String(payload.action || ''),
-    legacyAction: productionLegacyActionFromV3Payload(payload),
+    legacyAction: productionLegacyActionFromV3Payload(resolved.route, payload),
+    ignoredLegacyAction: payload.legacyAction && !productionLegacyActionFromV3Payload(resolved.route, payload) ? String(payload.legacyAction || '').slice(0, 80) : '',
     sectionId: resolved.sectionId,
     hasMessage,
     hasUserId,
@@ -5468,7 +5515,7 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
   let deliveryMs = 0;
   try {
     const renderStartedAt = Date.now();
-    const legacyAction = productionLegacyActionFromV3Payload(payload);
+    const legacyAction = productionLegacyActionFromV3Payload(resolved.route, payload);
     const renderPayload = legacyAction
       ? { ...payload, route: '', r: '', action: legacyAction, delegatedFromRoute: resolved.route }
       : { ...payload, route: resolved.route, action: resolved.route };
