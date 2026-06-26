@@ -51,6 +51,7 @@ runSmoke('test-native-slash-single-active-pr237.js', 'PR237 native slash single-
 runSmoke('test-pr237-runtime-contract-diagnostics.js', 'PR237 runtime contract diagnostics test');
 runSmoke('test-postgres-store-connect-timeout-pr232.js', 'PR232 postgres connect timeout smoke test');
 runSmoke('test-post-merge-live-readiness-pr234.js', 'PR234 post-merge live readiness checker smoke test');
+runSmoke('test-pr243-gifts-no-message-trace.js', 'PR243 gifts no-message callback and runtime trace smoke test');
 runSmoke('test-pr241-gifts-stats-tenant-contract.js', 'PR241 gifts/stats tenant contract test');
 runSmoke('test-pr242-gifts-root-callback.js', 'PR242 gifts root callback test');
 
