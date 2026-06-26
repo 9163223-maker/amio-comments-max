@@ -5,10 +5,12 @@ delete process.env.GITHUB_DEBUG_TOKEN;
 const trace=require('../services/rootMenuLiveParityTraceService');
 const botAudit=require('../admin-bot-audit-trace');
 const runtimeTrace=require('../services/runtimeBotAuditTraceService');
+const edgeDiagnostics=require('../services/maxWebhookEdgeDiagnostics');
 const ROOT=['channels:home','comments:home','gifts:home','buttons:home','stats:home','push:home','ad_links:home','polls:home','highlights:home','editor:home','archive:home','account:home','settings:home'];
-function reset(){trace.clear();botAudit.clear();runtimeTrace._resetSchedulerForTests();}
+function reset(){trace.clear();botAudit.clear();runtimeTrace._resetSchedulerForTests();edgeDiagnostics.clear();}
 function text(o){return JSON.stringify(o);}
 function assertNoSecrets(o){const s=text(o);for(const bad of ['secret-token','Bearer abc','cookie-value','raw-callback-id','raw-user-id','raw-chat-id','raw-message-id','raw-channel-id','raw-post-id','comment-key-secret','https://x.test/?token=abc'])assert.ok(!s.includes(bad),`secret leaked: ${bad}`);}
+function callbackBody(payload){return {update_type:'message_callback',callback:{callback_id:'raw-callback-id',payload,user:{user_id:'raw-user-id'},message:{message_id:'raw-message-id',body:{text:'Подарки / лид-магниты'},recipient:{chat_id:'raw-chat-id',chat_type:'dialog'}}}};}
 (async()=>{
 reset();
 assert.strictEqual(trace.DEFAULT_BRANCH,'runtime-status');
@@ -30,6 +32,7 @@ reset(); for(const action of ['admin_section_comments','admin_section_buttons','
 let writes=[]; trace._setExporterForTests(async(p,log)=>{writes.push([p,log]);}); await trace.exportLatestTrace(); assert.deepStrictEqual(writes.map(x=>x[0]).sort(),[trace.MANUAL_WALKTHROUGH_DEFAULT_PATH,trace.ROOT_PARITY_DEFAULT_PATH].sort()); assert.ok(writes.every(x=>x[1].events.length<=100));
 trace._setExporterForTests(async()=>{throw new Error('github boom')}); const r=await trace.exportLatestTrace(); assert.strictEqual(r.ok,false); assert.ok(['github_api_error','unexpected_error','no_events','missing_token'].includes(r.root.category||r.root.reason)); assertNoSecrets(trace.info());
 reset(); trace.record('callback_received',{payload:{route:'gifts:home',token:'secret-token',authorization:'Bearer abc',cookie:'cookie-value',callbackId:'raw-callback-id',userId:'raw-user-id',chatId:'raw-chat-id',messageId:'raw-message-id',channelId:'raw-channel-id',postId:'raw-post-id',commentKey:'comment-key-secret',url:'https://x.test/?token=abc'}}); assertNoSecrets(trace.info());
+reset(); const edge=edgeDiagnostics.record({method:'POST',path:'/webhook/max?token=secret-token',contentType:'application/json',body:callbackBody(JSON.stringify({route:'gifts:home',action:'gifts:home',token:'secret-token'})),handedToBot:false}); edgeDiagnostics.update(edge,{handedToBot:true,botResultKind:'handler_returned_200'}); info=trace.info(); assert.ok(info.manual.events.some(e=>e.eventKind==='webhook_edge_received'&&e.resolvedRootRoute==='gifts:home'),'real webhook edge record feeds manual trace before bot handler'); assert.ok(info.manual.events.some(e=>e.eventKind==='handler_returned'&&e.resultKind==='handler_returned_200'),'webhook edge update feeds handler_returned trace'); assert.ok(info.root.events.some(e=>e.resolvedRootRoute==='gifts:home'),'webhook edge record feeds root parity trace'); assertNoSecrets(info); assertNoSecrets(edgeDiagnostics.summary());
 for(const route of ROOT) assert.ok(trace.ROOT_ROUTES.has(route),'PR245 root route still covered '+route); assert.ok(trace.safePayloadMetadata({payload:{route:'polls:create',legacyAction:'comments_select_post',source:'polls'}}).legacyAction==='comments_select_post'); assert.ok(trace.safePayloadMetadata({payload:{action:'comments_pick_post',source:'polls'}}).source==='polls'); assert.ok(trace.ROOT_ROUTES.has('gifts:home'));
 console.log('PR246 root menu live parity trace tests ok');
 })().catch(e=>{console.error(e);process.exit(1);});
