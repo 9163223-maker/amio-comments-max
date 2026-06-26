@@ -42,6 +42,8 @@ const webPushStorage = require("./services/webPushStorage");
 const pushDispatch = require("./services/pushDispatchService");
 const pushDispatchDiagnostics = require("./services/pushDispatchDiagnostics");
 const pushDispatchLog = require("./services/pushDispatchLogService");
+const botAudit = require("./admin-bot-audit-trace");
+const v3MenuCore1539 = require("./v3-menu-core-1539");
 const buttonsFlow = require("./buttons-flow-cc8-clean");
 const { listGrowthClicks, listGrowthPollVotes, buildAnalyticsSummary, captureChannelAudienceSnapshot } = require("./services/growthService");
 const {
@@ -5246,6 +5248,87 @@ async function handleDirectChannelPost(message, config) {
 }
 
 
+
+function isRenderableScreen(screen = null) {
+  return Boolean(screen && String(screen.text || '').trim() && screen.attachments);
+}
+
+function isGiftsRootPayload(payload = {}) {
+  return payload?.action === 'admin_section_gifts'
+    || payload?.action === 'gifts:home'
+    || payload?.route === 'gifts:home'
+    || payload?.r === 'gifts:home';
+}
+
+function safeGiftsRootAttachments() {
+  return [{
+    type: 'inline_keyboard',
+    payload: {
+      buttons: [
+        [{ type: 'callback', text: 'Создать подарок', payload: buildAdminCallbackPayload('gift_admin_recent_posts', { page: 0 }) }],
+        [{ type: 'callback', text: 'Текущий подарок', payload: buildAdminCallbackPayload('gift_admin_show_current') }],
+        [{ type: 'callback', text: 'Список подарков', payload: buildAdminCallbackPayload('gift_admin_list_campaigns') }],
+        [{ type: 'callback', text: 'Главное меню', payload: buildAdminCallbackPayload('admin_section_main') }]
+      ]
+    }
+  }];
+}
+
+async function handleGiftsRootCallback({ config, message, payload = {}, userId = '', callbackId = '' } = {}) {
+  const startedAt = Date.now();
+  let renderMs = 0;
+  let deliveryMs = 0;
+  let resolver = 'none';
+  const rootAction = payload.action === 'admin_section_gifts' ? 'admin_section_gifts' : 'gifts:home';
+  botAudit.log('gifts_root_callback_received', { action: String(payload.action || ''), route: String(payload.route || ''), r: String(payload.r || '') });
+  await acknowledgeCallbackSilently(config, callbackId);
+  if (payload.resetContext === true) {
+    clearGiftFlow(userId);
+    clearGiftTargetPost(userId);
+  }
+
+  const renderStartedAt = Date.now();
+  let screen = null;
+  try {
+    screen = await v3MenuCore1539.asyncScreenForPayload({ ...payload, action: rootAction }, { userId, config });
+  } catch (error) {
+    botAudit.log('gifts_root_callback_v3_error', { action: rootAction, error: error?.message || String(error) });
+  }
+  renderMs = Date.now() - renderStartedAt;
+
+  if (message && isRenderableScreen(screen)) {
+    resolver = 'v3-menu-core';
+    const deliveryStartedAt = Date.now();
+    await upsertBotMessage({ config, message, text: screen.text, attachments: screen.attachments, editCurrent: true });
+    deliveryMs = Date.now() - deliveryStartedAt;
+  } else if (message) {
+    try {
+      const deliveryStartedAt = Date.now();
+      await sendSectionMenu({ config, message, section: 'gifts', editCurrent: true });
+      deliveryMs = Date.now() - deliveryStartedAt;
+      resolver = 'legacy-sendSectionMenu';
+    } catch (error) {
+      botAudit.log('gifts_root_callback_legacy_error', { action: rootAction, error: error?.message || String(error) });
+      const deliveryStartedAt = Date.now();
+      await upsertBotMessage({
+        config,
+        message,
+        text: 'Подарки / лид-магниты. Выберите действие.',
+        attachments: safeGiftsRootAttachments(),
+        editCurrent: true
+      });
+      deliveryMs = Date.now() - deliveryStartedAt;
+      resolver = 'safe-fallback';
+    }
+  } else {
+    resolver = isRenderableScreen(screen) ? 'v3-menu-core' : 'safe-fallback';
+  }
+
+  const totalMs = Date.now() - startedAt;
+  botAudit.log('gifts_root_callback_resolved', { action: rootAction, resolver, totalMs, renderMs, deliveryMs });
+  return { ok: true, action: rootAction, screenId: String(screen?.id || (resolver === 'safe-fallback' ? 'gifts_safe_fallback' : 'gifts_legacy_home')), resolver, totalMs, renderMs, deliveryMs, rendered: true };
+}
+
 async function renderCleanButtonsCallback({ config, message, payload, userId }) {
   const menu = {
     button: (text, action, extra = {}) => ({ type: 'callback', text, payload: buildAdminCallbackPayload(action, extra) }),
@@ -5316,6 +5399,10 @@ async function handleMessageCallback(update, config) {
     return result;
   }
 
+  if (isGiftsRootPayload(payload)) {
+    return handleGiftsRootCallback({ config, message, payload, userId, callbackId });
+  }
+
   if (buttonsFlow.isCleanButtonAction(payload?.action) && String(payload?.action || '').trim() !== 'admin_section_buttons') {
     await acknowledgeCallbackSilently(config, callbackId);
     const rendered = await renderCleanButtonsCallback({ config, message, payload, userId });
@@ -5343,7 +5430,6 @@ async function handleMessageCallback(update, config) {
 
   const publicActions = new Set([
     'admin_section_main',
-    'admin_section_gifts',
     'admin_section_comments',
     'admin_section_moderation',
     'admin_section_content',
@@ -5430,16 +5516,6 @@ async function handleMessageCallback(update, config) {
         });
       }
       return { ok: true, action: 'admin_clear_chat_unavailable' };
-    }
-
-    if (payload.action === 'admin_section_gifts') {
-      await acknowledgeCallbackSilently(config, callbackId);
-      if (payload.resetContext === true) {
-        clearGiftFlow(userId);
-        clearGiftTargetPost(userId);
-      }
-      if (message) await sendSectionMenu({ config, message, section: 'gifts', editCurrent: true });
-      return { ok: true, action: 'admin_section_gifts' };
     }
 
     if (payload.action === 'admin_section_comments') {
