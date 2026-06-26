@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-26T21:45:56.067Z",
+  "updatedAt": "2026-06-26T21:45:58.516Z",
   "limit": 100,
   "latestRuntimeIdentity": {
     "deployStartedAt": "2026-06-26T21:32:07.879Z",
@@ -11,12 +11,21 @@
   "summary": [
     {
       "route": "unknown",
-      "count": 34,
-      "lastSeq": 82,
-      "lastAt": "2026-06-26T21:45:55.881Z",
+      "count": 39,
+      "lastSeq": 93,
+      "lastAt": "2026-06-26T21:45:58.413Z",
       "lastResultKind": "trace_export_attempted",
       "lastDelivery": "runtime-status",
       "lastErrorCode": "unexpected_error"
+    },
+    {
+      "route": "ad_links:home",
+      "count": 2,
+      "lastSeq": 91,
+      "lastAt": "2026-06-26T21:45:57.975Z",
+      "lastResultKind": "response_sent_200",
+      "lastDelivery": "handed_to_bot",
+      "lastErrorCode": ""
     },
     {
       "route": "main:home",
@@ -138,8 +147,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -186,7 +195,7 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.780Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.414Z",
         "lastSuccessAt": "2026-06-26T21:45:54.755Z",
         "errorMessage": "409"
       }
@@ -217,8 +226,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -248,8 +257,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -279,8 +288,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -348,8 +357,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -396,7 +405,7 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.780Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.414Z",
         "lastSuccessAt": "2026-06-26T21:45:54.755Z",
         "errorMessage": "409"
       }
@@ -427,8 +436,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -458,8 +467,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -489,8 +498,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -558,8 +567,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -606,7 +615,7 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.780Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.414Z",
         "lastSuccessAt": "2026-06-26T21:45:54.755Z",
         "errorMessage": "409"
       }
@@ -637,8 +646,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -668,8 +677,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -699,8 +708,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -768,8 +777,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -816,7 +825,7 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.780Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.414Z",
         "lastSuccessAt": "2026-06-26T21:45:54.755Z",
         "errorMessage": "409"
       }
@@ -847,8 +856,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -878,8 +887,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -909,8 +918,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -978,8 +987,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1026,7 +1035,7 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.780Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.414Z",
         "lastSuccessAt": "2026-06-26T21:45:54.755Z",
         "errorMessage": "409"
       }
@@ -1057,8 +1066,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1088,8 +1097,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1119,8 +1128,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1188,8 +1197,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1236,7 +1245,7 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.780Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.414Z",
         "lastSuccessAt": "2026-06-26T21:45:54.755Z",
         "errorMessage": "409"
       }
@@ -1267,8 +1276,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1298,8 +1307,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1329,8 +1338,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1398,8 +1407,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1446,7 +1455,7 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.780Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.414Z",
         "lastSuccessAt": "2026-06-26T21:45:54.755Z",
         "errorMessage": "409"
       }
@@ -1477,8 +1486,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1508,8 +1517,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1539,8 +1548,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1608,8 +1617,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1656,7 +1665,7 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.780Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.414Z",
         "lastSuccessAt": "2026-06-26T21:45:54.755Z",
         "errorMessage": "409"
       }
@@ -1687,8 +1696,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1755,8 +1764,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1786,8 +1795,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1817,8 +1826,8 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     },
@@ -1864,7 +1873,7 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.780Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.414Z",
         "lastSuccessAt": "2026-06-26T21:45:54.755Z",
         "errorMessage": "409"
       }
@@ -1895,8 +1904,249 @@
         "targetPath": "runtime/root-menu-live-parity-trace.json",
         "ok": false,
         "reasonCategory": "unexpected_error",
-        "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-        "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
+        "errorMessage": "409"
+      }
+    },
+    {
+      "seq": 83,
+      "at": "2026-06-26T21:45:56.957Z",
+      "deployStartedAt": "2026-06-26T21:32:07.879Z",
+      "githubMainHeadSha": "",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+      "updateType": "trace_export",
+      "eventKind": "trace_export_succeeded",
+      "resultKind": "trace_export_succeeded",
+      "delivery": "runtime-status",
+      "errorCode": "",
+      "status": "runtime/root-menu-live-parity-trace.json",
+      "hasCallback": false,
+      "hasMessage": false,
+      "hasUserId": false,
+      "hasCallbackId": false,
+      "payloadKeys": [],
+      "payloadShape": "trace_export",
+      "rootSectionCandidate": false,
+      "traceExportStatus": {
+        "attempted": true,
+        "targetBranch": "runtime-status",
+        "targetPath": "runtime/root-menu-live-parity-trace.json",
+        "ok": false,
+        "reasonCategory": "unexpected_error",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
+        "errorMessage": "409"
+      }
+    },
+    {
+      "seq": 86,
+      "at": "2026-06-26T21:45:57.173Z",
+      "deployStartedAt": "2026-06-26T21:32:07.879Z",
+      "githubMainHeadSha": "",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+      "updateType": "trace_export",
+      "eventKind": "trace_export_failed",
+      "resultKind": "trace_export_attempted",
+      "delivery": "runtime-status",
+      "errorCode": "unexpected_error",
+      "status": "runtime/root-menu-live-parity-trace.json",
+      "hasCallback": false,
+      "hasMessage": false,
+      "hasUserId": false,
+      "hasCallbackId": false,
+      "payloadKeys": [],
+      "payloadShape": "trace_export",
+      "rootSectionCandidate": false,
+      "traceExportStatus": {
+        "attempted": true,
+        "targetBranch": "runtime-status",
+        "targetPath": "runtime/root-menu-live-parity-trace.json",
+        "ok": false,
+        "reasonCategory": "unexpected_error",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
+        "errorMessage": "409"
+      }
+    },
+    {
+      "seq": 89,
+      "at": "2026-06-26T21:45:57.439Z",
+      "deployStartedAt": "2026-06-26T21:32:07.879Z",
+      "githubMainHeadSha": "",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+      "updateType": "message_callback",
+      "eventKind": "webhook_edge_received",
+      "callbackAction": "ad_links:home",
+      "callbackRoute": "ad_links:home",
+      "callbackR": "",
+      "canonicalAction": "ad_links:home",
+      "legacyAction": "",
+      "source": "",
+      "payloadKeys": [
+        "route",
+        "action"
+      ],
+      "payloadShape": "object",
+      "hasCallback": true,
+      "hasMessage": true,
+      "hasUserId": true,
+      "hasCallbackId": true,
+      "messagePresentSource": "body.message",
+      "textPreview": "🐋 АдминКИТ Панель управления MAX-каналом. Выберите раздел.",
+      "buttonPreview": "",
+      "rootSectionCandidate": true,
+      "resolvedRootRoute": "ad_links:home",
+      "resolvedV3Route": "ad_links:home",
+      "resolver": "payload.route",
+      "handlerName": "",
+      "dedupeDecision": "",
+      "resultKind": "edge_recorded",
+      "delivery": "not_handed_to_bot",
+      "errorCode": "",
+      "status": ""
+    },
+    {
+      "seq": 90,
+      "at": "2026-06-26T21:45:57.439Z",
+      "deployStartedAt": "2026-06-26T21:32:07.879Z",
+      "githubMainHeadSha": "",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+      "updateType": "trace_export",
+      "eventKind": "trace_export_attempted",
+      "resultKind": "trace_export_attempted",
+      "delivery": "runtime-status",
+      "errorCode": "",
+      "status": "runtime/root-menu-live-parity-trace.json",
+      "hasCallback": false,
+      "hasMessage": false,
+      "hasUserId": false,
+      "hasCallbackId": false,
+      "payloadKeys": [],
+      "payloadShape": "trace_export",
+      "rootSectionCandidate": false,
+      "traceExportStatus": {
+        "attempted": true,
+        "targetBranch": "runtime-status",
+        "targetPath": "runtime/root-menu-live-parity-trace.json",
+        "ok": false,
+        "reasonCategory": "unexpected_error",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
+        "errorMessage": "409"
+      }
+    },
+    {
+      "seq": 91,
+      "at": "2026-06-26T21:45:57.975Z",
+      "deployStartedAt": "2026-06-26T21:32:07.879Z",
+      "githubMainHeadSha": "",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+      "updateType": "message_callback",
+      "eventKind": "handler_returned",
+      "callbackAction": "ad_links:home",
+      "callbackRoute": "ad_links:home",
+      "callbackR": "",
+      "canonicalAction": "ad_links:home",
+      "legacyAction": "",
+      "source": "",
+      "payloadKeys": [
+        "route",
+        "action"
+      ],
+      "payloadShape": "object",
+      "hasCallback": true,
+      "hasMessage": true,
+      "hasUserId": true,
+      "hasCallbackId": true,
+      "messagePresentSource": "body.message",
+      "textPreview": "🐋 АдминКИТ Панель управления MAX-каналом. Выберите раздел.",
+      "buttonPreview": "",
+      "rootSectionCandidate": true,
+      "resolvedRootRoute": "ad_links:home",
+      "resolvedV3Route": "ad_links:home",
+      "resolver": "payload.route",
+      "handlerName": "bot.handleWebhook",
+      "dedupeDecision": "",
+      "resultKind": "response_sent_200",
+      "delivery": "handed_to_bot",
+      "errorCode": "",
+      "status": "",
+      "traceExportStatus": {
+        "attempted": true,
+        "targetBranch": "runtime-status",
+        "targetPath": "runtime/manual-ui-walkthrough-trace.json",
+        "ok": false,
+        "reasonCategory": "unexpected_error",
+        "lastAttemptAt": "2026-06-26T21:45:58.414Z",
+        "lastSuccessAt": "2026-06-26T21:45:54.755Z",
+        "errorMessage": "409"
+      }
+    },
+    {
+      "seq": 92,
+      "at": "2026-06-26T21:45:57.975Z",
+      "deployStartedAt": "2026-06-26T21:32:07.879Z",
+      "githubMainHeadSha": "",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+      "updateType": "trace_export",
+      "eventKind": "trace_export_attempted",
+      "resultKind": "trace_export_attempted",
+      "delivery": "runtime-status",
+      "errorCode": "",
+      "status": "runtime/root-menu-live-parity-trace.json",
+      "hasCallback": false,
+      "hasMessage": false,
+      "hasUserId": false,
+      "hasCallbackId": false,
+      "payloadKeys": [],
+      "payloadShape": "trace_export",
+      "rootSectionCandidate": false,
+      "traceExportStatus": {
+        "attempted": true,
+        "targetBranch": "runtime-status",
+        "targetPath": "runtime/root-menu-live-parity-trace.json",
+        "ok": false,
+        "reasonCategory": "unexpected_error",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
+        "errorMessage": "409"
+      }
+    },
+    {
+      "seq": 93,
+      "at": "2026-06-26T21:45:58.413Z",
+      "deployStartedAt": "2026-06-26T21:32:07.879Z",
+      "githubMainHeadSha": "",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+      "updateType": "trace_export",
+      "eventKind": "trace_export_failed",
+      "resultKind": "trace_export_attempted",
+      "delivery": "runtime-status",
+      "errorCode": "unexpected_error",
+      "status": "runtime/root-menu-live-parity-trace.json",
+      "hasCallback": false,
+      "hasMessage": false,
+      "hasUserId": false,
+      "hasCallbackId": false,
+      "payloadKeys": [],
+      "payloadShape": "trace_export",
+      "rootSectionCandidate": false,
+      "traceExportStatus": {
+        "attempted": true,
+        "targetBranch": "runtime-status",
+        "targetPath": "runtime/root-menu-live-parity-trace.json",
+        "ok": false,
+        "reasonCategory": "unexpected_error",
+        "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+        "lastSuccessAt": "2026-06-26T21:45:56.957Z",
         "errorMessage": "409"
       }
     }
@@ -1908,8 +2158,8 @@
     "targetPath": "runtime/root-menu-live-parity-trace.json",
     "ok": false,
     "reasonCategory": "unexpected_error",
-    "lastAttemptAt": "2026-06-26T21:45:55.882Z",
-    "lastSuccessAt": "2026-06-26T21:45:55.576Z",
+    "lastAttemptAt": "2026-06-26T21:45:58.412Z",
+    "lastSuccessAt": "2026-06-26T21:45:56.957Z",
     "errorMessage": "409"
   },
   "targetBranch": "runtime-status",
