@@ -1554,15 +1554,25 @@ function hasCommentsKeyboard(message) {
   return attachments.some((item) => item?.type === "inline_keyboard" && JSON.stringify(item).includes("Комментар"));
 }
 
+function isPlainCallbackPayloadObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
 function parseCallbackPayload(callback) {
-  const raw = String(
-    callback?.payload || callback?.data || callback?.value || callback?.callback_data || ""
-  ).trim();
+  const candidates = [callback?.payload, callback?.data, callback?.value, callback?.callback_data];
+  const candidate = candidates.find((item) => item !== undefined && item !== null && item !== '');
+  if (isPlainCallbackPayloadObject(candidate)) return candidate;
+
+  const raw = String(candidate || "").trim();
   if (!raw) return {};
   try {
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    return { raw, action: String(parsed || '').trim() };
   } catch {
-    return { raw };
+    return { raw, action: raw };
   }
 }
 
@@ -3071,7 +3081,7 @@ function setAutoCommentsEnabled(userId = '', enabled = true, channelId = '') {
 function buildCommentsSectionKeyboard() {
   const rows = [
     [{ type: 'callback', text: 'Автокомментарии', payload: buildAdminCallbackPayload('comments_auto_patch') }],
-    [{ type: 'callback', text: 'Включить к посту', payload: buildAdminCallbackPayload('comments_select_post', { source: 'comments_manual' }) }],
+    [{ type: 'callback', text: 'Выбрать пост', payload: buildAdminCallbackPayload('comments_select_post', { source: 'comments' }) }],
     [
       { type: 'callback', text: 'Фото', payload: buildAdminCallbackPayload('comments_option_channel', { source: 'comments_photos' }) },
       { type: 'callback', text: 'Ответы', payload: buildAdminCallbackPayload('comments_option_channel', { source: 'comments_replies' }) }
@@ -3308,7 +3318,9 @@ function buildCommentsOverviewText() {
     'Комментарии',
     '',
     'Настройте комментарии в каналах:',
-    'автоматически для новых постов или вручную для нужной публикации.'
+    'автоматически для новых постов или вручную для нужной публикации.',
+    '',
+    'Пост не выбран. Сначала выберите канал, затем пост.'
   ].join('\n');
 }
 
@@ -5271,6 +5283,7 @@ function isGiftsRootPayload(payload = {}) {
 }
 
 const ROOT_SECTION_ROUTES = new Set([
+  'main:home',
   'channels:home',
   'comments:home',
   'gifts:home',
@@ -5306,20 +5319,26 @@ const V3_ROUTE_OWNERS = new Set([
 ]);
 
 const LEGACY_ROOT_ACTION_ROUTES = {
+  admin_section_main: 'main:home',
   admin_section_channels: 'channels:home',
-  admin_section_comments: 'comments:home',
+  // Product-perfect legacy callbacks for comments/editor keep their production
+  // payload handlers; canonical route/action payloads use the unified root
+  // section contract above.
   admin_section_gifts: 'gifts:home',
   gift_admin_open_menu: 'gifts:home',
   admin_section_buttons: 'buttons:home',
   admin_section_stats: 'stats:home',
   admin_section_push: 'push:home',
   admin_section_polls: 'polls:home',
-  admin_section_posts: 'editor:home',
   admin_section_archive: 'archive:home',
   admin_section_tariffs: 'account:home'
 };
+const LEGACY_ROOT_RENDER_ACTIONS = {
+  gift_admin_open_menu: 'admin_section_gifts'
+};
 
 const ROOT_SECTION_ADMIN_STATE = {
+  'main:home': { section: 'main', rootAction: 'admin_section_main' },
   'channels:home': { section: 'channels', rootAction: 'admin_section_channels' },
   'comments:home': { section: 'comments', rootAction: 'admin_section_comments', selectMode: 'comments' },
   'gifts:home': { section: 'gifts', rootAction: 'admin_section_gifts', selectMode: 'gifts' },
@@ -5347,7 +5366,7 @@ function resolveRootSectionCallback(payload = {}) {
   if (ROOT_SECTION_ROUTES.has(r)) return { ok: true, route: r, sectionId: r.split(':')[0], resolver: 'payload.r' };
   const action = String(payload.action || '').trim();
   if (ROOT_SECTION_ROUTES.has(action)) return { ok: true, route: action, sectionId: action.split(':')[0], resolver: 'payload.action.canonical' };
-  if (LEGACY_ROOT_ACTION_ROUTES[action]) return { ok: true, route: LEGACY_ROOT_ACTION_ROUTES[action], sectionId: LEGACY_ROOT_ACTION_ROUTES[action].split(':')[0], resolver: 'legacy.compatibility', legacyAction: action };
+  if (LEGACY_ROOT_ACTION_ROUTES[action]) return { ok: true, route: LEGACY_ROOT_ACTION_ROUTES[action], sectionId: LEGACY_ROOT_ACTION_ROUTES[action].split(':')[0], resolver: 'legacy.compatibility', legacyAction: action, renderAction: LEGACY_ROOT_RENDER_ACTIONS[action] || '' };
   return { ok: false, route: '', sectionId: '', resolver: 'none' };
 }
 
@@ -5444,25 +5463,27 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
     resolver: resolved.resolver
   };
   botAudit.log('root_section_callback_received', baseAudit);
-  try { pr247Trace.record({ eventKind: resolved.legacyAction ? 'legacy_compatibility_resolved' : 'root_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, legacyAction: resolved.legacyAction || '', handlerName: 'handleRootSectionCallback', resultKind: 'resolved' }); } catch {}
-  try { pr247Trace.record({ eventKind: 'render_started', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload' }); } catch {}
-  applyRootSectionAdminState(userId, resolved.route);
-  if (resolved.route === 'gifts:home') {
-    botAudit.log('gifts_root_callback_received', { action: String(payload.action || ''), route: resolved.route, r: String(payload.r || ''), hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs: 0, renderMs: 0, deliveryMs: 0 });
-  }
+  try { pr247Trace.record({ eventKind: resolved.legacyAction ? 'legacy_compatibility_resolved' : 'root_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, legacyAction: resolved.legacyAction || '', handlerName: 'handleRootSectionCallback', resultKind: 'resolved', dedupeDecision: 'root_pre_dedupe_bypass' }); } catch {}
+  try { pr247Trace.record({ eventKind: 'render_started', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload', renderer: 'v3MenuCore.asyncScreenForPayload' }); } catch {}
+  if (resolved.route === 'main:home') resetAdminStateForMainRoute(userId);
+  else applyRootSectionAdminState(userId, resolved.route);
   await acknowledgeCallbackSilently(config, callbackId);
   let screen = null;
   let renderMs = 0;
   let deliveryMs = 0;
   try {
     const renderStartedAt = Date.now();
-    screen = await v3MenuCore1539.asyncScreenForPayload({ ...payload, route: resolved.route, action: resolved.route }, { userId, config, rootSectionContract: true });
+    const renderPayload = resolved.renderAction
+      ? { ...payload, route: '', r: '', action: resolved.renderAction, canonicalRootRoute: resolved.route }
+      : { ...payload, route: resolved.route, action: resolved.route, canonicalRootRoute: resolved.legacyAction ? resolved.route : undefined };
+    screen = await v3MenuCore1539.asyncScreenForPayload(renderPayload, { userId, config, rootSectionContract: true });
     renderMs = Date.now() - renderStartedAt;
-    try { pr247Trace.record({ eventKind: 'render_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload', resultKind: 'screen_rendered', renderMs }); } catch {}
+    try { pr247Trace.record({ eventKind: 'render_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload', renderer: 'v3MenuCore.asyncScreenForPayload', resultKind: 'screen_rendered', renderMs }); } catch {}
   } catch (error) {
     renderMs = Date.now() - startedAt;
     const totalMs = Date.now() - startedAt;
     botAudit.log('root_section_callback_failed', { ...baseAudit, delivery: 'none', error: 'render_failed', status: String(error?.message || error).slice(0, 120), totalMs, renderMs, deliveryMs });
+    try { pr247Trace.record({ eventKind: 'render_failed', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload', renderer: 'v3MenuCore.asyncScreenForPayload', resultKind: 'render_failed', errorCode: 'render_failed', totalMs, renderMs, deliveryMs }); } catch {}
     await flushBotAuditTraceSafe('root_section_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
     return { ok: false, action: String(payload.action || ''), route: resolved.route, sectionId: resolved.sectionId, error: 'root_section_render_failed' };
   }
@@ -5475,38 +5496,34 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
   try {
     const deliveryStartedAt = Date.now();
     let delivery = '';
-    try { pr247Trace.record({ eventKind: 'delivery_started', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'handleRootSectionCallback' }); } catch {}
+    try { pr247Trace.record({ eventKind: 'delivery_started', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'handleRootSectionCallback', delivery: message ? 'editMessage' : (hasUserId ? 'sendMessage.no_message_fallback' : 'none') }); } catch {}
     if (message) {
-      await upsertBotMessage({ config, message, text: screen.text, attachments: screen.attachments, editCurrent: true });
-      delivery = 'edit_or_upsert_current_message';
+      const result = await upsertBotMessage({ config, message, text: screen.text, attachments: screen.attachments, editCurrent: true });
+      delivery = result && result.transport ? result.transport : 'editMessage_or_sendMessage_fallback';
     } else if (hasUserId) {
       await sendMessage({ botToken: config.botToken, userId, text: screen.text, attachments: screen.attachments, notify: false });
-      delivery = 'fresh_private_fallback';
+      delivery = 'sendMessage.no_message_fallback';
+      if (resolved.route === 'gifts:home') botAudit.log('gifts_root_callback_private_fallback_sent', { action: String(payload.action || ''), route: resolved.route, hasMessage, hasUserId, resolver: resolved.resolver, totalMs: Date.now() - startedAt, renderMs, deliveryMs: Date.now() - deliveryStartedAt });
     } else {
       deliveryMs = Date.now() - deliveryStartedAt;
       const totalMs = Date.now() - startedAt;
       botAudit.log('root_section_callback_failed', { ...baseAudit, delivery: 'none', error: 'delivery_target_missing', status: 'no_message_no_user', totalMs, renderMs, deliveryMs });
-      if (resolved.route === 'gifts:home') {
-        botAudit.log('gifts_root_callback_delivery_target_missing', { action: String(payload.action || ''), route: resolved.route, hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs, renderMs, deliveryMs });
-      }
+      if (resolved.route === 'gifts:home') botAudit.log('gifts_root_callback_delivery_target_missing', { action: String(payload.action || ''), route: resolved.route, hasMessage, hasUserId, resolver: resolved.resolver, totalMs, renderMs, deliveryMs });
+      try { pr247Trace.record({ eventKind: 'delivery_failed', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'handleRootSectionCallback', resultKind: 'delivery_failed', delivery: 'none', errorCode: 'delivery_target_missing', totalMs, renderMs, deliveryMs }); } catch {}
       await flushBotAuditTraceSafe('root_section_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
       return { ok: false, action: String(payload.action || ''), route: resolved.route, sectionId: resolved.sectionId, error: 'root_section_delivery_target_missing' };
     }
     deliveryMs = Date.now() - deliveryStartedAt;
     const totalMs = Date.now() - startedAt;
     botAudit.log('root_section_callback_resolved', { ...baseAudit, delivery, totalMs, renderMs, deliveryMs });
+    if (resolved.route === 'gifts:home') botAudit.log('gifts_root_callback_resolved', { action: String(payload.action || resolved.route), route: resolved.route, resolver: 'v3-menu-core', hasMessage, hasUserId, totalMs, renderMs, deliveryMs });
     try { pr247Trace.record({ eventKind: 'delivery_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'handleRootSectionCallback', resultKind: 'delivered', delivery, totalMs, renderMs, deliveryMs }); } catch {}
-    if (resolved.route === 'gifts:home') {
-      if (delivery === 'fresh_private_fallback') {
-        botAudit.log('gifts_root_callback_private_fallback_sent', { action: String(payload.action || ''), route: resolved.route, hasMessage, hasUserId, resolver: 'v3-menu-core', totalMs, renderMs, deliveryMs });
-      }
-      botAudit.log('gifts_root_callback_resolved', { action: String(payload.action || ''), route: resolved.route, resolver: 'v3-menu-core', hasMessage, hasUserId, totalMs, renderMs, deliveryMs });
-    }
     await flushBotAuditTraceSafe('root_section_callback_resolved', { route: resolved.route, sectionId: resolved.sectionId });
     return { ok: true, action: String(payload.action || resolved.route), route: resolved.route, sectionId: resolved.sectionId, screenId: screen.id || screen.route || resolved.route, resolver: resolved.resolver, delivery };
   } catch (error) {
     const totalMs = Date.now() - startedAt;
     botAudit.log('root_section_callback_failed', { ...baseAudit, delivery: 'failed', error: 'delivery_failed', status: String(error?.message || error).slice(0, 120), totalMs, renderMs, deliveryMs });
+    try { pr247Trace.record({ eventKind: 'delivery_failed', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'handleRootSectionCallback', resultKind: 'delivery_failed', delivery: 'failed', errorCode: 'delivery_failed', totalMs, renderMs, deliveryMs }); } catch {}
     await flushBotAuditTraceSafe('root_section_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
     throw error;
   }
