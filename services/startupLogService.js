@@ -105,6 +105,7 @@ function sanitizeFinalRuntimeReadinessGate(input = {}) {
     sourceMarker: short(gate.sourceMarker, 160),
     githubMainHeadVerifiedByStartupLog: sanitizeBool(gate.githubMainHeadVerifiedByStartupLog),
     actualApplicationMainShaVerified: sanitizeBool(gate.actualApplicationMainShaVerified),
+    actualApplicationShaStatus: short(gate.actualApplicationShaStatus, 80),
     required,
     missing: sanitizeList(gate.missing, 30),
     readyForManualMaxTest: sanitizeBool(gate.readyForManualMaxTest)
@@ -134,9 +135,13 @@ function buildFinalRuntimeReadinessGateFromSnapshot(snapshot = {}) {
   };
   const identitySha = short(summary.gitCommit || snap.gitCommit, 80);
   const githubMainHeadSha = short(snapshot.githubMainHeadSha || '', 80);
-  const actualApplicationMainShaVerified = Boolean(identitySha && githubMainHeadSha && (identitySha === githubMainHeadSha || identitySha.startsWith(githubMainHeadSha) || githubMainHeadSha.startsWith(identitySha)));
+  const canCompareApplicationSha = Boolean(identitySha && githubMainHeadSha);
+  const actualApplicationMainShaVerified = Boolean(canCompareApplicationSha && (identitySha === githubMainHeadSha || identitySha.startsWith(githubMainHeadSha) || githubMainHeadSha.startsWith(identitySha)));
+  const actualApplicationShaStatus = actualApplicationMainShaVerified
+    ? 'verified_match'
+    : (canCompareApplicationSha ? 'verified_mismatch' : 'unavailable_missing_runtime_git_commit');
   const missing = Object.entries(required).filter(([, value]) => value !== true).map(([key]) => key);
-  if (!actualApplicationMainShaVerified) missing.push('actualApplicationMainShaVerified');
+  if (actualApplicationShaStatus === 'verified_mismatch') missing.push('actualApplicationMainShaVerified');
   return {
     ok: missing.length === 0,
     runtime: 'PR217-FINAL-RUNTIME-READINESS-GATE',
@@ -148,6 +153,7 @@ function buildFinalRuntimeReadinessGateFromSnapshot(snapshot = {}) {
     sourceMarker: short(summary.sourceMarker || snap.sourceMarker, 160),
     githubMainHeadVerifiedByStartupLog: actualApplicationMainShaVerified,
     actualApplicationMainShaVerified,
+    actualApplicationShaStatus,
     required,
     missing,
     readyForManualMaxTest: missing.length === 0

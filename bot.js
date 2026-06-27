@@ -5358,7 +5358,7 @@ function resolveRootSectionCallback(payload = {}) {
   if (ROOT_SECTION_ROUTES.has(r)) return { ok: true, route: r, sectionId: r.split(':')[0], resolver: 'payload.r' };
   const action = String(payload.action || '').trim();
   if (ROOT_SECTION_ROUTES.has(action)) return { ok: true, route: action, sectionId: action.split(':')[0], resolver: 'payload.action.canonical' };
-  if (LEGACY_ROOT_ACTION_ROUTES[action]) return { ok: true, route: LEGACY_ROOT_ACTION_ROUTES[action], sectionId: LEGACY_ROOT_ACTION_ROUTES[action].split(':')[0], resolver: 'legacy.compatibility', legacyAction: action, renderAction: LEGACY_ROOT_RENDER_ACTIONS[action] || action };
+  if (LEGACY_ROOT_ACTION_ROUTES[action]) return { ok: true, route: LEGACY_ROOT_ACTION_ROUTES[action], sectionId: LEGACY_ROOT_ACTION_ROUTES[action].split(':')[0], resolver: 'legacy.compatibility', legacyAction: action, renderAction: LEGACY_ROOT_RENDER_ACTIONS[action] || '' };
   return { ok: false, route: '', sectionId: '', resolver: 'none' };
 }
 
@@ -5465,9 +5465,9 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
   let deliveryMs = 0;
   try {
     const renderStartedAt = Date.now();
-    const renderPayload = resolved.legacyAction
-      ? { ...payload, route: '', r: '', action: resolved.renderAction || resolved.legacyAction, canonicalRootRoute: resolved.route }
-      : { ...payload, route: resolved.route, action: resolved.route };
+    const renderPayload = resolved.renderAction
+      ? { ...payload, route: '', r: '', action: resolved.renderAction, canonicalRootRoute: resolved.route }
+      : { ...payload, route: resolved.route, action: resolved.route, canonicalRootRoute: resolved.legacyAction ? resolved.route : undefined };
     screen = await v3MenuCore1539.asyncScreenForPayload(renderPayload, { userId, config, rootSectionContract: true });
     renderMs = Date.now() - renderStartedAt;
     try { pr247Trace.record({ eventKind: 'render_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload', renderer: 'v3MenuCore.asyncScreenForPayload', resultKind: 'screen_rendered', renderMs }); } catch {}

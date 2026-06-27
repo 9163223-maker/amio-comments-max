@@ -11,18 +11,18 @@ const maxApi = require('../services/maxApi');
 
 const TEST_USER = 'pr248-admin-user';
 const ROUTES = [
-  ['channels:home', /Каналы/i, null],
+  ['channels:home', /Каналы/i, 'admin_section_channels'],
   ['comments:home', /Комментарии/i, null],
   ['gifts:home', /Подарки\s*\/\s*лид-магниты/i, 'admin_section_gifts'],
-  ['buttons:home', /Кнопки под постами|Кнопки/i, null],
-  ['stats:home', /Статистика|PR229|PR226/i, null],
-  ['push:home', /Уведомления|Push-уведомления/i, null],
+  ['buttons:home', /Кнопки под постами|Кнопки/i, 'admin_section_buttons'],
+  ['stats:home', /Статистика|PR229|PR226/i, 'admin_section_stats'],
+  ['push:home', /Уведомления|Push-уведомления/i, 'admin_section_push'],
   ['ad_links:home', /Рекламные ссылки/i, null],
-  ['polls:home', /Опросы|голосования/i, null],
+  ['polls:home', /Опросы|голосования/i, 'admin_section_polls'],
   ['highlights:home', /Выделение постов|Выделение/i, null],
   ['editor:home', /Редактор постов|Редактор/i, null],
-  ['archive:home', /Архив постов|Архив/i, null],
-  ['account:home', /Личный кабинет|Мой доступ|доступ|АдминКИТ/i, null],
+  ['archive:home', /Архив постов|Архив/i, 'admin_section_archive'],
+  ['account:home', /Личный кабинет|Мой доступ|доступ|АдминКИТ/i, 'admin_section_tariffs'],
   ['settings:home', /Настройки/i, null],
   ['main:home', /АдминКИТ|Панель управления|Главное меню/i, 'admin_section_main']
 ];
@@ -61,7 +61,8 @@ async function main() {
       ['route-object', { route }, 'payload.route'],
       ['action-object', { action: route }, 'payload.action.canonical'],
       ['json-string', JSON.stringify({ route }), 'payload.route'],
-      ...(legacy ? [['legacy', { action: legacy }, 'legacy.compatibility']] : [])
+      ...(legacy ? [['legacy', { action: legacy }, 'legacy.compatibility']] : []),
+      ...(route === 'gifts:home' ? [['gift-open-menu-legacy', { action: 'gift_admin_open_menu' }, 'legacy.compatibility']] : [])
     ]) {
       const before = calls.length;
       const body = await webhook(bot, update(payload, { callbackId: `cb-${label}-${route}`, messageId: `msg-${label}-${route}`, mid: `mid-${label}-${route}` }));
