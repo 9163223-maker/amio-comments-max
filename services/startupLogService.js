@@ -104,6 +104,7 @@ function sanitizeFinalRuntimeReadinessGate(input = {}) {
     buildVersion: short(gate.buildVersion, 120),
     sourceMarker: short(gate.sourceMarker, 160),
     githubMainHeadVerifiedByStartupLog: sanitizeBool(gate.githubMainHeadVerifiedByStartupLog),
+    actualApplicationMainShaVerified: sanitizeBool(gate.actualApplicationMainShaVerified),
     required,
     missing: sanitizeList(gate.missing, 30),
     readyForManualMaxTest: sanitizeBool(gate.readyForManualMaxTest)
@@ -131,7 +132,11 @@ function buildFinalRuntimeReadinessGateFromSnapshot(snapshot = {}) {
     statsMainMenuRoutesToCurrentStatsRoot: sanitizeBool(summary.statsMainMenuRoutesToCurrentStatsRoot),
     statsLegacyRootNotReturned: sanitizeBool(summary.statsLegacyRootNotReturned)
   };
+  const identitySha = short(summary.gitCommit || snap.gitCommit, 80);
+  const githubMainHeadSha = short(snapshot.githubMainHeadSha || '', 80);
+  const actualApplicationMainShaVerified = Boolean(identitySha && githubMainHeadSha && (identitySha === githubMainHeadSha || identitySha.startsWith(githubMainHeadSha) || githubMainHeadSha.startsWith(identitySha)));
   const missing = Object.entries(required).filter(([, value]) => value !== true).map(([key]) => key);
+  if (!actualApplicationMainShaVerified) missing.push('actualApplicationMainShaVerified');
   return {
     ok: missing.length === 0,
     runtime: 'PR217-FINAL-RUNTIME-READINESS-GATE',
@@ -141,7 +146,8 @@ function buildFinalRuntimeReadinessGateFromSnapshot(snapshot = {}) {
     runtimeVersion: short(summary.runtimeVersion || snap.runtimeVersion, 120),
     buildVersion: short(summary.buildVersion || snap.buildVersion, 120),
     sourceMarker: short(summary.sourceMarker || snap.sourceMarker, 160),
-    githubMainHeadVerifiedByStartupLog: true,
+    githubMainHeadVerifiedByStartupLog: actualApplicationMainShaVerified,
+    actualApplicationMainShaVerified,
     required,
     missing,
     readyForManualMaxTest: missing.length === 0
@@ -271,7 +277,7 @@ function sanitizeLiveVersionSnapshot(input = {}) {
 
 function sanitizeEntry(input = {}) {
   const liveVersionSnapshot = input.liveVersionSnapshot;
-  const finalRuntimeReadinessGate = input.finalRuntimeReadinessGate || buildFinalRuntimeReadinessGateFromSnapshot(liveVersionSnapshot);
+  const finalRuntimeReadinessGate = input.finalRuntimeReadinessGate || buildFinalRuntimeReadinessGateFromSnapshot({ ...(liveVersionSnapshot || {}), githubMainHeadSha: input.githubMainHeadSha });
   const safe = {
     startedAt: short(input.startedAt || nowIso(), 64),
     bootId: short(input.bootId || bootId(), 80),
@@ -281,8 +287,12 @@ function sanitizeEntry(input = {}) {
     sourceMarker: short(input.sourceMarker, 160),
     entrypoint: short(input.entrypoint || 'clean-entrypoint-1.53.10-pr89.js', 120),
     gitCommit: short(input.gitCommit || process.env.GIT_COMMIT || process.env.COMMIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION, 80),
+    actualApplicationMainSha: short(input.gitCommit || process.env.GIT_COMMIT || process.env.COMMIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION || (liveVersionSnapshot && liveVersionSnapshot.gitCommit), 80),
     githubMainBranch: short(input.githubMainBranch || DEFAULT_MAIN_BRANCH, 80),
     githubMainHeadSha: short(input.githubMainHeadSha, 80),
+    runtimeStatusExportBranch: DEFAULT_BRANCH,
+    runtimeStatusExportCommitSha: short(input.runtimeStatusExportCommitSha, 80),
+    diagnosticExportSha: short(input.diagnosticExportSha || input.runtimeStatusExportCommitSha, 80),
     githubMainHeadCheckedAt: short(input.githubMainHeadCheckedAt, 64),
     commitSource: short(input.commitSource, 80),
     nodeEnv: short(process.env.NODE_ENV || '', 40),
