@@ -140,6 +140,7 @@ function buildFinalRuntimeReadinessGateFromSnapshot(snapshot = {}) {
   const actualApplicationShaStatus = actualApplicationMainShaVerified
     ? 'verified_match'
     : (canCompareApplicationSha ? 'verified_mismatch' : 'unavailable_missing_runtime_git_commit');
+  const githubMainHeadVerifiedByStartupLog = actualApplicationShaStatus !== 'verified_mismatch';
   const missing = Object.entries(required).filter(([, value]) => value !== true).map(([key]) => key);
   if (actualApplicationShaStatus === 'verified_mismatch') missing.push('actualApplicationMainShaVerified');
   return {
@@ -151,7 +152,7 @@ function buildFinalRuntimeReadinessGateFromSnapshot(snapshot = {}) {
     runtimeVersion: short(summary.runtimeVersion || snap.runtimeVersion, 120),
     buildVersion: short(summary.buildVersion || snap.buildVersion, 120),
     sourceMarker: short(summary.sourceMarker || snap.sourceMarker, 160),
-    githubMainHeadVerifiedByStartupLog: actualApplicationMainShaVerified,
+    githubMainHeadVerifiedByStartupLog,
     actualApplicationMainShaVerified,
     actualApplicationShaStatus,
     required,
