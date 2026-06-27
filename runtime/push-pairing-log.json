@@ -1,9 +1,9 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-26T19:50:11.027Z",
+  "updatedAt": "2026-06-27T05:33:07.418Z",
   "limit": 100,
   "latest": {
-    "timestamp": "2026-06-26T19:50:08.871Z",
+    "timestamp": "2026-06-27T05:33:06.969Z",
     "event": "push_opened",
     "tokenFound": false,
     "subscriptionCreated": false,
@@ -26,6 +26,29 @@
     "missingTitleCount": 0
   },
   "items": [
+    {
+      "timestamp": "2026-06-27T05:33:06.969Z",
+      "event": "push_opened",
+      "tokenFound": false,
+      "subscriptionCreated": false,
+      "linkedToChat": false,
+      "handoffPending": false,
+      "consumed": false,
+      "hasPairingToken": false,
+      "hasHandoff": false,
+      "source": "missing",
+      "tokenSource": "missing",
+      "hasPairingCookie": false,
+      "hasHandoffCookie": false,
+      "openedAs": "standalone-pwa",
+      "route": "/push",
+      "result": "binding_missing",
+      "pendingCount": 0,
+      "chatsCount": 0,
+      "rawBindingsCount": 0,
+      "uniqueChatsCount": 0,
+      "missingTitleCount": 0
+    },
     {
       "timestamp": "2026-06-26T19:50:08.871Z",
       "event": "push_opened",
@@ -2669,36 +2692,6 @@
       "chatsCount": 0,
       "rawBindingsCount": 0,
       "uniqueChatsCount": 0,
-      "missingTitleCount": 0
-    },
-    {
-      "timestamp": "2026-06-18T17:15:54.152Z",
-      "event": "device_status",
-      "userId": "72930380",
-      "maxUserIdHash": "f7da95967ea960446dad",
-      "chatId": "-75747966204616",
-      "chatIdHash": "6f11e962e458c29a044f",
-      "chatTitle": "Мамочка ❤️",
-      "deviceIdHash": "de98df72a3167a0d16d5",
-      "endpointHash": "d5b59f31411a0ff2e14c8a51",
-      "tokenFound": false,
-      "subscriptionCreated": false,
-      "linkedToChat": true,
-      "handoffPending": false,
-      "consumed": false,
-      "hasPairingToken": false,
-      "hasHandoff": false,
-      "source": "missing",
-      "tokenSource": "missing",
-      "hasPairingCookie": false,
-      "hasHandoffCookie": false,
-      "openedAs": "unknown",
-      "route": "/api/push/device/status",
-      "result": "status_success",
-      "pendingCount": 0,
-      "chatsCount": 2,
-      "rawBindingsCount": 2,
-      "uniqueChatsCount": 2,
       "missingTitleCount": 0
     }
   ]
