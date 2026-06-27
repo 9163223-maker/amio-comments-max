@@ -1554,10 +1554,18 @@ function hasCommentsKeyboard(message) {
   return attachments.some((item) => item?.type === "inline_keyboard" && JSON.stringify(item).includes("Комментар"));
 }
 
+function isPlainCallbackPayloadObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
 function parseCallbackPayload(callback) {
-  const raw = String(
-    callback?.payload || callback?.data || callback?.value || callback?.callback_data || ""
-  ).trim();
+  const candidates = [callback?.payload, callback?.data, callback?.value, callback?.callback_data];
+  const candidate = candidates.find((item) => item !== undefined && item !== null && item !== '');
+  if (isPlainCallbackPayloadObject(candidate)) return candidate;
+
+  const raw = String(candidate || "").trim();
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw);

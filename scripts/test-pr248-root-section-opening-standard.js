@@ -30,7 +30,8 @@ const ROUTES = [
 function reset() { botAudit.clear(); pr247Trace.clear(); runtimeTrace._resetSchedulerForTests(); }
 function res() { return { statusCode: 0, body: null, status(c) { this.statusCode = c; return this; }, json(b) { this.body = b; return b; } }; }
 function update(payload, opts = {}) {
-  const callback = { callback_id: opts.callbackId || `cb-${Math.random()}`, payload: typeof payload === 'string' ? payload : JSON.stringify(payload), user: { user_id: TEST_USER } };
+  const callbackPayload = opts.decodedObjectPayload ? payload : (typeof payload === 'string' ? payload : JSON.stringify(payload));
+  const callback = { callback_id: opts.callbackId || `cb-${Math.random()}`, payload: callbackPayload, user: { user_id: TEST_USER } };
   return { body: { update_type: 'message_callback', callback, message: { id: opts.messageId || `msg-${Math.random()}`, body: { mid: opts.mid || `mid-${Math.random()}`, text: 'old menu' }, sender: { user_id: TEST_USER }, recipient: { chat_id: `${TEST_USER}-chat`, chat_type: 'user' } } } };
 }
 function installStubs(calls) {
@@ -57,15 +58,15 @@ async function main() {
   const bot = require('../bot');
 
   for (const [route, expected, legacy] of ROUTES) {
-    for (const [label, payload, resolver] of [
-      ['route-object', { route }, 'payload.route'],
+    for (const [label, payload, resolver, decodedObjectPayload] of [
+      ['route-object', { route }, 'payload.route', true],
       ['action-object', { action: route }, 'payload.action.canonical'],
       ['json-string', JSON.stringify({ route }), 'payload.route'],
       ...(legacy ? [['legacy', { action: legacy }, 'legacy.compatibility']] : []),
       ...(route === 'gifts:home' ? [['gift-open-menu-legacy', { action: 'gift_admin_open_menu' }, 'legacy.compatibility']] : [])
     ]) {
       const before = calls.length;
-      const body = await webhook(bot, update(payload, { callbackId: `cb-${label}-${route}`, messageId: `msg-${label}-${route}`, mid: `mid-${label}-${route}` }));
+      const body = await webhook(bot, update(payload, { callbackId: `cb-${label}-${route}`, messageId: `msg-${label}-${route}`, mid: `mid-${label}-${route}`, decodedObjectPayload }));
       assert.notStrictEqual(body && body.reason, 'unsupported_callback', `${route}/${label} is not unsupported_callback`);
       assert.ok(calls.length > before, `${route}/${label} attempts visible delivery`);
       assert.ok(expected.test(visible(calls.at(-1))), `${route}/${label} renders expected visible screen`);
