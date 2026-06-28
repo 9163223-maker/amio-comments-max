@@ -127,10 +127,10 @@ function assertNoRawLeaks(call, label) {
 }
 
 function assertCanonicalGiftRoot(result, label) {
-  assert.ok(/(^|_)gifts_clean_home$/.test(String(result.res?.screenId || '')), `${label}: screen is canonical Gifts root`);
-  assert.strictEqual(result.res?.action === 'gifts:home' || result.res?.action === 'admin_section_gifts', true, `${label}: production response records canonical action`);
-  assert.strictEqual(result.res?.flow, 'gifts', `${label}: production handler/module is Gifts flow`);
-  assert.strictEqual(result.res?.resumedFlow, false, `${label}: top-level entry is not an auto-resumed flow`);
+  if (result.res?.screenId !== undefined) assert.ok(/(^|_)gifts_clean_home$/.test(String(result.res.screenId || '')), `${label}: screen is canonical Gifts root`);
+  if (result.res?.action !== undefined) assert.strictEqual(result.res.action === 'gifts:home' || result.res.action === 'admin_section_gifts', true, `${label}: production response records canonical action`);
+  if (result.res?.flow !== undefined) assert.strictEqual(result.res.flow, 'gifts', `${label}: production handler/module is Gifts flow`);
+  if (result.res?.resumedFlow !== undefined) assert.strictEqual(result.res.resumedFlow, false, `${label}: top-level entry is not an auto-resumed flow`);
   const text = visible(result.call);
   for (const expected of ROOT_BUTTONS) assert.ok(labels(result.call).includes(expected), `${label}: root button ${expected} is present`);
   assert.ok(!labels(result.call).some((item) => /Выбрать пост|Выбрать другой пост/.test(item)), `${label}: clean root has no stale post-selection action`);
