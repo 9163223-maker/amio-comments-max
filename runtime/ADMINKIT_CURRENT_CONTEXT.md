@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-29 09:08 UTC
+Updated: 2026-06-29 09:15 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -61,7 +61,8 @@ PR256:
 - Branch: `codex/implement-rootsectiondispatcher-v2`
 - Base: `main`
 - Old head before Codex follow-up: `7614f3eb15b309148b0279e050fb6c51c775aa2a`
-- CI before follow-up: PR regression tests run #429 success.
+- Current checked head: `7614f3eb15b309148b0279e050fb6c51c775aa2a`
+- CI before follow-up / current checked head: PR regression tests run #429 success.
 
 PR256 goal: one dispatcher should parse callback payload, resolve canonical root route, reset competing flow state, select provider, render screen, deliver through one common path, write one trace chain, and return handled root callbacks cleanly.
 
@@ -75,13 +76,23 @@ Codex review found two P2 issues:
 
 Direct code editing in this chat was blocked by the tool layer when trying to edit PR256 code files. User sent Codex Cloud follow-up at about 2026-06-29 09:03 UTC in the existing PR256 task.
 
+## Latest observed state — 2026-06-29 09:15 UTC
+
+Next agent checked PR256 after the follow-up. PR head is still `7614f3eb15b309148b0279e050fb6c51c775aa2a`; it did not advance to the Codex-reported `1a85a973e0a08822f891b499531654d92b7bfd46`.
+
+Important process error: GitHub issue comment `#issuecomment-4830470251` claims Codex fixed the two P2s on branch `work`, head `1a85a973e0a08822f891b499531654d92b7bfd46`, with tests green, but PR256 still has only 1 commit and still points to old head `7614f3eb15b309148b0279e050fb6c51c775aa2a`. Treat this as a Codex/GitHub-comment desync, not a completed update. Do not merge from the old PR head.
+
+Observed code still has the blocker pattern: `LEGACY_ROOT_ACTION_ROUTES` maps `admin_section_comments` to `comments:home` and `admin_section_posts` to `editor:home`, while `LEGACY_ROOT_RENDER_ACTIONS` only preserves `gift_admin_open_menu`. Root render payload then renders generic canonical routes through `v3MenuCore1539.asyncScreenForPayload`.
+
+Likely required fix remains: keep canonical trace/audit routes (`comments:home`, `editor:home`), but preserve legacy render actions for `admin_section_comments` and `admin_section_posts` so selected-post Comments and Editor screens render through their product-perfect providers. Add blocker coverage for selected `commentTargetPost` / selected editor post.
+
 ## Next action
 
-Check PR256 now. Compare current head with old head `7614f3eb15b309148b0279e050fb6c51c775aa2a`.
+Do not ask the user to continue. First check whether PR256 head changed after this note. If still `7614f3eb15b309148b0279e050fb6c51c775aa2a`, use Codex Cloud existing task/PR256 branch follow-up, not a GitHub `@codex` comment, to push the missing fix to `codex/implement-rootsectiondispatcher-v2`. Then re-check PR head, inspect diff, changed files, and workflow runs.
 
-If Codex updated PR256: inspect diff, changed files, workflow runs for new head. If CI red, read logs and fix. If CI green, verify blocker coverage and then prepare audit-only prompt.
+If Codex updates PR256: inspect diff, changed files, workflow runs for new head. If CI red, read logs and fix. If CI green, verify blocker coverage and then prepare audit-only prompt.
 
-If Codex did not update PR256: do not ask the user to continue. Try safe direct edit if possible. If blocked again, give an exact Codex Cloud follow-up for the same PR256 task and branch.
+If Codex does not update PR256: do not ask the user to continue. Try safe direct edit if possible. If blocked again, give an exact Codex Cloud follow-up for the same PR256 task and branch.
 
 ## Audit-only after green CI
 
