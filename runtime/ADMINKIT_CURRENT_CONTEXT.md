@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-29 09:15 UTC
+Updated: 2026-06-29 09:55 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -61,42 +61,48 @@ PR256:
 - Branch: `codex/implement-rootsectiondispatcher-v2`
 - Base: `main`
 - Old head before Codex follow-up: `7614f3eb15b309148b0279e050fb6c51c775aa2a`
-- Current checked head: `7614f3eb15b309148b0279e050fb6c51c775aa2a`
-- CI before follow-up / current checked head: PR regression tests run #429 success.
+- Current checked head: `703f1e8791b3e2537e0798862d3dc632f1176355`
+- CI for current checked head: PR regression tests run #431 success.
 
 PR256 goal: one dispatcher should parse callback payload, resolve canonical root route, reset competing flow state, select provider, render screen, deliver through one common path, write one trace chain, and return handled root callbacks cleanly.
 
-## Current blocker
+## Previously found blocker
 
 Codex review found two P2 issues:
 
-1. `admin_section_comments` mapped to generic `comments:home` can lose selected `commentTargetPost`. If a post is already selected, legacy Comments navigation must show selected-post comments actions and must not force picking the same post again.
+1. `admin_section_comments` mapped to generic `comments:home` could lose selected `commentTargetPost`. If a post is already selected, legacy Comments navigation must show selected-post comments actions and must not force picking the same post again.
 
-2. `admin_section_posts` mapped to generic `editor:home` can lose selected editor post. If a post is already selected, legacy Editor navigation must show selected-post editor actions, including `Изменить текст выбранного поста`, and must not force picking again.
+2. `admin_section_posts` mapped to generic `editor:home` could lose selected editor post. If a post is already selected, legacy Editor navigation must show selected-post editor actions, including `Изменить текст выбранного поста`, and must not force picking again.
 
-Direct code editing in this chat was blocked by the tool layer when trying to edit PR256 code files. User sent Codex Cloud follow-up at about 2026-06-29 09:03 UTC in the existing PR256 task.
+Direct code editing in this chat had previously been blocked by the tool layer when trying to edit PR256 code files. User sent Codex Cloud follow-up in the existing PR256 task and then updated the PR branch.
 
-## Latest observed state — 2026-06-29 09:15 UTC
+## Latest observed state — 2026-06-29 09:55 UTC
 
-Next agent checked PR256 after the follow-up. PR head is still `7614f3eb15b309148b0279e050fb6c51c775aa2a`; it did not advance to the Codex-reported `1a85a973e0a08822f891b499531654d92b7bfd46`.
+PR256 branch was updated after the Codex Cloud follow-up. PR head changed from `7614f3eb15b309148b0279e050fb6c51c775aa2a` to `703f1e8791b3e2537e0798862d3dc632f1176355`. PR remains open, unmerged, mergeable, with 2 commits and 6 changed files.
 
-Important process error: GitHub issue comment `#issuecomment-4830470251` claims Codex fixed the two P2s on branch `work`, head `1a85a973e0a08822f891b499531654d92b7bfd46`, with tests green, but PR256 still has only 1 commit and still points to old head `7614f3eb15b309148b0279e050fb6c51c775aa2a`. Treat this as a Codex/GitHub-comment desync, not a completed update. Do not merge from the old PR head.
+GitHub Actions for head `703f1e8791b3e2537e0798862d3dc632f1176355`: workflow `PR regression tests` run #431 completed with conclusion `success`; job `AdminKIT regression tests` completed with conclusion `success`.
 
-Observed code still has the blocker pattern: `LEGACY_ROOT_ACTION_ROUTES` maps `admin_section_comments` to `comments:home` and `admin_section_posts` to `editor:home`, while `LEGACY_ROOT_RENDER_ACTIONS` only preserves `gift_admin_open_menu`. Root render payload then renders generic canonical routes through `v3MenuCore1539.asyncScreenForPayload`.
+Diff inspection after branch update: `LEGACY_ROOT_ACTION_ROUTES` now maps `admin_section_comments` to canonical `comments:home` and `admin_section_posts` to canonical `editor:home`; `LEGACY_ROOT_RENDER_ACTIONS` now preserves render actions for `admin_section_comments` and `admin_section_posts` alongside `gift_admin_open_menu`.
 
-Likely required fix remains: keep canonical trace/audit routes (`comments:home`, `editor:home`), but preserve legacy render actions for `admin_section_comments` and `admin_section_posts` so selected-post Comments and Editor screens render through their product-perfect providers. Add blocker coverage for selected `commentTargetPost` / selected editor post.
+`renderRootSectionScreen` now handles `admin_section_comments` by using `getCommentTargetPost(userId)` and rendering selected comments actions when `commentKey` exists; otherwise comments home. It handles `admin_section_posts` by using `postTargetPost || commentTargetPost` and rendering selected editor root with `Изменить текст выбранного поста` when `commentKey` exists; otherwise editor home.
+
+`applyRootSectionAdminState` still clears competing transient flows/screen ids (`giftFlow`, `buttonFlow`, `commentAdminFlow`, `postEditFlow`, active screen ids, `activeAdminFlowKind`) but does not clear selected target state, so selected post context is preserved for Comments/Editor roots.
+
+Regression coverage was extended in `scripts/test-pr248-root-section-opening-standard.js`: selected `commentTargetPost`/`postTargetPost` is seeded, `admin_section_comments` asserts selected comments actions (`Проверить комментарии`, `Список комментариев`, `Фото в комментариях`, `Реакции и ответы`, `Настройки кнопки комментариев`) and no forced repick text; `admin_section_posts` asserts `Изменить текст выбранного поста` and no forced repick text; both assert canonical route traces (`comments:home` / `editor:home`) through RootSectionDispatcher v2.
+
+No additional direct blocker was found in this chat after inspecting the new diff and green CI. Next step is an audit-only Codex Cloud task, not more implementation.
 
 ## Next action
 
-Do not ask the user to continue. First check whether PR256 head changed after this note. If still `7614f3eb15b309148b0279e050fb6c51c775aa2a`, use Codex Cloud existing task/PR256 branch follow-up, not a GitHub `@codex` comment, to push the missing fix to `codex/implement-rootsectiondispatcher-v2`. Then re-check PR head, inspect diff, changed files, and workflow runs.
+Send a new Codex Cloud audit-only task for PR256. It must be audit-only: do not edit, do not push, do not create PR, do not merge. Ask Codex to independently review only the current PR head `703f1e8791b3e2537e0798862d3dc632f1176355` for RootSectionDispatcher v2 regressions and especially the two prior selected-state P2 blockers.
 
-If Codex updates PR256: inspect diff, changed files, workflow runs for new head. If CI red, read logs and fix. If CI green, verify blocker coverage and then prepare audit-only prompt.
+If audit returns PASS: merge PR256, wait deploy, verify runtime startup log and readiness gates, then run manual MAX root section UX test and trace checks.
 
-If Codex does not update PR256: do not ask the user to continue. Try safe direct edit if possible. If blocked again, give an exact Codex Cloud follow-up for the same PR256 task and branch.
+If audit returns BLOCK: do not merge. Inspect the blocker; first try direct fixes in PR branch if safe, otherwise give the user a Codex Cloud follow-up prompt for the same PR256 branch.
 
 ## Audit-only after green CI
 
-Audit prompt must say: type is new audit-only task, repo `9163223-maker/amio-comments-max`, PR `#256`, branch `codex/implement-rootsectiondispatcher-v2`, base `main`, do not edit, do not push, do not create PR, do not merge.
+Audit prompt must say: type is new audit-only task, repo `9163223-maker/amio-comments-max`, PR `#256`, branch `codex/implement-rootsectiondispatcher-v2`, head `703f1e8791b3e2537e0798862d3dc632f1176355`, base `main`, do not edit, do not push, do not create PR, do not merge.
 
 ## Completion definition
 
