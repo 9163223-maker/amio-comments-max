@@ -56,6 +56,7 @@ runSmoke('test-pr244-gifts-root-pre-dedupe-trace.js', 'PR244 gifts root pre-dedu
 runSmoke('test-pr245-root-section-opening-contract.js', 'PR245 root section opening contract smoke test');
 runSmoke('test-pr247-root-menu-live-parity-trace.js', 'PR247 root menu live parity trace smoke test');
 runSmoke('test-pr248-root-section-opening-standard.js', 'PR248 root-section opening standard smoke test');
+runSmoke('test-pr250-clean-wrapper-root-bridge.js', 'PR250 clean-wrapper root bridge regression test');
 runSmoke('test-pr248-startup-readiness-sha-status.js', 'PR248 startup readiness SHA status smoke test');
 runSmoke('test-pr241-gifts-stats-tenant-contract.js', 'PR241 gifts/stats tenant contract test');
 runSmoke('test-pr242-gifts-root-callback.js', 'PR242 gifts root callback test');
