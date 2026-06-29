@@ -5333,7 +5333,9 @@ const LEGACY_ROOT_ACTION_ROUTES = {
   admin_section_posts: 'editor:home'
 };
 const LEGACY_ROOT_RENDER_ACTIONS = {
-  gift_admin_open_menu: 'admin_section_gifts'
+  gift_admin_open_menu: 'admin_section_gifts',
+  admin_section_comments: 'admin_section_comments',
+  admin_section_posts: 'admin_section_posts'
 };
 
 const ROOT_SECTION_ADMIN_STATE = {
@@ -5455,6 +5457,25 @@ async function flushBotAuditTraceSafe(reason, extra = {}) {
   }
 }
 
+
+async function renderRootSectionScreen(renderPayload = {}, ctx = {}) {
+  const action = String(renderPayload?.action || '').trim();
+  const userId = String(ctx?.userId || '').trim();
+  if (action === 'admin_section_comments') {
+    const targetPost = getCommentTargetPost(userId);
+    if (targetPost?.commentKey) {
+      return { id: 'comments_selected_root', text: buildSelectedCommentsOverviewText(targetPost, userId), attachments: buildSelectedCommentsOverviewKeyboard() };
+    }
+    return { id: 'comments_home', text: buildCommentsOverviewText(), attachments: buildCommentsSectionKeyboard() };
+  }
+  if (action === 'admin_section_posts') {
+    const state = getUserSetupState(userId) || {};
+    const targetPost = state.postTargetPost || state.commentTargetPost || null;
+    return { id: targetPost?.commentKey ? 'editor_selected_root' : 'editor_home', text: buildPostsSectionText(targetPost, userId), attachments: buildPostsSectionKeyboard(targetPost) };
+  }
+  return v3MenuCore1539.asyncScreenForPayload(renderPayload, ctx);
+}
+
 async function handleRootSectionCallback({ config, message, payload = {}, userId = '', callbackId = '' } = {}) {
   const startedAt = Date.now();
   const resolved = resolveRootSectionCallback(payload);
@@ -5487,7 +5508,7 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
     const renderPayload = resolved.renderAction
       ? { ...payload, route: '', r: '', action: resolved.renderAction, canonicalRootRoute: resolved.route }
       : { ...payload, route: resolved.route, action: resolved.route, canonicalRootRoute: resolved.legacyAction ? resolved.route : undefined };
-    screen = await v3MenuCore1539.asyncScreenForPayload(renderPayload, { userId, config, rootSectionContract: true });
+    screen = await renderRootSectionScreen(renderPayload, { userId, config, rootSectionContract: true });
     renderMs = Date.now() - renderStartedAt;
     try { pr247Trace.record({ eventKind: 'render_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload', renderer: baseAudit.provider, provider: baseAudit.provider, owner: baseAudit.owner, resultKind: 'screen_rendered', renderMs }); } catch {}
   } catch (error) {

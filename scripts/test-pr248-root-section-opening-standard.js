@@ -50,6 +50,12 @@ function assertCompetingStateCleared(route, label) {
   assert.strictEqual(state.commentActiveScreenMessageId, '', `${route}/${label} clears stale comments screen id`);
   assert.strictEqual(state.activeAdminFlowKind, '', `${route}/${label} clears active flow kind`);
 }
+function seedSelectedPost() {
+  const target = { channelId: 'pr255-channel', channelTitle: 'PR255 Channel', postId: 'pr255-post', messageId: 'pr255-message', commentKey: 'pr255-channel:pr255-post', originalText: 'PR255 selected post' };
+  if (typeof store.savePost === 'function') store.savePost(target.commentKey, target);
+  store.setSetupState(TEST_USER, { commentTargetPost: target, postTargetPost: target, giftFlow: { stepIndex: 2 }, buttonFlow: { stepIndex: 1 }, commentAdminFlow: { step: 'stale' }, postEditFlow: { step: 'stale' }, activeAdminFlowKind: 'gift', giftActiveScreenMessageId: 'stale-gift', buttonActiveScreenMessageId: 'stale-button', commentActiveScreenMessageId: 'stale-comment' });
+  return target;
+}
 function expectedProvider(route) {
   if (route === 'buttons:home') return 'buttons-root-provider';
   if (route === 'stats:home') return 'stats-root-provider';
@@ -80,6 +86,7 @@ async function main() {
   runtimeTrace._setExportLatestTraceForTests(async () => { flushes += 1; return { ok: true }; });
   delete require.cache[require.resolve('../bot')];
   const bot = require('../bot');
+  store.setSetupState(TEST_USER, { commentTargetPost: null, postTargetPost: null, giftTargetPost: null, buttonTargetPost: null });
 
   for (const [route, expected, legacy] of ROUTES) {
     for (const [label, payload, resolver, decodedObjectPayload] of [
@@ -103,6 +110,27 @@ async function main() {
       for (const kind of ['callback_received', resolver === 'legacy.compatibility' ? 'legacy_compatibility_resolved' : 'root_resolved', 'render_started', 'render_resolved', 'delivery_started', 'delivery_resolved']) assert.ok(chain.includes(kind), `${route}/${label} trace includes ${kind}`);
     }
   }
+
+
+  seedSelectedPost();
+  let before = calls.length;
+  await webhook(bot, update({ action: 'admin_section_comments' }, { callbackId: 'cb-selected-comments-root', messageId: 'msg-selected-comments-root', mid: 'mid-selected-comments-root' }));
+  assert.ok(calls.length > before, 'selected admin_section_comments attempts delivery');
+  const commentsVisible = visible(calls.at(-1));
+  for (const label of ['Проверить комментарии', 'Список комментариев', 'Фото в комментариях', 'Реакции и ответы', 'Настройки кнопки комментариев']) assert.ok(commentsVisible.includes(label), `selected comments root shows ${label}`);
+  assert.ok(!/Сначала выберите канал|Пост не выбран|Нажмите «Выбрать пост»/i.test(commentsVisible), 'selected comments root does not force post repick');
+  assert.ok(botAudit.list().some((e) => e.type === 'root_section_callback_received' && e.route === 'comments:home' && e.action === 'admin_section_comments' && e.resolver === 'legacy.compatibility'), 'selected comments root still resolves canonical comments:home through RootSectionDispatcher v2');
+  assert.ok(pr247Trace.listRoot().some((e) => e.eventKind === 'legacy_compatibility_resolved' && e.resolvedRootRoute === 'comments:home'), 'selected comments trace keeps canonical comments:home route');
+
+  seedSelectedPost();
+  before = calls.length;
+  await webhook(bot, update({ action: 'admin_section_posts' }, { callbackId: 'cb-selected-posts-root', messageId: 'msg-selected-posts-root', mid: 'mid-selected-posts-root' }));
+  assert.ok(calls.length > before, 'selected admin_section_posts attempts delivery');
+  const postsVisible = visible(calls.at(-1));
+  assert.ok(postsVisible.includes('Изменить текст выбранного поста'), 'selected posts root shows editor selected-post action');
+  assert.ok(!/Пост не выбран|Сначала выберите канал|Нажмите «Выбрать пост»/i.test(postsVisible), 'selected posts root does not force post repick');
+  assert.ok(botAudit.list().some((e) => e.type === 'root_section_callback_received' && e.route === 'editor:home' && e.action === 'admin_section_posts' && e.resolver === 'legacy.compatibility'), 'selected posts root still resolves canonical editor:home through RootSectionDispatcher v2');
+  assert.ok(pr247Trace.listRoot().some((e) => e.eventKind === 'legacy_compatibility_resolved' && e.resolvedRootRoute === 'editor:home'), 'selected posts trace keeps canonical editor:home route');
 
   assert.ok(!botAudit.list().some((e) => /handleGiftsRootCallback|gifts.*only/i.test(`${e.handlerName || ''} ${e.resolver || ''}`)), 'Gifts is not handled by a Gifts-only handler marker');
   assert.ok(pr247Trace.listRoot().every((e) => !/^trace_export_/.test(e.eventKind)), 'trace_export events do not consume root trace event slots');
