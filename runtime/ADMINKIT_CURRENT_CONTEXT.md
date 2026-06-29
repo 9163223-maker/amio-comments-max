@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-29 10:08 UTC
+Updated: 2026-06-29 10:12 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -78,15 +78,21 @@ Codex review found two P2 issues on the old PR head:
 
 These blockers were fixed before merge. Audit PASS confirmed no merge-blocking issue remained.
 
-## Latest observed state — 2026-06-29 10:08 UTC
+## Latest observed state — 2026-06-29 10:12 UTC
 
 PR256 was squash merged to `main` as `ad38d310ece323d5e0adb2583b12f904043bcc91`. PR256 is closed and merged.
 
+Runtime pickup is now confirmed by `runtime/startup-log.json` in `runtime-status`: latest startup log updated at `2026-06-29T10:03:47.818Z`, started at `2026-06-29T10:02:57.216Z`, and reports `githubMainHeadSha: ad38d310ece323d5e0adb2583b12f904043bcc91`.
+
+Startup path is green in runtime contract: `entrypointExpected: clean-entrypoint-1.53.10-pr89.js`, `activeEntrypoint: clean-entrypoint-1.53.10-pr89.js`, `startupLogBootstrapRequired: true`, `expressRoutesInstalledByEntrypoint: true`, `cleanBotInstalledByEntrypoint: true`, `ok: true`.
+
+Final runtime readiness gate is green: `finalRuntimeReadinessGate.ok: true`, `githubMainHeadVerifiedByStartupLog: true`, `missing: []`, `readyForManualMaxTest: true`.
+
 Post-merge source check: `package.json` on `main` still has `main: clean-entrypoint-1.53.10-pr89.js` and start script exactly `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
 
-Post-merge workflow check for merge commit `ad38d310ece323d5e0adb2583b12f904043bcc91`: no pull-request-triggered workflow runs returned by `fetch_commit_workflow_runs`. This is not necessarily a failure, but there is no additional workflow signal for the merge commit from this tool.
+Post-merge workflow check for merge commit `ad38d310ece323d5e0adb2583b12f904043bcc91`: no pull-request-triggered workflow runs returned by `fetch_commit_workflow_runs`. This is not necessarily a failure; PR head CI #431 was green before merge and runtime contract is now green after deploy.
 
-Post-merge runtime-status check: `runtime/startup-log.json` is still old. Latest startup log is updated at `2026-06-29T07:38:43.085Z`; it reports `githubMainHeadSha: 04bf37d9379eb852d38c88045dcff1339630abd2`, not merge commit `ad38d310ece323d5e0adb2583b12f904043bcc91`. Therefore deployed/runtime pickup of PR256 is NOT confirmed yet. Do not mark done.
+Trace status after runtime pickup: `runtime/root-menu-live-parity-trace.json` and `runtime/manual-ui-walkthrough-trace.json` are still old/stale, updated around `2026-06-29T08:55Z`. They still contain pre-PR256 Gifts failure (`gifts:home` lastResultKind `response_sent_500`). These files need fresh manual MAX clicks to verify PR256 live UX.
 
 Before merge diff inspection: `LEGACY_ROOT_ACTION_ROUTES` maps `admin_section_comments` to canonical `comments:home` and `admin_section_posts` to canonical `editor:home`; `LEGACY_ROOT_RENDER_ACTIONS` preserves render actions for `admin_section_comments` and `admin_section_posts` alongside `gift_admin_open_menu`.
 
@@ -98,17 +104,16 @@ Regression coverage was extended in `scripts/test-pr248-root-section-opening-sta
 
 ## Next action
 
-Post-merge/deploy verification is still required. Do not count merge as done.
+Runtime pickup and readiness are confirmed, but manual MAX UX is still required. Do not count runtime readiness as UX done.
 
-Next agent should:
-1. Check whether deployment has picked up merge commit `ad38d310ece323d5e0adb2583b12f904043bcc91`.
-2. Verify production start path still exactly equals `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js` and active entrypoint is `clean-entrypoint-1.53.10-pr89.js`.
-3. Verify runtime/startup-log.json and readiness gates after deploy refresh; current checked startup-log is stale and still points to `04bf37d9379eb852d38c88045dcff1339630abd2`.
-4. Verify `runtime/root-menu-live-parity-trace.json` / manual trace after live clicks.
-5. Run manual MAX root section UX test. Task is complete only when Gifts and all top-level sections open visually in live MAX and traces confirm RootSectionDispatcher v2 path.
+Next agent should ask/run manual MAX root section UX verification:
+1. Click Gifts / `gifts:home` from the live MAX admin menu and confirm it opens visually, no 500.
+2. Click all top-level sections: main, channels, comments, gifts, buttons, stats, push, ad_links, polls, highlights, editor, archive, account, settings.
+3. Re-check `runtime/root-menu-live-parity-trace.json` and `runtime/manual-ui-walkthrough-trace.json` after clicks. They must be fresh after `2026-06-29T10:03Z` and show successful responses, especially `gifts:home` `response_sent_200` or equivalent delivered success.
+4. Confirm traces show RootSectionDispatcher v2 path/provider/owner where applicable.
 
-If deploy/runtime shows old SHA or old startup path: treat as live mismatch and do not mark done.
+If fresh manual traces still show Gifts 500 or generic selected-state loss for Comments/Editor, treat as live blocker and fix/redeploy.
 
 ## Completion definition
 
-After audit PASS and merge, task is still not complete until deploy/runtime/manual MAX verification passes. Task is complete only when Gifts and all top-level sections open visually in live MAX and traces confirm RootSectionDispatcher v2 path.
+After audit PASS, merge, deploy/runtime pickup, task is still not complete until manual MAX verification passes. Task is complete only when Gifts and all top-level sections open visually in live MAX and traces confirm RootSectionDispatcher v2 path.
