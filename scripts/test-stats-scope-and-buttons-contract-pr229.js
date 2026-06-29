@@ -1,54 +1,125 @@
 'use strict';
-const assert=require('assert');
-const menu=require('../v3-menu-core-1539');
-const statsFlow=require('../stats-flow-cc8');
-const statsData=require('../services/statsProductPerfectPr226');
-const targets=require('../services/statsTargetsService');
-const store=require('../store');
-const routes=require('../v3-menu-routes-1539');
-const access=require('../services/clientAccessService');
-const connectedChats=require('../services/pushConnectedChatsService');
-const producers=require('../services/statsEventProducersPr226');
-const channelPostPicker=require('../channel-post-picker-core');
-function btns(s){return (s.attachments||[]).filter(a=>a.type==='inline_keyboard').flatMap(a=>a.payload.buttons||[]).flatMap(r=>r).map(b=>({text:b.text,payload:JSON.parse(b.payload||'{}')}));}
-function noTech(s){assert(!/channelId|chatId|targetId|commentKey|postId/.test(s.text),'technical id visible');}
-async function render(action,scope={},ctx={userId:'u-pr229',config:{chats:[{chatId:'chat1',title:'Чат один',userId:'u-pr229'},{chatId:'chat2',title:'Чат два',userId:'u-pr229'}]}}){return statsFlow.screenForPayload(menu,{action,...scope},ctx);}
-(async()=>{
- statsData.resetStatsStateForTests();
- store.saveChannel('chan1',{title:'Канал один',userId:'u-pr229'}); store.saveChannel('chan2',{title:'Канал два',userId:'u-pr229'}); access._resetForTests&&access._resetForTests(); const accessChannelId='access-only-pr229-'+Date.now(); access.upsertActivationCode({code:'AK-PR229-ACCESS-0001',createdByMaxUserId:'admin-pr229',planId:'business',durationDays:30,maxChannels:3,boundChannelId:accessChannelId}); assert(access.activateCode({maxUserId:'access-user-pr229',code:'AK-PR229-ACCESS-0001',name:'Access User'}).ok,'access activation must succeed'); const accessTargets=targets.listStatsTargetsForUser('access-user-pr229',{}); assert(accessTargets.channels.some(x=>x.channelId===accessChannelId&&x.provider==='client_access'),'clientAccess-only channel must appear in stats targets'); assert(!targets.listStatsTargetsForUser('access-other-pr229',{}).channels.some(x=>x.channelId===accessChannelId),'clientAccess channel must not leak to unrelated user'); store.saveChannel(accessChannelId,{channelId:accessChannelId,title:'Duplicate access channel',userId:'access-user-pr229'}); const dedupTargets=targets.listStatsTargetsForUser('access-user-pr229',{}); assert.equal(dedupTargets.channels.filter(x=>x.channelId===accessChannelId).length,1,'duplicate store+clientAccess channel must appear once'); const originalListUiChannelsForUser=channelPostPicker.listUiChannelsForUser; channelPostPicker.listUiChannelsForUser=async(userId)=>String(userId)==='shared-user-pr229'?[{channelId:'shared-only-pr229',title:'Shared Only',ownerUserId:'shared-user-pr229',tenantKey:'tenant_shared-user-pr229'},{channelId:'shared-dupe-pr229',title:'Shared Dupe',ownerUserId:'shared-user-pr229',tenantKey:'tenant_shared-user-pr229'},{channelId:'shared-leak-pr229',title:'Shared Leak',ownerUserId:'other-user-pr229',tenantKey:'tenant_other-user-pr229'}]:[]; store.saveChannel('shared-dupe-pr229',{channelId:'shared-dupe-pr229',title:'Store Shared Dupe',ownerUserId:'shared-user-pr229',tenantKey:'tenant_shared-user-pr229'}); const sharedTargets=await targets.listStatsTargetsForUserAsync('shared-user-pr229',{}); assert(sharedTargets.channels.some(x=>x.channelId==='shared-only-pr229'&&x.provider==='channel_post_picker'),'shared-picker-only channel must appear in stats targets'); assert.equal(sharedTargets.channels.filter(x=>x.channelId==='shared-dupe-pr229').length,1,'shared-picker duplicate must appear once'); assert(!sharedTargets.channels.some(x=>x.channelId==='shared-leak-pr229'),'shared-picker unrelated channel must not leak'); channelPostPicker.listUiChannelsForUser=originalListUiChannelsForUser;
- let root=await render('admin_section_stats'); assert(/stats_root_menu_pr229/.test(root.id),'root clean menu');
- const empty=await statsFlow.screenForPayload(menu,{action:'admin_section_stats'},{userId:'none-pr229',config:{statsTargetsOverride:{channels:[],chats:[]}}}); assert.equal(empty.id,'stats_root_menu_pr229');
- const originalResolveConnectedChats=connectedChats.resolveConnectedChats; connectedChats.resolveConnectedChats=async(userId)=>({chats:String(userId)==='conn-user-pr229'?[{chatId:'conn-chat-pr229',title:'Connected Chat',maxUserId:'conn-user-pr229'}]:[]}); const connTargets=await targets.listStatsTargetsForUserAsync('conn-user-pr229',{chats:[{chatId:'conn-chat-pr229',title:'Duplicate Connected',maxUserId:'conn-user-pr229'}]}); assert(connTargets.chats.some(x=>x.chatId==='conn-chat-pr229'),'connected-chat provider chat must appear in stats targets'); assert(connTargets.diagnostics.chatProviders.includes('push_connected_chats'),'connected-chat provider diagnostics must be present'); assert.equal(connTargets.chats.filter(x=>x.chatId==='conn-chat-pr229').length,1,'duplicate provider+config chat must appear once'); const connOther=await targets.listStatsTargetsForUserAsync('conn-other-pr229',{}); assert(!connOther.chats.some(x=>x.chatId==='conn-chat-pr229'),'connected chat must not leak to unrelated user'); connectedChats.resolveConnectedChats=originalResolveConnectedChats; const t=targets.listStatsTargetsForUser('u-pr229',{chats:[{chatId:'chat1',title:'Чат один',userId:'u-pr229'}]}); assert(t.channels.length>=2); assert(t.chats.length===1); assert(t.diagnostics.chatProviderAvailable===true); const maxOwner=targets.listStatsTargetsForUser('max-owner-pr229',{chats:[{chatId:'chat-max',title:'MAX owned chat',maxUserId:'max-owner-pr229'}]}); assert(maxOwner.chats.some(x=>x.chatId==='chat-max'),'maxUserId-owned chat target must be visible');
- const other=targets.listStatsTargetsForUser('other-pr229',{chats:[{chatId:'chat1',title:'Чат один',userId:'u-pr229'}]}); assert(!other.channels.some(x=>x.channelId==='chan1'||x.channelId==='chan2')); assert(!other.chats.some(x=>x.chatId==='chat1'));
- const noPushFake=targets.listStatsTargetsForUser('u-pr229',{pushSubscriptions:[{chatId:'push-only',title:'Push only',userId:'u-pr229'}]}); assert(!noPushFake.chats.some(x=>x.chatId==='push-only')); assert(noPushFake.diagnostics.pushSubscriptionsUsedAsStatsChats===false);
- const channel={targetKind:'channel',targetId:'chan1',channelId:'chan1'}; const channel2={targetKind:'channel',targetId:'chan2',channelId:'chan2'}; const chat={targetKind:'chat',targetId:'chat1',chatId:'chat1'}; const allc={targetKind:'all_channels',targetId:'all_channels'}; const allch={targetKind:'all_chats',targetId:'all_chats'};
- statsData.persistStatsEvent({tenantKey:'tenant_u-pr229',ownerUserId:'u-pr229',targetKind:'channel',targetId:'target-only-channel-pr229',eventType:'member_joined',userId:'target-only-channel'});
- statsData.persistStatsEvent({tenantKey:'tenant_u-pr229',ownerUserId:'u-pr229',targetKind:'chat',targetId:'target-only-chat-pr229',eventType:'member_joined',userId:'target-only-chat'});
- assert.equal(statsData.loadStatsDataset({userId:'u-pr229',targetKind:'channel',targetId:'target-only-channel-pr229'},{period:'all'}).growth.joined,1,'targetId-only channel row must appear in selected channel');
- assert.equal(statsData.loadStatsDataset({userId:'u-pr229',targetKind:'chat',targetId:'target-only-chat-pr229'},{period:'all'}).growth.joined,1,'targetId-only chat row must appear in selected chat');
- assert.equal(statsData.loadStatsDataset({userId:'u-pr229',targetKind:'chat',targetId:'target-only-channel-pr229'},{period:'all'}).growth.joined,0,'targetId-only channel row must not appear in chat scope');
- assert.equal(statsData.loadStatsDataset({userId:'u-pr229',targetKind:'channel',targetId:'target-only-chat-pr229'},{period:'all'}).growth.joined,0,'targetId-only chat row must not appear in channel scope');
- statsData.resetStatsStateForTests();
- statsData.persistStatsEvent({...channel,tenantKey:'tenant_u-pr229',ownerUserId:'u-pr229',eventType:'member_joined',userId:'a'});
- statsData.persistStatsEvent({tenantKey:'tenant_u-pr229',ownerUserId:'u-pr229',channelId:'chan1',eventType:'member_joined',userId:'legacy-channel'});
- statsData.persistStatsEvent({...chat,tenantKey:'tenant_u-pr229',ownerUserId:'u-pr229',eventType:'member_joined',userId:'b'});
- statsData.persistStatsEvent({tenantKey:'tenant_u-pr229',ownerUserId:'u-pr229',chatId:'chat1',eventType:'member_joined',userId:'legacy-chat'});
- statsData.persistStatsEvent({tenantKey:'tenant_u-pr229',ownerUserId:'u-pr229',eventType:'member_joined',userId:'legacy-no-target'});
- assert.equal(statsData.loadStatsDataset({userId:'u-pr229',...channel},{period:'all'}).growth.joined,2);
- assert.equal(statsData.loadStatsDataset({userId:'u-pr229',...chat},{period:'all'}).growth.joined,2);
- assert.equal(statsData.loadStatsDataset({userId:'u-pr229',...allc},{period:'all'}).growth.joined,2);
- assert.equal(statsData.loadStatsDataset({userId:'u-pr229',...allch},{period:'all'}).growth.joined,2); const chatProducer={targetKind:'chat',targetId:'chat-producer-pr229',chatId:'chat-producer-pr229'}; producers.recordAudienceUpdate({chatId:'chat-producer-pr229',ownerUserId:'u-pr229',type:'member_added',userId:'chat-member-pr229'}); producers.recordCommentCreated({chatId:'chat-producer-pr229',ownerUserId:'u-pr229',userId:'chat-commenter-pr229'}); producers.recordGiftRequested({chatId:'chat-producer-pr229',ownerUserId:'u-pr229',userId:'chat-gift-pr229',giftId:'gift-pr229'}); const chatProducerData=statsData.loadStatsDataset({userId:'u-pr229',...chatProducer},{period:'all'}); assert.equal(chatProducerData.growth.joined,1,'chatId-only audience event must appear in selected chat'); assert.equal(chatProducerData.content.comments,1,'chatId-only comment event must appear in selected chat'); assert.equal(chatProducerData.content.giftRequests,1,'chatId-only gift event must appear in selected chat'); assert.equal(statsData.loadStatsDataset({userId:'u-pr229',...allch},{period:'all'}).growth.joined,3,'chatId-only audience event must appear in all_chats'); assert.equal(statsData.loadStatsDataset({userId:'u-pr229',...channel},{period:'all'}).content.comments,0,'chatId-only event must not appear in selected channel'); assert.equal(statsData.loadStatsDataset({userId:'u-pr229',...allc},{period:'all'}).content.giftRequests,0,'chatId-only event must not appear in all_channels');
- store.saveChannel('legacy-retry-pr229',{channelId:'legacy-retry-pr229',title:'Legacy Retry',ownerUserId:'u-pr229',tenantKey:'tenant_u-pr229'});
- statsData.persistStatsEvent({tenantKey:'tenant_u-pr229',ownerUserId:'u-pr229',channelId:'legacy-retry-pr229',eventType:'member_joined',userId:'legacy-retry-member',idempotencyKey:'audience:member_added:legacy-retry-pr229:legacy-retry-member:stable-retry-pr229'});
- producers.recordAudienceUpdate({type:'member_added',channelId:'legacy-retry-pr229',ownerUserId:'u-pr229',memberUserId:'legacy-retry-member',updateId:'stable-retry-pr229'});
- assert.equal(statsData.loadStatsEvents({userId:'u-pr229',targetKind:'channel',targetId:'legacy-retry-pr229'},{period:'all',eventType:'member_joined'}).length,1,'legacy channel audience idempotency key must dedupe after PR229');
- producers.recordAudienceUpdate({type:'member_added',chatId:'chat-retry-pr229',ownerUserId:'u-pr229',memberUserId:'chat-retry-member',updateId:'chat-stable-retry-pr229'}); producers.recordAudienceUpdate({type:'member_added',chatId:'chat-retry-pr229',ownerUserId:'u-pr229',memberUserId:'chat-retry-member',updateId:'chat-stable-retry-pr229'});
- assert.equal(statsData.loadStatsEvents({userId:'u-pr229',targetKind:'chat',targetId:'chat-retry-pr229'},{period:'all',eventType:'member_joined'}).length,1,'chat audience idempotency must remain scoped and stable');
- await render('admin_stats_manual_costs',chat); await statsFlow.handleTextInput(menu,{userId:'u-pr229',text:'chatScope / saved'}); const chatSaved=await statsFlow.handleTextInput(menu,{userId:'u-pr229',text:'44'}); const chatSourcesPayload=btns(chatSaved).find(b=>b.text==='🎯 Источники').payload; assert.equal(chatSourcesPayload.targetKind,'chat'); assert.equal(chatSourcesPayload.chatId,'chat1'); const chatSources=await render(chatSourcesPayload.action,chatSourcesPayload); assert(/chatScope: 44 RUB/.test(chatSources.text),'chat-scope saved cost must remain visible after Sources navigation'); await render('admin_stats_manual_costs',allch); await statsFlow.handleTextInput(menu,{userId:'u-pr229',text:'allChatsScope / saved'}); const allChatSaved=await statsFlow.handleTextInput(menu,{userId:'u-pr229',text:'55'}); const allChatSourcesPayload=btns(allChatSaved).find(b=>b.text==='🎯 Источники').payload; assert.equal(allChatSourcesPayload.targetKind,'all_chats'); const allChatSources=await render(allChatSourcesPayload.action,allChatSourcesPayload); assert(/allChatsScope: 55 RUB/.test(allChatSources.text),'all_chats saved cost must remain visible after Sources navigation'); const cost=statsData.writeManualCost({userId:'u-pr229',...channel},{source:'s',campaign:'c',amount:10},'added'); assert(statsData.getManualCosts({userId:'u-pr229',...channel},{period:'all'}).length===1); assert(statsData.getManualCosts({userId:'u-pr229',...channel2},{period:'all'}).length===0); assert(!statsData.getManualCosts({userId:'u-pr229',...chat},{period:'all'}).some(x=>x.costId===cost.costId)); assert(statsData.writeManualCost({userId:'u-pr229',...channel},{costId:cost.costId},'deleted')); const chatCost=statsData.writeManualCost({userId:'u-pr229',...chat},{source:'chat',campaign:'chat',amount:20},'added'); await render('admin_stats_manual_cost_delete',{...chat,costId:chatCost.costId,source:'chat',campaign:'chat'}); assert(!statsData.getManualCosts({userId:'u-pr229',...chat},{period:'all'}).some(x=>x.costId===chatCost.costId)); const allChatCost=statsData.writeManualCost({userId:'u-pr229',...allch},{source:'allchat',campaign:'allchat',amount:25},'added'); await render('admin_stats_manual_cost_delete',{...allch,costId:allChatCost.costId,source:'allchat',campaign:'allchat'}); assert(!statsData.getManualCosts({userId:'u-pr229',...allch},{period:'all'}).some(x=>x.costId===allChatCost.costId)); const allCost=statsData.writeManualCost({userId:'u-pr229',...allc},{source:'all',campaign:'all',amount:30},'added'); assert(allCost&&allCost.costId); assert(statsData.getManualCosts({userId:'u-pr229',...allc},{period:'all'}).some(x=>x.costId===allCost.costId)); assert(statsData.writeManualCost({userId:'u-pr229',...allc},{costId:allCost.costId},'deleted')); assert(!statsData.getManualCosts({userId:'u-pr229',...allc},{period:'all'}).some(x=>x.costId===allCost.costId));
- for (const scope of [channel,chat,allc,allch]) for (const action of ['admin_stats_scope_select','admin_stats_growth','admin_stats_sources','admin_stats_funnel','admin_stats_content','admin_stats_quality','admin_stats_export']){const s=await render(action,scope); assert(s&&s.id,action); noTech(s); const bs=btns(s); assert(bs.every(b=>b.payload.action),'routable'); assert(bs.every(b=>/admin_section_main|ad_links:home|ads:home|admin_section_stats|comments_select_post/.test(b.payload.action)||b.payload.targetKind),'scope propagation');}
- const cpa={targetKind:'channel',targetId:'cpa-chan-pr229',channelId:'cpa-chan-pr229'}; store.saveChannel('cpa-chan-pr229',{title:'CPA channel',userId:'u-pr229'}); statsData.recordMemberJoined({ownerUserId:'u-pr229',...cpa},{userId:'cpa-user-pr229',source:'ads'}); statsData.writeManualCost({userId:'u-pr229',...cpa},{source:'ads',campaign:'cpa',amount:50},'added'); const cpaSources=await render('admin_stats_sources',cpa); assert(/CPA: 50\.00 за вступление/.test(cpaSources.text),'CPA must use computed costPerJoin'); assert(!/CPA: 50 \/ 0/.test(cpaSources.text),'CPA must not show raw operands'); const qualityFresh=await render('admin_stats_quality',cpa); assert(/Обновлено:/.test(qualityFresh.text)&&!/Нет свежих данных/.test(qualityFresh.text),'Quality screen must reflect scoped freshness'); const sources=await render('admin_stats_sources',channel); const labels=btns(sources).map(b=>b.text); ['Все ссылки','Создать ссылку','Создать первую ссылку','Создать ещё ссылку','Отключить ссылку','Карточка рекламной ссылки'].forEach(x=>assert(!labels.includes(x),x)); assert(labels.some(x=>/Рекламные ссылки/.test(x))); assert(btns(sources).some(b=>b.payload.action==='ad_links:home'||b.payload.action==='ads:home'));
- const growth=await render('admin_stats_growth',channel); assert(/Текущее количество подписчиков: недоступно через текущий MAX API/.test(growth.text)); assert(!/Итог: \+0/.test(growth.text));
- const chatContent=await render('admin_stats_content',chat); assert(/Активность/.test(chatContent.text)); assert(!btns(chatContent).some(b=>/Лучшие посты|низкой активностью|выбранного поста/.test(b.text))); const selectedPost=await render('admin_stats_post',{...channel,commentKey:'missing-selected-post'}); assert.notEqual(selectedPost.id,'stats_content_pr229','selected post callback must not route to generic PR229 content');
- for (const exportScope of [channel,chat,allc,allch]){const exp=await render('admin_stats_export',exportScope); const jsonText=exp.text.slice(exp.text.indexOf('{'),exp.text.lastIndexOf('}')+1); assert(jsonText&&JSON.parse(jsonText).growth,'scoped PR229 export must include sanitized JSON'); noTech(exp);} const sync=menu.screenForPayload({action:'stats:home',route:'stats:home'}); assert(!/sync/.test(sync.text),'sync stats route must not show fake sync scope'); assert(!btns(sync).some(b=>b.payload.channelId==='sync'||b.payload.targetId==='sync'),'sync stats route buttons must not carry fake sync scope'); const main=menu.mainScreen(); const stat=btns(main).find(b=>/Статистика/.test(b.text)); const prod=await statsFlow.screenForPayload(menu,{action:stat.payload.action==='stats:home'?'admin_section_stats':stat.payload.action},{userId:'u-pr229',config:{}}); assert(/pr229/.test(prod.id),'production callback routing');
- delete require.cache[require.resolve('../stats-scope-buttons-live-pr229')]; const liveModule=require('../stats-scope-buttons-live-pr229'); assert.strictEqual(liveModule.liveFlags().statsScopeButtonsContractOk,false); const live=await liveModule.runLive(); assert(live.ok); assert.strictEqual(liveModule.liveFlags().statsScopeButtonsContractOk,true); assert(live.checkedButtons.every(b=>b.opened||b.externalFlow==='comments_select_post'||b.action==='admin_section_channels')); assert(live.checkedButtons.some(b=>/Рекламные ссылки/.test(b.text)&&b.action==='ad_links:home'&&b.opened)); const registered={}; routes.install({get(path,handler){registered[path]=handler;return this;},post(path,handler){registered[`POST ${path}`]=handler;return this;}}); assert.equal(typeof registered['/debug/stats-scope-buttons-live'],'function'); const res={headers:{},statusCode:0,body:'',set(h){this.headers={...this.headers,...h};return this;},status(c){this.statusCode=c;return this;},type(){return this;},send(b){this.body=String(b);return this;}}; registered['/debug/menu/routes']({},res); assert(JSON.parse(res.body).routes.includes('/debug/stats-scope-buttons-live')); console.log('PR229 stats scope/buttons contract OK', JSON.stringify({screen:prod.id, endpoint:'/debug/stats-scope-buttons-live'}));
-})().catch(e=>{console.error(e);process.exit(1);});
+const assert = require('assert');
+const menu = require('../v3-menu-core-1539');
+const statsFlow = require('../stats-flow-cc8');
+const statsData = require('../services/statsProductPerfectPr226');
+const targets = require('../services/statsTargetsService');
+const store = require('../store');
+const routes = require('../v3-menu-routes-1539');
+const access = require('../services/clientAccessService');
+const producers = require('../services/statsEventProducersPr226');
+const channelPostPicker = require('../channel-post-picker-core');
+
+function btns(screen) {
+  return (screen.attachments || [])
+    .filter((item) => item.type === 'inline_keyboard')
+    .flatMap((item) => item.payload.buttons || [])
+    .flatMap((row) => row)
+    .map((button) => ({ text: button.text, payload: JSON.parse(button.payload || '{}') }));
+}
+function noTech(screen) { assert(!/channelId|chatId|targetId|commentKey|postId/.test(screen.text), 'technical id visible'); }
+async function render(action, scope = {}, ctx = { userId: 'u-pr229', config: { chats: [{ chatId: 'chat1', title: 'Чат один', userId: 'u-pr229' }, { chatId: 'chat2', title: 'Чат два', userId: 'u-pr229' }] } }) {
+  return statsFlow.screenForPayload(menu, { action, ...scope }, ctx);
+}
+
+(async () => {
+  statsData.resetStatsStateForTests();
+  store.saveChannel('chan1', { title: 'Канал один', userId: 'u-pr229' });
+  store.saveChannel('chan2', { title: 'Канал два', userId: 'u-pr229' });
+
+  access._resetForTests && access._resetForTests();
+  const accessChannelId = 'access-only-pr229-' + Date.now();
+  access.upsertActivationCode({ code: 'AK-PR229-ACCESS-0001', createdByMaxUserId: 'admin-pr229', planId: 'business', durationDays: 30, maxChannels: 3, boundChannelId: accessChannelId });
+  assert(access.activateCode({ maxUserId: 'access-user-pr229', code: 'AK-PR229-ACCESS-0001', name: 'Access User' }).ok, 'access activation must succeed');
+  const accessTargets = targets.listStatsTargetsForUser('access-user-pr229', {});
+  assert(accessTargets.channels.some((item) => item.channelId === accessChannelId && item.provider === 'client_access'), 'clientAccess-only channel must appear in stats targets');
+  assert(!targets.listStatsTargetsForUser('access-other-pr229', {}).channels.some((item) => item.channelId === accessChannelId), 'clientAccess channel must not leak to unrelated user');
+
+  const originalListUiChannelsForUser = channelPostPicker.listUiChannelsForUser;
+  channelPostPicker.listUiChannelsForUser = async (userId) => String(userId) === 'shared-user-pr229' ? [
+    { channelId: 'shared-only-pr229', title: 'Shared Only', ownerUserId: 'shared-user-pr229', tenantKey: 'tenant_shared-user-pr229' },
+    { channelId: 'shared-leak-pr229', title: 'Shared Leak', ownerUserId: 'other-user-pr229', tenantKey: 'tenant_other-user-pr229' }
+  ] : [];
+  const sharedTargets = await targets.listStatsTargetsForUserAsync('shared-user-pr229', {});
+  assert(sharedTargets.channels.some((item) => item.channelId === 'shared-only-pr229' && item.provider === 'channel_post_picker'), 'shared picker channel must appear in stats targets');
+  assert(!sharedTargets.channels.some((item) => item.channelId === 'shared-leak-pr229'), 'shared picker unrelated channel must not leak');
+  channelPostPicker.listUiChannelsForUser = originalListUiChannelsForUser;
+
+  const root = await render('admin_section_stats');
+  assert(/stats_root_menu_pr229/.test(root.id), 'root clean menu');
+  const empty = await statsFlow.screenForPayload(menu, { action: 'admin_section_stats' }, { userId: 'none-pr229', config: { statsTargetsOverride: { channels: [], chats: [] } } });
+  assert.equal(empty.id, 'stats_root_menu_pr229');
+
+  const targetList = targets.listStatsTargetsForUser('u-pr229', { chats: [{ chatId: 'chat1', title: 'Чат один', userId: 'u-pr229' }] });
+  assert(targetList.channels.length >= 2, 'channel targets must remain available');
+  assert.equal(targetList.chats.length, 1, 'configured chat target is visible only as chat');
+  const other = targets.listStatsTargetsForUser('other-pr229', { chats: [{ chatId: 'chat1', title: 'Чат один', userId: 'u-pr229' }] });
+  assert(!other.channels.some((item) => item.channelId === 'chan1' || item.channelId === 'chan2'));
+  assert(!other.chats.some((item) => item.chatId === 'chat1'));
+  const noPushFake = targets.listStatsTargetsForUser('u-pr229', { pushSubscriptions: [{ chatId: 'push-only', title: 'Push only', userId: 'u-pr229' }] });
+  assert(!noPushFake.chats.some((item) => item.chatId === 'push-only'));
+  assert.equal(noPushFake.diagnostics.pushSubscriptionsUsedAsStatsChats, false);
+
+  const channel = { targetKind: 'channel', targetId: 'chan1', channelId: 'chan1' };
+  const channel2 = { targetKind: 'channel', targetId: 'chan2', channelId: 'chan2' };
+  const chat = { targetKind: 'chat', targetId: 'chat1', chatId: 'chat1' };
+  const allChannels = { targetKind: 'all_channels', targetId: 'all_channels' };
+  const allChats = { targetKind: 'all_chats', targetId: 'all_chats' };
+
+  statsData.persistStatsEvent({ tenantKey: 'tenant_u-pr229', ownerUserId: 'u-pr229', channelId: 'chan1', eventType: 'member_joined', userId: 'legacy-channel' });
+  statsData.persistStatsEvent({ tenantKey: 'tenant_u-pr229', ownerUserId: 'u-pr229', chatId: 'chat1', eventType: 'member_joined', userId: 'legacy-chat' });
+  assert.equal(statsData.loadStatsDataset({ userId: 'u-pr229', ...channel }, { period: 'all' }).growth.joined, 1);
+  assert.equal(statsData.loadStatsDataset({ userId: 'u-pr229', ...chat }, { period: 'all' }).growth.joined, 1);
+  assert.equal(statsData.loadStatsDataset({ userId: 'u-pr229', ...allChannels }, { period: 'all' }).growth.joined, 1);
+  assert.equal(statsData.loadStatsDataset({ userId: 'u-pr229', ...allChats }, { period: 'all' }).growth.joined, 1);
+
+  producers.recordAudienceUpdate({ type: 'member_added', chatId: 'chat-retry-pr229', ownerUserId: 'u-pr229', memberUserId: 'chat-retry-member', updateId: 'chat-stable-retry-pr229' });
+  producers.recordAudienceUpdate({ type: 'member_added', chatId: 'chat-retry-pr229', ownerUserId: 'u-pr229', memberUserId: 'chat-retry-member', updateId: 'chat-stable-retry-pr229' });
+  assert.equal(statsData.loadStatsEvents({ userId: 'u-pr229', targetKind: 'chat', targetId: 'chat-retry-pr229' }, { period: 'all', eventType: 'member_joined' }).length, 1, 'chat audience idempotency must remain scoped');
+
+  await render('admin_stats_manual_costs', chat);
+  await statsFlow.handleTextInput(menu, { userId: 'u-pr229', text: 'chatScope / saved' });
+  const chatSaved = await statsFlow.handleTextInput(menu, { userId: 'u-pr229', text: '44' });
+  const chatSourcesPayload = btns(chatSaved).find((button) => button.text === '🎯 Источники').payload;
+  assert.equal(chatSourcesPayload.targetKind, 'chat');
+  assert.equal(chatSourcesPayload.chatId, 'chat1');
+  const chatSources = await render(chatSourcesPayload.action, chatSourcesPayload);
+  assert(/chatScope: 44 RUB/.test(chatSources.text), 'chat-scope saved cost must remain visible after Sources navigation');
+
+  const cost = statsData.writeManualCost({ userId: 'u-pr229', ...channel }, { source: 's', campaign: 'c', amount: 10 }, 'added');
+  assert(statsData.getManualCosts({ userId: 'u-pr229', ...channel }, { period: 'all' }).length === 1);
+  assert(statsData.getManualCosts({ userId: 'u-pr229', ...channel2 }, { period: 'all' }).length === 0);
+  assert(!statsData.getManualCosts({ userId: 'u-pr229', ...chat }, { period: 'all' }).some((item) => item.costId === cost.costId));
+
+  for (const scope of [channel, chat, allChannels, allChats]) {
+    for (const action of ['admin_stats_scope_select', 'admin_stats_growth', 'admin_stats_sources', 'admin_stats_funnel', 'admin_stats_content', 'admin_stats_quality', 'admin_stats_export']) {
+      const screen = await render(action, scope);
+      assert(screen && screen.id, action);
+      noTech(screen);
+      assert(btns(screen).every((button) => button.payload.action), 'buttons must be routable');
+    }
+  }
+
+  const cpa = { targetKind: 'channel', targetId: 'cpa-chan-pr229', channelId: 'cpa-chan-pr229' };
+  store.saveChannel('cpa-chan-pr229', { title: 'CPA channel', userId: 'u-pr229' });
+  statsData.recordMemberJoined({ ownerUserId: 'u-pr229', ...cpa }, { userId: 'cpa-user-pr229', source: 'ads' });
+  statsData.writeManualCost({ userId: 'u-pr229', ...cpa }, { source: 'ads', campaign: 'cpa', amount: 50 }, 'added');
+  const cpaSources = await render('admin_stats_sources', cpa);
+  assert(/CPA: 50\.00 за вступление/.test(cpaSources.text), 'CPA must use computed costPerJoin');
+
+  const prod = await statsFlow.screenForPayload(menu, { action: 'admin_section_stats' }, { userId: 'u-pr229', config: {} });
+  assert(/pr229/.test(prod.id), 'production callback routing');
+  delete require.cache[require.resolve('../stats-scope-buttons-live-pr229')];
+  const liveModule = require('../stats-scope-buttons-live-pr229');
+  assert.strictEqual(liveModule.liveFlags().statsScopeButtonsContractOk, false);
+  const live = await liveModule.runLive();
+  assert(live.ok);
+  assert.strictEqual(liveModule.liveFlags().statsScopeButtonsContractOk, true);
+  assert(live.checkedButtons.every((button) => button.opened || button.externalFlow === 'comments_select_post' || button.action === 'admin_section_channels'));
+  assert(live.checkedButtons.some((button) => /Рекламные ссылки/.test(button.text) && button.action === 'ad_links:home' && button.opened));
+
+  const registered = {};
+  routes.install({ get(path, handler) { registered[path] = handler; return this; }, post(path, handler) { registered[`POST ${path}`] = handler; return this; } });
+  assert.equal(typeof registered['/debug/stats-scope-buttons-live'], 'function');
+  console.log('PR229 stats scope/buttons contract OK', JSON.stringify({ screen: prod.id, endpoint: '/debug/stats-scope-buttons-live' }));
+})().catch((error) => { console.error(error); process.exit(1); });
