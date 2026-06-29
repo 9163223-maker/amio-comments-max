@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-29 09:55 UTC
+Updated: 2026-06-29 10:05 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -61,49 +61,50 @@ PR256:
 - Branch: `codex/implement-rootsectiondispatcher-v2`
 - Base: `main`
 - Old head before Codex follow-up: `7614f3eb15b309148b0279e050fb6c51c775aa2a`
-- Current checked head: `703f1e8791b3e2537e0798862d3dc632f1176355`
-- CI for current checked head: PR regression tests run #431 success.
+- Final PR head before merge: `703f1e8791b3e2537e0798862d3dc632f1176355`
+- CI for final PR head: PR regression tests run #431 success.
+- Codex Cloud audit-only result from user at 2026-06-29 10:01 UTC: PASS, no merge-blocking issue found.
+- Merge result: PR256 squash merged into `main` at 2026-06-29 10:04 UTC; merge commit `ad38d310ece323d5e0adb2583b12f904043bcc91`.
 
 PR256 goal: one dispatcher should parse callback payload, resolve canonical root route, reset competing flow state, select provider, render screen, deliver through one common path, write one trace chain, and return handled root callbacks cleanly.
 
 ## Previously found blocker
 
-Codex review found two P2 issues:
+Codex review found two P2 issues on the old PR head:
 
 1. `admin_section_comments` mapped to generic `comments:home` could lose selected `commentTargetPost`. If a post is already selected, legacy Comments navigation must show selected-post comments actions and must not force picking the same post again.
 
 2. `admin_section_posts` mapped to generic `editor:home` could lose selected editor post. If a post is already selected, legacy Editor navigation must show selected-post editor actions, including `Изменить текст выбранного поста`, and must not force picking again.
 
-Direct code editing in this chat had previously been blocked by the tool layer when trying to edit PR256 code files. User sent Codex Cloud follow-up in the existing PR256 task and then updated the PR branch.
+These blockers were fixed before merge. Audit PASS confirmed no merge-blocking issue remained.
 
-## Latest observed state — 2026-06-29 09:55 UTC
+## Latest observed state — 2026-06-29 10:05 UTC
 
-PR256 branch was updated after the Codex Cloud follow-up. PR head changed from `7614f3eb15b309148b0279e050fb6c51c775aa2a` to `703f1e8791b3e2537e0798862d3dc632f1176355`. PR remains open, unmerged, mergeable, with 2 commits and 6 changed files.
+PR256 branch was updated after the Codex Cloud follow-up. PR head changed from `7614f3eb15b309148b0279e050fb6c51c775aa2a` to `703f1e8791b3e2537e0798862d3dc632f1176355`, then PR256 was squash merged to `main` as `ad38d310ece323d5e0adb2583b12f904043bcc91`.
 
-GitHub Actions for head `703f1e8791b3e2537e0798862d3dc632f1176355`: workflow `PR regression tests` run #431 completed with conclusion `success`; job `AdminKIT regression tests` completed with conclusion `success`.
+GitHub Actions for final PR head `703f1e8791b3e2537e0798862d3dc632f1176355`: workflow `PR regression tests` run #431 completed with conclusion `success`; job `AdminKIT regression tests` completed with conclusion `success`.
 
-Diff inspection after branch update: `LEGACY_ROOT_ACTION_ROUTES` now maps `admin_section_comments` to canonical `comments:home` and `admin_section_posts` to canonical `editor:home`; `LEGACY_ROOT_RENDER_ACTIONS` now preserves render actions for `admin_section_comments` and `admin_section_posts` alongside `gift_admin_open_menu`.
+Diff inspection before merge: `LEGACY_ROOT_ACTION_ROUTES` maps `admin_section_comments` to canonical `comments:home` and `admin_section_posts` to canonical `editor:home`; `LEGACY_ROOT_RENDER_ACTIONS` preserves render actions for `admin_section_comments` and `admin_section_posts` alongside `gift_admin_open_menu`.
 
-`renderRootSectionScreen` now handles `admin_section_comments` by using `getCommentTargetPost(userId)` and rendering selected comments actions when `commentKey` exists; otherwise comments home. It handles `admin_section_posts` by using `postTargetPost || commentTargetPost` and rendering selected editor root with `Изменить текст выбранного поста` when `commentKey` exists; otherwise editor home.
+`renderRootSectionScreen` handles `admin_section_comments` by using `getCommentTargetPost(userId)` and rendering selected comments actions when `commentKey` exists; otherwise comments home. It handles `admin_section_posts` by using `postTargetPost || commentTargetPost` and rendering selected editor root with `Изменить текст выбранного поста` when `commentKey` exists; otherwise editor home.
 
-`applyRootSectionAdminState` still clears competing transient flows/screen ids (`giftFlow`, `buttonFlow`, `commentAdminFlow`, `postEditFlow`, active screen ids, `activeAdminFlowKind`) but does not clear selected target state, so selected post context is preserved for Comments/Editor roots.
+`applyRootSectionAdminState` clears competing transient flows/screen ids (`giftFlow`, `buttonFlow`, `commentAdminFlow`, `postEditFlow`, active screen ids, `activeAdminFlowKind`) but does not clear selected target state, so selected post context is preserved for Comments/Editor roots.
 
 Regression coverage was extended in `scripts/test-pr248-root-section-opening-standard.js`: selected `commentTargetPost`/`postTargetPost` is seeded, `admin_section_comments` asserts selected comments actions (`Проверить комментарии`, `Список комментариев`, `Фото в комментариях`, `Реакции и ответы`, `Настройки кнопки комментариев`) and no forced repick text; `admin_section_posts` asserts `Изменить текст выбранного поста` and no forced repick text; both assert canonical route traces (`comments:home` / `editor:home`) through RootSectionDispatcher v2.
 
-No additional direct blocker was found in this chat after inspecting the new diff and green CI. Next step is an audit-only Codex Cloud task, not more implementation.
-
 ## Next action
 
-Send a new Codex Cloud audit-only task for PR256. It must be audit-only: do not edit, do not push, do not create PR, do not merge. Ask Codex to independently review only the current PR head `703f1e8791b3e2537e0798862d3dc632f1176355` for RootSectionDispatcher v2 regressions and especially the two prior selected-state P2 blockers.
+Post-merge/deploy verification is still required. Do not count merge as done.
 
-If audit returns PASS: merge PR256, wait deploy, verify runtime startup log and readiness gates, then run manual MAX root section UX test and trace checks.
+Next agent should:
+1. Check whether deployment has picked up merge commit `ad38d310ece323d5e0adb2583b12f904043bcc91`.
+2. Verify production start path still exactly equals `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js` and active entrypoint is `clean-entrypoint-1.53.10-pr89.js`.
+3. Verify runtime/startup-log.json and readiness gates.
+4. Verify `runtime/root-menu-live-parity-trace.json` / manual trace after live clicks.
+5. Run manual MAX root section UX test. Task is complete only when Gifts and all top-level sections open visually in live MAX and traces confirm RootSectionDispatcher v2 path.
 
-If audit returns BLOCK: do not merge. Inspect the blocker; first try direct fixes in PR branch if safe, otherwise give the user a Codex Cloud follow-up prompt for the same PR256 branch.
-
-## Audit-only after green CI
-
-Audit prompt must say: type is new audit-only task, repo `9163223-maker/amio-comments-max`, PR `#256`, branch `codex/implement-rootsectiondispatcher-v2`, head `703f1e8791b3e2537e0798862d3dc632f1176355`, base `main`, do not edit, do not push, do not create PR, do not merge.
+If deploy/runtime shows old SHA or old startup path: treat as live mismatch and do not mark done.
 
 ## Completion definition
 
-After audit PASS, merge PR256, wait deploy, verify runtime startup log and readiness gates, then manual MAX test. Task is complete only when Gifts and all top-level sections open visually in live MAX and traces confirm RootSectionDispatcher v2 path.
+After audit PASS and merge, task is still not complete until deploy/runtime/manual MAX verification passes. Task is complete only when Gifts and all top-level sections open visually in live MAX and traces confirm RootSectionDispatcher v2 path.
