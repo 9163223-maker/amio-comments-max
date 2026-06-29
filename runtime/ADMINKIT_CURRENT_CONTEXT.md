@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-29 12:53 UTC
+Updated: 2026-06-29 13:01 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -27,6 +27,8 @@ Every Codex prompt must explicitly include: task type, repo, PR, exact branch, b
 Green CI is not done. Merge is not done. Runtime readiness is not UX done. UX done only when live MAX click opens the section and traces confirm the correct path.
 
 Process guardrail added after PR257: even for urgent hotfixes, do not merge a new PR without an explicit final audit-only step unless the user explicitly waives audit. If a hotfix is made directly by the assistant, stop after green CI, give the user an audit-only Codex prompt, and wait for PASS/BLOCK before merge.
+
+Process clarification added after user challenge at 2026-06-29 13:00 UTC: trace-level 200 is not the same as visual UX completion. Assistant may say the server/runtime callback blocker is cleared only if trace shows 200, but must not claim the user-visible MAX UX is fully solved until a human/manual visual check confirms the opened screen.
 
 ## Production contract
 
@@ -100,9 +102,9 @@ Required correction for future work: after any assistant-created PR, including u
 
 Postfactum mitigation completed: Codex audit PASS received for PR257 at 2026-06-29 12:48 UTC. No blocker found.
 
-## Latest observed state — 2026-06-29 12:53 UTC
+## Latest observed state — 2026-06-29 13:01 UTC
 
-PR257 is merged, postfactum audit PASS is recorded, runtime has deployed a main head that contains PR257, and Gifts manual/root trace now passes.
+PR257 is merged and postfactum audit PASS is recorded. Runtime has deployed a main head that contains PR257. Trace-level Gifts callback now passes, but visual MAX UX is not yet fully confirmed by a fresh human/manual visual check after the latest restart.
 
 Runtime pickup details:
 - `runtime/startup-log.json` updated at `2026-06-29T12:49:26.184Z`, started at `2026-06-29T12:48:34.479Z`.
@@ -110,21 +112,23 @@ Runtime pickup details:
 - Startup path remains green: expected and active entrypoint `clean-entrypoint-1.53.10-pr89.js`, startupLogBootstrapRequired true, expressRoutesInstalledByEntrypoint true, cleanBotInstalledByEntrypoint true, ok true.
 - Runtime contract safe and `contractLiveOk: true`, data provider mismatches empty.
 
-Manual/root trace after PR257:
+Trace-level result after PR257:
 - `runtime/root-menu-live-parity-trace.json` updated at `2026-06-29T10:41:07.879Z`; summary shows `gifts:home` count 16, last at `2026-06-29T10:41:04.801Z`, lastResultKind `response_sent_200`, delivery `handed_to_bot`, no errorCode.
 - `runtime/manual-ui-walkthrough-trace.json` updated at `2026-06-29T10:41:09.182Z`; summary shows `gifts:home` count 16, lastResultKind `response_sent_200`, delivery `handed_to_bot`, no errorCode.
 - Manual trace events show `gifts:home` edge received, resolvedRootRoute/resolvedV3Route `gifts:home`, resolver `payload.route`, and handler_returned with `response_sent_200`.
 
-Known limitation:
-- The fresh post-PR257 trace proves Gifts root opens successfully after PR257 deploy. It does not re-run the full all-top-level-section manual walkthrough after the later 12:48 runtime restart. Previous neighbor sections were already 200 before PR257; PR257 changed only Gifts root render logic. A strict final full UX closeout can still click all top-level sections once more, but the urgent Gifts blocker is resolved in trace.
+Important distinction:
+- These traces confirm the server/runtime failure changed from `response_sent_500` to `response_sent_200` for Gifts after PR257.
+- They do NOT by themselves prove the user visually saw the correct Gifts screen in MAX after the latest restart.
+- Therefore the honest status is: PR257 audit PASS + runtime pickup PASS + Gifts trace-level callback PASS. Final visual UX PASS is still pending until a human/manual MAX click confirms the Gifts screen opens visually.
 
 ## Next action
 
-For strict completion of Issue #255 / RootSectionDispatcher v2, optionally do one final live MAX walkthrough of all top-level sections after the 12:48 runtime restart:
+For strict completion of Issue #255 / RootSectionDispatcher v2, do a final live MAX walkthrough after the 12:48 runtime restart:
 main, channels, comments, gifts, buttons, stats, push, ad_links, polls, highlights, editor, archive, account, settings.
 
-At minimum, Gifts is now PASS after PR257: fresh trace shows `gifts:home` `response_sent_200` and no error.
+At minimum, click Gifts once in live MAX and visually confirm that the Gifts root screen opens with expected actions such as Создать подарок, Текущий подарок, Список подарков, Главное меню. Then re-check trace after the click.
 
 ## Completion definition
 
-After audit PASS, merge, deploy/runtime pickup, task is still not complete until manual MAX verification passes. Gifts blocker is resolved. Full task is complete only when Gifts and all top-level sections open visually in live MAX and traces confirm RootSectionDispatcher v2 path.
+After audit PASS, merge, deploy/runtime pickup, task is still not complete until manual MAX visual verification passes. Trace-level Gifts callback is now PASS. Full task is complete only when Gifts and all top-level sections open visually in live MAX and traces confirm RootSectionDispatcher v2 path.
