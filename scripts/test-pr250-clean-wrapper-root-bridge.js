@@ -72,6 +72,9 @@ function seedStaleActiveFlows(label) {
     commentAdminFlow: { mode: 'comment_wizard' },
     buttonFlow: { mode: 'button_wizard', stepIndex: 1 },
     postEditFlow: { mode: 'edit_text' },
+    giftActiveScreenMessageId: `gift-screen-${label}`,
+    buttonActiveScreenMessageId: `button-screen-${label}`,
+    commentActiveScreenMessageId: `comment-screen-${label}`,
     activeAdminFlowKind: 'gift',
     adminUi: { section: 'gifts', backAction: 'admin_section_gifts', rootAction: 'admin_section_gifts', selectMode: 'gifts' },
     activeAdminUi: { section: 'gifts', backAction: 'admin_section_gifts', rootAction: 'admin_section_gifts', selectMode: 'gifts' }
@@ -82,6 +85,11 @@ function assertStaleFlowsCleared(label, section, rootAction) {
   const state = store.getSetupState(`user-${label}`) || {};
   assert.strictEqual(state.giftFlow, null, `${label} clears stale giftFlow`);
   assert.strictEqual(state.commentAdminFlow, null, `${label} clears stale commentAdminFlow`);
+  assert.strictEqual(state.buttonFlow, null, `${label} clears stale buttonFlow`);
+  assert.strictEqual(state.postEditFlow, null, `${label} clears stale postEditFlow`);
+  assert.strictEqual(state.giftActiveScreenMessageId, '', `${label} clears stale giftActiveScreenMessageId`);
+  assert.strictEqual(state.buttonActiveScreenMessageId, '', `${label} clears stale buttonActiveScreenMessageId`);
+  assert.strictEqual(state.commentActiveScreenMessageId, '', `${label} clears stale commentActiveScreenMessageId`);
   assert.strictEqual(state.activeAdminFlowKind, '', `${label} clears stale activeAdminFlowKind`);
   assert.strictEqual(state.adminUi && state.adminUi.section, section, `${label} stores local root admin UI section`);
   assert.strictEqual(state.adminUi && state.adminUi.rootAction, rootAction, `${label} stores local root admin UI rootAction`);
