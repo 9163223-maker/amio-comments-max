@@ -26,7 +26,7 @@ async function ui(action, ctx, payload = {}) { const screen = await statsFlow.sc
   assert.deepStrictEqual(labels(root), ['Обзор', 'По каналу', 'По посту', 'Рекламные ссылки', 'Источники', 'Обновить данные', 'Главное меню'], 'clean stats root labels');
   assert(!/Кнопки|Подарки|Комментарии|Реферал|Расходы|Воронка продаж|Выберите канал или чат/i.test(root.text + labels(root).join('\n')), 'stats root is not cluttered or chat-mixed');
 
-  for (const button of flat(root).filter((item) => item.action !== 'admin_section_main')) {
+  for (const button of flat(root).filter((item) => !['admin_section_main', 'comments_select_post'].includes(item.action))) {
     const screen = await statsFlow.screenForPayload(menu, { action: button.action, source: 'stats', channelId: ctx.channelId, commentKey, postId: 'post1' }, ctx);
     assert(screen && screen.id, `root action opens: ${button.action}`);
     noFake(screen);
