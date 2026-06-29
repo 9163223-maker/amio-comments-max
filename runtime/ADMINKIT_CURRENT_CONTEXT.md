@@ -1,6 +1,6 @@
 # АдминКИТ — текущий контекст и рабочие правила
 
-Updated: 2026-06-29 07:16 UTC
+Updated: 2026-06-29 07:55 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -14,45 +14,29 @@ Repo: 9163223-maker/amio-comments-max
 
 ## 2. Роли и ответственность
 
-### Assistant / ChatGPT
-
 Assistant — основной технический исполнитель. Он должен сам вести задачу максимально далеко: создать или найти PR, читать diff, читать GitHub Actions, разбирать красные jobs/logs, править PR-ветку, снова проверять CI и повторять цикл до зелёного статуса.
 
-Если PR уже создан, Codex Cloud больше не является основным доработчиком. После появления PR assistant сам доводит ветку до зелёного GitHub Actions, если это технически возможно.
+После появления PR Codex Cloud больше не является основным доработчиком: assistant сам доводит ветку до зелёного GitHub Actions, если это технически возможно.
 
-Assistant обращается к пользователю только при реальном ограничении: нужно действие в Codex Cloud UI, merge/approval, бизнес-решение или ручной MAX-тест.
-
-### GitHub / GitHub Actions
-
-GitHub — источник PR, diff, review comments и состояния merge. GitHub Actions — обязательный автоматический gate перед audit. Красный CI означает: assistant сам читает лог, исправляет и повторяет. Зелёный CI означает только готовность к audit, не production ready.
-
-### Codex Cloud
-
-Codex Cloud используется в двух режимах.
-
-1. Создание PR: если assistant не может сам безопасно создать PR или задача слишком большая для прямого редактирования, assistant даёт пользователю одну задачу для Codex Cloud. Пользователь создаёт PR через Codex Cloud. После этого assistant сам ведёт PR до зелёного CI.
-
-2. Audit only: после зелёного CI assistant даёт пользователю audit-only задачу. В audit-only Codex не должен менять файлы, пушить commits, создавать новый PR или merge. Он возвращает PASS или BLOCK. При BLOCK assistant сам исправляет PR, снова гонит CI до зелёного и снова даёт audit-only.
-
-### Пользователь
+Codex Cloud используется в двух режимах: создать PR, если assistant не может сам безопасно создать PR; audit only после зелёного CI. В audit-only Codex не должен менять файлы, пушить commits, создавать новый PR или merge.
 
 Пользователь не является кнопкой `продолжить`. Он нужен только для действий, которые assistant физически не может сделать: создать задачу в Codex Cloud, вставить audit-only prompt, передать результат audit, подтвердить merge/approval, выполнить ручной MAX-тест, принять бизнес-решение.
 
 ## 3. Обязательный формат любых инструкций для Codex Cloud
 
-Каждый раз, когда assistant просит пользователя что-то сделать в Codex Cloud, он обязан явно указать:
+Каждый prompt для Codex Cloud обязан явно указать:
 
 ```text
-Тип: новая задача / follow-up в существующую задачу / audit-only
+Тип: новая задача / follow-up / audit-only
 Репозиторий: 9163223-maker/amio-comments-max
-PR: номер актуального GitHub PR
+PR: номер актуального GitHub PR, если есть
 Ветка: точное имя ветки, которую выбрать в Codex Cloud
-Base: main или другая база, если это важно
-Что нажимать: создать новую задачу, продолжить существующую, создать новый PR, обновить ветку и т.д.
-Что НЕ нажимать: например, не создавать новый PR, не выбирать main, не использовать закрытую старую задачу
+Base: main или другая база
+Что нажимать
+Что НЕ нажимать
 ```
 
-Нельзя давать пользователю Codex prompt без явного ответа на два вопроса: `это новая задача или follow-up?` и `какую ветку выбрать?`.
+Нельзя давать Codex prompt без явного ответа: это новая задача или follow-up, и какую ветку выбрать.
 
 ## 4. Главный рабочий цикл
 
@@ -60,7 +44,7 @@ Base: main или другая база, если это важно
 2. Assistant пытается сам создать ветку/PR.
 3. Если не может — даёт одну задачу для Codex Cloud на создание PR с явным указанием типа задачи и ветки.
 4. После появления PR assistant сам доводит его до зелёного GitHub Actions.
-5. После зелёного CI assistant даёт Codex Cloud audit-only prompt с явным указанием, что это новая audit-only задача и какую ветку выбрать.
+5. После зелёного CI assistant даёт Codex Cloud audit-only prompt.
 6. При PASS — переход к merge stage.
 7. При BLOCK — assistant исправляет PR, снова CI, снова audit-only.
 8. После merge — live runtime verification.
@@ -114,13 +98,24 @@ features/menu-v3/canonical-menu.js
 
 Правило архитектуры: верхние разделы открываются через единый root-section standard. Не чинить отдельный раздел отдельным one-off renderer/fallback, если задача про общий root opening.
 
-## 7. Текущая большая тема: Gifts root opening
+## 7. Текущий live факт после PR254
 
-Проблема: раздел `Подарки / лид-магниты` не открывался визуально в live MAX.
+PR254 был смержен в main и deployed. Startup/runtime contract был зелёный: `githubMainHeadSha` указывал на merge commit PR254, startup path был правильный, `contractLiveOk=true`, `finalRuntimeReadinessGate.ok=true`.
 
-После PR249 установлено: `gifts:home` доходит до webhook edge, payload корректный, HTTP 200 возвращается, но экран не появляется. Значит проблема была не в payload и не в webhook edge. Live production path идёт через clean-wrapper chain, а не напрямую через тот участок `bot.js`, который раньше чинили.
+Но ручной MAX-тест после PR254 показал: Gifts всё ещё не открываются. Свежий runtime trace от 2026-06-29 показывает:
 
-Live wrapper chain:
+```text
+gifts:home count=16, lastResultKind=response_sent_500
+buttons:home response_sent_200
+stats:home response_sent_200
+archive:home response_sent_200
+ad_links:home response_sent_200
+main:home response_sent_200
+```
+
+Для Gifts trace доказывает: callback доходит до webhook edge, payload корректный, route resolved as `gifts:home`, handler `bot.handleWebhook`, но результат `response_sent_500`. Это не deploy issue и не payload-recognition issue. Это live mismatch и архитектурный провал текущего split path.
+
+## 8. Live wrapper chain
 
 ```text
 clean-entrypoint-1.53.10-pr89.js
@@ -130,13 +125,13 @@ clean-entrypoint-1.53.10-pr89.js
 → wrapped legacy bot.js
 ```
 
-Правильная цель: `gifts:home`, `admin_section_gifts`, `gift_admin_open_menu` должны попадать в shared root-section path; stats/buttons/archive/editor/posts остаются на local clean handlers; decoded object payload сохраняется; trace показывает цепочку открытия.
+PR254 был стабилизирующим шагом: Gifts bridge + local root cleanup. Он не решил основную архитектурную цель: один простой стандарт открытия всех top-level sections.
 
-## 8. Ошибки, которых избегать
+## 9. Ошибки, которых избегать
 
 Не считать предполагаемый handler production handler без проверки live path. Не чинить только `bot.js`, если live path перехватывает callback раньше. Не делать Gifts-only fallback. Не делегировать все root routes в legacy/wrapped handler. Не ломать stats/buttons/archive/editor ради Gifts. Не смягчать тесты так, чтобы они скрывали реальную проблему. Не считать HTTP 200 визуальным открытием. Не считать зелёный CI production readiness. Не писать diagnostics в main. Не менять start script, entrypoint, runtimeVersion/sourceMarker без отдельного решения.
 
-## 9. PR history по Gifts/root standard
+## 10. PR history по Gifts/root standard
 
 PR241 — gifts root hardening / stats tenant contract.
 PR242 — gifts root callback no-screen regression.
@@ -151,51 +146,66 @@ PR250 — Codex Cloud task / issue name для clean-wrapper bridge.
 PR251 — первый GitHub PR по clean-wrapper bridge; superseded.
 PR252 — заменён последующими recovery PR.
 PR253 — Codex создал на неправильную старую base branch; closed.
-PR254 — текущий актуальный PR.
+PR254 — merged/deployed, but live Gifts still fails with response_sent_500.
+Issue #255 — текущая следующая задача: RootSectionDispatcher v2.
 
-## 10. Текущий актуальный PR
+## 11. Текущая следующая задача: Issue #255
 
-```text
-PR254
-Title: PR253 recovery: root-section bridge with local root flow cleanup
-Branch: codex/github-mention-pr250-bridge-clean-wrapper-root-callbacks-t-u5aaa7
-Base: main
-Head: d580fa4fad6dc81c2ec3959755c6b8dfb606d7cc
-State: draft, mergeable, CI green
-GitHub Actions: PR regression tests run #426 — success
-```
+Issue #255: `RootSectionDispatcher v2: one live opening path for all top-level sections`.
 
-Changed files: `clean-bot-channel-first-post-picker-pr90.js`, `scripts/test-pr250-clean-wrapper-root-bridge.js`, `scripts/test-product-perfect-gifts-journey-pr142.js`, `scripts/smoke-test.js`.
+Цель: реализовать единую живую точку открытия всех верхних разделов, чтобы clean-wrapper, generic root handler, local clean handlers и delivery/state cleanup не жили параллельно.
 
-CI зелёный, но это только готовность к Codex audit-only, не merge-safe само по себе.
+Нужен `RootSectionDispatcher v2`:
 
-## 11. Обязательные audit checks для PR254
+1. Parse callback payload once.
+2. Resolve canonical root route once.
+3. Reset/isolate competing flow state once.
+4. Select section owner/provider once.
+5. Render screen through selected provider.
+6. Deliver through one common delivery path: ack -> render -> edit/send fallback.
+7. Write one trace chain for every top-level section.
+8. Return HTTP 200 for handled root callbacks; errors must be captured in trace with reason.
 
-Codex Cloud audit-only должен проверить: Gifts root идёт через shared root-section path; bridge eligibility узкий; stats/buttons/archive/editor/posts остаются local clean-owned; decoded object payload support сохранён; PR250 bridge regression включён в smoke/CI; смягчение gifts journey test не скрывает регрессию; stale gift/comment/button/postEdit flow state и active screen message IDs при переходе из Gifts wizard в Stats/Buttons/Archive/Editor сбрасываются; не изменены start script, entrypoint, runtimeVersion/sourceMarker, canonical labels, diagnostic write targets.
+Разные разделы могут иметь разные screen providers, но вход, cleanup, delivery и trace должны быть общими.
 
-Ожидаемый audit result:
+## 12. Обязательное покрытие для RootSectionDispatcher v2
 
-```text
-PASS — merge-safe
-```
+Матрица по всем canonical top-level sections:
 
-или
+- route-object payload `{ route: '<route>' }`
+- action-object payload `{ action: '<route>' }`
+- decoded object payload
+- JSON string payload
+- supported legacy aliases
+- active Gifts wizard before click
+- active Buttons wizard before click
+- stale screen message IDs before click
+- expected provider/owner
+- visible render
+- keyboard present
+- delivery attempted
+- full trace chain:
+  - callback_received
+  - root_resolved or legacy_compatibility_resolved
+  - render_started
+  - render_resolved
+  - delivery_started
+  - delivery_resolved or delivery_failed with explicit reason
 
-```text
-BLOCK — with concrete files, line-level reasons, and required fixes
-```
+Production-path clean-wrapper test must prove clean-entrypoint/wrapper callbacks go through RootSectionDispatcher v2, not a parallel Gifts bridge.
 
-## 12. Что делать новому чату
+## 13. Что делать новому чату
 
-1. Прочитать этот файл и текущий PR254.
+1. Прочитать этот файл.
 2. Не спрашивать пользователя `продолжать?`.
-3. Если нужно дать пользователю Codex Cloud prompt — всегда указать тип задачи и точную ветку.
-4. Если пользователь принёс Codex audit PASS — проверить PR state, CI, changed files и готовить merge stage.
-5. Если audit BLOCK — исправить PR254 самостоятельно, прогнать GitHub Actions до зелёного, затем дать новый audit-only prompt с указанием ветки.
-6. После merge проверить Northflank deploy и runtime-status.
-7. После runtime ready попросить пользователя вручную открыть `Подарки / лид-магниты` в MAX.
-8. Проверить trace: webhook reached, root resolved, render/delivery chain, no stale runtime.
+3. Ориентироваться на Issue #255, а не продолжать PR254.
+4. Если assistant не может сам создать большой PR, дать пользователю новую задачу для Codex Cloud на создание PR от `main` по Issue #255.
+5. После появления PR assistant сам ведёт CI/debug/fix до зелёного.
+6. После зелёного CI — Codex audit-only.
+7. После merge — Northflank/runtime-status/manual MAX verification.
 
-## 13. Краткая формула
+## 14. Краткая формула
 
-Assistant сначала делает всё возможное в GitHub сам. Если не может создать PR — пользователь создаёт задачу в Codex Cloud для создания PR. После появления PR assistant сам отвечает за CI/debug/fix до зелёного. Codex Cloud после этого — только audit-only. Любой Codex prompt обязан явно говорить: новая задача или follow-up, и какую ветку выбрать. Пользователь нужен для Codex UI, merge/approval, бизнес-решений и ручного MAX-теста. Green CI != done. Merge != done. Live runtime verified + manual MAX scenario = done.
+Green CI != done. Merge != done. Runtime contract != UX done. UX done только когда live MAX click открывает раздел и trace подтверждает правильный path.
+
+Следующая цель: не ещё один Gifts fix, а RootSectionDispatcher v2 — один live opening path для всех top-level sections.
