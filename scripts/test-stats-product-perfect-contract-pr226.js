@@ -21,7 +21,7 @@ async function ui(action, ctx, payload = {}) { const screen = await statsFlow.sc
   store.saveChannel(ctx.channelId, { channelId: ctx.channelId, title: 'Канал PR226', ownerUserId: ctx.ownerUserId, tenantKey: ctx.tenantKey });
   store.savePost(`${ctx.channelId}:post1`, { commentKey: `${ctx.channelId}:post1`, tenantKey: ctx.tenantKey, ownerUserId: ctx.ownerUserId, channelId: ctx.channelId, postId: 'post1', originalText: 'PR226 post' });
 
-  const root = await ui('admin_section_stats', ctx);
+  const root = await ui('admin_section_stats', { userId: ctx.userId, config: {} });
   assert.strictEqual(root.id, 'stats_root_menu_pr229', 'STAT-001 clean stats root id');
   assert.deepStrictEqual(labels(root), ['Обзор', 'По каналу', 'По посту', 'Рекламные ссылки', 'Источники', 'Обновить данные', 'Главное меню'], 'STAT-002 clean stats root labels');
   assert(!/Кнопки|Подарки|Комментарии|Реферал|Расходы|Воронка продаж/.test(root.text), 'STAT-003 root text is not cluttered');
