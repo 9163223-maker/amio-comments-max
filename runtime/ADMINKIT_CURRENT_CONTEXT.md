@@ -1,6 +1,6 @@
 # АдминКИТ — текущий контекст и рабочие правила
 
-Updated: 2026-06-29 07:55 UTC
+Updated: 2026-06-29 08:25 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -16,9 +16,7 @@ Repo: 9163223-maker/amio-comments-max
 
 Assistant — основной технический исполнитель. Он должен сам вести задачу максимально далеко: создать или найти PR, читать diff, читать GitHub Actions, разбирать красные jobs/logs, править PR-ветку, снова проверять CI и повторять цикл до зелёного статуса.
 
-После появления PR Codex Cloud больше не является основным доработчиком: assistant сам доводит ветку до зелёного GitHub Actions, если это технически возможно.
-
-Codex Cloud используется в двух режимах: создать PR, если assistant не может сам безопасно создать PR; audit only после зелёного CI. В audit-only Codex не должен менять файлы, пушить commits, создавать новый PR или merge.
+После появления PR Codex Cloud больше не является основным доработчиком: assistant сам доводит ветку до зелёного GitHub Actions, если это технически возможно. Codex Cloud используется для создания PR, если assistant не может сам безопасно создать PR, и для audit only после зелёного CI.
 
 Пользователь не является кнопкой `продолжить`. Он нужен только для действий, которые assistant физически не может сделать: создать задачу в Codex Cloud, вставить audit-only prompt, передать результат audit, подтвердить merge/approval, выполнить ручной MAX-тест, принять бизнес-решение.
 
@@ -98,11 +96,11 @@ features/menu-v3/canonical-menu.js
 
 Правило архитектуры: верхние разделы открываются через единый root-section standard. Не чинить отдельный раздел отдельным one-off renderer/fallback, если задача про общий root opening.
 
-## 7. Текущий live факт после PR254
+## 7. Live факт после PR254
 
 PR254 был смержен в main и deployed. Startup/runtime contract был зелёный: `githubMainHeadSha` указывал на merge commit PR254, startup path был правильный, `contractLiveOk=true`, `finalRuntimeReadinessGate.ok=true`.
 
-Но ручной MAX-тест после PR254 показал: Gifts всё ещё не открываются. Свежий runtime trace от 2026-06-29 показывает:
+Но ручной MAX-тест после PR254 показал: Gifts всё ещё не открываются. Свежий runtime trace от 2026-06-29 показывал:
 
 ```text
 gifts:home count=16, lastResultKind=response_sent_500
@@ -113,7 +111,7 @@ ad_links:home response_sent_200
 main:home response_sent_200
 ```
 
-Для Gifts trace доказывает: callback доходит до webhook edge, payload корректный, route resolved as `gifts:home`, handler `bot.handleWebhook`, но результат `response_sent_500`. Это не deploy issue и не payload-recognition issue. Это live mismatch и архитектурный провал текущего split path.
+Для Gifts trace доказал: callback доходит до webhook edge, payload корректный, route resolved as `gifts:home`, handler `bot.handleWebhook`, но результат `response_sent_500`. Это не deploy issue и не payload-recognition issue. Это live mismatch и архитектурный провал split path.
 
 ## 8. Live wrapper chain
 
@@ -146,10 +144,11 @@ PR250 — Codex Cloud task / issue name для clean-wrapper bridge.
 PR251 — первый GitHub PR по clean-wrapper bridge; superseded.
 PR252 — заменён последующими recovery PR.
 PR253 — Codex создал на неправильную старую base branch; closed.
-PR254 — merged/deployed, but live Gifts still fails with response_sent_500.
-Issue #255 — текущая следующая задача: RootSectionDispatcher v2.
+PR254 — merged/deployed, but live Gifts still failed with response_sent_500.
+Issue #255 — RootSectionDispatcher v2.
+PR256 — текущий open PR по Issue #255.
 
-## 11. Текущая следующая задача: Issue #255
+## 11. Issue #255 / цель PR256
 
 Issue #255: `RootSectionDispatcher v2: one live opening path for all top-level sections`.
 
@@ -168,7 +167,61 @@ Issue #255: `RootSectionDispatcher v2: one live opening path for all top-level s
 
 Разные разделы могут иметь разные screen providers, но вход, cleanup, delivery и trace должны быть общими.
 
-## 12. Обязательное покрытие для RootSectionDispatcher v2
+## 12. PR256 current state
+
+PR256:
+
+```text
+URL: https://github.com/9163223-maker/amio-comments-max/pull/256
+Title: Implement RootSectionDispatcher v2: unified root callback path and tests
+Branch: codex/implement-rootsectiondispatcher-v2
+Base: main
+Head SHA at first inspection: 7614f3eb15b309148b0279e050fb6c51c775aa2a
+Changed files: bot.js, clean-bot-channel-first-post-picker-pr90.js, package.json, scripts/test-pr248-root-section-opening-standard.js, scripts/test-pr250-clean-wrapper-root-bridge.js, scripts/test-pr255-root-dispatcher-v2-clean-wrapper.js
+GitHub Actions: PR regression tests run #429 — success
+```
+
+PR256 currently adds:
+
+- unified root dispatcher metadata in `bot.js`;
+- `rootSectionProviderForRoute`;
+- full cleanup in `applyRootSectionAdminState` and `resetAdminStateForMainRoute`;
+- provider/owner trace fields;
+- clean-wrapper delegates all resolved top-level roots to wrapped dispatcher;
+- new clean-wrapper test `scripts/test-pr255-root-dispatcher-v2-clean-wrapper.js`;
+- `scripts/test-pr250-clean-wrapper-root-bridge.js` is replaced by requiring the new PR255 test;
+- `package.json` test script also runs PR248 and PR255 tests after smoke and existing tests.
+
+## 13. PR256 review issues found
+
+Codex GitHub review on PR256 found two P2 issues in `bot.js`:
+
+1. `admin_section_comments` was added to `LEGACY_ROOT_ACTION_ROUTES` and mapped to `comments:home`. Problem: when user already has `commentTargetPost` selected and taps legacy Comments navigation, new root path renders generic comments screen and loses selected-post visible actions. Existing product-perfect path showed post-specific comments actions from selected state.
+
+2. `admin_section_posts` was added to `LEGACY_ROOT_ACTION_ROUTES` and mapped to `editor:home`. Problem: existing post-editor screens use `admin_section_posts` as footer action. Legacy handler rendered selected post editor card with `Изменить текст выбранного поста` when post already selected. New generic `editor:home` forces picking same post again.
+
+Required fix direction already posted in PR comment by assistant:
+
+- keep canonical routes `comments:home` and `editor:home` generic;
+- keep legacy aliases inside RootSectionDispatcher v2 for trace/audit;
+- add legacy render-action preservation for `admin_section_comments` and `admin_section_posts` so dispatcher resolves canonical route but renders via legacy/product-perfect providers/actions;
+- add regression coverage for selected `commentTargetPost` with `admin_section_comments` and selected editor post with `admin_section_posts`;
+- do not remove unified dispatcher path;
+- do not add Gifts-only fallback.
+
+Likely code fix in `bot.js`:
+
+```js
+const LEGACY_ROOT_RENDER_ACTIONS = {
+  gift_admin_open_menu: 'admin_section_gifts',
+  admin_section_comments: 'admin_section_comments',
+  admin_section_posts: 'admin_section_posts'
+};
+```
+
+Because `handleRootSectionCallback` already uses `resolved.renderAction` to build renderPayload, this preserves canonical route for audit while rendering legacy/product-perfect action. Verify that `v3-menu-core-1539.js` delegates `admin_section_posts` to `postsFlow.screenForPayload` and lets `admin_section_comments` fall to the old/product-perfect renderer.
+
+## 14. Обязательное покрытие для RootSectionDispatcher v2
 
 Матрица по всем canonical top-level sections:
 
@@ -194,18 +247,20 @@ Issue #255: `RootSectionDispatcher v2: one live opening path for all top-level s
 
 Production-path clean-wrapper test must prove clean-entrypoint/wrapper callbacks go through RootSectionDispatcher v2, not a parallel Gifts bridge.
 
-## 13. Что делать новому чату
+## 15. Что делать новому чату
 
 1. Прочитать этот файл.
 2. Не спрашивать пользователя `продолжать?`.
-3. Ориентироваться на Issue #255, а не продолжать PR254.
-4. Если assistant не может сам создать большой PR, дать пользователю новую задачу для Codex Cloud на создание PR от `main` по Issue #255.
-5. После появления PR assistant сам ведёт CI/debug/fix до зелёного.
-6. После зелёного CI — Codex audit-only.
-7. После merge — Northflank/runtime-status/manual MAX verification.
+3. Работать с PR256, ветка `codex/implement-rootsectiondispatcher-v2`.
+4. Проверить, обновился ли PR после comment `@codex address...`.
+5. Если PR не обновился — исправить PR256 самостоятельно, если доступны инструменты изменения code files; иначе дать пользователю точный follow-up / patch transport instruction.
+6. После каждого fix проверять CI (`fetch_commit_workflow_runs`, jobs/logs при red).
+7. После зелёного CI дать Codex Cloud audit-only prompt с обязательным указанием: тип новая audit-only задача, PR #256, ветка `codex/implement-rootsectiondispatcher-v2`, base main.
+8. После audit PASS — merge stage.
+9. После merge — Northflank/runtime-status/manual MAX verification, обязательно Gifts visual open.
 
-## 14. Краткая формула
+## 16. Краткая формула
 
 Green CI != done. Merge != done. Runtime contract != UX done. UX done только когда live MAX click открывает раздел и trace подтверждает правильный path.
 
-Следующая цель: не ещё один Gifts fix, а RootSectionDispatcher v2 — один live opening path для всех top-level sections.
+Следующая цель: RootSectionDispatcher v2 в PR256 — один live opening path для всех top-level sections. Текущий blocker PR256: preserve selected Comments/Editor legacy state while keeping unified dispatcher.
