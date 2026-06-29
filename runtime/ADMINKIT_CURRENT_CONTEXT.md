@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-29 10:48 UTC
+Updated: 2026-06-29 12:49 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -83,6 +83,7 @@ PR257:
 - Final PR head before merge: `205f9862b39d205e3ca033512bcce9863e6f7abe`
 - CI: PR regression tests run #433 success; job `AdminKIT regression tests` success.
 - Merge result: PR257 squash merged into `main` at 2026-06-29 10:31 UTC; merge commit `8c3b94e5e5d5389da7541cfb9a4505113fedb220`.
+- Codex Cloud postfactum audit result from user at 2026-06-29 12:48 UTC: PASS. Audit confirmed limited diff, production start path unchanged, root Gifts now renders via unified root before giftsFlow, internal gift actions remain on giftsFlow, expected visible root labels exist, RootSectionDispatcher v2 compatibility preserved, and no blocker found.
 
 PR257 fix:
 - Added `isGiftsRootPayload(...)` in `v3-menu-core-1539.js`.
@@ -97,23 +98,22 @@ User correctly flagged that PR257 was merged by the assistant after green CI wit
 
 Required correction for future work: after any assistant-created PR, including urgent hotfixes, stop after green CI and provide an audit-only Codex prompt with exact repo, PR, branch, head SHA, base, diff focus, production contract, and PASS/BLOCK return format. Do not merge until user provides audit PASS or explicitly waives audit.
 
-Post-merge mitigation still needed for PR257: run an after-the-fact audit against PR257 merge/head and continue runtime/manual validation. If audit finds a blocker, revert or fix immediately.
+Postfactum mitigation completed: Codex audit PASS received for PR257 at 2026-06-29 12:48 UTC. No blocker found.
 
-## Latest observed state — 2026-06-29 10:48 UTC
+## Latest observed state — 2026-06-29 12:49 UTC
 
-PR257 is merged. Deploy/runtime pickup of PR257 is NOT checked yet.
+PR257 is merged and postfactum audit PASS is recorded. Deploy/runtime pickup of PR257 is still the next required check.
 
 Last confirmed runtime pickup before PR257 was PR256 merge commit `ad38d310ece323d5e0adb2583b12f904043bcc91`, with startup path green and readiness gate green. Need re-check after PR257 deploy for merge commit `8c3b94e5e5d5389da7541cfb9a4505113fedb220`.
 
 ## Next action
 
 Post-PR257 verification required:
-1. Run after-the-fact audit-only review for PR257 / merge commit `8c3b94e5e5d5389da7541cfb9a4505113fedb220` because pre-merge audit was skipped.
-2. Check `runtime/startup-log.json` until latest `githubMainHeadSha` is `8c3b94e5e5d5389da7541cfb9a4505113fedb220`.
-3. Confirm startup path still exactly `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js` / active entrypoint `clean-entrypoint-1.53.10-pr89.js`.
-4. Confirm runtime readiness gate green.
-5. Ask/run manual MAX click specifically on Gifts and re-check `runtime/manual-ui-walkthrough-trace.json` and `runtime/root-menu-live-parity-trace.json` after the click.
-6. Done only if fresh Gifts trace after PR257 deploy shows successful delivery/200 and visible Gifts screen opens.
+1. Check `runtime/startup-log.json` until latest `githubMainHeadSha` is `8c3b94e5e5d5389da7541cfb9a4505113fedb220`.
+2. Confirm startup path still exactly `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js` / active entrypoint `clean-entrypoint-1.53.10-pr89.js`.
+3. Confirm runtime readiness gate green.
+4. Ask/run manual MAX click specifically on Gifts and re-check `runtime/manual-ui-walkthrough-trace.json` and `runtime/root-menu-live-parity-trace.json` after the click.
+5. Done only if fresh Gifts trace after PR257 deploy shows successful delivery/200 and visible Gifts screen opens.
 
 If fresh trace still shows `gifts:home` 500 after PR257 deploy, the next likely suspect is delivery/upsert/editMessage payload, not root resolution or lower-level Gifts flow.
 
