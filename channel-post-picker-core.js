@@ -51,7 +51,7 @@ function hasStoredPostEvidence(channelId = '', userId = '') {
   const id = clean(channelId);
   if (!id) return false;
   return array(safe(() => store.getPostsList(), []))
-    .some((post) => clean(post && post.channelId) === id && clean(post && post.postId) && clean(post && post.commentKey) && listUiPostsForChannel(userId, id).some((visible) => clean(visible.commentKey) === clean(post.commentKey)));
+    .some((post) => post && clean(post.channelId) === id && clean(post.postId) && clean(post.commentKey) && !looksInternal([post.channelId, post.channelTitle, post.title, post.originalText].join(' ')));
 }
 function isKnownChannelRecord(raw = {}, userId = '') {
   if (isChatLikeRecord(raw)) return false;
