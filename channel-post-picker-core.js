@@ -36,8 +36,32 @@ function safeTitle(value = '') { const title = clean(value); if (!title || looks
 function storedChannel(channelId = '') { const id = clean(channelId); if (!id) return null; return safe(() => array(store.getChannelsList()).find((item) => clean(item.channelId || item.id || item.chatId) === id), null) || null; }
 function accessChannels(userId = '') { return array(safe(() => clientAccessService.getClientChannels(clean(userId)), [])); }
 function accessChannel(userId = '', channelId = '') { const id = clean(channelId); return accessChannels(userId).find((item) => clean(item.channelId || item.id || item.chatId) === id) || null; }
-function channelIdOf(raw = {}) { return clean(raw.channelId || raw.channel_id || raw.id || raw.chatId || raw.chat_id || ''); }
-function destinationTypeOf(raw = {}) { return clean(raw.type || raw.chatType || raw.chat_type || raw.kind || ''); }
+function explicitChannelIdOf(raw = {}) { return clean(raw.channelId || raw.channel_id || raw.channel?.id || raw.channel?.channelId || ''); }
+function chatIdOf(raw = {}) { return clean(raw.chatId || raw.chat_id || raw.chat?.id || raw.chat?.chatId || ''); }
+function channelIdOf(raw = {}) { return clean(explicitChannelIdOf(raw) || raw.id || ''); }
+function destinationTypeOf(raw = {}) { return clean(raw.type || raw.chatType || raw.chat_type || raw.kind || raw.sourceType || raw.source_type || ''); }
+function isChatLikeRecord(raw = {}) {
+  const values = [raw.type, raw.chatType, raw.chat_type, raw.kind, raw.sourceType, raw.source_type, raw.destinationType, raw.destination_type].map(clean).join(' ').toLowerCase();
+  if (raw.isChat === true) return true;
+  if (/\b(?:chat|group|supergroup|private|private_chat|direct|dialog|im)\b/.test(values) && !/\bchannel\b/.test(values)) return true;
+  if ((chatIdOf(raw) && !explicitChannelIdOf(raw)) && raw.isChannel !== true && !/\bchannel\b/.test(values)) return true;
+  return false;
+}
+function hasStoredPostEvidence(channelId = '', userId = '') {
+  const id = clean(channelId);
+  if (!id) return false;
+  return array(safe(() => store.getPostsList(), []))
+    .some((post) => clean(post && post.channelId) === id && clean(post && post.postId) && clean(post && post.commentKey) && listUiPostsForChannel(userId, id).some((visible) => clean(visible.commentKey) === clean(post.commentKey)));
+}
+function isKnownChannelRecord(raw = {}, userId = '') {
+  if (isChatLikeRecord(raw)) return false;
+  const type = destinationTypeOf(raw).toLowerCase();
+  if (raw.isChannel === true) return true;
+  if (/\bchannel\b/.test(type) && !/\b(?:chat|group|private|direct|dialog|im)\b/.test(type)) return true;
+  if (raw.__ambiguousGenericId) return hasStoredPostEvidence(channelIdOf(raw), userId);
+  if (explicitChannelIdOf(raw)) return true;
+  return hasStoredPostEvidence(channelIdOf(raw), userId);
+}
 function mergeChannelSources(...sources) {
   const byId = new Map();
   const add = (raw = {}) => {
@@ -48,6 +72,7 @@ function mergeChannelSources(...sources) {
     const previousSafeTitle = safeTitle(firstTitle(previous));
     const title = nextSafeTitle || previousSafeTitle || firstTitle(previous) || firstTitle(raw);
     const merged = { ...previous, ...raw, channelId };
+    if (!explicitChannelIdOf(raw) && clean(raw.id)) merged.__ambiguousGenericId = true;
     if (title) {
       merged.title = title;
       if (!safeTitle(merged.channelTitle)) merged.channelTitle = title;
@@ -94,8 +119,9 @@ function record(userId = '', action = '', entry = {}) {
 function getLastDiagnostics(userId = '', action = '') { return diagnosticsByUser.get(`${clean(userId)}:${clean(action || 'channel_picker')}`) || diagnosticsByUser.get(clean(userId) || 'anonymous') || null; }
 function clearDiagnostics(userId = '', action = '') { if (userId || action) diagnosticsByUser.delete(`${clean(userId)}:${clean(action || 'channel_picker')}`); }
 function isVisibleChannelRecord(channel = {}) {
-  const channelId = clean(channel.channelId || channel.id || channel.chatId);
+  const channelId = clean(channel.channelId || channel.id);
   if (!channelId) return false;
+  if (!isKnownChannelRecord(channel, channel.ownerUserId || channel.linkedByUserId || '')) return false;
   const stored = storedChannel(channelId) || {};
   const title = firstTitle(channel);
   const storedTitle = firstTitle(stored);
@@ -157,8 +183,9 @@ async function listUiChannelsForUser(userId = '', config = {}) {
   const diagnostics = [];
   const scopedChannels = mergeChannelSources(accessChannels(userId), await dbChannels(userId));
   for (const raw of scopedChannels) {
-    const channelId = clean(raw.channelId || raw.id || raw.chatId);
-    if (!channelId || seen.has(channelId) || !isVisibleChannelRecord({ ...raw, channelId })) continue;
+    if (!isKnownChannelRecord(raw, userId)) continue;
+    const channelId = channelIdOf(raw);
+    if (!channelId || seen.has(channelId) || !isVisibleChannelRecord({ ...raw, channelId, ownerUserId: userId })) continue;
     seen.add(channelId);
     const resolved = await resolveUiChannelTitle(channelId, userId, config, raw);
     diagnostics.push(resolved.diagnostic);
@@ -195,7 +222,7 @@ async function buildChannelPickerRows(menu, userId = '', source = 'comments', co
 }
 function listUiPostsForChannel(userId = '', channelId = '') {
   const id = clean(channelId);
-  const visible = new Set(accessChannels(userId).map((item) => clean(item.channelId || item.id || item.chatId)).filter(Boolean));
+  const visible = new Set(accessChannels(userId).filter((item) => isKnownChannelRecord(item, userId)).map((item) => clean(channelIdOf(item))).filter(Boolean));
   const seen = new Set();
   return array(safe(() => store.getPostsList(), []))
     .filter((post) => post && clean(post.commentKey) && clean(post.channelId) && clean(post.postId))
@@ -206,4 +233,4 @@ function listUiPostsForChannel(userId = '', channelId = '') {
 function hasMedia(post = {}) { return array(post.sourceAttachments || post.attachments || post.media || post.photos || post.files).length > 0 || Boolean(post.photo || post.image || post.video || post.document); }
 function safePostPreview(post = {}) { const text = clean(post.originalText || post.postText || post.text || post.caption || ''); if (text && !looksInternal(text) && !/\b(?:postId|channelId|messageId|commentKey|commentId|token|payload|trace)\b/i.test(text)) return short(text, 120); return hasMedia(post) ? 'Пост с медиа' : 'Пост без текста'; }
 
-module.exports = { RUNTIME, UNTITLED_CHANNEL, listUiChannelsForUser, resolveUiChannelTitle, buildChannelPickerRows, listUiPostsForChannel, safePostPreview, getLastDiagnostics, clearDiagnostics, maskChannelId, looksInternal, looksRawId };
+module.exports = { RUNTIME, UNTITLED_CHANNEL, listUiChannelsForUser, resolveUiChannelTitle, buildChannelPickerRows, listUiPostsForChannel, safePostPreview, getLastDiagnostics, clearDiagnostics, maskChannelId, looksInternal, looksRawId, isChatLikeRecord, isKnownChannelRecord };

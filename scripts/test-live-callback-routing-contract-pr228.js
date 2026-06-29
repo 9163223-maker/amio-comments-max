@@ -38,7 +38,7 @@ function installRoutes() {
   assert.strictEqual(result.mainMenuStatsButtonFound, true, 'STAT-CB-001: main menu Statistics button must be found');
   assert.ok(result.mainMenuStatsPayload && ['admin_section_stats', 'stats:home'].includes(String(result.mainMenuStatsPayload.action || '')), 'STAT-CB-002: Statistics button payload must be the real production stats callback');
   assert.ok(result.resolvedHandler && !/legacy-stub/.test(result.resolvedHandler), 'STAT-CB-003: payload must pass through production callback/router path');
-  if (!/stats_(home|scope_empty|scope_selector)_pr229/.test(result.screenId)) for (const label of contract.EXPECTED_LABELS) assert.ok(result.expectedLabelsPresent.includes(label), `STAT-CB-004: missing current stats root button label ${label}`);
+  if (!/stats_(home|scope_empty|scope_selector|root_menu)_pr229/.test(result.screenId)) for (const label of contract.EXPECTED_LABELS) assert.ok(result.expectedLabelsPresent.includes(label), `STAT-CB-004: missing current stats root button label ${label}`);
   assert.deepStrictEqual(result.legacyLabelsPresent, [], 'STAT-CB-005: legacy stats root button labels must not be returned');
   assert.strictEqual(result.adminSectionStatsRoutesToCurrentStatsRoot, true, 'STAT-CB-006: real main menu stats payload must route to current stats home');
   if (/pr229/.test(result.screenId)) assert.strictEqual(result.adminSectionStatsRoutesToPr226, false, 'STAT-CB-006b: PR229 root must not be reported as PR226');

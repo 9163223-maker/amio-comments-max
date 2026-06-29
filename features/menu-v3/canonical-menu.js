@@ -52,8 +52,8 @@ const sections = [
     action({ id: 'push.help', title: 'Как это работает', section: 'push', existingAction: 'admin_push_help', featureKey: 'channels' }),
   ] },
   { id: 'ad_links', title: 'Рекламные ссылки', route: 'ad_links:home', aliases: ['ads:home'], clientVisible: true, adminOnly: false, featureKey: 'ad_links', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
-    action({ id: 'ad_links.create', title: 'Создать рекламную ссылку', section: 'ad_links', existingAction: 'admin_stats_campaign_create' }),
-    action({ id: 'ad_links.mine', title: 'Мои рекламные ссылки', section: 'ad_links', existingAction: 'admin_stats_campaigns' }),
+    action({ id: 'ad_links.create', title: 'Создать ссылку', section: 'ad_links', existingAction: 'admin_stats_campaign_create' }),
+    action({ id: 'ad_links.mine', title: 'Мои ссылки', section: 'ad_links', existingAction: 'admin_stats_campaigns' }),
     action({ id: 'ad_links.disable', title: 'Отключить ссылку', section: 'ad_links', existingAction: 'admin_stats_campaign_disable', clientVisible: false, implemented: false, hiddenReason: 'inside_ad_link_card' }),
   ] },
   { id: 'polls', title: 'Опросы / голосования', route: 'polls:home', clientVisible: true, adminOnly: false, featureKey: 'polls', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
@@ -62,8 +62,8 @@ const sections = [
     action({ id: 'polls.stop', title: 'Остановить опрос', section: 'polls', existingAction: 'poll_stop', clientVisible: false, implemented: false, hiddenReason: 'inside_active_poll_card' }),
   ] },
   { id: 'highlights', title: 'Выделение постов', route: 'highlights:home', aliases: ['highlight:home'], clientVisible: true, adminOnly: false, featureKey: 'highlights', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
-    action({ id: 'highlights.apply', title: 'Поставить выделение', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
-    action({ id: 'highlights.remove', title: 'Снять выделение', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
+    action({ id: 'highlights.apply', title: 'Поставить метку', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
+    action({ id: 'highlights.remove', title: 'Снять метку', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
   ] },
   { id: 'editor', title: 'Редактор постов', route: 'editor:home', clientVisible: true, adminOnly: false, featureKey: 'post_editor', minPlan: 'start', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
     action({ id: 'editor.change_text', title: 'Выбрать пост', section: 'editor', existingAction: 'admin_posts_picker', requiresChannel: true, requiresPost: true }),

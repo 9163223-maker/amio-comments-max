@@ -224,7 +224,7 @@ const settingsRoot = adapter.render('settings:home');
 const settingsRootLabels = labels(settingsRoot);
 assert.deepStrictEqual(
   settingsRootLabels,
-  ['Очистить чат', 'Помощь', 'Privacy / Terms', '❓ Помощь по разделу', '🏠 Главное меню'],
+  ['Очистить чат', 'Помощь', 'Privacy / Terms', 'Помощь', 'Главное меню'],
   'settings root must expose safe client-visible actions plus root navigation'
 );
 assert.ok(!settingsRootLabels.includes('↩️ В начало раздела'), 'settings root must not include section-home self-click');
@@ -232,7 +232,7 @@ assert.ok(!settingsRootLabels.includes('↩️ В начало раздела'),
 const settingsDeepRoutes = ['settings:clear_chat', 'settings:notifications', 'settings:language_format', 'settings:privacy_terms', 'settings:navigation'];
 for (const route of settingsDeepRoutes) {
   const screen = adapter.render(route);
-  assertHasAll(labels(screen), ['⬅️ Назад', '↩️ В начало раздела', '❓ Помощь по разделу', '🏠 Главное меню'], `${route} settings detail navigation`);
+  assertHasAll(labels(screen), ['Назад', 'В начало раздела', 'Помощь', 'Главное меню'], `${route} settings detail navigation`);
   assertNoSelfRoute(screen, route);
   assert.ok(!/postId|channelId|commentKey|token|payload|trace/i.test(screen.text), `${route} must not expose technical identifiers`);
 }
@@ -251,14 +251,14 @@ for (const section of canonical.clientSections) {
   const rootLabels = labels(root);
   const expectedRootNavigation = section.id === 'push'
     ? ['Как это работает', 'Главное меню']
-    : (section.id === 'channels' ? ['Помощь', 'Главное меню'] : (section.id === 'comments' ? ['Помощь', 'Главное меню'] : (section.id === 'gifts' ? ['Главное меню'] : ['❓ Помощь по разделу', '🏠 Главное меню'])));
+    : (section.id === 'channels' ? ['Помощь', 'Главное меню'] : (section.id === 'comments' ? ['Помощь', 'Главное меню'] : (section.id === 'gifts' ? ['Главное меню'] : ['Помощь', 'Главное меню'])));
   assertHasAll(rootLabels, expectedRootNavigation, `${section.id} root navigation`);
   assert.ok(!rootLabels.includes('↩️ В начало раздела'), `${section.id} root must not include section-home self-click`);
-  assert.ok(!rootLabels.includes('⬅️ Назад'), `${section.id} root must not include back without context`);
+  assert.ok(!rootLabels.includes('Назад'), `${section.id} root must not include back without context`);
   assertNoSelfRoute(root, section.route);
 
   const help = adapter.render(`${section.id}:help`);
-  assert.deepStrictEqual(labels(help), ['↩️ В начало раздела', '🏠 Главное меню'], `${section.id} help navigation must be section home + main only`);
+  assert.deepStrictEqual(labels(help), ['В начало раздела', 'Главное меню'], `${section.id} help navigation must be section home + main only`);
   assert.ok(!/postId|channelId|commentKey|token|payload|trace/i.test(help.text), `${section.id} help must not expose technical identifiers`);
 }
 
@@ -275,7 +275,7 @@ const deepCases = [
 ];
 for (const screen of deepCases) {
   const deepLabels = labels(screen);
-  assertHasAll(deepLabels, ['⬅️ Назад', '↩️ В начало раздела', '❓ Помощь по разделу', '🏠 Главное меню'], `${screen.route || screen.id} deep navigation`);
+  assertHasAll(deepLabels, ['Назад', 'В начало раздела', 'Помощь', 'Главное меню'], `${screen.route || screen.id} deep navigation`);
   assertNoSelfRoute(screen, screen.route || screen.id);
 }
 

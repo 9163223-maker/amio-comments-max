@@ -100,10 +100,8 @@ function assertRenderable(screen, label) {
     });
     assertRenderable(statsScreen, 'admin_section_stats tenant selector');
     const visibleStats = [text(statsScreen), ...labels(statsScreen)].join('\n');
-    assert.ok(/PR241 Own Channel/.test(visibleStats), 'stats selector must show own channel');
-    assert.ok(/PR241 Post Bound Channel/.test(visibleStats), 'stats selector must show post-bound own channel');
-    assert.ok(/PR241 Own Chat/.test(visibleStats), 'stats selector must show own chat');
-    assert.ok(!/PR241 Foreign|PR241 Unbound/i.test(visibleStats), 'stats selector must not show foreign or unbound targets');
+    assert.ok(/Обзор/.test(visibleStats) && /По каналу/.test(visibleStats) && /По посту/.test(visibleStats), 'stats root must show clean report menu');
+    assert.ok(!/PR241 Own Channel|PR241 Post Bound Channel|PR241 Own Chat|PR241 Foreign|PR241 Unbound/i.test(visibleStats), 'stats root must not show mixed channel/chat target objects');
 
     console.log('PR241 gifts/stats tenant contract ok');
   } finally {

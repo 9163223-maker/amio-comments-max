@@ -48,8 +48,23 @@ function hasInternalChannelLabel(channel = {}) {
   if (looksInternalLabel(id) && (!safeHumanTitle(human) || looksInternalLabel(human))) return true;
   return false;
 }
+function destinationType(channel = {}) { return clean(channel.type || channel.chatType || channel.chat_type || channel.kind || channel.sourceType || channel.source_type).toLowerCase(); }
+function explicitChannelId(channel = {}) { return clean(channel.channelId || channel.channel_id || channel.channel?.id || channel.channel?.channelId || ''); }
+function looksLikeChatRecord(channel = {}) {
+  const type = destinationType(channel);
+  if (channel.isChat === true) return true;
+  if (/\b(?:chat|group|supergroup|private|private_chat|direct|dialog|im)\b/.test(type) && !/\bchannel\b/.test(type)) return true;
+  if (clean(channel.chatId || channel.chat_id) && !explicitChannelId(channel) && channel.isChannel !== true && !/\bchannel\b/.test(type)) return true;
+  return false;
+}
+function looksLikeChannelRecord(channel = {}) {
+  const type = destinationType(channel);
+  if (looksLikeChatRecord(channel)) return false;
+  return channel.isChannel === true || explicitChannelId(channel) || (/\bchannel\b/.test(type) && !/\b(?:chat|group|private|direct|dialog|im)\b/.test(type));
+}
 function listTenantVisibleChannels(userId = '') {
   return Array.from(accessChannelMap(userId).values())
+    .filter((channel) => looksLikeChannelRecord(channel))
     .filter((channel) => !hasInternalChannelLabel(channel))
     .map((channel) => {
       const channelId = clean(channel.channelId || channel.id || channel.chatId);
@@ -59,4 +74,4 @@ function listTenantVisibleChannels(userId = '') {
     .filter((channel) => channel.channelId && !looksInternalLabel(channel.title));
 }
 
-module.exports = { UNTITLED_CHANNEL, resolveHumanChannelTitle, listTenantVisibleChannels, looksTechnicalId, looksInternalLabel, safeHumanTitle, isIntentionalUserTestTitle };
+module.exports = { UNTITLED_CHANNEL, resolveHumanChannelTitle, listTenantVisibleChannels, looksTechnicalId, looksInternalLabel, safeHumanTitle, isIntentionalUserTestTitle, looksLikeChatRecord, looksLikeChannelRecord };

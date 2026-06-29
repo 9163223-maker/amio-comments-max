@@ -18,19 +18,19 @@ function rowsOfTwo(items) { const rows = []; for (let i = 0; i < items.length; i
 function safeSectionHomeAction(sectionId) { return canonical.sectionById[sectionId]?.route || `${sectionId}:home`; }
 function isSameRoute(a, b) { return normalize(a) === normalize(b) && normalize(a); }
 function navButton(text, route, data = {}) { return button(text, route, data); }
-function mainMenuRow(currentRoute = '') { return isSameRoute(currentRoute, 'main:home') ? [] : [[navButton('🏠 Главное меню', 'main:home')]]; }
+function mainMenuRow(currentRoute = '') { return isSameRoute(currentRoute, 'main:home') ? [] : [[navButton('Главное меню', 'main:home')]]; }
 function sectionNavRows(sectionId, options = {}) {
   const sectionHome = safeSectionHomeAction(sectionId);
   const currentRoute = normalize(options.currentRoute || '');
   const rows = [];
   const backRoute = normalize(options.backAction || options.backRoute || '');
-  if (!options.isRoot && backRoute && !isSameRoute(backRoute, currentRoute)) rows.push([navButton('⬅️ Назад', backRoute, options.backPayload || {})]);
-  if (!options.isRoot && !isSameRoute(sectionHome, currentRoute)) rows.push([navButton('↩️ В начало раздела', sectionHome)]);
-  if (options.includeHelp !== false && !isSameRoute(`${sectionId}:help`, currentRoute)) rows.push([navButton('❓ Помощь по разделу', `${sectionId}:help`)]);
-  if (options.includeMain !== false && !isSameRoute('main:home', currentRoute)) rows.push([navButton('🏠 Главное меню', 'main:home')]);
+  if (!options.isRoot && backRoute && !isSameRoute(backRoute, currentRoute)) rows.push([navButton('Назад', backRoute, options.backPayload || {})]);
+  if (!options.isRoot && !isSameRoute(sectionHome, currentRoute)) rows.push([navButton('В начало раздела', sectionHome)]);
+  if (options.includeHelp !== false && !isSameRoute(`${sectionId}:help`, currentRoute)) rows.push([navButton('Помощь', `${sectionId}:help`)]);
+  if (options.includeMain !== false && !isSameRoute('main:home', currentRoute)) rows.push([navButton('Главное меню', 'main:home')]);
   return rows;
 }
-function helpNavRows(sectionId) { return [[navButton('↩️ В начало раздела', safeSectionHomeAction(sectionId))], [navButton('🏠 Главное меню', 'main:home')]]; }
+function helpNavRows(sectionId) { return [[navButton('В начало раздела', safeSectionHomeAction(sectionId))], [navButton('Главное меню', 'main:home')]]; }
 function docNav(currentRoute = '') { return mainMenuRow(currentRoute); }
 function looksRawClientId(value = '') { const text = normalize(value); return /^-?\d{6,}$/.test(text) || /\b\d{10,}\b/.test(text); }
 function isConfirmedChannel(channel = {}) {
@@ -127,7 +127,16 @@ function sectionHome(owner) {
       ])
     };
   }
-  return { ok: true, route: section.route, owner: section.id, text: `${section.title}\n\nВыберите действие.`, attachments: keyboard([...rowsOfTwo(actions), ...sectionNavRows(section.id, { isRoot: true, currentRoute: section.route })]) };
+  const descriptions = {
+    buttons: 'Добавляйте и проверяйте кнопки под выбранными постами канала.',
+    ad_links: 'Создавайте рекламные ссылки и открывайте список уже созданных ссылок.',
+    polls: 'Создавайте опросы к постам канала и смотрите результаты.',
+    highlights: 'Ставьте и снимайте метки у важных постов канала.',
+    editor: 'Выберите пост канала, чтобы безопасно подготовить изменение текста.',
+    archive: 'Открывайте сохранённые посты, снимки и лимиты хранения.',
+    settings: 'Настройки интерфейса, документов и безопасных действий в чате.'
+  };
+  return { ok: true, route: section.route, owner: section.id, text: `${section.title}\n\n${descriptions[section.id] || 'Откройте нужное действие в этом разделе.'}`, attachments: keyboard([...rowsOfTwo(actions), ...sectionNavRows(section.id, { isRoot: true, currentRoute: section.route })]) };
 }
 
 
@@ -205,7 +214,6 @@ function channelsHome() {
   const rows = [
     [button('Подключить канал', 'channels:connect')],
     [button('Мои каналы', 'channels:list')],
-    [button('Инструкция', 'channels:instructions')],
     [button('Помощь', 'channels:help')],
     [button('Главное меню', 'main:home')]
   ];
@@ -367,18 +375,18 @@ function selfTest() {
         ? texts.includes('Помощь') && texts.includes('Главное меню')
         : (commentsRoot
         ? texts.includes('Помощь') && texts.includes('Главное меню')
-        : (giftsRoot ? texts.includes('Главное меню') : texts.includes('❓ Помощь по разделу') && texts.includes('🏠 Главное меню'))));
-    return requiredNavigation && !texts.includes('↩️ В начало раздела') && !texts.includes('⬅️ Назад');
+        : (giftsRoot ? texts.includes('Главное меню') : texts.includes('Помощь') && texts.includes('Главное меню'))));
+    return requiredNavigation && !texts.includes('В начало раздела') && !texts.includes('Назад');
   });
   const deepScreens = ['channels:list', 'channels:connect', 'settings:clear_chat', 'settings:notifications', 'settings:language_format', 'settings:privacy_terms', 'settings:navigation', 'comments:choose_channel', 'comments:choose_post', 'comments:post'].map((route) => render(route, route === 'comments:post' ? { payload: { postTitle: 'Тестовый пост' } } : sampleContext));
   const deepNavOk = deepScreens.every((screen) => {
     const texts = visibleButtonTexts(screen);
     if (screen.route === 'channels:list' || screen.route === 'channels:connect') return texts.includes('Назад') && texts.includes('Главное меню');
-    return texts.includes('↩️ В начало раздела') && texts.includes('❓ Помощь по разделу') && texts.includes('🏠 Главное меню') && texts.includes('⬅️ Назад');
+    return texts.includes('В начало раздела') && texts.includes('Помощь') && texts.includes('Главное меню') && texts.includes('Назад');
   });
   const helpNavOk = helpScreens.every((screen) => {
     const texts = visibleButtonTexts(screen);
-    return texts.includes('↩️ В начало раздела') && texts.includes('🏠 Главное меню') && !texts.includes('❓ Помощь по разделу');
+    return texts.includes('В начало раздела') && texts.includes('Главное меню') && !texts.includes('Помощь по разделу');
   });
   const picker = postPickerAudit();
   return { ok: validation.ok && screensOk && canonical.clientSections.length === 13 && bannedHits.length === 0 && rootNavOk && deepNavOk && helpNavOk && picker.ok && !/"route":"main:home".*"route":"main:home"/.test(payloadText), version: VERSION, sourceMarker: SOURCE, canonicalVersion: canonical.VERSION, safeCoreFreeze: true, touchesBoot: false, patchesExpress: false, patchesModuleLoad: false, patchesAppPost: false, touchesDebugStore: false, touchesDebugPing: false, clientSections: canonical.clientSections.length, routesChecked: routes.length, validation, bannedHits, rootNavOk, deepNavOk, helpNavOk, postPickerAudit: picker, failures: results.filter(result => !result || !result.text).map(result => result && result.route) };
