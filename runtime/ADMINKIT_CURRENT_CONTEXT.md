@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-29 13:16 UTC
+Updated: 2026-06-29 17:54 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -102,7 +102,7 @@ Required correction for future work: after any assistant-created PR, including u
 
 Postfactum mitigation completed: Codex audit PASS received for PR257 at 2026-06-29 12:48 UTC. No blocker found.
 
-## Latest observed state — 2026-06-29 13:16 UTC
+## Latest observed state — 2026-06-29 17:54 UTC
 
 PR257 is merged and postfactum audit PASS is recorded. Runtime has deployed a main head that contains PR257. Trace-level Gifts callback is PASS, and user visually confirmed in live MAX at 2026-06-29 13:15 UTC that Gifts opens.
 
@@ -120,10 +120,34 @@ Trace-level result after PR257:
 Visual UX result:
 - User confirmed at 2026-06-29 13:15 UTC: `Да, подарки открываются.` Gifts visual UX is PASS.
 
+## New UX requirement — channels vs chats separation
+
+User reported at 2026-06-29 17:52 UTC that post-scoped sections, for example Buttons -> Add button, ask to select one of your channels but include both channels and chats. Opening a chat then shows chat messages, not channel posts, and buttons cannot be attached to chat messages. This is a product/UX bug.
+
+Required product rule:
+- Channel-post features must only show channels, never chats. Applies to comments, gifts, buttons, polls, highlights, post editor, and post-level stats.
+- Chats must be a separate top-level/section concept, not mixed into channel/post pickers.
+- Chat management is postponed for now; future chat section may include moderation and chat-specific features.
+- Until chat features are implemented, chats should either be hidden from channel pickers or shown only in a separate disabled/coming-soon chat management section, never offered as post targets.
+
+Code observation:
+- `channel-post-picker-core.js` `listUiChannelsForUser` currently merges `accessChannels(userId)` and `dbChannels(userId)`, accepts records by id/visibility, then sets `type: 'channel'` and `isChannel: true` on output. It does not strictly reject chat-like source records before presenting them in channel/post pickers.
+- This likely explains live UX where chats appear in Buttons/Add button picker as if they were channels.
+
 ## Next action
 
-Prepare the summary table of which service/mechanism opens each top-level section, and verify which paths are optimal versus still having extra legacy/local layers. For strict completion of Issue #255 / RootSectionDispatcher v2, later do a matrix walkthrough of all top-level sections and menu variants.
+Next implementation task should be a NEW TASK on branch `main`: separate chat management from channel/post features and normalize root menu UX.
+
+Minimum acceptance for the next PR:
+1. Channel/post pickers list only real channels, not chats.
+2. Buttons/Gifts/Comments/Polls/Highlights/Editor/Post stats cannot select chat messages as post targets.
+3. If there is exactly one eligible channel, skip channel selection and go directly to the post list with clear text `Канал: <title>` / `Выберите пост`.
+4. If multiple eligible channels, show channel picker first, then posts.
+5. Chat management is separated or hidden as not-ready; chats must not appear under channel/post flows.
+6. Root menu UX cleanup can include removing duplicates such as Channels `Инструкция` + `Помощь`, Settings `Помощь` + `Помощь по разделу`, and Account `Поддержка` + `Помощь по разделу`, plus simplifying long button labels.
+7. Do not change production start path or active entrypoint.
+8. After green CI, stop and provide audit-only Codex task; do not merge before user-provided PASS/waiver.
 
 ## Completion definition
 
-Gifts blocker is resolved: audit PASS, runtime pickup PASS, trace-level PASS, and visual UX PASS. Full RootSectionDispatcher v2 project is complete only when Gifts and all top-level sections open visually in live MAX and traces confirm RootSectionDispatcher v2 path.
+Gifts blocker is resolved: audit PASS, runtime pickup PASS, trace-level PASS, and visual UX PASS. Full RootSectionDispatcher v2 project is complete only when Gifts and all top-level sections open visually in live MAX and traces confirm RootSectionDispatcher v2 path. Next priority is channel/chat separation plus menu UX normalization.
