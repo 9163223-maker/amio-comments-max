@@ -38,7 +38,15 @@ function accessChannels(userId = '') { return array(safe(() => clientAccessServi
 function accessChannel(userId = '', channelId = '') { const id = clean(channelId); return accessChannels(userId).find((item) => clean(item.channelId || item.id || item.chatId) === id) || null; }
 function explicitChannelIdOf(raw = {}) { return clean(raw.channelId || raw.channel_id || raw.channel?.id || raw.channel?.channelId || ''); }
 function chatIdOf(raw = {}) { return clean(raw.chatId || raw.chat_id || raw.chat?.id || raw.chat?.chatId || ''); }
-function channelIdOf(raw = {}) { return clean(explicitChannelIdOf(raw) || raw.id || ''); }
+function channelIdOf(raw = {}) {
+  const explicit = explicitChannelIdOf(raw);
+  if (explicit) return explicit;
+  const generic = clean(raw.id || '');
+  if (generic) return generic;
+  const chatId = chatIdOf(raw);
+  const type = destinationTypeOf(raw).toLowerCase();
+  return chatId && (raw.isChannel === true || /\bchannel\b/.test(type)) ? chatId : '';
+}
 function destinationTypeOf(raw = {}) { return clean(raw.type || raw.chatType || raw.chat_type || raw.kind || raw.sourceType || raw.source_type || ''); }
 function isChatLikeRecord(raw = {}) {
   const values = [raw.type, raw.chatType, raw.chat_type, raw.kind, raw.sourceType, raw.source_type, raw.destinationType, raw.destination_type].map(clean).join(' ').toLowerCase();
