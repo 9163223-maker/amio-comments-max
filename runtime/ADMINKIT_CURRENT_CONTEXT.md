@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-29 10:05 UTC
+Updated: 2026-06-29 10:08 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -64,7 +64,7 @@ PR256:
 - Final PR head before merge: `703f1e8791b3e2537e0798862d3dc632f1176355`
 - CI for final PR head: PR regression tests run #431 success.
 - Codex Cloud audit-only result from user at 2026-06-29 10:01 UTC: PASS, no merge-blocking issue found.
-- Merge result: PR256 squash merged into `main` at 2026-06-29 10:04 UTC; merge commit `ad38d310ece323d5e0adb2583b12f904043bcc91`.
+- Merge result: PR256 squash merged into `main` at 2026-06-29 10:02 UTC; merge commit `ad38d310ece323d5e0adb2583b12f904043bcc91`.
 
 PR256 goal: one dispatcher should parse callback payload, resolve canonical root route, reset competing flow state, select provider, render screen, deliver through one common path, write one trace chain, and return handled root callbacks cleanly.
 
@@ -78,13 +78,17 @@ Codex review found two P2 issues on the old PR head:
 
 These blockers were fixed before merge. Audit PASS confirmed no merge-blocking issue remained.
 
-## Latest observed state — 2026-06-29 10:05 UTC
+## Latest observed state — 2026-06-29 10:08 UTC
 
-PR256 branch was updated after the Codex Cloud follow-up. PR head changed from `7614f3eb15b309148b0279e050fb6c51c775aa2a` to `703f1e8791b3e2537e0798862d3dc632f1176355`, then PR256 was squash merged to `main` as `ad38d310ece323d5e0adb2583b12f904043bcc91`.
+PR256 was squash merged to `main` as `ad38d310ece323d5e0adb2583b12f904043bcc91`. PR256 is closed and merged.
 
-GitHub Actions for final PR head `703f1e8791b3e2537e0798862d3dc632f1176355`: workflow `PR regression tests` run #431 completed with conclusion `success`; job `AdminKIT regression tests` completed with conclusion `success`.
+Post-merge source check: `package.json` on `main` still has `main: clean-entrypoint-1.53.10-pr89.js` and start script exactly `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
 
-Diff inspection before merge: `LEGACY_ROOT_ACTION_ROUTES` maps `admin_section_comments` to canonical `comments:home` and `admin_section_posts` to canonical `editor:home`; `LEGACY_ROOT_RENDER_ACTIONS` preserves render actions for `admin_section_comments` and `admin_section_posts` alongside `gift_admin_open_menu`.
+Post-merge workflow check for merge commit `ad38d310ece323d5e0adb2583b12f904043bcc91`: no pull-request-triggered workflow runs returned by `fetch_commit_workflow_runs`. This is not necessarily a failure, but there is no additional workflow signal for the merge commit from this tool.
+
+Post-merge runtime-status check: `runtime/startup-log.json` is still old. Latest startup log is updated at `2026-06-29T07:38:43.085Z`; it reports `githubMainHeadSha: 04bf37d9379eb852d38c88045dcff1339630abd2`, not merge commit `ad38d310ece323d5e0adb2583b12f904043bcc91`. Therefore deployed/runtime pickup of PR256 is NOT confirmed yet. Do not mark done.
+
+Before merge diff inspection: `LEGACY_ROOT_ACTION_ROUTES` maps `admin_section_comments` to canonical `comments:home` and `admin_section_posts` to canonical `editor:home`; `LEGACY_ROOT_RENDER_ACTIONS` preserves render actions for `admin_section_comments` and `admin_section_posts` alongside `gift_admin_open_menu`.
 
 `renderRootSectionScreen` handles `admin_section_comments` by using `getCommentTargetPost(userId)` and rendering selected comments actions when `commentKey` exists; otherwise comments home. It handles `admin_section_posts` by using `postTargetPost || commentTargetPost` and rendering selected editor root with `Изменить текст выбранного поста` when `commentKey` exists; otherwise editor home.
 
@@ -99,7 +103,7 @@ Post-merge/deploy verification is still required. Do not count merge as done.
 Next agent should:
 1. Check whether deployment has picked up merge commit `ad38d310ece323d5e0adb2583b12f904043bcc91`.
 2. Verify production start path still exactly equals `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js` and active entrypoint is `clean-entrypoint-1.53.10-pr89.js`.
-3. Verify runtime/startup-log.json and readiness gates.
+3. Verify runtime/startup-log.json and readiness gates after deploy refresh; current checked startup-log is stale and still points to `04bf37d9379eb852d38c88045dcff1339630abd2`.
 4. Verify `runtime/root-menu-live-parity-trace.json` / manual trace after live clicks.
 5. Run manual MAX root section UX test. Task is complete only when Gifts and all top-level sections open visually in live MAX and traces confirm RootSectionDispatcher v2 path.
 
