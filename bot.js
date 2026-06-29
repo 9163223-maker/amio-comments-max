@@ -5321,9 +5321,7 @@ const V3_ROUTE_OWNERS = new Set([
 const LEGACY_ROOT_ACTION_ROUTES = {
   admin_section_main: 'main:home',
   admin_section_channels: 'channels:home',
-  // Product-perfect legacy callbacks for comments/editor keep their production
-  // payload handlers; canonical route/action payloads use the unified root
-  // section contract above.
+  admin_section_comments: 'comments:home',
   admin_section_gifts: 'gifts:home',
   gift_admin_open_menu: 'gifts:home',
   admin_section_buttons: 'buttons:home',
@@ -5331,7 +5329,8 @@ const LEGACY_ROOT_ACTION_ROUTES = {
   admin_section_push: 'push:home',
   admin_section_polls: 'polls:home',
   admin_section_archive: 'archive:home',
-  admin_section_tariffs: 'account:home'
+  admin_section_tariffs: 'account:home',
+  admin_section_posts: 'editor:home'
 };
 const LEGACY_ROOT_RENDER_ACTIONS = {
   gift_admin_open_menu: 'admin_section_gifts'
@@ -5398,18 +5397,30 @@ function productionLegacyActionFromV3Payload(route = '', payload = {}) {
   return legacyAction;
 }
 
+function rootSectionProviderForRoute(route = '') {
+  const owner = String(route || '').split(':')[0] || '';
+  if (owner === 'buttons') return 'buttons-root-provider';
+  if (owner === 'stats') return 'stats-root-provider';
+  if (owner === 'archive') return 'archive-root-provider';
+  if (owner === 'editor') return 'posts-root-provider';
+  if (owner === 'gifts') return 'gifts-root-provider';
+  return 'v3-menu-provider';
+}
+
 function applyRootSectionAdminState(userId = '', route = '') {
   const normalizedUserId = String(userId || '').trim();
   const state = ROOT_SECTION_ADMIN_STATE[String(route || '').trim()];
   if (!normalizedUserId || !state) return null;
-  if (state.section === 'gifts') {
-    clearCommentAdminFlow(normalizedUserId);
-    clearActiveAdminFlowKind(normalizedUserId);
-  } else if (['buttons', 'posts', 'comments', 'stats', 'push', 'channels', 'ad_links', 'polls', 'highlights', 'editor', 'archive', 'settings'].includes(state.section)) {
-    clearCommentAdminFlow(normalizedUserId);
-    clearGiftFlow(normalizedUserId);
-    clearActiveAdminFlowKind(normalizedUserId);
-  }
+  setSetupState(normalizedUserId, {
+    giftFlow: null,
+    buttonFlow: null,
+    commentAdminFlow: null,
+    postEditFlow: null,
+    activeAdminFlowKind: '',
+    giftActiveScreenMessageId: '',
+    buttonActiveScreenMessageId: '',
+    commentActiveScreenMessageId: ''
+  });
   return rememberAdminScreen(normalizedUserId, {
     section: state.section,
     backAction: 'admin_section_main',
@@ -5421,9 +5432,7 @@ function applyRootSectionAdminState(userId = '', route = '') {
 function resetAdminStateForMainRoute(userId = '') {
   const normalizedUserId = String(userId || '').trim();
   if (!normalizedUserId) return null;
-  clearCommentAdminFlow(normalizedUserId);
-  clearGiftFlow(normalizedUserId);
-  clearActiveAdminFlowKind(normalizedUserId);
+  setSetupState(normalizedUserId, { giftFlow: null, buttonFlow: null, commentAdminFlow: null, postEditFlow: null, activeAdminFlowKind: '', giftActiveScreenMessageId: '', buttonActiveScreenMessageId: '', commentActiveScreenMessageId: '' });
   return rememberAdminScreen(normalizedUserId, { section: 'main', backAction: 'admin_section_main', rootAction: 'admin_section_main', selectMode: '' });
 }
 
@@ -5460,11 +5469,13 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
     hasMessage,
     hasUserId,
     hasCallbackId,
-    resolver: resolved.resolver
+    resolver: resolved.resolver,
+    provider: rootSectionProviderForRoute(resolved.route),
+    owner: resolved.sectionId
   };
   botAudit.log('root_section_callback_received', baseAudit);
-  try { pr247Trace.record({ eventKind: resolved.legacyAction ? 'legacy_compatibility_resolved' : 'root_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, legacyAction: resolved.legacyAction || '', handlerName: 'handleRootSectionCallback', resultKind: 'resolved', dedupeDecision: 'root_pre_dedupe_bypass' }); } catch {}
-  try { pr247Trace.record({ eventKind: 'render_started', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload', renderer: 'v3MenuCore.asyncScreenForPayload' }); } catch {}
+  try { pr247Trace.record({ eventKind: resolved.legacyAction ? 'legacy_compatibility_resolved' : 'root_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, legacyAction: resolved.legacyAction || '', handlerName: 'handleRootSectionCallback', provider: baseAudit.provider, owner: baseAudit.owner, resultKind: 'resolved', dedupeDecision: 'root_pre_dedupe_bypass' }); } catch {}
+  try { pr247Trace.record({ eventKind: 'render_started', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload', renderer: baseAudit.provider, provider: baseAudit.provider, owner: baseAudit.owner }); } catch {}
   if (resolved.route === 'main:home') resetAdminStateForMainRoute(userId);
   else applyRootSectionAdminState(userId, resolved.route);
   await acknowledgeCallbackSilently(config, callbackId);
@@ -5478,12 +5489,12 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
       : { ...payload, route: resolved.route, action: resolved.route, canonicalRootRoute: resolved.legacyAction ? resolved.route : undefined };
     screen = await v3MenuCore1539.asyncScreenForPayload(renderPayload, { userId, config, rootSectionContract: true });
     renderMs = Date.now() - renderStartedAt;
-    try { pr247Trace.record({ eventKind: 'render_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload', renderer: 'v3MenuCore.asyncScreenForPayload', resultKind: 'screen_rendered', renderMs }); } catch {}
+    try { pr247Trace.record({ eventKind: 'render_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload', renderer: baseAudit.provider, provider: baseAudit.provider, owner: baseAudit.owner, resultKind: 'screen_rendered', renderMs }); } catch {}
   } catch (error) {
     renderMs = Date.now() - startedAt;
     const totalMs = Date.now() - startedAt;
     botAudit.log('root_section_callback_failed', { ...baseAudit, delivery: 'none', error: 'render_failed', status: String(error?.message || error).slice(0, 120), totalMs, renderMs, deliveryMs });
-    try { pr247Trace.record({ eventKind: 'render_failed', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload', renderer: 'v3MenuCore.asyncScreenForPayload', resultKind: 'render_failed', errorCode: 'render_failed', totalMs, renderMs, deliveryMs }); } catch {}
+    try { pr247Trace.record({ eventKind: 'render_failed', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'v3MenuCore.asyncScreenForPayload', renderer: baseAudit.provider, provider: baseAudit.provider, owner: baseAudit.owner, resultKind: 'render_failed', errorCode: 'render_failed', totalMs, renderMs, deliveryMs }); } catch {}
     await flushBotAuditTraceSafe('root_section_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
     return { ok: false, action: String(payload.action || ''), route: resolved.route, sectionId: resolved.sectionId, error: 'root_section_render_failed' };
   }
@@ -5496,7 +5507,7 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
   try {
     const deliveryStartedAt = Date.now();
     let delivery = '';
-    try { pr247Trace.record({ eventKind: 'delivery_started', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'handleRootSectionCallback', delivery: message ? 'editMessage' : (hasUserId ? 'sendMessage.no_message_fallback' : 'none') }); } catch {}
+    try { pr247Trace.record({ eventKind: 'delivery_started', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'handleRootSectionCallback', provider: baseAudit.provider, owner: baseAudit.owner, delivery: message ? 'editMessage' : (hasUserId ? 'sendMessage.no_message_fallback' : 'none') }); } catch {}
     if (message) {
       const result = await upsertBotMessage({ config, message, text: screen.text, attachments: screen.attachments, editCurrent: true });
       delivery = result && result.transport ? result.transport : 'editMessage_or_sendMessage_fallback';
@@ -5517,7 +5528,7 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
     const totalMs = Date.now() - startedAt;
     botAudit.log('root_section_callback_resolved', { ...baseAudit, delivery, totalMs, renderMs, deliveryMs });
     if (resolved.route === 'gifts:home') botAudit.log('gifts_root_callback_resolved', { action: String(payload.action || resolved.route), route: resolved.route, resolver: 'v3-menu-core', hasMessage, hasUserId, totalMs, renderMs, deliveryMs });
-    try { pr247Trace.record({ eventKind: 'delivery_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'handleRootSectionCallback', resultKind: 'delivered', delivery, totalMs, renderMs, deliveryMs }); } catch {}
+    try { pr247Trace.record({ eventKind: 'delivery_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'handleRootSectionCallback', provider: baseAudit.provider, owner: baseAudit.owner, resultKind: 'delivered', delivery, totalMs, renderMs, deliveryMs }); } catch {}
     await flushBotAuditTraceSafe('root_section_callback_resolved', { route: resolved.route, sectionId: resolved.sectionId });
     return { ok: true, action: String(payload.action || resolved.route), route: resolved.route, sectionId: resolved.sectionId, screenId: screen.id || screen.route || resolved.route, resolver: resolved.resolver, delivery };
   } catch (error) {
@@ -5525,7 +5536,7 @@ async function handleRootSectionCallback({ config, message, payload = {}, userId
     botAudit.log('root_section_callback_failed', { ...baseAudit, delivery: 'failed', error: 'delivery_failed', status: String(error?.message || error).slice(0, 120), totalMs, renderMs, deliveryMs });
     try { pr247Trace.record({ eventKind: 'delivery_failed', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedRootRoute: resolved.route, resolver: resolved.resolver, handlerName: 'handleRootSectionCallback', resultKind: 'delivery_failed', delivery: 'failed', errorCode: 'delivery_failed', totalMs, renderMs, deliveryMs }); } catch {}
     await flushBotAuditTraceSafe('root_section_callback_failed', { route: resolved.route, sectionId: resolved.sectionId });
-    throw error;
+    return { ok: false, action: String(payload.action || ''), route: resolved.route, sectionId: resolved.sectionId, error: 'root_section_delivery_failed', reason: String(error?.message || error).slice(0, 120) };
   }
 }
 
@@ -5545,7 +5556,9 @@ async function handleV3RouteCallback({ config, message, payload = {}, userId = '
     hasMessage,
     hasUserId,
     hasCallbackId,
-    resolver: resolved.resolver
+    resolver: resolved.resolver,
+    provider: rootSectionProviderForRoute(resolved.route),
+    owner: resolved.sectionId
   };
   botAudit.log('v3_route_callback_received', baseAudit);
   try { pr247Trace.record({ eventKind: 'v3_resolved', payload, message, hasCallback: true, hasMessage, hasUserId, hasCallbackId, resolvedV3Route: resolved.route, resolver: resolved.resolver, legacyAction: baseAudit.legacyAction, handlerName: 'handleV3RouteCallback', resultKind: 'resolved' }); } catch {}
