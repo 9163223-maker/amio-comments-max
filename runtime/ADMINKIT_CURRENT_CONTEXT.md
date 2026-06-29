@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-29 13:01 UTC
+Updated: 2026-06-29 13:16 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -102,9 +102,9 @@ Required correction for future work: after any assistant-created PR, including u
 
 Postfactum mitigation completed: Codex audit PASS received for PR257 at 2026-06-29 12:48 UTC. No blocker found.
 
-## Latest observed state — 2026-06-29 13:01 UTC
+## Latest observed state — 2026-06-29 13:16 UTC
 
-PR257 is merged and postfactum audit PASS is recorded. Runtime has deployed a main head that contains PR257. Trace-level Gifts callback now passes, but visual MAX UX is not yet fully confirmed by a fresh human/manual visual check after the latest restart.
+PR257 is merged and postfactum audit PASS is recorded. Runtime has deployed a main head that contains PR257. Trace-level Gifts callback is PASS, and user visually confirmed in live MAX at 2026-06-29 13:15 UTC that Gifts opens.
 
 Runtime pickup details:
 - `runtime/startup-log.json` updated at `2026-06-29T12:49:26.184Z`, started at `2026-06-29T12:48:34.479Z`.
@@ -117,18 +117,13 @@ Trace-level result after PR257:
 - `runtime/manual-ui-walkthrough-trace.json` updated at `2026-06-29T10:41:09.182Z`; summary shows `gifts:home` count 16, lastResultKind `response_sent_200`, delivery `handed_to_bot`, no errorCode.
 - Manual trace events show `gifts:home` edge received, resolvedRootRoute/resolvedV3Route `gifts:home`, resolver `payload.route`, and handler_returned with `response_sent_200`.
 
-Important distinction:
-- These traces confirm the server/runtime failure changed from `response_sent_500` to `response_sent_200` for Gifts after PR257.
-- They do NOT by themselves prove the user visually saw the correct Gifts screen in MAX after the latest restart.
-- Therefore the honest status is: PR257 audit PASS + runtime pickup PASS + Gifts trace-level callback PASS. Final visual UX PASS is still pending until a human/manual MAX click confirms the Gifts screen opens visually.
+Visual UX result:
+- User confirmed at 2026-06-29 13:15 UTC: `Да, подарки открываются.` Gifts visual UX is PASS.
 
 ## Next action
 
-For strict completion of Issue #255 / RootSectionDispatcher v2, do a final live MAX walkthrough after the 12:48 runtime restart:
-main, channels, comments, gifts, buttons, stats, push, ad_links, polls, highlights, editor, archive, account, settings.
-
-At minimum, click Gifts once in live MAX and visually confirm that the Gifts root screen opens with expected actions such as Создать подарок, Текущий подарок, Список подарков, Главное меню. Then re-check trace after the click.
+Prepare the summary table of which service/mechanism opens each top-level section, and verify which paths are optimal versus still having extra legacy/local layers. For strict completion of Issue #255 / RootSectionDispatcher v2, later do a matrix walkthrough of all top-level sections and menu variants.
 
 ## Completion definition
 
-After audit PASS, merge, deploy/runtime pickup, task is still not complete until manual MAX visual verification passes. Trace-level Gifts callback is now PASS. Full task is complete only when Gifts and all top-level sections open visually in live MAX and traces confirm RootSectionDispatcher v2 path.
+Gifts blocker is resolved: audit PASS, runtime pickup PASS, trace-level PASS, and visual UX PASS. Full RootSectionDispatcher v2 project is complete only when Gifts and all top-level sections open visually in live MAX and traces confirm RootSectionDispatcher v2 path.
