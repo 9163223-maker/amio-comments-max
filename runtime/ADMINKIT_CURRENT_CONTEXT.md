@@ -1,6 +1,6 @@
 # АдминКИТ — текущий контекст и рабочие правила
 
-Updated: 2026-06-28 06:43 UTC
+Updated: 2026-06-29 07:16 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -38,20 +38,36 @@ Codex Cloud используется в двух режимах.
 
 Пользователь не является кнопкой `продолжить`. Он нужен только для действий, которые assistant физически не может сделать: создать задачу в Codex Cloud, вставить audit-only prompt, передать результат audit, подтвердить merge/approval, выполнить ручной MAX-тест, принять бизнес-решение.
 
-## 3. Главный рабочий цикл
+## 3. Обязательный формат любых инструкций для Codex Cloud
+
+Каждый раз, когда assistant просит пользователя что-то сделать в Codex Cloud, он обязан явно указать:
+
+```text
+Тип: новая задача / follow-up в существующую задачу / audit-only
+Репозиторий: 9163223-maker/amio-comments-max
+PR: номер актуального GitHub PR
+Ветка: точное имя ветки, которую выбрать в Codex Cloud
+Base: main или другая база, если это важно
+Что нажимать: создать новую задачу, продолжить существующую, создать новый PR, обновить ветку и т.д.
+Что НЕ нажимать: например, не создавать новый PR, не выбирать main, не использовать закрытую старую задачу
+```
+
+Нельзя давать пользователю Codex prompt без явного ответа на два вопроса: `это новая задача или follow-up?` и `какую ветку выбрать?`.
+
+## 4. Главный рабочий цикл
 
 1. Задача понята.
 2. Assistant пытается сам создать ветку/PR.
-3. Если не может — даёт одну задачу для Codex Cloud на создание PR.
+3. Если не может — даёт одну задачу для Codex Cloud на создание PR с явным указанием типа задачи и ветки.
 4. После появления PR assistant сам доводит его до зелёного GitHub Actions.
-5. После зелёного CI assistant даёт Codex Cloud audit-only prompt.
+5. После зелёного CI assistant даёт Codex Cloud audit-only prompt с явным указанием, что это новая audit-only задача и какую ветку выбрать.
 6. При PASS — переход к merge stage.
 7. При BLOCK — assistant исправляет PR, снова CI, снова audit-only.
 8. После merge — live runtime verification.
 
 Не писать пользователю пустые статусы вроде `принял`, `продолжаю`, `проверяю`. Нужен результат, audit prompt или настоящий blocker.
 
-## 4. Production runtime contract
+## 5. Production runtime contract
 
 Задача не завершена после CI или merge. После merge обязательно проверить live runtime.
 
@@ -86,7 +102,7 @@ runtime/ADMINKIT_CURRENT_CONTEXT.md
 
 Если live Northflank стартует старый entrypoint/runtime или startup-log не подтверждает deployed SHA, задача не завершена.
 
-## 5. Каноническое root menu
+## 6. Каноническое root menu
 
 Канонические верхние разделы: Каналы, Комментарии, Подарки / лид-магниты, Кнопки под постами, Статистика, Push-уведомления, Рекламные ссылки, Опросы, Выделение постов, Редактор постов, Архив постов, Личный кабинет, Настройки.
 
@@ -98,7 +114,7 @@ features/menu-v3/canonical-menu.js
 
 Правило архитектуры: верхние разделы открываются через единый root-section standard. Не чинить отдельный раздел отдельным one-off renderer/fallback, если задача про общий root opening.
 
-## 6. Текущая большая тема: Gifts root opening
+## 7. Текущая большая тема: Gifts root opening
 
 Проблема: раздел `Подарки / лид-магниты` не открывался визуально в live MAX.
 
@@ -116,11 +132,11 @@ clean-entrypoint-1.53.10-pr89.js
 
 Правильная цель: `gifts:home`, `admin_section_gifts`, `gift_admin_open_menu` должны попадать в shared root-section path; stats/buttons/archive/editor/posts остаются на local clean handlers; decoded object payload сохраняется; trace показывает цепочку открытия.
 
-## 7. Ошибки, которых избегать
+## 8. Ошибки, которых избегать
 
 Не считать предполагаемый handler production handler без проверки live path. Не чинить только `bot.js`, если live path перехватывает callback раньше. Не делать Gifts-only fallback. Не делегировать все root routes в legacy/wrapped handler. Не ломать stats/buttons/archive/editor ради Gifts. Не смягчать тесты так, чтобы они скрывали реальную проблему. Не считать HTTP 200 визуальным открытием. Не считать зелёный CI production readiness. Не писать diagnostics в main. Не менять start script, entrypoint, runtimeVersion/sourceMarker без отдельного решения.
 
-## 8. PR history по Gifts/root standard
+## 9. PR history по Gifts/root standard
 
 PR241 — gifts root hardening / stats tenant contract.
 PR242 — gifts root callback no-screen regression.
@@ -133,27 +149,29 @@ PR248 — попытка общего root-section opening standard.
 PR249 — recovery PR248; deployed, но Gifts всё ещё не открывались.
 PR250 — Codex Cloud task / issue name для clean-wrapper bridge.
 PR251 — первый GitHub PR по clean-wrapper bridge; superseded.
-PR252 — текущий актуальный PR.
+PR252 — заменён последующими recovery PR.
+PR253 — Codex создал на неправильную старую base branch; closed.
+PR254 — текущий актуальный PR.
 
-## 9. Текущий актуальный PR
+## 10. Текущий актуальный PR
 
 ```text
-PR252
-Title: Refine root-section bridging: route Gifts to legacy wrapper and tighten buttons/stats handling
-Branch: codex/github-mention-pr250-bridge-clean-wrapper-root-callbacks-t
+PR254
+Title: PR253 recovery: root-section bridge with local root flow cleanup
+Branch: codex/github-mention-pr250-bridge-clean-wrapper-root-callbacks-t-u5aaa7
 Base: main
-Head: 96ebcadd058e69b37f5672d3be2dce2a0e4d29dd
+Head: d580fa4fad6dc81c2ec3959755c6b8dfb606d7cc
 State: draft, mergeable, CI green
-GitHub Actions: PR regression tests run #417 — success
+GitHub Actions: PR regression tests run #426 — success
 ```
 
 Changed files: `clean-bot-channel-first-post-picker-pr90.js`, `scripts/test-pr250-clean-wrapper-root-bridge.js`, `scripts/test-product-perfect-gifts-journey-pr142.js`, `scripts/smoke-test.js`.
 
 CI зелёный, но это только готовность к Codex audit-only, не merge-safe само по себе.
 
-## 10. Обязательные audit checks для PR252
+## 11. Обязательные audit checks для PR254
 
-Codex Cloud audit-only должен проверить: Gifts root идёт через shared root-section path; bridge eligibility узкий; stats/buttons/archive/editor/posts остаются local clean-owned; decoded object payload support сохранён; PR250 bridge regression включён в smoke/CI; смягчение gifts journey test не скрывает регрессию; stale gift/comment flow state при переходе из Gifts wizard в Stats/Buttons/Archive/Editor сбрасывается или audit должен BLOCK; не изменены start script, entrypoint, runtimeVersion/sourceMarker, canonical labels, diagnostic write targets.
+Codex Cloud audit-only должен проверить: Gifts root идёт через shared root-section path; bridge eligibility узкий; stats/buttons/archive/editor/posts остаются local clean-owned; decoded object payload support сохранён; PR250 bridge regression включён в smoke/CI; смягчение gifts journey test не скрывает регрессию; stale gift/comment/button/postEdit flow state и active screen message IDs при переходе из Gifts wizard в Stats/Buttons/Archive/Editor сбрасываются; не изменены start script, entrypoint, runtimeVersion/sourceMarker, canonical labels, diagnostic write targets.
 
 Ожидаемый audit result:
 
@@ -167,16 +185,17 @@ PASS — merge-safe
 BLOCK — with concrete files, line-level reasons, and required fixes
 ```
 
-## 11. Что делать новому чату
+## 12. Что делать новому чату
 
-1. Прочитать этот файл и текущий PR252.
+1. Прочитать этот файл и текущий PR254.
 2. Не спрашивать пользователя `продолжать?`.
-3. Если пользователь принёс Codex audit PASS — проверить PR state, CI, changed files и готовить merge stage.
-4. Если audit BLOCK — исправить PR252 самостоятельно, прогнать GitHub Actions до зелёного, затем дать новый audit-only prompt.
-5. После merge проверить Northflank deploy и runtime-status.
-6. После runtime ready попросить пользователя вручную открыть `Подарки / лид-магниты` в MAX.
-7. Проверить trace: webhook reached, root resolved, render/delivery chain, no stale runtime.
+3. Если нужно дать пользователю Codex Cloud prompt — всегда указать тип задачи и точную ветку.
+4. Если пользователь принёс Codex audit PASS — проверить PR state, CI, changed files и готовить merge stage.
+5. Если audit BLOCK — исправить PR254 самостоятельно, прогнать GitHub Actions до зелёного, затем дать новый audit-only prompt с указанием ветки.
+6. После merge проверить Northflank deploy и runtime-status.
+7. После runtime ready попросить пользователя вручную открыть `Подарки / лид-магниты` в MAX.
+8. Проверить trace: webhook reached, root resolved, render/delivery chain, no stale runtime.
 
-## 12. Краткая формула
+## 13. Краткая формула
 
-Assistant сначала делает всё возможное в GitHub сам. Если не может создать PR — пользователь создаёт задачу в Codex Cloud для создания PR. После появления PR assistant сам отвечает за CI/debug/fix до зелёного. Codex Cloud после этого — только audit-only. Пользователь нужен для Codex UI, merge/approval, бизнес-решений и ручного MAX-теста. Green CI != done. Merge != done. Live runtime verified + manual MAX scenario = done.
+Assistant сначала делает всё возможное в GitHub сам. Если не может создать PR — пользователь создаёт задачу в Codex Cloud для создания PR. После появления PR assistant сам отвечает за CI/debug/fix до зелёного. Codex Cloud после этого — только audit-only. Любой Codex prompt обязан явно говорить: новая задача или follow-up, и какую ветку выбрать. Пользователь нужен для Codex UI, merge/approval, бизнес-решений и ручного MAX-теста. Green CI != done. Merge != done. Live runtime verified + manual MAX scenario = done.
