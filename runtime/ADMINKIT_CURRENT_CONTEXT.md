@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 15:43 UTC
+Updated: 2026-06-30 15:51 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -26,23 +26,22 @@ Channel/post features must use only real channels and channel posts. Chats are a
 ## PR258 status
 PR258 merged at 2026-06-30 09:51 UTC, merge commit `50b43a4524ed8009c48cd5c2ad710f2d027a7f66`. CI green and audit-only PASS. Runtime pickup passed, but manual MAX check found a live mismatch: root `Каналы -> Мои каналы` still showed chat-like entries.
 
-Root cause: PR258 covered post-scoped pickers but missed root channel management. `features/menu-v3/adapter.js::channelsList()` used a weak local predicate, and sync channel route hydration could pass raw client access records.
+Root cause: PR258 covered post-scoped pickers but missed root channel management. Root channel list used a weak local predicate, and sync channel route hydration could pass raw client access records.
 
 ## PR259 current state
 PR259:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/259
 - Title: `Channel root matrix and runtime export safety`
-- Branch: `codex/fix-channel-matrix-and-runtime-export-safety`
-- Base: `main`
-- Current head: `23c417b1ef945395cce64fcc320a69427af79645`
-- Open, not merged.
-- Mergeable: true at latest check.
+- Final head: `23c417b1ef945395cce64fcc320a69427af79645`
 - CI: PR regression tests #498, run id `28456674246`, conclusion `success`.
-- Latest audit-only: BLOCK, then fixed by assistant. Re-audit required. Do not merge yet.
+- Audit-only: PASS confirmed by user screenshot at 2026-06-30 15:48 UTC.
+- Merged into `main` at 2026-06-30 15:50 UTC.
+- Merge commit: `c087323dcf38d1a6bbec082efe3b9bbdb496e747`.
 
 What changed in PR259:
 - root `channels:list` and post-scoped choose-channel routes use shared channel predicate;
 - sync and async channel route hydration are filtered;
+- suspicious human-title records require positive channel evidence and cannot pass on `channelId` alone;
 - runtime export guard refuses `main` and limits exports to `runtime/*.json`;
 - runtime push dispatch exports are routed through the guard;
 - committed runtime push log is removed from PR tree;
@@ -50,29 +49,19 @@ What changed in PR259:
 - startup bootstrap exports these diagnostics;
 - PR259 tests are added and included in `npm test`.
 
-Assistant follow-up applied before first audit:
-- Created a merge commit inside the PR259 branch, not into `main`, to bring it up to current `main` while preserving PR259 changes and runtime-log deletion.
-- Hardened channel predicate and fixed CI regressions from #484, #486, #488, and #490 without weakening old regression intent.
-- CI #492 was green.
+Latest audit BLOCK fixed before merge:
+- `channel-post-picker-core.js`: explicit `channelId` plus chat/group-like human title could pass.
+- `services/channelTargetMatrixService.js`: matrix did not cover `*:choose_post` screens and lacked exact dangerous fixtures.
+- Fix: explicit suspicious title guard, dangerous fixtures, and full choose-channel/choose-post matrix for comments/gifts/buttons/polls/highlights/editor/stats.
 
-Audit BLOCK at 2026-06-30 15:34 UTC:
-- `channel-post-picker-core.js`: dangerous ambiguous records with explicit `channelId` plus known chat/group-like human titles could still be accepted because the explicit-channelId path was not guarded explicitly enough.
-- Repro from audit: `adapter.render('channels:list', { channels: [{ channelId: 'danger-1', title: 'Все свои MAX' }] })` rendered `Все свои MAX` in visible text/payload.
-- `services/channelTargetMatrixService.js`: PR259 matrix was not meaningful enough because it only rendered `channels:list` and `*:choose_channel`; it did not cover any `*:choose_post` screen with posts for comments/gifts/buttons/polls/highlights/editor/stats, and fixtures did not include exact dangerous `channelId + human chat/group title` cases required by audit.
+## Current waiting state
+PR259 is merged. Required now:
+1. Wait for deploy/runtime pickup.
+2. Check `runtime/startup-log.json` from `runtime-status` and confirm latest runtime head is `c087323dcf38d1a6bbec082efe3b9bbdb496e747`.
+3. Confirm production start path and active entrypoint unchanged.
+4. Check `runtime/channel-target-matrix.json`, `runtime/process-events.json`, and `runtime/northflank-startup-log.json`.
+5. Confirm no repeated startup/restart after PR259 pickup over the check window.
+6. Confirm `runtime/push-dispatch-log.json` is not committed on `main` and runtime exports target `runtime-status`.
+7. Then manual MAX visual check: root channel list and all post-scoped pickers show only channels, not chats.
 
-Assistant fixed the BLOCK in current head `23c417b1ef945395cce64fcc320a69427af79645`:
-- Added explicit `hasSuspiciousChatHumanTitle()` guard in `channel-post-picker-core.js`.
-- Added `hasPositiveChannelEvidence()` and made suspicious human-title records require positive channel evidence: explicit channel type, `isChannel`, tenant/bound/owner/source evidence, or stored post evidence.
-- Added exact matrix fixtures: `{ channelId: 'danger-1', title: 'Все свои MAX' }` and `{ channelId: 'danger-2', title: 'Саша - сын Мамочки 🌸' }`.
-- Expanded matrix to render and assert both `*:choose_channel` and `*:choose_post` with posts for comments/gifts/buttons/polls/highlights/editor/stats.
-- Updated `scripts/test-pr259-channel-target-matrix.js` accordingly.
-- CI #498 passed green on the new head.
-
-Next required action:
-1. Run audit-only PASS/BLOCK for PR259 head `23c417b1ef945395cce64fcc320a69427af79645`.
-2. If audit BLOCK, fix exact blocker in existing PR259 branch.
-3. If audit PASS, merge PR259 with expected head SHA.
-4. After merge, verify deploy/runtime pickup and production contract.
-5. Then manual MAX visual check: `Каналы -> Мои каналы` and all post-scoped pickers show only channels, not chats.
-
-Do not merge PR259 until audit-only PASS.
+Do not mark PR259 fully complete until runtime pickup and manual MAX visual verification pass.
