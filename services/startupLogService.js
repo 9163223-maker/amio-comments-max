@@ -373,6 +373,8 @@ async function getBranchHead({ repo, branch, token }) {
 }
 
 async function ensureBranch({ repo, branch, token }) {
+  branch = clean(branch || DEFAULT_BRANCH);
+  if (branch.toLowerCase() === DEFAULT_MAIN_BRANCH) throw new Error('startup_log_refuses_main_branch');
   try {
     await requestJson({ path: `/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`, token });
     return { ok: true, existed: true };
@@ -389,6 +391,8 @@ async function ensureBranch({ repo, branch, token }) {
 }
 
 async function readLog({ repo, branch, path, token }) {
+  branch = clean(branch || DEFAULT_BRANCH);
+  if (branch.toLowerCase() === DEFAULT_MAIN_BRANCH) throw new Error('startup_log_refuses_main_branch');
   try {
     const file = await requestJson({ path: `/repos/${repo}/contents/${encodeURIComponent(path).replace(/%2F/g, '/')}?ref=${encodeURIComponent(branch)}`, token });
     const parsed = JSON.parse(fromB64(file.content || ''));
@@ -400,6 +404,8 @@ async function readLog({ repo, branch, path, token }) {
 }
 
 async function writeLog({ repo, branch, path, token, sha, log }) {
+  branch = clean(branch || DEFAULT_BRANCH);
+  if (branch.toLowerCase() === DEFAULT_MAIN_BRANCH) throw new Error('startup_log_refuses_main_branch');
   const body = {
     message: `startup log ${log.latest && log.latest.runtimeVersion || 'runtime'}`,
     content: b64(`${JSON.stringify(log, null, 2)}\n`),
