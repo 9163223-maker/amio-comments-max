@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 17:58 UTC
+Updated: 2026-06-30 18:10 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -25,55 +25,44 @@ Channel/post features must use only real channels and channel posts. Chats are a
 
 ## PR259 status
 PR259 merged into `main` at 2026-06-30 15:50 UTC.
-- PR URL: https://github.com/9163223-maker/amio-comments-max/pull/259
 - Final head: `23c417b1ef945395cce64fcc320a69427af79645`
-- CI: PR regression tests #498, run id `28456674246`, success.
-- Audit-only: PASS confirmed by user screenshot.
+- CI: PR regression tests #498, success.
+- Audit-only: PASS.
 - Merge commit: `c087323dcf38d1a6bbec082efe3b9bbdb496e747`.
 
-PR259 changed root channel filtering, post-scoped channel filtering, suspicious channel-title guards, runtime export safety, removal of committed runtime push log, and added PR259 matrix/export tests.
+Runtime pickup for PR259 was confirmed from `runtime/startup-log.json`. No restart loop was visible. PR259 product fix is ready for manual MAX visual check. PR259 diagnostic files did not materialize in `runtime-status`, so PR260 was opened.
 
-## Runtime pickup check
-Runtime pickup confirmed from `runtime/startup-log.json`:
-- latest `startedAt`: `2026-06-30T15:49:37.365Z`;
-- latest `bootId`: `mr0tpdvh-bd82533d`;
-- latest `githubMainHeadSha`: `c087323dcf38d1a6bbec082efe3b9bbdb496e747`;
-- startup log updatedAt: `2026-06-30T15:50:27.372Z`;
-- production entrypoint: `clean-entrypoint-1.53.10-pr89.js`;
-- runtime contract live OK: true;
-- startupPath OK: true;
-- final runtime readiness gate OK: true;
-- readyForManualMaxTest: true.
+## PR260 current state
+PR260:
+- URL: https://github.com/9163223-maker/amio-comments-max/pull/260
+- Title: `Runtime observable full section matrix diagnostics`
+- Branch: `codex/add-runtime-diagnostics-for-adminkit-sections`
+- Base: `main`
+- Current head: `a70ab9116f3b9dab6b01f1cd6351f5d0e99dd222`
+- Open, not merged.
+- Mergeable: true at latest check.
+- Previous CI before audit block: PR regression tests #501, success on head `2c1fadb52a49d4c153b5ea10c6f3b51253d1ae84`.
+- New CI after audit-block fix is pending/checking. Do not audit/merge until CI green on current head.
 
-Repeated restart check:
-- Re-check after waiting window showed the same latest bootId and same startup updatedAt.
-- No newer startup/restart is visible in `runtime-status` after PR259 pickup.
+PR260 goal:
+- Make PR259 diagnostics observable after deploy by wiring `channel-target-matrix`, `process-events`, `northflank-startup-log`, and `full-section-matrix` through the proven startup-log runtime-status export path.
+- Add detailed server-side full-section matrix for all main sections and post-scoped routes.
 
-Runtime export safety:
-- `runtime/push-dispatch-log.json` is not present on `main` after merge.
-- Main `package.json` start script remains unchanged.
+Audit BLOCK at 2026-06-30 18:06 UTC:
+- Blocker file: `services/fullSectionMatrixService.js`.
+- Reason: `buildMatrix()` did not detect chat-like fixture IDs leaking in callback payloads.
+- It scanned chat-like human titles but not dangerous fixture identifiers such as chat/group/private/dialog/danger IDs.
+- Required fix: derive dangerous fixture values from `channelMatrix.dangerousRecords(...)` for each scenario and scan visible text, button text, and callback payload strings. Add a negative test proving injected chat-like payload ID fails the matrix.
 
-Diagnostics gap:
-- `runtime/channel-target-matrix.json` not found in `runtime-status` after pickup.
-- `runtime/process-events.json` not found in `runtime-status` after pickup.
-- `runtime/northflank-startup-log.json` not found in `runtime-status` after pickup.
+Assistant fix applied:
+- `services/fullSectionMatrixService.js` now derives dangerous values from `channelMatrix.dangerousRecords(context.channels)` and scans both visible text/buttons and callback payload strings.
+- Added exported `dangerousValues()` helper.
+- `addScreenChecks()` now receives scenario context and reports `chat_like_record_leak` with `offendingText` or `offendingPayload`.
+- `scripts/test-pr260-full-section-matrix.js` now monkeypatches `menu.render()` to inject a dangerous chat-like payload ID into `comments:choose_channel`, asserts `buildMatrix().ok === false`, asserts `chatLeakCount > 0`, and asserts the violation identifies the injected payload ID.
+- Current head after fix: `a70ab9116f3b9dab6b01f1cd6351f5d0e99dd222`.
 
-Likely root cause:
-- The proven startup-log exporter hardcodes `runtime-status` and successfully wrote `runtime/startup-log.json`.
-- New PR259 diagnostic exporters use `services/runtimeExportService.js`.
-- That exporter reads the diagnostic target branch from runtime environment and fails closed when the target resolves to `main`.
-- Because all three new diagnostic files are missing while startup-log works, the likely live cause is the fail-closed branch guard on the new exporter path, not a failed deploy or server crash.
-
-## PR260 visibility check — 2026-06-30 17:58 UTC
-User reported that PR260 task was completed and PR created.
-
-GitHub connector state did not show PR260:
-- `GET PR #260`: Not Found.
-- `GET PR #261`: Not Found.
-- Search for PRs updated on 2026-06-30 shows only PR259 and PR258.
-- Branch search for likely names/terms (`pr260`, `runtime`, `observable`, `matrix`, `codex`) did not find a new PR260 branch.
-
-Conclusion: PR260 is not visible in current GitHub state. Do not proceed to CI/audit checks until the PR URL/number or branch is available, or until Codex successfully pushes/opens it.
-
-## Current status
-Server/runtime pickup and production contract are OK. No restart loop is visible. Product fix is ready for manual MAX visual check. New PR259 diagnostic files did not materialize, so observability is only partially achieved. PR260 is needed, but not currently visible through GitHub.
+Next required action:
+1. Check CI for current head `a70ab9116f3b9dab6b01f1cd6351f5d0e99dd222`.
+2. If CI red, use `adminkit-ci-diagnostics` artifact and fix in existing PR260 branch.
+3. If CI green, run repeat audit-only PASS/BLOCK for PR260 current head.
+4. Do not merge PR260 until audit-only PASS.
