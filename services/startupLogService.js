@@ -3,6 +3,7 @@
 const https = require('https');
 const crypto = require('crypto');
 const liveVersionSnapshotService = require('./liveVersionSnapshotService');
+const runtimeExport = require('./runtimeExportService');
 
 const DEFAULT_REPO = '9163223-maker/amio-comments-max';
 const DEFAULT_BRANCH = 'runtime-status';
@@ -466,23 +467,12 @@ async function recordStartup(input = {}) {
   }
 }
 
-async function exportRuntimeJson({ repo = DEFAULT_REPO, branch = DEFAULT_BRANCH, path, token = process.env.GITHUB_DEBUG_TOKEN, payload, message = 'runtime diagnostic export' }) {
-  branch = clean(branch || DEFAULT_BRANCH);
-  if (branch.toLowerCase() === DEFAULT_MAIN_BRANCH) throw new Error('startup_log_refuses_main_branch');
-  if (!/^runtime\/[A-Za-z0-9._/-]+\.json$/.test(clean(path)) || clean(path).includes('..')) throw new Error('startup_log_invalid_runtime_path');
-  if (!clean(token)) return { ok: false, skipped: true, configured: false, branch, path, error: 'GITHUB_DEBUG_TOKEN not configured' };
-  await ensureBranch({ repo, branch, token });
-  let current = { sha: '' };
-  try {
-    const file = await requestJson({ path: `/repos/${repo}/contents/${encodeURIComponent(path).replace(/%2F/g, '/')}?ref=${encodeURIComponent(branch)}`, token });
-    current = { sha: file && file.sha || '' };
-  } catch (error) {
-    if (error.status !== 404) throw error;
-  }
-  await requestJson({ method: 'PUT', path: `/repos/${repo}/contents/${encodeURIComponent(path).replace(/%2F/g, '/')}`, token, body: { message: short(message, 120), content: b64(`${JSON.stringify(payload, null, 2)}
-`), branch, ...(current.sha ? { sha: current.sha } : {}) } });
-  return { ok: true, branch, path };
+async function exportRuntimeJson(input = {}) {
+  const result = await runtimeExport.exportJson(input);
+  if (!result.ok && !result.skipped && result.error && /refuses_main_branch|invalid_runtime_path|invalid_path|invalid_branch/.test(result.error)) throw new Error(result.error);
+  return result;
 }
+
 
 function info() {
   return {

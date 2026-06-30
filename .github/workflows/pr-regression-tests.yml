@@ -50,6 +50,9 @@ jobs:
           node --check services/startupLogService.js
           node --check services/liveVersionSnapshotService.js
           node --check services/fullSectionMatrixService.js
+          node --check services/userJourneyMatrixService.js
+          node --check scripts/test-pr261-reliable-runtime-diagnostics.js
+          node --check scripts/test-pr261-expanded-user-journey-matrix.js
           node --check scripts/test-pr260-full-section-matrix.js
           node --check scripts/test-pr260-runtime-diagnostics-observable.js
           node --check performance-debug-routes-pr73.js
@@ -148,6 +151,8 @@ jobs:
           run_logged test-production-runtime-push-wiring-pr165 node scripts/test-production-runtime-push-wiring-pr165.js
           run_logged test-pr260-full-section-matrix node scripts/test-pr260-full-section-matrix.js
           run_logged test-pr260-runtime-diagnostics-observable node scripts/test-pr260-runtime-diagnostics-observable.js
+          run_logged test-pr261-reliable-runtime-diagnostics node scripts/test-pr261-reliable-runtime-diagnostics.js
+          run_logged test-pr261-expanded-user-journey-matrix node scripts/test-pr261-expanded-user-journey-matrix.js
           run_logged npm-test npm test
           run_logged test-product-perfect-gifts-journey-pr142 node scripts/test-product-perfect-gifts-journey-pr142.js
           run_logged test-product-perfect-buttons-gifts-pr126 node scripts/test-product-perfect-buttons-gifts-pr126.js
