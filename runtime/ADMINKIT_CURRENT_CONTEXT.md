@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 00:25 UTC
+Updated: 2026-06-30 00:57 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -73,22 +73,25 @@ Rules:
 - If one eligible channel exists, skip channel selection and show the post list with `Канал: <title>` and `Выберите пост`.
 - If multiple eligible channels exist, show channel picker first.
 
-## PR258 current state — 2026-06-30 00:25 UTC
+## PR258 current state — 2026-06-30 00:57 UTC
 
 PR258:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/258
 - Title: `Separate chats from channel/post pickers and normalize root menu UX`
 - Branch: `codex/separate-chats-from-channel-flows`
 - Base: `main`
-- Current observed head after diagnostics/test fix: `b968039f14ffc2dbb64102fbfeb8b3e3dd5eccfc`
+- Current head: `b968039f14ffc2dbb64102fbfeb8b3e3dd5eccfc`
 - Open, not merged, mergeable true.
-- CI status: run #470 started after PR177 test alignment; result pending at this context update.
+- CI status: GREEN. `PR regression tests` run #470, run id `28411615108`, job `84185559950`, completed successfully.
+- Job steps success: checkout, Node setup, install, JS check, `Run AdminKIT regression tests`, `Upload CI diagnostics`, post steps, complete job.
+- Diagnostics artifact uploaded successfully: `adminkit-ci-diagnostics`, artifact id `7967845937`, expires 2026-07-07, head SHA `b968039f14ffc2dbb64102fbfeb8b3e3dd5eccfc`.
 
 Recent PR258 events:
 - Diagnostics layer added to `.github/workflows/pr-regression-tests.yml`, commit `9b0c40e74f252c7cc56f70cfa2396fa45076f0a3`.
 - The first diagnostics run produced artifact `adminkit-ci-diagnostics` and identified exact failing test `test-channels-push-ux-pr177`.
 - Cause: old PR177 test still expected Channels root action `Инструкция`; PR258 intentionally merges/removes that duplicate and keeps `Помощь`.
 - Fixed PR177 test to expect Channels root labels `Подключить канал`, `Мои каналы`, `Помощь`, `Главное меню`, commit `b968039f14ffc2dbb64102fbfeb8b3e3dd5eccfc`.
+- CI run #470 passed after that fix.
 
 Earlier autonomous fixes on PR258:
 - Fixed recursive channel evidence check in `channel-post-picker-core.js`.
@@ -98,17 +101,18 @@ Earlier autonomous fixes on PR258:
 - Added or used `scripts/test-channel-chat-separation-menu-ux.js`.
 - Updated older regression tests to match PR258 clean stats root.
 
-Audit/follow-up risks:
-- `scripts/test-stats-product-perfect-contract-pr226.js` was narrowed during red-CI work. Review this carefully; restore useful PR226 stats metric coverage if possible without reintroducing obsolete root expectations.
+Audit risks:
+- `scripts/test-stats-product-perfect-contract-pr226.js` was narrowed during red-CI work. Audit should review whether useful PR226 stats metric coverage should be restored without reintroducing obsolete root expectations.
 - Re-check `services/statsTargetsService.js`, `channel-post-picker-core.js`, `human-channel-title-helper.js`, `buttons-flow-cc8-clean.js`, `clean-bot-channel-first-post-picker-pr90.js`, and `stats-flow-cc8.js` for remaining channel/chat leakage.
 - Pay special attention to channel visibility helpers that still may use unfiltered `clientAccessService.getClientChannels()` or compatibility paths like channelId/id/chatId.
+- Audit should verify production start path and active entrypoint unchanged.
 
 ## Next action
 
-Check PR258 run #470. If CI fails, use the new `adminkit-ci-diagnostics` artifact and `$GITHUB_STEP_SUMMARY` to fix the exact failing test/assertion. Do not use Codex unless the diagnostics still leaves a large/unclear blocker.
+Provide audit-only Codex task for PR258. Do not merge before audit PASS/waiver.
 
-After PR258 CI is green, provide audit-only task. Do not merge before audit PASS/waiver.
+After audit PASS and merge, verify deploy/runtime pickup and then manual MAX: channel/post pickers must show only channels and chats must not be offered as post targets.
 
 ## Completion definition
 
-PR258 is not complete until green CI, audit PASS, merge, deploy/runtime pickup, and manual MAX verification that channel/post pickers show only channels and chats are not offered as post targets.
+PR258 is not complete until audit PASS, merge, deploy/runtime pickup, and manual MAX verification that channel/post pickers show only channels and chats are not offered as post targets.
