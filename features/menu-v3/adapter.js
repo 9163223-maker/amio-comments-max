@@ -1,12 +1,13 @@
 'use strict';
 
 const canonical = require('./canonical-menu');
+const channelPickerCore = require('../../channel-post-picker-core');
 
 const VERSION = 'menu-v3-feature-adapter-pr177-channels-push-ux';
 const SOURCE = 'adminkit-pr177-channels-push-ux';
 
 const POST_PICKER_SEQUENCE = ['section', 'channel', 'post', 'action'];
-const POST_SCOPED_SECTIONS = ['comments', 'gifts', 'buttons', 'polls', 'highlights', 'editor'];
+const POST_SCOPED_SECTIONS = ['comments', 'gifts', 'buttons', 'polls', 'highlights', 'editor', 'stats'];
 
 function normalize(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
 function ownerOf(route) { return normalize(route).split(':')[0] || 'main'; }
@@ -34,8 +35,11 @@ function helpNavRows(sectionId) { return [[navButton('В начало разде
 function docNav(currentRoute = '') { return mainMenuRow(currentRoute); }
 function looksRawClientId(value = '') { const text = normalize(value); return /^-?\d{6,}$/.test(text) || /\b\d{10,}\b/.test(text); }
 function isConfirmedChannel(channel = {}) {
-  const type = normalize(channel.type || channel.chatType || channel.chat_type || channel.kind).toLowerCase();
-  return !type || type === 'channel' || channel.isChannel === true;
+  return channelPickerCore.isKnownChannelRecord(channel, channel.ownerUserId || channel.linkedByUserId || '') === true;
+}
+function eligibleChannelsFromContext(context = {}) {
+  const raw = Array.isArray(context.channels || context.dataContext?.channels) ? (context.channels || context.dataContext.channels) : [];
+  return raw.filter((channel) => isConfirmedChannel(channel));
 }
 function channelTitle(channel, index = 0) {
   const title = normalize(channel && (channel.title || channel.channelTitle || channel.name || channel.channelName));
@@ -223,7 +227,7 @@ function channelsConnect(route) {
   return { ok: true, route, owner: 'channels', text: ['Подключить канал', '', '1. Откройте ваш MAX-канал.', '2. Добавьте бота АдминКИТ администратором.', '3. Перешлите боту любой пост из этого канала.', '', 'После этого канал появится в разделе «Мои каналы».'].join('\n'), attachments: keyboard([[button('Назад', 'channels:home')], [button('Главное меню', 'main:home')]]) };
 }
 function channelsList(context = {}) {
-  const channels = (Array.isArray(context.channels || context.dataContext?.channels) ? (context.channels || context.dataContext.channels) : []).filter(isConfirmedChannel);
+  const channels = eligibleChannelsFromContext(context);
   if (!channels.length) return { ok: true, route: 'channels:list', owner: 'channels', text: ['Мои каналы', '', 'Каналы пока не подключены.', 'Добавьте бота администратором в MAX-канал и перешлите сюда любой пост.'].join('\n'), attachments: keyboard([[button('Подключить канал', 'channels:connect')], [button('Назад', 'channels:home')], [button('Главное меню', 'main:home')]]) };
   const rows = channels.slice(0, 12).map((channel, index) => {
     const title = channelTitle(channel, index);
@@ -247,7 +251,7 @@ function channelsManage(route, context = {}) { return channelsCard(context); }
 
 function chooseChannel(owner, context = {}) {
   const section = canonical.sectionById[owner] || { title: sectionTitle(owner) };
-  const channels = Array.isArray(context.dataContext?.channels || context.channels) ? (context.dataContext?.channels || context.channels) : [];
+  const channels = eligibleChannelsFromContext(context);
   if (!channels.length) return { ok: true, route: `${owner}:choose_channel`, owner, needsData: 'channels', pickerContract: postPickerContract(owner), text: `${section.title}\n\nУ вас пока нет подключённых каналов.`, attachments: keyboard([[button('Подключить канал', 'channels:connect')], ...sectionNavRows(owner, { currentRoute: `${owner}:choose_channel`, backAction: safeSectionHomeAction(owner) })]) };
   const rows = channels.slice(0, 12).map((channel, index) => [button(channelTitle(channel, index), `${owner}:choose_post`, { section: owner, step: 'post', channelId: normalize(channel.channelId || channel.id), channelTitle: channelTitle(channel, index), backRoute: `${owner}:choose_channel` })]);
   return { ok: true, route: `${owner}:choose_channel`, owner, dataBound: true, pickerContract: postPickerContract(owner), text: `${section.title}\n\nВыберите канал`, attachments: keyboard([...rows, ...sectionNavRows(owner, { currentRoute: `${owner}:choose_channel`, backAction: safeSectionHomeAction(owner) })]) };

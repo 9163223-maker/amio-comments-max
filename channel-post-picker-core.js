@@ -15,230 +15,39 @@ function array(value) { return Array.isArray(value) ? value : []; }
 function safe(fn, fallback) { try { return fn(); } catch { return fallback; } }
 function short(value = '', max = 72) { const text = clean(value).replace(/\s+/g, ' '); return text.length <= max ? text : `${text.slice(0, Math.max(1, max - 1)).trim()}…`; }
 function looksRawId(value = '') { const text = clean(value); return /^-?\d{6,}$/.test(text) || /^id\d{6,}$/i.test(text); }
-function looksInternal(value = '') {
-  const text = clean(value);
-  if (!text) return false;
-  return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|test|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text)
-    || /(^|[^A-Za-z0-9А-Яа-яЁё])internal\s+service(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text);
-}
-function looksForbiddenInternal(value = '') {
-  const text = clean(value);
-  if (!text) return false;
-  return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text)
-    || /(^|[^A-Za-z0-9А-Яа-яЁё])internal\s+service(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text);
-}
-function isIntentionalUserTestTitle(value = '') {
-  return /(^|[^А-Яа-яЁё])(?:ак[\s-]*тест|тест[А-Яа-яЁё\d\s-]*)(?:[^А-Яа-яЁё]|$)/i.test(clean(value));
-}
+function looksInternal(value = '') { const text = clean(value); if (!text) return false; return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|test|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text) || /(^|[^A-Za-z0-9А-Яа-яЁё])internal\s+service(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text); }
+function looksForbiddenInternal(value = '') { const text = clean(value); if (!text) return false; return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text) || /(^|[^A-Za-z0-9А-Яа-яЁё])internal\s+service(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text); }
+function isIntentionalUserTestTitle(value = '') { return /(^|[^А-Яа-яЁё])(?:ак[\s-]*тест|тест[А-Яа-яЁё\d\s-]*)(?:[^А-Яа-яЁё]|$)/i.test(clean(value)); }
 function maskChannelId(channelId = '') { const id = clean(channelId); if (!id) return ''; if (id.length <= 6) return '***'; return `${id.slice(0, 3)}…${id.slice(-3)}`; }
 function firstTitle(source = {}) { return clean(source.title || source.channelTitle || source.name || source.channelName || source.chatTitle || source.chat_title || source.displayName || source.display_name || ''); }
+function titleBag(raw = {}) { return [raw.title, raw.channelTitle, raw.channel_title, raw.name, raw.channelName, raw.chatTitle, raw.chat_title, raw.displayName, raw.display_name].map(clean).filter(Boolean).join(' '); }
 function safeTitle(value = '') { const title = clean(value); if (!title || looksRawId(title) || looksInternal(title) || /^(?:Канал без названия|Канал из кода доступа|Название канала пока недоступно)$/i.test(title)) return ''; return title; }
 function storedChannel(channelId = '') { const id = clean(channelId); if (!id) return null; return safe(() => array(store.getChannelsList()).find((item) => clean(item.channelId || item.id || item.chatId) === id), null) || null; }
 function accessChannels(userId = '') { return array(safe(() => clientAccessService.getClientChannels(clean(userId)), [])); }
 function accessChannel(userId = '', channelId = '') { const id = clean(channelId); return accessChannels(userId).find((item) => clean(item.channelId || item.id || item.chatId) === id) || null; }
 function explicitChannelIdOf(raw = {}) { return clean(raw.channelId || raw.channel_id || raw.channel?.id || raw.channel?.channelId || ''); }
 function chatIdOf(raw = {}) { return clean(raw.chatId || raw.chat_id || raw.chat?.id || raw.chat?.chatId || ''); }
-function channelIdOf(raw = {}) {
-  const explicit = explicitChannelIdOf(raw);
-  if (explicit) return explicit;
-  const generic = clean(raw.id || '');
-  if (generic) return generic;
-  const chatId = chatIdOf(raw);
-  const type = destinationTypeOf(raw).toLowerCase();
-  return chatId && (raw.isChannel === true || /\bchannel\b/.test(type)) ? chatId : '';
-}
-function destinationTypeOf(raw = {}) { return clean(raw.type || raw.chatType || raw.chat_type || raw.kind || raw.sourceType || raw.source_type || ''); }
-function isChatLikeRecord(raw = {}) {
-  const values = [raw.type, raw.chatType, raw.chat_type, raw.kind, raw.sourceType, raw.source_type, raw.destinationType, raw.destination_type].map(clean).join(' ').toLowerCase();
-  if (raw.isChat === true) return true;
-  if (/\b(?:chat|group|supergroup|private|private_chat|direct|dialog|im)\b/.test(values) && !/\bchannel\b/.test(values)) return true;
-  if ((chatIdOf(raw) && !explicitChannelIdOf(raw)) && raw.isChannel !== true && !/\bchannel\b/.test(values)) return true;
-  return false;
-}
-function hasStoredPostEvidence(channelId = '', userId = '') {
-  const id = clean(channelId);
-  if (!id) return false;
-  return array(safe(() => store.getPostsList(), []))
-    .some((post) => post && clean(post.channelId) === id && clean(post.postId) && clean(post.commentKey) && !looksInternal([post.channelId, post.channelTitle, post.title, post.originalText].join(' ')));
-}
-function isKnownChannelRecord(raw = {}, userId = '') {
-  if (isChatLikeRecord(raw)) return false;
-  const type = destinationTypeOf(raw).toLowerCase();
-  if (raw.isChannel === true) return true;
-  if (/\bchannel\b/.test(type) && !/\b(?:chat|group|private|direct|dialog|im)\b/.test(type)) return true;
-  if (raw.__ambiguousGenericId) return hasStoredPostEvidence(channelIdOf(raw), userId);
-  if (explicitChannelIdOf(raw)) return true;
-  return hasStoredPostEvidence(channelIdOf(raw), userId);
-}
-function mergeChannelSources(...sources) {
-  const byId = new Map();
-  const add = (raw = {}) => {
-    const channelId = channelIdOf(raw);
-    if (!channelId) return;
-    const previous = byId.get(channelId) || {};
-    const nextSafeTitle = safeTitle(firstTitle(raw));
-    const previousSafeTitle = safeTitle(firstTitle(previous));
-    const title = nextSafeTitle || previousSafeTitle || firstTitle(previous) || firstTitle(raw);
-    const merged = { ...previous, ...raw, channelId };
-    if (!explicitChannelIdOf(raw) && clean(raw.id)) merged.__ambiguousGenericId = true;
-    if (title) {
-      merged.title = title;
-      if (!safeTitle(merged.channelTitle)) merged.channelTitle = title;
-    }
-    byId.set(channelId, merged);
-  };
-  for (const source of sources) for (const item of array(source)) add(item);
-  return Array.from(byId.values());
-}
-async function dbChannels(userId = '') {
-  const id = clean(userId);
-  if (!id || !db || typeof db.getChannels !== 'function') return [];
-  try {
-    return array(await db.getChannels(id))
-      .map((row) => {
-        const channelId = channelIdOf(row);
-        const title = firstTitle(row);
-        return {
-          ...row,
-          channelId,
-          title,
-          channelTitle: title || clean(row.channelTitle || row.channel_title || ''),
-          source: row.source || 'cc5_admin_channels'
-        };
-      })
-      .filter((row) => row.channelId);
-  } catch {
-    record(id, 'channel_picker', { warning: 'admin_channels_db_failed' });
-    return [];
-  }
-}
+function destinationTypeOf(raw = {}) { return clean(raw.type || raw.chatType || raw.chat_type || raw.kind || raw.sourceType || raw.source_type || raw.destinationType || raw.destination_type || ''); }
+function channelIdOf(raw = {}) { const explicit = explicitChannelIdOf(raw); if (explicit) return explicit; const generic = clean(raw.id || ''); if (generic) return generic; const chatId = chatIdOf(raw); const type = destinationTypeOf(raw).toLowerCase(); return chatId && (raw.isChannel === true || /\bchannel\b/.test(type)) ? chatId : ''; }
+function isChatLikeRecord(raw = {}) { const values = destinationTypeOf(raw).toLowerCase(); if (raw.isChat === true) return true; if (/\b(?:chat|group|supergroup|private|private_chat|direct|dialog|im)\b/.test(values) && !/\bchannel\b/.test(values)) return true; if ((chatIdOf(raw) && !explicitChannelIdOf(raw)) && raw.isChannel !== true && !/\bchannel\b/.test(values)) return true; return false; }
+function hasStoredPostEvidence(channelId = '', userId = '') { const id = clean(channelId); if (!id) return false; return array(safe(() => store.getPostsList(), [])).some((post) => post && clean(post.channelId) === id && clean(post.postId) && clean(post.commentKey) && !looksInternal([post.channelId, post.channelTitle, post.title, post.originalText].join(' '))); }
+function hasSuspiciousChatHumanTitle(raw = {}) { const text = titleBag(raw).toLowerCase(); if (!text) return false; return /(^|\s)(?:все\s+свои\s+max|саша\s*[-–—]\s*сын\s+мамочки|семейный\s+чат|чат|группа|групповой|диалог|личный\s+диалог|family\s+chat|group\s+chat|private\s+chat|direct\s+chat)(\s|$)/i.test(text); }
+function hasPositiveChannelEvidence(raw = {}, userId = '') { const type = destinationTypeOf(raw).toLowerCase(); const channelId = channelIdOf(raw); const source = clean(raw.source || raw.provider || raw.origin || '').toLowerCase(); if (!channelId) return false; if (raw.isChannel === true) return true; if (/\bchannel\b/.test(type) && !/\b(?:chat|group|private|direct|dialog|im)\b/.test(type)) return true; if (clean(raw.tenantId || raw.tenant_id || raw.connectedAt || raw.connected_at || raw.boundByCode || raw.bound_by_code)) return true; if (clean(raw.ownerUserId || raw.owner_user_id || raw.linkedByUserId || raw.linked_by_user_id || raw.maxUserId || raw.max_user_id)) return true; if (/channel/.test(source) && !/chat|group|private|dialog|im/.test(source)) return true; if (hasStoredPostEvidence(channelId, userId)) return true; return false; }
+function hasTrustedChannelEvidence(raw = {}, userId = '') { const channelId = channelIdOf(raw); if (!channelId) return false; if (hasSuspiciousChatHumanTitle(raw) && !hasPositiveChannelEvidence(raw, userId)) return false; const source = clean(raw.source || raw.provider || raw.origin || '').toLowerCase(); const title = safeTitle(firstTitle(raw)).toLowerCase(); const titleChannelEvidence = /(^|[^a-zа-яё])(channel|канал)([^a-zа-яё]|$)/i.test(title); const trustedMetadata = Boolean(clean(raw.tenantId || raw.tenant_id || raw.connectedAt || raw.connected_at || raw.boundByCode || raw.bound_by_code) || clean(raw.ownerUserId || raw.owner_user_id || raw.linkedByUserId || raw.linked_by_user_id || raw.maxUserId || raw.max_user_id) || (/channel/.test(source) && !/chat|group|private|dialog|im/.test(source)) || titleChannelEvidence); if (trustedMetadata) return true; if (clean(userId) && hasStoredPostEvidence(channelId, userId)) return true; return false; }
+function isKnownChannelRecord(raw = {}, userId = '') { if (isChatLikeRecord(raw)) return false; if (hasSuspiciousChatHumanTitle(raw) && !hasPositiveChannelEvidence(raw, userId)) return false; const type = destinationTypeOf(raw).toLowerCase(); if (raw.isChannel === true) return true; if (/\bchannel\b/.test(type) && !/\b(?:chat|group|private|direct|dialog|im)\b/.test(type)) return true; if (raw.__ambiguousGenericId) return hasStoredPostEvidence(channelIdOf(raw), userId); if (explicitChannelIdOf(raw)) return hasTrustedChannelEvidence(raw, userId) || hasStoredPostEvidence(explicitChannelIdOf(raw), userId); return hasStoredPostEvidence(channelIdOf(raw), userId); }
+function mergeChannelSources(...sources) { const byId = new Map(); const add = (raw = {}) => { const channelId = channelIdOf(raw); if (!channelId) return; const previous = byId.get(channelId) || {}; const nextSafeTitle = safeTitle(firstTitle(raw)); const previousSafeTitle = safeTitle(firstTitle(previous)); const title = nextSafeTitle || previousSafeTitle || firstTitle(previous) || firstTitle(raw); const merged = { ...previous, ...raw, channelId }; if (!explicitChannelIdOf(raw) && clean(raw.id)) merged.__ambiguousGenericId = true; if (title) { merged.title = title; if (!safeTitle(merged.channelTitle)) merged.channelTitle = title; } byId.set(channelId, merged); }; for (const source of sources) for (const item of array(source)) add(item); return Array.from(byId.values()); }
+async function dbChannels(userId = '') { const id = clean(userId); if (!id || !db || typeof db.getChannels !== 'function') return []; try { return array(await db.getChannels(id)).map((row) => { const channelId = channelIdOf(row); const title = firstTitle(row); return { ...row, channelId, title, channelTitle: title || clean(row.channelTitle || row.channel_title || ''), source: row.source || 'cc5_admin_channels' }; }).filter((row) => row.channelId); } catch { record(id, 'channel_picker', { warning: 'admin_channels_db_failed' }); return []; } }
 function rawTitleFromChat(chat = {}) { return clean(firstTitle(chat) || firstTitle(chat.chat || {}) || firstTitle(chat.body || {}) || firstTitle(chat.payload || {})); }
 function titleFromChat(chat = {}) { return safeTitle(rawTitleFromChat(chat)); }
-function record(userId = '', action = '', entry = {}) {
-  const key = `${clean(userId)}:${clean(action || 'channel_picker')}`;
-  const current = diagnosticsByUser.get(key) || { userId: clean(userId), action: clean(action || 'channel_picker'), channelDiagnostics: [], warnings: [], at: Date.now() };
-  if (entry.warning) current.warnings.push(entry.warning);
-  if (entry.channelId || entry.title || entry.error) current.channelDiagnostics.push(entry);
-  current.at = Date.now();
-  diagnosticsByUser.set(key, current);
-  diagnosticsByUser.set(clean(userId) || 'anonymous', current);
-  return current;
-}
+function record(userId = '', action = '', entry = {}) { const key = `${clean(userId)}:${clean(action || 'channel_picker')}`; const current = diagnosticsByUser.get(key) || { userId: clean(userId), action: clean(action || 'channel_picker'), channelDiagnostics: [], warnings: [], at: Date.now() }; if (entry.warning) current.warnings.push(entry.warning); if (entry.channelId || entry.title || entry.error) current.channelDiagnostics.push(entry); current.at = Date.now(); diagnosticsByUser.set(key, current); diagnosticsByUser.set(clean(userId) || 'anonymous', current); return current; }
 function getLastDiagnostics(userId = '', action = '') { return diagnosticsByUser.get(`${clean(userId)}:${clean(action || 'channel_picker')}`) || diagnosticsByUser.get(clean(userId) || 'anonymous') || null; }
 function clearDiagnostics(userId = '', action = '') { if (userId || action) diagnosticsByUser.delete(`${clean(userId)}:${clean(action || 'channel_picker')}`); }
-function isVisibleChannelRecord(channel = {}) {
-  const channelId = clean(channel.channelId || channel.id);
-  if (!channelId) return false;
-  if (!isKnownChannelRecord(channel, channel.ownerUserId || channel.linkedByUserId || '')) return false;
-  const stored = storedChannel(channelId) || {};
-  const title = firstTitle(channel);
-  const storedTitle = firstTitle(stored);
-  const titleLabel = [title, storedTitle].join(' ');
-  if (looksForbiddenInternal([channelId, titleLabel].join(' '))) return false;
-  if (looksInternal(channelId) && isIntentionalUserTestTitle(titleLabel) && !looksInternal(titleLabel)) return true;
-  return !looksInternal([channelId, titleLabel].join(' '));
-}
-function persistTitle(channelId = '', userId = '', title = '') {
-  const id = clean(channelId), human = safeTitle(title);
-  if (!id || !human) return;
-  safe(() => store.saveChannel(id, { channelId: id, title: human, channelTitle: human, resolvedChannelTitle: human }), null);
-  const tenant = safe(() => clientAccessService.getTenantByMaxUserId(clean(userId)), null);
-  if (tenant?.tenantId) safe(() => clientAccessService.bindTenantChannel({ tenantId: tenant.tenantId, channelId: id, channelTitle: human, maxChannels: Number(tenant.maxChannels || 999) || 999 }), null);
-}
-async function resolveUiChannelTitle(channelId = '', userId = '', config = {}, fallbackSource = {}) {
-  const id = clean(channelId || fallbackSource.channelId || fallbackSource.id || fallbackSource.chatId || '');
-  const diagnostic = { channelIdMasked: maskChannelId(id), title: UNTITLED_CHANNEL, titleSource: 'fallback', getChatAttempted: false, getChatOk: false };
-  const access = accessChannel(userId, id) || {};
-  const storedForGuard = storedChannel(id) || {};
-  const visibleTitleGuard = [firstTitle(access), firstTitle(fallbackSource), firstTitle(storedForGuard)].join(' ');
-  if (!id || (looksInternal(id) && (looksForbiddenInternal(id) || !isIntentionalUserTestTitle(visibleTitleGuard) || looksInternal(visibleTitleGuard)))) {
-    return { title: UNTITLED_CHANNEL, hidden: Boolean(id), diagnostic: { ...diagnostic, error: !id ? 'missing_channel_id' : 'internal_channel_hidden' } };
-  }
-
-  const accessTitle = safeTitle(firstTitle(access));
-  if (accessTitle) return { title: accessTitle, diagnostic: { ...diagnostic, title: accessTitle, titleSource: 'clientAccess' } };
-
-  const explicit = safeTitle(firstTitle(fallbackSource));
-  if (explicit) return { title: explicit, diagnostic: { ...diagnostic, title: explicit, titleSource: 'postMetadata' } };
-
-  const stored = safeTitle(firstTitle(storedChannel(id) || {}));
-  if (stored) return { title: stored, diagnostic: { ...diagnostic, title: stored, titleSource: 'store' } };
-
-  if (config && clean(config.botToken) && typeof maxApi.getChat === 'function') {
-    diagnostic.getChatAttempted = true;
-    try {
-      const chat = await maxApi.getChat({ botToken: clean(config.botToken), chatId: id, timeoutMs: Number(config.getChatTimeoutMs || 1200) || 1200 });
-      const rawLiveTitle = rawTitleFromChat(chat);
-      if (looksInternal(rawLiveTitle)) {
-        return { title: UNTITLED_CHANNEL, hidden: true, diagnostic: { ...diagnostic, getChatAttempted: true, getChatOk: true, error: 'internal_live_title_hidden' } };
-      }
-      const liveTitle = safeTitle(rawLiveTitle);
-      if (liveTitle) {
-        persistTitle(id, userId, liveTitle);
-        return { title: liveTitle, diagnostic: { ...diagnostic, title: liveTitle, titleSource: 'maxGetChat', getChatAttempted: true, getChatOk: true } };
-      }
-      return { title: UNTITLED_CHANNEL, diagnostic: { ...diagnostic, getChatAttempted: true, getChatOk: false, error: 'getChat_title_missing' } };
-    } catch (error) {
-      return { title: UNTITLED_CHANNEL, diagnostic: { ...diagnostic, getChatAttempted: true, getChatOk: false, error: clean(error?.message || error || 'getChat_failed') } };
-    }
-  }
-
-  return { title: UNTITLED_CHANNEL, diagnostic: { ...diagnostic, error: 'title_missing_no_bot_token' } };
-}
-async function listUiChannelsForUser(userId = '', config = {}) {
-  const channels = [];
-  const seen = new Set();
-  const diagnostics = [];
-  const scopedChannels = mergeChannelSources(accessChannels(userId), await dbChannels(userId));
-  for (const raw of scopedChannels) {
-    if (!isKnownChannelRecord(raw, userId)) continue;
-    const channelId = channelIdOf(raw);
-    if (!channelId || seen.has(channelId) || !isVisibleChannelRecord({ ...raw, channelId, ownerUserId: userId })) continue;
-    seen.add(channelId);
-    const resolved = await resolveUiChannelTitle(channelId, userId, config, raw);
-    diagnostics.push(resolved.diagnostic);
-    if (resolved.hidden || isVisibleChannelRecord({ ...raw, channelId, title: resolved.title }) === false) continue;
-    const visiblePosts = listUiPostsForChannel(userId, channelId);
-    const hasSafeTitle = Boolean(safeTitle(resolved.title));
-    if (!hasSafeTitle && !visiblePosts.length) {
-      diagnostics.push({ ...resolved.diagnostic, error: 'titleless_channel_without_visible_posts_hidden' });
-      continue;
-    }
-    const sourceType = destinationTypeOf(raw);
-    channels.push({
-      ...raw,
-      channelId,
-      sourceType: clean(raw.sourceType || sourceType),
-      chatType: clean(raw.chatType || raw.chat_type || sourceType),
-      type: 'channel',
-      isChannel: true,
-      title: hasSafeTitle ? resolved.title : UNTITLED_CHANNEL,
-      titleSource: resolved.diagnostic.titleSource,
-      diagnostic: resolved.diagnostic
-    });
-  }
-  record(userId, 'channel_picker', { warning: channels.length ? '' : 'no_tenant_visible_channels' });
-  diagnostics.forEach((item) => record(userId, 'channel_picker', item));
-  return channels;
-}
-async function buildChannelPickerRows(menu, userId = '', source = 'comments', config = {}) {
-  const channels = await listUiChannelsForUser(userId, config);
-  const action = clean(source) === 'gifts' ? 'gift_admin_channel_pick' : clean(source) === 'buttons' ? 'button_admin_channel_pick' : 'comments_channel_pick';
-  const rows = channels.map((channel, index) => [menu.button(`${index + 1}. ${short(channel.title || UNTITLED_CHANNEL, 52)}`, action, { source: clean(source || 'comments'), channelId: channel.channelId })]);
-  if (!rows.length) rows.push([menu.button('Подключить канал', 'admin_bind_channel')]);
-  return { rows, channels, diagnostics: channels.map((item) => item.diagnostic) };
-}
-function listUiPostsForChannel(userId = '', channelId = '') {
-  const id = clean(channelId);
-  const visible = new Set(accessChannels(userId).filter((item) => isKnownChannelRecord(item, userId)).map((item) => clean(channelIdOf(item))).filter(Boolean));
-  const seen = new Set();
-  return array(safe(() => store.getPostsList(), []))
-    .filter((post) => post && clean(post.commentKey) && clean(post.channelId) && clean(post.postId))
-    .filter((post) => (!id || clean(post.channelId) === id) && visible.has(clean(post.channelId)))
-    .filter((post) => !looksInternal([post.channelId, post.channelTitle, post.title, post.originalText].join(' ')))
-    .filter((post) => { const key = clean(post.commentKey); if (!key || seen.has(key)) return false; seen.add(key); return true; });
-}
+function isVisibleChannelRecord(channel = {}) { const channelId = clean(channel.channelId || channel.id); if (!channelId) return false; if (!isKnownChannelRecord(channel, channel.ownerUserId || channel.linkedByUserId || '')) return false; const stored = storedChannel(channelId) || {}; const title = firstTitle(channel); const storedTitle = firstTitle(stored); const titleLabel = [title, storedTitle].join(' '); if (looksForbiddenInternal([channelId, titleLabel].join(' '))) return false; if (looksInternal(channelId) && isIntentionalUserTestTitle(titleLabel) && !looksInternal(titleLabel)) return true; return !looksInternal([channelId, titleLabel].join(' ')); }
+function persistTitle(channelId = '', userId = '', title = '') { const id = clean(channelId), human = safeTitle(title); if (!id || !human) return; safe(() => store.saveChannel(id, { channelId: id, title: human, channelTitle: human, resolvedChannelTitle: human }), null); const tenant = safe(() => clientAccessService.getTenantByMaxUserId(clean(userId)), null); if (tenant?.tenantId) safe(() => clientAccessService.bindTenantChannel({ tenantId: tenant.tenantId, channelId: id, channelTitle: human, maxChannels: Number(tenant.maxChannels || 999) || 999 }), null); }
+async function resolveUiChannelTitle(channelId = '', userId = '', config = {}, fallbackSource = {}) { const id = clean(channelId || fallbackSource.channelId || fallbackSource.id || fallbackSource.chatId || ''); const diagnostic = { channelIdMasked: maskChannelId(id), title: UNTITLED_CHANNEL, titleSource: 'fallback', getChatAttempted: false, getChatOk: false }; const access = accessChannel(userId, id) || {}; const storedForGuard = storedChannel(id) || {}; const visibleTitleGuard = [firstTitle(access), firstTitle(fallbackSource), firstTitle(storedForGuard)].join(' '); if (!id || (looksInternal(id) && (looksForbiddenInternal(id) || !isIntentionalUserTestTitle(visibleTitleGuard) || looksInternal(visibleTitleGuard)))) return { title: UNTITLED_CHANNEL, hidden: Boolean(id), diagnostic: { ...diagnostic, error: !id ? 'missing_channel_id' : 'internal_channel_hidden' } }; const accessTitle = safeTitle(firstTitle(access)); if (accessTitle) return { title: accessTitle, diagnostic: { ...diagnostic, title: accessTitle, titleSource: 'clientAccess' } }; const explicit = safeTitle(firstTitle(fallbackSource)); if (explicit) return { title: explicit, diagnostic: { ...diagnostic, title: explicit, titleSource: 'postMetadata' } }; const stored = safeTitle(firstTitle(storedChannel(id) || {})); if (stored) return { title: stored, diagnostic: { ...diagnostic, title: stored, titleSource: 'store' } }; if (config && clean(config.botToken) && typeof maxApi.getChat === 'function') { diagnostic.getChatAttempted = true; try { const chat = await maxApi.getChat({ botToken: clean(config.botToken), chatId: id, timeoutMs: Number(config.getChatTimeoutMs || 1200) || 1200 }); const rawLiveTitle = rawTitleFromChat(chat); if (looksInternal(rawLiveTitle)) return { title: UNTITLED_CHANNEL, hidden: true, diagnostic: { ...diagnostic, getChatAttempted: true, getChatOk: true, error: 'internal_live_title_hidden' } }; const liveTitle = safeTitle(rawLiveTitle); if (liveTitle) { persistTitle(id, userId, liveTitle); return { title: liveTitle, diagnostic: { ...diagnostic, title: liveTitle, titleSource: 'maxGetChat', getChatAttempted: true, getChatOk: true } }; } return { title: UNTITLED_CHANNEL, diagnostic: { ...diagnostic, getChatAttempted: true, getChatOk: false, error: 'getChat_title_missing' } }; } catch (error) { return { title: UNTITLED_CHANNEL, diagnostic: { ...diagnostic, getChatAttempted: true, getChatOk: false, error: clean(error?.message || error || 'getChat_failed') } }; } } return { title: UNTITLED_CHANNEL, diagnostic: { ...diagnostic, error: 'title_missing_no_bot_token' } }; }
+async function listUiChannelsForUser(userId = '', config = {}) { const channels = []; const seen = new Set(); const diagnostics = []; const scopedChannels = mergeChannelSources(accessChannels(userId), await dbChannels(userId)); for (const raw of scopedChannels) { if (!isKnownChannelRecord(raw, userId)) continue; const channelId = channelIdOf(raw); if (!channelId || seen.has(channelId) || !isVisibleChannelRecord({ ...raw, channelId, ownerUserId: userId })) continue; seen.add(channelId); const resolved = await resolveUiChannelTitle(channelId, userId, config, raw); diagnostics.push(resolved.diagnostic); if (resolved.hidden || isVisibleChannelRecord({ ...raw, channelId, title: resolved.title }) === false) continue; const visiblePosts = listUiPostsForChannel(userId, channelId); const hasSafeTitle = Boolean(safeTitle(resolved.title)); if (!hasSafeTitle && !visiblePosts.length) { diagnostics.push({ ...resolved.diagnostic, error: 'titleless_channel_without_visible_posts_hidden' }); continue; } const sourceType = destinationTypeOf(raw); channels.push({ ...raw, channelId, sourceType: clean(raw.sourceType || sourceType), chatType: clean(raw.chatType || raw.chat_type || sourceType), type: 'channel', isChannel: true, title: hasSafeTitle ? resolved.title : UNTITLED_CHANNEL, titleSource: resolved.diagnostic.titleSource, diagnostic: resolved.diagnostic }); } record(userId, 'channel_picker', { warning: channels.length ? '' : 'no_tenant_visible_channels' }); diagnostics.forEach((item) => record(userId, 'channel_picker', item)); return channels; }
+async function buildChannelPickerRows(menu, userId = '', source = 'comments', config = {}) { const channels = await listUiChannelsForUser(userId, config); const action = clean(source) === 'gifts' ? 'gift_admin_channel_pick' : clean(source) === 'buttons' ? 'button_admin_channel_pick' : 'comments_channel_pick'; const rows = channels.map((channel, index) => [menu.button(`${index + 1}. ${short(channel.title || UNTITLED_CHANNEL, 52)}`, action, { source: clean(source || 'comments'), channelId: channel.channelId })]); if (!rows.length) rows.push([menu.button('Подключить канал', 'admin_bind_channel')]); return { rows, channels, diagnostics: channels.map((item) => item.diagnostic) }; }
+function listUiPostsForChannel(userId = '', channelId = '') { const id = clean(channelId); const visible = new Set(accessChannels(userId).filter((item) => isKnownChannelRecord(item, userId)).map((item) => clean(channelIdOf(item))).filter(Boolean)); const seen = new Set(); return array(safe(() => store.getPostsList(), [])).filter((post) => post && clean(post.commentKey) && clean(post.channelId) && clean(post.postId)).filter((post) => (!id || clean(post.channelId) === id) && visible.has(clean(post.channelId))).filter((post) => !looksInternal([post.channelId, post.channelTitle, post.title, post.originalText].join(' '))).filter((post) => { const key = clean(post.commentKey); if (!key || seen.has(key)) return false; seen.add(key); return true; }); }
 function hasMedia(post = {}) { return array(post.sourceAttachments || post.attachments || post.media || post.photos || post.files).length > 0 || Boolean(post.photo || post.image || post.video || post.document); }
 function safePostPreview(post = {}) { const text = clean(post.originalText || post.postText || post.text || post.caption || ''); if (text && !looksInternal(text) && !/\b(?:postId|channelId|messageId|commentKey|commentId|token|payload|trace)\b/i.test(text)) return short(text, 120); return hasMedia(post) ? 'Пост с медиа' : 'Пост без текста'; }
-
-module.exports = { RUNTIME, UNTITLED_CHANNEL, listUiChannelsForUser, resolveUiChannelTitle, buildChannelPickerRows, listUiPostsForChannel, safePostPreview, getLastDiagnostics, clearDiagnostics, maskChannelId, looksInternal, looksRawId, isChatLikeRecord, isKnownChannelRecord };
+module.exports = { RUNTIME, UNTITLED_CHANNEL, listUiChannelsForUser, resolveUiChannelTitle, buildChannelPickerRows, listUiPostsForChannel, safePostPreview, getLastDiagnostics, clearDiagnostics, maskChannelId, looksInternal, looksRawId, isChatLikeRecord, isKnownChannelRecord, hasTrustedChannelEvidence, hasPositiveChannelEvidence, hasSuspiciousChatHumanTitle };

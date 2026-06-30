@@ -5,6 +5,7 @@ const path = require('path');
 const https = require('https');
 const crypto = require('crypto');
 const buildInfo = require('../buildInfo');
+const runtimeExport = require('./runtimeExportService');
 
 const DEFAULT_PATH = 'runtime/push-dispatch-log.json';
 const LOCAL_PATH = path.join(__dirname, '..', DEFAULT_PATH);
@@ -78,11 +79,8 @@ function requestJson({ method = 'GET', apiPath, token, body }) {
 }
 async function syncGithub(payload, token) {
   const repo = clean(process.env.GITHUB_DEBUG_REPO || '9163223-maker/amio-comments-max');
-  const branch = clean(process.env.GITHUB_DEBUG_BRANCH || 'runtime-status');
-  const encoded = DEFAULT_PATH.split('/').map(encodeURIComponent).join('/');
-  let sha = '';
-  try { sha = clean((await requestJson({ apiPath: `/repos/${repo}/contents/${encoded}?ref=${encodeURIComponent(branch)}`, token })).sha); } catch (e) { if (e.status !== 404) throw e; }
-  await requestJson({ method: 'PUT', apiPath: `/repos/${repo}/contents/${encoded}`, token, body: { message: `push dispatch log ${payload.latest.event}`, content: Buffer.from(`${JSON.stringify(payload, null, 2)}\n`).toString('base64'), branch, ...(sha ? { sha } : {}) } });
+  const branch = runtimeExport.branchFromEnv(process.env.GITHUB_DEBUG_BRANCH || 'runtime-status');
+  await runtimeExport.exportJson({ repo, branch, path: DEFAULT_PATH, token, payload, message: `push dispatch log ${payload.latest.event}` });
 }
 function record(input = {}) {
   const event = safeEvent(input);
