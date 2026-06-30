@@ -26,7 +26,7 @@ const expectedTop = [
 const expectedItems = {
   channels: ['Подключить канал', 'Мои каналы'],
   comments: ['Автокомментарии', 'Включить к посту', 'Фото', 'Ответы', 'Реакции'],
-  gifts: ['Создать подарок', 'Текущий подарок', 'Список подарков'],
+  gifts: ['Выбрать пост', 'Все подарки'],
   buttons: ['Добавить кнопку', 'Текущие кнопки'],
   stats: ['Обзор', 'По каналу', 'По посту', 'Рекламные ссылки', 'Источники', 'Обновить данные'],
   push: ['Опубликовать приглашение', 'Как это работает'],
@@ -61,7 +61,7 @@ assert.deepStrictEqual(businessLabels(ordinaryAccount), ['🔔 Мои уведо
 assert(!labels(ordinaryAccount).some((label) => ['Активировать код', 'Оплата / продление', 'Мой доступ', 'Мои каналы'].includes(label)), 'ordinary account route does not expose admin access controls');
 
 const giftRoot = businessLabels(adapter.render('gifts:home'));
-for (const material of ['Текст', 'Промокод', 'Файл', 'Фото', 'Изображение', 'Ссылка']) {
+for (const material of ['Текст', 'Промокод', 'Файл', 'Фото', 'Изображение', 'Ссылка', 'Текущий подарок', 'Создать подарок', 'Список подарков']) {
   assert.ok(!giftRoot.includes(material), `${material} is not a Gifts root item`);
 }
 const giftJourney = read('scripts/test-product-perfect-gifts-journey-pr142.js');
