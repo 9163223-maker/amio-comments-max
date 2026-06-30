@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 15:58 UTC
+Updated: 2026-06-30 16:55 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -58,9 +58,14 @@ Diagnostics gap:
 - `runtime/process-events.json` not found in `runtime-status` after pickup.
 - `runtime/northflank-startup-log.json` not found in `runtime-status` after pickup.
 
-## Current status
-Server/runtime pickup and production contract are OK. No restart loop is visible. The new PR259 diagnostic files did not materialize in `runtime-status`, so observability is only partially achieved.
+Likely root cause:
+- The proven startup-log exporter hardcodes `runtime-status` and successfully wrote `runtime/startup-log.json`.
+- New PR259 diagnostic exporters use `services/runtimeExportService.js`.
+- That exporter reads the diagnostic target branch from runtime environment and fails closed when the target resolves to `main`.
+- Because all three new diagnostic files are missing while startup-log works, the likely live cause is the fail-closed branch guard on the new exporter path, not a failed deploy or server crash.
 
-Remaining required actions:
-1. Manual MAX visual check: root channel list and all post-scoped pickers show only channels, not chats.
-2. Consider a small follow-up PR260 to make the new PR259 diagnostics export observable through the same proven path as startup-log.
+## Current status
+Server/runtime pickup and production contract are OK. No restart loop is visible. Product fix is ready for manual MAX visual check. New PR259 diagnostic files did not materialize, so observability is only partially achieved.
+
+Recommended follow-up:
+Open PR260 to wire `channel-target-matrix`, `process-events`, and `northflank-startup-log` through the same proven startup-log export path or force their exporter target to `runtime-status` independent of the legacy branch environment, while still refusing writes to `main`.
