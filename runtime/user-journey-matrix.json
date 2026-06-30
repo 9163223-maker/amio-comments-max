@@ -1,0 +1,914 @@
+{
+  "ok": true,
+  "runtime": "PR261-USER-JOURNEY-MATRIX",
+  "generatedAt": "2026-06-30T19:30:20.324Z",
+  "bootId": "mr11k4q6-80a14c65",
+  "sectionsChecked": [
+    "main",
+    "channels",
+    "comments",
+    "gifts",
+    "buttons",
+    "stats",
+    "push",
+    "ad_links",
+    "polls",
+    "highlights",
+    "editor",
+    "archive",
+    "account",
+    "settings"
+  ],
+  "journeysChecked": [
+    "main_journey",
+    "channels_journey",
+    "comments_journey",
+    "gifts_journey",
+    "gifts_admin_selected_post",
+    "buttons_journey",
+    "buttons_admin_selected_post",
+    "stats_journey",
+    "push_journey",
+    "ad_links_journey",
+    "polls_journey",
+    "highlights_journey",
+    "editor_journey",
+    "archive_journey",
+    "account_journey",
+    "settings_journey"
+  ],
+  "stepsChecked": 87,
+  "scenarios": [
+    "zero_channels",
+    "one_channel",
+    "multiple_channels",
+    "selected_channel_with_posts",
+    "empty_channel_without_posts",
+    "dangerous_chat_records",
+    "malformed_payload",
+    "missing_payload",
+    "missing_required_id",
+    "post_from_other_channel",
+    "stale_or_deleted_post",
+    "back_navigation",
+    "main_menu_navigation",
+    "repeated_open_same_section",
+    "direct_callback_without_prior_state"
+  ],
+  "scenarioCoverage": [
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "main_journey",
+      "step": "main root rendered",
+      "route": "main:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "main_journey",
+      "step": "section root/home",
+      "route": "main:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "channels_journey",
+      "step": "section root/home",
+      "route": "channels:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "repeated_open_same_section",
+      "journey": "channels_journey",
+      "step": "repeat section open",
+      "route": "channels:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "back_navigation",
+      "journey": "channels_journey",
+      "step": "navigation check",
+      "route": "channels:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "channels_journey",
+      "step": "main menu navigation check",
+      "route": "channels:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "zero_channels",
+      "journey": "channels_journey",
+      "step": "channels zero_channels",
+      "route": "channels:list",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "one_channel",
+      "journey": "channels_journey",
+      "step": "channels one_channel",
+      "route": "channels:list",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "channels_journey",
+      "step": "channels multiple_channels",
+      "route": "channels:list",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "dangerous_chat_records",
+      "journey": "channels_journey",
+      "step": "channels dangerous_chat_records",
+      "route": "channels:list",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "comments_journey",
+      "step": "section root/home",
+      "route": "comments:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "repeated_open_same_section",
+      "journey": "comments_journey",
+      "step": "repeat section open",
+      "route": "comments:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "back_navigation",
+      "journey": "comments_journey",
+      "step": "navigation check",
+      "route": "comments:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "comments_journey",
+      "step": "main menu navigation check",
+      "route": "comments:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "zero_channels",
+      "journey": "comments_journey",
+      "step": "zero channels empty state",
+      "route": "comments:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "one_channel",
+      "journey": "comments_journey",
+      "step": "one channel direct picker",
+      "route": "comments:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "empty_channel_without_posts",
+      "journey": "comments_journey",
+      "step": "empty channel without posts",
+      "route": "comments:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "comments_journey",
+      "step": "multiple channel picker",
+      "route": "comments:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "dangerous_chat_records",
+      "journey": "comments_journey",
+      "step": "dangerous records picker",
+      "route": "comments:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "comments_journey",
+      "step": "channel selected",
+      "route": "comments:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "post_from_other_channel",
+      "journey": "comments_journey",
+      "step": "post picker",
+      "route": "comments:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "comments_journey",
+      "step": "section-specific post screen",
+      "route": "comments:post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "gifts_journey",
+      "step": "section root/home",
+      "route": "gifts:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "repeated_open_same_section",
+      "journey": "gifts_journey",
+      "step": "repeat section open",
+      "route": "gifts:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "back_navigation",
+      "journey": "gifts_journey",
+      "step": "navigation check",
+      "route": "gifts:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "gifts_journey",
+      "step": "main menu navigation check",
+      "route": "gifts:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "zero_channels",
+      "journey": "gifts_journey",
+      "step": "zero channels empty state",
+      "route": "gifts:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "one_channel",
+      "journey": "gifts_journey",
+      "step": "one channel direct picker",
+      "route": "gifts:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "empty_channel_without_posts",
+      "journey": "gifts_journey",
+      "step": "empty channel without posts",
+      "route": "gifts:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "gifts_journey",
+      "step": "multiple channel picker",
+      "route": "gifts:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "dangerous_chat_records",
+      "journey": "gifts_journey",
+      "step": "dangerous records picker",
+      "route": "gifts:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "gifts_journey",
+      "step": "channel selected",
+      "route": "gifts:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "post_from_other_channel",
+      "journey": "gifts_journey",
+      "step": "post picker",
+      "route": "gifts:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "gifts_journey",
+      "step": "section-specific post screen",
+      "route": "gifts:post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "buttons_journey",
+      "step": "section root/home",
+      "route": "buttons:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "repeated_open_same_section",
+      "journey": "buttons_journey",
+      "step": "repeat section open",
+      "route": "buttons:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "back_navigation",
+      "journey": "buttons_journey",
+      "step": "navigation check",
+      "route": "buttons:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "buttons_journey",
+      "step": "main menu navigation check",
+      "route": "buttons:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "zero_channels",
+      "journey": "buttons_journey",
+      "step": "zero channels empty state",
+      "route": "buttons:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "one_channel",
+      "journey": "buttons_journey",
+      "step": "one channel direct picker",
+      "route": "buttons:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "empty_channel_without_posts",
+      "journey": "buttons_journey",
+      "step": "empty channel without posts",
+      "route": "buttons:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "buttons_journey",
+      "step": "multiple channel picker",
+      "route": "buttons:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "dangerous_chat_records",
+      "journey": "buttons_journey",
+      "step": "dangerous records picker",
+      "route": "buttons:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "buttons_journey",
+      "step": "channel selected",
+      "route": "buttons:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "post_from_other_channel",
+      "journey": "buttons_journey",
+      "step": "post picker",
+      "route": "buttons:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "buttons_journey",
+      "step": "section-specific post screen",
+      "route": "buttons:post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "stats_journey",
+      "step": "section root/home",
+      "route": "stats:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "repeated_open_same_section",
+      "journey": "stats_journey",
+      "step": "repeat section open",
+      "route": "stats:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "back_navigation",
+      "journey": "stats_journey",
+      "step": "navigation check",
+      "route": "stats:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "stats_journey",
+      "step": "main menu navigation check",
+      "route": "stats:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "zero_channels",
+      "journey": "stats_journey",
+      "step": "zero channels empty state",
+      "route": "stats:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "one_channel",
+      "journey": "stats_journey",
+      "step": "one channel direct picker",
+      "route": "stats:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "empty_channel_without_posts",
+      "journey": "stats_journey",
+      "step": "empty channel without posts",
+      "route": "stats:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "stats_journey",
+      "step": "multiple channel picker",
+      "route": "stats:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "dangerous_chat_records",
+      "journey": "stats_journey",
+      "step": "dangerous records picker",
+      "route": "stats:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "stats_journey",
+      "step": "channel selected",
+      "route": "stats:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "post_from_other_channel",
+      "journey": "stats_journey",
+      "step": "post picker",
+      "route": "stats:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "stats_journey",
+      "step": "section-specific post screen",
+      "route": "stats:post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "push_journey",
+      "step": "section root/home",
+      "route": "push:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "repeated_open_same_section",
+      "journey": "push_journey",
+      "step": "repeat section open",
+      "route": "push:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "back_navigation",
+      "journey": "push_journey",
+      "step": "navigation check",
+      "route": "push:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "push_journey",
+      "step": "main menu navigation check",
+      "route": "push:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "ad_links_journey",
+      "step": "section root/home",
+      "route": "ad_links:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "repeated_open_same_section",
+      "journey": "ad_links_journey",
+      "step": "repeat section open",
+      "route": "ad_links:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "back_navigation",
+      "journey": "ad_links_journey",
+      "step": "navigation check",
+      "route": "ad_links:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "ad_links_journey",
+      "step": "main menu navigation check",
+      "route": "ad_links:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "polls_journey",
+      "step": "section root/home",
+      "route": "polls:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "repeated_open_same_section",
+      "journey": "polls_journey",
+      "step": "repeat section open",
+      "route": "polls:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "back_navigation",
+      "journey": "polls_journey",
+      "step": "navigation check",
+      "route": "polls:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "polls_journey",
+      "step": "main menu navigation check",
+      "route": "polls:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "zero_channels",
+      "journey": "polls_journey",
+      "step": "zero channels empty state",
+      "route": "polls:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "one_channel",
+      "journey": "polls_journey",
+      "step": "one channel direct picker",
+      "route": "polls:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "empty_channel_without_posts",
+      "journey": "polls_journey",
+      "step": "empty channel without posts",
+      "route": "polls:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "polls_journey",
+      "step": "multiple channel picker",
+      "route": "polls:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "dangerous_chat_records",
+      "journey": "polls_journey",
+      "step": "dangerous records picker",
+      "route": "polls:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "polls_journey",
+      "step": "channel selected",
+      "route": "polls:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "post_from_other_channel",
+      "journey": "polls_journey",
+      "step": "post picker",
+      "route": "polls:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "polls_journey",
+      "step": "section-specific post screen",
+      "route": "polls:post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "highlights_journey",
+      "step": "section root/home",
+      "route": "highlights:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "repeated_open_same_section",
+      "journey": "highlights_journey",
+      "step": "repeat section open",
+      "route": "highlights:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "back_navigation",
+      "journey": "highlights_journey",
+      "step": "navigation check",
+      "route": "highlights:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "highlights_journey",
+      "step": "main menu navigation check",
+      "route": "highlights:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "zero_channels",
+      "journey": "highlights_journey",
+      "step": "zero channels empty state",
+      "route": "highlights:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "one_channel",
+      "journey": "highlights_journey",
+      "step": "one channel direct picker",
+      "route": "highlights:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "empty_channel_without_posts",
+      "journey": "highlights_journey",
+      "step": "empty channel without posts",
+      "route": "highlights:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "highlights_journey",
+      "step": "multiple channel picker",
+      "route": "highlights:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "dangerous_chat_records",
+      "journey": "highlights_journey",
+      "step": "dangerous records picker",
+      "route": "highlights:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "highlights_journey",
+      "step": "channel selected",
+      "route": "highlights:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "post_from_other_channel",
+      "journey": "highlights_journey",
+      "step": "post picker",
+      "route": "highlights:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "highlights_journey",
+      "step": "section-specific post screen",
+      "route": "highlights:post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "editor_journey",
+      "step": "section root/home",
+      "route": "editor:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "repeated_open_same_section",
+      "journey": "editor_journey",
+      "step": "repeat section open",
+      "route": "editor:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "back_navigation",
+      "journey": "editor_journey",
+      "step": "navigation check",
+      "route": "editor:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "editor_journey",
+      "step": "main menu navigation check",
+      "route": "editor:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "zero_channels",
+      "journey": "editor_journey",
+      "step": "zero channels empty state",
+      "route": "editor:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "one_channel",
+      "journey": "editor_journey",
+      "step": "one channel direct picker",
+      "route": "editor:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "empty_channel_without_posts",
+      "journey": "editor_journey",
+      "step": "empty channel without posts",
+      "route": "editor:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "editor_journey",
+      "step": "multiple channel picker",
+      "route": "editor:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "dangerous_chat_records",
+      "journey": "editor_journey",
+      "step": "dangerous records picker",
+      "route": "editor:choose_channel",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "editor_journey",
+      "step": "channel selected",
+      "route": "editor:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "post_from_other_channel",
+      "journey": "editor_journey",
+      "step": "post picker",
+      "route": "editor:choose_post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "selected_channel_with_posts",
+      "journey": "editor_journey",
+      "step": "section-specific post screen",
+      "route": "editor:post",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "archive_journey",
+      "step": "section root/home",
+      "route": "archive:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "repeated_open_same_section",
+      "journey": "archive_journey",
+      "step": "repeat section open",
+      "route": "archive:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "back_navigation",
+      "journey": "archive_journey",
+      "step": "navigation check",
+      "route": "archive:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "archive_journey",
+      "step": "main menu navigation check",
+      "route": "archive:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "account_journey",
+      "step": "section root/home",
+      "route": "account:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "repeated_open_same_section",
+      "journey": "account_journey",
+      "step": "repeat section open",
+      "route": "account:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "back_navigation",
+      "journey": "account_journey",
+      "step": "navigation check",
+      "route": "account:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "account_journey",
+      "step": "main menu navigation check",
+      "route": "account:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "multiple_channels",
+      "journey": "settings_journey",
+      "step": "section root/home",
+      "route": "settings:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "repeated_open_same_section",
+      "journey": "settings_journey",
+      "step": "repeat section open",
+      "route": "settings:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "back_navigation",
+      "journey": "settings_journey",
+      "step": "navigation check",
+      "route": "settings:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "main_menu_navigation",
+      "journey": "settings_journey",
+      "step": "main menu navigation check",
+      "route": "settings:home",
+      "mode": "rendered"
+    },
+    {
+      "scenario": "malformed_payload",
+      "journey": "synthetic_edge_cases",
+      "step": "malformed callback payload",
+      "route": "buttons:home",
+      "mode": "synthetic_detector",
+      "detected": true,
+      "expectedReason": "malformed_payload"
+    },
+    {
+      "scenario": "missing_payload",
+      "journey": "synthetic_edge_cases",
+      "step": "missing callback payload",
+      "route": "buttons:home",
+      "mode": "synthetic_detector",
+      "detected": true,
+      "expectedReason": "missing_callback_payload"
+    },
+    {
+      "scenario": "missing_required_id",
+      "journey": "synthetic_edge_cases",
+      "step": "payload without route/action",
+      "route": "buttons:home",
+      "mode": "synthetic_detector",
+      "detected": true,
+      "expectedReason": "missing_payload_action"
+    },
+    {
+      "scenario": "stale_or_deleted_post",
+      "journey": "comments_journey",
+      "step": "stale/deleted post callback",
+      "route": "comments:post",
+      "mode": "rendered_safe_state",
+      "supported": true
+    },
+    {
+      "scenario": "direct_callback_without_prior_state",
+      "journey": "comments_journey",
+      "step": "direct callback without prior state",
+      "route": "comments:choose_post",
+      "mode": "rendered_safe_state",
+      "supported": true
+    }
+  ],
+  "violations": [],
+  "summary": {
+    "sectionCount": 14,
+    "journeyCount": 16,
+    "stepsChecked": 87,
+    "scenarioCoverageCount": 119,
+    "totalViolations": 0,
+    "blockCount": 0,
+    "warnCount": 0,
+    "infoCount": 0,
+    "giftsBlockCount": 0,
+    "buttonsBlockCount": 0
+  }
+}
