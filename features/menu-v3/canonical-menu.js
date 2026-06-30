@@ -33,8 +33,9 @@ const sections = [
     action({ id: 'gifts.list', title: 'Список подарков', section: 'gifts', existingAction: 'gift_admin_list_campaigns', clientVisible: false, implemented: false, hiddenReason: 'ambiguous_scope_replaced_by_all_gifts' }),
   ] },
   { id: 'buttons', title: 'Кнопки под постами', route: 'buttons:home', clientVisible: true, adminOnly: false, featureKey: 'buttons', minPlan: 'start', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
-    action({ id: 'buttons.add', title: 'Добавить кнопку', section: 'buttons', existingAction: 'button_admin_start_add', requiresChannel: true, requiresPost: true }),
-    action({ id: 'buttons.current', title: 'Текущие кнопки', section: 'buttons', existingAction: 'button_admin_show_current', requiresChannel: true, requiresPost: true }),
+    action({ id: 'buttons.choose_post', title: 'Выбрать пост', section: 'buttons', targetAction: 'buttons:choose_channel', existingAction: 'buttons:choose_channel', requiresChannel: true, requiresPost: true }),
+    action({ id: 'buttons.add', title: 'Добавить кнопку', section: 'buttons', existingAction: 'button_admin_start_add', clientVisible: false, implemented: false, requiresChannel: true, requiresPost: true, hiddenReason: 'available_after_post_selection' }),
+    action({ id: 'buttons.current', title: 'Текущие кнопки', section: 'buttons', existingAction: 'button_admin_show_current', clientVisible: false, implemented: false, requiresChannel: true, requiresPost: true, hiddenReason: 'available_after_post_selection' }),
     action({ id: 'buttons.delete', title: 'Удалить кнопку', section: 'buttons', existingAction: 'button_admin_delete', clientVisible: false, implemented: false, hiddenReason: 'inside_current_buttons_card' }),
   ] },
   { id: 'stats', title: 'Статистика', route: 'stats:home', clientVisible: true, adminOnly: false, featureKey: 'basic_stats', minPlan: 'start', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
@@ -55,13 +56,15 @@ const sections = [
     action({ id: 'ad_links.disable', title: 'Отключить ссылку', section: 'ad_links', existingAction: 'admin_stats_campaign_disable', clientVisible: false, implemented: false, hiddenReason: 'inside_ad_link_card' }),
   ] },
   { id: 'polls', title: 'Опросы / голосования', route: 'polls:home', clientVisible: true, adminOnly: false, featureKey: 'polls', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
-    action({ id: 'polls.create', title: 'Создать опрос', section: 'polls', targetAction: 'polls:create', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'polls', legacyAction: 'comments_select_post' } }),
+    action({ id: 'polls.choose_post', title: 'Выбрать пост', section: 'polls', targetAction: 'polls:choose_channel', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'polls', legacyAction: 'comments_select_post' } }),
     action({ id: 'polls.results', title: 'Результаты опросов', section: 'polls', targetAction: 'polls:results', existingAction: 'poll_status', payload: { legacyAction: 'poll_status' } }),
+    action({ id: 'polls.create', title: 'Создать опрос', section: 'polls', targetAction: 'polls:create', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'polls', legacyAction: 'comments_select_post' }, clientVisible: false, implemented: false, hiddenReason: 'available_after_post_selection' }),
     action({ id: 'polls.stop', title: 'Остановить опрос', section: 'polls', existingAction: 'poll_stop', clientVisible: false, implemented: false, hiddenReason: 'inside_active_poll_card' }),
   ] },
   { id: 'highlights', title: 'Выделение постов', route: 'highlights:home', aliases: ['highlight:home'], clientVisible: true, adminOnly: false, featureKey: 'highlights', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
-    action({ id: 'highlights.apply', title: 'Поставить метку', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
-    action({ id: 'highlights.remove', title: 'Снять метку', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
+    action({ id: 'highlights.choose_post', title: 'Выбрать пост', section: 'highlights', targetAction: 'highlights:choose_channel', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
+    action({ id: 'highlights.apply', title: 'Поставить метку', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' }, clientVisible: false, implemented: false, hiddenReason: 'available_after_post_selection' }),
+    action({ id: 'highlights.remove', title: 'Снять метку', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' }, clientVisible: false, implemented: false, hiddenReason: 'inside_highlight_card' }),
   ] },
   { id: 'editor', title: 'Редактор постов', route: 'editor:home', clientVisible: true, adminOnly: false, featureKey: 'post_editor', minPlan: 'start', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
     action({ id: 'editor.change_text', title: 'Выбрать пост', section: 'editor', existingAction: 'admin_posts_picker', requiresChannel: true, requiresPost: true }),
@@ -120,14 +123,16 @@ function validate() {
   const joined = labels.join('\n');
   const banned = [/\bCTA\b/i, /Debug/i, /trace/i, /GitHub export/i, /production checklist/i, /postId/i, /channelId/i, /commentKey/i, /token/i, /payload/i, /видео/i, /файл/i];
   const flowSteps = ['Выбрать канал', 'Выбрать пост', 'Материал подарка', 'Текст получателю', 'Условия'];
+  const choosePostAllowed = ['editor','gifts','buttons','polls','highlights'].some((id) => clientActions(id).some((item) => item.title === 'Выбрать пост'));
   const errors = [];
   if (clientSections.length !== 13) errors.push(`client_sections_count:${clientSections.length}`);
   for (const pattern of banned) if (pattern.test(joined)) errors.push(`banned_label:${pattern}`);
-  for (const step of flowSteps) if (labels.some((label) => label.toLowerCase() === step.toLowerCase()) && !(step === 'Выбрать пост' && (clientActions('editor').some((item) => item.title === step) || clientActions('gifts').some((item) => item.title === step)))) errors.push(`flow_step_root:${step}`);
+  for (const step of flowSteps) if (labels.some((label) => label.toLowerCase() === step.toLowerCase()) && !(step === 'Выбрать пост' && choosePostAllowed)) errors.push(`flow_step_root:${step}`);
   for (const item of allActions().filter((entry) => entry.clientVisible && entry.requiresPost && !entry.requiresChannel)) errors.push(`post_without_channel:${item.id}`);
-  if (clientActions('buttons').some((item) => /удалить/i.test(item.title))) errors.push('delete_button_visible_in_buttons_root');
+  if (clientActions('buttons').some((item) => /удалить|текущие кнопки|добавить кнопку/i.test(item.title))) errors.push('post_scoped_button_action_visible_in_buttons_root');
   if (clientActions('ad_links').some((item) => /отключить/i.test(item.title))) errors.push('disable_ad_link_visible_in_ad_links_root');
-  if (clientActions('polls').some((item) => /остановить/i.test(item.title))) errors.push('stop_poll_visible_in_polls_root');
+  if (clientActions('polls').some((item) => /остановить|создать опрос/i.test(item.title))) errors.push('post_scoped_poll_action_visible_in_polls_root');
+  if (clientActions('highlights').some((item) => /поставить|снять/i.test(item.title))) errors.push('post_scoped_highlight_action_visible_in_highlights_root');
   if (clientActions('ad_links').some((item) => /статист|источники/i.test(item.title))) errors.push('stats_visible_in_ad_links_root');
   return { ok: errors.length === 0, version: VERSION, sourceMarker: SOURCE, clientSections: clientSections.length, visibleActions: clientSections.reduce((sum, section) => sum + clientActions(section.id).length, 0), errors };
 }
