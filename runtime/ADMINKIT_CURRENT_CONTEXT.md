@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 09:03 UTC
+Updated: 2026-06-30 09:34 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -71,18 +71,19 @@ PR256 implemented RootSectionDispatcher v2 and merged into `main` at 2026-06-29 
 
 PR257 fixed remaining Gifts root 500 by routing root Gifts through unified root rendering before `giftsFlow`. PR257 merged at 2026-06-29 10:31 UTC, merge commit `8c3b94e5e5d5389da7541cfb9a4505113fedb220`. Runtime pickup passed, trace showed Gifts 200, and user visually confirmed Gifts opens. Process error: assistant merged after green CI without final audit-only Codex task; do not repeat.
 
-## PR258 current state — 2026-06-30 09:03 UTC
+## PR258 current state — 2026-06-30 09:34 UTC
 
 PR258:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/258
 - Title: `Separate chats from channel/post pickers and normalize root menu UX`
 - Branch: `codex/separate-chats-from-channel-flows`
 - Base: `main`
-- Current visible head after user reported Codex follow-up completion: `fd3a603d5a5d15b951fa0886887e64ccfd37c4d4`
+- Current head: `f9ac406444f430e221449bbab17c92861d4700bc`
+- Commit message: `Fix PR258 legacy wrapper channel-only filtering`
 - Open, not merged, mergeable true at latest check.
-- CI visible for this head: PR regression tests run #472, run id `28431114588`, conclusion `success`.
+- CI for current head: PR regression tests run #474, run id `28434588111`, status `in_progress` at 2026-06-30 09:34 UTC.
 
-What PR258 already changed:
+What PR258 already changed before latest manual fix:
 - strict channel/chat separation in shared picker `channel-post-picker-core.js`;
 - helper logic in `human-channel-title-helper.js`;
 - one/multiple/zero channel UX in post-scoped flows where already wired;
@@ -98,38 +99,38 @@ Previously fixed audit BLOCK:
 - Commit: `fd3a603d5a5d15b951fa0886887e64ccfd37c4d4`.
 - Full CI passed on that head in run #472.
 
-Latest audit status:
+Latest audit status before manual fix:
 - Latest audit-only returned BLOCK.
 - Blocker file: `clean-bot-channel-first-post-picker-pr90.js`.
 - Blocker: legacy RootSectionDispatcher v2 post picker wrapper can still show chat-like records as channels.
-- Reason: `channelsFromPosts(user)` still builds channel picker targets from `access.getClientChannels(uid)` using only `channel.channelId || channel.id`, without the strict filtering from `channel-post-picker-core.js` / `human-channel-title-helper.js`.
-- Impact paths: `comments_select_post`, `comments_channel_pick`, `admin_posts_picker`, and post-level stats picker entry paths. Comments / Editor / Stats post picker flows can still leak chat-like objects if client access contains chat-like records with `id` or `channelId`.
-- Required fix: change wrapper to use the same strict eligible-channel source/predicate as the shared picker, preferably `channel-post-picker-core.listUiChannelsForUser(userId, config)` for async paths or an equivalent shared strict predicate. Add wrapper-level tests for one/multiple/zero channel states and chat-like exclusion. Full CI must be rerun.
+- Reason: `channelsFromPosts(user)` built channel picker targets from `access.getClientChannels(uid)` using only `channel.channelId || channel.id`, without strict filtering from `channel-post-picker-core.js` / `human-channel-title-helper.js`.
+- Impact paths: `comments_select_post`, `comments_channel_pick`, `admin_posts_picker`, and post-level stats picker entry paths.
 
-## 2026-06-30 09:03 UTC visibility check after reported Codex follow-up
+## 2026-06-30 manual follow-up outcome
 
-User reported that Codex completed the last follow-up and the branch was updated.
+User showed Codex UI error: Codex could not update the PR because the PR had been updated outside Codex and asked to create a new PR. New PR was not created.
 
-GitHub state visible through connector did NOT show a new PR head:
-- PR258 metadata still reports head `fd3a603d5a5d15b951fa0886887e64ccfd37c4d4`.
-- The only visible PR-triggered workflow run for that head is PR regression tests #472 with conclusion `success`.
-- Direct fetch of `clean-bot-channel-first-post-picker-pr90.js` from ref `codex/separate-chats-from-channel-flows` still shows old `channelsFromPosts(user)` implementation: it reads `access.getClientChannels(uid)`, derives id from `channel.channelId || channel.id`, and does not call shared strict channel/chat picker logic.
+Assistant manually updated the existing PR258 branch via GitHub, preserving the existing PR:
+- New head: `f9ac406444f430e221449bbab17c92861d4700bc`.
+- Active `clean-bot-channel-first-post-picker-pr90.js` now patches `services/clientAccessService.getClientChannels` before loading the preserved legacy implementation, using the exported strict shared predicates `channel-post-picker-core.isChatLikeRecord` and `channel-post-picker-core.isKnownChannelRecord`.
+- The previous legacy implementation was preserved as `clean-bot-channel-first-post-picker-pr90-legacy.js` and is loaded only after the strict client-channel patch is installed.
+- `scripts/test-channel-chat-separation-menu-ux.js` was expanded with wrapper-level regression coverage for:
+  - one real channel + chat-like records -> comments wrapper shows only the real channel/post picker;
+  - multiple real channels + chat-like records -> stats wrapper channel picker excludes chats;
+  - only chat-like records -> editor/posts wrapper shows clean empty state with `Подключить канал` and `Главное меню`.
+- Production contract files and start path were not changed.
 
-Conclusion: the latest audit BLOCK is still present in the visible GitHub state. PR258 is NOT ready for audit-only re-run, merge, or deploy checks yet. Next step is to ensure Codex actually pushed to the exact PR258 branch or rerun the FOLLOW-UP on the existing branch.
+## Current waiting state
 
-## Current blocking state
-
-PR258 remains open and blocked by the same wrapper-level chat/channel leak. Do not create a new PR. Do not merge. Do not request audit-only until a new head is visible and the wrapper fix is present.
+Wait for PR regression tests run #474 on head `f9ac406444f430e221449bbab17c92861d4700bc`.
 
 Next required action:
-1. Get a new pushed head on `codex/separate-chats-from-channel-flows` that fixes `clean-bot-channel-first-post-picker-pr90.js`.
-2. Re-check PR258 current head SHA.
-3. Check GitHub Actions for that exact head.
-4. If red: inspect `adminkit-ci-diagnostics` artifact and `$GITHUB_STEP_SUMMARY`; fix exact failing assertion on same branch.
-5. If green: prepare audit-only PASS/BLOCK task for current head.
-6. Do not merge until audit-only PASS or explicit user waiver.
-7. After merge: verify deploy/runtime pickup and production contract.
-8. Then manual MAX check: channel/post pickers show only channels; chats are not offered as post targets.
+1. Check run #474 conclusion for current head.
+2. If CI red: inspect `adminkit-ci-diagnostics` artifact and `$GITHUB_STEP_SUMMARY`; fix exact failing assertion on same PR258 branch.
+3. If CI green: prepare audit-only PASS/BLOCK task for current head `f9ac406444f430e221449bbab17c92861d4700bc`.
+4. Do not merge until audit-only PASS or explicit user waiver.
+5. After merge: verify deploy/runtime pickup and production contract.
+6. Then manual MAX check: channel/post pickers show only channels; chats are not offered as post targets.
 
 ## Completion definition
 
