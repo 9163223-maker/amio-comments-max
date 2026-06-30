@@ -1,0 +1,67 @@
+{
+  "ok": true,
+  "generatedAt": "2026-06-30T19:30:45.026Z",
+  "bootId": "",
+  "expectedFiles": [
+    "runtime/full-section-matrix.json",
+    "runtime/channel-target-matrix.json",
+    "runtime/user-journey-matrix.json",
+    "runtime/process-events.json",
+    "runtime/northflank-startup-log.json"
+  ],
+  "exports": [
+    {
+      "ok": true,
+      "skipped": false,
+      "configured": true,
+      "branch": "runtime-status",
+      "path": "runtime/northflank-startup-log.json",
+      "attempts": 1,
+      "durationMs": 10097
+    },
+    {
+      "ok": true,
+      "skipped": false,
+      "configured": true,
+      "branch": "runtime-status",
+      "path": "runtime/channel-target-matrix.json",
+      "attempts": 1,
+      "durationMs": 3503
+    },
+    {
+      "ok": true,
+      "skipped": false,
+      "configured": true,
+      "branch": "runtime-status",
+      "path": "runtime/full-section-matrix.json",
+      "attempts": 1,
+      "durationMs": 2899
+    },
+    {
+      "ok": true,
+      "skipped": false,
+      "configured": true,
+      "branch": "runtime-status",
+      "path": "runtime/user-journey-matrix.json",
+      "attempts": 1,
+      "durationMs": 2399
+    },
+    {
+      "ok": true,
+      "skipped": false,
+      "configured": true,
+      "branch": "runtime-status",
+      "path": "runtime/process-events.json",
+      "attempts": 1,
+      "durationMs": 2400
+    }
+  ],
+  "missingFiles": [],
+  "summary": {
+    "expectedCount": 5,
+    "okCount": 5,
+    "skippedCount": 0,
+    "failedCount": 0,
+    "missingCount": 0
+  }
+}
