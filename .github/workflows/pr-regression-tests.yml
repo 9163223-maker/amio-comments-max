@@ -49,6 +49,9 @@ jobs:
           node --check services/runtimeContractService.js
           node --check services/startupLogService.js
           node --check services/liveVersionSnapshotService.js
+          node --check services/fullSectionMatrixService.js
+          node --check scripts/test-pr260-full-section-matrix.js
+          node --check scripts/test-pr260-runtime-diagnostics-observable.js
           node --check performance-debug-routes-pr73.js
           node --check pr180-startup-log-bootstrap.js
           node --check pr191-push-admin-invite-title-commands-bootstrap.js
@@ -143,6 +146,8 @@ jobs:
           run_logged test-push-product-ux-admin-invite-pr167 node scripts/test-push-product-ux-admin-invite-pr167.js
           run_logged test-group-push-private-onboarding-pr166 node scripts/test-group-push-private-onboarding-pr166.js
           run_logged test-production-runtime-push-wiring-pr165 node scripts/test-production-runtime-push-wiring-pr165.js
+          run_logged test-pr260-full-section-matrix node scripts/test-pr260-full-section-matrix.js
+          run_logged test-pr260-runtime-diagnostics-observable node scripts/test-pr260-runtime-diagnostics-observable.js
           run_logged npm-test npm test
           run_logged test-product-perfect-gifts-journey-pr142 node scripts/test-product-perfect-gifts-journey-pr142.js
           run_logged test-product-perfect-buttons-gifts-pr126 node scripts/test-product-perfect-buttons-gifts-pr126.js

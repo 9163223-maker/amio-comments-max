@@ -2,7 +2,7 @@
 
 const picker = require('../channel-post-picker-core');
 const menu = require('../features/menu-v3/adapter');
-const runtimeExport = require('./runtimeExportService');
+const startupLog = require('./startupLogService');
 
 const DEFAULT_PATH = 'runtime/channel-target-matrix.json';
 const POST_TARGETS = ['comments', 'gifts', 'buttons', 'polls', 'highlights', 'editor', 'stats'];
@@ -45,7 +45,7 @@ function buildMatrix(channels = fixtureChannels()){
     for (const raw of dangerous) for (const value of [raw.chatId, raw.id, raw.channelId].filter(Boolean)) if (serialized.includes(String(value))) leaks.push({ route:item.route, value:String(value) });
   }
   const visibleChannelIds = channels.filter((c)=>picker.isKnownChannelRecord(c,'matrix-user')).map((c)=>c.channelId||c.id).filter(Boolean);
-  return { ok: leaks.length === 0, runtime:'PR259-CHANNEL-TARGET-MATRIX', generatedAt:new Date().toISOString(), routes:screens.map((s)=>s.route), visibleChannelIds, forbiddenTitles:FORBIDDEN_TITLES, leaks };
+  return { ok: leaks.length === 0, runtime:'PR260-CHANNEL-TARGET-MATRIX', generatedAt:new Date().toISOString(), bootId:process.env.ADMINKIT_BOOT_ID||'', checkedRoutes:screens.map((s)=>s.route), routes:screens.map((s)=>s.route), violations:leaks.map((l)=>({severity:'block',route:l.route,reason:'chat_like_record_leak',offendingText:l.value})), fixtures:{totalChannels:channels.length,dangerousRecords:dangerous.length,safePosts:safePosts.length}, productSections:{postTargets:POST_TARGETS,visibleChannelIds}, visibleChannelIds, forbiddenTitles:FORBIDDEN_TITLES, leaks };
 }
-async function exportMatrix(){const payload=buildMatrix();return runtimeExport.exportJson({path:DEFAULT_PATH,payload,message:`channel target matrix ${payload.ok?'PASS':'FAIL'}`});}
+async function exportMatrix(){const payload=buildMatrix();return startupLog.exportRuntimeJson({path:DEFAULT_PATH,payload,message:`channel target matrix ${payload.ok?'PASS':'FAIL'}`});}
 module.exports={DEFAULT_PATH,POST_TARGETS,FORBIDDEN_TITLES,fixtureChannels,fixturePosts,dangerousRecords,buildMatrix,exportMatrix};
