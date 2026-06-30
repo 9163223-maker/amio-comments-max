@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 08:35 UTC
+Updated: 2026-06-30 08:47 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -36,10 +36,7 @@ Required behavior:
 - Any future workflow refactor must keep this contract or explicitly improve it.
 
 Reason:
-GitHub keeps full job logs, but the ChatGPT GitHub connector may only expose early setup/checkout lines. The diagnostics artifact and job summary are the reliable source for exact failing assertions.
-
-Current implementation:
-PR258 branch `codex/separate-chats-from-channel-flows` added this diagnostics layer to `.github/workflows/pr-regression-tests.yml` at commit `9b0c40e74f252c7cc56f70cfa2396fa45076f0a3`.
+The diagnostics artifact and job summary are the reliable source for exact failing assertions when normal connector logs are truncated.
 
 ## Production contract
 
@@ -63,8 +60,6 @@ PR257 process error: assistant merged after green CI without final audit-only Co
 
 ## Product requirement — channels vs chats
 
-User reported that post-scoped sections such as Buttons -> Add button ask to select a channel but include chats. Selecting a chat shows chat messages, not channel posts; buttons cannot attach to those messages in the current model.
-
 Rules:
 - Channel/post features must show only real channels and channel posts.
 - Applies to comments, gifts, buttons, polls, highlights, post editor, and post-level stats.
@@ -73,58 +68,32 @@ Rules:
 - If one eligible channel exists, skip channel selection and show the post list with `Канал: <title>` and `Выберите пост`.
 - If multiple eligible channels exist, show channel picker first.
 
-## PR258 current state — 2026-06-30 08:35 UTC
+## PR258 current state — 2026-06-30 08:47 UTC
 
 PR258:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/258
 - Title: `Separate chats from channel/post pickers and normalize root menu UX`
 - Branch: `codex/separate-chats-from-channel-flows`
 - Base: `main`
-- Current head after audit-block fix: `fd3a603d5a5d15b951fa0886887e64ccfd37c4d4`
+- Current head: `fd3a603d5a5d15b951fa0886887e64ccfd37c4d4`
 - Open, not merged, mergeable true.
-- CI status: GREEN after audit-block fix.
-- Green run: `PR regression tests` #472, run id `28431114588`, job id `84245778003`, conclusion success.
-- Diagnostics artifact uploaded: `adminkit-ci-diagnostics`, artifact id `7975086423`, expires 2026-07-07, head SHA `fd3a603d5a5d15b951fa0886887e64ccfd37c4d4`.
+- CI was green on run #472 for this head before the latest audit BLOCK.
 
-Audit result:
+Latest audit status:
 - Audit-only returned BLOCK.
-- Blocker: `scripts/test-stats-product-perfect-contract-pr226.js` had been reduced to a shim delegating to `scripts/test-channel-chat-separation-menu-ux.js`.
-- Reason: this removed meaningful PR226-era stats coverage for growth, sources, funnel, content, quality, freshness, post metrics, export cleanup, and ad/source interactions.
-- Required fix: restore meaningful PR226 stats product-perfect coverage or equivalent named stats regression test; rerun full CI.
+- Blocker file: `clean-bot-channel-first-post-picker-pr90.js`.
+- Blocker: the legacy post picker wrapper still builds channel targets from `access.getClientChannels(uid)` using only `channel.channelId || channel.id` and can leak chat-like records into comments/editor/stats post picker paths.
+- Required fix: make this wrapper use the same strict eligible-channel source/predicate as PR258 shared picker and add wrapper-level tests for one/multiple/zero channel states plus chat-like exclusion. Full CI must be rerun.
 
-Fix applied after BLOCK:
-- Restored `scripts/test-stats-product-perfect-contract-pr226.js` as a real stats product regression test with 45 assertions.
-- Coverage now includes clean PR258 stats root plus PR226 metrics: context resolution, tenant isolation, growth, source/campaign/link filters, tracking attribution, public CTA vs admin button filtering, gifts, comments/content, manual costs, CPA, funnel, content/post stats, post snapshot isolation, quality wording, freshness/data-quality, export cleanup, period filters, and product dataset source guard.
+Previously fixed audit BLOCK:
+- PR226 stats regression coverage was restored in `scripts/test-stats-product-perfect-contract-pr226.js` with 45 assertions.
 - Commit: `fd3a603d5a5d15b951fa0886887e64ccfd37c4d4`.
 - Full CI passed on that head in run #472.
 
-Recent PR258 events:
-- Diagnostics layer added to `.github/workflows/pr-regression-tests.yml`, commit `9b0c40e74f252c7cc56f70cfa2396fa45076f0a3`.
-- The first diagnostics run produced artifact `adminkit-ci-diagnostics` and identified exact failing test `test-channels-push-ux-pr177`.
-- Cause: old PR177 test still expected Channels root action `Инструкция`; PR258 intentionally merges/removes that duplicate and keeps `Помощь`.
-- Fixed PR177 test to expect Channels root labels `Подключить канал`, `Мои каналы`, `Помощь`, `Главное меню`, commit `b968039f14ffc2dbb64102fbfeb8b3e3dd5eccfc`.
-- CI run #470 passed after that fix, before audit BLOCK.
-
-Earlier autonomous fixes on PR258:
-- Fixed recursive channel evidence check in `channel-post-picker-core.js`.
-- Preserved raw chatId-only state in `human-channel-title-helper.js`.
-- Allowed channel-typed chatId records while rejecting chat-like records in `channel-post-picker-core.js`.
-- Cleaned root UX: removed duplicate Channels instruction/help, hid duplicate Settings help business action, shortened ad_links/highlights labels, added generic root descriptions, and made stats root compact.
-- Added or used `scripts/test-channel-chat-separation-menu-ux.js`.
-- Updated older regression tests to match PR258 clean stats root.
-
-Remaining audit focus:
-- Verify restored PR226 coverage is sufficient and not too brittle.
-- Re-check `services/statsTargetsService.js`, `channel-post-picker-core.js`, `human-channel-title-helper.js`, `buttons-flow-cc8-clean.js`, `clean-bot-channel-first-post-picker-pr90.js`, and `stats-flow-cc8.js` for remaining channel/chat leakage.
-- Pay special attention to channel visibility helpers that still may use unfiltered `clientAccessService.getClientChannels()` or compatibility paths like channelId/id/chatId.
-- Verify production start path and active entrypoint unchanged.
-
 ## Next action
 
-Provide new audit-only Codex task for PR258 head `fd3a603d5a5d15b951fa0886887e64ccfd37c4d4`, focused on verifying the BLOCK fix and the whole PR. Do not merge before audit PASS/waiver.
-
-After audit PASS and merge, verify deploy/runtime pickup and then manual MAX: channel/post pickers must show only channels and chats must not be offered as post targets.
+Use a FOLLOW-UP Codex task on existing PR258/branch `codex/separate-chats-from-channel-flows` to fix only the latest BLOCK in `clean-bot-channel-first-post-picker-pr90.js`. Do not create a new PR. Do not merge. After Codex pushes, check CI. If green, run audit-only again.
 
 ## Completion definition
 
-PR258 is not complete until audit PASS, merge, deploy/runtime pickup, and manual MAX verification that channel/post pickers show only channels and chats are not offered as post targets.
+PR258 is not complete until latest audit BLOCK is fixed, CI green, audit PASS, merge, deploy/runtime pickup, and manual MAX verification that channel/post pickers show only channels and chats are not offered as post targets.
