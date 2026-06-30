@@ -1,0 +1,21 @@
+'use strict';
+const assert = require('assert');
+const menu = require('../features/menu-v3/adapter');
+function labels(screen){return (screen.attachments?.[0]?.payload?.buttons||[]).flat().map((b)=>b.text).filter(Boolean);}
+let root=menu.render('gifts:home'); let rootLabels=labels(root);
+assert(!rootLabels.includes('Текущий подарок'));
+assert(!rootLabels.includes('Создать подарок'));
+assert(!rootLabels.includes('Список подарков'));
+assert(rootLabels.includes('Выбрать пост') && rootLabels.includes('Все подарки'));
+let zero=menu.render('gifts:choose_post',{dataContext:{channelTitle:'Канал',posts:[]}});
+assert(zero.text.includes('Пока нет сохранённых постов.'));
+assert.strictEqual((zero.text.match(/Пока нет сохранённых постов/g)||[]).length,1,'zero post copy not duplicated');
+assert(labels(zero).includes('К списку каналов') && labels(zero).includes('Главное меню'));
+let post=menu.render('gifts:post',{payload:{channelTitle:'Тестовый канал',postTitle:'Тестовый пост'}});
+assert(post.text.includes('Подарок для поста') && post.text.includes('Подарок ещё не создан.'));
+assert(labels(post).includes('Создать подарок'), 'create gift shown after post context exists');
+let all=menu.render('gifts:all');
+assert(all.text.includes('Все подарки в аккаунте'), 'all gifts scope explicit');
+assert(all.text.includes('Создайте подарок для конкретного поста.'));
+assert(labels(all).includes('Выбрать пост'));
+console.log('PR262 gifts semantic flow PASS');

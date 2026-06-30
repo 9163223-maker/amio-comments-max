@@ -67,9 +67,9 @@ async function send(bot, sent, payload, label) {
   assert.ok(sent.length > before, `${label}: edits or sends a visible screen`);
   const call = sent.at(-1);
   assert.ok(/Подарки|лид-магниты/i.test(visible(call)), `${label}: visible Gifts root text`);
-  assert.ok(/Создать подарок/i.test(visible(call)), `${label}: visible create button`);
-  assert.ok(/Текущий подарок/i.test(visible(call)), `${label}: visible current button`);
-  assert.ok(/Список подарков/i.test(visible(call)), `${label}: visible list button`);
+  assert.ok(/Выбрать пост/i.test(visible(call)), `${label}: visible choose post button`);
+  assert.ok(/Все подарки/i.test(visible(call)), `${label}: visible scoped all gifts button`);
+  assert.ok(/Помощь/i.test(visible(call)), `${label}: visible help button`);
   assert.ok(/Главное меню/i.test(visible(call)), `${label}: visible main menu button`);
   return { res: res.body, call };
 }

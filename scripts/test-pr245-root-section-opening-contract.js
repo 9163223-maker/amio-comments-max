@@ -215,7 +215,7 @@ async function main() {
 
   const giftCall = rootScreens.get('gifts:home');
   assert.ok(giftCall, 'gifts:home opens Gifts root screen');
-  for (const label of ['Создать подарок', 'Текущий подарок', 'Список подарков', 'Главное меню']) assert.ok(labels(giftCall).includes(label), `Gifts keyboard contains ${label}`);
+  for (const label of ['Выбрать пост', 'Все подарки', 'Помощь', 'Главное меню']) assert.ok(labels(giftCall).includes(label), `Gifts keyboard contains ${label}`);
   assert.ok(!/Панель управления MAX-каналом/i.test(String(giftCall.text || '')), 'Gifts does not route to main');
 
   const beforeLegacy = sent.length;

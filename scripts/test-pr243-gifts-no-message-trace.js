@@ -69,7 +69,7 @@ async function main() {
   assert.strictEqual(sent.length, beforePrivate + 1, 'no-message callback with user sends fresh private message');
   assert.strictEqual(sent.at(-1).transport, 'sendMessage', 'private fallback uses sendMessage');
   assert.strictEqual(sent.at(-1).userId, TEST_USER, 'private fallback targets callback user');
-  assert.ok(/Создать подарок/i.test(visible(sent.at(-1))), 'private fallback contains gifts buttons');
+  assert.ok(/Выбрать пост/i.test(visible(sent.at(-1))), 'private fallback contains gifts buttons');
 
   const beforeMissing = sent.length;
   await webhook(bot, callbackUpdate({ action: 'gifts:home' }, { withMessage: false, withUser: false }));

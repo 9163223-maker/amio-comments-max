@@ -25,10 +25,12 @@ const sections = [
     action({ id: 'comments.reactions', title: 'Реакции', section: 'comments', existingAction: 'comments_option_channel', requiresChannel: true, payload: { source: 'comments_reactions' } }),
   ] },
   { id: 'gifts', title: 'Подарки / лид-магниты', route: 'gifts:home', clientVisible: true, adminOnly: false, featureKey: 'gifts', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
-    action({ id: 'gifts.create', title: 'Создать подарок', section: 'gifts', existingAction: 'gift_admin_start_create' }),
+    action({ id: 'gifts.choose_post', title: 'Выбрать пост', section: 'gifts', targetAction: 'gifts:choose_channel', existingAction: 'gifts:choose_channel', requiresChannel: true, requiresPost: true }),
+    action({ id: 'gifts.all', title: 'Все подарки', section: 'gifts', targetAction: 'gifts:all', existingAction: 'gift_admin_list_campaigns' }),
+    action({ id: 'gifts.create', title: 'Создать подарок', section: 'gifts', existingAction: 'gift_admin_start_create', clientVisible: false, implemented: false, hiddenReason: 'available_after_post_selection' }),
     action({ id: 'gifts.replace', title: 'Заменить подарок', section: 'gifts', existingAction: 'gift_admin_replace_pick', clientVisible: false, implemented: false, hiddenReason: 'available_after_post_selection' }),
-    action({ id: 'gifts.current', title: 'Текущий подарок', section: 'gifts', existingAction: 'gift_admin_show_current' }),
-    action({ id: 'gifts.list', title: 'Список подарков', section: 'gifts', existingAction: 'gift_admin_list_campaigns' }),
+    action({ id: 'gifts.current', title: 'Текущий подарок', section: 'gifts', existingAction: 'gift_admin_show_current', clientVisible: false, implemented: false, hiddenReason: 'available_after_gift_selection' }),
+    action({ id: 'gifts.list', title: 'Список подарков', section: 'gifts', existingAction: 'gift_admin_list_campaigns', clientVisible: false, implemented: false, hiddenReason: 'ambiguous_scope_replaced_by_all_gifts' }),
   ] },
   { id: 'buttons', title: 'Кнопки под постами', route: 'buttons:home', clientVisible: true, adminOnly: false, featureKey: 'buttons', minPlan: 'start', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
     action({ id: 'buttons.add', title: 'Добавить кнопку', section: 'buttons', existingAction: 'button_admin_start_add', requiresChannel: true, requiresPost: true }),
@@ -121,7 +123,7 @@ function validate() {
   const errors = [];
   if (clientSections.length !== 13) errors.push(`client_sections_count:${clientSections.length}`);
   for (const pattern of banned) if (pattern.test(joined)) errors.push(`banned_label:${pattern}`);
-  for (const step of flowSteps) if (labels.some((label) => label.toLowerCase() === step.toLowerCase()) && !(step === 'Выбрать пост' && clientActions('editor').some((item) => item.title === step))) errors.push(`flow_step_root:${step}`);
+  for (const step of flowSteps) if (labels.some((label) => label.toLowerCase() === step.toLowerCase()) && !(step === 'Выбрать пост' && (clientActions('editor').some((item) => item.title === step) || clientActions('gifts').some((item) => item.title === step)))) errors.push(`flow_step_root:${step}`);
   for (const item of allActions().filter((entry) => entry.clientVisible && entry.requiresPost && !entry.requiresChannel)) errors.push(`post_without_channel:${item.id}`);
   if (clientActions('buttons').some((item) => /удалить/i.test(item.title))) errors.push('delete_button_visible_in_buttons_root');
   if (clientActions('ad_links').some((item) => /отключить/i.test(item.title))) errors.push('disable_ad_link_visible_in_ad_links_root');

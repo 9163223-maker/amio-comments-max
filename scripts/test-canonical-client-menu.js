@@ -123,11 +123,11 @@ async function verifyActiveRuntimePath() {
   const syncGiftsHome = menuCore.screenForPayload({ action: 'gifts:home' });
   assert.ok(/(^|_)gifts_clean_home$/.test(String(syncGiftsHome?.id || '')), 'sync gifts:home must resolve clean Gifts home before unified route rendering');
   const syncGiftsVisible = sentTextAndLabels(syncGiftsHome);
-  assertHasAll(labels(syncGiftsHome), ['Создать подарок', 'Текущий подарок', 'Список подарков', 'Главное меню'], 'sync gifts:home clean actions');
+  assertHasAll(labels(syncGiftsHome), ['Выбрать пост', 'Все подарки', 'Помощь', 'Главное меню'], 'sync gifts:home clean actions');
   assert.ok(!/Подарок под постом|Материал подарка|Шаг 1|commentKey|postId|channelId|token|payload|trace/i.test(syncGiftsVisible), 'sync gifts:home must not render unified/legacy or technical UI');
 
   const canonicalGiftsRootLabels = labels(adapter.render('gifts:home'));
-  assertHasAll(canonicalGiftsRootLabels, ['Создать подарок', 'Текущий подарок', 'Список подарков', 'Главное меню'], 'canonical Gifts root clean actions');
+  assertHasAll(canonicalGiftsRootLabels, ['Выбрать пост', 'Все подарки', 'Помощь', 'Главное меню'], 'canonical Gifts root clean actions');
   assert.ok(!canonicalGiftsRootLabels.includes('Подарок под постом'), 'canonical Gifts root must not expose old post gift action');
 
   const giftsHomeRes = createJsonRes();
@@ -135,7 +135,7 @@ async function verifyActiveRuntimePath() {
   assert.strictEqual(giftsHomeRes.statusCode, 200, 'gifts:home active callback must return 200');
   assert.ok(/(^|_)gifts_clean_home$/.test(String(giftsHomeRes.body?.screenId || '')), 'gifts:home active callback must resolve clean Gifts home');
   const giftsHomeVisible = sentTextAndLabels(sent.at(-1));
-  assert.ok(/Создать подарок/.test(giftsHomeVisible) && /Текущий подарок/.test(giftsHomeVisible) && /Список подарков/.test(giftsHomeVisible) && /Главное меню/.test(giftsHomeVisible), 'gifts:home active callback must expose clean Gifts home actions');
+  assert.ok(/Выбрать пост/.test(giftsHomeVisible) && /Все подарки/.test(giftsHomeVisible) && /Помощь/.test(giftsHomeVisible) && /Главное меню/.test(giftsHomeVisible), 'gifts:home active callback must expose clean Gifts home actions');
   assert.ok(!/Подарок под постом|Материал подарка|Шаг 1|commentKey|postId|channelId|token|payload|trace/i.test(giftsHomeVisible), 'gifts:home active callback must not start wizard or expose technical identifiers');
 
   const preservedCallbacks = [

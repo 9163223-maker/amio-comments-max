@@ -1,0 +1,15 @@
+'use strict';
+const assert = require('assert');
+const canonical = require('../features/menu-v3/canonical-menu');
+const matrix = require('../services/productSemanticMatrixService').buildMatrix();
+const ids = ['main', ...canonical.clientSections.map((s)=>s.id)].sort();
+assert.deepStrictEqual(matrix.sections.map((s)=>s.section).sort(), ids);
+assert(matrix.summary && Array.isArray(matrix.summary.table));
+const gifts = matrix.sections.find((s)=>s.section==='gifts');
+assert(gifts, 'gifts section exists');
+assert(!gifts.forbiddenButtonsVisible.includes('Текущий подарок'));
+assert(!gifts.forbiddenButtonsVisible.includes('Создать подарок'));
+assert(!matrix.violations.some((v)=>v.section==='gifts' && v.severity==='block' && /current_entity_visible_without_context|root_action_requires_context_visible|list_action_unclear_scope|create_leads/.test(v.reason)), 'no P0 gifts root/context blockers');
+assert(matrix.violations.some((v)=>v.severity==='warn' && v.reason==='client_visible_product_ready_false'), 'matrix honestly flags partial sections');
+assert(!matrix.sections.some((s)=>s.classification==='PASS' && s.placeholderAsPassRisk), 'placeholder-only section cannot PASS');
+console.log('PR262 product semantic matrix PASS');

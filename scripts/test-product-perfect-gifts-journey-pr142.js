@@ -21,7 +21,7 @@ const OTHER_COMMENT_KEY = `${OTHER_CHANNEL}:${OTHER_POST_ID}`;
 
 const PRIVATE_URL = /https?:\/\/(?:private|internal|token|raw)\.|https?:\/\/[^\s]+\/(?:private|raw|token)(?:\b|\/)/i;
 const RAW_VISIBLE = /\b(?:channelId|postId|commentKey|payload|trace|file_token|rawFileToken|privateUrl|private URL|attachment URL)\b|gift_[a-z0-9:_-]{6,}|(?:photo|file)-token-|cp_-?\d/i;
-const ROOT_BUTTONS = ['Создать подарок', 'Текущий подарок', 'Список подарков', 'Главное меню'];
+const ROOT_BUTTONS = ['Выбрать пост', 'Все подарки', 'Помощь', 'Главное меню'];
 
 function resetState() {
   access._resetForTests();
