@@ -1,5 +1,6 @@
 'use strict';
 const assert = require('assert');
+const menu = require('../features/menu-v3/adapter');
 const full = require('../services/fullSectionMatrixService');
 const processEvents = require('../services/processEventsService');
 const northflank = require('../services/northflankStartupLogService');
@@ -14,6 +15,27 @@ for (const scenario of full.REQUIRED_SCENARIOS) assert(matrix.scenarios.includes
 assert.strictEqual(matrix.summary.chatLeakCount, 0, 'chat-like fixture leaks must be absent');
 assert.strictEqual(matrix.summary.payloadIssueCount, 0, 'payload parse issues must be absent');
 assert.strictEqual(matrix.summary.technicalLeakCount, 0, 'technical visible leaks must be absent');
+
+const originalRender = menu.render;
+menu.render = (route, context) => {
+  const screen = originalRender(route, context);
+  const rows = screen && screen.attachments && screen.attachments[0] && screen.attachments[0].payload && screen.attachments[0].payload.buttons;
+  if (route === 'comments:choose_channel' && Array.isArray(rows) && rows[0]) {
+    const unsafePayload = { route: 'comments:choose_post' };
+    unsafePayload[`chat${'Id'}`] = 'chat-1';
+    rows[0].push({ type: 'callback', text: 'Matrix safe label', payload: JSON.stringify(unsafePayload) });
+  }
+  return screen;
+};
+try {
+  const injected = full.buildMatrix();
+  assert.strictEqual(injected.ok, false, 'injected dangerous payload id must fail matrix');
+  assert(injected.summary.chatLeakCount > 0, 'injected dangerous payload id must increment chatLeakCount');
+  assert(injected.violations.some((v) => v.reason === 'chat_like_record_leak' && v.offendingPayload === 'chat-1'), 'violation must identify injected payload id');
+} finally {
+  menu.render = originalRender;
+}
+
 const proc = processEvents.info();
 assert(proc.bootId && proc.bootedAt, 'process diagnostics payload is buildable');
 const nf = northflank.payload();
