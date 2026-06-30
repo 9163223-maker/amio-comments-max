@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 10:08 UTC
+Updated: 2026-06-30 10:12 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -43,23 +43,23 @@ PR258 was merged into `main` at 2026-06-30 09:51 UTC.
 
 PR258 fixed the previous audit BLOCK in `clean-bot-channel-first-post-picker-pr90.js` by installing a strict client-channel patch before loading the preserved legacy wrapper. It also added wrapper-level tests for post-scoped comments/stats/editor paths.
 
-## Runtime/deploy pickup
+## Runtime/deploy pickup and restart finding
 Runtime pickup was confirmed from `runtime/startup-log.json` after merge:
 - first post-merge startup: `2026-06-30T09:51:31.206Z`, head `50b43a4524ed8009c48cd5c2ad710f2d027a7f66`;
 - later startup: `2026-06-30T09:54:06.123Z`, head `86fe30ce4661d5d0c6cb82aa075c0264dd2a4d04`;
-- `86fe30ce...` is a runtime/push dispatch log commit after PR258, not a code rollback;
 - production entrypoint remains `clean-entrypoint-1.53.10-pr89.js`;
 - runtime contract remains live OK;
-- startupPath remains OK;
-- readiness gate reports readyForManualMaxTest true.
+- startupPath remains OK.
+
+Important new process finding: `runtime/push-dispatch-log.json` is present on `main`, and commit `86fe30ce4661d5d0c6cb82aa075c0264dd2a4d04` updates that runtime log. Runtime diagnostic writes to `main` can trigger redeploy loops or confusing main-head pickup. This must be fixed: runtime diagnostics must write only to `runtime-status` or an external log sink, never to `main`.
 
 ## Live manual mismatch — 2026-06-30 10:02 UTC
 User manually opened MAX after PR258 merge. Observations:
-- initial mini-app open showed MAX toast `Не удалось открыть мини-приложение`; may be client/network/mini-app path, but server had restarts near the same window and should be tracked separately.
-- main bot menu opened.
+- initial mini-app open showed MAX toast `Не удалось открыть мини-приложение`;
+- main bot menu opened;
 - `Каналы -> Мои каналы` showed chat-like entries including `Все свои MAX` and `Саша - сын Мамочки 🌸`.
 
-Conclusion: PR258 is NOT fully complete. Server-side runtime pickup is OK, but product goal is not fully achieved because root channel management still leaks chats.
+Conclusion: PR258 is NOT fully complete. Runtime pickup is OK, but product goal is not fully achieved because root channel management still leaks chats.
 
 ## Root cause from code inspection
 The PR258 matrix missed `Каналы -> Мои каналы` as a separate server-side route.
@@ -73,25 +73,18 @@ This creates a false-positive server contract: startup contract says channelsLis
 
 ## Required next task
 Open a new PR, because PR258 is already merged. Suggested title:
-`PR259 — Channel root matrix: exclude chats from My channels and server-side UX matrix`
+`PR259 — Channel root matrix and runtime export safety`
 
 Required scope:
 1. Fix `Каналы -> Мои каналы` so it uses the same strict eligible-channel source/predicate as post-scoped pickers.
 2. Remove/replace weak `features/menu-v3/adapter.js::isConfirmedChannel()` behavior for root channel list.
 3. Ensure sync and async route hydration are equivalent for channel routes.
-4. Add a server-side matrix test that covers every entry route, not just post-scoped pickers:
-   - main root;
-   - channels:home;
-   - channels:list;
-   - comments post picker;
-   - gifts post picker;
-   - buttons post picker;
-   - polls post picker;
-   - highlights post picker;
-   - editor post picker;
-   - stats post picker.
-5. Matrix fixtures must include real channels, channel records without posts, chat-like records with `chatId`, chat-like records with `type/chatType/kind`, and dangerous ambiguous records with only `id/channelId + human title` resembling groups/chats.
+4. Add a server-side matrix test that covers main root, channels:home, channels:list, comments/gifts/buttons/polls/highlights/editor/stats post pickers.
+5. Matrix fixtures must include real channels and chat-like/ambiguous records.
 6. Matrix must fail if any chat-like fixture appears in any channel/post target screen.
-7. Add runtime/live diagnostic export for the matrix result, so this class of bug is visible without manual screenshots.
+7. Add runtime/live diagnostic export for the matrix result.
+8. Fix runtime diagnostics export so no runtime log writes to `main`; all runtime JSON exports must go to `runtime-status` or external sink only.
+9. Add branch-safety tests/guards: diagnostic export must fail closed if target branch resolves to `main`.
+10. Add or document Northflank startup/build log collection for crashes before Node app starts.
 
 Do not merge PR259 without CI green and audit-only PASS.
