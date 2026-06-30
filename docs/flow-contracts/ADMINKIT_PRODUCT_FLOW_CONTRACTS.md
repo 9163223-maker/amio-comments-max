@@ -4,6 +4,8 @@ This document is the human-readable companion to `services/productFlowContractSe
 
 Common navigation: deep screens should offer `Назад`, `В начало раздела`, and `Главное меню` when they are meaningful. Root screens always keep `Главное меню` except `main`; `Помощь` is allowed only when it adds non-duplicated guidance. Empty states must explain what is missing and show one next useful action.
 
+## Section contracts
+
 | section | product_goal | root_screen_purpose | required_context | allowed_root_actions | forbidden_root_actions | lifecycle | semantic PASS criteria | semantic BLOCK criteria |
 |---|---|---|---|---|---|---|---|---|
 | main | Route admins to the one canonical production section list. | Dashboard. | none | All client-visible section titles. | Debug/admin/legacy menu entries. | start → result. | Every visible section is reachable once. | Missing section, duplicate menu source, or technical/debug item. |
@@ -21,9 +23,34 @@ Common navigation: deep screens should offer `Назад`, `В начало ра
 | account | Show access, tariff, limits, channels and support. | Account panel. | account | `Мой доступ`, `Активировать код`, `Оплата / продление`, `Лимиты и функции`, `Мои каналы`, `Поддержка`, nav. | Fake payment completion. | start → create_or_open → result. | Payment/support limitations are explicit. | Claims paid/renewed state without provider confirmation. |
 | settings | Expose safe settings and documents. | Section actions. | none/account | `Очистить чат`, `Privacy / Terms`, nav. | Placeholder toggles counted as ready. | start → create_or_open → result; notification/language partial. | Unsupported settings say unavailable and do not fake saved preferences. | Placeholder-only screen counted as PASS. |
 
-## Required state semantics
+## Per-section state matrix
 
-For every section, `zero_channels`, `one_channel`, and `multiple_channels` must be meaningful. Post-scoped sections additionally define `zero_posts`, `selected_post_no_entity`, and `selected_post_with_entity`: zero posts explain forwarding/syncing; selected-post/no-entity shows create only after post context; selected-post/with-entity shows current/edit/preview/save/disable/delete/statistics where implemented.
+| section | zero_channels | one_channel | multiple_channels | zero_posts | selected_post_no_entity | selected_post_with_entity |
+|---|---|---|---|---|---|---|
+| main | Not applicable; main remains a dashboard. | Not applicable. | Not applicable. | Not applicable. | Not applicable. | Not applicable. |
+| channels | Show `Подключить канал` and explain bot admin/forwarded-post requirement. | Show the single real channel/card or allow opening it clearly. | Show only real eligible channels, never chats/groups/private dialogs. | Not applicable. | Not applicable. | Not applicable. |
+| comments | Show connect-channel recovery before post actions. | May skip or show selected channel clearly before post actions. | Choose channel first. | Explain no saved posts and tell admin to forward/sync a post. | Show comment enable/config actions only after post context. | Show current comment state/settings and safe toggle/edit actions. |
+| gifts | Show `Чтобы создать подарок, сначала подключите канал.` plus `Подключить канал`. | May continue directly to post picker with visible channel title. | Choose channel first. | Show `Пока нет сохранённых постов.` once plus forward/sync/recovery actions. | Show `Подарок ещё не создан.` and only then `Создать подарок`. | Show current gift, edit, preview, enable/disable, delete, stats, and post reselection. |
+| buttons | Show connect-channel recovery before button actions. | May continue directly to post picker with visible channel title. | Choose channel first. | Explain no saved posts and tell admin to forward/sync a post. | Show add-button action only after post context. | Show current buttons, edit/reorder/delete/preview/save actions. |
+| stats | Account overview may still render without channels but must state empty metrics honestly. | Show channel scope before channel metrics. | Choose channel before channel-scoped metrics. | For post stats, explain no saved posts and provide recovery. | Show post stats only after selected post context. | Show available metrics and honest empty values. |
+| push | External/PWA flow may use chat/channel picker but must not pretend subscription success. | Show the selected destination and publish invitation action. | Choose destination first. | Not applicable. | Not applicable. | Not applicable. |
+| ad_links | Can create/list account-scoped links; if channel is needed, show connect recovery. | Show selected channel/campaign scope before creating scoped link. | Choose channel/campaign scope first when required. | Not applicable. | Not applicable. | Not applicable. |
+| polls | Show connect-channel recovery before poll actions. | May continue directly to post picker with visible channel title. | Choose channel first. | Explain no saved posts and tell admin to forward/sync a post. | Show create poll only after post context. | Show current poll/results/stop inside selected-post context. |
+| highlights | Show connect-channel recovery before highlight actions. | May continue directly to post picker with visible channel title. | Choose channel first. | Explain no saved posts and tell admin to forward/sync a post. | Show apply/remove only after post context. | Show current mark and safe apply/remove result. |
+| editor | Show connect-channel recovery before edit actions. | May continue directly to post picker with visible channel title. | Choose channel first. | Explain no saved posts and tell admin to forward/sync a post. | Show edit action only after selected post context. | Show edit/preview/save/cancel result for selected post. |
+| archive | Empty account archive must explain when saved posts appear. | Can filter archive by single channel. | Can filter archive by chosen channel. | If archive has no saved posts, show honest empty state. | Restore/copy only after archived post is selected. | Show restore/copy/delete only inside selected archived post card. |
+| account | Account remains available even without channels. | Show account limits and channel count. | Show account limits and channel count/list. | Not applicable. | Not applicable. | Not applicable. |
+| settings | Settings remain available even without channels. | Channel-specific settings must name selected channel. | Channel-specific settings choose channel first. | Not applicable. | Not applicable. | Not applicable. |
+
+## Required semantic matrix coverage
+
+The runtime `product-semantic-matrix` must render and record route coverage, not just root labels:
+
+- every client-visible root route;
+- for every post-scoped section: `zero_channels`, `multiple_channels`, `zero_posts`, and `selected_post` scenarios;
+- for gifts: account-scoped `gifts:all` list scope;
+- no root action may require a selected post/entity unless the route is explicitly a context gate;
+- placeholders and partial sections must be surfaced as `PARTIAL`, `WARN`, or `BLOCK`, never hidden as a product PASS.
 
 ## Gifts lifecycle gate
 
