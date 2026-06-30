@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 20:52 UTC
+Updated: 2026-06-30 21:10 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -51,12 +51,12 @@ PR262:
 - Title: `Product-semantic flow contracts and gifts lifecycle gate`
 - Branch: `codex-792bhs`
 - Base: `main`
-- Current head: `30bbb2ef4f982b9dccac74b5df56bc0ea6697552`
+- Current head: `060c3a5b3b282bf6d0383d12f10aa8d96eb76cc5`
 - Open, not merged.
 - Mergeable: true at latest check.
-- CI: PR regression tests #518, run id `28474918786`, conclusion `success`.
-- PR comments/review blockers visible through connector: none.
-- Audit-only: pending. Do not merge yet.
+- Last green CI before partial audit follow-up: PR regression tests #518 on head `30bbb2ef4f982b9dccac74b5df56bc0ea6697552`.
+- After audit follow-up fixes, CI for new head is pending.
+- Audit-only: previous result was NOT final PASS; it was `PARTIAL PASS` with limitations, so merge is blocked unless user gives explicit waiver.
 
 PR262 purpose:
 - Add human-readable product flow contracts for all client-visible sections.
@@ -65,7 +65,7 @@ PR262 purpose:
 - Add no-menu-multiplication tests.
 - Fix gifts/lead-magnets first so root is context-first and state-aware.
 
-PR262 changes:
+PR262 changes before partial audit:
 - Added `docs/flow-contracts/ADMINKIT_PRODUCT_FLOW_CONTRACTS.md`.
 - Added `services/productFlowContractService.js`.
 - Added `services/productSemanticMatrixService.js` and runtime export `runtime/product-semantic-matrix.json`.
@@ -75,14 +75,31 @@ PR262 changes:
 - Added/updated PR262 tests and updated older gifts/menu regression tests to the new semantic contract.
 
 Assistant follow-up fixes after initial CI red:
-1. CI #515 failed in `scripts/test-comments-ux-gifts-reset-pr176.js` because the old test located the gifts root block by the removed `Создать подарок` root button. Fixed the test to assert semantic gifts root labels and forbidden old root actions.
-2. CI #516 failed in `scripts/test-canonical-menu-matrix-pr175.js` because it still expected gifts root actions `Создать подарок`, `Текущий подарок`, `Список подарков`. Fixed the test to expect `Выбрать пост`, `Все подарки` and forbid old context-free gifts root actions.
-3. CI #517 failed in `scripts/test-product-perfect-gifts-journey-pr142.js` because it treated `Выбрать пост` as stale post-selection. Fixed the test to allow `Выбрать пост` as the clean root context gate while still forbidding stale/context-free actions.
-4. CI #518 passed on current head.
+1. CI #515 failed in `scripts/test-comments-ux-gifts-reset-pr176.js`; fixed old gifts root assertion.
+2. CI #516 failed in `scripts/test-canonical-menu-matrix-pr175.js`; fixed expected gifts root actions.
+3. CI #517 failed in `scripts/test-product-perfect-gifts-journey-pr142.js`; allowed `Выбрать пост` as clean root context gate.
+4. CI #518 passed on head `30bbb2ef4f982b9dccac74b5df56bc0ea6697552`.
+
+Partial audit result provided by user at 2026-06-30 21:03 UTC:
+- Audit mode was respected.
+- Important limitation: local checkout was not requested head and remote verification failed due network/proxy 403.
+- Verdict was `PARTIAL PASS with product-semantic gaps exposed`, not final PASS.
+- Gifts P0 root/context blockers were considered fixed.
+- Gaps:
+  1. product-semantic matrix primarily compared root screens, not full `choose_channel`/`choose_post`/`post` route behavior for every post-scoped section;
+  2. docs had common/global state definitions but not per-section state matrix;
+  3. productReady true with incomplete global lifecycle caused matrix BLOCKs for main/channels/push/account;
+  4. no-menu-multiplication guard was shallow/pattern-limited.
+
+Assistant follow-up fixes after partial audit:
+- `services/productFlowContractService.js`: added `requiredLifecycle`, explicit state defaults for post-scoped sections, and richer per-section states.
+- `services/productSemanticMatrixService.js`: expanded matrix beyond roots; now renders route coverage for all post-scoped sections: root, zero_channels, multiple_channels, zero_posts, selected_post; gifts also covers `gifts:all` account scope. Adds `routeCoverage` and `postScopedSectionsChecked`.
+- `scripts/test-pr262-product-semantic-matrix.js`: now asserts all post-scoped sections have root/zero_channels/multiple_channels/zero_posts/selected_post coverage and no irrelevant productReady lifecycle BLOCK.
+- `scripts/test-pr262-no-menu-multiplication.js`: deepened scan across JS files outside scripts/runtime/node_modules; only canonical-menu may declare `clientVisible: true`; active sources must not import legacy menu maps.
+- `docs/flow-contracts/ADMINKIT_PRODUCT_FLOW_CONTRACTS.md`: added per-section state matrix and required semantic matrix coverage section.
 
 Next required action:
-1. Run audit-only PASS/BLOCK for PR262 head `30bbb2ef4f982b9dccac74b5df56bc0ea6697552`.
-2. If audit BLOCK, fix exact blocker in existing PR262 branch.
-3. If audit PASS, merge with expected head SHA.
-4. After merge, verify runtime pickup and `runtime/product-semantic-matrix.json` in runtime-status.
-5. Manual MAX visual check gifts root/no-post/list/post-selected states.
+1. Wait for CI on head `060c3a5b3b282bf6d0383d12f10aa8d96eb76cc5`.
+2. If CI red, inspect diagnostics artifact and fix in same PR262 branch.
+3. If CI green, rerun audit-only PASS/BLOCK against latest head.
+4. Do not merge until final audit-only PASS or explicit user waiver.
