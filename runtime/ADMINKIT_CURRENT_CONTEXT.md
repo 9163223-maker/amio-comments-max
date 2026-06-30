@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 18:10 UTC
+Updated: 2026-06-30 18:13 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -41,8 +41,8 @@ PR260:
 - Current head: `a70ab9116f3b9dab6b01f1cd6351f5d0e99dd222`
 - Open, not merged.
 - Mergeable: true at latest check.
-- Previous CI before audit block: PR regression tests #501, success on head `2c1fadb52a49d4c153b5ea10c6f3b51253d1ae84`.
-- New CI after audit-block fix is pending/checking. Do not audit/merge until CI green on current head.
+- CI after audit-block fix: PR regression tests #505, run id `28465897836`, conclusion `success`.
+- Audit-only: pending repeat audit. Do not merge yet.
 
 PR260 goal:
 - Make PR259 diagnostics observable after deploy by wiring `channel-target-matrix`, `process-events`, `northflank-startup-log`, and `full-section-matrix` through the proven startup-log runtime-status export path.
@@ -54,15 +54,16 @@ Audit BLOCK at 2026-06-30 18:06 UTC:
 - It scanned chat-like human titles but not dangerous fixture identifiers such as chat/group/private/dialog/danger IDs.
 - Required fix: derive dangerous fixture values from `channelMatrix.dangerousRecords(...)` for each scenario and scan visible text, button text, and callback payload strings. Add a negative test proving injected chat-like payload ID fails the matrix.
 
-Assistant fix applied:
+Assistant fix applied and CI green:
 - `services/fullSectionMatrixService.js` now derives dangerous values from `channelMatrix.dangerousRecords(context.channels)` and scans both visible text/buttons and callback payload strings.
 - Added exported `dangerousValues()` helper.
 - `addScreenChecks()` now receives scenario context and reports `chat_like_record_leak` with `offendingText` or `offendingPayload`.
 - `scripts/test-pr260-full-section-matrix.js` now monkeypatches `menu.render()` to inject a dangerous chat-like payload ID into `comments:choose_channel`, asserts `buildMatrix().ok === false`, asserts `chatLeakCount > 0`, and asserts the violation identifies the injected payload ID.
-- Current head after fix: `a70ab9116f3b9dab6b01f1cd6351f5d0e99dd222`.
+- CI #505 passed on current head.
 
 Next required action:
-1. Check CI for current head `a70ab9116f3b9dab6b01f1cd6351f5d0e99dd222`.
-2. If CI red, use `adminkit-ci-diagnostics` artifact and fix in existing PR260 branch.
-3. If CI green, run repeat audit-only PASS/BLOCK for PR260 current head.
-4. Do not merge PR260 until audit-only PASS.
+1. Run repeat audit-only PASS/BLOCK for PR260 current head `a70ab9116f3b9dab6b01f1cd6351f5d0e99dd222`.
+2. If audit BLOCK, fix exact blocker in existing PR260 branch.
+3. If audit PASS, merge with expected head SHA.
+4. After merge, verify runtime pickup and that diagnostic files appear in `runtime-status`.
+5. Do not merge PR260 until audit-only PASS.
