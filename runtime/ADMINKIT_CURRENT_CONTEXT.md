@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 18:56 UTC
+Updated: 2026-06-30 19:25 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -45,12 +45,11 @@ PR261:
 - Title: `Reliable runtime diagnostics and expanded user journey matrix`
 - Branch: `codex/add-reliable-runtime-diagnostics-mechanism`
 - Base: `main`
-- Current head: `5b286f9cc732578ce77ba92fbf153bee9a285eba`
+- Current head: `8d8729ca9496e872d546c64140c9abdf7ef48250`
 - Open, not merged.
-- Mergeable: true at latest check.
-- CI: PR regression tests #510, run id `28468429808`, conclusion `success`.
-- PR comments/review blockers visible through connector: none.
-- Audit-only: pending. Do not merge yet.
+- Mergeable: true at latest check before latest fix.
+- Previous CI: PR regression tests #510, run id `28468429808`, success on head `5b286f9cc732578ce77ba92fbf153bee9a285eba`.
+- New CI after audit-block fix is pending/checking. Do not audit/merge until CI green on current head.
 
 PR261 changes:
 - Adds serialized runtime export queue with retry/backoff in `services/runtimeExportService.js`.
@@ -61,15 +60,28 @@ PR261 changes:
 - Adds workflow `.github/workflows/adminkit-post-merge-runtime-check.yml` for workflow-based delayed post-merge runtime verification.
 - Adds tests `scripts/test-pr261-reliable-runtime-diagnostics.js` and `scripts/test-pr261-expanded-user-journey-matrix.js`, wired into `npm test` and PR regression workflow.
 
-Assistant review/follow-up:
+Assistant review/follow-up before first audit:
 - Found a pre-audit blocker: `diagnostic-export-status` built its payload before its queued write ran, so it could snapshot pending exports as missing when writes were slow.
 - Fixed `services/runtimeExportService.js` so `payload` can be a function and is resolved at queued execution time.
 - `exportStatus()` now passes a lazy payload builder, so status sees completed earlier queued exports.
-- CI #510 passed on the updated head.
+- CI #510 passed after this fix.
+
+Audit BLOCK at 2026-06-30 19:16 UTC:
+- Blocker file: `services/userJourneyMatrixService.js`.
+- Reason: `REQUIRED_SCENARIOS` listed edge-case scenario names, but `buildMatrix()` did not actually model/execute several of them: malformed_payload, missing_payload, missing_required_id, stale_or_deleted_post, back_navigation, main_menu_navigation, direct_callback_without_prior_state.
+- Required fix: buildMatrix must model each required scenario or emit explicit info/not_supported. Tests must assert each scenario is exercised or explicitly marked, not merely listed.
+
+Assistant fix applied:
+- `services/userJourneyMatrixService.js` now emits `scenarioCoverage` records.
+- Existing rendered journeys mark scenarios as rendered.
+- Edge cases malformed_payload, missing_payload, and missing_required_id use synthetic detector checks and must be detected by validation.
+- stale_or_deleted_post and direct_callback_without_prior_state are rendered as safe-state checks.
+- back_navigation and main_menu_navigation are explicitly covered in section navigation checks.
+- Missing scenario coverage creates an info/not_supported violation instead of silent false coverage.
+- `scripts/test-pr261-expanded-user-journey-matrix.js` now asserts every REQUIRED_SCENARIO is either in scenarioCoverage with a real mode or explicitly info/not_supported; it also asserts detector coverage for malformed/missing/missing_required_id and rendered coverage for stale/direct/back/main navigation.
 
 Next required action:
-1. Run audit-only PASS/BLOCK for PR261 head `5b286f9cc732578ce77ba92fbf153bee9a285eba`.
-2. If audit BLOCK, fix exact blocker in existing PR261 branch.
-3. If audit PASS, merge with expected head SHA.
-4. After merge, run workflow-based post-merge runtime check or manually inspect runtime-status files.
-5. Do not merge PR261 until audit-only PASS.
+1. Check CI for current head `8d8729ca9496e872d546c64140c9abdf7ef48250`.
+2. If CI red, use diagnostics artifact and fix in existing PR261 branch.
+3. If CI green, run repeat audit-only PASS/BLOCK for PR261 current head.
+4. Do not merge PR261 until audit-only PASS.
