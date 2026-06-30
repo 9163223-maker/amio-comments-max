@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 12:48 UTC
+Updated: 2026-06-30 15:05 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -34,10 +34,17 @@ PR259:
 - Title: `Channel root matrix and runtime export safety`
 - Branch: `codex/fix-channel-matrix-and-runtime-export-safety`
 - Base: `main`
-- Current head after assistant follow-up commits: `ef52142f6161e984c0bd1220f537e0089fde2d97`
+- Current head: `1d2836524e9b5e5198e3d3c44f0fb5c43e66b24c`
 - Open, not merged.
-- Mergeable is currently false because branch is behind current `main` by runtime-log-only commits and PR259 deletes the runtime push dispatch log file from `main`.
-- No PR regression workflow run is visible for this head via connector.
+- Mergeable: true at latest check.
+- GitHub computed merge commit candidate: `aa353c50d0709cc147238725dcee5b681279b788`.
+- CI for current head: waiting/check next. No audit-only yet.
+
+What changed since previous checkpoint:
+- Assistant created a merge commit inside the PR259 branch, not into `main`.
+- First parent: previous PR259 head `ef52142f6161e984c0bd1220f537e0089fde2d97`.
+- Second parent: current `main` head `827e517e6e72a20026420615bbfd1ff15f7c9892`.
+- This resolved the behind/diverged branch state while preserving PR259 tree and runtime-log deletion.
 
 PR259 changes:
 - root `channels:list` and post-scoped choose-channel routes use shared channel predicate;
@@ -54,10 +61,9 @@ Assistant follow-up already applied:
 - PR259 matrix fixtures/tests now cover dangerous explicit-channel-id records without channel metadata.
 - PR259 tests were added to `npm test` because the workflow did not call them directly.
 
-Remaining blocker before audit-only:
-1. Bring PR259 branch up to current `main` or resolve the runtime-log deletion conflict while preserving PR259 changes.
-2. Ensure PR regression CI runs on the final PR259 head.
-3. If CI red, inspect diagnostics artifact and fix in the same PR branch.
-4. Only after CI green prepare audit-only PASS/BLOCK prompt.
+Remaining before audit-only:
+1. Check PR regression CI for head `1d2836524e9b5e5198e3d3c44f0fb5c43e66b24c`.
+2. If CI red, inspect diagnostics artifact and fix in the same PR branch.
+3. If CI green, prepare audit-only PASS/BLOCK prompt.
 
 Do not merge PR259 until CI green and audit-only PASS.
