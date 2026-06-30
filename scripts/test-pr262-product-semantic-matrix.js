@@ -4,10 +4,13 @@ const canonical = require('../features/menu-v3/canonical-menu');
 const contracts = require('../services/productFlowContractService');
 const matrix = require('../services/productSemanticMatrixService').buildMatrix();
 const ids = ['main', ...canonical.clientSections.map((s)=>s.id)].sort();
+assert.strictEqual(matrix.ok, true, `product semantic matrix must be green: ${JSON.stringify(matrix.violations.filter((v)=>v.severity==='block'), null, 2)}`);
+assert.strictEqual(matrix.summary.blockCount, 0, 'semantic matrix has no block violations');
 assert.deepStrictEqual(matrix.sections.map((s)=>s.section).sort(), ids);
 assert(matrix.summary && Array.isArray(matrix.summary.table));
 assert(Array.isArray(matrix.routeCoverage), 'matrix exposes routeCoverage');
 assert.strictEqual(matrix.summary.postScopedSectionsChecked, contracts.POST_SCOPED.length, 'all post-scoped sections have route coverage');
+assert(!contracts.POST_SCOPED.includes('stats'), 'stats is dashboard-scoped in product semantic matrix, not a whole post-scoped section');
 for (const sectionId of contracts.POST_SCOPED) {
   const row = matrix.sections.find((s)=>s.section===sectionId);
   assert(row, `${sectionId}: section exists`);
@@ -15,6 +18,14 @@ for (const sectionId of contracts.POST_SCOPED) {
     assert(row.routesCovered.some((item)=>item.startsWith(`${scenario}:`)), `${sectionId}: ${scenario} route covered`);
   }
 }
+for (const [sectionId, forbidden] of Object.entries({ buttons:['Добавить кнопку','Текущие кнопки'], polls:['Создать опрос'], highlights:['Поставить метку','Снять метку'] })) {
+  const row = matrix.sections.find((s)=>s.section===sectionId);
+  assert(row.actualRootButtons.includes('Выбрать пост'), `${sectionId}: root is a post-selection gate`);
+  for (const label of forbidden) assert(!row.actualRootButtons.includes(label), `${sectionId}: root hides ${label}`);
+}
+const stats = matrix.sections.find((s)=>s.section==='stats');
+assert(stats && stats.expectedRootMode === 'dashboard', 'stats remains dashboard-scoped');
+assert.strictEqual(stats.postScopedRouteCoverage, 0, 'stats root is not classified as a whole post-scoped section');
 const gifts = matrix.sections.find((s)=>s.section==='gifts');
 assert(gifts, 'gifts section exists');
 assert(!gifts.forbiddenButtonsVisible.includes('Текущий подарок'));
