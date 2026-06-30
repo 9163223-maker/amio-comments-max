@@ -1,0 +1,72 @@
+{
+  "ok": true,
+  "runtime": "PR260-CHANNEL-TARGET-MATRIX",
+  "generatedAt": "2026-06-30T19:30:18.323Z",
+  "bootId": "",
+  "checkedRoutes": [
+    "channels:list",
+    "comments:choose_channel",
+    "comments:choose_post",
+    "gifts:choose_channel",
+    "gifts:choose_post",
+    "buttons:choose_channel",
+    "buttons:choose_post",
+    "polls:choose_channel",
+    "polls:choose_post",
+    "highlights:choose_channel",
+    "highlights:choose_post",
+    "editor:choose_channel",
+    "editor:choose_post",
+    "stats:choose_channel",
+    "stats:choose_post"
+  ],
+  "routes": [
+    "channels:list",
+    "comments:choose_channel",
+    "comments:choose_post",
+    "gifts:choose_channel",
+    "gifts:choose_post",
+    "buttons:choose_channel",
+    "buttons:choose_post",
+    "polls:choose_channel",
+    "polls:choose_post",
+    "highlights:choose_channel",
+    "highlights:choose_post",
+    "editor:choose_channel",
+    "editor:choose_post",
+    "stats:choose_channel",
+    "stats:choose_post"
+  ],
+  "violations": [],
+  "fixtures": {
+    "totalChannels": 13,
+    "dangerousRecords": 10,
+    "safePosts": 1
+  },
+  "productSections": {
+    "postTargets": [
+      "comments",
+      "gifts",
+      "buttons",
+      "polls",
+      "highlights",
+      "editor",
+      "stats"
+    ],
+    "visibleChannelIds": [
+      "ch-real-1",
+      "ch-tenant-1",
+      "ch-posts-1"
+    ]
+  },
+  "visibleChannelIds": [
+    "ch-real-1",
+    "ch-tenant-1",
+    "ch-posts-1"
+  ],
+  "forbiddenTitles": [
+    "Все свои MAX",
+    "Саша - сын Мамочки 🌸"
+  ],
+  "leaks": []
+}
