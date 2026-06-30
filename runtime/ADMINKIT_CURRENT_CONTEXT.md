@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 09:39 UTC
+Updated: 2026-06-30 09:51 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -71,19 +71,20 @@ PR256 implemented RootSectionDispatcher v2 and merged into `main` at 2026-06-29 
 
 PR257 fixed remaining Gifts root 500 by routing root Gifts through unified root rendering before `giftsFlow`. PR257 merged at 2026-06-29 10:31 UTC, merge commit `8c3b94e5e5d5389da7541cfb9a4505113fedb220`. Runtime pickup passed, trace showed Gifts 200, and user visually confirmed Gifts opens. Process error: assistant merged after green CI without final audit-only Codex task; do not repeat.
 
-## PR258 current state — 2026-06-30 09:39 UTC
+## PR258 current state — 2026-06-30 09:51 UTC
 
 PR258:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/258
 - Title: `Separate chats from channel/post pickers and normalize root menu UX`
 - Branch: `codex/separate-chats-from-channel-flows`
 - Base: `main`
-- Current head: `a1473b23475839fdfa2a91c3c561aef2fab0d1f1`
-- Current commit message: `Preserve PR229 manual cost wiring marker in active wrapper`
-- Open, not merged, mergeable true at latest check.
-- CI for current head: PR regression tests run #476, run id `28434739881`, conclusion `success`.
+- Final PR head: `a1473b23475839fdfa2a91c3c561aef2fab0d1f1`
+- CI for final head: PR regression tests run #476, run id `28434739881`, conclusion `success`.
+- Audit-only: PASS, confirmed by user screenshot at 2026-06-30 09:50 UTC.
+- Merged into `main` at 2026-06-30 09:51 UTC.
+- Merge commit: `50b43a4524ed8009c48cd5c2ad710f2d027a7f66`.
 
-What PR258 already changed before latest manual fix:
+What PR258 changed:
 - strict channel/chat separation in shared picker `channel-post-picker-core.js`;
 - helper logic in `human-channel-title-helper.js`;
 - one/multiple/zero channel UX in post-scoped flows where already wired;
@@ -92,48 +93,32 @@ What PR258 already changed before latest manual fix:
 - CI diagnostics layer in the PR regression workflow;
 - focused test `scripts/test-channel-chat-separation-menu-ux.js`;
 - restored `scripts/test-stats-product-perfect-contract-pr226.js` with meaningful stats coverage after an audit BLOCK.
+- active `clean-bot-channel-first-post-picker-pr90.js` now patches `services/clientAccessService.getClientChannels` before loading the preserved legacy implementation;
+- the patch uses exported strict shared predicates `channel-post-picker-core.isChatLikeRecord` and `channel-post-picker-core.isKnownChannelRecord`;
+- previous legacy implementation preserved as `clean-bot-channel-first-post-picker-pr90-legacy.js` and loaded only after strict patch install.
+- `scripts/test-channel-chat-separation-menu-ux.js` includes wrapper-level regression coverage for one/multiple/zero channel states, stats source path, and editor/posts source path.
+- PR229 manual cost marker preserved in active wrapper with `STATS_MANUAL_COST_TEXT_INPUT_CONTRACT = 'stats_manual_cost_text_input'`.
 
 Previously fixed audit BLOCK:
 - `scripts/test-stats-product-perfect-contract-pr226.js` had been reduced too aggressively to a shim.
 - It was restored with 45 assertions covering clean stats root plus growth, sources, funnel, content/post metrics, quality/freshness, export cleanup, manual costs, CPA, filters, tracking attribution, public CTA vs admin button filtering, post snapshot isolation, and product dataset guard.
 - Commit: `fd3a603d5a5d15b951fa0886887e64ccfd37c4d4`.
-- Full CI passed on that head in run #472.
 
-Latest audit status before manual fix:
-- Latest audit-only returned BLOCK.
-- Blocker file: `clean-bot-channel-first-post-picker-pr90.js`.
-- Blocker: legacy RootSectionDispatcher v2 post picker wrapper can still show chat-like records as channels.
-- Reason: `channelsFromPosts(user)` built channel picker targets from `access.getClientChannels(uid)` using only `channel.channelId || channel.id`, without strict filtering from `channel-post-picker-core.js` / `human-channel-title-helper.js`.
-- Impact paths: `comments_select_post`, `comments_channel_pick`, `admin_posts_picker`, and post-level stats picker entry paths.
-
-## 2026-06-30 manual follow-up outcome
-
-User showed Codex UI error: Codex could not update the PR because the PR had been updated outside Codex and asked to create a new PR. New PR was not created.
-
-Assistant manually updated the existing PR258 branch via GitHub, preserving the existing PR:
-- Head `f9ac406444f430e221449bbab17c92861d4700bc` added active-wrapper strict filtering:
-  - active `clean-bot-channel-first-post-picker-pr90.js` patches `services/clientAccessService.getClientChannels` before loading the preserved legacy implementation;
-  - the patch uses exported strict shared predicates `channel-post-picker-core.isChatLikeRecord` and `channel-post-picker-core.isKnownChannelRecord`;
-  - previous legacy implementation preserved as `clean-bot-channel-first-post-picker-pr90-legacy.js` and loaded only after strict patch install.
-- `scripts/test-channel-chat-separation-menu-ux.js` was expanded with wrapper-level regression coverage for one/multiple/zero channel states, stats source path, and editor/posts source path.
-- Production contract files and start path were not changed.
-
-CI run #474 on head `f9ac406444f430e221449bbab17c92861d4700bc` failed. Diagnostics artifact showed failure inside `npm test`, specifically `scripts/test-stats-scope-and-buttons-contract-pr229.js` line 116: `assert(live.ok)`. The underlying cause was the PR229 live contract reading active `clean-bot-channel-first-post-picker-pr90.js` and checking that it contains the literal `stats_manual_cost_text_input`; after the legacy split that literal was only in the legacy file.
-
-Assistant fixed this in head `a1473b23475839fdfa2a91c3c561aef2fab0d1f1` by adding an explicit PR229 contract marker `STATS_MANUAL_COST_TEXT_INPUT_CONTRACT = 'stats_manual_cost_text_input'` to the active wrapper and exporting it under `_private`, without changing runtime start path.
-
-CI run #476 passed green on head `a1473b23475839fdfa2a91c3c561aef2fab0d1f1`.
+Latest BLOCK fixed:
+- `clean-bot-channel-first-post-picker-pr90.js` could still show chat-like records as channels.
+- Final fix on merged code: active wrapper installs strict client-channel patch using shared predicates before legacy wrapper load.
 
 ## Current waiting state
 
-CI is green. Do not merge yet. Next step is audit-only Codex PASS/BLOCK for current head `a1473b23475839fdfa2a91c3c561aef2fab0d1f1`.
+PR258 is merged. Next required step is deploy/runtime pickup verification.
 
-Next required action:
-1. Run audit-only PASS/BLOCK task for current head `a1473b23475839fdfa2a91c3c561aef2fab0d1f1`.
-2. If audit BLOCK: fix exact blocker on same PR258 branch; do not create a new PR.
-3. If audit PASS: merge PR258.
-4. After merge: verify deploy/runtime pickup and production contract.
-5. Then manual MAX check: channel/post pickers show only channels; chats are not offered as post targets.
+Check after a few minutes:
+1. Read `runtime/startup-log.json` from `runtime-status`.
+2. Confirm deployed/runtime source points at merge commit `50b43a4524ed8009c48cd5c2ad710f2d027a7f66` or contains the PR258 merge changes.
+3. Confirm production start path remains `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
+4. Confirm active entrypoint remains `clean-entrypoint-1.53.10-pr89.js`.
+5. Inspect `runtime/root-menu-live-parity-trace.json` and `runtime/manual-ui-walkthrough-trace.json` if available.
+6. Then manual MAX check: channel/post pickers show only channels; chats are not offered as post targets.
 
 ## Completion definition
 
