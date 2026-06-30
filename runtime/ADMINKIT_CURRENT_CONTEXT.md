@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 18:32 UTC
+Updated: 2026-06-30 18:56 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -30,79 +30,46 @@ PR259 merged into `main` at 2026-06-30 15:50 UTC.
 - Audit-only: PASS.
 - Merge commit: `c087323dcf38d1a6bbec082efe3b9bbdb496e747`.
 
-Runtime pickup for PR259 was confirmed from `runtime/startup-log.json`. No restart loop was visible. PR259 diagnostic files did not materialize in `runtime-status`, so PR260 was opened.
-
 ## PR260 status
-PR260:
-- URL: https://github.com/9163223-maker/amio-comments-max/pull/260
-- Title: `Runtime observable full section matrix diagnostics`
-- Branch: `codex/add-runtime-diagnostics-for-adminkit-sections`
-- Base: `main`
+PR260 merged into `main` at 2026-06-30 18:20 UTC.
 - Final head: `a70ab9116f3b9dab6b01f1cd6351f5d0e99dd222`
-- CI after audit-block fix: PR regression tests #505, run id `28465897836`, conclusion `success`.
-- Audit-only: PASS confirmed by user screenshot at 2026-06-30 18:18 UTC.
-- Merged into `main` at 2026-06-30 18:20 UTC.
+- CI: PR regression tests #505, success.
+- Audit-only: PASS.
 - Merge commit: `cc33ac39aee2817070ea8e65693553d36df103aa`.
 
-PR260 goal:
-- Make PR259 diagnostics observable after deploy by wiring `channel-target-matrix`, `process-events`, `northflank-startup-log`, and `full-section-matrix` through the proven startup-log runtime-status export path.
-- Add detailed server-side full-section matrix for all main sections and post-scoped routes.
+PR260 runtime pickup passed. `runtime/full-section-matrix.json` appeared and was OK. `runtime/channel-target-matrix.json`, `runtime/process-events.json`, and `runtime/northflank-startup-log.json` did not appear. PR261 was opened to serialize/retry exports and expand journey matrix.
 
-Audit BLOCK before PASS:
-- Blocker file: `services/fullSectionMatrixService.js`.
-- Reason: `buildMatrix()` did not detect chat-like fixture IDs leaking in callback payloads.
-- Fix applied: derive dangerous fixture values from `channelMatrix.dangerousRecords(...)` and scan visible text/buttons and callback payload strings; add negative monkeypatch test that injects dangerous payload ID and expects matrix failure.
+## PR261 current state
+PR261:
+- URL: https://github.com/9163223-maker/amio-comments-max/pull/261
+- Title: `Reliable runtime diagnostics and expanded user journey matrix`
+- Branch: `codex/add-reliable-runtime-diagnostics-mechanism`
+- Base: `main`
+- Current head: `5b286f9cc732578ce77ba92fbf153bee9a285eba`
+- Open, not merged.
+- Mergeable: true at latest check.
+- CI: PR regression tests #510, run id `28468429808`, conclusion `success`.
+- PR comments/review blockers visible through connector: none.
+- Audit-only: pending. Do not merge yet.
 
-## PR260 post-merge runtime check — 2026-06-30 18:32 UTC
-Runtime pickup confirmed:
-- `runtime/startup-log.json` latest `updatedAt`: `2026-06-30T18:20:23.961Z`.
-- latest `startedAt`: `2026-06-30T18:19:41.359Z`.
-- latest `bootId`: `mr0z27sa-bd75e982`.
-- latest `githubMainHeadSha`: `cc33ac39aee2817070ea8e65693553d36df103aa`.
-- `runtimeStatusExportBranch`: `runtime-status`.
-- `commitSource`: `github-main-head`.
-- production entrypoint: `clean-entrypoint-1.53.10-pr89.js`.
-- runtime contract live OK: true.
-- startupPath OK: true.
-- dataProviders OK: true.
-- mismatches: []
-- finalRuntimeReadinessGate OK: true.
-- missing: []
-- readyForManualMaxTest: true.
-- `package.json` on main keeps start script unchanged: `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
+PR261 changes:
+- Adds serialized runtime export queue with retry/backoff in `services/runtimeExportService.js`.
+- Runtime exports are restricted to `runtime/*.json`, reject `..`, refuse `main`, default safely to `runtime-status`, sanitize errors, read current file SHA, and retry content API conflicts.
+- `services/startupLogService.js` delegates runtime JSON writes to the reliable runtime export service.
+- `pr180-startup-log-bootstrap.js` exports full-section, channel-target, user-journey, process-events, northflank diagnostics, then delayed diagnostic-export-status.
+- Adds `services/userJourneyMatrixService.js` with expanded user journey matrix.
+- Adds workflow `.github/workflows/adminkit-post-merge-runtime-check.yml` for workflow-based delayed post-merge runtime verification.
+- Adds tests `scripts/test-pr261-reliable-runtime-diagnostics.js` and `scripts/test-pr261-expanded-user-journey-matrix.js`, wired into `npm test` and PR regression workflow.
 
-Restart stability:
-- No later startup-log update after `2026-06-30T18:20:23.961Z` was visible at 18:32 UTC.
-- The log contains two records with the same `startedAt` immediately after pickup, but no later repeated restart/update is visible. Treat as no observed restart loop.
+Assistant review/follow-up:
+- Found a pre-audit blocker: `diagnostic-export-status` built its payload before its queued write ran, so it could snapshot pending exports as missing when writes were slow.
+- Fixed `services/runtimeExportService.js` so `payload` can be a function and is resolved at queued execution time.
+- `exportStatus()` now passes a lazy payload builder, so status sees completed earlier queued exports.
+- CI #510 passed on the updated head.
 
-Diagnostics result:
-- `runtime/full-section-matrix.json`: present in `runtime-status` and OK.
-  - runtime: `PR260-FULL-SECTION-MATRIX`.
-  - generatedAt: `2026-06-30T18:19:43.858Z`.
-  - sectionsChecked: main, channels, comments, gifts, buttons, stats, push, ad_links, polls, highlights, editor, archive, account, settings.
-  - routesChecked: 37 routes.
-  - scenarios: zero_channels, one_channel, multiple_channels, dangerous_chat_records, empty_channel_without_posts, selected_channel_with_posts.
-  - violations: []
-  - summary: totalViolations 0, blockCount 0, warnCount 0, chatLeakCount 0, payloadIssueCount 0, technicalLeakCount 0.
-- `runtime/channel-target-matrix.json`: NOT FOUND in `runtime-status`.
-- `runtime/process-events.json`: NOT FOUND in `runtime-status`.
-- `runtime/northflank-startup-log.json`: NOT FOUND in `runtime-status`.
-
-Interpretation:
-- Product/server matrix objective is achieved for full-section matrix and covers gifts/lead-magnets and buttons routes with no violations.
-- Observability objective is only partially achieved because three expected PR260 diagnostic files still did not materialize.
-- Likely cause: PR260 starts several `startupLog.exportRuntimeJson()` writes concurrently from bootstrap. The simple contents-API exporter has no retry/serialization. One export (`full-section-matrix`) succeeded; the others likely collided/failed/skipped. The errors only go to container logs and are not exported to `runtime-status`.
-
-Codex Review P2 suggestions seen after merge:
-- dangerous record IDs in leak checks: addressed by assistant fix before audit PASS.
-- remaining non-blocking hardening candidates: do not filter blank labels before validation; validate missing/empty callback payloads; assert rendered root buttons before reporting sections; preserve configured runtime branch. These were not audit blockers but should be considered for PR261 if we decide to harden diagnostics further.
-
-Current conclusion:
-- Runtime pickup: PASS.
-- Production contract: PASS.
-- Full-section matrix: PASS.
-- Gifts/lead-magnets and buttons matrix status: PASS in full-section matrix.
-- Complete PR260 observability: PARTIAL/BLOCKED for missing channel-target/process-events/northflank files.
-
-Recommended next PR:
-PR261 — serialize/retry runtime diagnostic exports and harden full-section matrix P2 gaps. It should make all expected diagnostic files reliably materialize in `runtime-status`, with sequential writes/retry/backoff, and cover blank button labels/missing payload/root-button integrity.
+Next required action:
+1. Run audit-only PASS/BLOCK for PR261 head `5b286f9cc732578ce77ba92fbf153bee9a285eba`.
+2. If audit BLOCK, fix exact blocker in existing PR261 branch.
+3. If audit PASS, merge with expected head SHA.
+4. After merge, run workflow-based post-merge runtime check or manually inspect runtime-status files.
+5. Do not merge PR261 until audit-only PASS.
