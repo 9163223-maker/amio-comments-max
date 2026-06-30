@@ -36,7 +36,23 @@ function contexts() {
     selected_channel_with_posts: { channels: safe, posts: posts('ch-posts-1'), dataContext: { channels: safe, channelId: 'ch-posts-1', channelTitle: 'Канал с постами', posts: posts('ch-posts-1') } }
   };
 }
-function addScreenChecks(out, screen, route, section, scenario) {
+function dangerousValues(context = {}) {
+  const values = new Set(CHAT_WORDS.map(clean).filter(Boolean));
+  for (const raw of channelMatrix.dangerousRecords(context.channels || [])) {
+    for (const value of [raw.chatId, raw.chat_id, raw.id, raw.channelId, raw.channel_id, raw.title, raw.channelTitle, raw.channel_title, raw.name, raw.chatTitle, raw.chat_title, raw.displayName, raw.display_name]) {
+      const text = clean(value);
+      if (text) values.add(text);
+    }
+  }
+  return Array.from(values);
+}
+function containsNeedle(haystack = '', needle = '') {
+  const source = clean(haystack);
+  const value = clean(needle);
+  if (!source || !value) return false;
+  return source.includes(value);
+}
+function addScreenChecks(out, screen, route, section, scenario, context = {}) {
   const texts = buttonTexts(screen); const ps = payloads(screen); const text = visibleText(screen);
   if (!screen || screen.ok === false) out.push(violation('block', route, section, scenario, 'route_render_failed', 'screen ok', screen && screen.error || 'missing'));
   if (!text) out.push(violation('block', route, section, scenario, 'missing_screen_text', 'non-empty text', 'empty'));
@@ -46,8 +62,12 @@ function addScreenChecks(out, screen, route, section, scenario) {
   }
   for (const p of ps) { try { JSON.parse(p); } catch { out.push(violation('block', route, section, scenario, 'unparseable_payload', 'JSON callback payload', 'parse failed', { offendingPayload: safeOffender(p) })); } }
   const visible = [text, ...texts].join('\n');
+  const payloadText = ps.join('\n');
   for (const word of TECHNICAL_VISIBLE) if (new RegExp(`\\b${word}\\b`, 'i').test(visible)) out.push(violation('block', route, section, scenario, 'technical_id_visible', 'no technical IDs in visible text', word, { offendingText: word }));
-  for (const chat of CHAT_WORDS) if ((visible + '\n' + ps.join('\n')).includes(chat)) out.push(violation('block', route, section, scenario, 'chat_like_record_leak', 'chat-like fixtures hidden', chat, { offendingText: chat }));
+  for (const dangerous of dangerousValues(context)) {
+    if (containsNeedle(visible, dangerous)) out.push(violation('block', route, section, scenario, 'chat_like_record_leak', 'chat-like fixtures hidden from visible text', dangerous, { offendingText: safeOffender(dangerous) }));
+    if (containsNeedle(payloadText, dangerous)) out.push(violation('block', route, section, scenario, 'chat_like_record_leak', 'chat-like fixtures hidden from callback payloads', dangerous, { offendingPayload: safeOffender(dangerous) }));
+  }
   if (route !== 'main:home' && !texts.includes('Главное меню')) out.push(violation('block', route, section, scenario, 'missing_main_menu_navigation', 'Главное меню', texts.join(' | ')));
   if ((route.includes(':choose_') || route.endsWith(':post') || route.includes('channels:')) && !texts.some((t) => ['Назад', 'В начало раздела', 'Главное меню'].includes(t))) out.push(violation('warn', route, section, scenario, 'missing_back_navigation', 'back/section/main navigation', texts.join(' | ')));
   if (texts.filter((t) => /инструкция/i.test(t)).length) out.push(violation('block', route, section, scenario, 'obsolete_instruction_button', 'no obsolete instruction buttons', texts.join(' | ')));
@@ -63,9 +83,9 @@ function buildMatrix() {
     for (const scenario of REQUIRED_SCENARIOS) {
       if (rootRoutes.includes(route) && scenario !== 'multiple_channels') continue;
       if (route.endsWith(':post') && scenario !== 'selected_channel_with_posts') continue;
-      const ctx = route.endsWith(':post') ? { payload: { postTitle: 'Безопасный пост', channelId: 'ch-posts-1', postId: 'post-1', commentKey: 'ch-posts-1:post-1' } } : ctxs[scenario];
+      const ctx = route.endsWith(':post') ? { payload: { postTitle: 'Безопасный пост', channelId: 'ch-posts-1', postId: 'post-1', commentKey: 'ch-posts-1:post-1' }, channels: ctxs.selected_channel_with_posts.channels } : ctxs[scenario];
       const screen = render(route, ctx);
-      addScreenChecks(violations, screen, route, section, scenario);
+      addScreenChecks(violations, screen, route, section, scenario, ctx);
       const texts = buttonTexts(screen);
       if (route.endsWith(':choose_channel') && scenario === 'zero_channels' && !(texts.includes('Подключить канал') && texts.includes('Главное меню'))) violations.push(violation('block', route, section, scenario, 'zero_channels_empty_state_invalid', 'Подключить канал + Главное меню', texts.join(' | ')));
       if (route.endsWith(':choose_channel') && scenario === 'multiple_channels' && !texts.includes('Настоящий канал')) violations.push(violation('block', route, section, scenario, 'legitimate_channel_missing', 'safe channels visible', texts.join(' | ')));
@@ -79,4 +99,4 @@ function buildMatrix() {
   return { ok: blockCount === 0, runtime: 'PR260-FULL-SECTION-MATRIX', generatedAt: new Date().toISOString(), headSha: clean(process.env.GITHUB_SHA || process.env.GIT_COMMIT || process.env.COMMIT_SHA), bootId: BOOT_ID, sectionsChecked: ['main', ...canonical.clientSections.map((s) => s.id)], routesChecked: routes, scenarios: REQUIRED_SCENARIOS, violations, summary: { totalRoutes: routes.length, totalViolations: violations.length, blockCount, warnCount, chatLeakCount: violations.filter((v)=>v.reason==='chat_like_record_leak').length, navigationIssueCount: violations.filter((v)=>/navigation/.test(v.reason)).length, payloadIssueCount: violations.filter((v)=>/payload/.test(v.reason)).length, technicalLeakCount: violations.filter((v)=>v.reason==='technical_id_visible').length } };
 }
 async function exportMatrix() { const payload = buildMatrix(); return startupLog.exportRuntimeJson({ path: DEFAULT_PATH, payload, message: `full section matrix ${payload.ok ? 'PASS' : 'FAIL'}` }); }
-module.exports = { DEFAULT_PATH, POST_SCOPED_SECTIONS, REQUIRED_SCENARIOS, buildMatrix, exportMatrix };
+module.exports = { DEFAULT_PATH, POST_SCOPED_SECTIONS, REQUIRED_SCENARIOS, buildMatrix, exportMatrix, dangerousValues };
