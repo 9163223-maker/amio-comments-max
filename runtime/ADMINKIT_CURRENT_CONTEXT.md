@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 15:22 UTC
+Updated: 2026-06-30 15:43 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -34,12 +34,11 @@ PR259:
 - Title: `Channel root matrix and runtime export safety`
 - Branch: `codex/fix-channel-matrix-and-runtime-export-safety`
 - Base: `main`
-- Current head: `6336c017f1d919f22634060e0267605a3ce6c88e`
+- Current head: `23c417b1ef945395cce64fcc320a69427af79645`
 - Open, not merged.
 - Mergeable: true at latest check.
-- GitHub computed merge commit candidate: `b0e5189576a950646d172699463bf42e0b0cdd09` at latest PR info check.
-- CI: PR regression tests #492, run id `28455318528`, conclusion `success`.
-- Audit-only: pending. Do not merge yet.
+- CI: PR regression tests #498, run id `28456674246`, conclusion `success`.
+- Latest audit-only: BLOCK, then fixed by assistant. Re-audit required. Do not merge yet.
 
 What changed in PR259:
 - root `channels:list` and post-scoped choose-channel routes use shared channel predicate;
@@ -51,22 +50,26 @@ What changed in PR259:
 - startup bootstrap exports these diagnostics;
 - PR259 tests are added and included in `npm test`.
 
-Assistant follow-up applied:
+Assistant follow-up applied before first audit:
 - Created a merge commit inside the PR259 branch, not into `main`, to bring it up to current `main` while preserving PR259 changes and runtime-log deletion.
-- Hardened `channel-post-picker-core.isKnownChannelRecord()` so explicit `channelId` alone is no longer enough. A record needs explicit channel type, `isChannel`, trusted tenant/source/owner evidence, channel-like title evidence, or stored post evidence. Chat-like metadata is rejected first.
-- PR259 matrix fixtures/tests cover dangerous explicit-channel-id records without channel metadata.
-- PR259 tests were added to `npm test` because the workflow did not call them directly.
-- Fixed CI regressions from #484, #486, #488, and #490 without weakening old regression intent.
+- Hardened channel predicate and fixed CI regressions from #484, #486, #488, and #490 without weakening old regression intent.
+- CI #492 was green.
 
-CI red history during PR259 follow-up:
-- #484: `test-channels-tenant-hydration-pr193a` failed; fixed tenant storage channel evidence.
-- #486: `test-v3-channels-list-hydration-pr194` failed; fixed test stub compatibility with shared predicate.
-- #488: PR229 stats shared-picker target failed; fixed stats target trust for `channel_post_picker` provider.
-- #490: PR126 buttons/gifts channel picker missed empty tenant channel; fixed linked/owner channel evidence while keeping chat-like metadata blocked.
-- #492: green.
+Audit BLOCK at 2026-06-30 15:34 UTC:
+- `channel-post-picker-core.js`: dangerous ambiguous records with explicit `channelId` plus known chat/group-like human titles could still be accepted because the explicit-channelId path was not guarded explicitly enough.
+- Repro from audit: `adapter.render('channels:list', { channels: [{ channelId: 'danger-1', title: 'Все свои MAX' }] })` rendered `Все свои MAX` in visible text/payload.
+- `services/channelTargetMatrixService.js`: PR259 matrix was not meaningful enough because it only rendered `channels:list` and `*:choose_channel`; it did not cover any `*:choose_post` screen with posts for comments/gifts/buttons/polls/highlights/editor/stats, and fixtures did not include exact dangerous `channelId + human chat/group title` cases required by audit.
+
+Assistant fixed the BLOCK in current head `23c417b1ef945395cce64fcc320a69427af79645`:
+- Added explicit `hasSuspiciousChatHumanTitle()` guard in `channel-post-picker-core.js`.
+- Added `hasPositiveChannelEvidence()` and made suspicious human-title records require positive channel evidence: explicit channel type, `isChannel`, tenant/bound/owner/source evidence, or stored post evidence.
+- Added exact matrix fixtures: `{ channelId: 'danger-1', title: 'Все свои MAX' }` and `{ channelId: 'danger-2', title: 'Саша - сын Мамочки 🌸' }`.
+- Expanded matrix to render and assert both `*:choose_channel` and `*:choose_post` with posts for comments/gifts/buttons/polls/highlights/editor/stats.
+- Updated `scripts/test-pr259-channel-target-matrix.js` accordingly.
+- CI #498 passed green on the new head.
 
 Next required action:
-1. Run audit-only PASS/BLOCK for PR259 head `6336c017f1d919f22634060e0267605a3ce6c88e`.
+1. Run audit-only PASS/BLOCK for PR259 head `23c417b1ef945395cce64fcc320a69427af79645`.
 2. If audit BLOCK, fix exact blocker in existing PR259 branch.
 3. If audit PASS, merge PR259 with expected head SHA.
 4. After merge, verify deploy/runtime pickup and production contract.
