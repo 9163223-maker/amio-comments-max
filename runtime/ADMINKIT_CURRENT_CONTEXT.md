@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 18:13 UTC
+Updated: 2026-06-30 18:32 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -30,40 +30,79 @@ PR259 merged into `main` at 2026-06-30 15:50 UTC.
 - Audit-only: PASS.
 - Merge commit: `c087323dcf38d1a6bbec082efe3b9bbdb496e747`.
 
-Runtime pickup for PR259 was confirmed from `runtime/startup-log.json`. No restart loop was visible. PR259 product fix is ready for manual MAX visual check. PR259 diagnostic files did not materialize in `runtime-status`, so PR260 was opened.
+Runtime pickup for PR259 was confirmed from `runtime/startup-log.json`. No restart loop was visible. PR259 diagnostic files did not materialize in `runtime-status`, so PR260 was opened.
 
-## PR260 current state
+## PR260 status
 PR260:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/260
 - Title: `Runtime observable full section matrix diagnostics`
 - Branch: `codex/add-runtime-diagnostics-for-adminkit-sections`
 - Base: `main`
-- Current head: `a70ab9116f3b9dab6b01f1cd6351f5d0e99dd222`
-- Open, not merged.
-- Mergeable: true at latest check.
+- Final head: `a70ab9116f3b9dab6b01f1cd6351f5d0e99dd222`
 - CI after audit-block fix: PR regression tests #505, run id `28465897836`, conclusion `success`.
-- Audit-only: pending repeat audit. Do not merge yet.
+- Audit-only: PASS confirmed by user screenshot at 2026-06-30 18:18 UTC.
+- Merged into `main` at 2026-06-30 18:20 UTC.
+- Merge commit: `cc33ac39aee2817070ea8e65693553d36df103aa`.
 
 PR260 goal:
 - Make PR259 diagnostics observable after deploy by wiring `channel-target-matrix`, `process-events`, `northflank-startup-log`, and `full-section-matrix` through the proven startup-log runtime-status export path.
 - Add detailed server-side full-section matrix for all main sections and post-scoped routes.
 
-Audit BLOCK at 2026-06-30 18:06 UTC:
+Audit BLOCK before PASS:
 - Blocker file: `services/fullSectionMatrixService.js`.
 - Reason: `buildMatrix()` did not detect chat-like fixture IDs leaking in callback payloads.
-- It scanned chat-like human titles but not dangerous fixture identifiers such as chat/group/private/dialog/danger IDs.
-- Required fix: derive dangerous fixture values from `channelMatrix.dangerousRecords(...)` for each scenario and scan visible text, button text, and callback payload strings. Add a negative test proving injected chat-like payload ID fails the matrix.
+- Fix applied: derive dangerous fixture values from `channelMatrix.dangerousRecords(...)` and scan visible text/buttons and callback payload strings; add negative monkeypatch test that injects dangerous payload ID and expects matrix failure.
 
-Assistant fix applied and CI green:
-- `services/fullSectionMatrixService.js` now derives dangerous values from `channelMatrix.dangerousRecords(context.channels)` and scans both visible text/buttons and callback payload strings.
-- Added exported `dangerousValues()` helper.
-- `addScreenChecks()` now receives scenario context and reports `chat_like_record_leak` with `offendingText` or `offendingPayload`.
-- `scripts/test-pr260-full-section-matrix.js` now monkeypatches `menu.render()` to inject a dangerous chat-like payload ID into `comments:choose_channel`, asserts `buildMatrix().ok === false`, asserts `chatLeakCount > 0`, and asserts the violation identifies the injected payload ID.
-- CI #505 passed on current head.
+## PR260 post-merge runtime check — 2026-06-30 18:32 UTC
+Runtime pickup confirmed:
+- `runtime/startup-log.json` latest `updatedAt`: `2026-06-30T18:20:23.961Z`.
+- latest `startedAt`: `2026-06-30T18:19:41.359Z`.
+- latest `bootId`: `mr0z27sa-bd75e982`.
+- latest `githubMainHeadSha`: `cc33ac39aee2817070ea8e65693553d36df103aa`.
+- `runtimeStatusExportBranch`: `runtime-status`.
+- `commitSource`: `github-main-head`.
+- production entrypoint: `clean-entrypoint-1.53.10-pr89.js`.
+- runtime contract live OK: true.
+- startupPath OK: true.
+- dataProviders OK: true.
+- mismatches: []
+- finalRuntimeReadinessGate OK: true.
+- missing: []
+- readyForManualMaxTest: true.
+- `package.json` on main keeps start script unchanged: `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
 
-Next required action:
-1. Run repeat audit-only PASS/BLOCK for PR260 current head `a70ab9116f3b9dab6b01f1cd6351f5d0e99dd222`.
-2. If audit BLOCK, fix exact blocker in existing PR260 branch.
-3. If audit PASS, merge with expected head SHA.
-4. After merge, verify runtime pickup and that diagnostic files appear in `runtime-status`.
-5. Do not merge PR260 until audit-only PASS.
+Restart stability:
+- No later startup-log update after `2026-06-30T18:20:23.961Z` was visible at 18:32 UTC.
+- The log contains two records with the same `startedAt` immediately after pickup, but no later repeated restart/update is visible. Treat as no observed restart loop.
+
+Diagnostics result:
+- `runtime/full-section-matrix.json`: present in `runtime-status` and OK.
+  - runtime: `PR260-FULL-SECTION-MATRIX`.
+  - generatedAt: `2026-06-30T18:19:43.858Z`.
+  - sectionsChecked: main, channels, comments, gifts, buttons, stats, push, ad_links, polls, highlights, editor, archive, account, settings.
+  - routesChecked: 37 routes.
+  - scenarios: zero_channels, one_channel, multiple_channels, dangerous_chat_records, empty_channel_without_posts, selected_channel_with_posts.
+  - violations: []
+  - summary: totalViolations 0, blockCount 0, warnCount 0, chatLeakCount 0, payloadIssueCount 0, technicalLeakCount 0.
+- `runtime/channel-target-matrix.json`: NOT FOUND in `runtime-status`.
+- `runtime/process-events.json`: NOT FOUND in `runtime-status`.
+- `runtime/northflank-startup-log.json`: NOT FOUND in `runtime-status`.
+
+Interpretation:
+- Product/server matrix objective is achieved for full-section matrix and covers gifts/lead-magnets and buttons routes with no violations.
+- Observability objective is only partially achieved because three expected PR260 diagnostic files still did not materialize.
+- Likely cause: PR260 starts several `startupLog.exportRuntimeJson()` writes concurrently from bootstrap. The simple contents-API exporter has no retry/serialization. One export (`full-section-matrix`) succeeded; the others likely collided/failed/skipped. The errors only go to container logs and are not exported to `runtime-status`.
+
+Codex Review P2 suggestions seen after merge:
+- dangerous record IDs in leak checks: addressed by assistant fix before audit PASS.
+- remaining non-blocking hardening candidates: do not filter blank labels before validation; validate missing/empty callback payloads; assert rendered root buttons before reporting sections; preserve configured runtime branch. These were not audit blockers but should be considered for PR261 if we decide to harden diagnostics further.
+
+Current conclusion:
+- Runtime pickup: PASS.
+- Production contract: PASS.
+- Full-section matrix: PASS.
+- Gifts/lead-magnets and buttons matrix status: PASS in full-section matrix.
+- Complete PR260 observability: PARTIAL/BLOCKED for missing channel-target/process-events/northflank files.
+
+Recommended next PR:
+PR261 — serialize/retry runtime diagnostic exports and harden full-section matrix P2 gaps. It should make all expected diagnostic files reliably materialize in `runtime-status`, with sequential writes/retry/backoff, and cover blank button labels/missing payload/root-button integrity.
