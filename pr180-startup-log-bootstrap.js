@@ -6,6 +6,7 @@ const liveVersionSnapshotService = require('./services/liveVersionSnapshotServic
 const processEvents = require('./services/processEventsService');
 const northflankStartupLog = require('./services/northflankStartupLogService');
 const channelTargetMatrix = require('./services/channelTargetMatrixService');
+const fullSectionMatrix = require('./services/fullSectionMatrixService');
 
 const startedAt = new Date().toISOString();
 let scheduled = false;
@@ -127,5 +128,6 @@ function scheduleStartupLog() {
 processEvents.install();
 northflankStartupLog.exportLog().catch((error) => { console.warn('[northflank-startup-log] export skipped', error && error.message || error); });
 channelTargetMatrix.exportMatrix().catch((error) => { console.warn('[channel-target-matrix] export skipped', error && error.message || error); });
+fullSectionMatrix.exportMatrix().catch((error) => { console.warn('[full-section-matrix] export skipped', error && error.message || error); });
 scheduleStartupLog();
 module.exports = { ok: true, marker: 'adminkit-pr180-startup-log-bootstrap', scheduleStartupLog, recordStartupNow, markRuntimeReadinessInstallComplete, markPr199InstallComplete, shouldDeferStartupLog, isFinalDisabledProductionProbeStartup, finalRuntimeReadinessGate, info: startupLog.info, runtimeInfo };

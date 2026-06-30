@@ -1,0 +1,30 @@
+'use strict';
+const assert = require('assert');
+const startupLog = require('../services/startupLogService');
+const runtimeExport = require('../services/runtimeExportService');
+const channel = require('../services/channelTargetMatrixService');
+const processEvents = require('../services/processEventsService');
+const northflank = require('../services/northflankStartupLogService');
+const full = require('../services/fullSectionMatrixService');
+
+(async () => {
+  assert.strictEqual(startupLog.DEFAULT_BRANCH, 'runtime-status');
+  assert.throws(() => runtimeExport.assertRuntimeBranch('main'), /refuses_main_branch/);
+  await assert.rejects(() => startupLog.exportRuntimeJson({ branch: 'main', path: 'runtime/process-events.json', payload: {} }), /refuses_main_branch/);
+  assert.doesNotThrow(() => runtimeExport.assertRuntimeBranch('runtime-status'));
+  assert.doesNotThrow(() => runtimeExport.sanitizePath('runtime/full-section-matrix.json'));
+  const processPayload = await processEvents.buildPayload();
+  const payloads = [channel.buildMatrix(), processPayload, northflank.payload(), full.buildMatrix()];
+  assert(payloads[0].checkedRoutes && payloads[0].fixtures && payloads[0].productSections, 'channel matrix observable shape');
+  assert(payloads[1].bootId && payloads[1].startedAt && typeof payloads[1].capturedEvents === 'number', 'process payload buildable');
+  assert.strictEqual(payloads[2].ok, true, 'northflank missing config does not fail');
+  assert.strictEqual(payloads[2].configured, false, 'northflank missing config fallback exported as configured false');
+  assert.strictEqual(payloads[3].ok, true, 'full matrix buildable');
+  const old = process.env.GITHUB_DEBUG_TOKEN;
+  delete process.env.GITHUB_DEBUG_TOKEN;
+  const result = await startupLog.exportRuntimeJson({ branch: 'runtime-status', path: 'runtime/full-section-matrix.json', payload: payloads[3] });
+  if (old !== undefined) process.env.GITHUB_DEBUG_TOKEN = old;
+  assert.strictEqual(result.skipped, true, 'missing token skips without throw');
+  assert.strictEqual(result.branch, 'runtime-status', 'diagnostics target runtime-status');
+  console.log('PR260 runtime diagnostics observable PASS');
+})().catch((error) => { console.error(error); process.exit(1); });

@@ -466,6 +466,24 @@ async function recordStartup(input = {}) {
   }
 }
 
+async function exportRuntimeJson({ repo = DEFAULT_REPO, branch = DEFAULT_BRANCH, path, token = process.env.GITHUB_DEBUG_TOKEN, payload, message = 'runtime diagnostic export' }) {
+  branch = clean(branch || DEFAULT_BRANCH);
+  if (branch.toLowerCase() === DEFAULT_MAIN_BRANCH) throw new Error('startup_log_refuses_main_branch');
+  if (!/^runtime\/[A-Za-z0-9._/-]+\.json$/.test(clean(path)) || clean(path).includes('..')) throw new Error('startup_log_invalid_runtime_path');
+  if (!clean(token)) return { ok: false, skipped: true, configured: false, branch, path, error: 'GITHUB_DEBUG_TOKEN not configured' };
+  await ensureBranch({ repo, branch, token });
+  let current = { sha: '' };
+  try {
+    const file = await requestJson({ path: `/repos/${repo}/contents/${encodeURIComponent(path).replace(/%2F/g, '/')}?ref=${encodeURIComponent(branch)}`, token });
+    current = { sha: file && file.sha || '' };
+  } catch (error) {
+    if (error.status !== 404) throw error;
+  }
+  await requestJson({ method: 'PUT', path: `/repos/${repo}/contents/${encodeURIComponent(path).replace(/%2F/g, '/')}`, token, body: { message: short(message, 120), content: b64(`${JSON.stringify(payload, null, 2)}
+`), branch, ...(current.sha ? { sha: current.sha } : {}) } });
+  return { ok: true, branch, path };
+}
+
 function info() {
   return {
     enabled: state.enabled,
@@ -482,4 +500,4 @@ function info() {
   };
 }
 
-module.exports = { recordStartup, info, sanitizeEntry, sanitizeRuntimeContract, sanitizeLiveVersionSnapshot, sanitizeFinalRuntimeReadinessGate, buildFinalRuntimeReadinessGateFromSnapshot, getBranchHead, ensureBranch, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
+module.exports = { recordStartup, exportRuntimeJson, info, sanitizeEntry, sanitizeRuntimeContract, sanitizeLiveVersionSnapshot, sanitizeFinalRuntimeReadinessGate, buildFinalRuntimeReadinessGateFromSnapshot, getBranchHead, ensureBranch, DEFAULT_REPO, DEFAULT_BRANCH, DEFAULT_PATH, DEFAULT_LIMIT, DEFAULT_MAIN_BRANCH };
