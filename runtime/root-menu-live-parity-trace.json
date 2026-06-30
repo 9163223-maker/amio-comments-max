@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-30T19:36:18.038Z",
+  "updatedAt": "2026-06-30T19:36:21.368Z",
   "limit": 100,
   "latestRuntimeIdentity": {
     "deployStartedAt": "2026-06-30T19:30:17.528Z",
@@ -124,8 +124,8 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": true,
         "reasonCategory": "",
-        "lastAttemptAt": "2026-06-30T19:36:15.775Z",
-        "lastSuccessAt": "2026-06-30T19:36:17.323Z",
+        "lastAttemptAt": "2026-06-30T19:36:18.910Z",
+        "lastSuccessAt": "2026-06-30T19:36:20.625Z",
         "errorMessage": "",
         "lastExportEventKind": "trace_export_succeeded",
         "lastExportResultKind": "trace_export_succeeded"
@@ -220,8 +220,8 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": true,
         "reasonCategory": "",
-        "lastAttemptAt": "2026-06-30T19:36:15.775Z",
-        "lastSuccessAt": "2026-06-30T19:36:17.323Z",
+        "lastAttemptAt": "2026-06-30T19:36:18.910Z",
+        "lastSuccessAt": "2026-06-30T19:36:20.625Z",
         "errorMessage": "",
         "lastExportEventKind": "trace_export_succeeded",
         "lastExportResultKind": "trace_export_succeeded"
@@ -316,8 +316,8 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": true,
         "reasonCategory": "",
-        "lastAttemptAt": "2026-06-30T19:36:15.775Z",
-        "lastSuccessAt": "2026-06-30T19:36:17.323Z",
+        "lastAttemptAt": "2026-06-30T19:36:18.910Z",
+        "lastSuccessAt": "2026-06-30T19:36:20.625Z",
         "errorMessage": "",
         "lastExportEventKind": "trace_export_succeeded",
         "lastExportResultKind": "trace_export_succeeded"
@@ -414,8 +414,8 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": true,
         "reasonCategory": "",
-        "lastAttemptAt": "2026-06-30T19:36:15.775Z",
-        "lastSuccessAt": "2026-06-30T19:36:17.323Z",
+        "lastAttemptAt": "2026-06-30T19:36:18.910Z",
+        "lastSuccessAt": "2026-06-30T19:36:20.625Z",
         "errorMessage": "",
         "lastExportEventKind": "trace_export_succeeded",
         "lastExportResultKind": "trace_export_succeeded"
@@ -510,8 +510,8 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": true,
         "reasonCategory": "",
-        "lastAttemptAt": "2026-06-30T19:36:15.775Z",
-        "lastSuccessAt": "2026-06-30T19:36:17.323Z",
+        "lastAttemptAt": "2026-06-30T19:36:18.910Z",
+        "lastSuccessAt": "2026-06-30T19:36:20.625Z",
         "errorMessage": "",
         "lastExportEventKind": "trace_export_succeeded",
         "lastExportResultKind": "trace_export_succeeded"
@@ -606,8 +606,8 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": true,
         "reasonCategory": "",
-        "lastAttemptAt": "2026-06-30T19:36:15.775Z",
-        "lastSuccessAt": "2026-06-30T19:36:17.323Z",
+        "lastAttemptAt": "2026-06-30T19:36:18.910Z",
+        "lastSuccessAt": "2026-06-30T19:36:20.625Z",
         "errorMessage": "",
         "lastExportEventKind": "trace_export_succeeded",
         "lastExportResultKind": "trace_export_succeeded"
@@ -704,8 +704,8 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": true,
         "reasonCategory": "",
-        "lastAttemptAt": "2026-06-30T19:36:15.775Z",
-        "lastSuccessAt": "2026-06-30T19:36:17.323Z",
+        "lastAttemptAt": "2026-06-30T19:36:18.910Z",
+        "lastSuccessAt": "2026-06-30T19:36:20.625Z",
         "errorMessage": "",
         "lastExportEventKind": "trace_export_succeeded",
         "lastExportResultKind": "trace_export_succeeded"
@@ -719,8 +719,8 @@
     "targetPath": "runtime/root-menu-live-parity-trace.json",
     "ok": true,
     "reasonCategory": "",
-    "lastAttemptAt": "2026-06-30T19:36:17.572Z",
-    "lastSuccessAt": "2026-06-30T19:36:15.775Z",
+    "lastAttemptAt": "2026-06-30T19:36:20.875Z",
+    "lastSuccessAt": "2026-06-30T19:36:18.910Z",
     "errorMessage": "",
     "lastExportEventKind": "trace_export_attempted",
     "lastExportResultKind": "trace_export_attempted"
