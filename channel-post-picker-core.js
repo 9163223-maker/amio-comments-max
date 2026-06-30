@@ -15,54 +15,26 @@ function array(value) { return Array.isArray(value) ? value : []; }
 function safe(fn, fallback) { try { return fn(); } catch { return fallback; } }
 function short(value = '', max = 72) { const text = clean(value).replace(/\s+/g, ' '); return text.length <= max ? text : `${text.slice(0, Math.max(1, max - 1)).trim()}…`; }
 function looksRawId(value = '') { const text = clean(value); return /^-?\d{6,}$/.test(text) || /^id\d{6,}$/i.test(text); }
-function looksInternal(value = '') {
-  const text = clean(value);
-  if (!text) return false;
-  return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|test|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text)
-    || /(^|[^A-Za-z0-9А-Яа-яЁё])internal\s+service(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text);
-}
-function looksForbiddenInternal(value = '') {
-  const text = clean(value);
-  if (!text) return false;
-  return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text)
-    || /(^|[^A-Za-z0-9А-Яа-яЁё])internal\s+service(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text);
-}
+function looksInternal(value = '') { const text = clean(value); if (!text) return false; return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|test|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text) || /(^|[^A-Za-z0-9А-Яа-яЁё])internal\s+service(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text); }
+function looksForbiddenInternal(value = '') { const text = clean(value); if (!text) return false; return /(^|[^A-Za-z0-9А-Яа-яЁё])(?:selftest|debug|legacy|global|internal)(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text) || /(^|[^A-Za-z0-9А-Яа-яЁё])internal\s+service(?:[^A-Za-z0-9А-Яа-яЁё]|$)/i.test(text); }
 function isIntentionalUserTestTitle(value = '') { return /(^|[^А-Яа-яЁё])(?:ак[\s-]*тест|тест[А-Яа-яЁё\d\s-]*)(?:[^А-Яа-яЁё]|$)/i.test(clean(value)); }
 function maskChannelId(channelId = '') { const id = clean(channelId); if (!id) return ''; if (id.length <= 6) return '***'; return `${id.slice(0, 3)}…${id.slice(-3)}`; }
 function firstTitle(source = {}) { return clean(source.title || source.channelTitle || source.name || source.channelName || source.chatTitle || source.chat_title || source.displayName || source.display_name || ''); }
+function titleBag(raw = {}) { return [raw.title, raw.channelTitle, raw.channel_title, raw.name, raw.channelName, raw.chatTitle, raw.chat_title, raw.displayName, raw.display_name].map(clean).filter(Boolean).join(' '); }
 function safeTitle(value = '') { const title = clean(value); if (!title || looksRawId(title) || looksInternal(title) || /^(?:Канал без названия|Канал из кода доступа|Название канала пока недоступно)$/i.test(title)) return ''; return title; }
 function storedChannel(channelId = '') { const id = clean(channelId); if (!id) return null; return safe(() => array(store.getChannelsList()).find((item) => clean(item.channelId || item.id || item.chatId) === id), null) || null; }
 function accessChannels(userId = '') { return array(safe(() => clientAccessService.getClientChannels(clean(userId)), [])); }
 function accessChannel(userId = '', channelId = '') { const id = clean(channelId); return accessChannels(userId).find((item) => clean(item.channelId || item.id || item.chatId) === id) || null; }
 function explicitChannelIdOf(raw = {}) { return clean(raw.channelId || raw.channel_id || raw.channel?.id || raw.channel?.channelId || ''); }
 function chatIdOf(raw = {}) { return clean(raw.chatId || raw.chat_id || raw.chat?.id || raw.chat?.chatId || ''); }
+function destinationTypeOf(raw = {}) { return clean(raw.type || raw.chatType || raw.chat_type || raw.kind || raw.sourceType || raw.source_type || raw.destinationType || raw.destination_type || ''); }
 function channelIdOf(raw = {}) { const explicit = explicitChannelIdOf(raw); if (explicit) return explicit; const generic = clean(raw.id || ''); if (generic) return generic; const chatId = chatIdOf(raw); const type = destinationTypeOf(raw).toLowerCase(); return chatId && (raw.isChannel === true || /\bchannel\b/.test(type)) ? chatId : ''; }
-function destinationTypeOf(raw = {}) { return clean(raw.type || raw.chatType || raw.chat_type || raw.kind || raw.sourceType || raw.source_type || ''); }
-function isChatLikeRecord(raw = {}) {
-  const values = [raw.type, raw.chatType, raw.chat_type, raw.kind, raw.sourceType, raw.source_type, raw.destinationType, raw.destination_type].map(clean).join(' ').toLowerCase();
-  if (raw.isChat === true) return true;
-  if (/\b(?:chat|group|supergroup|private|private_chat|direct|dialog|im)\b/.test(values) && !/\bchannel\b/.test(values)) return true;
-  if ((chatIdOf(raw) && !explicitChannelIdOf(raw)) && raw.isChannel !== true && !/\bchannel\b/.test(values)) return true;
-  return false;
-}
-function hasStoredPostEvidence(channelId = '', userId = '') {
-  const id = clean(channelId);
-  if (!id) return false;
-  return array(safe(() => store.getPostsList(), [])).some((post) => post && clean(post.channelId) === id && clean(post.postId) && clean(post.commentKey) && !looksInternal([post.channelId, post.channelTitle, post.title, post.originalText].join(' ')));
-}
-function hasTrustedChannelEvidence(raw = {}, userId = '') {
-  const channelId = channelIdOf(raw);
-  if (!channelId) return false;
-  const source = clean(raw.source || raw.provider || raw.origin || '').toLowerCase();
-  const title = safeTitle(firstTitle(raw)).toLowerCase();
-  const titleChannelEvidence = /(^|[^a-zа-яё])(channel|канал)([^a-zа-яё]|$)/i.test(title);
-  const ownerEvidence = clean(raw.ownerUserId || raw.owner_user_id || raw.linkedByUserId || raw.linked_by_user_id || raw.maxUserId || raw.max_user_id);
-  const trustedMetadata = Boolean(clean(raw.tenantId || raw.tenant_id || raw.connectedAt || raw.connected_at || raw.boundByCode || raw.bound_by_code) || ownerEvidence || (/channel/.test(source) && !/chat|group|private|dialog|im/.test(source)) || titleChannelEvidence);
-  if (trustedMetadata) return true;
-  if (clean(userId) && hasStoredPostEvidence(channelId, userId)) return true;
-  return false;
-}
-function isKnownChannelRecord(raw = {}, userId = '') { if (isChatLikeRecord(raw)) return false; const type = destinationTypeOf(raw).toLowerCase(); if (raw.isChannel === true) return true; if (/\bchannel\b/.test(type) && !/\b(?:chat|group|private|direct|dialog|im)\b/.test(type)) return true; if (raw.__ambiguousGenericId) return hasStoredPostEvidence(channelIdOf(raw), userId); if (explicitChannelIdOf(raw)) return hasTrustedChannelEvidence(raw, userId) || hasStoredPostEvidence(explicitChannelIdOf(raw), userId); return hasStoredPostEvidence(channelIdOf(raw), userId); }
+function isChatLikeRecord(raw = {}) { const values = destinationTypeOf(raw).toLowerCase(); if (raw.isChat === true) return true; if (/\b(?:chat|group|supergroup|private|private_chat|direct|dialog|im)\b/.test(values) && !/\bchannel\b/.test(values)) return true; if ((chatIdOf(raw) && !explicitChannelIdOf(raw)) && raw.isChannel !== true && !/\bchannel\b/.test(values)) return true; return false; }
+function hasStoredPostEvidence(channelId = '', userId = '') { const id = clean(channelId); if (!id) return false; return array(safe(() => store.getPostsList(), [])).some((post) => post && clean(post.channelId) === id && clean(post.postId) && clean(post.commentKey) && !looksInternal([post.channelId, post.channelTitle, post.title, post.originalText].join(' '))); }
+function hasSuspiciousChatHumanTitle(raw = {}) { const text = titleBag(raw).toLowerCase(); if (!text) return false; return /(^|\s)(?:все\s+свои\s+max|саша\s*[-–—]\s*сын\s+мамочки|семейный\s+чат|чат|группа|групповой|диалог|личный\s+диалог|family\s+chat|group\s+chat|private\s+chat|direct\s+chat)(\s|$)/i.test(text); }
+function hasPositiveChannelEvidence(raw = {}, userId = '') { const type = destinationTypeOf(raw).toLowerCase(); const channelId = channelIdOf(raw); const source = clean(raw.source || raw.provider || raw.origin || '').toLowerCase(); if (!channelId) return false; if (raw.isChannel === true) return true; if (/\bchannel\b/.test(type) && !/\b(?:chat|group|private|direct|dialog|im)\b/.test(type)) return true; if (clean(raw.tenantId || raw.tenant_id || raw.connectedAt || raw.connected_at || raw.boundByCode || raw.bound_by_code)) return true; if (clean(raw.ownerUserId || raw.owner_user_id || raw.linkedByUserId || raw.linked_by_user_id || raw.maxUserId || raw.max_user_id)) return true; if (/channel/.test(source) && !/chat|group|private|dialog|im/.test(source)) return true; if (hasStoredPostEvidence(channelId, userId)) return true; return false; }
+function hasTrustedChannelEvidence(raw = {}, userId = '') { const channelId = channelIdOf(raw); if (!channelId) return false; if (hasSuspiciousChatHumanTitle(raw) && !hasPositiveChannelEvidence(raw, userId)) return false; const source = clean(raw.source || raw.provider || raw.origin || '').toLowerCase(); const title = safeTitle(firstTitle(raw)).toLowerCase(); const titleChannelEvidence = /(^|[^a-zа-яё])(channel|канал)([^a-zа-яё]|$)/i.test(title); const trustedMetadata = Boolean(clean(raw.tenantId || raw.tenant_id || raw.connectedAt || raw.connected_at || raw.boundByCode || raw.bound_by_code) || clean(raw.ownerUserId || raw.owner_user_id || raw.linkedByUserId || raw.linked_by_user_id || raw.maxUserId || raw.max_user_id) || (/channel/.test(source) && !/chat|group|private|dialog|im/.test(source)) || titleChannelEvidence); if (trustedMetadata) return true; if (clean(userId) && hasStoredPostEvidence(channelId, userId)) return true; return false; }
+function isKnownChannelRecord(raw = {}, userId = '') { if (isChatLikeRecord(raw)) return false; if (hasSuspiciousChatHumanTitle(raw) && !hasPositiveChannelEvidence(raw, userId)) return false; const type = destinationTypeOf(raw).toLowerCase(); if (raw.isChannel === true) return true; if (/\bchannel\b/.test(type) && !/\b(?:chat|group|private|direct|dialog|im)\b/.test(type)) return true; if (raw.__ambiguousGenericId) return hasStoredPostEvidence(channelIdOf(raw), userId); if (explicitChannelIdOf(raw)) return hasTrustedChannelEvidence(raw, userId) || hasStoredPostEvidence(explicitChannelIdOf(raw), userId); return hasStoredPostEvidence(channelIdOf(raw), userId); }
 function mergeChannelSources(...sources) { const byId = new Map(); const add = (raw = {}) => { const channelId = channelIdOf(raw); if (!channelId) return; const previous = byId.get(channelId) || {}; const nextSafeTitle = safeTitle(firstTitle(raw)); const previousSafeTitle = safeTitle(firstTitle(previous)); const title = nextSafeTitle || previousSafeTitle || firstTitle(previous) || firstTitle(raw); const merged = { ...previous, ...raw, channelId }; if (!explicitChannelIdOf(raw) && clean(raw.id)) merged.__ambiguousGenericId = true; if (title) { merged.title = title; if (!safeTitle(merged.channelTitle)) merged.channelTitle = title; } byId.set(channelId, merged); }; for (const source of sources) for (const item of array(source)) add(item); return Array.from(byId.values()); }
 async function dbChannels(userId = '') { const id = clean(userId); if (!id || !db || typeof db.getChannels !== 'function') return []; try { return array(await db.getChannels(id)).map((row) => { const channelId = channelIdOf(row); const title = firstTitle(row); return { ...row, channelId, title, channelTitle: title || clean(row.channelTitle || row.channel_title || ''), source: row.source || 'cc5_admin_channels' }; }).filter((row) => row.channelId); } catch { record(id, 'channel_picker', { warning: 'admin_channels_db_failed' }); return []; } }
 function rawTitleFromChat(chat = {}) { return clean(firstTitle(chat) || firstTitle(chat.chat || {}) || firstTitle(chat.body || {}) || firstTitle(chat.payload || {})); }
@@ -78,5 +50,4 @@ async function buildChannelPickerRows(menu, userId = '', source = 'comments', co
 function listUiPostsForChannel(userId = '', channelId = '') { const id = clean(channelId); const visible = new Set(accessChannels(userId).filter((item) => isKnownChannelRecord(item, userId)).map((item) => clean(channelIdOf(item))).filter(Boolean)); const seen = new Set(); return array(safe(() => store.getPostsList(), [])).filter((post) => post && clean(post.commentKey) && clean(post.channelId) && clean(post.postId)).filter((post) => (!id || clean(post.channelId) === id) && visible.has(clean(post.channelId))).filter((post) => !looksInternal([post.channelId, post.channelTitle, post.title, post.originalText].join(' '))).filter((post) => { const key = clean(post.commentKey); if (!key || seen.has(key)) return false; seen.add(key); return true; }); }
 function hasMedia(post = {}) { return array(post.sourceAttachments || post.attachments || post.media || post.photos || post.files).length > 0 || Boolean(post.photo || post.image || post.video || post.document); }
 function safePostPreview(post = {}) { const text = clean(post.originalText || post.postText || post.text || post.caption || ''); if (text && !looksInternal(text) && !/\b(?:postId|channelId|messageId|commentKey|commentId|token|payload|trace)\b/i.test(text)) return short(text, 120); return hasMedia(post) ? 'Пост с медиа' : 'Пост без текста'; }
-
-module.exports = { RUNTIME, UNTITLED_CHANNEL, listUiChannelsForUser, resolveUiChannelTitle, buildChannelPickerRows, listUiPostsForChannel, safePostPreview, getLastDiagnostics, clearDiagnostics, maskChannelId, looksInternal, looksRawId, isChatLikeRecord, isKnownChannelRecord, hasTrustedChannelEvidence };
+module.exports = { RUNTIME, UNTITLED_CHANNEL, listUiChannelsForUser, resolveUiChannelTitle, buildChannelPickerRows, listUiPostsForChannel, safePostPreview, getLastDiagnostics, clearDiagnostics, maskChannelId, looksInternal, looksRawId, isChatLikeRecord, isKnownChannelRecord, hasTrustedChannelEvidence, hasPositiveChannelEvidence, hasSuspiciousChatHumanTitle };
