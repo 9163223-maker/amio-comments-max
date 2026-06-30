@@ -14,6 +14,7 @@ require.cache[pickerPath] = {
   loaded: true,
   exports: {
     RUNTIME: 'test-picker-runtime',
+    isKnownChannelRecord: () => true,
     listUiChannelsForUser: async (userId, config = {}) => {
       assert.strictEqual(userId, 'admin-pr194');
       assert.strictEqual(config.botToken, 'test-token');
