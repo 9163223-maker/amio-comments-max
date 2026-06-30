@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "updatedAt": "2026-06-30T19:35:48.413Z",
+  "updatedAt": "2026-06-30T19:35:51.423Z",
   "limit": 100,
   "latestRuntimeIdentity": {
     "deployStartedAt": "2026-06-30T19:30:17.528Z",
@@ -115,8 +115,8 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": true,
         "reasonCategory": "",
-        "lastAttemptAt": "2026-06-30T19:35:46.444Z",
-        "lastSuccessAt": "2026-06-30T19:35:47.710Z",
+        "lastAttemptAt": "2026-06-30T19:35:49.140Z",
+        "lastSuccessAt": "2026-06-30T19:35:50.630Z",
         "errorMessage": "",
         "lastExportEventKind": "trace_export_succeeded",
         "lastExportResultKind": "trace_export_succeeded"
@@ -211,8 +211,8 @@
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
         "ok": true,
         "reasonCategory": "",
-        "lastAttemptAt": "2026-06-30T19:35:46.444Z",
-        "lastSuccessAt": "2026-06-30T19:35:47.710Z",
+        "lastAttemptAt": "2026-06-30T19:35:49.140Z",
+        "lastSuccessAt": "2026-06-30T19:35:50.630Z",
         "errorMessage": "",
         "lastExportEventKind": "trace_export_succeeded",
         "lastExportResultKind": "trace_export_succeeded"
@@ -226,8 +226,8 @@
     "targetPath": "runtime/root-menu-live-parity-trace.json",
     "ok": true,
     "reasonCategory": "",
-    "lastAttemptAt": "2026-06-30T19:35:47.960Z",
-    "lastSuccessAt": "2026-06-30T19:35:46.444Z",
+    "lastAttemptAt": "2026-06-30T19:35:50.881Z",
+    "lastSuccessAt": "2026-06-30T19:35:49.140Z",
     "errorMessage": "",
     "lastExportEventKind": "trace_export_attempted",
     "lastExportResultKind": "trace_export_attempted"
