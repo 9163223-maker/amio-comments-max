@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 15:05 UTC
+Updated: 2026-06-30 15:22 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -34,36 +34,42 @@ PR259:
 - Title: `Channel root matrix and runtime export safety`
 - Branch: `codex/fix-channel-matrix-and-runtime-export-safety`
 - Base: `main`
-- Current head: `1d2836524e9b5e5198e3d3c44f0fb5c43e66b24c`
+- Current head: `6336c017f1d919f22634060e0267605a3ce6c88e`
 - Open, not merged.
 - Mergeable: true at latest check.
-- GitHub computed merge commit candidate: `aa353c50d0709cc147238725dcee5b681279b788`.
-- CI for current head: waiting/check next. No audit-only yet.
+- GitHub computed merge commit candidate: `b0e5189576a950646d172699463bf42e0b0cdd09` at latest PR info check.
+- CI: PR regression tests #492, run id `28455318528`, conclusion `success`.
+- Audit-only: pending. Do not merge yet.
 
-What changed since previous checkpoint:
-- Assistant created a merge commit inside the PR259 branch, not into `main`.
-- First parent: previous PR259 head `ef52142f6161e984c0bd1220f537e0089fde2d97`.
-- Second parent: current `main` head `827e517e6e72a20026420615bbfd1ff15f7c9892`.
-- This resolved the behind/diverged branch state while preserving PR259 tree and runtime-log deletion.
-
-PR259 changes:
+What changed in PR259:
 - root `channels:list` and post-scoped choose-channel routes use shared channel predicate;
 - sync and async channel route hydration are filtered;
 - runtime export guard refuses `main` and limits exports to `runtime/*.json`;
 - runtime push dispatch exports are routed through the guard;
-- committed runtime push log is removed;
+- committed runtime push log is removed from PR tree;
 - channel target matrix, process events, and Northflank startup scaffold services are added;
 - startup bootstrap exports these diagnostics;
-- PR259 tests are added and now included in `npm test`.
+- PR259 tests are added and included in `npm test`.
 
-Assistant follow-up already applied:
-- `channel-post-picker-core.isKnownChannelRecord()` was hardened so explicit `channelId` alone is no longer enough. It now needs explicit channel type, `isChannel`, trusted tenant/channel source metadata, or stored post evidence.
-- PR259 matrix fixtures/tests now cover dangerous explicit-channel-id records without channel metadata.
+Assistant follow-up applied:
+- Created a merge commit inside the PR259 branch, not into `main`, to bring it up to current `main` while preserving PR259 changes and runtime-log deletion.
+- Hardened `channel-post-picker-core.isKnownChannelRecord()` so explicit `channelId` alone is no longer enough. A record needs explicit channel type, `isChannel`, trusted tenant/source/owner evidence, channel-like title evidence, or stored post evidence. Chat-like metadata is rejected first.
+- PR259 matrix fixtures/tests cover dangerous explicit-channel-id records without channel metadata.
 - PR259 tests were added to `npm test` because the workflow did not call them directly.
+- Fixed CI regressions from #484, #486, #488, and #490 without weakening old regression intent.
 
-Remaining before audit-only:
-1. Check PR regression CI for head `1d2836524e9b5e5198e3d3c44f0fb5c43e66b24c`.
-2. If CI red, inspect diagnostics artifact and fix in the same PR branch.
-3. If CI green, prepare audit-only PASS/BLOCK prompt.
+CI red history during PR259 follow-up:
+- #484: `test-channels-tenant-hydration-pr193a` failed; fixed tenant storage channel evidence.
+- #486: `test-v3-channels-list-hydration-pr194` failed; fixed test stub compatibility with shared predicate.
+- #488: PR229 stats shared-picker target failed; fixed stats target trust for `channel_post_picker` provider.
+- #490: PR126 buttons/gifts channel picker missed empty tenant channel; fixed linked/owner channel evidence while keeping chat-like metadata blocked.
+- #492: green.
 
-Do not merge PR259 until CI green and audit-only PASS.
+Next required action:
+1. Run audit-only PASS/BLOCK for PR259 head `6336c017f1d919f22634060e0267605a3ce6c88e`.
+2. If audit BLOCK, fix exact blocker in existing PR259 branch.
+3. If audit PASS, merge PR259 with expected head SHA.
+4. After merge, verify deploy/runtime pickup and production contract.
+5. Then manual MAX visual check: `Каналы -> Мои каналы` and all post-scoped pickers show only channels, not chats.
+
+Do not merge PR259 until audit-only PASS.
