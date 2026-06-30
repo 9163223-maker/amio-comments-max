@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 09:36 UTC
+Updated: 2026-06-30 09:39 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -71,7 +71,7 @@ PR256 implemented RootSectionDispatcher v2 and merged into `main` at 2026-06-29 
 
 PR257 fixed remaining Gifts root 500 by routing root Gifts through unified root rendering before `giftsFlow`. PR257 merged at 2026-06-29 10:31 UTC, merge commit `8c3b94e5e5d5389da7541cfb9a4505113fedb220`. Runtime pickup passed, trace showed Gifts 200, and user visually confirmed Gifts opens. Process error: assistant merged after green CI without final audit-only Codex task; do not repeat.
 
-## PR258 current state — 2026-06-30 09:36 UTC
+## PR258 current state — 2026-06-30 09:39 UTC
 
 PR258:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/258
@@ -80,8 +80,8 @@ PR258:
 - Base: `main`
 - Current head: `a1473b23475839fdfa2a91c3c561aef2fab0d1f1`
 - Current commit message: `Preserve PR229 manual cost wiring marker in active wrapper`
-- Open, not merged. Mergeability was recalculating/false immediately after push; re-check before merge.
-- CI for current head: PR regression tests run #476, run id `28434739881`, status `queued` at 2026-06-30 09:35 UTC.
+- Open, not merged, mergeable true at latest check.
+- CI for current head: PR regression tests run #476, run id `28434739881`, conclusion `success`.
 
 What PR258 already changed before latest manual fix:
 - strict channel/chat separation in shared picker `channel-post-picker-core.js`;
@@ -122,17 +122,18 @@ CI run #474 on head `f9ac406444f430e221449bbab17c92861d4700bc` failed. Diagnosti
 
 Assistant fixed this in head `a1473b23475839fdfa2a91c3c561aef2fab0d1f1` by adding an explicit PR229 contract marker `STATS_MANUAL_COST_TEXT_INPUT_CONTRACT = 'stats_manual_cost_text_input'` to the active wrapper and exporting it under `_private`, without changing runtime start path.
 
+CI run #476 passed green on head `a1473b23475839fdfa2a91c3c561aef2fab0d1f1`.
+
 ## Current waiting state
 
-Wait for PR regression tests run #476 on head `a1473b23475839fdfa2a91c3c561aef2fab0d1f1`.
+CI is green. Do not merge yet. Next step is audit-only Codex PASS/BLOCK for current head `a1473b23475839fdfa2a91c3c561aef2fab0d1f1`.
 
 Next required action:
-1. Check run #476 conclusion for current head.
-2. If CI red: inspect `adminkit-ci-diagnostics` artifact and `$GITHUB_STEP_SUMMARY`; fix exact failing assertion on same PR258 branch.
-3. If CI green: prepare audit-only PASS/BLOCK task for current head `a1473b23475839fdfa2a91c3c561aef2fab0d1f1`.
-4. Do not merge until audit-only PASS or explicit user waiver.
-5. After merge: verify deploy/runtime pickup and production contract.
-6. Then manual MAX check: channel/post pickers show only channels; chats are not offered as post targets.
+1. Run audit-only PASS/BLOCK task for current head `a1473b23475839fdfa2a91c3c561aef2fab0d1f1`.
+2. If audit BLOCK: fix exact blocker on same PR258 branch; do not create a new PR.
+3. If audit PASS: merge PR258.
+4. After merge: verify deploy/runtime pickup and production contract.
+5. Then manual MAX check: channel/post pickers show only channels; chats are not offered as post targets.
 
 ## Completion definition
 
