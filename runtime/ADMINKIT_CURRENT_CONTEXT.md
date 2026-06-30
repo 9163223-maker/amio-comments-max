@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 21:10 UTC
+Updated: 2026-06-30 21:15 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -51,12 +51,11 @@ PR262:
 - Title: `Product-semantic flow contracts and gifts lifecycle gate`
 - Branch: `codex-792bhs`
 - Base: `main`
-- Current head: `060c3a5b3b282bf6d0383d12f10aa8d96eb76cc5`
+- Current head: `c11cf13359ede8e4b3074e743fdef53caac5bccf`
 - Open, not merged.
 - Mergeable: true at latest check.
-- Last green CI before partial audit follow-up: PR regression tests #518 on head `30bbb2ef4f982b9dccac74b5df56bc0ea6697552`.
-- After audit follow-up fixes, CI for new head is pending.
-- Audit-only: previous result was NOT final PASS; it was `PARTIAL PASS` with limitations, so merge is blocked unless user gives explicit waiver.
+- CI: PR regression tests #524, run id `28476206353`, conclusion `success`.
+- Audit-only: previous result was NOT final PASS; it was `PARTIAL PASS` with limitations. New audit-only is required for current head.
 
 PR262 purpose:
 - Add human-readable product flow contracts for all client-visible sections.
@@ -95,11 +94,14 @@ Assistant follow-up fixes after partial audit:
 - `services/productFlowContractService.js`: added `requiredLifecycle`, explicit state defaults for post-scoped sections, and richer per-section states.
 - `services/productSemanticMatrixService.js`: expanded matrix beyond roots; now renders route coverage for all post-scoped sections: root, zero_channels, multiple_channels, zero_posts, selected_post; gifts also covers `gifts:all` account scope. Adds `routeCoverage` and `postScopedSectionsChecked`.
 - `scripts/test-pr262-product-semantic-matrix.js`: now asserts all post-scoped sections have root/zero_channels/multiple_channels/zero_posts/selected_post coverage and no irrelevant productReady lifecycle BLOCK.
-- `scripts/test-pr262-no-menu-multiplication.js`: deepened scan across JS files outside scripts/runtime/node_modules; only canonical-menu may declare `clientVisible: true`; active sources must not import legacy menu maps.
+- `scripts/test-pr262-no-menu-multiplication.js`: now scans reachable runtime graph from active entry files for legacy menu imports and globally asserts `clientVisible: true` appears only in canonical-menu. It avoids false-positive historical files that are not reachable from active entrypoints.
 - `docs/flow-contracts/ADMINKIT_PRODUCT_FLOW_CONTRACTS.md`: added per-section state matrix and required semantic matrix coverage section.
+- CI #523 failed due false-positive scan of historical `main-cc6537.js`; fixed by changing no-menu test to reachable runtime graph.
+- CI #524 passed on current head `c11cf13359ede8e4b3074e743fdef53caac5bccf`.
 
 Next required action:
-1. Wait for CI on head `060c3a5b3b282bf6d0383d12f10aa8d96eb76cc5`.
-2. If CI red, inspect diagnostics artifact and fix in same PR262 branch.
-3. If CI green, rerun audit-only PASS/BLOCK against latest head.
-4. Do not merge until final audit-only PASS or explicit user waiver.
+1. Run audit-only PASS/BLOCK for PR262 head `c11cf13359ede8e4b3074e743fdef53caac5bccf`.
+2. If audit BLOCK, fix exact blocker in existing PR262 branch.
+3. If audit PASS, merge with expected head SHA.
+4. After merge, verify runtime pickup and `runtime/product-semantic-matrix.json` in runtime-status.
+5. Manual MAX visual check gifts root/no-post/list/post-selected states.
