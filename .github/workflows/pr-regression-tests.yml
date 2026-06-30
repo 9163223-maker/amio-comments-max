@@ -71,55 +71,99 @@ jobs:
 
       - name: Run AdminKIT regression tests
         run: |
-          set -euxo pipefail
-          node scripts/test-runtime-contract-log-pr196.js
-          node scripts/test-startup-log-live-version-snapshot-pr200.js
-          node scripts/test-final-runtime-readiness-gate-pr205.js
-          node scripts/test-channels-tenant-hydration-pr193a.js
-          node scripts/test-v3-channels-list-hydration-pr194.js
-          node scripts/test-buttons-post-picker-tenant-channels-pr195.js
-          node scripts/test-canonical-post-feature-binding-pr219.js
-          node scripts/test-buttons-product-perfect-actions-pr221.js
-          node scripts/test-buttons-flow-layer-audit-pr222.js
-          node scripts/test-product-perfect-matrix-pr223.js
-          node scripts/test-buttons-transition-contract-pr224.js
-          node scripts/test-buttons-readonly-pretrace-pr225.js
-          node scripts/test-gifts-canonical-transition-pr225.js
-          node --check scripts/test-stats-product-perfect-contract-pr226.js
-          node scripts/test-stats-product-perfect-contract-pr226.js
-          node scripts/test-push-join-chat-title-pr191.js
-          node scripts/test-push-admin-invite-publish-pr191.js
-          node scripts/test-max-command-sync-pr191.js
-          if [ -f scripts/test-channels-push-ux-pr177.js ]; then
-            node scripts/test-channels-push-ux-pr177.js
-          else
-            echo "skip PR177 channels/push UX test: file not present on this branch"
-          fi
-          if [ -f scripts/test-production-push-audit-pr173.js ]; then
-            node scripts/test-production-push-audit-pr173.js
-          else
-            echo "skip PR173 audit test: file not present on this branch"
-          fi
-          if [ -f scripts/test-comments-ux-gifts-reset-pr176.js ]; then
-            node scripts/test-comments-ux-gifts-reset-pr176.js
-          else
-            echo "skip PR176 comments UX/gifts reset test: file not present on this branch"
-          fi
-          if [ -f scripts/test-canonical-menu-matrix-pr175.js ]; then
-            node scripts/test-canonical-menu-matrix-pr175.js
-          else
-            echo "skip PR175 menu matrix test: file not present on this branch"
-          fi
-          node scripts/test-visible-push-admin-flow-pr172.js
-          node scripts/test-public-push-entrypoint-pr169.js
-          node scripts/test-push-admin-invite-link-chat-pr168.js
-          node scripts/test-push-product-ux-admin-invite-pr167.js
-          node scripts/test-group-push-private-onboarding-pr166.js
-          node scripts/test-production-runtime-push-wiring-pr165.js
-          npm test
-          node scripts/test-product-perfect-gifts-journey-pr142.js
-          node scripts/test-product-perfect-buttons-gifts-pr126.js
-          node scripts/test-product-perfect-polls-highlights-pr127.js
-          node scripts/test-comments-pr125.js
-          node scripts/test-canonical-client-menu.js
-          git diff --check
+          set -uo pipefail
+          mkdir -p runtime/ci-diagnostics
+          echo "${GITHUB_SHA}" > runtime/ci-diagnostics/HEAD_SHA.txt
+          : > runtime/ci-diagnostics/RUN_ORDER.txt
+
+          write_failure_summary() {
+            local name="$1"
+            local code="$2"
+            local log="runtime/ci-diagnostics/${name}.log"
+            echo "$name" > runtime/ci-diagnostics/FAILED_TEST.txt
+            echo "$code" > runtime/ci-diagnostics/FAILED_EXIT_CODE.txt
+            tail -n 220 "$log" > runtime/ci-diagnostics/FAILED_TAIL.log || true
+            {
+              echo "## AdminKIT CI failed"
+              echo ""
+              echo "**Failed test:** \`$name\`"
+              echo ""
+              echo "**Exit code:** \`$code\`"
+              echo ""
+              echo "**Head SHA:** \`${GITHUB_SHA}\`"
+              echo ""
+              echo "### Last 220 lines"
+              echo '```text'
+              cat runtime/ci-diagnostics/FAILED_TAIL.log || true
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          run_logged() {
+            local name="$1"
+            shift
+            local log="runtime/ci-diagnostics/${name}.log"
+            echo "$name" >> runtime/ci-diagnostics/RUN_ORDER.txt
+            echo "::group::$name"
+            echo "COMMAND: $*" | tee "$log"
+            "$@" > >(tee -a "$log") 2> >(tee -a "$log" >&2)
+            local code=$?
+            echo "::endgroup::"
+            if [ "$code" -ne 0 ]; then
+              write_failure_summary "$name" "$code"
+              exit "$code"
+            fi
+          }
+
+          run_logged test-runtime-contract-log-pr196 node scripts/test-runtime-contract-log-pr196.js
+          run_logged test-startup-log-live-version-snapshot-pr200 node scripts/test-startup-log-live-version-snapshot-pr200.js
+          run_logged test-final-runtime-readiness-gate-pr205 node scripts/test-final-runtime-readiness-gate-pr205.js
+          run_logged test-channels-tenant-hydration-pr193a node scripts/test-channels-tenant-hydration-pr193a.js
+          run_logged test-v3-channels-list-hydration-pr194 node scripts/test-v3-channels-list-hydration-pr194.js
+          run_logged test-buttons-post-picker-tenant-channels-pr195 node scripts/test-buttons-post-picker-tenant-channels-pr195.js
+          run_logged test-canonical-post-feature-binding-pr219 node scripts/test-canonical-post-feature-binding-pr219.js
+          run_logged test-buttons-product-perfect-actions-pr221 node scripts/test-buttons-product-perfect-actions-pr221.js
+          run_logged test-buttons-flow-layer-audit-pr222 node scripts/test-buttons-flow-layer-audit-pr222.js
+          run_logged test-product-perfect-matrix-pr223 node scripts/test-product-perfect-matrix-pr223.js
+          run_logged test-buttons-transition-contract-pr224 node scripts/test-buttons-transition-contract-pr224.js
+          run_logged test-buttons-readonly-pretrace-pr225 node scripts/test-buttons-readonly-pretrace-pr225.js
+          run_logged test-gifts-canonical-transition-pr225 node scripts/test-gifts-canonical-transition-pr225.js
+          run_logged check-test-stats-product-perfect-contract-pr226 node --check scripts/test-stats-product-perfect-contract-pr226.js
+          run_logged test-stats-product-perfect-contract-pr226 node scripts/test-stats-product-perfect-contract-pr226.js
+          run_logged test-push-join-chat-title-pr191 node scripts/test-push-join-chat-title-pr191.js
+          run_logged test-push-admin-invite-publish-pr191 node scripts/test-push-admin-invite-publish-pr191.js
+          run_logged test-max-command-sync-pr191 node scripts/test-max-command-sync-pr191.js
+          run_logged test-channels-push-ux-pr177 bash -lc 'if [ -f scripts/test-channels-push-ux-pr177.js ]; then node scripts/test-channels-push-ux-pr177.js; else echo "skip PR177 channels/push UX test: file not present on this branch"; fi'
+          run_logged test-production-push-audit-pr173 bash -lc 'if [ -f scripts/test-production-push-audit-pr173.js ]; then node scripts/test-production-push-audit-pr173.js; else echo "skip PR173 audit test: file not present on this branch"; fi'
+          run_logged test-comments-ux-gifts-reset-pr176 bash -lc 'if [ -f scripts/test-comments-ux-gifts-reset-pr176.js ]; then node scripts/test-comments-ux-gifts-reset-pr176.js; else echo "skip PR176 comments UX/gifts reset test: file not present on this branch"; fi'
+          run_logged test-canonical-menu-matrix-pr175 bash -lc 'if [ -f scripts/test-canonical-menu-matrix-pr175.js ]; then node scripts/test-canonical-menu-matrix-pr175.js; else echo "skip PR175 menu matrix test: file not present on this branch"; fi'
+          run_logged test-visible-push-admin-flow-pr172 node scripts/test-visible-push-admin-flow-pr172.js
+          run_logged test-public-push-entrypoint-pr169 node scripts/test-public-push-entrypoint-pr169.js
+          run_logged test-push-admin-invite-link-chat-pr168 node scripts/test-push-admin-invite-link-chat-pr168.js
+          run_logged test-push-product-ux-admin-invite-pr167 node scripts/test-push-product-ux-admin-invite-pr167.js
+          run_logged test-group-push-private-onboarding-pr166 node scripts/test-group-push-private-onboarding-pr166.js
+          run_logged test-production-runtime-push-wiring-pr165 node scripts/test-production-runtime-push-wiring-pr165.js
+          run_logged npm-test npm test
+          run_logged test-product-perfect-gifts-journey-pr142 node scripts/test-product-perfect-gifts-journey-pr142.js
+          run_logged test-product-perfect-buttons-gifts-pr126 node scripts/test-product-perfect-buttons-gifts-pr126.js
+          run_logged test-product-perfect-polls-highlights-pr127 node scripts/test-product-perfect-polls-highlights-pr127.js
+          run_logged test-comments-pr125 node scripts/test-comments-pr125.js
+          run_logged test-canonical-client-menu node scripts/test-canonical-client-menu.js
+          run_logged git-diff-check git diff --check
+
+          {
+            echo "## AdminKIT CI passed"
+            echo ""
+            echo "**Head SHA:** \`${GITHUB_SHA}\`"
+            echo ""
+            echo "All logged regression tests passed. Diagnostics artifact: \`adminkit-ci-diagnostics\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload CI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adminkit-ci-diagnostics
+          path: runtime/ci-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7

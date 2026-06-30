@@ -16,12 +16,14 @@ const visible = (screen) => [String(screen?.text || ''), ...labels(screen)].join
 const rawId = /(?:^|\n)-\d{6,}(?:$|\n)|\b\d{10,}\b/;
 
 const channelActions = canonical.clientActions('channels').map((item) => item.title);
-assert.deepStrictEqual(channelActions, ['Подключить канал', 'Мои каналы', 'Инструкция']);
+assert.deepStrictEqual(channelActions, ['Подключить канал', 'Мои каналы']);
+assert(!channelActions.includes('Инструкция'));
 assert(!channelActions.includes('Проверить права бота'));
 
 const channelsRoot = adapter.render('channels:home');
-assert.deepStrictEqual(labels(channelsRoot), ['Подключить канал', 'Мои каналы', 'Инструкция', 'Помощь', 'Главное меню']);
+assert.deepStrictEqual(labels(channelsRoot), ['Подключить канал', 'Мои каналы', 'Помощь', 'Главное меню']);
 assert(channelsRoot.text.includes('Подключите канал, чтобы управлять комментариями, подарками, кнопками и статистикой через АдминКИТ.'));
+assert(!visible(channelsRoot).includes('Инструкция'));
 assert(!visible(channelsRoot).includes('Проверить права бота'));
 
 const channelsHelp = adapter.render('channels:help');

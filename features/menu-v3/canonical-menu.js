@@ -15,7 +15,7 @@ const sections = [
   { id: 'channels', title: 'Каналы', route: 'channels:home', clientVisible: true, adminOnly: false, featureKey: 'channels', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
     action({ id: 'channels.connect', title: 'Подключить канал', section: 'channels', targetAction: 'channels:connect', existingAction: 'admin_section_channels' }),
     action({ id: 'channels.mine', title: 'Мои каналы', section: 'channels', targetAction: 'channels:list', existingAction: 'admin_section_channels' }),
-    action({ id: 'channels.instructions', title: 'Инструкция', section: 'channels', targetAction: 'channels:instructions', existingAction: 'admin_section_help', payload: { context: 'admin_section_channels' } }),
+    action({ id: 'channels.instructions', title: 'Инструкция', section: 'channels', targetAction: 'channels:instructions', existingAction: 'admin_section_help', payload: { context: 'admin_section_channels' }, clientVisible: false, implemented: false, hiddenReason: 'merged_into_help' }),
   ] },
   { id: 'comments', title: 'Комментарии', route: 'comments:home', clientVisible: true, adminOnly: false, featureKey: 'comments', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
     action({ id: 'comments.auto_comments', title: 'Автокомментарии', section: 'comments', existingAction: 'comments_auto_patch', requiresChannel: true }),
@@ -36,15 +36,11 @@ const sections = [
     action({ id: 'buttons.delete', title: 'Удалить кнопку', section: 'buttons', existingAction: 'button_admin_delete', clientVisible: false, implemented: false, hiddenReason: 'inside_current_buttons_card' }),
   ] },
   { id: 'stats', title: 'Статистика', route: 'stats:home', clientVisible: true, adminOnly: false, featureKey: 'basic_stats', minPlan: 'start', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
-    action({ id: 'stats.overview', title: 'Обзор', section: 'stats', existingAction: 'admin_section_stats' }),
-    action({ id: 'stats.subscribers', title: 'Подписчики', section: 'stats', existingAction: 'admin_stats_subscribers_day' }),
-    action({ id: 'stats.posts', title: 'Посты', section: 'stats', existingAction: 'admin_stats_posts_cache' }),
-    action({ id: 'stats.comments', title: 'Комментарии', section: 'stats', existingAction: 'admin_stats_comments_cache' }),
-    action({ id: 'stats.reactions', title: 'Реакции', section: 'stats', existingAction: 'admin_stats_reactions_cache' }),
-    action({ id: 'stats.gifts', title: 'Подарки', section: 'stats', existingAction: 'admin_stats_gifts_cache' }),
-    action({ id: 'stats.buttons_clicks', title: 'Кнопки под постами / клики', section: 'stats', existingAction: 'admin_stats_buttons_cache' }),
+    action({ id: 'stats.overview', title: 'Обзор', section: 'stats', existingAction: 'admin_stats_overview_cache' }),
+    action({ id: 'stats.channel', title: 'По каналу', section: 'stats', existingAction: 'admin_stats_channel' }),
+    action({ id: 'stats.post', title: 'По посту', section: 'stats', existingAction: 'admin_stats_post' }),
     action({ id: 'stats.ad_links', title: 'Рекламные ссылки', section: 'stats', existingAction: 'admin_stats_campaigns' }),
-    action({ id: 'stats.subscriber_sources', title: 'Источники подписчиков', section: 'stats', existingAction: 'admin_stats_sources_cache' }),
+    action({ id: 'stats.sources', title: 'Источники', section: 'stats', existingAction: 'admin_stats_sources_cache' }),
     action({ id: 'stats.refresh', title: 'Обновить данные', section: 'stats', existingAction: 'admin_stats_refresh' }),
   ] },
   { id: 'push', title: '🔔 Уведомления', route: 'push:home', clientVisible: true, adminOnly: false, featureKey: 'channels', minPlan: 'free', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
@@ -52,8 +48,8 @@ const sections = [
     action({ id: 'push.help', title: 'Как это работает', section: 'push', existingAction: 'admin_push_help', featureKey: 'channels' }),
   ] },
   { id: 'ad_links', title: 'Рекламные ссылки', route: 'ad_links:home', aliases: ['ads:home'], clientVisible: true, adminOnly: false, featureKey: 'ad_links', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
-    action({ id: 'ad_links.create', title: 'Создать рекламную ссылку', section: 'ad_links', existingAction: 'admin_stats_campaign_create' }),
-    action({ id: 'ad_links.mine', title: 'Мои рекламные ссылки', section: 'ad_links', existingAction: 'admin_stats_campaigns' }),
+    action({ id: 'ad_links.create', title: 'Создать ссылку', section: 'ad_links', existingAction: 'admin_stats_campaign_create' }),
+    action({ id: 'ad_links.mine', title: 'Мои ссылки', section: 'ad_links', existingAction: 'admin_stats_campaigns' }),
     action({ id: 'ad_links.disable', title: 'Отключить ссылку', section: 'ad_links', existingAction: 'admin_stats_campaign_disable', clientVisible: false, implemented: false, hiddenReason: 'inside_ad_link_card' }),
   ] },
   { id: 'polls', title: 'Опросы / голосования', route: 'polls:home', clientVisible: true, adminOnly: false, featureKey: 'polls', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
@@ -62,8 +58,8 @@ const sections = [
     action({ id: 'polls.stop', title: 'Остановить опрос', section: 'polls', existingAction: 'poll_stop', clientVisible: false, implemented: false, hiddenReason: 'inside_active_poll_card' }),
   ] },
   { id: 'highlights', title: 'Выделение постов', route: 'highlights:home', aliases: ['highlight:home'], clientVisible: true, adminOnly: false, featureKey: 'highlights', minPlan: 'pro', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
-    action({ id: 'highlights.apply', title: 'Поставить выделение', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
-    action({ id: 'highlights.remove', title: 'Снять выделение', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
+    action({ id: 'highlights.apply', title: 'Поставить метку', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
+    action({ id: 'highlights.remove', title: 'Снять метку', section: 'highlights', existingAction: 'comments_select_post', requiresChannel: true, requiresPost: true, payload: { source: 'highlights' } }),
   ] },
   { id: 'editor', title: 'Редактор постов', route: 'editor:home', clientVisible: true, adminOnly: false, featureKey: 'post_editor', minPlan: 'start', requiresActiveAccess: true, availableInPlans: [], accountOnlyWhenExpired: false, actions: [
     action({ id: 'editor.change_text', title: 'Выбрать пост', section: 'editor', existingAction: 'admin_posts_picker', requiresChannel: true, requiresPost: true }),
@@ -87,7 +83,7 @@ const sections = [
     action({ id: 'settings.clear_chat', title: 'Очистить чат', section: 'settings', targetAction: 'settings:clear_chat' }),
     action({ id: 'settings.notifications', title: 'Уведомления', section: 'settings', targetAction: 'settings:notifications', clientVisible: false, implemented: false, hiddenReason: 'placeholder_and_push_duplicate' }),
     action({ id: 'settings.language_format', title: 'Язык / формат', section: 'settings', targetAction: 'settings:language_format', clientVisible: false, implemented: false, hiddenReason: 'placeholder' }),
-    action({ id: 'settings.help', title: 'Помощь', section: 'settings', targetAction: 'settings:help' }),
+    action({ id: 'settings.help', title: 'Помощь', section: 'settings', targetAction: 'settings:help', clientVisible: false, implemented: false, hiddenReason: 'nav_help_duplicate' }),
     action({ id: 'settings.privacy_terms', title: 'Privacy / Terms', section: 'settings', targetAction: 'settings:privacy_terms' }),
     action({ id: 'settings.navigation', title: 'Навигация', section: 'settings', targetAction: 'settings:navigation', clientVisible: false, implemented: false, hiddenReason: 'navigation_is_global' }),
   ] },

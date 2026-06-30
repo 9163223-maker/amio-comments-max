@@ -15,7 +15,7 @@ const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 const rows = (screen) => screen?.attachments?.[0]?.payload?.buttons || [];
 const buttons = (screen) => rows(screen).flat();
 const labels = (screen) => buttons(screen).map((item) => String(item.text || '').trim()).filter(Boolean);
-const businessLabels = (screen) => labels(screen).filter((label) => !['❓ Помощь по разделу', 'Помощь по разделу', '🏠 Главное меню', 'Главное меню', '⬅️ Назад', 'Назад', '↩️ В начало раздела', 'В начало раздела'].includes(label));
+const businessLabels = (screen) => labels(screen).filter((label) => !['❓ Помощь по разделу', 'Помощь по разделу', 'Помощь', '🏠 Главное меню', 'Главное меню', '⬅️ Назад', 'Назад', '↩️ В начало раздела', 'В начало раздела'].includes(label));
 const payloads = (screen) => buttons(screen).map((item) => String(item.payload || '')).filter(Boolean);
 
 const expectedTop = [
@@ -24,19 +24,19 @@ const expectedTop = [
   'Редактор постов', 'Архив постов', 'Личный кабинет', 'Настройки'
 ];
 const expectedItems = {
-  channels: ['Подключить канал', 'Мои каналы', 'Инструкция'],
-  comments: ['Автокомментарии', 'Включить к посту', 'Фото', 'Ответы', 'Реакции', 'Помощь'],
+  channels: ['Подключить канал', 'Мои каналы'],
+  comments: ['Автокомментарии', 'Включить к посту', 'Фото', 'Ответы', 'Реакции'],
   gifts: ['Создать подарок', 'Текущий подарок', 'Список подарков'],
   buttons: ['Добавить кнопку', 'Текущие кнопки'],
-  stats: ['Обзор', 'Подписчики', 'Посты', 'Комментарии', 'Реакции', 'Подарки', 'Кнопки под постами / клики', 'Рекламные ссылки', 'Источники подписчиков', 'Обновить данные'],
+  stats: ['Обзор', 'По каналу', 'По посту', 'Рекламные ссылки', 'Источники', 'Обновить данные'],
   push: ['Опубликовать приглашение', 'Как это работает'],
-  ad_links: ['Создать рекламную ссылку', 'Мои рекламные ссылки'],
+  ad_links: ['Создать ссылку', 'Мои ссылки'],
   polls: ['Создать опрос', 'Результаты опросов'],
-  highlights: ['Поставить выделение', 'Снять выделение'],
+  highlights: ['Поставить метку', 'Снять метку'],
   editor: ['Выбрать пост'],
   archive: ['Сохранённые посты', 'Лимиты хранения'],
   account: ['Мой доступ', 'Активировать код', 'Оплата / продление', 'Лимиты и функции', 'Мои каналы', 'Поддержка'],
-  settings: ['Очистить чат', 'Помощь', 'Privacy / Terms']
+  settings: ['Очистить чат', 'Privacy / Terms']
 };
 
 assert.strictEqual(canonical.validate().ok, true, canonical.validate().errors.join(', '));
@@ -57,7 +57,7 @@ for (const section of canonical.clientSections) {
 }
 
 const ordinaryAccount = adapter.render('account:home', { maxUserId: 'pr175-ordinary-customer' });
-assert.deepStrictEqual(businessLabels(ordinaryAccount), ['🔔 Мои уведомления', '➕ Подключить чат', 'Помощь', 'Что умеет АдминКИТ для MAX'], 'ordinary account route uses the PR186 customer funnel without admin/payment leakage');
+assert.deepStrictEqual(businessLabels(ordinaryAccount), ['🔔 Мои уведомления', '➕ Подключить чат', 'Что умеет АдминКИТ для MAX'], 'ordinary account route uses the PR186 customer funnel without admin/payment leakage');
 assert(!labels(ordinaryAccount).some((label) => ['Активировать код', 'Оплата / продление', 'Мой доступ', 'Мои каналы'].includes(label)), 'ordinary account route does not expose admin access controls');
 
 const giftRoot = businessLabels(adapter.render('gifts:home'));
@@ -95,7 +95,7 @@ assert.ok(/patchStoredPost\(/.test(botSource), 'manual selected-post patch calls
 assert.ok(/comments_manual_patch[\s\S]*patchStoredPost/.test(botSource), 'manual enable is independent from auto setting');
 
 assert.deepStrictEqual(businessLabels(adapter.render('archive:home')), ['Сохранённые посты', 'Лимиты хранения'], 'Archive root hides restore/status technical clutter');
-assert.deepStrictEqual(businessLabels(adapter.render('settings:home')), ['Очистить чат', 'Помощь', 'Privacy / Terms'], 'Settings root hides placeholders and navigation duplicate');
+assert.deepStrictEqual(businessLabels(adapter.render('settings:home')), ['Очистить чат', 'Privacy / Terms'], 'Settings root hides placeholders and navigation duplicate');
 
 const visibleScreens = [adapter.render('main:home'), ...canonical.clientSections.map((section) => adapter.render(section.route)), commentsAutoOn, commentsAutoOff, giftsSelected, editorEmpty, editorSelected];
 const visibleText = visibleScreens.flatMap((screen) => [screen.text, ...labels(screen)]).join('\n');

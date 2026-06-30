@@ -21,11 +21,19 @@ function storedChannel(channelId = '') {
   if (!id) return null;
   return safe(() => array(store.getChannelsList()).find((item) => clean(item.channelId || item.id || item.chatId) === id), null) || null;
 }
+function destinationType(channel = {}) { return clean(channel.type || channel.chatType || channel.chat_type || channel.kind || channel.sourceType || channel.source_type).toLowerCase(); }
+function rawExplicitChannelId(channel = {}) { return clean(channel.channelId || channel.channel_id || channel.channel?.id || channel.channel?.channelId || ''); }
+function rawChatId(channel = {}) { return clean(channel.chatId || channel.chat_id || channel.chat?.id || channel.chat?.chatId || ''); }
+function explicitChannelId(channel = {}) { return rawExplicitChannelId(channel); }
 function accessChannelMap(userId = '') {
   const map = new Map();
   array(safe(() => clientAccessService.getClientChannels(userId), [])).forEach((channel) => {
-    const id = clean(channel.channelId || channel.id || channel.chatId);
-    if (id) map.set(id, { ...channel, channelId: id });
+    const explicitId = rawExplicitChannelId(channel);
+    const genericId = clean(channel.id || '');
+    const chatId = rawChatId(channel);
+    const type = destinationType(channel);
+    const id = explicitId || genericId || (chatId && (channel.isChannel === true || /\bchannel\b/.test(type)) ? chatId : '');
+    if (id) map.set(id, { ...channel, channelId: id, __rawChatIdOnly: Boolean(chatId && !explicitId && !genericId) });
   });
   return map;
 }
@@ -48,8 +56,22 @@ function hasInternalChannelLabel(channel = {}) {
   if (looksInternalLabel(id) && (!safeHumanTitle(human) || looksInternalLabel(human))) return true;
   return false;
 }
+function looksLikeChatRecord(channel = {}) {
+  const type = destinationType(channel);
+  if (channel.isChat === true) return true;
+  if (/\b(?:chat|group|supergroup|dialog|im)\b/.test(type) && !/\bchannel\b/.test(type)) return true;
+  if (channel.__rawChatIdOnly && channel.isChannel !== true && !/\bchannel\b/.test(type)) return true;
+  if (rawChatId(channel) && !explicitChannelId(channel) && channel.isChannel !== true && !/\bchannel\b/.test(type)) return true;
+  return false;
+}
+function looksLikeChannelRecord(channel = {}) {
+  const type = destinationType(channel);
+  if (looksLikeChatRecord(channel)) return false;
+  return channel.isChannel === true || explicitChannelId(channel) || (/\bchannel\b/.test(type) && !/\b(?:chat|group|dialog|im)\b/.test(type));
+}
 function listTenantVisibleChannels(userId = '') {
   return Array.from(accessChannelMap(userId).values())
+    .filter((channel) => looksLikeChannelRecord(channel))
     .filter((channel) => !hasInternalChannelLabel(channel))
     .map((channel) => {
       const channelId = clean(channel.channelId || channel.id || channel.chatId);
@@ -59,4 +81,4 @@ function listTenantVisibleChannels(userId = '') {
     .filter((channel) => channel.channelId && !looksInternalLabel(channel.title));
 }
 
-module.exports = { UNTITLED_CHANNEL, resolveHumanChannelTitle, listTenantVisibleChannels, looksTechnicalId, looksInternalLabel, safeHumanTitle, isIntentionalUserTestTitle };
+module.exports = { UNTITLED_CHANNEL, resolveHumanChannelTitle, listTenantVisibleChannels, looksTechnicalId, looksInternalLabel, safeHumanTitle, isIntentionalUserTestTitle, looksLikeChatRecord, looksLikeChannelRecord };
