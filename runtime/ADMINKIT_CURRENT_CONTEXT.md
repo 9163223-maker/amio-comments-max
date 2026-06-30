@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 19:45 UTC
+Updated: 2026-06-30 20:18 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -63,8 +63,18 @@ Interpretation:
 - This IS a product-semantic gap: the journey matrix checked technical validity (rendering, payloads, no chat leaks, navigation, scenario coverage) but did not verify that each section action is meaningful, reachable, context-bound, and has a complete product lifecycle.
 - PR261 matrix PASS was therefore insufficient for product UX quality.
 
-Required next work:
-- Build a complete product-semantic flow map for all sections.
-- Compare actual menu/flows with desired product behavior.
-- Open next PR to add semantic journey assertions and fix gifts/lead-magnets UX first.
-- For gifts, expected behavior must define channel/post context, zero-post state, gift lifecycle, current gift meaning, list gifts meaning, create/edit/delete/preview flow, and not show actions that cannot do meaningful work in current state.
+## Product-semantic flow contract initiative
+User requested a systematic reset before more fixes:
+- Define canonical product flow contracts for all client-visible sections.
+- Compare actual flows with desired flows across all sections, not just gifts.
+- Prevent menu multiplication/reimplementation drift. The next task must not create yet another independent menu tree.
+- Enforce one canonical menu/flow source of truth and semantic tests that fail when root actions are meaningless, context-free, duplicate, or dead-end.
+
+Observed current-code facts:
+- `features/menu-v3/canonical-menu.js` is intended as the single source of truth for the client-visible production menu; legacy menu maps are reference-only.
+- `features/menu-v3/adapter.js` renders visible section screens from canonical actions.
+- Current adapter `postPickerContract()` says implementationStatus is `contract_only`, productionActionsMigrated false, and production post-scoped callbacks continue to use existing tenant-aware flows until picker hydration/delegation is migrated safely. This is a major reason technical matrices passed while product semantics failed.
+
+Required next PR candidate:
+PR262 — `Product-semantic flow contracts and gifts lifecycle gate`.
+Must add docs/flow-contracts/ADMINKIT_PRODUCT_FLOW_CONTRACTS.md, a machine-readable semantic flow contract, semantic matrix tests, no-menu-multiplication tests, and fix gifts/lead-magnets first. The fix must be context-first and state-aware: no `Текущий подарок` without selected post/gift, no `Создать подарок` dead-end when no posts, useful zero-post state, post-bound gift card, create/edit/delete/preview lifecycle, list scope clarity.
