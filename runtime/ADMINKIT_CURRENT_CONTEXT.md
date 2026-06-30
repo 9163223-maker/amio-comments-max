@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 20:18 UTC
+Updated: 2026-06-30 20:52 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -29,52 +29,60 @@ PR259 merged into `main` at 2026-06-30 15:50 UTC. Merge commit: `c087323dcf38d1a
 ## PR260 status
 PR260 merged into `main` at 2026-06-30 18:20 UTC. Merge commit: `cc33ac39aee2817070ea8e65693553d36df103aa`.
 
-PR260 runtime pickup passed. `runtime/full-section-matrix.json` appeared and was OK. Other diagnostic files initially did not appear, so PR261 was opened.
-
 ## PR261 status
-PR261 merged into `main` at 2026-06-30 19:31 UTC.
-- URL: https://github.com/9163223-maker/amio-comments-max/pull/261
-- Title: `Reliable runtime diagnostics and expanded user journey matrix`
-- Final head: `8d8729ca9496e872d546c64140c9abdf7ef48250`
-- CI: PR regression tests #514, success.
-- Audit-only: PASS.
-- Merge commit: `126d3a9d9a841b266337dceecce41d51855b6a3c`.
+PR261 merged into `main` at 2026-06-30 19:31 UTC. Merge commit: `126d3a9d9a841b266337dceecce41d51855b6a3c`.
 
-PR261 runtime pickup and diagnostics passed:
-- `startup-log.json` picked up merge commit `126d3a9d9a841b266337dceecce41d51855b6a3c`.
-- Production entrypoint remained `clean-entrypoint-1.53.10-pr89.js`.
-- Start script remained `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
-- `runtime/full-section-matrix.json`: present, ok true.
-- `runtime/channel-target-matrix.json`: present, ok true.
-- `runtime/user-journey-matrix.json`: present, ok true, 14 sections, 16 journeys, 87 steps, 119 scenario coverage records, 0 violations, giftsBlockCount 0, buttonsBlockCount 0.
-- `runtime/process-events.json`: present, ok true.
-- `runtime/northflank-startup-log.json`: present, ok true, configured false fallback.
-- `runtime/diagnostic-export-status.json`: present, ok true, missingFiles [].
+PR261 runtime pickup and diagnostics passed: full-section, channel-target, user-journey, process-events, northflank fallback, and diagnostic-export-status were present and green.
 
 ## Manual MAX mismatch — gifts/lead-magnets product semantics
 User manual MAX check after PR261 found a product UX mismatch in `Подарки / лид-магниты`:
-- Root screen opens and shows actions: create gift, current gift, list gifts, main menu.
-- Create gift leads to post selection, but when there are no saved posts the screen duplicates text and dead-ends into empty/no-post state.
-- List gifts shows empty state while still returning to the same root actions.
-- Current gift/list/create actions are not meaningfully connected to a selected channel/post context or a clear lead-magnet lifecycle.
+- Root screen opened and showed context-free actions: create gift, current gift, list gifts, main menu.
+- Create gift led to post selection, but no-post state duplicated text and dead-ended.
+- List gifts showed empty state while returning to the same root actions.
+- Current/list/create actions were not meaningfully connected to selected channel/post/gift context.
 
 Interpretation:
-- This is NOT a runtime/CI failure. Runtime and matrices are green.
-- This IS a product-semantic gap: the journey matrix checked technical validity (rendering, payloads, no chat leaks, navigation, scenario coverage) but did not verify that each section action is meaningful, reachable, context-bound, and has a complete product lifecycle.
-- PR261 matrix PASS was therefore insufficient for product UX quality.
+- This was NOT runtime/CI failure. Runtime and matrices were green.
+- This WAS a product-semantic gap: matrices checked technical validity but did not verify product usefulness and lifecycle semantics.
 
-## Product-semantic flow contract initiative
-User requested a systematic reset before more fixes:
-- Define canonical product flow contracts for all client-visible sections.
-- Compare actual flows with desired flows across all sections, not just gifts.
-- Prevent menu multiplication/reimplementation drift. The next task must not create yet another independent menu tree.
-- Enforce one canonical menu/flow source of truth and semantic tests that fail when root actions are meaningless, context-free, duplicate, or dead-end.
+## PR262 current state
+PR262:
+- URL: https://github.com/9163223-maker/amio-comments-max/pull/262
+- Title: `Product-semantic flow contracts and gifts lifecycle gate`
+- Branch: `codex-792bhs`
+- Base: `main`
+- Current head: `30bbb2ef4f982b9dccac74b5df56bc0ea6697552`
+- Open, not merged.
+- Mergeable: true at latest check.
+- CI: PR regression tests #518, run id `28474918786`, conclusion `success`.
+- PR comments/review blockers visible through connector: none.
+- Audit-only: pending. Do not merge yet.
 
-Observed current-code facts:
-- `features/menu-v3/canonical-menu.js` is intended as the single source of truth for the client-visible production menu; legacy menu maps are reference-only.
-- `features/menu-v3/adapter.js` renders visible section screens from canonical actions.
-- Current adapter `postPickerContract()` says implementationStatus is `contract_only`, productionActionsMigrated false, and production post-scoped callbacks continue to use existing tenant-aware flows until picker hydration/delegation is migrated safely. This is a major reason technical matrices passed while product semantics failed.
+PR262 purpose:
+- Add human-readable product flow contracts for all client-visible sections.
+- Add machine-readable product flow contracts.
+- Add product-semantic matrix actual vs expected.
+- Add no-menu-multiplication tests.
+- Fix gifts/lead-magnets first so root is context-first and state-aware.
 
-Required next PR candidate:
-PR262 — `Product-semantic flow contracts and gifts lifecycle gate`.
-Must add docs/flow-contracts/ADMINKIT_PRODUCT_FLOW_CONTRACTS.md, a machine-readable semantic flow contract, semantic matrix tests, no-menu-multiplication tests, and fix gifts/lead-magnets first. The fix must be context-first and state-aware: no `Текущий подарок` without selected post/gift, no `Создать подарок` dead-end when no posts, useful zero-post state, post-bound gift card, create/edit/delete/preview lifecycle, list scope clarity.
+PR262 changes:
+- Added `docs/flow-contracts/ADMINKIT_PRODUCT_FLOW_CONTRACTS.md`.
+- Added `services/productFlowContractService.js`.
+- Added `services/productSemanticMatrixService.js` and runtime export `runtime/product-semantic-matrix.json`.
+- Updated `features/menu-v3/canonical-menu.js` gifts actions: root now uses `Выбрать пост`, `Все подарки`; context-free `Создать подарок`, `Текущий подарок`, ambiguous `Список подарков` are hidden until meaningful context.
+- Updated `features/menu-v3/adapter.js` gifts root, zero-channel, zero-post, selected-post no-gift, and account-scoped all-gifts screen.
+- Updated `bot.js` gifts fallback/root keyboard to semantic root buttons.
+- Added/updated PR262 tests and updated older gifts/menu regression tests to the new semantic contract.
+
+Assistant follow-up fixes after initial CI red:
+1. CI #515 failed in `scripts/test-comments-ux-gifts-reset-pr176.js` because the old test located the gifts root block by the removed `Создать подарок` root button. Fixed the test to assert semantic gifts root labels and forbidden old root actions.
+2. CI #516 failed in `scripts/test-canonical-menu-matrix-pr175.js` because it still expected gifts root actions `Создать подарок`, `Текущий подарок`, `Список подарков`. Fixed the test to expect `Выбрать пост`, `Все подарки` and forbid old context-free gifts root actions.
+3. CI #517 failed in `scripts/test-product-perfect-gifts-journey-pr142.js` because it treated `Выбрать пост` as stale post-selection. Fixed the test to allow `Выбрать пост` as the clean root context gate while still forbidding stale/context-free actions.
+4. CI #518 passed on current head.
+
+Next required action:
+1. Run audit-only PASS/BLOCK for PR262 head `30bbb2ef4f982b9dccac74b5df56bc0ea6697552`.
+2. If audit BLOCK, fix exact blocker in existing PR262 branch.
+3. If audit PASS, merge with expected head SHA.
+4. After merge, verify runtime pickup and `runtime/product-semantic-matrix.json` in runtime-status.
+5. Manual MAX visual check gifts root/no-post/list/post-selected states.
