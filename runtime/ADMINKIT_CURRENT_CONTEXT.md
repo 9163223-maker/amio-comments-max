@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 21:15 UTC
+Updated: 2026-06-30 22:10 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -51,11 +51,11 @@ PR262:
 - Title: `Product-semantic flow contracts and gifts lifecycle gate`
 - Branch: `codex-792bhs`
 - Base: `main`
-- Current head: `c11cf13359ede8e4b3074e743fdef53caac5bccf`
+- Current head: `88971d9eb82665499a6205df5cd3fb764f26996c`
 - Open, not merged.
 - Mergeable: true at latest check.
-- CI: PR regression tests #524, run id `28476206353`, conclusion `success`.
-- Audit-only: previous result was NOT final PASS; it was `PARTIAL PASS` with limitations. New audit-only is required for current head.
+- CI: PR regression tests #530, run id `28478999226`, conclusion `success`.
+- Audit-only: previous results were not final PASS. New audit-only is required for current head.
 
 PR262 purpose:
 - Add human-readable product flow contracts for all client-visible sections.
@@ -73,35 +73,28 @@ PR262 changes before partial audit:
 - Updated `bot.js` gifts fallback/root keyboard to semantic root buttons.
 - Added/updated PR262 tests and updated older gifts/menu regression tests to the new semantic contract.
 
-Assistant follow-up fixes after initial CI red:
+Assistant follow-up fixes:
 1. CI #515 failed in `scripts/test-comments-ux-gifts-reset-pr176.js`; fixed old gifts root assertion.
 2. CI #516 failed in `scripts/test-canonical-menu-matrix-pr175.js`; fixed expected gifts root actions.
 3. CI #517 failed in `scripts/test-product-perfect-gifts-journey-pr142.js`; allowed `Выбрать пост` as clean root context gate.
 4. CI #518 passed on head `30bbb2ef4f982b9dccac74b5df56bc0ea6697552`.
-
-Partial audit result provided by user at 2026-06-30 21:03 UTC:
-- Audit mode was respected.
-- Important limitation: local checkout was not requested head and remote verification failed due network/proxy 403.
-- Verdict was `PARTIAL PASS with product-semantic gaps exposed`, not final PASS.
-- Gifts P0 root/context blockers were considered fixed.
-- Gaps:
-  1. product-semantic matrix primarily compared root screens, not full `choose_channel`/`choose_post`/`post` route behavior for every post-scoped section;
-  2. docs had common/global state definitions but not per-section state matrix;
-  3. productReady true with incomplete global lifecycle caused matrix BLOCKs for main/channels/push/account;
-  4. no-menu-multiplication guard was shallow/pattern-limited.
-
-Assistant follow-up fixes after partial audit:
-- `services/productFlowContractService.js`: added `requiredLifecycle`, explicit state defaults for post-scoped sections, and richer per-section states.
-- `services/productSemanticMatrixService.js`: expanded matrix beyond roots; now renders route coverage for all post-scoped sections: root, zero_channels, multiple_channels, zero_posts, selected_post; gifts also covers `gifts:all` account scope. Adds `routeCoverage` and `postScopedSectionsChecked`.
-- `scripts/test-pr262-product-semantic-matrix.js`: now asserts all post-scoped sections have root/zero_channels/multiple_channels/zero_posts/selected_post coverage and no irrelevant productReady lifecycle BLOCK.
-- `scripts/test-pr262-no-menu-multiplication.js`: now scans reachable runtime graph from active entry files for legacy menu imports and globally asserts `clientVisible: true` appears only in canonical-menu. It avoids false-positive historical files that are not reachable from active entrypoints.
-- `docs/flow-contracts/ADMINKIT_PRODUCT_FLOW_CONTRACTS.md`: added per-section state matrix and required semantic matrix coverage section.
-- CI #523 failed due false-positive scan of historical `main-cc6537.js`; fixed by changing no-menu test to reachable runtime graph.
-- CI #524 passed on current head `c11cf13359ede8e4b3074e743fdef53caac5bccf`.
+5. Partial audit at 21:03 found matrix/doc/lifecycle/no-menu gaps; assistant added routeCoverage, per-section state docs, requiredLifecycle, and deeper reachable-runtime no-menu guard.
+6. CI #523 failed due false-positive scan of historical `main-cc6537.js`; fixed no-menu test to inspect reachable runtime graph.
+7. CI #524 passed on head `c11cf13359ede8e4b3074e743fdef53caac5bccf`.
+8. Audit at 21:57 BLOCKED `services/productSemanticMatrixService.js`: `buildMatrix().ok` false with root-visible post/entity-scoped actions for buttons, polls, highlights, plus stats classified as post-scoped but not gated.
+9. Assistant fixed code:
+   - `features/menu-v3/canonical-menu.js`: buttons/polls/highlights roots now show `Выбрать пост` as context gate; concrete actions `Добавить кнопку`, `Текущие кнопки`, `Создать опрос`, `Поставить метку`, `Снять метку` are hidden until selected-post context.
+   - `services/productFlowContractService.js`: buttons/polls/highlights contracts now allow root `Выбрать пост` and forbid concrete post actions at root; stats removed from whole-section `POST_SCOPED` list and remains dashboard-scoped.
+   - `services/productSemanticMatrixService.js`: matrix uses `contracts.POST_SCOPED`, not `requiredContext.includes('post')`, so stats dashboard is not incorrectly blocked.
+   - `scripts/test-pr262-product-semantic-matrix.js`: now asserts `buildMatrix().ok === true`, blockCount 0, gated roots for buttons/polls/highlights, stats not whole-section post-scoped.
+   - `scripts/test-canonical-menu-matrix-pr175.js`: updated expected root actions for buttons/polls/highlights.
+   - `scripts/test-pr245-root-section-opening-contract.js`: updated polls smoke to assert `Выбрать пост` root gate and forbid context-free `Создать опрос` root action while preserving results flow check.
+10. CI #529 failed because PR245 still expected root `Создать опрос`; fixed PR245 smoke.
+11. CI #530 passed on current head `88971d9eb82665499a6205df5cd3fb764f26996c`.
 
 Next required action:
-1. Run audit-only PASS/BLOCK for PR262 head `c11cf13359ede8e4b3074e743fdef53caac5bccf`.
+1. Run audit-only PASS/BLOCK for PR262 head `88971d9eb82665499a6205df5cd3fb764f26996c`.
 2. If audit BLOCK, fix exact blocker in existing PR262 branch.
 3. If audit PASS, merge with expected head SHA.
 4. After merge, verify runtime pickup and `runtime/product-semantic-matrix.json` in runtime-status.
-5. Manual MAX visual check gifts root/no-post/list/post-selected states.
+5. Manual MAX visual check gifts root/no-post/list/post-selected states and post-scoped roots buttons/polls/highlights.
