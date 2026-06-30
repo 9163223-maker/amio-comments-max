@@ -64,10 +64,12 @@ async function readJson({ repo = DEFAULT_REPO, branch = DEFAULT_BRANCH, path, to
   try { const file = await requestJson({ apiPath: `/repos/${repo}/contents/${encodeURIComponent(path).replace(/%2F/g, '/')}?ref=${encodeURIComponent(branch)}`, token }); return { sha: clean(file.sha), data: file.content ? JSON.parse(fromB64(file.content || '')) : null }; }
   catch (error) { if (error.status === 404) return { sha: '', data: null }; throw error; }
 }
+async function resolvePayload(payload) { return typeof payload === 'function' ? await payload() : payload; }
 async function exportJsonOnce({ repo, branch, path, token, payload, message }) {
   await ensureBranch({ repo, branch, token });
   const current = await readJson({ repo, branch, path, token });
-  await requestJson({ method: 'PUT', apiPath: `/repos/${repo}/contents/${encodeURIComponent(path).replace(/%2F/g, '/')}`, token, body: { message: short(message, 120), content: b64(`${JSON.stringify(payload, null, 2)}\n`), branch, ...(current.sha ? { sha: current.sha } : {}) } });
+  const resolved = await resolvePayload(payload);
+  await requestJson({ method: 'PUT', apiPath: `/repos/${repo}/contents/${encodeURIComponent(path).replace(/%2F/g, '/')}`, token, body: { message: short(message, 120), content: b64(`${JSON.stringify(resolved, null, 2)}\n`), branch, ...(current.sha ? { sha: current.sha } : {}) } });
 }
 async function exportJsonInner({ repo = DEFAULT_REPO, branch = resolveRuntimeBranch(), path, token = process.env.GITHUB_DEBUG_TOKEN, payload, message = 'runtime diagnostic export' }) {
   const started = Date.now(); let attempts = 0; let result;
@@ -100,6 +102,6 @@ function buildStatusPayload(expectedFiles = []) {
   const failedCount = exports.filter((e) => !e.ok && !e.skipped).length;
   return { ok: missingFiles.length === 0 && failedCount === 0, generatedAt: new Date().toISOString(), bootId: status.bootId, expectedFiles: files, exports, missingFiles, summary: { expectedCount: files.length, okCount, skippedCount, failedCount, missingCount: missingFiles.length } };
 }
-async function exportStatus({ expectedFiles, path = 'runtime/diagnostic-export-status.json' } = {}) { return exportJson({ path, payload: buildStatusPayload(expectedFiles || []), message: 'diagnostic export status' }); }
+async function exportStatus({ expectedFiles, path = 'runtime/diagnostic-export-status.json' } = {}) { return exportJson({ path, payload: () => buildStatusPayload(expectedFiles || []), message: 'diagnostic export status' }); }
 function resetForTest() { status.exports = []; queue = Promise.resolve(); }
-module.exports = { DEFAULT_REPO, DEFAULT_BRANCH, MAIN_BRANCH, branchFromEnv, resolveRuntimeBranch, assertRuntimeBranch, sanitizePath, exportJson, safeError, ensureBranch, readJson, buildStatusPayload, exportStatus, resetForTest };
+module.exports = { DEFAULT_REPO, DEFAULT_BRANCH, MAIN_BRANCH, branchFromEnv, resolveRuntimeBranch, assertRuntimeBranch, sanitizePath, exportJson, safeError, ensureBranch, readJson, buildStatusPayload, exportStatus, resetForTest, resolvePayload };
