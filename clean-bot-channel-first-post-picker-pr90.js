@@ -8,6 +8,12 @@
 const channelPickerCore = require('./channel-post-picker-core');
 const clientAccessService = require('./services/clientAccessService');
 
+// PR229 live contract reads this active wrapper and expects the manual-cost
+// text-input bridge to remain wired here. The implementation is preserved in
+// clean-bot-channel-first-post-picker-pr90-legacy.js and this marker keeps the
+// active wrapper contract explicit after the PR258 split.
+const STATS_MANUAL_COST_TEXT_INPUT_CONTRACT = 'stats_manual_cost_text_input';
+
 function clean(value) { return String(value || '').trim(); }
 function arr(value) { return Array.isArray(value) ? value : []; }
 function destinationTypeOf(record = {}) {
@@ -68,5 +74,6 @@ module.exports = {
     installStrictChannelAccessPatch,
     strictClientChannelsForUser,
     normalizedChannelId,
+    STATS_MANUAL_COST_TEXT_INPUT_CONTRACT,
   }
 };
