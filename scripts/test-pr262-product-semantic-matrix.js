@@ -1,15 +1,27 @@
 'use strict';
 const assert = require('assert');
 const canonical = require('../features/menu-v3/canonical-menu');
+const contracts = require('../services/productFlowContractService');
 const matrix = require('../services/productSemanticMatrixService').buildMatrix();
 const ids = ['main', ...canonical.clientSections.map((s)=>s.id)].sort();
 assert.deepStrictEqual(matrix.sections.map((s)=>s.section).sort(), ids);
 assert(matrix.summary && Array.isArray(matrix.summary.table));
+assert(Array.isArray(matrix.routeCoverage), 'matrix exposes routeCoverage');
+assert.strictEqual(matrix.summary.postScopedSectionsChecked, contracts.POST_SCOPED.length, 'all post-scoped sections have route coverage');
+for (const sectionId of contracts.POST_SCOPED) {
+  const row = matrix.sections.find((s)=>s.section===sectionId);
+  assert(row, `${sectionId}: section exists`);
+  for (const scenario of ['root','zero_channels','multiple_channels','zero_posts','selected_post']) {
+    assert(row.routesCovered.some((item)=>item.startsWith(`${scenario}:`)), `${sectionId}: ${scenario} route covered`);
+  }
+}
 const gifts = matrix.sections.find((s)=>s.section==='gifts');
 assert(gifts, 'gifts section exists');
 assert(!gifts.forbiddenButtonsVisible.includes('Текущий подарок'));
 assert(!gifts.forbiddenButtonsVisible.includes('Создать подарок'));
-assert(!matrix.violations.some((v)=>v.section==='gifts' && v.severity==='block' && /current_entity_visible_without_context|root_action_requires_context_visible|list_action_unclear_scope|create_leads/.test(v.reason)), 'no P0 gifts root/context blockers');
+assert(gifts.routesCovered.some((item)=>item === 'all_gifts_account_scope:gifts:all'), 'gifts all account scope covered');
+assert(!matrix.violations.some((v)=>v.section==='gifts' && v.severity==='block' && /current_entity_visible_without_context|root_action_requires_context_visible|list_action_unclear_scope|create_leads|gifts_list_scope_missing/.test(v.reason)), 'no P0 gifts root/context/list blockers');
 assert(matrix.violations.some((v)=>v.severity==='warn' && v.reason==='client_visible_product_ready_false'), 'matrix honestly flags partial sections');
 assert(!matrix.sections.some((s)=>s.classification==='PASS' && s.placeholderAsPassRisk), 'placeholder-only section cannot PASS');
+assert(!matrix.violations.some((v)=>v.reason==='product_ready_lifecycle_incomplete'), 'productReady lifecycle uses required lifecycle, not irrelevant global steps');
 console.log('PR262 product semantic matrix PASS');
