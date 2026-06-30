@@ -61,13 +61,25 @@ function hasStoredPostEvidence(channelId = '', userId = '') {
   return array(safe(() => store.getPostsList(), []))
     .some((post) => post && clean(post.channelId) === id && clean(post.postId) && clean(post.commentKey) && !looksInternal([post.channelId, post.channelTitle, post.title, post.originalText].join(' ')));
 }
+function hasTrustedChannelEvidence(raw = {}, userId = '') {
+  const channelId = channelIdOf(raw);
+  if (!channelId) return false;
+  const source = clean(raw.source || raw.provider || raw.origin || '').toLowerCase();
+  const trustedMetadata = Boolean(
+    clean(raw.tenantId || raw.tenant_id || raw.connectedAt || raw.connected_at || raw.boundByCode || raw.bound_by_code)
+    || (/channel/.test(source) && !/chat|group|private|dialog|im/.test(source))
+  );
+  if (trustedMetadata) return true;
+  if ((clean(raw.ownerUserId || raw.owner_user_id || raw.linkedByUserId || raw.linked_by_user_id || raw.maxUserId || raw.max_user_id || userId)) && hasStoredPostEvidence(channelId, userId)) return true;
+  return false;
+}
 function isKnownChannelRecord(raw = {}, userId = '') {
   if (isChatLikeRecord(raw)) return false;
   const type = destinationTypeOf(raw).toLowerCase();
   if (raw.isChannel === true) return true;
   if (/\bchannel\b/.test(type) && !/\b(?:chat|group|private|direct|dialog|im)\b/.test(type)) return true;
   if (raw.__ambiguousGenericId) return hasStoredPostEvidence(channelIdOf(raw), userId);
-  if (explicitChannelIdOf(raw)) return true;
+  if (explicitChannelIdOf(raw)) return hasTrustedChannelEvidence(raw, userId) || hasStoredPostEvidence(explicitChannelIdOf(raw), userId);
   return hasStoredPostEvidence(channelIdOf(raw), userId);
 }
 function mergeChannelSources(...sources) {
@@ -241,4 +253,4 @@ function listUiPostsForChannel(userId = '', channelId = '') {
 function hasMedia(post = {}) { return array(post.sourceAttachments || post.attachments || post.media || post.photos || post.files).length > 0 || Boolean(post.photo || post.image || post.video || post.document); }
 function safePostPreview(post = {}) { const text = clean(post.originalText || post.postText || post.text || post.caption || ''); if (text && !looksInternal(text) && !/\b(?:postId|channelId|messageId|commentKey|commentId|token|payload|trace)\b/i.test(text)) return short(text, 120); return hasMedia(post) ? 'Пост с медиа' : 'Пост без текста'; }
 
-module.exports = { RUNTIME, UNTITLED_CHANNEL, listUiChannelsForUser, resolveUiChannelTitle, buildChannelPickerRows, listUiPostsForChannel, safePostPreview, getLastDiagnostics, clearDiagnostics, maskChannelId, looksInternal, looksRawId, isChatLikeRecord, isKnownChannelRecord };
+module.exports = { RUNTIME, UNTITLED_CHANNEL, listUiChannelsForUser, resolveUiChannelTitle, buildChannelPickerRows, listUiPostsForChannel, safePostPreview, getLastDiagnostics, clearDiagnostics, maskChannelId, looksInternal, looksRawId, isChatLikeRecord, isKnownChannelRecord, hasTrustedChannelEvidence };
