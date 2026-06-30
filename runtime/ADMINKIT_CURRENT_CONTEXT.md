@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 19:25 UTC
+Updated: 2026-06-30 19:33 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -39,17 +39,17 @@ PR260 merged into `main` at 2026-06-30 18:20 UTC.
 
 PR260 runtime pickup passed. `runtime/full-section-matrix.json` appeared and was OK. `runtime/channel-target-matrix.json`, `runtime/process-events.json`, and `runtime/northflank-startup-log.json` did not appear. PR261 was opened to serialize/retry exports and expand journey matrix.
 
-## PR261 current state
+## PR261 status
 PR261:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/261
 - Title: `Reliable runtime diagnostics and expanded user journey matrix`
 - Branch: `codex/add-reliable-runtime-diagnostics-mechanism`
 - Base: `main`
-- Current head: `8d8729ca9496e872d546c64140c9abdf7ef48250`
-- Open, not merged.
-- Mergeable: true at latest check before latest fix.
-- Previous CI: PR regression tests #510, run id `28468429808`, success on head `5b286f9cc732578ce77ba92fbf153bee9a285eba`.
-- New CI after audit-block fix is pending/checking. Do not audit/merge until CI green on current head.
+- Final head: `8d8729ca9496e872d546c64140c9abdf7ef48250`
+- CI: PR regression tests #514, run id `28470014190`, conclusion `success`.
+- Audit-only: PASS confirmed by user screenshot at 2026-06-30 19:29 UTC.
+- Merged into `main` at 2026-06-30 19:31 UTC.
+- Merge commit: `126d3a9d9a841b266337dceecce41d51855b6a3c`.
 
 PR261 changes:
 - Adds serialized runtime export queue with retry/backoff in `services/runtimeExportService.js`.
@@ -60,28 +60,19 @@ PR261 changes:
 - Adds workflow `.github/workflows/adminkit-post-merge-runtime-check.yml` for workflow-based delayed post-merge runtime verification.
 - Adds tests `scripts/test-pr261-reliable-runtime-diagnostics.js` and `scripts/test-pr261-expanded-user-journey-matrix.js`, wired into `npm test` and PR regression workflow.
 
-Assistant review/follow-up before first audit:
-- Found a pre-audit blocker: `diagnostic-export-status` built its payload before its queued write ran, so it could snapshot pending exports as missing when writes were slow.
-- Fixed `services/runtimeExportService.js` so `payload` can be a function and is resolved at queued execution time.
-- `exportStatus()` now passes a lazy payload builder, so status sees completed earlier queued exports.
-- CI #510 passed after this fix.
+Assistant pre-audit fixes:
+- Fixed `diagnostic-export-status` to build its payload lazily when its queued export runs, avoiding stale pending-export snapshots.
+- Fixed `userJourneyMatrixService` so every `REQUIRED_SCENARIOS` entry is exercised via rendered/synthetic/safe-state scenario coverage or explicitly marked info/not_supported.
 
-Audit BLOCK at 2026-06-30 19:16 UTC:
-- Blocker file: `services/userJourneyMatrixService.js`.
-- Reason: `REQUIRED_SCENARIOS` listed edge-case scenario names, but `buildMatrix()` did not actually model/execute several of them: malformed_payload, missing_payload, missing_required_id, stale_or_deleted_post, back_navigation, main_menu_navigation, direct_callback_without_prior_state.
-- Required fix: buildMatrix must model each required scenario or emit explicit info/not_supported. Tests must assert each scenario is exercised or explicitly marked, not merely listed.
-
-Assistant fix applied:
-- `services/userJourneyMatrixService.js` now emits `scenarioCoverage` records.
-- Existing rendered journeys mark scenarios as rendered.
-- Edge cases malformed_payload, missing_payload, and missing_required_id use synthetic detector checks and must be detected by validation.
-- stale_or_deleted_post and direct_callback_without_prior_state are rendered as safe-state checks.
-- back_navigation and main_menu_navigation are explicitly covered in section navigation checks.
-- Missing scenario coverage creates an info/not_supported violation instead of silent false coverage.
-- `scripts/test-pr261-expanded-user-journey-matrix.js` now asserts every REQUIRED_SCENARIO is either in scenarioCoverage with a real mode or explicitly info/not_supported; it also asserts detector coverage for malformed/missing/missing_required_id and rendered coverage for stale/direct/back/main navigation.
-
-Next required action:
-1. Check CI for current head `8d8729ca9496e872d546c64140c9abdf7ef48250`.
-2. If CI red, use diagnostics artifact and fix in existing PR261 branch.
-3. If CI green, run repeat audit-only PASS/BLOCK for PR261 current head.
-4. Do not merge PR261 until audit-only PASS.
+Current required action:
+1. Verify runtime pickup for merge commit `126d3a9d9a841b266337dceecce41d51855b6a3c` from `runtime/startup-log.json`.
+2. Verify production start path and active entrypoint unchanged.
+3. Verify expected runtime-status diagnostic files materialize:
+   - `runtime/full-section-matrix.json`
+   - `runtime/channel-target-matrix.json`
+   - `runtime/user-journey-matrix.json`
+   - `runtime/process-events.json`
+   - `runtime/northflank-startup-log.json`
+   - `runtime/diagnostic-export-status.json`
+4. Verify matrix OK summaries and no restart loop.
+5. Update this file again after runtime pickup check.
