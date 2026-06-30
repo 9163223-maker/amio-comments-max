@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 16:55 UTC
+Updated: 2026-06-30 17:58 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -64,8 +64,16 @@ Likely root cause:
 - That exporter reads the diagnostic target branch from runtime environment and fails closed when the target resolves to `main`.
 - Because all three new diagnostic files are missing while startup-log works, the likely live cause is the fail-closed branch guard on the new exporter path, not a failed deploy or server crash.
 
-## Current status
-Server/runtime pickup and production contract are OK. No restart loop is visible. Product fix is ready for manual MAX visual check. New PR259 diagnostic files did not materialize, so observability is only partially achieved.
+## PR260 visibility check — 2026-06-30 17:58 UTC
+User reported that PR260 task was completed and PR created.
 
-Recommended follow-up:
-Open PR260 to wire `channel-target-matrix`, `process-events`, and `northflank-startup-log` through the same proven startup-log export path or force their exporter target to `runtime-status` independent of the legacy branch environment, while still refusing writes to `main`.
+GitHub connector state did not show PR260:
+- `GET PR #260`: Not Found.
+- `GET PR #261`: Not Found.
+- Search for PRs updated on 2026-06-30 shows only PR259 and PR258.
+- Branch search for likely names/terms (`pr260`, `runtime`, `observable`, `matrix`, `codex`) did not find a new PR260 branch.
+
+Conclusion: PR260 is not visible in current GitHub state. Do not proceed to CI/audit checks until the PR URL/number or branch is available, or until Codex successfully pushes/opens it.
+
+## Current status
+Server/runtime pickup and production contract are OK. No restart loop is visible. Product fix is ready for manual MAX visual check. New PR259 diagnostic files did not materialize, so observability is only partially achieved. PR260 is needed, but not currently visible through GitHub.
