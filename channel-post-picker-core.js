@@ -65,9 +65,12 @@ function hasTrustedChannelEvidence(raw = {}, userId = '') {
   const channelId = channelIdOf(raw);
   if (!channelId) return false;
   const source = clean(raw.source || raw.provider || raw.origin || '').toLowerCase();
+  const title = safeTitle(firstTitle(raw)).toLowerCase();
+  const titleChannelEvidence = /(^|[^a-zа-яё])(channel|канал)([^a-zа-яё]|$)/i.test(title);
   const trustedMetadata = Boolean(
     clean(raw.tenantId || raw.tenant_id || raw.connectedAt || raw.connected_at || raw.boundByCode || raw.bound_by_code)
     || (/channel/.test(source) && !/chat|group|private|dialog|im/.test(source))
+    || titleChannelEvidence
   );
   if (trustedMetadata) return true;
   if ((clean(raw.ownerUserId || raw.owner_user_id || raw.linkedByUserId || raw.linked_by_user_id || raw.maxUserId || raw.max_user_id || userId)) && hasStoredPostEvidence(channelId, userId)) return true;
