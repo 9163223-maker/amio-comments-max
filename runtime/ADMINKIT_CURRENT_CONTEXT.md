@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 09:55 UTC
+Updated: 2026-06-30 10:08 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -25,81 +25,73 @@ Active entrypoint must remain:
 
 Diagnostics/status branch: `runtime-status`.
 
-Runtime files: `runtime/startup-log.json`, `runtime/root-menu-live-parity-trace.json`, `runtime/manual-ui-walkthrough-trace.json`, `runtime/ADMINKIT_CURRENT_CONTEXT.md`.
+## Product rule
+Channel/post features must use only real channels and channel posts. Chats are a separate future product area and must not appear as channel/post targets. Applies to root channel management visibility and all post-scoped flows.
 
-## Product context
-AdminKIT is a MAX admin system: bot + web/PWA + admin flows for channel owners.
-
-Main product rule for current work: channel/post features must use only real channels and channel posts. Chats are a separate future product area and must not appear as post targets.
-
-Applies to comments, gifts, buttons, polls, highlights, post editor, and post-level stats.
-
-Expected channel/post UX:
+Expected UX:
 - one eligible channel: skip channel picker and show post list with `Канал: <title>` and `Выберите пост`;
 - multiple eligible channels: show channel picker;
 - zero eligible channels: show clean empty state with `Подключить канал` and `Главное меню`;
-- chat-like records must never appear in channel/post pickers.
+- chat-like records must never appear in channel/post pickers or `Каналы -> Мои каналы`.
 
-## Completed background
-PR256 implemented RootSectionDispatcher v2 and merged into `main` at 2026-06-29 10:02 UTC, merge commit `ad38d310ece323d5e0adb2583b12f904043bcc91`.
-
-PR257 fixed remaining Gifts root 500. PR257 merged at 2026-06-29 10:31 UTC, merge commit `8c3b94e5e5d5389da7541cfb9a4505113fedb220`. Runtime pickup passed and user visually confirmed Gifts opens. Process error: assistant merged after green CI without final audit-only Codex task; do not repeat.
-
-## PR258 final state — 2026-06-30 09:55 UTC
-PR258:
-- URL: https://github.com/9163223-maker/amio-comments-max/pull/258
-- Title: `Separate chats from channel/post pickers and normalize root menu UX`
-- Final PR head: `a1473b23475839fdfa2a91c3c561aef2fab0d1f1`
-- CI for final head: PR regression tests run #476, run id `28434739881`, conclusion `success`.
-- Audit-only: PASS, confirmed by user screenshot at 2026-06-30 09:50 UTC.
-- Merged into `main` at 2026-06-30 09:51 UTC.
+## PR258 status
+PR258 was merged into `main` at 2026-06-30 09:51 UTC.
+- Final PR head: `a1473b23475839fdfa2a91c3c561aef2fab0d1f1`.
+- CI: PR regression tests #476 success.
+- Audit-only: PASS confirmed by user screenshot.
 - Merge commit: `50b43a4524ed8009c48cd5c2ad710f2d027a7f66`.
 
-PR258 changes:
-- strict channel/chat separation in shared picker `channel-post-picker-core.js`;
-- helper logic in `human-channel-title-helper.js`;
-- one/multiple/zero channel UX in post-scoped flows where already wired;
-- root UX cleanup;
-- clean stats root;
-- CI diagnostics layer in PR regression workflow;
-- restored meaningful stats product regression test;
-- active `clean-bot-channel-first-post-picker-pr90.js` patches `services/clientAccessService.getClientChannels` before loading preserved legacy implementation;
-- patch uses shared predicates `channel-post-picker-core.isChatLikeRecord` and `channel-post-picker-core.isKnownChannelRecord`;
-- previous legacy implementation preserved as `clean-bot-channel-first-post-picker-pr90-legacy.js`;
-- `scripts/test-channel-chat-separation-menu-ux.js` includes wrapper-level regression coverage for one/multiple/zero channel states, stats source path, and editor/posts source path;
-- PR229 manual cost marker preserved in active wrapper with `STATS_MANUAL_COST_TEXT_INPUT_CONTRACT = 'stats_manual_cost_text_input'`.
+PR258 fixed the previous audit BLOCK in `clean-bot-channel-first-post-picker-pr90.js` by installing a strict client-channel patch before loading the preserved legacy wrapper. It also added wrapper-level tests for post-scoped comments/stats/editor paths.
 
-Latest BLOCK fixed:
-- `clean-bot-channel-first-post-picker-pr90.js` could still show chat-like records as channels.
-- Final fix on merged code: active wrapper installs strict client-channel patch using shared predicates before legacy wrapper load.
+## Runtime/deploy pickup
+Runtime pickup was confirmed from `runtime/startup-log.json` after merge:
+- first post-merge startup: `2026-06-30T09:51:31.206Z`, head `50b43a4524ed8009c48cd5c2ad710f2d027a7f66`;
+- later startup: `2026-06-30T09:54:06.123Z`, head `86fe30ce4661d5d0c6cb82aa075c0264dd2a4d04`;
+- `86fe30ce...` is a runtime/push dispatch log commit after PR258, not a code rollback;
+- production entrypoint remains `clean-entrypoint-1.53.10-pr89.js`;
+- runtime contract remains live OK;
+- startupPath remains OK;
+- readiness gate reports readyForManualMaxTest true.
 
-## Runtime/deploy pickup — 2026-06-30 09:55 UTC
-Runtime pickup confirmed from `runtime/startup-log.json` in `runtime-status`:
-- latest startup updatedAt: `2026-06-30T09:52:04.899Z`;
-- latest startedAt: `2026-06-30T09:51:31.206Z`;
-- latest `githubMainHeadSha`: `50b43a4524ed8009c48cd5c2ad710f2d027a7f66`;
-- `githubMainHeadVerifiedByStartupLog`: true;
-- `commitSource`: `github-main-head`;
-- production entrypoint: `clean-entrypoint-1.53.10-pr89.js`;
-- runtime contract `contractLiveOk`: true;
-- startupPath activeEntrypoint: `clean-entrypoint-1.53.10-pr89.js`;
-- startupPath ok: true;
-- final runtime readiness gate ok: true;
-- missing readiness keys: empty list;
-- readyForManualMaxTest: true.
+## Live manual mismatch — 2026-06-30 10:02 UTC
+User manually opened MAX after PR258 merge. Observations:
+- initial mini-app open showed MAX toast `Не удалось открыть мини-приложение`; may be client/network/mini-app path, but server had restarts near the same window and should be tracked separately.
+- main bot menu opened.
+- `Каналы -> Мои каналы` showed chat-like entries including `Все свои MAX` and `Саша - сын Мамочки 🌸`.
 
-Main `package.json` on `main` confirms start script unchanged:
-`node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
+Conclusion: PR258 is NOT fully complete. Server-side runtime pickup is OK, but product goal is not fully achieved because root channel management still leaks chats.
 
-`runtime/root-menu-live-parity-trace.json` and `runtime/manual-ui-walkthrough-trace.json` are present and ok=true, but their latest traces are from 2026-06-29 before PR258 merge, so they do not count as fresh PR258 manual MAX visual verification.
+## Root cause from code inspection
+The PR258 matrix missed `Каналы -> Мои каналы` as a separate server-side route.
 
-## Current waiting state
-Server-side completion is satisfied through runtime pickup and production contract. Remaining required step is manual MAX visual verification after PR258 merge:
-- channel/post pickers show only channels;
-- chats are not offered as post targets;
-- one eligible channel skips channel picker and shows `Канал: <title>` / `Выберите пост`;
-- multiple channels show channel picker;
-- zero channels show clean empty state with `Подключить канал` and `Главное меню`.
+Current main code shows:
+- `features/menu-v3/adapter.js` local `isConfirmedChannel()` returns true when `type` is empty, `type === 'channel'`, or `isChannel === true`.
+- `channelsList(context)` filters only with this weak local predicate.
+- `v3-menu-core-1539.js` hydrates channel routes through `syncChannelsForUser(userId)`, which currently returns `clientAccess.getClientChannels(userId)` raw for sync rendering, while async rendering can use `channel-post-picker-core.listUiChannelsForUser`.
 
-## Completion definition
-PR258 is fully complete only after manual MAX visual verification passes. Server-side readiness is complete.
+This creates a false-positive server contract: startup contract says channelsList provider is shared picker, but the real sync route can still pass weakly filtered raw client access records into `channels:list`.
+
+## Required next task
+Open a new PR, because PR258 is already merged. Suggested title:
+`PR259 — Channel root matrix: exclude chats from My channels and server-side UX matrix`
+
+Required scope:
+1. Fix `Каналы -> Мои каналы` so it uses the same strict eligible-channel source/predicate as post-scoped pickers.
+2. Remove/replace weak `features/menu-v3/adapter.js::isConfirmedChannel()` behavior for root channel list.
+3. Ensure sync and async route hydration are equivalent for channel routes.
+4. Add a server-side matrix test that covers every entry route, not just post-scoped pickers:
+   - main root;
+   - channels:home;
+   - channels:list;
+   - comments post picker;
+   - gifts post picker;
+   - buttons post picker;
+   - polls post picker;
+   - highlights post picker;
+   - editor post picker;
+   - stats post picker.
+5. Matrix fixtures must include real channels, channel records without posts, chat-like records with `chatId`, chat-like records with `type/chatType/kind`, and dangerous ambiguous records with only `id/channelId + human title` resembling groups/chats.
+6. Matrix must fail if any chat-like fixture appears in any channel/post target screen.
+7. Add runtime/live diagnostic export for the matrix result, so this class of bug is visible without manual screenshots.
+
+Do not merge PR259 without CI green and audit-only PASS.
