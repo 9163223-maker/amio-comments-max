@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "runtime": "PR260-PROCESS-EVENTS",
+  "generatedAt": "2026-06-30T19:30:18.223Z",
+  "bootId": "mr11k4f3-d4f8e992",
+  "startedAt": "2026-06-30T19:30:17.823Z",
+  "handlersInstalled": true,
+  "capturedEvents": 1,
+  "recent": [
+    {
+      "at": "2026-06-30T19:30:18.222Z",
+      "event": "startup",
+      "pid": 15,
+      "node": "v20.20.2",
+      "details": {
+        "entrypoint": "clean-entrypoint-1.53.10-pr89.js"
+      }
+    }
+  ]
+}
