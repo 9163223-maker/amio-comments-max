@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-06-30 15:51 UTC
+Updated: 2026-06-30 15:58 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -23,45 +23,44 @@ Diagnostics branch: `runtime-status`.
 ## Product rule
 Channel/post features must use only real channels and channel posts. Chats are a separate future product area and must not appear as channel/post targets. This includes root channel management and all post-scoped flows.
 
-## PR258 status
-PR258 merged at 2026-06-30 09:51 UTC, merge commit `50b43a4524ed8009c48cd5c2ad710f2d027a7f66`. CI green and audit-only PASS. Runtime pickup passed, but manual MAX check found a live mismatch: root `Каналы -> Мои каналы` still showed chat-like entries.
-
-Root cause: PR258 covered post-scoped pickers but missed root channel management. Root channel list used a weak local predicate, and sync channel route hydration could pass raw client access records.
-
-## PR259 current state
-PR259:
-- URL: https://github.com/9163223-maker/amio-comments-max/pull/259
-- Title: `Channel root matrix and runtime export safety`
+## PR259 status
+PR259 merged into `main` at 2026-06-30 15:50 UTC.
+- PR URL: https://github.com/9163223-maker/amio-comments-max/pull/259
 - Final head: `23c417b1ef945395cce64fcc320a69427af79645`
-- CI: PR regression tests #498, run id `28456674246`, conclusion `success`.
-- Audit-only: PASS confirmed by user screenshot at 2026-06-30 15:48 UTC.
-- Merged into `main` at 2026-06-30 15:50 UTC.
+- CI: PR regression tests #498, run id `28456674246`, success.
+- Audit-only: PASS confirmed by user screenshot.
 - Merge commit: `c087323dcf38d1a6bbec082efe3b9bbdb496e747`.
 
-What changed in PR259:
-- root `channels:list` and post-scoped choose-channel routes use shared channel predicate;
-- sync and async channel route hydration are filtered;
-- suspicious human-title records require positive channel evidence and cannot pass on `channelId` alone;
-- runtime export guard refuses `main` and limits exports to `runtime/*.json`;
-- runtime push dispatch exports are routed through the guard;
-- committed runtime push log is removed from PR tree;
-- channel target matrix, process events, and Northflank startup scaffold services are added;
-- startup bootstrap exports these diagnostics;
-- PR259 tests are added and included in `npm test`.
+PR259 changed root channel filtering, post-scoped channel filtering, suspicious channel-title guards, runtime export safety, removal of committed runtime push log, and added PR259 matrix/export tests.
 
-Latest audit BLOCK fixed before merge:
-- `channel-post-picker-core.js`: explicit `channelId` plus chat/group-like human title could pass.
-- `services/channelTargetMatrixService.js`: matrix did not cover `*:choose_post` screens and lacked exact dangerous fixtures.
-- Fix: explicit suspicious title guard, dangerous fixtures, and full choose-channel/choose-post matrix for comments/gifts/buttons/polls/highlights/editor/stats.
+## Runtime pickup check
+Runtime pickup confirmed from `runtime/startup-log.json`:
+- latest `startedAt`: `2026-06-30T15:49:37.365Z`;
+- latest `bootId`: `mr0tpdvh-bd82533d`;
+- latest `githubMainHeadSha`: `c087323dcf38d1a6bbec082efe3b9bbdb496e747`;
+- startup log updatedAt: `2026-06-30T15:50:27.372Z`;
+- production entrypoint: `clean-entrypoint-1.53.10-pr89.js`;
+- runtime contract live OK: true;
+- startupPath OK: true;
+- final runtime readiness gate OK: true;
+- readyForManualMaxTest: true.
 
-## Current waiting state
-PR259 is merged. Required now:
-1. Wait for deploy/runtime pickup.
-2. Check `runtime/startup-log.json` from `runtime-status` and confirm latest runtime head is `c087323dcf38d1a6bbec082efe3b9bbdb496e747`.
-3. Confirm production start path and active entrypoint unchanged.
-4. Check `runtime/channel-target-matrix.json`, `runtime/process-events.json`, and `runtime/northflank-startup-log.json`.
-5. Confirm no repeated startup/restart after PR259 pickup over the check window.
-6. Confirm `runtime/push-dispatch-log.json` is not committed on `main` and runtime exports target `runtime-status`.
-7. Then manual MAX visual check: root channel list and all post-scoped pickers show only channels, not chats.
+Repeated restart check:
+- Re-check after waiting window showed the same latest bootId and same startup updatedAt.
+- No newer startup/restart is visible in `runtime-status` after PR259 pickup.
 
-Do not mark PR259 fully complete until runtime pickup and manual MAX visual verification pass.
+Runtime export safety:
+- `runtime/push-dispatch-log.json` is not present on `main` after merge.
+- Main `package.json` start script remains unchanged.
+
+Diagnostics gap:
+- `runtime/channel-target-matrix.json` not found in `runtime-status` after pickup.
+- `runtime/process-events.json` not found in `runtime-status` after pickup.
+- `runtime/northflank-startup-log.json` not found in `runtime-status` after pickup.
+
+## Current status
+Server/runtime pickup and production contract are OK. No restart loop is visible. The new PR259 diagnostic files did not materialize in `runtime-status`, so observability is only partially achieved.
+
+Remaining required actions:
+1. Manual MAX visual check: root channel list and all post-scoped pickers show only channels, not chats.
+2. Consider a small follow-up PR260 to make the new PR259 diagnostics export observable through the same proven path as startup-log.
