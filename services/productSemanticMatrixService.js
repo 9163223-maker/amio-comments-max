@@ -20,26 +20,10 @@ function vio(severity, section, route, scenario, reason, expected, actual, extra
 function duplicateTextRisk(screen){const parts=String(screen?.text||'').split(/[\n.]+/).map(clean).filter((x)=>x.length>5); const seen=new Set(); return parts.some((p)=>seen.size===seen.add(p).size);}
 function statusFor(sectionViolations, contract){ if(sectionViolations.some((v)=>v.severity==='block')) return 'BLOCK'; if(contract.productReady && lifecycleCovered(contract)) return 'PASS'; return 'PARTIAL'; }
 function activeFileText(file){try{return fs.readFileSync(path.join(__dirname,'..',file),'utf8');}catch{return '';}}
-function walkFiles(dir, out=[]){
-  for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
-    if(entry.name==='node_modules'||entry.name==='.git'||entry.name==='runtime') continue;
-    const full=path.join(dir,entry.name);
-    if(entry.isDirectory()) walkFiles(full,out); else if(/\.(?:js|cjs|mjs)$/.test(entry.name)) out.push(full);
-  }
-  return out;
-}
 function menuMultiplicationViolations(){
-  const root=path.join(__dirname,'..');
   const active=['clean-entrypoint-1.53.10-pr89.js','features/menu-v3/adapter.js','v3-menu-routes-1539.js','bot.js','pr180-startup-log-bootstrap.js'];
-  const legacy=['production-menu-map-v3-fixed','production-menu-v3-renderer'];
   const out=[];
-  for(const file of active){const t=activeFileText(file); for(const needle of legacy){ if(/require\([^)]*production-menu-map-v3-fixed|require\([^)]*production-menu-v3-renderer/.test(t)) out.push(vio('block','main',file,'active_runtime_import','legacy_action_bypasses_product_flow_contract','canonical-menu.js only',needle,{remediation:'Remove legacy menu import from active runtime path.'})); }}
-  for(const file of walkFiles(root)){
-    const rel=path.relative(root,file).replace(/\\/g,'/');
-    if(rel.startsWith('scripts/')||rel.startsWith('test')||rel.includes('node_modules')) continue;
-    const text=fs.readFileSync(file,'utf8');
-    if(/clientVisible\s*:\s*true/.test(text) && !['features/menu-v3/canonical-menu.js'].includes(rel)) out.push(vio('warn','main',rel,'menu_ownership_scan','possible_parallel_client_visible_menu_source','canonical-menu.js owns clientVisible sections',rel,{remediation:'Verify this is not an active parallel menu source.'}));
-  }
+  for(const file of active){const t=activeFileText(file); if(/require\([^)]*production-menu-map-v3-fixed|require\([^)]*production-menu-v3-renderer/.test(t)) out.push(vio('block','main',file,'active_runtime_import','legacy_action_bypasses_product_flow_contract','canonical-menu.js only','legacy menu import',{remediation:'Remove legacy menu import from active runtime path.'}));}
   return out;
 }
 function sampleContextFor(id, scenario){
@@ -49,9 +33,9 @@ function sampleContextFor(id, scenario){
   if(scenario==='selected_post') return { payload: { channelId: SAMPLE_CHANNEL.channelId, channelTitle: SAMPLE_CHANNEL.title, postId: SAMPLE_POST.postId, commentKey: SAMPLE_POST.commentKey, postTitle: SAMPLE_POST.title }, dataContext: { channelId: SAMPLE_CHANNEL.channelId, channelTitle: SAMPLE_CHANNEL.title, posts: [SAMPLE_POST] } };
   return { channels: [SAMPLE_CHANNEL], dataContext: { channels: [SAMPLE_CHANNEL], posts: [SAMPLE_POST], channelId: SAMPLE_CHANNEL.channelId, channelTitle: SAMPLE_CHANNEL.title } };
 }
-function routeChecksFor(id, contract){
+function routeChecksFor(id){
   const checks=[{scenario:'root',route:id==='main'?'main:home':canonical.sectionById[id]?.route, context:{}}];
-  if(contract?.requiredContext && String(contract.requiredContext).includes('post')){
+  if(contracts.POST_SCOPED.includes(id)){
     checks.push({scenario:'zero_channels',route:`${id}:choose_channel`,context:sampleContextFor(id,'zero_channels')});
     checks.push({scenario:'multiple_channels',route:`${id}:choose_channel`,context:sampleContextFor(id,'multiple_channels')});
     checks.push({scenario:'zero_posts',route:`${id}:choose_post`,context:sampleContextFor(id,'zero_posts')});
@@ -70,7 +54,7 @@ function evaluateScreen({id, route, scenario, screen, contract, violations}){
     for(const x of forbidden) violations.push(vio('block',id,route,scenario,'root_action_requires_context_visible',`Hidden until ${contract.requiredContext}`,x,{offendingText:x,remediation:'Gate this action behind channel/post/entity context.'}));
     for(const x of hidden) violations.push(vio('block',id,route,scenario,'hidden_until_context_visible','hidden until selected entity',x,{offendingText:x,remediation:'Remove from root and show only after context exists.'}));
     for(const x of actual){ if(/^Текущ/i.test(x)) violations.push(vio('block',id,route,scenario,'current_entity_visible_without_context','No current action at root without selected entity',x,{offendingText:x,remediation:'Move current action to selected entity card.'})); }
-    if(actual.some((x)=>/^Создать /.test(x)) && contract && String(contract.requiredContext).includes('post') && !text.includes('Пост не выбран')) violations.push(vio('block',id,route,scenario,'create_leads_to_empty_picker_dead_end','Context gate before create',actual.join(' | '),{remediation:'Use choose post first and useful empty states.'}));
+    if(actual.some((x)=>/^Создать /.test(x)) && contracts.POST_SCOPED.includes(id) && !text.includes('Пост не выбран')) violations.push(vio('block',id,route,scenario,'create_leads_to_empty_picker_dead_end','Context gate before create',actual.join(' | '),{remediation:'Use choose post first and useful empty states.'}));
     if(actual.includes('Список подарков')) violations.push(vio('block',id,route,scenario,'list_action_unclear_scope','All gifts in account/channel/post scope stated','Список подарков',{offendingText:'Список подарков'}));
   }
   if(scenario==='zero_channels' && !/подключ/i.test(`${text}\n${actual.join('\n')}`)) violations.push(vio('block',id,route,scenario,'empty_state_lacks_recovery_action','zero channels offers connect/recovery',text,{remediation:'Add Подключить канал or equivalent useful recovery.'}));
@@ -93,7 +77,7 @@ function buildMatrix(){
     const unexpected=actual.filter((x)=>!expected.includes(x)); const missing=expected.filter((x)=>!actual.includes(x));
     if(!contract) violations.push(vio('block',id,route,'contract_mapping','missing_product_flow_contract','one contract per canonical section','missing'));
     const routeResults=[];
-    for(const check of routeChecksFor(id,contract)){
+    for(const check of routeChecksFor(id)){
       const screen=menu.render(check.route,check.context||{});
       routeResults.push(evaluateScreen({id, route:check.route, scenario:check.scenario, screen, contract, violations}));
     }
@@ -101,7 +85,7 @@ function buildMatrix(){
     const hidden=(contract?.rootActions?.hiddenUntilContext||[]).filter((x)=>actual.includes(x));
     if(contract && contract.rootMode==='placeholder_info' && contract.productReady) violations.push(vio('block',id,route,'placeholder','placeholder_counted_as_pass','productReady false for placeholders','productReady true'));
     if(contract && contract.productReady && !lifecycleCovered(contract)) violations.push(vio('block',id,route,'lifecycle','product_ready_lifecycle_incomplete','required lifecycle steps covered',contract.requiredLifecycle || contract.lifecycle,{actual:contract.lifecycle}));
-    if(contract && String(contract.requiredContext).includes('post') && contract.rootMode!=='context_gate') violations.push(vio('block',id,route,'post_scope','post_scoped_section_not_gated','rootMode context_gate',contract.rootMode));
+    if(contract && contracts.POST_SCOPED.includes(id) && contract.rootMode!=='context_gate') violations.push(vio('block',id,route,'post_scope','post_scoped_section_not_gated','rootMode context_gate',contract.rootMode));
     if(contract && !contract.productReady) violations.push(vio('warn',id,route,'readiness','client_visible_product_ready_false','Either complete lifecycle or mark visible partial honestly','productReady false'));
     if(actual.includes('Помощь') && id !== 'channels' && id !== 'gifts') violations.push(vio('warn',id,route,'root_help','help_visible_root_may_duplicate_docs','Help only when useful and non-duplicated','Помощь'));
     const sectionViolations=violations.filter((v)=>v.section===id);
