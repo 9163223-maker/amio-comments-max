@@ -1,0 +1,2531 @@
+{
+  "ok": true,
+  "updatedAt": "2026-06-30T19:36:10.323Z",
+  "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+  "summary": [
+    {
+      "type": "max_api.response",
+      "count": 11,
+      "lastSeq": 1122,
+      "lastAt": "2026-06-30T19:36:08.444Z"
+    },
+    {
+      "type": "max_api.request",
+      "count": 20,
+      "lastSeq": 1121,
+      "lastAt": "2026-06-30T19:36:08.322Z"
+    },
+    {
+      "type": "bot_action.edit_message.intent",
+      "count": 9,
+      "lastSeq": 1120,
+      "lastAt": "2026-06-30T19:36:08.310Z"
+    },
+    {
+      "type": "max_api.error",
+      "count": 9,
+      "lastSeq": 1119,
+      "lastAt": "2026-06-30T19:36:08.308Z"
+    },
+    {
+      "type": "bot_action.answer_callback.intent",
+      "count": 9,
+      "lastSeq": 1117,
+      "lastAt": "2026-06-30T19:36:08.231Z"
+    },
+    {
+      "type": "callback_received_pre_dedupe",
+      "count": 2,
+      "lastSeq": 1116,
+      "lastAt": "2026-06-30T19:36:08.229Z"
+    },
+    {
+      "type": "webhook.delegate_legacy",
+      "count": 3,
+      "lastSeq": 1115,
+      "lastAt": "2026-06-30T19:36:08.194Z"
+    },
+    {
+      "type": "callback.action",
+      "count": 64,
+      "lastSeq": 1114,
+      "lastAt": "2026-06-30T19:36:08.194Z"
+    },
+    {
+      "type": "buttons_callback.received",
+      "count": 64,
+      "lastSeq": 1113,
+      "lastAt": "2026-06-30T19:36:08.193Z"
+    },
+    {
+      "type": "webhook.normalized",
+      "count": 108,
+      "lastSeq": 1112,
+      "lastAt": "2026-06-30T19:36:08.192Z"
+    },
+    {
+      "type": "webhook.received",
+      "count": 108,
+      "lastSeq": 1111,
+      "lastAt": "2026-06-30T19:36:08.190Z"
+    },
+    {
+      "type": "live_identity.webhook_fingerprint",
+      "count": 11,
+      "lastSeq": 1110,
+      "lastAt": "2026-06-30T19:36:08.189Z"
+    },
+    {
+      "type": "root_section.bridge_to_wrapped",
+      "count": 4,
+      "lastSeq": 1103,
+      "lastAt": "2026-06-30T19:36:05.926Z"
+    },
+    {
+      "type": "flow.screen_shown",
+      "count": 59,
+      "lastSeq": 1097,
+      "lastAt": "2026-06-30T19:36:02.051Z"
+    },
+    {
+      "type": "screen.edit_ok",
+      "count": 25,
+      "lastSeq": 1096,
+      "lastAt": "2026-06-30T19:36:02.050Z"
+    },
+    {
+      "type": "admin_screen.remember",
+      "count": 60,
+      "lastSeq": 1095,
+      "lastAt": "2026-06-30T19:36:02.050Z"
+    },
+    {
+      "type": "screen.show_intent",
+      "count": 25,
+      "lastSeq": 1091,
+      "lastAt": "2026-06-30T19:36:01.925Z"
+    },
+    {
+      "type": "callback.answer_failed",
+      "count": 2,
+      "lastSeq": 1090,
+      "lastAt": "2026-06-30T19:36:01.924Z"
+    },
+    {
+      "type": "callback.answer_intent",
+      "count": 59,
+      "lastSeq": 1086,
+      "lastAt": "2026-06-30T19:36:01.850Z"
+    },
+    {
+      "type": "flow.screen_intent",
+      "count": 59,
+      "lastSeq": 1085,
+      "lastAt": "2026-06-30T19:36:01.848Z"
+    },
+    {
+      "type": "bot_action.send_message.intent",
+      "count": 1,
+      "lastSeq": 1003,
+      "lastAt": "2026-06-30T19:34:41.989Z"
+    },
+    {
+      "type": "webhook.null_message_candidate",
+      "count": 1,
+      "lastSeq": 999,
+      "lastAt": "2026-06-30T19:34:41.628Z"
+    },
+    {
+      "type": "button_flow.stale_url_reset",
+      "count": 21,
+      "lastSeq": 992,
+      "lastAt": "2026-06-30T19:31:04.323Z"
+    },
+    {
+      "type": "buttons_callback.render_result",
+      "count": 57,
+      "lastSeq": 988,
+      "lastAt": "2026-06-30T19:31:04.230Z"
+    },
+    {
+      "type": "callback.answer_ok",
+      "count": 57,
+      "lastSeq": 984,
+      "lastAt": "2026-06-30T19:31:04.226Z"
+    },
+    {
+      "type": "buttons_callback.route_returned",
+      "count": 57,
+      "lastSeq": 981,
+      "lastAt": "2026-06-30T19:31:04.221Z"
+    },
+    {
+      "type": "buttons_callback.route_selected",
+      "count": 57,
+      "lastSeq": 980,
+      "lastAt": "2026-06-30T19:31:04.131Z"
+    },
+    {
+      "type": "screen.send_no_cleanup",
+      "count": 35,
+      "lastSeq": 972,
+      "lastAt": "2026-06-30T19:31:04.037Z"
+    },
+    {
+      "type": "buttons.save_result_send_failed_fallback_edit",
+      "count": 1,
+      "lastSeq": 565,
+      "lastAt": "2026-06-30T19:30:57.129Z"
+    },
+    {
+      "type": "screen.send_fresh",
+      "count": 1,
+      "lastSeq": 501,
+      "lastAt": "2026-06-30T19:30:56.331Z"
+    },
+    {
+      "type": "admin_screen.cleanup_intent",
+      "count": 1,
+      "lastSeq": 500,
+      "lastAt": "2026-06-30T19:30:56.330Z"
+    }
+  ],
+  "events": [
+    {
+      "seq": 1122,
+      "at": "2026-06-30T19:36:08.444Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.response",
+      "method": "PUT",
+      "path": "/messages",
+      "status": 200,
+      "ok": true,
+      "ms": 122,
+      "responseKeys": [
+        "success"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1121,
+      "at": "2026-06-30T19:36:08.322Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "PUT",
+      "path": "/messages",
+      "query": {
+        "message_id": "mid…7261"
+      },
+      "body": {
+        "hasText": true,
+        "textPreview": "Список подарков: Пока нет сохранённых подарков.",
+        "attachmentCount": 1,
+        "attachmentTypes": [
+          "inline_keyboard"
+        ],
+        "hasLink": false,
+        "hasFormat": false,
+        "notify": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1120,
+      "at": "2026-06-30T19:36:08.310Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "bot_action.edit_message.intent",
+      "messageId": "mid…7261",
+      "textPreview": "Список подарков: Пока нет сохранённых подарков.",
+      "attachmentCount": 1,
+      "attachmentTypes": [
+        "inline_keyboard"
+      ],
+      "notify": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1119,
+      "at": "2026-06-30T19:36:08.308Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.error",
+      "method": "POST",
+      "path": "/answers",
+      "status": 400,
+      "ok": false,
+      "ms": 76,
+      "responseKeys": [
+        "code",
+        "message"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1118,
+      "at": "2026-06-30T19:36:08.232Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "POST",
+      "path": "/answers",
+      "query": {
+        "callback_id": "f9L…6Cvp"
+      },
+      "body": {
+        "hasText": false,
+        "attachmentCount": 0,
+        "attachmentTypes": [],
+        "hasLink": false,
+        "hasFormat": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1117,
+      "at": "2026-06-30T19:36:08.231Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "bot_action.answer_callback.intent",
+      "callbackId": "f9L…6Cvp",
+      "hasNotification": false,
+      "hasMessage": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1116,
+      "at": "2026-06-30T19:36:08.229Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "callback_received_pre_dedupe",
+      "action": "gift_admin_list_campaigns",
+      "route": "",
+      "r": "",
+      "hasMessage": true,
+      "hasUserId": true,
+      "hasCallbackId": true,
+      "callbackMessageIdPresent": true,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1115,
+      "at": "2026-06-30T19:36:08.194Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "webhook.delegate_legacy",
+      "updateType": "message_callback",
+      "userId": "175…7246",
+      "textPreview": "Подарки / лид-магниты Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку. Сначала выберите действие.",
+      "isCallback": true,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1114,
+      "at": "2026-06-30T19:36:08.194Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "callback.action",
+      "userId": "175…7246",
+      "action": "gift_admin_list_campaigns",
+      "callbackId": "f9L…6Cvp",
+      "messageId": "mid…7261",
+      "payloadKeys": [
+        "canonicalAction",
+        "section",
+        "action"
+      ],
+      "hasFlowId": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1113,
+      "at": "2026-06-30T19:36:08.193Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "buttons_callback.received",
+      "callback_received": true,
+      "action": "gift_admin_list_campaigns",
+      "payloadKeys": [
+        "canonicalAction",
+        "section",
+        "action"
+      ],
+      "hasFlowId": false,
+      "callbackMessageId": "061…d722",
+      "userHash": "1ef3d3317311",
+      "chatHash": "29305633c5c1",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1112,
+      "at": "2026-06-30T19:36:08.192Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "webhook.normalized",
+      "updateType": "message_callback",
+      "userId": "175…7246",
+      "isCallback": true,
+      "textPreview": "Подарки / лид-магниты Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку. Сначала выберите действие.",
+      "hasMedia": true,
+      "messageId": "mid…7261",
+      "chatId": "261…7113",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1111,
+      "at": "2026-06-30T19:36:08.190Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "webhook.received",
+      "updateType": "message_callback",
+      "hasMessage": true,
+      "hasCallback": true,
+      "updateKeys": [
+        "callback",
+        "message",
+        "timestamp",
+        "user_locale",
+        "update_type"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1110,
+      "at": "2026-06-30T19:36:08.189Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "live_identity.webhook_fingerprint",
+      "requestId": "bab…14b5",
+      "userId": "175…7246",
+      "action": "gift_admin_list_campaigns",
+      "screenId": "",
+      "handler": "clean-bot-campaign-attribution-cc8336.handleWebhookWithCampaignAttribution",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1109,
+      "at": "2026-06-30T19:36:06.642Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.response",
+      "method": "PUT",
+      "path": "/messages",
+      "status": 200,
+      "ok": true,
+      "ms": 198,
+      "responseKeys": [
+        "success"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1108,
+      "at": "2026-06-30T19:36:06.444Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "PUT",
+      "path": "/messages",
+      "query": {
+        "message_id": "mid…7261"
+      },
+      "body": {
+        "hasText": true,
+        "textPreview": "Подарки / лид-магниты Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку. Сначала выберите действие.",
+        "attachmentCount": 1,
+        "attachmentTypes": [
+          "inline_keyboard"
+        ],
+        "hasLink": false,
+        "hasFormat": false,
+        "notify": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1107,
+      "at": "2026-06-30T19:36:06.443Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "bot_action.edit_message.intent",
+      "messageId": "mid…7261",
+      "textPreview": "Подарки / лид-магниты Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку. Сначала выберите действие.",
+      "attachmentCount": 1,
+      "attachmentTypes": [
+        "inline_keyboard"
+      ],
+      "notify": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1106,
+      "at": "2026-06-30T19:36:06.439Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.error",
+      "method": "POST",
+      "path": "/answers",
+      "status": 400,
+      "ok": false,
+      "ms": 311,
+      "responseKeys": [
+        "code",
+        "message"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1105,
+      "at": "2026-06-30T19:36:06.128Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "POST",
+      "path": "/answers",
+      "query": {
+        "callback_id": "f9L…_gCS"
+      },
+      "body": {
+        "hasText": false,
+        "attachmentCount": 0,
+        "attachmentTypes": [],
+        "hasLink": false,
+        "hasFormat": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1104,
+      "at": "2026-06-30T19:36:06.127Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "bot_action.answer_callback.intent",
+      "callbackId": "f9L…_gCS",
+      "hasNotification": false,
+      "hasMessage": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1103,
+      "at": "2026-06-30T19:36:05.926Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "root_section.bridge_to_wrapped",
+      "userId": "175…7246",
+      "action": "admin_section_gifts",
+      "route": "gifts:home",
+      "resolver": "legacy.compatibility",
+      "callbackId": "f9L…_gCS",
+      "messageId": "mid…7261",
+      "module": "clean-bot-channel-first-post-picker-pr90.js",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1102,
+      "at": "2026-06-30T19:36:05.926Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "callback.action",
+      "userId": "175…7246",
+      "action": "admin_section_gifts",
+      "callbackId": "f9L…_gCS",
+      "messageId": "mid…7261",
+      "payloadKeys": [
+        "action"
+      ],
+      "hasFlowId": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1101,
+      "at": "2026-06-30T19:36:05.924Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "buttons_callback.received",
+      "callback_received": true,
+      "action": "admin_section_gifts",
+      "payloadKeys": [
+        "action"
+      ],
+      "hasFlowId": false,
+      "callbackMessageId": "061…d722",
+      "userHash": "1ef3d3317311",
+      "chatHash": "29305633c5c1",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1100,
+      "at": "2026-06-30T19:36:05.923Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "webhook.normalized",
+      "updateType": "message_callback",
+      "userId": "175…7246",
+      "isCallback": true,
+      "textPreview": "📌 Выбор поста для подарка Выберите пост из последних сохранённых постов. Выберите пост из последних сохранённых постов. Пока нет сохранённых постов.",
+      "hasMedia": true,
+      "messageId": "mid…7261",
+      "chatId": "261…7113",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1099,
+      "at": "2026-06-30T19:36:05.923Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "webhook.received",
+      "updateType": "message_callback",
+      "hasMessage": true,
+      "hasCallback": true,
+      "updateKeys": [
+        "callback",
+        "message",
+        "timestamp",
+        "user_locale",
+        "update_type"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1098,
+      "at": "2026-06-30T19:36:05.916Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "live_identity.webhook_fingerprint",
+      "requestId": "ffd…7575",
+      "userId": "175…7246",
+      "action": "admin_section_gifts",
+      "screenId": "",
+      "handler": "clean-bot-campaign-attribution-cc8336.handleWebhookWithCampaignAttribution",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1097,
+      "at": "2026-06-30T19:36:02.051Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "flow.screen_shown",
+      "flow": "gifts",
+      "action": "gift_admin_show_current",
+      "screenId": "adm…cker",
+      "userId": "175…7246",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1096,
+      "at": "2026-06-30T19:36:02.050Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "screen.edit_ok",
+      "userId": "175…7246",
+      "messageId": "mid…7261",
+      "screenId": "adm…cker",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1095,
+      "at": "2026-06-30T19:36:02.050Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "admin_screen.remember",
+      "userId": "175…7246",
+      "messageId": "mid…7261",
+      "count": 1,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1094,
+      "at": "2026-06-30T19:36:02.048Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.response",
+      "method": "PUT",
+      "path": "/messages",
+      "status": 200,
+      "ok": true,
+      "ms": 121,
+      "responseKeys": [
+        "success"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1093,
+      "at": "2026-06-30T19:36:01.927Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "PUT",
+      "path": "/messages",
+      "query": {
+        "message_id": "mid…7261"
+      },
+      "body": {
+        "hasText": true,
+        "textPreview": "📌 Выбор поста для подарка Выберите пост из последних сохранённых постов. Выберите пост из последних сохранённых постов. Пока нет сохранённы…",
+        "attachmentCount": 1,
+        "attachmentTypes": [
+          "inline_keyboard"
+        ],
+        "hasLink": false,
+        "hasFormat": false,
+        "notify": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1092,
+      "at": "2026-06-30T19:36:01.926Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "bot_action.edit_message.intent",
+      "messageId": "mid…7261",
+      "textPreview": "📌 Выбор поста для подарка Выберите пост из последних сохранённых постов. Выберите пост из последних сохранённых постов. Пока нет сохранённы…",
+      "attachmentCount": 1,
+      "attachmentTypes": [
+        "inline_keyboard"
+      ],
+      "notify": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1091,
+      "at": "2026-06-30T19:36:01.925Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "screen.show_intent",
+      "userId": "175…7246",
+      "chatId": "261…7113",
+      "messageId": "mid…7261",
+      "screenId": "adm…cker",
+      "mode": "edit",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1090,
+      "at": "2026-06-30T19:36:01.924Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "callback.answer_failed",
+      "callbackId": "f9L…kQ-r",
+      "error": "MAX API 400 POST /answers",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1089,
+      "at": "2026-06-30T19:36:01.924Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.error",
+      "method": "POST",
+      "path": "/answers",
+      "status": 400,
+      "ok": false,
+      "ms": 73,
+      "responseKeys": [
+        "code",
+        "message"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1088,
+      "at": "2026-06-30T19:36:01.851Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "POST",
+      "path": "/answers",
+      "query": {
+        "callback_id": "f9L…kQ-r"
+      },
+      "body": {
+        "hasText": false,
+        "attachmentCount": 0,
+        "attachmentTypes": [],
+        "hasLink": false,
+        "hasFormat": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1087,
+      "at": "2026-06-30T19:36:01.850Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "bot_action.answer_callback.intent",
+      "callbackId": "f9L…kQ-r",
+      "hasNotification": false,
+      "hasMessage": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1086,
+      "at": "2026-06-30T19:36:01.850Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "callback.answer_intent",
+      "callbackId": "f9L…kQ-r",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1085,
+      "at": "2026-06-30T19:36:01.848Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "flow.screen_intent",
+      "flow": "gifts",
+      "action": "gift_admin_show_current",
+      "screenId": "adm…cker",
+      "userId": "175…7246",
+      "updateType": "message_callback",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1084,
+      "at": "2026-06-30T19:36:01.846Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "callback.action",
+      "userId": "175…7246",
+      "action": "gift_admin_show_current",
+      "callbackId": "f9L…kQ-r",
+      "messageId": "mid…7261",
+      "payloadKeys": [
+        "canonicalAction",
+        "section",
+        "action"
+      ],
+      "hasFlowId": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1083,
+      "at": "2026-06-30T19:36:01.845Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "buttons_callback.received",
+      "callback_received": true,
+      "action": "gift_admin_show_current",
+      "payloadKeys": [
+        "canonicalAction",
+        "section",
+        "action"
+      ],
+      "hasFlowId": false,
+      "callbackMessageId": "061…d722",
+      "userHash": "1ef3d3317311",
+      "chatHash": "29305633c5c1",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1082,
+      "at": "2026-06-30T19:36:01.845Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "webhook.normalized",
+      "updateType": "message_callback",
+      "userId": "175…7246",
+      "isCallback": true,
+      "textPreview": "Подарки / лид-магниты Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку. Сначала выберите действие.",
+      "hasMedia": true,
+      "messageId": "mid…7261",
+      "chatId": "261…7113",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1081,
+      "at": "2026-06-30T19:36:01.844Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "webhook.received",
+      "updateType": "message_callback",
+      "hasMessage": true,
+      "hasCallback": true,
+      "updateKeys": [
+        "callback",
+        "message",
+        "timestamp",
+        "user_locale",
+        "update_type"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1080,
+      "at": "2026-06-30T19:36:01.843Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "live_identity.webhook_fingerprint",
+      "requestId": "651…e3ab",
+      "userId": "175…7246",
+      "action": "gift_admin_show_current",
+      "screenId": "",
+      "handler": "clean-bot-campaign-attribution-cc8336.handleWebhookWithCampaignAttribution",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1079,
+      "at": "2026-06-30T19:35:58.324Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.response",
+      "method": "PUT",
+      "path": "/messages",
+      "status": 200,
+      "ok": true,
+      "ms": 127,
+      "responseKeys": [
+        "success"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1078,
+      "at": "2026-06-30T19:35:58.197Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "PUT",
+      "path": "/messages",
+      "query": {
+        "message_id": "mid…7261"
+      },
+      "body": {
+        "hasText": true,
+        "textPreview": "Подарки / лид-магниты Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку. Сначала выберите действие.",
+        "attachmentCount": 1,
+        "attachmentTypes": [
+          "inline_keyboard"
+        ],
+        "hasLink": false,
+        "hasFormat": false,
+        "notify": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1077,
+      "at": "2026-06-30T19:35:58.196Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "bot_action.edit_message.intent",
+      "messageId": "mid…7261",
+      "textPreview": "Подарки / лид-магниты Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку. Сначала выберите действие.",
+      "attachmentCount": 1,
+      "attachmentTypes": [
+        "inline_keyboard"
+      ],
+      "notify": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1076,
+      "at": "2026-06-30T19:35:58.195Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.error",
+      "method": "POST",
+      "path": "/answers",
+      "status": 400,
+      "ok": false,
+      "ms": 170,
+      "responseKeys": [
+        "code",
+        "message"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1075,
+      "at": "2026-06-30T19:35:58.025Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "POST",
+      "path": "/answers",
+      "query": {
+        "callback_id": "f9L…Yq68"
+      },
+      "body": {
+        "hasText": false,
+        "attachmentCount": 0,
+        "attachmentTypes": [],
+        "hasLink": false,
+        "hasFormat": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1074,
+      "at": "2026-06-30T19:35:58.025Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "bot_action.answer_callback.intent",
+      "callbackId": "f9L…Yq68",
+      "hasNotification": false,
+      "hasMessage": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1073,
+      "at": "2026-06-30T19:35:57.965Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "root_section.bridge_to_wrapped",
+      "userId": "175…7246",
+      "action": "gifts:home",
+      "route": "gifts:home",
+      "resolver": "payload.route",
+      "callbackId": "f9L…Yq68",
+      "messageId": "mid…7261",
+      "module": "clean-bot-channel-first-post-picker-pr90.js",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1072,
+      "at": "2026-06-30T19:35:57.964Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "callback.action",
+      "userId": "175…7246",
+      "action": "gifts:home",
+      "callbackId": "f9L…Yq68",
+      "messageId": "mid…7261",
+      "payloadKeys": [
+        "route",
+        "action"
+      ],
+      "hasFlowId": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1071,
+      "at": "2026-06-30T19:35:57.964Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "buttons_callback.received",
+      "callback_received": true,
+      "action": "gifts:home",
+      "payloadKeys": [
+        "route",
+        "action"
+      ],
+      "hasFlowId": false,
+      "callbackMessageId": "061…d722",
+      "userHash": "1ef3d3317311",
+      "chatHash": "29305633c5c1",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1070,
+      "at": "2026-06-30T19:35:57.963Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "webhook.normalized",
+      "updateType": "message_callback",
+      "userId": "175…7246",
+      "isCallback": true,
+      "textPreview": "🐋 АдминКИТ Панель управления MAX-каналом. Выберите раздел.",
+      "hasMedia": true,
+      "messageId": "mid…7261",
+      "chatId": "261…7113",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1069,
+      "at": "2026-06-30T19:35:57.962Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "webhook.received",
+      "updateType": "message_callback",
+      "hasMessage": true,
+      "hasCallback": true,
+      "updateKeys": [
+        "callback",
+        "message",
+        "timestamp",
+        "user_locale",
+        "update_type"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1068,
+      "at": "2026-06-30T19:35:57.962Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "live_identity.webhook_fingerprint",
+      "requestId": "2e8…d204",
+      "userId": "175…7246",
+      "action": "gifts:home",
+      "screenId": "",
+      "handler": "clean-bot-campaign-attribution-cc8336.handleWebhookWithCampaignAttribution",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1067,
+      "at": "2026-06-30T19:35:55.911Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.response",
+      "method": "PUT",
+      "path": "/messages",
+      "status": 200,
+      "ok": true,
+      "ms": 237,
+      "responseKeys": [
+        "success"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1066,
+      "at": "2026-06-30T19:35:55.674Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "PUT",
+      "path": "/messages",
+      "query": {
+        "message_id": "mid…7261"
+      },
+      "body": {
+        "hasText": true,
+        "textPreview": "🐋 АдминКИТ Панель управления MAX-каналом. Выберите раздел.",
+        "attachmentCount": 1,
+        "attachmentTypes": [
+          "inline_keyboard"
+        ],
+        "hasLink": false,
+        "hasFormat": false,
+        "notify": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1065,
+      "at": "2026-06-30T19:35:55.673Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "bot_action.edit_message.intent",
+      "messageId": "mid…7261",
+      "textPreview": "🐋 АдминКИТ Панель управления MAX-каналом. Выберите раздел.",
+      "attachmentCount": 1,
+      "attachmentTypes": [
+        "inline_keyboard"
+      ],
+      "notify": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1064,
+      "at": "2026-06-30T19:35:55.671Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.error",
+      "method": "POST",
+      "path": "/answers",
+      "status": 400,
+      "ok": false,
+      "ms": 171,
+      "responseKeys": [
+        "code",
+        "message"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1063,
+      "at": "2026-06-30T19:35:55.500Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "POST",
+      "path": "/answers",
+      "query": {
+        "callback_id": "f9L…11cI"
+      },
+      "body": {
+        "hasText": false,
+        "attachmentCount": 0,
+        "attachmentTypes": [],
+        "hasLink": false,
+        "hasFormat": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1062,
+      "at": "2026-06-30T19:35:55.500Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "bot_action.answer_callback.intent",
+      "callbackId": "f9L…11cI",
+      "hasNotification": false,
+      "hasMessage": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1061,
+      "at": "2026-06-30T19:35:55.499Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "live_identity.webhook_fingerprint",
+      "requestId": "fdd…ad96",
+      "userId": "175…7246",
+      "action": "admin_section_main",
+      "screenId": "",
+      "handler": "clean-bot-campaign-attribution-cc8336.handleWebhookWithCampaignAttribution",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1060,
+      "at": "2026-06-30T19:35:49.516Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.response",
+      "method": "PUT",
+      "path": "/messages",
+      "status": 200,
+      "ok": true,
+      "ms": 114,
+      "responseKeys": [
+        "success"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1059,
+      "at": "2026-06-30T19:35:49.402Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "PUT",
+      "path": "/messages",
+      "query": {
+        "message_id": "mid…7261"
+      },
+      "body": {
+        "hasText": true,
+        "textPreview": "Список подарков: Пока нет сохранённых подарков.",
+        "attachmentCount": 1,
+        "attachmentTypes": [
+          "inline_keyboard"
+        ],
+        "hasLink": false,
+        "hasFormat": false,
+        "notify": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1058,
+      "at": "2026-06-30T19:35:49.402Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "bot_action.edit_message.intent",
+      "messageId": "mid…7261",
+      "textPreview": "Список подарков: Пока нет сохранённых подарков.",
+      "attachmentCount": 1,
+      "attachmentTypes": [
+        "inline_keyboard"
+      ],
+      "notify": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1057,
+      "at": "2026-06-30T19:35:49.399Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.error",
+      "method": "POST",
+      "path": "/answers",
+      "status": 400,
+      "ok": false,
+      "ms": 74,
+      "responseKeys": [
+        "code",
+        "message"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1056,
+      "at": "2026-06-30T19:35:49.325Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "POST",
+      "path": "/answers",
+      "query": {
+        "callback_id": "f9L…uS7h"
+      },
+      "body": {
+        "hasText": false,
+        "attachmentCount": 0,
+        "attachmentTypes": [],
+        "hasLink": false,
+        "hasFormat": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1055,
+      "at": "2026-06-30T19:35:49.324Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "bot_action.answer_callback.intent",
+      "callbackId": "f9L…uS7h",
+      "hasNotification": false,
+      "hasMessage": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1054,
+      "at": "2026-06-30T19:35:49.233Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "callback_received_pre_dedupe",
+      "action": "gift_admin_list_campaigns",
+      "route": "",
+      "r": "",
+      "hasMessage": true,
+      "hasUserId": true,
+      "hasCallbackId": true,
+      "callbackMessageIdPresent": true,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1053,
+      "at": "2026-06-30T19:35:49.138Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "webhook.delegate_legacy",
+      "updateType": "message_callback",
+      "userId": "175…7246",
+      "textPreview": "Подарки / лид-магниты Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку. Сначала выберите действие.",
+      "isCallback": true,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1052,
+      "at": "2026-06-30T19:35:49.138Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "callback.action",
+      "userId": "175…7246",
+      "action": "gift_admin_list_campaigns",
+      "callbackId": "f9L…uS7h",
+      "messageId": "mid…7261",
+      "payloadKeys": [
+        "canonicalAction",
+        "section",
+        "action"
+      ],
+      "hasFlowId": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1051,
+      "at": "2026-06-30T19:35:49.137Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "buttons_callback.received",
+      "callback_received": true,
+      "action": "gift_admin_list_campaigns",
+      "payloadKeys": [
+        "canonicalAction",
+        "section",
+        "action"
+      ],
+      "hasFlowId": false,
+      "callbackMessageId": "061…d722",
+      "userHash": "1ef3d3317311",
+      "chatHash": "29305633c5c1",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1050,
+      "at": "2026-06-30T19:35:49.137Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "webhook.normalized",
+      "updateType": "message_callback",
+      "userId": "175…7246",
+      "isCallback": true,
+      "textPreview": "Подарки / лид-магниты Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку. Сначала выберите действие.",
+      "hasMedia": true,
+      "messageId": "mid…7261",
+      "chatId": "261…7113",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1049,
+      "at": "2026-06-30T19:35:49.136Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "webhook.received",
+      "updateType": "message_callback",
+      "hasMessage": true,
+      "hasCallback": true,
+      "updateKeys": [
+        "callback",
+        "message",
+        "timestamp",
+        "user_locale",
+        "update_type"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1048,
+      "at": "2026-06-30T19:35:49.135Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "live_identity.webhook_fingerprint",
+      "requestId": "8c4…33ba",
+      "userId": "175…7246",
+      "action": "gift_admin_list_campaigns",
+      "screenId": "",
+      "handler": "clean-bot-campaign-attribution-cc8336.handleWebhookWithCampaignAttribution",
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1047,
+      "at": "2026-06-30T19:35:45.752Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.response",
+      "method": "PUT",
+      "path": "/messages",
+      "status": 200,
+      "ok": true,
+      "ms": 263,
+      "responseKeys": [
+        "success"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1046,
+      "at": "2026-06-30T19:35:45.489Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "PUT",
+      "path": "/messages",
+      "query": {
+        "message_id": "mid…7261"
+      },
+      "body": {
+        "hasText": true,
+        "textPreview": "Подарки / лид-магниты Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку. Сначала выберите действие.",
+        "attachmentCount": 1,
+        "attachmentTypes": [
+          "inline_keyboard"
+        ],
+        "hasLink": false,
+        "hasFormat": false,
+        "notify": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1045,
+      "at": "2026-06-30T19:35:45.489Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "bot_action.edit_message.intent",
+      "messageId": "mid…7261",
+      "textPreview": "Подарки / лид-магниты Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку. Сначала выберите действие.",
+      "attachmentCount": 1,
+      "attachmentTypes": [
+        "inline_keyboard"
+      ],
+      "notify": false,
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1044,
+      "at": "2026-06-30T19:35:45.487Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.error",
+      "method": "POST",
+      "path": "/answers",
+      "status": 400,
+      "ok": false,
+      "ms": 351,
+      "responseKeys": [
+        "code",
+        "message"
+      ],
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    },
+    {
+      "seq": 1043,
+      "at": "2026-06-30T19:35:45.136Z",
+      "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+      "type": "max_api.request",
+      "method": "POST",
+      "path": "/answers",
+      "query": {
+        "callback_id": "f9L…kBiT"
+      },
+      "body": {
+        "hasText": false,
+        "attachmentCount": 0,
+        "attachmentTypes": [],
+        "hasLink": false,
+        "hasFormat": false
+      },
+      "liveIdentity": {
+        "runtimeVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "buildVersion": "CC8.3.68-PR229-STATS-SCOPE-BUTTONS-CLEANUP",
+        "sourceMarker": "adminkit-pr229-stats-scope-buttons-cleanup",
+        "gitCommit": "",
+        "gitCommitShort": "",
+        "gitCommitSource": "",
+        "runtimeGitCommit": "",
+        "runtimeGitCommitSource": "",
+        "buildInfoGitCommit": "",
+        "localGitCommit": "",
+        "activeEntrypoint": "1.53.10-pr89-pr189-push-fresh-pwa-pending",
+        "activeBotModule": "bot.js",
+        "serverStartedAt": "2026-06-30T19:30:17.528Z"
+      }
+    }
+  ],
+  "safe": true
+}
