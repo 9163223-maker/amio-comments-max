@@ -1,0 +1,2406 @@
+{
+  "ok": true,
+  "generatedAt": "2026-07-01T12:23:59.419Z",
+  "runtime": "PR264-MAXIMAL-FLOW-MATRIX-1.0",
+  "sections": [
+    {
+      "section": "main",
+      "rootRoute": "main:home",
+      "rootLabels": [
+        "Каналы",
+        "Комментарии",
+        "Подарки / лид-магниты",
+        "Кнопки под постами",
+        "Статистика",
+        "🔔 Уведомления",
+        "Рекламные ссылки",
+        "Опросы / голосования",
+        "Выделение постов",
+        "Редактор постов",
+        "Архив постов",
+        "Личный кабинет",
+        "Настройки"
+      ],
+      "rootOk": true
+    },
+    {
+      "section": "channels",
+      "rootRoute": "channels:home",
+      "rootLabels": [
+        "Подключить канал",
+        "Мои каналы",
+        "Помощь",
+        "Главное меню"
+      ],
+      "rootOk": true
+    },
+    {
+      "section": "comments",
+      "rootRoute": "comments:home",
+      "rootLabels": [
+        "Автокомментарии",
+        "Включить к посту",
+        "Фото",
+        "Ответы",
+        "Реакции",
+        "Помощь",
+        "Главное меню"
+      ],
+      "rootOk": true
+    },
+    {
+      "section": "gifts",
+      "rootRoute": "gifts:home",
+      "rootLabels": [
+        "Выбрать пост",
+        "Все подарки",
+        "Помощь",
+        "Главное меню"
+      ],
+      "rootOk": true
+    },
+    {
+      "section": "buttons",
+      "rootRoute": "buttons:home",
+      "rootLabels": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "rootOk": true
+    },
+    {
+      "section": "stats",
+      "rootRoute": "stats:home",
+      "rootLabels": [
+        "Обзор",
+        "По каналу",
+        "По посту",
+        "Рекламные ссылки",
+        "Источники",
+        "Обновить данные",
+        "Помощь",
+        "Главное меню"
+      ],
+      "rootOk": true
+    },
+    {
+      "section": "push",
+      "rootRoute": "push:home",
+      "rootLabels": [
+        "Опубликовать приглашение",
+        "Как это работает",
+        "Главное меню"
+      ],
+      "rootOk": true
+    },
+    {
+      "section": "ad_links",
+      "rootRoute": "ad_links:home",
+      "rootLabels": [
+        "Создать ссылку",
+        "Мои ссылки",
+        "Помощь",
+        "Главное меню"
+      ],
+      "rootOk": true
+    },
+    {
+      "section": "polls",
+      "rootRoute": "polls:home",
+      "rootLabels": [
+        "Выбрать пост",
+        "Результаты опросов",
+        "Помощь",
+        "Главное меню"
+      ],
+      "rootOk": true
+    },
+    {
+      "section": "highlights",
+      "rootRoute": "highlights:home",
+      "rootLabels": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "rootOk": true
+    },
+    {
+      "section": "editor",
+      "rootRoute": "editor:home",
+      "rootLabels": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "rootOk": true
+    },
+    {
+      "section": "archive",
+      "rootRoute": "archive:home",
+      "rootLabels": [
+        "Сохранённые посты",
+        "Лимиты хранения",
+        "Помощь",
+        "Главное меню"
+      ],
+      "rootOk": true
+    },
+    {
+      "section": "account",
+      "rootRoute": "account:home",
+      "rootLabels": [
+        "🔔 Мои уведомления",
+        "➕ Подключить чат",
+        "Помощь",
+        "Что умеет АдминКИТ для MAX",
+        "Помощь",
+        "Главное меню"
+      ],
+      "rootOk": true
+    },
+    {
+      "section": "settings",
+      "rootRoute": "settings:home",
+      "rootLabels": [
+        "Очистить чат",
+        "Privacy / Terms",
+        "Помощь",
+        "Главное меню"
+      ],
+      "rootOk": true
+    }
+  ],
+  "routes": [
+    {
+      "route": "main:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "🐋 АдминКИТ Панель управления MAX-каналом. Выберите раздел.",
+      "labels": [
+        "Каналы",
+        "Комментарии",
+        "Подарки / лид-магниты",
+        "Кнопки под постами",
+        "Статистика",
+        "🔔 Уведомления",
+        "Рекламные ссылки",
+        "Опросы / голосования",
+        "Выделение постов",
+        "Редактор постов",
+        "Архив постов",
+        "Личный кабинет",
+        "Настройки"
+      ],
+      "payloads": [
+        "{\"route\":\"channels:home\",\"action\":\"channels:home\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"stats:home\",\"action\":\"stats:home\"}",
+        "{\"route\":\"push:home\",\"action\":\"push:home\"}",
+        "{\"route\":\"ad_links:home\",\"action\":\"ad_links:home\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"archive:home\",\"action\":\"archive:home\"}",
+        "{\"route\":\"account:home\",\"action\":\"account:home\"}",
+        "{\"route\":\"settings:home\",\"action\":\"settings:home\"}"
+      ],
+      "signature": "🐋 АдминКИТ Панель управления MAX-каналом. Выберите раздел.::Каналы|Комментарии|Подарки / лид-магниты|Кнопки под постами|Статистика|🔔 Уведомления|Рекламные ссылки|Опросы / голосования|Выделение постов|Редактор постов|Архив постов|Личный кабинет|Настройки"
+    },
+    {
+      "route": "main:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "🐋 АдминКИТ Панель управления MAX-каналом. Выберите раздел.",
+      "labels": [
+        "Каналы",
+        "Комментарии",
+        "Подарки / лид-магниты",
+        "Кнопки под постами",
+        "Статистика",
+        "🔔 Уведомления",
+        "Рекламные ссылки",
+        "Опросы / голосования",
+        "Выделение постов",
+        "Редактор постов",
+        "Архив постов",
+        "Личный кабинет",
+        "Настройки"
+      ],
+      "payloads": [
+        "{\"route\":\"channels:home\",\"action\":\"channels:home\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"stats:home\",\"action\":\"stats:home\"}",
+        "{\"route\":\"push:home\",\"action\":\"push:home\"}",
+        "{\"route\":\"ad_links:home\",\"action\":\"ad_links:home\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"archive:home\",\"action\":\"archive:home\"}",
+        "{\"route\":\"account:home\",\"action\":\"account:home\"}",
+        "{\"route\":\"settings:home\",\"action\":\"settings:home\"}"
+      ],
+      "signature": "🐋 АдминКИТ Панель управления MAX-каналом. Выберите раздел.::Каналы|Комментарии|Подарки / лид-магниты|Кнопки под постами|Статистика|🔔 Уведомления|Рекламные ссылки|Опросы / голосования|Выделение постов|Редактор постов|Архив постов|Личный кабинет|Настройки"
+    },
+    {
+      "route": "channels:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "Каналы Подключите канал, чтобы управлять комментариями, подарками, кнопками и статистикой через АдминКИТ.",
+      "labels": [
+        "Подключить канал",
+        "Мои каналы",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+        "{\"route\":\"channels:list\",\"action\":\"channels:list\"}",
+        "{\"route\":\"channels:help\",\"action\":\"channels:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Каналы Подключите канал, чтобы управлять комментариями, подарками, кнопками и статистикой через АдминКИТ.::Подключить канал|Мои каналы|Помощь|Главное меню"
+    },
+    {
+      "route": "channels:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "Каналы Подключите канал, чтобы управлять комментариями, подарками, кнопками и статистикой через АдминКИТ.",
+      "labels": [
+        "Подключить канал",
+        "Мои каналы",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+        "{\"route\":\"channels:list\",\"action\":\"channels:list\"}",
+        "{\"route\":\"channels:help\",\"action\":\"channels:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Каналы Подключите канал, чтобы управлять комментариями, подарками, кнопками и статистикой через АдминКИТ.::Подключить канал|Мои каналы|Помощь|Главное меню"
+    },
+    {
+      "route": "comments:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "Комментарии Настройте комментарии в каналах: автоматически для новых постов или вручную для нужной публикации. Пост не выбран. Сначала выберите канал, затем пост.",
+      "labels": [
+        "Автокомментарии",
+        "Включить к посту",
+        "Фото",
+        "Ответы",
+        "Реакции",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"comments.auto_comments\",\"section\":\"comments\",\"action\":\"comments_auto_patch\"}",
+        "{\"source\":\"comments_manual\",\"canonicalAction\":\"comments.manual_enable\",\"section\":\"comments\",\"action\":\"comments_select_post\"}",
+        "{\"source\":\"comments_photos\",\"canonicalAction\":\"comments.photo\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+        "{\"source\":\"comments_replies\",\"canonicalAction\":\"comments.replies\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+        "{\"source\":\"comments_reactions\",\"canonicalAction\":\"comments.reactions\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+        "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Комментарии Настройте комментарии в каналах: автоматически для новых постов или вручную для нужной публикации. Пост не в::Автокомментарии|Включить к посту|Фото|Ответы|Реакции|Помощь|Главное меню"
+    },
+    {
+      "route": "comments:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "Комментарии Настройте комментарии в каналах: автоматически для новых постов или вручную для нужной публикации. Пост не выбран. Сначала выберите канал, затем пост.",
+      "labels": [
+        "Автокомментарии",
+        "Включить к посту",
+        "Фото",
+        "Ответы",
+        "Реакции",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"comments.auto_comments\",\"section\":\"comments\",\"action\":\"comments_auto_patch\"}",
+        "{\"source\":\"comments_manual\",\"canonicalAction\":\"comments.manual_enable\",\"section\":\"comments\",\"action\":\"comments_select_post\"}",
+        "{\"source\":\"comments_photos\",\"canonicalAction\":\"comments.photo\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+        "{\"source\":\"comments_replies\",\"canonicalAction\":\"comments.replies\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+        "{\"source\":\"comments_reactions\",\"canonicalAction\":\"comments.reactions\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+        "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Комментарии Настройте комментарии в каналах: автоматически для новых постов или вручную для нужной публикации. Пост не в::Автокомментарии|Включить к посту|Фото|Ответы|Реакции|Помощь|Главное меню"
+    },
+    {
+      "route": "gifts:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "Подарки / лид-магниты Подарок создаётся для конкретного поста канала.",
+      "labels": [
+        "Выбрать пост",
+        "Все подарки",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"gifts.choose_post\",\"section\":\"gifts\",\"route\":\"gifts:choose_channel\",\"action\":\"gifts:choose_channel\"}",
+        "{\"canonicalAction\":\"gifts.all\",\"section\":\"gifts\",\"route\":\"gifts:all\",\"action\":\"gifts:all\"}",
+        "{\"route\":\"gifts:help\",\"action\":\"gifts:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Подарки / лид-магниты Подарок создаётся для конкретного поста канала.::Выбрать пост|Все подарки|Помощь|Главное меню"
+    },
+    {
+      "route": "gifts:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "Подарки / лид-магниты Подарок создаётся для конкретного поста канала.",
+      "labels": [
+        "Выбрать пост",
+        "Все подарки",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"gifts.choose_post\",\"section\":\"gifts\",\"route\":\"gifts:choose_channel\",\"action\":\"gifts:choose_channel\"}",
+        "{\"canonicalAction\":\"gifts.all\",\"section\":\"gifts\",\"route\":\"gifts:all\",\"action\":\"gifts:all\"}",
+        "{\"route\":\"gifts:help\",\"action\":\"gifts:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Подарки / лид-магниты Подарок создаётся для конкретного поста канала.::Выбрать пост|Все подарки|Помощь|Главное меню"
+    },
+    {
+      "route": "buttons:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "Кнопки под постами Добавляйте и проверяйте кнопки под выбранными постами канала.",
+      "labels": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"buttons.choose_post\",\"section\":\"buttons\",\"route\":\"buttons:choose_channel\",\"action\":\"buttons:choose_channel\"}",
+        "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Кнопки под постами Добавляйте и проверяйте кнопки под выбранными постами канала.::Выбрать пост|Помощь|Главное меню"
+    },
+    {
+      "route": "buttons:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "Кнопки под постами Добавляйте и проверяйте кнопки под выбранными постами канала.",
+      "labels": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"buttons.choose_post\",\"section\":\"buttons\",\"route\":\"buttons:choose_channel\",\"action\":\"buttons:choose_channel\"}",
+        "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Кнопки под постами Добавляйте и проверяйте кнопки под выбранными постами канала.::Выбрать пост|Помощь|Главное меню"
+    },
+    {
+      "route": "stats:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "Статистика Откройте нужное действие в этом разделе.",
+      "labels": [
+        "Обзор",
+        "По каналу",
+        "По посту",
+        "Рекламные ссылки",
+        "Источники",
+        "Обновить данные",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"stats.overview\",\"section\":\"stats\",\"action\":\"admin_stats_overview_cache\"}",
+        "{\"canonicalAction\":\"stats.channel\",\"section\":\"stats\",\"action\":\"admin_stats_channel\"}",
+        "{\"canonicalAction\":\"stats.post\",\"section\":\"stats\",\"action\":\"admin_stats_post\"}",
+        "{\"canonicalAction\":\"stats.ad_links\",\"section\":\"stats\",\"action\":\"admin_stats_campaigns\"}",
+        "{\"canonicalAction\":\"stats.sources\",\"section\":\"stats\",\"action\":\"admin_stats_sources_cache\"}",
+        "{\"canonicalAction\":\"stats.refresh\",\"section\":\"stats\",\"action\":\"admin_stats_refresh\"}",
+        "{\"route\":\"stats:help\",\"action\":\"stats:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Статистика Откройте нужное действие в этом разделе.::Обзор|По каналу|По посту|Рекламные ссылки|Источники|Обновить данные|Помощь|Главное меню"
+    },
+    {
+      "route": "stats:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "Статистика Откройте нужное действие в этом разделе.",
+      "labels": [
+        "Обзор",
+        "По каналу",
+        "По посту",
+        "Рекламные ссылки",
+        "Источники",
+        "Обновить данные",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"stats.overview\",\"section\":\"stats\",\"action\":\"admin_stats_overview_cache\"}",
+        "{\"canonicalAction\":\"stats.channel\",\"section\":\"stats\",\"action\":\"admin_stats_channel\"}",
+        "{\"canonicalAction\":\"stats.post\",\"section\":\"stats\",\"action\":\"admin_stats_post\"}",
+        "{\"canonicalAction\":\"stats.ad_links\",\"section\":\"stats\",\"action\":\"admin_stats_campaigns\"}",
+        "{\"canonicalAction\":\"stats.sources\",\"section\":\"stats\",\"action\":\"admin_stats_sources_cache\"}",
+        "{\"canonicalAction\":\"stats.refresh\",\"section\":\"stats\",\"action\":\"admin_stats_refresh\"}",
+        "{\"route\":\"stats:help\",\"action\":\"stats:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Статистика Откройте нужное действие в этом разделе.::Обзор|По каналу|По посту|Рекламные ссылки|Источники|Обновить данные|Помощь|Главное меню"
+    },
+    {
+      "route": "push:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "🔔 Уведомления MAX Опубликуйте кнопку подключения в нужном MAX-чате или канале. Участник нажмёт кнопку, а бот отправит ему персональную ссылку в личные сообщения.",
+      "labels": [
+        "Опубликовать приглашение",
+        "Как это работает",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"admin_push_select_chat\",\"action\":\"admin_push_select_chat\"}",
+        "{\"route\":\"admin_push_help\",\"action\":\"admin_push_help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "🔔 Уведомления MAX Опубликуйте кнопку подключения в нужном MAX-чате или канале. Участник нажмёт кнопку, а бот отправит е::Опубликовать приглашение|Как это работает|Главное меню"
+    },
+    {
+      "route": "push:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "🔔 Уведомления MAX Опубликуйте кнопку подключения в нужном MAX-чате или канале. Участник нажмёт кнопку, а бот отправит ему персональную ссылку в личные сообщения.",
+      "labels": [
+        "Опубликовать приглашение",
+        "Как это работает",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"admin_push_select_chat\",\"action\":\"admin_push_select_chat\"}",
+        "{\"route\":\"admin_push_help\",\"action\":\"admin_push_help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "🔔 Уведомления MAX Опубликуйте кнопку подключения в нужном MAX-чате или канале. Участник нажмёт кнопку, а бот отправит е::Опубликовать приглашение|Как это работает|Главное меню"
+    },
+    {
+      "route": "ad_links:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "Рекламные ссылки Создавайте рекламные ссылки и открывайте список уже созданных ссылок.",
+      "labels": [
+        "Создать ссылку",
+        "Мои ссылки",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"ad_links.create\",\"section\":\"ad_links\",\"action\":\"admin_stats_campaign_create\"}",
+        "{\"canonicalAction\":\"ad_links.mine\",\"section\":\"ad_links\",\"action\":\"admin_stats_campaigns\"}",
+        "{\"route\":\"ad_links:help\",\"action\":\"ad_links:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Рекламные ссылки Создавайте рекламные ссылки и открывайте список уже созданных ссылок.::Создать ссылку|Мои ссылки|Помощь|Главное меню"
+    },
+    {
+      "route": "ad_links:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "Рекламные ссылки Создавайте рекламные ссылки и открывайте список уже созданных ссылок.",
+      "labels": [
+        "Создать ссылку",
+        "Мои ссылки",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"ad_links.create\",\"section\":\"ad_links\",\"action\":\"admin_stats_campaign_create\"}",
+        "{\"canonicalAction\":\"ad_links.mine\",\"section\":\"ad_links\",\"action\":\"admin_stats_campaigns\"}",
+        "{\"route\":\"ad_links:help\",\"action\":\"ad_links:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Рекламные ссылки Создавайте рекламные ссылки и открывайте список уже созданных ссылок.::Создать ссылку|Мои ссылки|Помощь|Главное меню"
+    },
+    {
+      "route": "polls:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "Опросы / голосования Создавайте опросы к постам канала и смотрите результаты.",
+      "labels": [
+        "Выбрать пост",
+        "Результаты опросов",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"source\":\"polls\",\"legacyAction\":\"comments_select_post\",\"canonicalAction\":\"polls.choose_post\",\"section\":\"polls\",\"route\":\"polls:choose_channel\",\"action\":\"polls:choose_channel\"}",
+        "{\"legacyAction\":\"poll_status\",\"canonicalAction\":\"polls.results\",\"section\":\"polls\",\"route\":\"polls:results\",\"action\":\"polls:results\"}",
+        "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Опросы / голосования Создавайте опросы к постам канала и смотрите результаты.::Выбрать пост|Результаты опросов|Помощь|Главное меню"
+    },
+    {
+      "route": "polls:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "Опросы / голосования Создавайте опросы к постам канала и смотрите результаты.",
+      "labels": [
+        "Выбрать пост",
+        "Результаты опросов",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"source\":\"polls\",\"legacyAction\":\"comments_select_post\",\"canonicalAction\":\"polls.choose_post\",\"section\":\"polls\",\"route\":\"polls:choose_channel\",\"action\":\"polls:choose_channel\"}",
+        "{\"legacyAction\":\"poll_status\",\"canonicalAction\":\"polls.results\",\"section\":\"polls\",\"route\":\"polls:results\",\"action\":\"polls:results\"}",
+        "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Опросы / голосования Создавайте опросы к постам канала и смотрите результаты.::Выбрать пост|Результаты опросов|Помощь|Главное меню"
+    },
+    {
+      "route": "highlights:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "Выделение постов Ставьте и снимайте метки у важных постов канала.",
+      "labels": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"source\":\"highlights\",\"canonicalAction\":\"highlights.choose_post\",\"section\":\"highlights\",\"route\":\"highlights:choose_channel\",\"action\":\"highlights:choose_channel\"}",
+        "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Выделение постов Ставьте и снимайте метки у важных постов канала.::Выбрать пост|Помощь|Главное меню"
+    },
+    {
+      "route": "highlights:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "Выделение постов Ставьте и снимайте метки у важных постов канала.",
+      "labels": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"source\":\"highlights\",\"canonicalAction\":\"highlights.choose_post\",\"section\":\"highlights\",\"route\":\"highlights:choose_channel\",\"action\":\"highlights:choose_channel\"}",
+        "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Выделение постов Ставьте и снимайте метки у важных постов канала.::Выбрать пост|Помощь|Главное меню"
+    },
+    {
+      "route": "editor:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "Редактор постов Выберите пост канала, чтобы безопасно подготовить изменение текста.",
+      "labels": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"editor.change_text\",\"section\":\"editor\",\"action\":\"admin_posts_picker\"}",
+        "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Редактор постов Выберите пост канала, чтобы безопасно подготовить изменение текста.::Выбрать пост|Помощь|Главное меню"
+    },
+    {
+      "route": "editor:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "Редактор постов Выберите пост канала, чтобы безопасно подготовить изменение текста.",
+      "labels": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"editor.change_text\",\"section\":\"editor\",\"action\":\"admin_posts_picker\"}",
+        "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Редактор постов Выберите пост канала, чтобы безопасно подготовить изменение текста.::Выбрать пост|Помощь|Главное меню"
+    },
+    {
+      "route": "archive:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "Архив постов Открывайте сохранённые посты, снимки и лимиты хранения.",
+      "labels": [
+        "Сохранённые посты",
+        "Лимиты хранения",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"offset\":0,\"canonicalAction\":\"archive.saved_posts\",\"section\":\"archive\",\"action\":\"archive_list\"}",
+        "{\"canonicalAction\":\"archive.storage_limits\",\"section\":\"archive\",\"action\":\"archive_limits\"}",
+        "{\"route\":\"archive:help\",\"action\":\"archive:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Архив постов Открывайте сохранённые посты, снимки и лимиты хранения.::Сохранённые посты|Лимиты хранения|Помощь|Главное меню"
+    },
+    {
+      "route": "archive:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "Архив постов Открывайте сохранённые посты, снимки и лимиты хранения.",
+      "labels": [
+        "Сохранённые посты",
+        "Лимиты хранения",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"offset\":0,\"canonicalAction\":\"archive.saved_posts\",\"section\":\"archive\",\"action\":\"archive_list\"}",
+        "{\"canonicalAction\":\"archive.storage_limits\",\"section\":\"archive\",\"action\":\"archive_limits\"}",
+        "{\"route\":\"archive:help\",\"action\":\"archive:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Архив постов Открывайте сохранённые посты, снимки и лимиты хранения.::Сохранённые посты|Лимиты хранения|Помощь|Главное меню"
+    },
+    {
+      "route": "account:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "АдминКИТ Здесь можно подключить уведомления для MAX-чатов и узнать, что умеет АдминКИТ для MAX.",
+      "labels": [
+        "🔔 Мои уведомления",
+        "➕ Подключить чат",
+        "Помощь",
+        "Что умеет АдминКИТ для MAX",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"action\":\"account_push_notifications\"}",
+        "{\"action\":\"account_push_notifications_help\"}",
+        "{\"action\":\"account_support\"}",
+        "{\"action\":\"account_capabilities\"}",
+        "{\"route\":\"account:help\",\"action\":\"account:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "АдминКИТ Здесь можно подключить уведомления для MAX-чатов и узнать, что умеет АдминКИТ для MAX.::🔔 Мои уведомления|➕ Подключить чат|Помощь|Что умеет АдминКИТ для MAX|Помощь|Главное меню"
+    },
+    {
+      "route": "account:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "АдминКИТ Здесь можно подключить уведомления для MAX-чатов и узнать, что умеет АдминКИТ для MAX.",
+      "labels": [
+        "🔔 Мои уведомления",
+        "➕ Подключить чат",
+        "Помощь",
+        "Что умеет АдминКИТ для MAX",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"action\":\"account_push_notifications\"}",
+        "{\"action\":\"account_push_notifications_help\"}",
+        "{\"action\":\"account_support\"}",
+        "{\"action\":\"account_capabilities\"}",
+        "{\"route\":\"account:help\",\"action\":\"account:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "АдминКИТ Здесь можно подключить уведомления для MAX-чатов и узнать, что умеет АдминКИТ для MAX.::🔔 Мои уведомления|➕ Подключить чат|Помощь|Что умеет АдминКИТ для MAX|Помощь|Главное меню"
+    },
+    {
+      "route": "settings:home",
+      "scenario": "root_open",
+      "ok": true,
+      "text": "Настройки Настройки интерфейса, документов и безопасных действий в чате.",
+      "labels": [
+        "Очистить чат",
+        "Privacy / Terms",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"settings.clear_chat\",\"section\":\"settings\",\"route\":\"settings:clear_chat\",\"action\":\"settings:clear_chat\"}",
+        "{\"canonicalAction\":\"settings.privacy_terms\",\"section\":\"settings\",\"route\":\"settings:privacy_terms\",\"action\":\"settings:privacy_terms\"}",
+        "{\"route\":\"settings:help\",\"action\":\"settings:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Настройки Настройки интерфейса, документов и безопасных действий в чате.::Очистить чат|Privacy / Terms|Помощь|Главное меню"
+    },
+    {
+      "route": "settings:home",
+      "scenario": "repeated_open_same_section",
+      "ok": true,
+      "text": "Настройки Настройки интерфейса, документов и безопасных действий в чате.",
+      "labels": [
+        "Очистить чат",
+        "Privacy / Terms",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"canonicalAction\":\"settings.clear_chat\",\"section\":\"settings\",\"route\":\"settings:clear_chat\",\"action\":\"settings:clear_chat\"}",
+        "{\"canonicalAction\":\"settings.privacy_terms\",\"section\":\"settings\",\"route\":\"settings:privacy_terms\",\"action\":\"settings:privacy_terms\"}",
+        "{\"route\":\"settings:help\",\"action\":\"settings:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Настройки Настройки интерфейса, документов и безопасных действий в чате.::Очистить чат|Privacy / Terms|Помощь|Главное меню"
+    },
+    {
+      "route": "comments:choose_channel",
+      "scenario": "zero_channels",
+      "ok": true,
+      "text": "Комментарии У вас пока нет подключённых каналов.",
+      "labels": [
+        "Подключить канал",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Комментарии У вас пока нет подключённых каналов.::Подключить канал|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "comments:choose_channel",
+      "scenario": "one_channel",
+      "ok": true,
+      "text": "Комментарии Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"comments\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"comments:choose_channel\",\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Комментарии Выберите канал::MAX Канал 1|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "comments:choose_channel",
+      "scenario": "multiple_channels",
+      "ok": true,
+      "text": "Комментарии Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "MAX Канал 2",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"comments\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"comments:choose_channel\",\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+        "{\"section\":\"comments\",\"step\":\"post\",\"channelId\":\"mx-ch-2\",\"channelTitle\":\"MAX Канал 2\",\"backRoute\":\"comments:choose_channel\",\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Комментарии Выберите канал::MAX Канал 1|MAX Канал 2|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "comments:choose_channel",
+      "scenario": "dangerous_chat_records",
+      "ok": true,
+      "text": "Комментарии Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"comments\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"comments:choose_channel\",\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Комментарии Выберите канал::MAX Канал 1|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "comments:choose_post",
+      "scenario": "zero_posts",
+      "ok": true,
+      "text": "Комментарии Постов пока нет",
+      "labels": [
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"comments:choose_channel\",\"action\":\"comments:choose_channel\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Комментарии Постов пока нет::Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "comments:post",
+      "scenario": "selected_post",
+      "ok": true,
+      "text": "Комментарии Пост: MAX Пост 1 Выберите действие.",
+      "labels": [
+        "Включить",
+        "Фото",
+        "Ответы",
+        "Реакции",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"mx-post-1\",\"postTitle\":\"MAX Пост 1\",\"commentKey\":\"mx-ch-1:mx-post-1\",\"source\":\"comments_manual_confirmation\",\"action\":\"comments_manual_patch\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"mx-post-1\",\"postTitle\":\"MAX Пост 1\",\"commentKey\":\"mx-ch-1:mx-post-1\",\"route\":\"comments:photos\",\"action\":\"comments:photos\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"mx-post-1\",\"postTitle\":\"MAX Пост 1\",\"commentKey\":\"mx-ch-1:mx-post-1\",\"route\":\"comments:replies\",\"action\":\"comments:replies\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"mx-post-1\",\"postTitle\":\"MAX Пост 1\",\"commentKey\":\"mx-ch-1:mx-post-1\",\"route\":\"comments:reactions\",\"action\":\"comments:reactions\"}",
+        "{\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Комментарии Пост: MAX Пост 1 Выберите действие.::Включить|Фото|Ответы|Реакции|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "comments:post",
+      "scenario": "malformed_payload",
+      "ok": true,
+      "text": "Комментарии Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Включить",
+        "Фото",
+        "Ответы",
+        "Реакции",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"0\":\"{\",\"1\":\"b\",\"2\":\"a\",\"3\":\"d\",\"4\":\"-\",\"5\":\"j\",\"6\":\"s\",\"7\":\"o\",\"8\":\"n\",\"source\":\"comments_manual_confirmation\",\"action\":\"comments_manual_patch\"}",
+        "{\"0\":\"{\",\"1\":\"b\",\"2\":\"a\",\"3\":\"d\",\"4\":\"-\",\"5\":\"j\",\"6\":\"s\",\"7\":\"o\",\"8\":\"n\",\"route\":\"comments:photos\",\"action\":\"comments:photos\"}",
+        "{\"0\":\"{\",\"1\":\"b\",\"2\":\"a\",\"3\":\"d\",\"4\":\"-\",\"5\":\"j\",\"6\":\"s\",\"7\":\"o\",\"8\":\"n\",\"route\":\"comments:replies\",\"action\":\"comments:replies\"}",
+        "{\"0\":\"{\",\"1\":\"b\",\"2\":\"a\",\"3\":\"d\",\"4\":\"-\",\"5\":\"j\",\"6\":\"s\",\"7\":\"o\",\"8\":\"n\",\"route\":\"comments:reactions\",\"action\":\"comments:reactions\"}",
+        "{\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Комментарии Пост: выбранный пост Выберите действие.::Включить|Фото|Ответы|Реакции|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "comments:post",
+      "scenario": "missing_payload",
+      "ok": true,
+      "text": "Комментарии Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Включить",
+        "Фото",
+        "Ответы",
+        "Реакции",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"source\":\"comments_manual_confirmation\",\"action\":\"comments_manual_patch\"}",
+        "{\"route\":\"comments:photos\",\"action\":\"comments:photos\"}",
+        "{\"route\":\"comments:replies\",\"action\":\"comments:replies\"}",
+        "{\"route\":\"comments:reactions\",\"action\":\"comments:reactions\"}",
+        "{\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Комментарии Пост: выбранный пост Выберите действие.::Включить|Фото|Ответы|Реакции|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "comments:post",
+      "scenario": "missing_required_id",
+      "ok": true,
+      "text": "Комментарии Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Включить",
+        "Фото",
+        "Ответы",
+        "Реакции",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"source\":\"comments_manual_confirmation\",\"action\":\"comments_manual_patch\"}",
+        "{\"channelId\":\"mx-ch-1\",\"route\":\"comments:photos\",\"action\":\"comments:photos\"}",
+        "{\"channelId\":\"mx-ch-1\",\"route\":\"comments:replies\",\"action\":\"comments:replies\"}",
+        "{\"channelId\":\"mx-ch-1\",\"route\":\"comments:reactions\",\"action\":\"comments:reactions\"}",
+        "{\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Комментарии Пост: выбранный пост Выберите действие.::Включить|Фото|Ответы|Реакции|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "comments:post",
+      "scenario": "post_from_other_channel",
+      "ok": true,
+      "text": "Комментарии Пост: Foreign post Выберите действие.",
+      "labels": [
+        "Включить",
+        "Фото",
+        "Ответы",
+        "Реакции",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"foreign-post\",\"postTitle\":\"Foreign post\",\"commentKey\":\"mx-ch-2:foreign-post\",\"source\":\"comments_manual_confirmation\",\"action\":\"comments_manual_patch\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"foreign-post\",\"postTitle\":\"Foreign post\",\"commentKey\":\"mx-ch-2:foreign-post\",\"route\":\"comments:photos\",\"action\":\"comments:photos\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"foreign-post\",\"postTitle\":\"Foreign post\",\"commentKey\":\"mx-ch-2:foreign-post\",\"route\":\"comments:replies\",\"action\":\"comments:replies\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"foreign-post\",\"postTitle\":\"Foreign post\",\"commentKey\":\"mx-ch-2:foreign-post\",\"route\":\"comments:reactions\",\"action\":\"comments:reactions\"}",
+        "{\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Комментарии Пост: Foreign post Выберите действие.::Включить|Фото|Ответы|Реакции|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "comments:post",
+      "scenario": "stale_or_deleted_post",
+      "ok": true,
+      "text": "Комментарии Пост: Deleted post Выберите действие.",
+      "labels": [
+        "Включить",
+        "Фото",
+        "Ответы",
+        "Реакции",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"deleted-post\",\"postTitle\":\"Deleted post\",\"commentKey\":\"mx-ch-1:deleted-post\",\"source\":\"comments_manual_confirmation\",\"action\":\"comments_manual_patch\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"deleted-post\",\"postTitle\":\"Deleted post\",\"commentKey\":\"mx-ch-1:deleted-post\",\"route\":\"comments:photos\",\"action\":\"comments:photos\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"deleted-post\",\"postTitle\":\"Deleted post\",\"commentKey\":\"mx-ch-1:deleted-post\",\"route\":\"comments:replies\",\"action\":\"comments:replies\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"deleted-post\",\"postTitle\":\"Deleted post\",\"commentKey\":\"mx-ch-1:deleted-post\",\"route\":\"comments:reactions\",\"action\":\"comments:reactions\"}",
+        "{\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+        "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+        "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Комментарии Пост: Deleted post Выберите действие.::Включить|Фото|Ответы|Реакции|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "gifts:choose_channel",
+      "scenario": "zero_channels",
+      "ok": true,
+      "text": "Подарки / лид-магниты Чтобы создать подарок, сначала подключите канал. Подарок привязывается к посту канала.",
+      "labels": [
+        "Подключить канал",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Подарки / лид-магниты Чтобы создать подарок, сначала подключите канал. Подарок привязывается к посту канала.::Подключить канал|Главное меню"
+    },
+    {
+      "route": "gifts:choose_channel",
+      "scenario": "one_channel",
+      "ok": true,
+      "text": "Подарки / лид-магниты Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"gifts\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"gifts:choose_channel\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+        "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+        "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+        "{\"route\":\"gifts:help\",\"action\":\"gifts:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Подарки / лид-магниты Выберите канал::MAX Канал 1|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "gifts:choose_channel",
+      "scenario": "multiple_channels",
+      "ok": true,
+      "text": "Подарки / лид-магниты Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "MAX Канал 2",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"gifts\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"gifts:choose_channel\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+        "{\"section\":\"gifts\",\"step\":\"post\",\"channelId\":\"mx-ch-2\",\"channelTitle\":\"MAX Канал 2\",\"backRoute\":\"gifts:choose_channel\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+        "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+        "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+        "{\"route\":\"gifts:help\",\"action\":\"gifts:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Подарки / лид-магниты Выберите канал::MAX Канал 1|MAX Канал 2|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "gifts:choose_channel",
+      "scenario": "dangerous_chat_records",
+      "ok": true,
+      "text": "Подарки / лид-магниты Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"gifts\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"gifts:choose_channel\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+        "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+        "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+        "{\"route\":\"gifts:help\",\"action\":\"gifts:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Подарки / лид-магниты Выберите канал::MAX Канал 1|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "gifts:choose_post",
+      "scenario": "zero_posts",
+      "ok": true,
+      "text": "Подарки / лид-магниты Пока нет сохранённых постов. Сначала перешлите или синхронизируйте пост канала.",
+      "labels": [
+        "Обновить посты",
+        "К списку каналов",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelTitle\":\"MAX Канал 1\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+        "{\"route\":\"gifts:choose_channel\",\"action\":\"gifts:choose_channel\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Подарки / лид-магниты Пока нет сохранённых постов. Сначала перешлите или синхронизируйте пост канала.::Обновить посты|К списку каналов|Главное меню"
+    },
+    {
+      "route": "gifts:post",
+      "scenario": "selected_post",
+      "ok": true,
+      "text": "Подарок для поста Канал: MAX Канал 1 Пост: MAX Пост 1 Подарок ещё не создан.",
+      "labels": [
+        "Создать подарок",
+        "К выбору поста",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"mx-post-1\",\"postTitle\":\"MAX Пост 1\",\"commentKey\":\"mx-ch-1:mx-post-1\",\"action\":\"gift_admin_start_create\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"mx-post-1\",\"postTitle\":\"MAX Пост 1\",\"commentKey\":\"mx-ch-1:mx-post-1\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Подарок для поста Канал: MAX Канал 1 Пост: MAX Пост 1 Подарок ещё не создан.::Создать подарок|К выбору поста|Главное меню"
+    },
+    {
+      "route": "gifts:post",
+      "scenario": "malformed_payload",
+      "ok": true,
+      "text": "Подарок для поста Канал: канал Пост: выбранный пост Подарок ещё не создан.",
+      "labels": [
+        "Создать подарок",
+        "К выбору поста",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"0\":\"{\",\"1\":\"b\",\"2\":\"a\",\"3\":\"d\",\"4\":\"-\",\"5\":\"j\",\"6\":\"s\",\"7\":\"o\",\"8\":\"n\",\"action\":\"gift_admin_start_create\"}",
+        "{\"0\":\"{\",\"1\":\"b\",\"2\":\"a\",\"3\":\"d\",\"4\":\"-\",\"5\":\"j\",\"6\":\"s\",\"7\":\"o\",\"8\":\"n\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Подарок для поста Канал: канал Пост: выбранный пост Подарок ещё не создан.::Создать подарок|К выбору поста|Главное меню"
+    },
+    {
+      "route": "gifts:post",
+      "scenario": "missing_payload",
+      "ok": true,
+      "text": "Подарок для поста Канал: канал Пост: выбранный пост Подарок ещё не создан.",
+      "labels": [
+        "Создать подарок",
+        "К выбору поста",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"action\":\"gift_admin_start_create\"}",
+        "{\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Подарок для поста Канал: канал Пост: выбранный пост Подарок ещё не создан.::Создать подарок|К выбору поста|Главное меню"
+    },
+    {
+      "route": "gifts:post",
+      "scenario": "missing_required_id",
+      "ok": true,
+      "text": "Подарок для поста Канал: канал Пост: выбранный пост Подарок ещё не создан.",
+      "labels": [
+        "Создать подарок",
+        "К выбору поста",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"action\":\"gift_admin_start_create\"}",
+        "{\"channelId\":\"mx-ch-1\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Подарок для поста Канал: канал Пост: выбранный пост Подарок ещё не создан.::Создать подарок|К выбору поста|Главное меню"
+    },
+    {
+      "route": "gifts:post",
+      "scenario": "post_from_other_channel",
+      "ok": true,
+      "text": "Подарок для поста Канал: MAX Канал 1 Пост: Foreign post Подарок ещё не создан.",
+      "labels": [
+        "Создать подарок",
+        "К выбору поста",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"foreign-post\",\"postTitle\":\"Foreign post\",\"commentKey\":\"mx-ch-2:foreign-post\",\"action\":\"gift_admin_start_create\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"foreign-post\",\"postTitle\":\"Foreign post\",\"commentKey\":\"mx-ch-2:foreign-post\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Подарок для поста Канал: MAX Канал 1 Пост: Foreign post Подарок ещё не создан.::Создать подарок|К выбору поста|Главное меню"
+    },
+    {
+      "route": "gifts:post",
+      "scenario": "stale_or_deleted_post",
+      "ok": true,
+      "text": "Подарок для поста Канал: MAX Канал 1 Пост: Deleted post Подарок ещё не создан.",
+      "labels": [
+        "Создать подарок",
+        "К выбору поста",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"deleted-post\",\"postTitle\":\"Deleted post\",\"commentKey\":\"mx-ch-1:deleted-post\",\"action\":\"gift_admin_start_create\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"deleted-post\",\"postTitle\":\"Deleted post\",\"commentKey\":\"mx-ch-1:deleted-post\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Подарок для поста Канал: MAX Канал 1 Пост: Deleted post Подарок ещё не создан.::Создать подарок|К выбору поста|Главное меню"
+    },
+    {
+      "route": "buttons:choose_channel",
+      "scenario": "zero_channels",
+      "ok": true,
+      "text": "Кнопки под постами У вас пока нет подключённых каналов.",
+      "labels": [
+        "Подключить канал",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Кнопки под постами У вас пока нет подключённых каналов.::Подключить канал|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "buttons:choose_channel",
+      "scenario": "one_channel",
+      "ok": true,
+      "text": "Кнопки под постами Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"buttons\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"buttons:choose_channel\",\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Кнопки под постами Выберите канал::MAX Канал 1|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "buttons:choose_channel",
+      "scenario": "multiple_channels",
+      "ok": true,
+      "text": "Кнопки под постами Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "MAX Канал 2",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"buttons\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"buttons:choose_channel\",\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+        "{\"section\":\"buttons\",\"step\":\"post\",\"channelId\":\"mx-ch-2\",\"channelTitle\":\"MAX Канал 2\",\"backRoute\":\"buttons:choose_channel\",\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Кнопки под постами Выберите канал::MAX Канал 1|MAX Канал 2|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "buttons:choose_channel",
+      "scenario": "dangerous_chat_records",
+      "ok": true,
+      "text": "Кнопки под постами Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"buttons\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"buttons:choose_channel\",\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Кнопки под постами Выберите канал::MAX Канал 1|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "buttons:choose_post",
+      "scenario": "zero_posts",
+      "ok": true,
+      "text": "Кнопки под постами Постов пока нет",
+      "labels": [
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"buttons:choose_channel\",\"action\":\"buttons:choose_channel\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Кнопки под постами Постов пока нет::Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "buttons:post",
+      "scenario": "selected_post",
+      "ok": true,
+      "text": "Кнопки под постами Пост: MAX Пост 1 Выберите действие.",
+      "labels": [
+        "Добавить кнопку",
+        "Текущие кнопки",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"mx-post-1\",\"postTitle\":\"MAX Пост 1\",\"commentKey\":\"mx-ch-1:mx-post-1\",\"action\":\"button_admin_start_add\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"mx-post-1\",\"postTitle\":\"MAX Пост 1\",\"commentKey\":\"mx-ch-1:mx-post-1\",\"action\":\"button_admin_show_current\"}",
+        "{\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Кнопки под постами Пост: MAX Пост 1 Выберите действие.::Добавить кнопку|Текущие кнопки|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "buttons:post",
+      "scenario": "malformed_payload",
+      "ok": true,
+      "text": "Кнопки под постами Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Добавить кнопку",
+        "Текущие кнопки",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"0\":\"{\",\"1\":\"b\",\"2\":\"a\",\"3\":\"d\",\"4\":\"-\",\"5\":\"j\",\"6\":\"s\",\"7\":\"o\",\"8\":\"n\",\"action\":\"button_admin_start_add\"}",
+        "{\"0\":\"{\",\"1\":\"b\",\"2\":\"a\",\"3\":\"d\",\"4\":\"-\",\"5\":\"j\",\"6\":\"s\",\"7\":\"o\",\"8\":\"n\",\"action\":\"button_admin_show_current\"}",
+        "{\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Кнопки под постами Пост: выбранный пост Выберите действие.::Добавить кнопку|Текущие кнопки|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "buttons:post",
+      "scenario": "missing_payload",
+      "ok": true,
+      "text": "Кнопки под постами Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Добавить кнопку",
+        "Текущие кнопки",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"action\":\"button_admin_start_add\"}",
+        "{\"action\":\"button_admin_show_current\"}",
+        "{\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Кнопки под постами Пост: выбранный пост Выберите действие.::Добавить кнопку|Текущие кнопки|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "buttons:post",
+      "scenario": "missing_required_id",
+      "ok": true,
+      "text": "Кнопки под постами Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Добавить кнопку",
+        "Текущие кнопки",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"action\":\"button_admin_start_add\"}",
+        "{\"channelId\":\"mx-ch-1\",\"action\":\"button_admin_show_current\"}",
+        "{\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Кнопки под постами Пост: выбранный пост Выберите действие.::Добавить кнопку|Текущие кнопки|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "buttons:post",
+      "scenario": "post_from_other_channel",
+      "ok": true,
+      "text": "Кнопки под постами Пост: Foreign post Выберите действие.",
+      "labels": [
+        "Добавить кнопку",
+        "Текущие кнопки",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"foreign-post\",\"postTitle\":\"Foreign post\",\"commentKey\":\"mx-ch-2:foreign-post\",\"action\":\"button_admin_start_add\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"foreign-post\",\"postTitle\":\"Foreign post\",\"commentKey\":\"mx-ch-2:foreign-post\",\"action\":\"button_admin_show_current\"}",
+        "{\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Кнопки под постами Пост: Foreign post Выберите действие.::Добавить кнопку|Текущие кнопки|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "buttons:post",
+      "scenario": "stale_or_deleted_post",
+      "ok": true,
+      "text": "Кнопки под постами Пост: Deleted post Выберите действие.",
+      "labels": [
+        "Добавить кнопку",
+        "Текущие кнопки",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"deleted-post\",\"postTitle\":\"Deleted post\",\"commentKey\":\"mx-ch-1:deleted-post\",\"action\":\"button_admin_start_add\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"deleted-post\",\"postTitle\":\"Deleted post\",\"commentKey\":\"mx-ch-1:deleted-post\",\"action\":\"button_admin_show_current\"}",
+        "{\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+        "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+        "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Кнопки под постами Пост: Deleted post Выберите действие.::Добавить кнопку|Текущие кнопки|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "polls:choose_channel",
+      "scenario": "zero_channels",
+      "ok": true,
+      "text": "Опросы / голосования У вас пока нет подключённых каналов.",
+      "labels": [
+        "Подключить канал",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Опросы / голосования У вас пока нет подключённых каналов.::Подключить канал|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "polls:choose_channel",
+      "scenario": "one_channel",
+      "ok": true,
+      "text": "Опросы / голосования Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"polls\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"polls:choose_channel\",\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Опросы / голосования Выберите канал::MAX Канал 1|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "polls:choose_channel",
+      "scenario": "multiple_channels",
+      "ok": true,
+      "text": "Опросы / голосования Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "MAX Канал 2",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"polls\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"polls:choose_channel\",\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+        "{\"section\":\"polls\",\"step\":\"post\",\"channelId\":\"mx-ch-2\",\"channelTitle\":\"MAX Канал 2\",\"backRoute\":\"polls:choose_channel\",\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Опросы / голосования Выберите канал::MAX Канал 1|MAX Канал 2|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "polls:choose_channel",
+      "scenario": "dangerous_chat_records",
+      "ok": true,
+      "text": "Опросы / голосования Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"polls\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"polls:choose_channel\",\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Опросы / голосования Выберите канал::MAX Канал 1|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "polls:choose_post",
+      "scenario": "zero_posts",
+      "ok": true,
+      "text": "Опросы / голосования Постов пока нет",
+      "labels": [
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"polls:choose_channel\",\"action\":\"polls:choose_channel\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Опросы / голосования Постов пока нет::Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "polls:post",
+      "scenario": "selected_post",
+      "ok": true,
+      "text": "Опросы / голосования Пост: MAX Пост 1 Выберите действие.",
+      "labels": [
+        "Создать опрос",
+        "Результаты",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"mx-post-1\",\"postTitle\":\"MAX Пост 1\",\"commentKey\":\"mx-ch-1:mx-post-1\",\"action\":\"poll_create\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"mx-post-1\",\"postTitle\":\"MAX Пост 1\",\"commentKey\":\"mx-ch-1:mx-post-1\",\"action\":\"poll_status\"}",
+        "{\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Опросы / голосования Пост: MAX Пост 1 Выберите действие.::Создать опрос|Результаты|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "polls:post",
+      "scenario": "malformed_payload",
+      "ok": true,
+      "text": "Опросы / голосования Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Создать опрос",
+        "Результаты",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"0\":\"{\",\"1\":\"b\",\"2\":\"a\",\"3\":\"d\",\"4\":\"-\",\"5\":\"j\",\"6\":\"s\",\"7\":\"o\",\"8\":\"n\",\"action\":\"poll_create\"}",
+        "{\"0\":\"{\",\"1\":\"b\",\"2\":\"a\",\"3\":\"d\",\"4\":\"-\",\"5\":\"j\",\"6\":\"s\",\"7\":\"o\",\"8\":\"n\",\"action\":\"poll_status\"}",
+        "{\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Опросы / голосования Пост: выбранный пост Выберите действие.::Создать опрос|Результаты|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "polls:post",
+      "scenario": "missing_payload",
+      "ok": true,
+      "text": "Опросы / голосования Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Создать опрос",
+        "Результаты",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"action\":\"poll_create\"}",
+        "{\"action\":\"poll_status\"}",
+        "{\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Опросы / голосования Пост: выбранный пост Выберите действие.::Создать опрос|Результаты|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "polls:post",
+      "scenario": "missing_required_id",
+      "ok": true,
+      "text": "Опросы / голосования Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Создать опрос",
+        "Результаты",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"action\":\"poll_create\"}",
+        "{\"channelId\":\"mx-ch-1\",\"action\":\"poll_status\"}",
+        "{\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Опросы / голосования Пост: выбранный пост Выберите действие.::Создать опрос|Результаты|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "polls:post",
+      "scenario": "post_from_other_channel",
+      "ok": true,
+      "text": "Опросы / голосования Пост: Foreign post Выберите действие.",
+      "labels": [
+        "Создать опрос",
+        "Результаты",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"foreign-post\",\"postTitle\":\"Foreign post\",\"commentKey\":\"mx-ch-2:foreign-post\",\"action\":\"poll_create\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"foreign-post\",\"postTitle\":\"Foreign post\",\"commentKey\":\"mx-ch-2:foreign-post\",\"action\":\"poll_status\"}",
+        "{\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Опросы / голосования Пост: Foreign post Выберите действие.::Создать опрос|Результаты|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "polls:post",
+      "scenario": "stale_or_deleted_post",
+      "ok": true,
+      "text": "Опросы / голосования Пост: Deleted post Выберите действие.",
+      "labels": [
+        "Создать опрос",
+        "Результаты",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"deleted-post\",\"postTitle\":\"Deleted post\",\"commentKey\":\"mx-ch-1:deleted-post\",\"action\":\"poll_create\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"deleted-post\",\"postTitle\":\"Deleted post\",\"commentKey\":\"mx-ch-1:deleted-post\",\"action\":\"poll_status\"}",
+        "{\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+        "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+        "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Опросы / голосования Пост: Deleted post Выберите действие.::Создать опрос|Результаты|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "highlights:choose_channel",
+      "scenario": "zero_channels",
+      "ok": true,
+      "text": "Выделение постов У вас пока нет подключённых каналов.",
+      "labels": [
+        "Подключить канал",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Выделение постов У вас пока нет подключённых каналов.::Подключить канал|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "highlights:choose_channel",
+      "scenario": "one_channel",
+      "ok": true,
+      "text": "Выделение постов Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"highlights\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"highlights:choose_channel\",\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Выделение постов Выберите канал::MAX Канал 1|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "highlights:choose_channel",
+      "scenario": "multiple_channels",
+      "ok": true,
+      "text": "Выделение постов Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "MAX Канал 2",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"highlights\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"highlights:choose_channel\",\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+        "{\"section\":\"highlights\",\"step\":\"post\",\"channelId\":\"mx-ch-2\",\"channelTitle\":\"MAX Канал 2\",\"backRoute\":\"highlights:choose_channel\",\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Выделение постов Выберите канал::MAX Канал 1|MAX Канал 2|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "highlights:choose_channel",
+      "scenario": "dangerous_chat_records",
+      "ok": true,
+      "text": "Выделение постов Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"highlights\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"highlights:choose_channel\",\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Выделение постов Выберите канал::MAX Канал 1|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "highlights:choose_post",
+      "scenario": "zero_posts",
+      "ok": true,
+      "text": "Выделение постов Постов пока нет",
+      "labels": [
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"highlights:choose_channel\",\"action\":\"highlights:choose_channel\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Выделение постов Постов пока нет::Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "highlights:post",
+      "scenario": "selected_post",
+      "ok": true,
+      "text": "Выделение постов Пост: MAX Пост 1 Выберите действие.",
+      "labels": [
+        "Применить",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"mx-post-1\",\"postTitle\":\"MAX Пост 1\",\"commentKey\":\"mx-ch-1:mx-post-1\",\"source\":\"highlight_card\",\"action\":\"highlight_apply\"}",
+        "{\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Выделение постов Пост: MAX Пост 1 Выберите действие.::Применить|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "highlights:post",
+      "scenario": "malformed_payload",
+      "ok": true,
+      "text": "Выделение постов Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Применить",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"0\":\"{\",\"1\":\"b\",\"2\":\"a\",\"3\":\"d\",\"4\":\"-\",\"5\":\"j\",\"6\":\"s\",\"7\":\"o\",\"8\":\"n\",\"source\":\"highlight_card\",\"action\":\"highlight_apply\"}",
+        "{\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Выделение постов Пост: выбранный пост Выберите действие.::Применить|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "highlights:post",
+      "scenario": "missing_payload",
+      "ok": true,
+      "text": "Выделение постов Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Применить",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"source\":\"highlight_card\",\"action\":\"highlight_apply\"}",
+        "{\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Выделение постов Пост: выбранный пост Выберите действие.::Применить|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "highlights:post",
+      "scenario": "missing_required_id",
+      "ok": true,
+      "text": "Выделение постов Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Применить",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"source\":\"highlight_card\",\"action\":\"highlight_apply\"}",
+        "{\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Выделение постов Пост: выбранный пост Выберите действие.::Применить|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "highlights:post",
+      "scenario": "post_from_other_channel",
+      "ok": true,
+      "text": "Выделение постов Пост: Foreign post Выберите действие.",
+      "labels": [
+        "Применить",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"foreign-post\",\"postTitle\":\"Foreign post\",\"commentKey\":\"mx-ch-2:foreign-post\",\"source\":\"highlight_card\",\"action\":\"highlight_apply\"}",
+        "{\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Выделение постов Пост: Foreign post Выберите действие.::Применить|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "highlights:post",
+      "scenario": "stale_or_deleted_post",
+      "ok": true,
+      "text": "Выделение постов Пост: Deleted post Выберите действие.",
+      "labels": [
+        "Применить",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"deleted-post\",\"postTitle\":\"Deleted post\",\"commentKey\":\"mx-ch-1:deleted-post\",\"source\":\"highlight_card\",\"action\":\"highlight_apply\"}",
+        "{\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+        "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+        "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Выделение постов Пост: Deleted post Выберите действие.::Применить|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "editor:choose_channel",
+      "scenario": "zero_channels",
+      "ok": true,
+      "text": "Редактор постов У вас пока нет подключённых каналов.",
+      "labels": [
+        "Подключить канал",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Редактор постов У вас пока нет подключённых каналов.::Подключить канал|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "editor:choose_channel",
+      "scenario": "one_channel",
+      "ok": true,
+      "text": "Редактор постов Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"editor\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"editor:choose_channel\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Редактор постов Выберите канал::MAX Канал 1|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "editor:choose_channel",
+      "scenario": "multiple_channels",
+      "ok": true,
+      "text": "Редактор постов Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "MAX Канал 2",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"editor\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"editor:choose_channel\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"section\":\"editor\",\"step\":\"post\",\"channelId\":\"mx-ch-2\",\"channelTitle\":\"MAX Канал 2\",\"backRoute\":\"editor:choose_channel\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Редактор постов Выберите канал::MAX Канал 1|MAX Канал 2|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "editor:choose_channel",
+      "scenario": "dangerous_chat_records",
+      "ok": true,
+      "text": "Редактор постов Выберите канал",
+      "labels": [
+        "MAX Канал 1",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"section\":\"editor\",\"step\":\"post\",\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"backRoute\":\"editor:choose_channel\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Редактор постов Выберите канал::MAX Канал 1|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "editor:choose_post",
+      "scenario": "zero_posts",
+      "ok": true,
+      "text": "Редактор постов Постов пока нет",
+      "labels": [
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"route\":\"editor:choose_channel\",\"action\":\"editor:choose_channel\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Редактор постов Постов пока нет::Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "editor:post",
+      "scenario": "selected_post",
+      "ok": true,
+      "text": "Редактор постов Пост: MAX Пост 1 Выберите действие.",
+      "labels": [
+        "Изменить текст выбранного поста",
+        "Выбрать другой пост",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"mx-post-1\",\"postTitle\":\"MAX Пост 1\",\"commentKey\":\"mx-ch-1:mx-post-1\",\"action\":\"admin_posts_edit_text\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"mx-post-1\",\"postTitle\":\"MAX Пост 1\",\"commentKey\":\"mx-ch-1:mx-post-1\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Редактор постов Пост: MAX Пост 1 Выберите действие.::Изменить текст выбранного поста|Выбрать другой пост|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "editor:post",
+      "scenario": "malformed_payload",
+      "ok": true,
+      "text": "Редактор постов Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Изменить текст выбранного поста",
+        "Выбрать другой пост",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"0\":\"{\",\"1\":\"b\",\"2\":\"a\",\"3\":\"d\",\"4\":\"-\",\"5\":\"j\",\"6\":\"s\",\"7\":\"o\",\"8\":\"n\",\"action\":\"admin_posts_edit_text\"}",
+        "{\"0\":\"{\",\"1\":\"b\",\"2\":\"a\",\"3\":\"d\",\"4\":\"-\",\"5\":\"j\",\"6\":\"s\",\"7\":\"o\",\"8\":\"n\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Редактор постов Пост: выбранный пост Выберите действие.::Изменить текст выбранного поста|Выбрать другой пост|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "editor:post",
+      "scenario": "missing_payload",
+      "ok": true,
+      "text": "Редактор постов Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Изменить текст выбранного поста",
+        "Выбрать другой пост",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"action\":\"admin_posts_edit_text\"}",
+        "{\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Редактор постов Пост: выбранный пост Выберите действие.::Изменить текст выбранного поста|Выбрать другой пост|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "editor:post",
+      "scenario": "missing_required_id",
+      "ok": true,
+      "text": "Редактор постов Пост: выбранный пост Выберите действие.",
+      "labels": [
+        "Изменить текст выбранного поста",
+        "Выбрать другой пост",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"action\":\"admin_posts_edit_text\"}",
+        "{\"channelId\":\"mx-ch-1\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Редактор постов Пост: выбранный пост Выберите действие.::Изменить текст выбранного поста|Выбрать другой пост|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "editor:post",
+      "scenario": "post_from_other_channel",
+      "ok": true,
+      "text": "Редактор постов Пост: Foreign post Выберите действие.",
+      "labels": [
+        "Изменить текст выбранного поста",
+        "Выбрать другой пост",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"foreign-post\",\"postTitle\":\"Foreign post\",\"commentKey\":\"mx-ch-2:foreign-post\",\"action\":\"admin_posts_edit_text\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"foreign-post\",\"postTitle\":\"Foreign post\",\"commentKey\":\"mx-ch-2:foreign-post\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Редактор постов Пост: Foreign post Выберите действие.::Изменить текст выбранного поста|Выбрать другой пост|Назад|В начало раздела|Помощь|Главное меню"
+    },
+    {
+      "route": "editor:post",
+      "scenario": "stale_or_deleted_post",
+      "ok": true,
+      "text": "Редактор постов Пост: Deleted post Выберите действие.",
+      "labels": [
+        "Изменить текст выбранного поста",
+        "Выбрать другой пост",
+        "Назад",
+        "В начало раздела",
+        "Помощь",
+        "Главное меню"
+      ],
+      "payloads": [
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"deleted-post\",\"postTitle\":\"Deleted post\",\"commentKey\":\"mx-ch-1:deleted-post\",\"action\":\"admin_posts_edit_text\"}",
+        "{\"channelId\":\"mx-ch-1\",\"channelTitle\":\"MAX Канал 1\",\"postId\":\"deleted-post\",\"postTitle\":\"Deleted post\",\"commentKey\":\"mx-ch-1:deleted-post\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+        "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+        "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+        "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+      ],
+      "signature": "Редактор постов Пост: Deleted post Выберите действие.::Изменить текст выбранного поста|Выбрать другой пост|Назад|В начало раздела|Помощь|Главное меню"
+    }
+  ],
+  "tenantBinding": {
+    "ok": true,
+    "generatedAt": "2026-07-01T12:23:59.419Z",
+    "runtime": "PR263-TENANT-CHANNEL-BINDING-CONTRACT-1.0",
+    "checkedUsers": [],
+    "rows": [],
+    "knownTenant": false,
+    "tenantIdMasked": "",
+    "tenantChannelsCount": 0,
+    "visiblePickerChannelsCount": 0,
+    "dbTenantChannelsCount": 0,
+    "storeLinkedChannelsCount": 0,
+    "postEvidenceChannelsCount": 0,
+    "missingBindings": [],
+    "conflictingBindings": [],
+    "inactiveBotAdminBindings": [],
+    "chatRecordsExcluded": 0,
+    "botAdminProofMissing": [],
+    "violations": [],
+    "warnings": [],
+    "summary": {
+      "blockCount": 0,
+      "warnCount": 0,
+      "missingBindingsCount": 0,
+      "visibleChannelsCount": 0,
+      "chatExcludedCount": 0
+    }
+  },
+  "manualChecklist": [
+    {
+      "id": "M01",
+      "section": "main",
+      "title": "Главное меню открывает все 13 клиентских разделов",
+      "steps": [
+        "Открыть /start или Главное меню",
+        "Проверить кнопки разделов"
+      ],
+      "expected": [
+        "13 разделов без debug/service пунктов"
+      ]
+    },
+    {
+      "id": "M02",
+      "section": "gifts",
+      "title": "Подарки: root без бессмысленных действий",
+      "steps": [
+        "Главное меню → Подарки / лид-магниты"
+      ],
+      "expected": [
+        "Выбрать пост",
+        "Все подарки",
+        "Помощь",
+        "Главное меню",
+        "нет Создать/Текущий/Список подарков"
+      ]
+    },
+    {
+      "id": "M03",
+      "section": "gifts",
+      "title": "Подарки: выбор поста с tenant-bound каналом",
+      "steps": [
+        "Подарки → Выбрать пост",
+        "Выбрать канал",
+        "Выбрать пост"
+      ],
+      "expected": [
+        "каналы пользователя видны",
+        "посты только выбранного канала",
+        "Создать подарок появляется только после поста"
+      ]
+    },
+    {
+      "id": "M04",
+      "section": "gifts",
+      "title": "Подарки: Все подарки имеет account-scope",
+      "steps": [
+        "Подарки → Все подарки"
+      ],
+      "expected": [
+        "текст Все подарки в аккаунте или явный account scope",
+        "есть возврат к выбору поста/главному меню"
+      ]
+    },
+    {
+      "id": "M05",
+      "section": "buttons",
+      "title": "Кнопки: root является gate выбора поста",
+      "steps": [
+        "Главное меню → Кнопки под постами"
+      ],
+      "expected": [
+        "видно Выбрать пост",
+        "нет Добавить кнопку/Текущие кнопки без выбранного поста"
+      ]
+    },
+    {
+      "id": "M06",
+      "section": "buttons",
+      "title": "Кнопки: selected post wizard",
+      "steps": [
+        "Кнопки → Выбрать пост → канал → пост"
+      ],
+      "expected": [
+        "экран выбранного поста",
+        "действия добавления/просмотра кнопок только в контексте поста"
+      ]
+    },
+    {
+      "id": "M07",
+      "section": "polls",
+      "title": "Опросы: root и результаты",
+      "steps": [
+        "Главное меню → Опросы / голосования",
+        "Нажать Результаты опросов"
+      ],
+      "expected": [
+        "root: Выбрать пост + Результаты опросов",
+        "нет Создать опрос без поста"
+      ]
+    },
+    {
+      "id": "M08",
+      "section": "highlights",
+      "title": "Выделение: root gate",
+      "steps": [
+        "Главное меню → Выделение постов"
+      ],
+      "expected": [
+        "видно Выбрать пост",
+        "нет Поставить/Снять метку без поста"
+      ]
+    },
+    {
+      "id": "M09",
+      "section": "editor",
+      "title": "Редактор: выбор поста перед редактированием",
+      "steps": [
+        "Главное меню → Редактор постов",
+        "Выбрать пост"
+      ],
+      "expected": [
+        "редактирование доступно только после выбранного поста"
+      ]
+    },
+    {
+      "id": "M10",
+      "section": "channels",
+      "title": "Каналы: мои каналы не показывают чаты",
+      "steps": [
+        "Главное меню → Каналы → Мои каналы"
+      ],
+      "expected": [
+        "видны только реальные каналы",
+        "чаты/личные диалоги отсутствуют"
+      ]
+    },
+    {
+      "id": "M11",
+      "section": "tenant",
+      "title": "Tenant binding: каналы пользователя видны в picker",
+      "steps": [
+        "Любой post-scoped раздел → Выбрать пост"
+      ],
+      "expected": [
+        "канал пользователя есть в списке",
+        "если нет — проверить tenant-channel-binding-matrix по live maxUserId"
+      ]
+    },
+    {
+      "id": "M12",
+      "section": "navigation",
+      "title": "Навигация не множит меню",
+      "steps": [
+        "Открыть 3 разных раздела подряд",
+        "Вернуться в Главное меню",
+        "Повторно открыть тот же раздел"
+      ],
+      "expected": [
+        "нет legacy/stale screens",
+        "нет дублирования obsolete меню"
+      ]
+    }
+  ],
+  "coverage": {
+    "rootSections": 14,
+    "postScopedSections": 6,
+    "renderedRoutes": 94,
+    "scenarios": [
+      "dangerous_chat_records",
+      "malformed_payload",
+      "missing_payload",
+      "missing_required_id",
+      "multiple_channels",
+      "one_channel",
+      "post_from_other_channel",
+      "repeated_open_same_section",
+      "root_open",
+      "selected_post",
+      "stale_or_deleted_post",
+      "zero_channels",
+      "zero_posts"
+    ],
+    "manualChecklistCount": 12
+  },
+  "violations": [],
+  "warnings": [],
+  "summary": {
+    "blockCount": 0,
+    "warnCount": 0,
+    "sectionCount": 14,
+    "routeCount": 94,
+    "postScopedSectionCount": 6,
+    "scenarioCount": 13,
+    "manualChecklistCount": 12
+  }
+}
