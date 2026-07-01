@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 06:45 UTC
+Updated: 2026-07-01 06:49 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -12,7 +12,7 @@ Update this file after major events: new PR/head SHA, CI red/green, audit PASS/B
 ## Core rules
 Do not use GitHub `@codex` comments. Do not create a new PR if the existing PR can be updated. Do not merge before final audit-only PASS/waiver. Green CI is not done. Merge is not done. Runtime readiness is not visual UX done.
 
-Standard post-audit workflow: confirm exact head and green CI; merge only that head; use repository workflow/runtime diagnostics for the delayed 3-4 minute runtime pickup check when available; verify runtime-status and production contract; then produce a server-contract success table and run/manual request MAX visual check.
+Standard post-audit workflow: confirm exact head and green CI; merge only that head; use repository workflow/runtime diagnostics for the delayed 3-4 minute runtime pickup check when available; otherwise poll runtime-status in the same work chain, not a chat automation; verify runtime-status and production contract; produce a server-contract success table; then run/manual request MAX visual check.
 
 Production start path must remain:
 `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`
@@ -54,9 +54,37 @@ Key PR262 changes:
 - Stats remains dashboard-scoped.
 - No-menu-multiplication test checks reachable runtime graph from active entry files.
 
-Current required action:
-1. Verify runtime pickup for main squash commit `bc1e3f548ea65a18644d39335cd93c0f60f42cfb`.
-2. Verify startup-log production contract and final readiness gate.
-3. Verify `runtime/product-semantic-matrix.json` exists and is green.
-4. Verify diagnostic-export-status includes product-semantic matrix and missingFiles is empty.
-5. Produce server-contract success table.
+## PR262 post-merge runtime check — 2026-07-01 06:49 UTC
+Runtime pickup confirmed from `runtime/startup-log.json`:
+- updatedAt: `2026-07-01T06:44:49.200Z`
+- latest startedAt: `2026-07-01T06:44:12.902Z`
+- latest bootId: `mr1pnipm-0922367d`
+- latest githubMainHeadSha: `bc1e3f548ea65a18644d39335cd93c0f60f42cfb`
+- entrypoint: `clean-entrypoint-1.53.10-pr89.js`
+- runtimeContract.contractLiveOk: true
+- startupPath.ok: true
+- dataProviders.ok: true
+- finalRuntimeReadinessGate.ok: true
+- finalRuntimeReadinessGate.missing: []
+- readyForManualMaxTest: true
+
+Production package on main:
+- main: `clean-entrypoint-1.53.10-pr89.js`
+- start: `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`
+
+Diagnostic files:
+- `runtime/full-section-matrix.json`: ok true, 37 routes, violations [], blockCount 0.
+- `runtime/channel-target-matrix.json`: ok true, violations [], leaks [].
+- `runtime/user-journey-matrix.json`: ok true, 14 sections, 16 journeys, 87 steps, violations [], blockCount 0, giftsBlockCount 0, buttonsBlockCount 0.
+- `runtime/product-semantic-matrix.json`: ok true, sectionCount 14, pass 4, partial 10, block 0, blockCount 0, warnCount 20, postScopedSectionsChecked 6.
+- `runtime/process-events.json`: ok true, handlersInstalled true, startup event entrypoint `clean-entrypoint-1.53.10-pr89.js`.
+- `runtime/northflank-startup-log.json`: ok true, configured false fallback because Northflank env credentials are missing.
+- `runtime/diagnostic-export-status.json`: ok true, expectedCount 6, okCount 6, failedCount 0, missingCount 0, missingFiles [].
+
+Conclusion:
+- PR262 merge: PASS.
+- Runtime pickup: PASS.
+- Production contract: PASS.
+- Diagnostic export: PASS.
+- Product-semantic matrix: PASS, with honest PARTIAL classifications for incomplete product sections and 0 BLOCKs.
+- Ready for manual MAX visual check of gifts root/no-post/list/post-selected states and buttons/polls/highlights gated roots.
