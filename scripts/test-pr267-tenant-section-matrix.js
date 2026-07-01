@@ -55,8 +55,12 @@ function bind(maxUserId, channelId, title, postId, postTitle) {
   assert.ok(result.rows.every((row) => row.pickerChannelsCount === 1), 'each row has isolated picker channel');
   assert.ok(result.rows.every((row) => row.firstChannelPostsCount === 1), 'each row has one scoped post');
   assert.ok(result.rows.every((row) => row.routes.length >= 20), 'each user renders root and post-scoped routes');
+  assert.ok(result.rows.every((row) => row.routes.some((route) => route.section === 'main' && route.scenario === 'root_open')), 'main root rendered for every user');
+  assert.ok(result.rows.every((row) => row.routes.some((route) => route.section === 'channels' && route.scenario === 'my_channels')), 'channels tenant list rendered for every user');
+  assert.ok(result.rows.every((row) => row.routes.some((route) => route.section === 'account' && route.scenario === 'account_home')), 'account tenant root rendered for every user');
+  assert.ok(result.rows.every((row) => row.routes.some((route) => route.scenario === 'choose_channel')), 'post-scoped channel picker rendered for every user');
+  assert.ok(result.rows.every((row) => row.routes.some((route) => route.scenario === 'choose_post')), 'post-scoped post picker rendered for every user');
   assert.ok(result.manualAlgorithms.length >= 3, 'manual algorithms included');
-  assert.ok(result.rows.find((row) => row.userId === userA).routes.some((route) => route.section === undefined || true), 'routes exist for user A');
   const serialized = JSON.stringify(result);
   assert.ok(!serialized.includes('Семейный чат'), 'chat-like record never leaks into matrix output');
   console.log('PR267 tenant section matrix PASS');
