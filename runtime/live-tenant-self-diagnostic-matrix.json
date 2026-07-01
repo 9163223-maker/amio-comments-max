@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "generatedAt": "2026-07-01T18:36:07.450Z",
+  "runtime": "PR265-LIVE-TENANT-SELF-DIAGNOSTIC-1.0",
+  "configuredUsers": [],
+  "checkedUsers": [],
+  "rows": [],
+  "summary": {
+    "checkedCount": 0,
+    "blockCount": 0,
+    "warnCount": 0,
+    "missingTenantCount": 0,
+    "zeroPickerChannelsCount": 0
+  }
+}
