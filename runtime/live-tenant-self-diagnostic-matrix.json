@@ -1,14 +1,91 @@
 {
   "ok": true,
-  "generatedAt": "2026-07-01T18:36:07.450Z",
+  "generatedAt": "2026-07-01T19:08:22.509Z",
   "runtime": "PR265-LIVE-TENANT-SELF-DIAGNOSTIC-1.0",
   "configuredUsers": [],
-  "checkedUsers": [],
-  "rows": [],
+  "checkedUsers": [
+    "rea…r-1"
+  ],
+  "rows": [
+    {
+      "ok": true,
+      "runtime": "PR265-LIVE-TENANT-SELF-DIAGNOSTIC-1.0",
+      "generatedAt": "2026-07-01T19:08:22.509Z",
+      "label": "watch",
+      "maxUserIdMasked": "rea…r-1",
+      "tenantIdMasked": "ten…ehm",
+      "state": {
+        "status": "active",
+        "active": true,
+        "admin": false,
+        "planId": "start",
+        "friendlyStatus": "активен"
+      },
+      "channels": {
+        "tenant": [
+          {
+            "channelIdMasked": "cha…lga",
+            "title": "Olga Style",
+            "status": "active"
+          }
+        ],
+        "client": [
+          {
+            "channelIdMasked": "cha…lga",
+            "title": "Olga Style",
+            "status": "active"
+          }
+        ],
+        "picker": [
+          {
+            "channelIdMasked": "cha…lga",
+            "title": "Olga Style",
+            "status": "active",
+            "postsCount": 0
+          }
+        ],
+        "storeLinked": []
+      },
+      "postEvidence": [],
+      "missingBindings": [],
+      "hiddenFromPicker": [],
+      "chatRecordsExcluded": 0,
+      "botAdminProofMissing": [
+        {
+          "channelIdMasked": "cha…lga",
+          "title": "Olga Style",
+          "status": "active"
+        }
+      ],
+      "violations": [],
+      "warnings": [
+        {
+          "code": "bot_admin_proof_missing",
+          "count": 1
+        }
+      ],
+      "summary": {
+        "knownTenant": true,
+        "active": true,
+        "admin": false,
+        "tenantChannelsCount": 1,
+        "clientChannelsCount": 1,
+        "pickerChannelsCount": 1,
+        "storeLinkedChannelsCount": 0,
+        "postEvidenceChannelsCount": 0,
+        "chatExcludedCount": 0,
+        "missingBindingsCount": 0,
+        "hiddenFromPickerCount": 0,
+        "blockCount": 0,
+        "warnCount": 1
+      },
+      "verdict": "WARN"
+    }
+  ],
   "summary": {
-    "checkedCount": 0,
+    "checkedCount": 1,
     "blockCount": 0,
-    "warnCount": 0,
+    "warnCount": 1,
     "missingTenantCount": 0,
     "zeroPickerChannelsCount": 0
   }
