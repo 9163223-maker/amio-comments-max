@@ -17,7 +17,7 @@ const full = require('../services/fullSectionMatrixService');
   const payloads = [channel.buildMatrix(), processPayload, northflank.payload(), full.buildMatrix()];
   assert(payloads[0].checkedRoutes && payloads[0].fixtures && payloads[0].productSections, 'channel matrix observable shape');
   assert(payloads[1].bootId && payloads[1].startedAt && typeof payloads[1].capturedEvents === 'number', 'process payload buildable');
-  assert.strictEqual(payloads[2].ok, true, 'northflank missing config does not fail');
+  assert.strictEqual(payloads[2].ok, false, 'northflank missing config is an observability block');
   assert.strictEqual(payloads[2].configured, false, 'northflank missing config fallback exported as configured false');
   assert.strictEqual(payloads[3].ok, true, 'full matrix buildable');
   const old = process.env.GITHUB_DEBUG_TOKEN;

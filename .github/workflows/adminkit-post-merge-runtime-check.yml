@@ -27,72 +27,35 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Wait for runtime pickup
-        run: |
-          minutes='${{ inputs.wait_minutes }}'
-          case "$minutes" in ''|*[!0-9]*) minutes=5 ;; esac
-          if [ "$minutes" -gt 20 ]; then minutes=20; fi
-          sleep $((minutes * 60))
-
-      - name: Fetch and validate runtime diagnostics
+      - name: Run post-merge runtime pickup gate
         env:
           GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
           EXPECTED_SHA: ${{ inputs.expected_sha }}
           RUNTIME_BRANCH: ${{ inputs.runtime_branch }}
+          WAIT_MINUTES: ${{ inputs.wait_minutes }}
         run: |
-          set -euo pipefail
-          case "$RUNTIME_BRANCH" in main|*/main|*..*|/*|*/) echo "Unsafe runtime branch" >&2; exit 2 ;; esac
-          mkdir -p runtime-post-merge
-          files=(
-            runtime/startup-log.json
-            runtime/full-section-matrix.json
-            runtime/channel-target-matrix.json
-            runtime/user-journey-matrix.json
-            runtime/process-events.json
-            runtime/northflank-startup-log.json
-            runtime/diagnostic-export-status.json
-          )
-          missing=()
-          for f in "${files[@]}"; do
-            if ! gh api "repos/${GITHUB_REPOSITORY}/contents/${f}?ref=${RUNTIME_BRANCH:-runtime-status}" --jq .content | base64 -d > "runtime-post-merge/$(basename "$f")"; then
-              missing+=("$f")
-            fi
-          done
-          node <<'NODE'
-          const fs = require('fs');
-          const expectedSha = process.env.EXPECTED_SHA || '';
-          const missing = [];
-          const read = (name) => { try { return JSON.parse(fs.readFileSync(`runtime-post-merge/${name}`, 'utf8')); } catch { missing.push(name); return {}; } };
-          const startup = read('startup-log.json');
-          const full = read('full-section-matrix.json');
-          const channel = read('channel-target-matrix.json');
-          const journey = read('user-journey-matrix.json');
-          const events = read('process-events.json');
-          const northflank = read('northflank-startup-log.json');
-          const status = read('diagnostic-export-status.json');
-          const latest = startup.latest || {};
-          const checks = [];
-          const add = (name, ok, detail='') => checks.push({ name, ok: Boolean(ok), detail });
-          add('startup SHA matches expected', latest.githubMainHeadSha === expectedSha, `${latest.githubMainHeadSha || ''}`);
-          add('startup path ok', latest.startupPath?.ok === true || latest.runtimeContract?.startupPath?.ok === true);
-          add('runtime contract live ok', latest.runtimeContract?.contractLiveOk === true);
-          add('final readiness ok', latest.finalRuntimeReadinessGate?.ok === true);
-          add('ready for manual MAX test', latest.finalRuntimeReadinessGate?.readyForManualMaxTest === true);
-          const items = Array.isArray(startup.items) ? startup.items : [];
-          add('no obvious restart loop', items.slice(0, 8).length < 8 || new Set(items.slice(0, 8).map((i) => i.bootId || i.startedAt)).size > 1 || items.length < 8);
-          add('all expected diagnostic files exist', missing.length === 0, missing.join(', '));
-          add('full-section-matrix ok', full.ok === true);
-          add('channel-target-matrix ok', channel.ok === true);
-          add('user-journey-matrix ok', journey.ok === true);
-          add('process-events ok and handlers installed', events.ok === true && events.handlersInstalled === true);
-          add('northflank startup log ok', northflank.ok === true && (northflank.configured === true || (northflank.configured === false && Boolean(northflank.reason))));
-          add('diagnostic export status ok', status.ok === true && Array.isArray(status.missingFiles) && status.missingFiles.length === 0);
-          const out = { ok: checks.every((c) => c.ok), generatedAt: new Date().toISOString(), expectedSha, runtimeBranch: process.env.RUNTIME_BRANCH || 'runtime-status', checks, missingFiles: missing };
-          fs.writeFileSync('runtime-post-merge-check.json', JSON.stringify(out, null, 2));
-          const table = ['| Check | Result | Detail |','|---|---:|---|', ...checks.map((c) => `| ${c.name} | ${c.ok ? 'PASS' : 'FAIL'} | ${String(c.detail || '').replace(/\|/g, '/')} |`)];
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## AdminKIT post-merge runtime check\n\n${table.join('\n')}\n`);
-          if (!out.ok) process.exit(1);
-          NODE
+          set +e
+          node scripts/check-post-merge-runtime-pickup.js \
+            --expected_sha "$EXPECTED_SHA" \
+            --runtime_branch "${RUNTIME_BRANCH:-runtime-status}" \
+            --wait_minutes "${WAIT_MINUTES:-5}"
+          code=$?
+          if [ -f runtime-post-merge-check.json ]; then
+            node - <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+            const fs = require('fs');
+            const out = JSON.parse(fs.readFileSync('runtime-post-merge-check.json', 'utf8'));
+            console.log('## AdminKIT post-merge runtime pickup gate\n');
+            console.log(`- expected_sha: \`${out.expected_sha}\``);
+            console.log(`- startup_log_sha: \`${out.startup_log_sha || ''}\``);
+            console.log(`- runtime_status_updatedAt: \`${out.runtime_status_updatedAt || ''}\``);
+            console.log(`- northflank_configured: \`${out.northflank_configured}\``);
+            console.log(`- northflank_startup_seen: \`${out.northflank_startup_seen}\``);
+            console.log(`- likely_reason: \`${out.likely_reason}\``);
+            console.log(`- result: **${out.ok ? 'PASS' : 'BLOCK'}**`);
+NODE
+          fi
+          exit "$code"
 
       - name: Upload sanitized runtime check artifact
         if: always()
