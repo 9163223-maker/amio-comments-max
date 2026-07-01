@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 15:53 UTC
+Updated: 2026-07-01 16:38 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -39,39 +39,10 @@ PR265: merged 2026-07-01 after audit PASS. Merge commit `f63d7c900b6f38af6b10ad7
 ## PR265 details
 PR265:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/265
-- Title: `Live tenant self diagnostic`
-- Branch: `codex/pr265-live-tenant-self-diagnostic`
-- Base: `main`
 - Final head: `67e9060d2c8d0b06749f70135a00faba38559e7b`
-- CI: PR regression tests #572, run id `28523344844`, conclusion `success`.
-- Audit-only: PASS confirmed by user screenshot at 2026-07-01 14:13 UTC.
-- Merge method: squash.
 - Merge commit: `f63d7c900b6f38af6b10ad705b6c5663be31d0af`.
-
-PR265 purpose:
-- Add generic live tenant self-diagnostic for the current MAX user without hardcoding any user id.
-- Allow the same diagnostic to work for any other user id when that user runs the diagnostic or when configured in env watch list later.
-- Distinguish general server contract from a specific live user binding: current maxUserId -> tenant -> tenant channels -> client channels -> picker channels -> posts.
-
-PR265 changes:
-- Adds `services/liveTenantSelfDiagnosticService.js`.
-- Adds runtime export `runtime/live-tenant-self-diagnostic-matrix.json` through `pr180-startup-log-bootstrap.js`.
-- Adds private-chat command handling in `clean-bot-campaign-attribution-cc8336.js`:
-  `/tenant`, `/tenant_debug`, `/tenant_diag`, `/diagnostic`, `/diag`, `диагностика`, `диагностика привязки`.
-- Adds visible ordinary account button `Диагностика привязки` with action `account_tenant_diagnostic` for active/admin account users.
-- `src/core/accountRuntime.js` recognizes `account_tenant_diagnostic` and routes to `liveTenantSelfDiagnostic.buildScreen({ maxUserId })` using current live user context.
-- Diagnostic output masks IDs and shows current MAX id, tenant found/not found, access status, tenant/client/picker channel counts, post evidence, excluded chats, warnings and blockers.
-- Adds `scripts/test-pr265-live-tenant-self-diagnostic.js` with two users and isolated channel sets.
-- Wires PR265 test into `package.json` npm test.
-- Adds named workflow wrapper `test-pr265-live-tenant-self-diagnostic` and node --check for the service/test.
-- Restores `requestIdFromReq()` behavior to check both `req.get('x-request-id')` and `req.get('X-Request-Id')`.
-
-PR265 fix history:
-- Initial Codex follow-up attempts returned ENV_BLOCK because Codex Cloud could not fetch/push PR265 branch (`origin` missing / CONNECT tunnel failed 403).
-- Assistant fixed the PR265 BLOCK directly through GitHub connector in the existing PR branch.
-- CI #568 failed because canonical menu expected list did not include `Диагностика привязки`; fixed `scripts/test-canonical-menu-matrix-pr175.js`.
-- CI #570 failed inside `test-pr265-live-tenant-self-diagnostic`; adjusted live diagnostic false-block handling so only evidence-backed hidden channels block, while non-evidence residue is warning.
-- CI #572 passed on head `67e9060d2c8d0b06749f70135a00faba38559e7b`.
+- CI #572 success, audit-only PASS, merged squash.
+- Purpose: generic live tenant self-diagnostic for current MAX user, visible account entry, private commands, runtime export `runtime/live-tenant-self-diagnostic-matrix.json`.
 
 Post-merge runtime status:
 - package.json on main: start path unchanged: `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
@@ -84,12 +55,36 @@ Post-merge runtime status:
 Northflank runtime log observability finding — 2026-07-01 15:53 UTC:
 - `runtime/northflank-startup-log.json` exists but is not a real Northflank runtime log. It is a placeholder payload from PR259 with `configured:false` and reason `missing NORTHFLANK_API_TOKEN,NORTHFLANK_PROJECT_ID,NORTHFLANK_SERVICE_ID`; generatedAt `2026-07-01T12:23:22.120Z`.
 - `services/northflankStartupLogService.js` only exports a configured/unconfigured payload and sanitized optional fields passed via input/env. It does not actually call the Northflank API to fetch deployment/runtime logs. Even with env present, current implementation would not fetch real logs unless input/status fields are supplied by another layer.
-- Therefore the project does not currently have real Northflank runtime log observability in `runtime-status`. This is an observability gap. To diagnose PR265 live mismatch now, use Northflank UI/logs manually or implement a new PR to fetch/export real Northflank deployment/runtime status/log tail via API and to fail the post-merge readiness gate when the runtime log is unconfigured/stale.
+- Therefore the project does not currently have real Northflank runtime log observability in `runtime-status`.
 
-Next required action:
-1. Investigate Northflank restart/runtime export path; do not claim done.
-2. Re-check `runtime/startup-log.json` until `latest.githubMainHeadSha` equals `f63d7c900b6f38af6b10ad705b6c5663be31d0af`.
-3. Verify runtime contract: startupPath.ok, contractLiveOk, finalRuntimeReadinessGate.ok / readyForManualMaxTest.
-4. Verify `runtime/live-tenant-self-diagnostic-matrix.json` exists after pickup.
-5. Verify diagnostic-export-status includes live tenant diagnostic matrix in expected files.
-6. Then request/manual MAX check: private `/tenant` or visible account button `Диагностика привязки`.
+## PR266 current state
+PR266:
+- URL: https://github.com/9163223-maker/amio-comments-max/pull/266
+- Title: `Real Northflank runtime observability and post-merge deploy gate`
+- Branch: `codex/add-northflank-runtime-observability-and-deploy-gate`
+- Base: `main`
+- Base SHA: `f63d7c900b6f38af6b10ad705b6c5663be31d0af`
+- Current head: `375fe00cdc1917402894bfbfd9aa1668bc122c34`
+- State: open, not merged, not draft.
+- Mergeable: true.
+- CI: PR regression tests #575, run id `28532422052`, conclusion `success`.
+- Changed files: `.github/workflows/adminkit-post-merge-runtime-check.yml`, `.github/workflows/pr-regression-tests.yml`, `package.json`, `scripts/check-post-merge-runtime-pickup.js`, `scripts/test-pr260-full-section-matrix.js`, `scripts/test-pr260-runtime-diagnostics-observable.js`, `scripts/test-pr261-reliable-runtime-diagnostics.js`, `scripts/test-pr266-northflank-runtime-observability.js`, `scripts/test-pr266-post-merge-runtime-gate.js`, `scripts/test-pr266-runtime-export-branch-safety.js`, `services/northflankStartupLogService.js`, `services/pushDispatchLogService.js`.
+
+PR266 purpose:
+- Replace placeholder Northflank startup log with real observability fetch/service payload.
+- Add strict post-merge runtime pickup gate.
+- Prevent runtime diagnostic export noise/writes when debug branch points to `main`.
+
+Assistant pre-audit result:
+- CI is green but PR266 is BLOCKED by review `4611108294`.
+- Blocker 1: `scripts/check-post-merge-runtime-pickup.js` does not verify that `diagnostic-export-status.expectedFiles` declares all required runtime files after PR265. It does not require `runtime/live-tenant-self-diagnostic-matrix.json` (and also does not explicitly require product-semantic, tenant-channel-binding, maximal-flow). A stale PR264 diagnostic status with `missingFiles: []` and expectedCount 8 can pass diagnosticComplete if fresh enough.
+- Blocker 2: `scripts/test-pr266-post-merge-runtime-gate.js` lacks fixture for the real PR265 failure mode: diagnostic status fresh/ok and missingFiles empty, but expectedFiles stale/short and no live tenant matrix.
+- Blocker 3: Northflank missing config returns `ok:false` in `runtime/northflank-startup-log.json`, but PR266 does not prove diagnostic-export-status treats that semantic not-ready payload as an observability block rather than merely counting the file export as successful. If diagnostic-export-status remains file-write-only, the post-merge gate must be documented/tested as the source of truth.
+- Assistant attempted direct GitHub connector patch to tighten the gate, but the update was blocked by tool safety due auth-handling code. Need Codex follow-up on existing PR266 branch.
+
+Next required action for PR266:
+1. Ask Codex to push fixes to existing branch `codex/add-northflank-runtime-observability-and-deploy-gate`; do not create new PR.
+2. Required fix: in `scripts/check-post-merge-runtime-pickup.js`, define `REQUIRED_RUNTIME_FILES` including `runtime/live-tenant-self-diagnostic-matrix.json` and require every entry to be present in `diagnostic.expectedFiles` and absent from `diagnostic.missingFiles`.
+3. Required fix: output `diagnostic_undeclared_required_files` and `diagnostic_missing_required_files` in `runtime-post-merge-check.json`.
+4. Required fix: add tests proving stale/short diagnostic expectedFiles blocks with `likely_reason: runtime_export_failed`.
+5. After new head, check CI exact head, diff, comments, then audit-only PASS/BLOCK if clean.
