@@ -49,9 +49,11 @@ function bind(maxUserId, channelId, title, postId, postTitle) {
 
   const result = await matrix.buildMatrix({ users: [userA, userB] });
   assert.strictEqual(result.ok, true, JSON.stringify(result.violations, null, 2));
+  assert.deepStrictEqual(result.checkedUsers, ['pr2…r-a', 'pr2…r-b'], 'checked users are masked in export');
   assert.strictEqual(result.summary.checkedUsersCount, 2, 'two users checked');
   assert.strictEqual(result.summary.postScopedSectionsChecked >= 6, true, 'post scoped sections covered');
   assert.strictEqual(result.rows.length, 2, 'two matrix rows');
+  assert.ok(result.rows.every((row) => row.userIdMasked && row.userId === row.userIdMasked), 'row user ids are masked');
   assert.ok(result.rows.every((row) => row.pickerChannelsCount === 1), 'each row has isolated picker channel');
   assert.ok(result.rows.every((row) => row.firstChannelPostsCount === 1), 'each row has one scoped post');
   assert.ok(result.rows.every((row) => row.routes.length >= 20), 'each user renders root and post-scoped routes');
@@ -62,6 +64,8 @@ function bind(maxUserId, channelId, title, postId, postTitle) {
   assert.ok(result.rows.every((row) => row.routes.some((route) => route.scenario === 'choose_post')), 'post-scoped post picker rendered for every user');
   assert.ok(result.manualAlgorithms.length >= 3, 'manual algorithms included');
   const serialized = JSON.stringify(result);
+  assert.ok(!serialized.includes(userA), 'raw user A id is not exported');
+  assert.ok(!serialized.includes(userB), 'raw user B id is not exported');
   assert.ok(!serialized.includes('Семейный чат'), 'chat-like record never leaks into matrix output');
   console.log('PR267 tenant section matrix PASS');
 })().catch((error) => { console.error(error && error.stack || error); process.exit(1); });
