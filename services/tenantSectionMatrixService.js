@@ -8,12 +8,13 @@ const liveTenant = require('./liveTenantSelfDiagnosticService');
 const picker = require('../channel-post-picker-core');
 const runtimeExport = require('./runtimeExportService');
 
-const RUNTIME = 'PR267-TENANT-SECTION-MATRIX-1.0';
+const RUNTIME = 'PR267-TENANT-SECTION-MATRIX-1.1-PR268-LIVE-USER';
 const DEFAULT_PATH = 'runtime/tenant-section-matrix.json';
 const CHAT_RE = /(?:chat-|grp-|private-|dialog-|supergroup|семейный чат|group chat|private chat|Все свои MAX|Саша - сын Мамочки)/i;
 const TECH_RE = /\b(?:postId|channelId|commentKey|payload|token|trace|debug|null|undefined)\b/i;
 
 function clean(value) { return String(value == null ? '' : value).replace(/\s+/g, ' ').trim(); }
+function liveUsers() { return liveTenant.watchedUsers().map(clean).filter(Boolean); }
 function short(value = '', max = 160) { const text = clean(value); return text.length <= max ? text : `${text.slice(0, Math.max(1, max - 1)).trim()}…`; }
 function buttons(screen = {}) { return (screen.attachments?.[0]?.payload?.buttons || []).flat().filter(Boolean); }
 function labels(screen = {}) { return buttons(screen).map((button) => clean(button.text)).filter(Boolean); }
@@ -57,26 +58,23 @@ function manualAlgorithms() {
       id: 'A1',
       title: 'Tenant diagnostic first, then all post-scoped sections',
       steps: ['В личном чате отправить /tenant или открыть Личный кабинет → Диагностика привязки', 'Убедиться: Tenant найден, Каналы в picker ≥ 1, Чаты исключены', 'Главное меню → Подарки / Кнопки / Опросы / Выделение / Редактор / Комментарии', 'В каждом разделе нажать Выбрать пост и проверить список каналов'],
-      expected: ['Везде виден один и тот же ваш канал', 'Не видно чатов/групп/личных диалогов', 'Не видно чужих или технических каналов']
+      expected: ['Везде виден один и тот же ваш live-канал', 'Не видно чатов/групп/личных диалогов', 'Не видно fixture/test/чужих или технических каналов']
     },
     {
       id: 'A2',
       title: 'One channel happy path: channel → post → action',
-      steps: ['Открыть Подарки / лид-магниты → Выбрать пост', 'Выбрать свой канал', 'Выбрать пост', 'Повторить коротко для Кнопки под постами и Редактор постов'],
-      expected: ['При одном доступном tenant-канале не должно появляться чужих каналов', 'После выбора канала экран пишет Канал: <название>', 'После выбора поста появляются действия только выбранного раздела']
+      steps: ['Открыть Подарки / лид-магниты → Выбрать пост', 'Выбрать свой live-канал', 'Выбрать пост', 'Повторить коротко для Кнопки под постами и Редактор постов'],
+      expected: ['При одном доступном tenant-канале не должно появляться чужих каналов', 'После выбора канала экран пишет Канал: <live-название>', 'После выбора поста появляются действия только выбранного раздела']
     },
     {
       id: 'A3',
       title: 'Account and Channels cross-check',
       steps: ['Главное меню → Каналы → Мои каналы', 'Проверить, что список совпадает с /tenant picker count/title', 'Главное меню → Личный кабинет → Мои каналы', 'Вернуться и открыть Статистика / Архив / Настройки для проверки навигации'],
-      expected: ['Каналы и Личный кабинет показывают tenant-scoped каналы', 'Диагностика привязки доступна в Личном кабинете', 'Непостовые разделы открываются без tenant leakage и без debug/trace текста']
+      expected: ['Каналы и Личный кабинет показывают tenant-scoped live-каналы', 'Диагностика привязки доступна в Личном кабинете', 'Непостовые разделы открываются без tenant leakage и без debug/trace текста']
     }
   ];
 }
-async function usersFromRuntime() {
-  const tenant = await tenantBinding.buildTenantChannelBindingMatrix();
-  return Array.from(new Set((tenant.checkedUsers || []).map(clean).filter(Boolean)));
-}
+async function usersFromRuntime() { return liveUsers(); }
 async function buildUserRow(userId = '', allUserChannels = {}) {
   const violations = [];
   const warnings = [];
@@ -126,4 +124,4 @@ async function buildMatrix({ users = null } = {}) {
 }
 async function exportMatrix() { return runtimeExport.exportJson({ path: DEFAULT_PATH, payload: () => buildMatrix(), message: 'tenant section matrix' }); }
 
-module.exports = { RUNTIME, DEFAULT_PATH, buildMatrix, exportMatrix, manualAlgorithms };
+module.exports = { RUNTIME, DEFAULT_PATH, buildMatrix, exportMatrix, manualAlgorithms, usersFromRuntime };
