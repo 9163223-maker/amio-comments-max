@@ -3043,9 +3043,9 @@ function buildGiftMainMenuKeyboard(config = null, options = {}) {
     rows.push([{ type: 'callback', text: '📌 Выбрать другой пост', payload: buildAdminCallbackPayload('gift_admin_recent_posts', { page: 0 }) }]);
     rows.push([{ type: 'callback', text: '🧾 Текущий подарок', payload: buildAdminCallbackPayload('gift_admin_show_current') }]);
   } else {
-    rows.push([{ type: 'callback', text: 'Создать подарок', payload: buildAdminCallbackPayload('gift_admin_recent_posts', { page: 0 }) }]);
-    rows.push([{ type: 'callback', text: 'Текущий подарок', payload: buildAdminCallbackPayload('gift_admin_show_current') }]);
-    rows.push([{ type: 'callback', text: 'Список подарков', payload: buildAdminCallbackPayload('gift_admin_list_campaigns') }]);
+    rows.push([{ type: 'callback', text: 'Выбрать пост', payload: buildAdminCallbackPayload('gifts:choose_channel') }]);
+    rows.push([{ type: 'callback', text: 'Все подарки', payload: buildAdminCallbackPayload('gifts:all') }]);
+    rows.push([{ type: 'callback', text: 'Помощь', payload: buildAdminCallbackPayload('gifts:help') }]);
     rows.push([{ type: 'callback', text: 'Главное меню', payload: buildAdminCallbackPayload('admin_section_main') }]);
     return [{ type: 'inline_keyboard', payload: { buttons: rows } }];
   }
@@ -5660,9 +5660,9 @@ function safeGiftsRootAttachments() {
     type: 'inline_keyboard',
     payload: {
       buttons: [
-        [{ type: 'callback', text: 'Создать подарок', payload: buildAdminCallbackPayload('gift_admin_recent_posts', { page: 0 }) }],
-        [{ type: 'callback', text: 'Текущий подарок', payload: buildAdminCallbackPayload('gift_admin_show_current') }],
-        [{ type: 'callback', text: 'Список подарков', payload: buildAdminCallbackPayload('gift_admin_list_campaigns') }],
+        [{ type: 'callback', text: 'Выбрать пост', payload: buildAdminCallbackPayload('gifts:choose_channel') }],
+        [{ type: 'callback', text: 'Все подарки', payload: buildAdminCallbackPayload('gifts:all') }],
+        [{ type: 'callback', text: 'Помощь', payload: buildAdminCallbackPayload('gifts:help') }],
         [{ type: 'callback', text: 'Главное меню', payload: buildAdminCallbackPayload('admin_section_main') }]
       ]
     }

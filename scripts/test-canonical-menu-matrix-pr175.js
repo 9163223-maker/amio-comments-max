@@ -26,13 +26,13 @@ const expectedTop = [
 const expectedItems = {
   channels: ['Подключить канал', 'Мои каналы'],
   comments: ['Автокомментарии', 'Включить к посту', 'Фото', 'Ответы', 'Реакции'],
-  gifts: ['Создать подарок', 'Текущий подарок', 'Список подарков'],
-  buttons: ['Добавить кнопку', 'Текущие кнопки'],
+  gifts: ['Выбрать пост', 'Все подарки'],
+  buttons: ['Выбрать пост'],
   stats: ['Обзор', 'По каналу', 'По посту', 'Рекламные ссылки', 'Источники', 'Обновить данные'],
   push: ['Опубликовать приглашение', 'Как это работает'],
   ad_links: ['Создать ссылку', 'Мои ссылки'],
-  polls: ['Создать опрос', 'Результаты опросов'],
-  highlights: ['Поставить метку', 'Снять метку'],
+  polls: ['Выбрать пост', 'Результаты опросов'],
+  highlights: ['Выбрать пост'],
   editor: ['Выбрать пост'],
   archive: ['Сохранённые посты', 'Лимиты хранения'],
   account: ['Мой доступ', 'Активировать код', 'Оплата / продление', 'Лимиты и функции', 'Мои каналы', 'Поддержка'],
@@ -56,12 +56,22 @@ for (const section of canonical.clientSections) {
   }
 }
 
+for (const [route, forbidden] of Object.entries({
+  'buttons:home': ['Добавить кнопку','Текущие кнопки'],
+  'polls:home': ['Создать опрос'],
+  'highlights:home': ['Поставить метку','Снять метку']
+})) {
+  const rootLabels = businessLabels(adapter.render(route));
+  assert(rootLabels.includes('Выбрать пост'), `${route}: root is a context gate`);
+  for (const label of forbidden) assert(!rootLabels.includes(label), `${route}: ${label} hidden until selected post context`);
+}
+
 const ordinaryAccount = adapter.render('account:home', { maxUserId: 'pr175-ordinary-customer' });
 assert.deepStrictEqual(businessLabels(ordinaryAccount), ['🔔 Мои уведомления', '➕ Подключить чат', 'Что умеет АдминКИТ для MAX'], 'ordinary account route uses the PR186 customer funnel without admin/payment leakage');
 assert(!labels(ordinaryAccount).some((label) => ['Активировать код', 'Оплата / продление', 'Мой доступ', 'Мои каналы'].includes(label)), 'ordinary account route does not expose admin access controls');
 
 const giftRoot = businessLabels(adapter.render('gifts:home'));
-for (const material of ['Текст', 'Промокод', 'Файл', 'Фото', 'Изображение', 'Ссылка']) {
+for (const material of ['Текст', 'Промокод', 'Файл', 'Фото', 'Изображение', 'Ссылка', 'Текущий подарок', 'Создать подарок', 'Список подарков']) {
   assert.ok(!giftRoot.includes(material), `${material} is not a Gifts root item`);
 }
 const giftJourney = read('scripts/test-product-perfect-gifts-journey-pr142.js');

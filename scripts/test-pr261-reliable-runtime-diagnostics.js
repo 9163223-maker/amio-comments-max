@@ -5,6 +5,7 @@ const runtimeExport = require('../services/runtimeExportService');
 const channel = require('../services/channelTargetMatrixService');
 const full = require('../services/fullSectionMatrixService');
 const userJourney = require('../services/userJourneyMatrixService');
+const productSemantic = require('../services/productSemanticMatrixService');
 const processEvents = require('../services/processEventsService');
 const northflank = require('../services/northflankStartupLogService');
 
@@ -19,11 +20,12 @@ const northflank = require('../services/northflankStartupLogService');
   assert.throws(() => runtimeExport.sanitizePath('runtime/../x.json'), /invalid_path/);
   assert.doesNotThrow(() => runtimeExport.sanitizePath('runtime/full-section-matrix.json'));
 
-  const expected = [full.DEFAULT_PATH, channel.DEFAULT_PATH, userJourney.DEFAULT_PATH, processEvents.DEFAULT_PATH, northflank.DEFAULT_PATH];
+  const expected = [full.DEFAULT_PATH, channel.DEFAULT_PATH, userJourney.DEFAULT_PATH, productSemantic.DEFAULT_PATH, processEvents.DEFAULT_PATH, northflank.DEFAULT_PATH];
   const processPayload = await processEvents.buildPayload();
-  const payloads = [full.buildMatrix(), channel.buildMatrix(), userJourney.buildMatrix(), processPayload, northflank.payload()];
-  assert(payloads.every((p) => p && p.ok === true), 'all expected payloads build ok');
-  assert.strictEqual(payloads[4].configured, false, 'missing Northflank config produces configured:false payload');
+  const payloads = [full.buildMatrix(), channel.buildMatrix(), userJourney.buildMatrix(), productSemantic.buildMatrix(), processPayload, northflank.payload()];
+  assert(payloads.every((p) => p), 'all expected payloads build');
+  assert(payloads.filter((_, i) => i !== 3).every((p) => p.ok === true), 'technical runtime payloads build ok');
+  assert.strictEqual(payloads[5].configured, false, 'missing Northflank config produces configured:false payload');
 
   const old = process.env.GITHUB_DEBUG_TOKEN;
   delete process.env.GITHUB_DEBUG_TOKEN;

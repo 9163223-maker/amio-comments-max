@@ -21,7 +21,7 @@ const OTHER_COMMENT_KEY = `${OTHER_CHANNEL}:${OTHER_POST_ID}`;
 
 const PRIVATE_URL = /https?:\/\/(?:private|internal|token|raw)\.|https?:\/\/[^\s]+\/(?:private|raw|token)(?:\b|\/)/i;
 const RAW_VISIBLE = /\b(?:channelId|postId|commentKey|payload|trace|file_token|rawFileToken|privateUrl|private URL|attachment URL)\b|gift_[a-z0-9:_-]{6,}|(?:photo|file)-token-|cp_-?\d/i;
-const ROOT_BUTTONS = ['Создать подарок', 'Текущий подарок', 'Список подарков', 'Главное меню'];
+const ROOT_BUTTONS = ['Выбрать пост', 'Все подарки', 'Помощь', 'Главное меню'];
 
 function resetState() {
   access._resetForTests();
@@ -133,7 +133,8 @@ function assertCanonicalGiftRoot(result, label) {
   if (result.res?.resumedFlow !== undefined) assert.strictEqual(result.res.resumedFlow, false, `${label}: top-level entry is not an auto-resumed flow`);
   const text = visible(result.call);
   for (const expected of ROOT_BUTTONS) assert.ok(labels(result.call).includes(expected), `${label}: root button ${expected} is present`);
-  assert.ok(!labels(result.call).some((item) => /Выбрать пост|Выбрать другой пост/.test(item)), `${label}: clean root has no stale post-selection action`);
+  assert.ok(!labels(result.call).some((item) => /Выбрать другой пост/.test(item)), `${label}: clean root has no stale selected-post reselection action`);
+  assert.ok(!labels(result.call).some((item) => /Текущий подарок|Создать подарок|Список подарков/.test(item)), `${label}: clean root has no context-free gift entity actions`);
   assert.ok(!/Шаг\s*(?:1|2|3|4)(?:\/4)?|материал подарка|проверить и сохранить/i.test(text), `${label}: wizard step is not the main screen`);
   assertNoRawLeaks(result.call, label);
 }
@@ -198,16 +199,16 @@ async function verifyRootButtons(bot, sent) {
   store.setSetupState(TEST_USER, { giftTargetPost: null, giftFlow: null, giftsCurrentCard: null, activeAdminFlowKind: '' });
   const root = (await sendActive(bot, sent, { action: 'gifts:home' }, 'root buttons entry')).call;
   const expectations = [
-    [/Создать подарок/, /Выберите канал|Выберите пост|Сначала выберите/i, 'create'],
-    [/Текущий подарок/, /Выберите канал|Выберите пост|Сначала выберите|подарок/i, 'current'],
-    [/Список подарков/, /Выберите канал|Выберите пост|Сначала выберите|подарок|Список/i, 'list'],
+    [/Выбрать пост/, /Выберите канал|Выберите пост|Пока нет сохранённых постов|сначала подключите канал/i, 'choose post'],
+    [/Все подарки/, /Все подарки|Пока нет подарков|Создайте подарок/i, 'all gifts'],
+    [/Помощь/, /Помощь|Подарки|лид-магниты/i, 'help'],
     [/Главное меню/, /АдминКИТ|Главное меню|Панель управления/i, 'main menu']
   ];
   for (const [matcher, screenMatcher, label] of expectations) {
     const result = await sendActive(bot, sent, payloadFor(root, matcher), `root button ${label}`);
     assert.ok(screenMatcher.test(visible(result.call)), `root button ${label}: expected screen text`);
     assertNoRawLeaks(result.call, `root button ${label}`);
-    assert.ok(labels(result.call).some((item) => /Главное меню|В начало подарков|Подарки/.test(item)) || /Главное меню|Панель управления/.test(visible(result.call)), `root button ${label}: safe back/main path exists`);
+    assert.ok(labels(result.call).some((item) => /Главное меню|В начало подарков|Подарки|К списку каналов/.test(item)) || /Главное меню|Панель управления/.test(visible(result.call)), `root button ${label}: safe back/main path exists`);
   }
 }
 

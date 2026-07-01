@@ -122,11 +122,11 @@ function sectionHome(owner) {
       ok: true,
       route: section.route,
       owner: section.id,
-      text: ['Подарки / лид-магниты', '', 'Создавайте подарки для постов: промокод, текст, файл, картинку или ссылку.', '', 'Сначала выберите действие.'].join('\n'),
+      text: ['Подарки / лид-магниты', '', 'Подарок создаётся для конкретного поста канала.'].join('\n'),
       attachments: keyboard([
-        [byTitle['Создать подарок']],
-        [byTitle['Текущий подарок']],
-        [byTitle['Список подарков']],
+        [byTitle['Выбрать пост']],
+        [byTitle['Все подарки']],
+        [navButton('Помощь', 'gifts:help')],
         [navButton('Главное меню', 'main:home')]
       ])
     };
@@ -252,7 +252,10 @@ function channelsManage(route, context = {}) { return channelsCard(context); }
 function chooseChannel(owner, context = {}) {
   const section = canonical.sectionById[owner] || { title: sectionTitle(owner) };
   const channels = eligibleChannelsFromContext(context);
-  if (!channels.length) return { ok: true, route: `${owner}:choose_channel`, owner, needsData: 'channels', pickerContract: postPickerContract(owner), text: `${section.title}\n\nУ вас пока нет подключённых каналов.`, attachments: keyboard([[button('Подключить канал', 'channels:connect')], ...sectionNavRows(owner, { currentRoute: `${owner}:choose_channel`, backAction: safeSectionHomeAction(owner) })]) };
+  if (!channels.length) {
+    if (owner === 'gifts') return { ok: true, route: `${owner}:choose_channel`, owner, needsData: 'channels', pickerContract: postPickerContract(owner), text: ['Подарки / лид-магниты', '', 'Чтобы создать подарок, сначала подключите канал.', 'Подарок привязывается к посту канала.'].join('\n'), attachments: keyboard([[button('Подключить канал', 'channels:connect')], [button('Главное меню', 'main:home')]]) };
+    return { ok: true, route: `${owner}:choose_channel`, owner, needsData: 'channels', pickerContract: postPickerContract(owner), text: `${section.title}\n\nУ вас пока нет подключённых каналов.`, attachments: keyboard([[button('Подключить канал', 'channels:connect')], ...sectionNavRows(owner, { currentRoute: `${owner}:choose_channel`, backAction: safeSectionHomeAction(owner) })]) };
+  }
   const rows = channels.slice(0, 12).map((channel, index) => [button(channelTitle(channel, index), `${owner}:choose_post`, { section: owner, step: 'post', channelId: normalize(channel.channelId || channel.id), channelTitle: channelTitle(channel, index), backRoute: `${owner}:choose_channel` })]);
   return { ok: true, route: `${owner}:choose_channel`, owner, dataBound: true, pickerContract: postPickerContract(owner), text: `${section.title}\n\nВыберите канал`, attachments: keyboard([...rows, ...sectionNavRows(owner, { currentRoute: `${owner}:choose_channel`, backAction: safeSectionHomeAction(owner) })]) };
 }
@@ -265,6 +268,7 @@ function choosePost(owner, context = {}) {
     const rows = posts.map((post, index) => [button(postTitle(post, index), `${owner}:post`, { section: owner, step: 'action', postId: normalize(post.postId), commentKey: normalize(post.commentKey), channelId: normalize(dataContext.channelId || context.channelId), channelTitle: channel, postTitle: normalize(post.title || post.preview || post.originalText), backRoute: `${owner}:choose_post` })]);
     return { ok: true, route: `${owner}:choose_post`, owner, dataBound: true, pickerContract: postPickerContract(owner), text: `${section.title}\n\nВыберите пост\nКанал: ${channel}`, attachments: keyboard([...rows, ...sectionNavRows(owner, { currentRoute: `${owner}:choose_post`, backAction: `${owner}:choose_channel` })]) };
   }
+  if (owner === 'gifts') return { ok: true, route: `${owner}:choose_post`, owner, needsData: 'posts', pickerContract: postPickerContract(owner), text: ['Подарки / лид-магниты', '', 'Пока нет сохранённых постов.', 'Сначала перешлите или синхронизируйте пост канала.'].join('\n'), attachments: keyboard([[button('Обновить посты', `${owner}:choose_post`, { channelTitle: channel })], [button('К списку каналов', `${owner}:choose_channel`)], [button('Главное меню', 'main:home')]]) };
   return { ok: true, route: `${owner}:choose_post`, owner, needsData: 'posts', pickerContract: postPickerContract(owner), text: `${section.title}\n\nПостов пока нет`, attachments: keyboard(sectionNavRows(owner, { currentRoute: `${owner}:choose_post`, backAction: `${owner}:choose_channel` })) };
 }
 
@@ -278,11 +282,15 @@ function postScreen(owner, context = {}) {
     comments: [[actionButton('Включить', 'comments_manual_patch', { ...payload, source: 'comments_manual_confirmation' })], [button('Фото', 'comments:photos', payload), button('Ответы', 'comments:replies', payload)], [button('Реакции', 'comments:reactions', payload)]],
     editor: [[actionButton('Изменить текст выбранного поста', 'admin_posts_edit_text', payload)], [button('Выбрать другой пост', 'editor:choose_post', payload)]],
     buttons: [[actionButton('Добавить кнопку', 'button_admin_start_add', payload), actionButton('Текущие кнопки', 'button_admin_show_current', payload)]],
-    gifts: [[actionButton('Создать подарок', 'gift_admin_start_create', payload), actionButton('Список подарков', 'gift_admin_show_current', payload)]],
+    gifts: [[actionButton('Создать подарок', 'gift_admin_start_create', payload)], [button('К выбору поста', 'gifts:choose_post', payload)]],
     highlights: highlightRows,
     polls: [[actionButton('Создать опрос', 'poll_create', payload), actionButton('Результаты', 'poll_status', payload)]],
     stats: [[actionButton('Статистика поста', 'admin_stats_post', payload)]],
   };
+  if (owner === 'gifts') {
+    const channel = normalize(payload.channelTitle) || 'канал';
+    return { ok: true, route: `${owner}:post`, owner, pickerContract: postPickerContract(owner), text: ['Подарок для поста', `Канал: ${channel}`, `Пост: ${title}`, 'Подарок ещё не создан.'].join('\n'), attachments: keyboard([...(rowsByOwner[owner] || []), [button('Главное меню', 'main:home')]]) };
+  }
   return { ok: true, route: `${owner}:post`, owner, pickerContract: postPickerContract(owner), text: `${sectionTitle(owner)}\n\nПост: ${title}\n\nВыберите действие.`, attachments: keyboard([...(rowsByOwner[owner] || []), ...sectionNavRows(owner, { currentRoute: `${owner}:post`, backAction: `${owner}:choose_post` })]) };
 }
 
@@ -335,6 +343,7 @@ function render(route, context = {}) {
       const enabled = context.autoCommentsEnabled !== false;
       return { ok: true, route: safeRoute, owner, text: ['Автокомментарии', '', 'Когда включено, АдминКИТ сам добавляет комментарии к новым постам этого канала.', 'Когда выключено, новые посты остаются без комментариев, но вы можете включить их вручную для нужного поста.', '', `Сейчас: ${enabled ? 'включено' : 'выключено'}.`].join('\n'), attachments: keyboard([[actionButton(enabled ? 'Выключить' : 'Включить', enabled ? 'comments_auto_patch_disable' : 'comments_auto_patch_enable')], ...sectionNavRows(owner, { currentRoute: safeRoute, backAction: 'comments:home' })]) };
     }
+    if (owner === 'gifts' && safeRoute === 'gifts:all') return { ok: true, route: safeRoute, owner, text: ['Все подарки в аккаунте', '', 'Пока нет подарков.', 'Создайте подарок для конкретного поста.'].join('\n'), attachments: keyboard([[button('Выбрать пост', 'gifts:choose_channel')], [button('Главное меню', 'main:home')]]) };
     if (owner === 'settings' && safeRoute !== 'settings:home') return settingsDetailScreen(safeRoute);
     if (owner === 'account') return accountSectionScreen(safeRoute, context);
     if (owner === 'channels') {
