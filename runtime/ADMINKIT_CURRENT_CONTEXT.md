@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 20:57 UTC
+Updated: 2026-07-01 21:01 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -37,9 +37,10 @@ PR264: `f4f32c4fd2fdd6c12d034638c74861cb5f4ee55f`, runtime PASS.
 PR265: `f63d7c900b6f38af6b10ad705b6c5663be31d0af`, runtime pickup confirmed through PR266/PR267 deployment.
 PR266: `a0278effba94c56ba33bf061d25a94a61a6f966d`, runtime PASS with remaining Northflank API env config observability-only BLOCK.
 PR267: `d142afd5ab4fb1562a8841151f7cf8d8e111656c`, runtime PASS.
-PR268: `db686772b5f24b32050e3646c69902f1cb59535a`, merged after audit PASS, runtime/deploy not yet verified.
+PR268: `db686772b5f24b32050e3646c69902f1cb59535a`, merged after audit PASS.
+PR269: `38370010b9120ff41f744b109dc2ee10d7a50a32`, merged after audit PASS, but post-merge P2 found.
 
-## Current production runtime before PR268/PR269 pickup
+## Current production runtime before PR268/PR269/PR270 pickup
 - Last confirmed runtime is still after PR267: `latest.githubMainHeadSha` was `d142afd5ab4fb1562a8841151f7cf8d8e111656c` in `runtime/startup-log.json` at `2026-07-01T19:08:15.506Z`.
 - active entrypoint remained `clean-entrypoint-1.53.10-pr89.js`.
 - production start path on main remained `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
@@ -62,44 +63,60 @@ Correction from user:
 - The required live diagnostic must collect from production Postgres/runtime sources which channels and which chats are attached to MAX ID `17507246`, and keep channels separate from chats.
 - Channel/post flows must show only real channels/posts, not chats.
 
-## PR268 status — merged, but follow-up required
+## PR268 status — merged, follow-ups required
 PR268:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/268
-- Title: `PR268: Live user Postgres bindings diagnostic`
-- Branch: `codex/pr268-live-user-postgres-bindings`
 - Head SHA: `1870acfd5d885ad94377a8c0db5aad9fa0b670ce`
-- CI: `PR regression tests`, run `604`, run id `28545550713`, exact-head `1870acfd5d885ad94377a8c0db5aad9fa0b670ce`, conclusion `success`.
-- CI artifact: `adminkit-ci-diagnostics`, artifact id `8021691530`.
-- Audit-only result: `AUDIT: PASS` for exact head `1870acfd5d885ad94377a8c0db5aad9fa0b670ce`.
-- User approved merge after audit PASS.
-- Merge method: squash.
+- CI: `PR regression tests`, run `604`, exact-head success.
+- Audit-only result: `AUDIT: PASS`.
 - Merge commit: `db686772b5f24b32050e3646c69902f1cb59535a`.
 - Deploy/runtime status: NOT VERIFIED yet.
 
-Important post-merge discovery:
-- After PR268 merge, PR268 discussion was inspected and two Codex P2 review comments were found that the audit PASS did not account for.
-- P2 #1: title-only chat-like `ak_admin_channels` rows can be misclassified as channels because source/channel evidence wins over chat-like title text.
-- P2 #2: `tenantSectionMatrixService` can export raw live MAX IDs in `runtime/tenant-section-matrix.json` through `checkedUsers` and row `userId` after switching default users to live target.
-- Because PR268 was already merged, fixes are being handled in follow-up PR269. Do not use PR268 runtime matrix as final live truth until PR269 is merged/deployed.
+Post-merge discovery after PR268:
+- Codex P2 #1: title-only chat-like `ak_admin_channels` rows could be misclassified as channels.
+- Codex P2 #2: `tenantSectionMatrixService` could export raw live MAX IDs in `runtime/tenant-section-matrix.json`.
+- These were addressed in PR269, which is now merged.
 
-## PR269 status — open follow-up for PR268 review findings
+## PR269 status — merged, but new follow-up required
 PR269:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/269
 - Title: `PR269: Fix PR268 live diagnostic review findings`
 - Branch: `codex/pr269-post-merge-pr268-audit-fixes`
-- Base: `main`
-- Base SHA: `db686772b5f24b32050e3646c69902f1cb59535a`
 - Head SHA: `6f68ce1011458ee3f82f2fb420cce8d17fa42b9d`
-- Changed files: 4
 - CI: `PR regression tests`, run `610`, run id `28546907401`, exact-head `6f68ce1011458ee3f82f2fb420cce8d17fa42b9d`, conclusion `success`.
+- Audit-only result: `AUDIT: PASS`.
+- Merge method: squash.
+- Merge commit: `38370010b9120ff41f744b109dc2ee10d7a50a32`.
+- Deploy/runtime status: NOT VERIFIED yet.
+
+PR269 purpose:
+- Fixed title-only chat classification before channel evidence in `services/liveUserPostgresBindingsService.js`.
+- Masked/scrubbed live MAX IDs from `runtime/tenant-section-matrix.json` export in `services/tenantSectionMatrixService.js`.
+- Extended PR268/PR267 regression tests.
+
+Post-merge discovery after PR269:
+- PR269 Codex Review left a new P2 comment after/around merge: `CHAT_RE` contains bare `im`, so ordinary channel titles like `Important Updates`, `Time News`, or `Swimming News` can be classified as chats when the new title check runs before channel evidence.
+- Because PR269 was already merged, this is being handled in PR270.
+
+## PR270 status — open follow-up for PR269 review finding
+PR270:
+- URL: https://github.com/9163223-maker/amio-comments-max/pull/270
+- Title: `PR270: Use token matching for chat-like titles`
+- Branch: `codex/pr270-chat-title-token-match`
+- Base: `main`
+- Base SHA: `38370010b9120ff41f744b109dc2ee10d7a50a32`
+- Head SHA: `9f08a65b6b5e2de26f3cf1b0fbb4e4686325f571`
+- Changed files: 2
+- CI: `PR regression tests`, run `614`, run id `28547462407`, exact-head `9f08a65b6b5e2de26f3cf1b0fbb4e4686325f571`, status `queued` at first check.
 - Audit: NOT RUN yet.
 - Merge status: NOT MERGED.
 
-PR269 purpose:
-- Fix title-only chat classification before channel evidence in `services/liveUserPostgresBindingsService.js`.
-- Mask/scrub live MAX IDs from `runtime/tenant-section-matrix.json` export in `services/tenantSectionMatrixService.js`.
-- Extend `scripts/test-pr268-live-user-postgres-bindings.js` with a title-only chat-like admin-channel row.
-- Extend `scripts/test-pr267-tenant-section-matrix.js` to assert checked users and row user IDs are masked and raw user IDs are absent from exported matrix JSON.
+PR270 purpose:
+- Add title-specific `CHAT_TITLE_RE` without the bare `im` alternative.
+- Keep broad `CHAT_RE` for explicit type/destination metadata.
+- Preserve title-only chat detection for Russian/explicit chat words such as `Рабочий чат без metadata`.
+- Ensure channel titles with `im` substrings, e.g. `Important Updates`, remain channels when channel evidence exists.
+- Extend `scripts/test-pr268-live-user-postgres-bindings.js` for the `Important Updates` case: expected channels = 2, chats = 3, no raw ids exported.
 
 ## Process error recorded
 Process violation during PR268 preparation:
@@ -107,26 +124,30 @@ Process violation during PR268 preparation:
 - Commits recorded in main history: `61837be` create noop/tmp probe, `ad010fa` delete tmp probe, `dd856a6` create placeholder, `21a835f` delete placeholder.
 - Audit confirmed `tmp-probe-noop.txt`, `placeholder.tmp`, and `x` are absent from the audited tree.
 - Audit found no startup/runtime production path references those files and no evidence that the create/delete commits damaged production/runtime behavior.
-- This is not a functional blocker for PR268/PR269 code, but it is a process violation and must not be repeated.
+- This is not a functional blocker for PR268/PR269/PR270 code, but it is a process violation and must not be repeated.
 - Rule going forward: no writes to `main` except explicit merge after audit PASS/waiver.
 
-Additional process note:
+Additional process notes:
 - During PR269 branch setup, `update_ref` was accidentally repeated several times with the same SHA on the same follow-up branch. It did not change content and did not touch `main`, but it is noisy process behavior and must not be repeated.
+- During PR270 setup, `create_pull_request` was accidentally called several times with a nonexistent head branch; GitHub returned 422 and no PR was created. This did not modify repo state but is noisy process behavior and must not be repeated.
 
 ## Next required action
-1. Run final audit-only PASS/BLOCK for PR269 at exact head `6f68ce1011458ee3f82f2fb420cce8d17fa42b9d`.
-2. Merge PR269 only after audit PASS/waiver.
-3. After PR269 merge, update this file with merge commit/head.
-4. Wait for Northflank deploy/runtime pickup.
-5. Verify runtime-status after deploy:
-   - `latest.githubMainHeadSha` equals PR269 merge commit;
+1. Check PR270 CI for exact head `9f08a65b6b5e2de26f3cf1b0fbb4e4686325f571`.
+2. If CI is red, fix only in PR270 branch.
+3. If CI is green, inspect PR270 comments/reviews before audit; do not miss Codex review comments again.
+4. Run final audit-only PASS/BLOCK for PR270 after green CI and review inspection.
+5. Merge PR270 only after audit PASS/waiver.
+6. After PR270 merge, update this file with merge commit/head.
+7. Wait for Northflank deploy/runtime pickup.
+8. Verify runtime-status after deploy:
+   - `latest.githubMainHeadSha` equals PR270 merge commit;
    - active entrypoint remains `clean-entrypoint-1.53.10-pr89.js`;
    - production start path remains `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`;
    - `runtime/live-user-postgres-bindings.json` exists;
    - `diagnostic-export-status.json` ok and includes the new file;
    - `runtime/live-tenant-self-diagnostic-matrix.json` and `runtime/tenant-section-matrix.json` use live MAX ID target safely without raw ID leakage.
-6. Read `runtime/live-user-postgres-bindings.json` and report to user the actual separated lists:
+9. Read `runtime/live-user-postgres-bindings.json` and report to user the actual separated lists:
    - channels attached to MAX ID `17507246`;
    - chats attached to MAX ID `17507246`;
    - unknown records, if any.
-7. Then run/manual request MAX check: `/tenant`, Channels, Account, and post-scoped sections Comments/Gifts/Buttons/Polls/Highlights/Editor must show only live channels and posts; chats must not appear as channel/post targets.
+10. Then run/manual request MAX check: `/tenant`, Channels, Account, and post-scoped sections Comments/Gifts/Buttons/Polls/Highlights/Editor must show only live channels and posts; chats must not appear as channel/post targets.
