@@ -210,7 +210,7 @@ function getClientChannels(maxUserId) {
   const profile = repository.getClient(maxUserId);
   const own = Array.isArray(profile?.channels) ? profile.channels : [];
   const linked = [];
-  try { for (const channel of storeModule.getChannelsList()) if (clean(channel.linkedByUserId) === clean(maxUserId) || clean(channel.ownerUserId) === clean(maxUserId)) linked.push(channel); } catch {}
+  try { for (const channel of storeModule.getChannelsList()) { const owner = repository.findChannelOwner(clean(channel.channelId || channel.id)); if (owner && clean(owner.status || 'active') !== 'active') continue; if (clean(channel.linkedByUserId) === clean(maxUserId) || clean(channel.ownerUserId) === clean(maxUserId)) linked.push(channel); } } catch {}
   const byId = new Map();
   [...tenantChannels, ...own, ...linked].forEach((channel) => { const id = clean(channel.channelId || channel.id); if (id) byId.set(id, { ...channel, channelId: id }); });
   return [...byId.values()];

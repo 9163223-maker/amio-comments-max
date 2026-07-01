@@ -337,6 +337,14 @@ function upsertTenantForUser({ maxUserId, name = '', planId = 'free', status = '
 
 function listTenantChannels(tenantId = '') { return Object.values(ns().tenantChannels).filter((ch) => clean(ch.tenantId) === clean(tenantId) && clean(ch.status || 'active') === 'active'); }
 function findChannelOwner(channelId = '') { return ns().tenantChannels[clean(channelId)] || null; }
+function saveTenantChannel(item = {}) {
+  const cid = clean(item.channelId);
+  if (!cid || !clean(item.tenantId)) return null;
+  ns().tenantChannels[cid] = item;
+  persist();
+  scheduleDbUpsertTenantChannel(item);
+  return item;
+}
 function bindTenantChannel({ tenantId, channelId, channelTitle = '', boundByCode = '', maxChannels = 1, metadata = {} } = {}) {
   const tid = clean(tenantId), cid = clean(channelId);
   if (!tid || !cid) return { ok: false, error: 'missing_channel', message: 'Не удалось определить канал.' };
@@ -351,8 +359,7 @@ function bindTenantChannel({ tenantId, channelId, channelTitle = '', boundByCode
     return { ok: false, error: 'channel_limit_reached', message: 'Лимит каналов по тарифу достигнут. Для увеличения лимита выберите продление или обратитесь к менеджеру.' };
   }
   const item = { ...(existing || {}), tenantId: tid, channelId: cid, channelTitle: clean(channelTitle), status: 'active', connectedAt: existing?.connectedAt || nowIso(), boundByCode: clean(boundByCode), metadata: metadata || {}, updatedAt: nowIso() };
-  ns().tenantChannels[cid] = item;
-  persist(); scheduleDbUpsertTenantChannel(item); recordEvent({ tenantId: tid, eventType: 'channel_bound', payload: { channelId: cid, boundByCode: Boolean(boundByCode) } });
+  saveTenantChannel(item); recordEvent({ tenantId: tid, eventType: 'channel_bound', payload: { channelId: cid, boundByCode: Boolean(boundByCode) } });
   return { ok: true, channel: item };
 }
 
@@ -403,4 +410,4 @@ function scheduleDbUpsertTenantChannel(item) { if (!item || !item.tenantId || !i
 function scheduleDbUpsertActivationCode(item) { if (!item || !item.codeHash) return; schedule(() => db.query(`INSERT INTO ak_activation_codes (code_hash, plan_id, duration_days, max_channels, expires_at, status, single_use, used_at, used_by_max_user_id, tenant_id, bound_channel_id, metadata, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,COALESCE($13::timestamptz,NOW()),NOW()) ON CONFLICT (code_hash) DO UPDATE SET plan_id=EXCLUDED.plan_id,duration_days=EXCLUDED.duration_days,max_channels=EXCLUDED.max_channels,expires_at=EXCLUDED.expires_at,status=EXCLUDED.status,single_use=EXCLUDED.single_use,used_at=EXCLUDED.used_at,used_by_max_user_id=EXCLUDED.used_by_max_user_id,tenant_id=EXCLUDED.tenant_id,bound_channel_id=EXCLUDED.bound_channel_id,metadata=EXCLUDED.metadata,updated_at=NOW()`, [item.codeHash, item.planId, Number(item.durationDays || 30), Number(item.maxChannels || 1), item.expiresAt || null, item.status || 'active', item.singleUse !== false, item.usedAt || null, item.usedByMaxUserId || '', item.tenantId || '', item.boundChannelId || '', JSON.stringify(item.metadata || {}), item.createdAt || null])); }
 function scheduleDbInsertEvent(event) { if (!event || !event.eventId) return; schedule(() => db.query(`INSERT INTO ak_access_events (event_id, tenant_id, max_user_id, event_type, payload, created_at) VALUES ($1,$2,$3,$4,$5::jsonb,COALESCE($6::timestamptz,NOW())) ON CONFLICT (event_id) DO NOTHING`, [event.eventId, event.tenantId || '', event.maxUserId || '', event.eventType, JSON.stringify(event.payload || {}), event.createdAt || null])); }
 
-module.exports = { RUNTIME, ACCESS_NAMESPACE, bootstrap, ensureTables, publicInfo, sanitizedSnapshot, ns, persist, codeHash, getClient, saveClient, getTenant, getTenantByUserId, saveTenant, saveTenantUser, getTenantUsers, upsertTenantForUser, listTenantChannels, bindTenantChannel, findChannelOwner, getActivationCodeByHash, findActivationCodeBySafeId, saveActivationCode, listActivationCodes, getActivationCodeInfo, revokeActivationCode, listTenants, getTenantInfo, listAccessEvents, safeActivationCode, recordEvent, getAccessEvents, pendingActivation, resetForTests };
+module.exports = { RUNTIME, ACCESS_NAMESPACE, bootstrap, ensureTables, publicInfo, sanitizedSnapshot, ns, persist, codeHash, getClient, saveClient, getTenant, getTenantByUserId, saveTenant, saveTenantUser, getTenantUsers, upsertTenantForUser, listTenantChannels, bindTenantChannel, findChannelOwner, saveTenantChannel, getActivationCodeByHash, findActivationCodeBySafeId, saveActivationCode, listActivationCodes, getActivationCodeInfo, revokeActivationCode, listTenants, getTenantInfo, listAccessEvents, safeActivationCode, recordEvent, getAccessEvents, pendingActivation, resetForTests };

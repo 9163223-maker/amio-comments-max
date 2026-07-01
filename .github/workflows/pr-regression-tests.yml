@@ -159,6 +159,7 @@ jobs:
           run_logged test-pr262-product-semantic-matrix node scripts/test-pr262-product-semantic-matrix.js
           run_logged test-pr262-gifts-semantic-flow node scripts/test-pr262-gifts-semantic-flow.js
           run_logged test-pr262-no-menu-multiplication node scripts/test-pr262-no-menu-multiplication.js
+          run_logged test-pr263-tenant-channel-binding-contract node scripts/test-pr263-tenant-channel-binding-contract.js
           run_logged npm-test npm test
           run_logged test-product-perfect-gifts-journey-pr142 node scripts/test-product-perfect-gifts-journey-pr142.js
           run_logged test-product-perfect-buttons-gifts-pr126 node scripts/test-product-perfect-buttons-gifts-pr126.js

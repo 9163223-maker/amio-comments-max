@@ -7,6 +7,7 @@ const max = require('./services/maxApi');
 const store = require('./store');
 const menuCore = require('./v3-menu-core-1539');
 const { tryPatchChannelPost, FAST_PATCH_RUNTIME } = require('./services/postPatcherFastPr84');
+const tenantBinding = require('./services/tenantChannelBindingService');
 const growthService = require('./services/growthService');
 const pr226Producers = require('./services/statsEventProducersPr226');
 
@@ -153,6 +154,9 @@ function recordAudienceWebhook(update = {}) {
     const existing = store.getChannelsList().find((item) => clean(item.channelId) === channelId) || {};
     store.saveChannel(channelId, { ...existing, channelId, title, channelTitle: title });
   }
+  if (kind === 'bot_removed') tenantBinding.markChannelBotAdminState({ channelId, botIsAdmin: false, source: kind, metadata: { channelTitle: title } });
+  if (kind === 'bot_added') tenantBinding.markChannelBotAdminState({ channelId, botIsAdmin: true, source: kind, metadata: { channelTitle: title } });
+  if (kind === 'chat_title_changed') tenantBinding.markChannelBotAdminState({ channelId, botIsAdmin: true, source: kind, metadata: { channelTitle: title } });
   if (kind === 'user_added' || kind === 'user_removed') {
     const event = growthService.saveAudienceEvent(channelId, { type: kind, profile, userId: profile.userId, username: profile.username, firstName: profile.firstName, lastName: profile.lastName, name: profile.name, source: 'webhook', createdAt: Date.now() });
     try { pr226Producers.recordAudienceUpdate({ type: kind, tenantKey: clean(update.tenantKey || ''), ownerUserId: clean(update.ownerUserId || update.adminId || ''), channelId, userId: profile.userId, memberUserId: profile.userId, updateId: update.updateId || update.update_id || update.id || update.eventId, timestamp: update.timestamp || update.date || update.createdAt, payload: update }); } catch {}
