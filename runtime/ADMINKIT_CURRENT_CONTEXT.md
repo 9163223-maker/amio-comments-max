@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 21:01 UTC
+Updated: 2026-07-01 21:03 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -80,19 +80,11 @@ Post-merge discovery after PR268:
 ## PR269 status — merged, but new follow-up required
 PR269:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/269
-- Title: `PR269: Fix PR268 live diagnostic review findings`
-- Branch: `codex/pr269-post-merge-pr268-audit-fixes`
 - Head SHA: `6f68ce1011458ee3f82f2fb420cce8d17fa42b9d`
-- CI: `PR regression tests`, run `610`, run id `28546907401`, exact-head `6f68ce1011458ee3f82f2fb420cce8d17fa42b9d`, conclusion `success`.
+- CI: `PR regression tests`, run `610`, exact-head success.
 - Audit-only result: `AUDIT: PASS`.
-- Merge method: squash.
 - Merge commit: `38370010b9120ff41f744b109dc2ee10d7a50a32`.
 - Deploy/runtime status: NOT VERIFIED yet.
-
-PR269 purpose:
-- Fixed title-only chat classification before channel evidence in `services/liveUserPostgresBindingsService.js`.
-- Masked/scrubbed live MAX IDs from `runtime/tenant-section-matrix.json` export in `services/tenantSectionMatrixService.js`.
-- Extended PR268/PR267 regression tests.
 
 Post-merge discovery after PR269:
 - PR269 Codex Review left a new P2 comment after/around merge: `CHAT_RE` contains bare `im`, so ordinary channel titles like `Important Updates`, `Time News`, or `Swimming News` can be classified as chats when the new title check runs before channel evidence.
@@ -107,7 +99,8 @@ PR270:
 - Base SHA: `38370010b9120ff41f744b109dc2ee10d7a50a32`
 - Head SHA: `9f08a65b6b5e2de26f3cf1b0fbb4e4686325f571`
 - Changed files: 2
-- CI: `PR regression tests`, run `614`, run id `28547462407`, exact-head `9f08a65b6b5e2de26f3cf1b0fbb4e4686325f571`, status `queued` at first check.
+- CI: `PR regression tests`, run `614`, run id `28547462407`, exact-head `9f08a65b6b5e2de26f3cf1b0fbb4e4686325f571`, conclusion `success`.
+- PR comments/reviews: checked after CI; no comments returned.
 - Audit: NOT RUN yet.
 - Merge status: NOT MERGED.
 
@@ -132,22 +125,19 @@ Additional process notes:
 - During PR270 setup, `create_pull_request` was accidentally called several times with a nonexistent head branch; GitHub returned 422 and no PR was created. This did not modify repo state but is noisy process behavior and must not be repeated.
 
 ## Next required action
-1. Check PR270 CI for exact head `9f08a65b6b5e2de26f3cf1b0fbb4e4686325f571`.
-2. If CI is red, fix only in PR270 branch.
-3. If CI is green, inspect PR270 comments/reviews before audit; do not miss Codex review comments again.
-4. Run final audit-only PASS/BLOCK for PR270 after green CI and review inspection.
-5. Merge PR270 only after audit PASS/waiver.
-6. After PR270 merge, update this file with merge commit/head.
-7. Wait for Northflank deploy/runtime pickup.
-8. Verify runtime-status after deploy:
+1. Run final audit-only PASS/BLOCK for PR270 at exact head `9f08a65b6b5e2de26f3cf1b0fbb4e4686325f571`.
+2. Merge PR270 only after audit PASS/waiver.
+3. After PR270 merge, update this file with merge commit/head.
+4. Wait for Northflank deploy/runtime pickup.
+5. Verify runtime-status after deploy:
    - `latest.githubMainHeadSha` equals PR270 merge commit;
    - active entrypoint remains `clean-entrypoint-1.53.10-pr89.js`;
    - production start path remains `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`;
    - `runtime/live-user-postgres-bindings.json` exists;
    - `diagnostic-export-status.json` ok and includes the new file;
    - `runtime/live-tenant-self-diagnostic-matrix.json` and `runtime/tenant-section-matrix.json` use live MAX ID target safely without raw ID leakage.
-9. Read `runtime/live-user-postgres-bindings.json` and report to user the actual separated lists:
+6. Read `runtime/live-user-postgres-bindings.json` and report to user the actual separated lists:
    - channels attached to MAX ID `17507246`;
    - chats attached to MAX ID `17507246`;
    - unknown records, if any.
-10. Then run/manual request MAX check: `/tenant`, Channels, Account, and post-scoped sections Comments/Gifts/Buttons/Polls/Highlights/Editor must show only live channels and posts; chats must not appear as channel/post targets.
+7. Then run/manual request MAX check: `/tenant`, Channels, Account, and post-scoped sections Comments/Gifts/Buttons/Polls/Highlights/Editor must show only live channels and posts; chats must not appear as channel/post targets.
