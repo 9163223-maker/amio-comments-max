@@ -1,0 +1,216 @@
+{
+  "ok": true,
+  "generatedAt": "2026-07-01T20:47:27.974Z",
+  "runtime": "PR268-LIVE-USER-POSTGRES-BINDINGS-1.0",
+  "checkedUsers": [
+    "175…246"
+  ],
+  "rows": [
+    {
+      "maxUserIdMasked": "175…246",
+      "ok": true,
+      "channels": [
+        {
+          "kind": "channel",
+          "idMasked": "-70…230",
+          "title": "Мои хорошие!!!! Отдыхайте😍😍😍😍😍😍😍",
+          "source": "ak_admin_channels",
+          "role": "admin",
+          "status": "active",
+          "postsCount": 38,
+          "updatedAt": "2026-06-30T16:24:57.464Z"
+        },
+        {
+          "kind": "channel",
+          "idMasked": "-75…142",
+          "title": "Тест",
+          "source": "ak_admin_channels",
+          "role": "admin",
+          "status": "active",
+          "postsCount": 44,
+          "updatedAt": "2026-06-30T10:54:06.835Z"
+        },
+        {
+          "kind": "channel",
+          "idMasked": "-73…622",
+          "title": "Тест стикеры 2",
+          "source": "ak_admin_channels",
+          "role": "admin",
+          "status": "active",
+          "postsCount": 113,
+          "updatedAt": "2026-06-15T20:30:43.703Z"
+        },
+        {
+          "kind": "channel",
+          "idMasked": "-75…630",
+          "title": "Позже позвоню и расскажу. Сам сделал. Уведомления работают)",
+          "source": "ak_admin_channels",
+          "role": "admin",
+          "status": "active",
+          "postsCount": 6,
+          "updatedAt": "2026-06-12T10:29:36.236Z"
+        },
+        {
+          "kind": "channel",
+          "idMasked": "-75…230",
+          "title": "https://max.ru/join/qREn2XQqqYjBKZbfZaEaA0EcNoK4_qE0F23l_QfP7Ec",
+          "source": "ak_admin_channels",
+          "role": "admin",
+          "status": "active",
+          "postsCount": 1,
+          "updatedAt": "2026-06-01T09:41:10.931Z"
+        }
+      ],
+      "chats": [
+        {
+          "kind": "chat",
+          "idMasked": "-75…686",
+          "title": "Мож Хвост 2",
+          "source": "push_chat_binding",
+          "role": "",
+          "status": "active",
+          "postsCount": 0,
+          "updatedAt": "2026-06-10T19:20:40.570Z"
+        },
+        {
+          "kind": "chat",
+          "idMasked": "-75…782",
+          "title": "-75720856548782",
+          "source": "push_chat_binding",
+          "role": "",
+          "status": "active",
+          "postsCount": 0,
+          "updatedAt": "2026-06-10T17:20:49.169Z"
+        },
+        {
+          "kind": "chat",
+          "idMasked": "-75…694",
+          "title": "-75745723659694",
+          "source": "push_chat_binding",
+          "role": "",
+          "status": "active",
+          "postsCount": 0,
+          "updatedAt": "2026-06-10T17:13:14.881Z"
+        },
+        {
+          "kind": "chat",
+          "idMasked": "-75…630",
+          "title": "Саша - сын Мамочки 🌸",
+          "source": "push_chat_binding",
+          "role": "",
+          "status": "active",
+          "postsCount": 0,
+          "updatedAt": "2026-06-10T16:43:25.044Z"
+        },
+        {
+          "kind": "chat",
+          "idMasked": "-70…230",
+          "title": "-70251029837230",
+          "source": "push_chat_binding",
+          "role": "",
+          "status": "active",
+          "postsCount": 0,
+          "updatedAt": "2026-06-10T16:41:18.544Z"
+        },
+        {
+          "kind": "chat",
+          "idMasked": "-75…142",
+          "title": "-75643106932142",
+          "source": "push_chat_binding",
+          "role": "",
+          "status": "active",
+          "postsCount": 0,
+          "updatedAt": "2026-06-10T16:39:16.261Z"
+        },
+        {
+          "kind": "chat",
+          "idMasked": "-75…694",
+          "title": "Тест чат push",
+          "source": "push_chat_binding",
+          "role": "",
+          "status": "active",
+          "postsCount": 0,
+          "updatedAt": "2026-06-10T13:49:18.474Z"
+        },
+        {
+          "kind": "chat",
+          "idMasked": "-75…686",
+          "title": "-75720768992686",
+          "source": "push_chat_binding",
+          "role": "",
+          "status": "active",
+          "postsCount": 0,
+          "updatedAt": "2026-06-10T12:27:41.966Z"
+        },
+        {
+          "kind": "chat",
+          "idMasked": "-75…782",
+          "title": "Мож Хвост 3",
+          "source": "push_chat_binding",
+          "role": "",
+          "status": "active",
+          "postsCount": 0,
+          "updatedAt": "2026-06-09T20:15:26.229Z"
+        },
+        {
+          "kind": "chat",
+          "idMasked": "-70…230",
+          "title": "Все свои MAX",
+          "source": "push_chat_binding",
+          "role": "",
+          "status": "active",
+          "postsCount": 0,
+          "updatedAt": "2026-06-09T19:58:14.241Z"
+        },
+        {
+          "kind": "chat",
+          "idMasked": "-75…142",
+          "title": "Мож•Хвост",
+          "source": "push_chat_binding",
+          "role": "",
+          "status": "active",
+          "postsCount": 0,
+          "updatedAt": "2026-06-09T19:58:14.124Z"
+        },
+        {
+          "kind": "chat",
+          "idMasked": "-75…702",
+          "title": "Тест текст медиа",
+          "source": "ak_admin_channels",
+          "role": "admin",
+          "status": "active",
+          "postsCount": 2,
+          "updatedAt": "2026-06-02T18:12:38.745Z"
+        },
+        {
+          "kind": "chat",
+          "idMasked": "-75…630",
+          "title": "Тест текст плюс медиа АК тест 2",
+          "source": "ak_admin_channels",
+          "role": "admin",
+          "status": "active",
+          "postsCount": 2,
+          "updatedAt": "2026-06-01T09:09:23.484Z"
+        }
+      ],
+      "unknown": [],
+      "counts": {
+        "sourceRecords": 28,
+        "channels": 5,
+        "chats": 13,
+        "unknown": 0,
+        "missingTables": 0
+      },
+      "missingTables": [],
+      "errors": [],
+      "blocks": []
+    }
+  ],
+  "summary": {
+    "checkedUsersCount": 1,
+    "channelsCount": 5,
+    "chatsCount": 13,
+    "unknownCount": 0,
+    "blockCount": 0
+  }
+}
