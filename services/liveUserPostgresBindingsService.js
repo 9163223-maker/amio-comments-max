@@ -2,16 +2,15 @@
 
 const db = require('../src/db/postgres');
 const runtimeExport = require('./runtimeExportService');
-const picker = require('../channel-post-picker-core');
 
-const RUNTIME = 'PR270-LIVE-USER-POSTGRES-BINDINGS-1.2';
+const RUNTIME = 'PR270-LIVE-USER-POSTGRES-BINDINGS-OFFICIAL-EVIDENCE-2.0';
 const DEFAULT_PATH = 'runtime/live-user-postgres-bindings.json';
 const DEFAULT_TARGET_MAX_USER_IDS = Object.freeze(['17507246']);
-const CHAT_RE = /(?:chat|group|supergroup|private|private_chat|direct|dialog|im|чат|группа|диалог|личн)/i;
-const CHAT_TITLE_RE = /(?:^|[\s:_./-])(?:chat|group|supergroup|private(?:[_\s-]?chat)?|direct|dialog)(?=$|[\s:_./-])|чат|группа|диалог|личн/i;
-const CHANNEL_RE = /(?:channel|канал)/i;
+const OFFICIAL_TYPES = new Set(['channel', 'chat', 'dialog']);
+const OFFICIAL_EVIDENCE_SOURCE_RE = /(?:max_api|MAX_API|GET \/chats|get_chats|webhook|subscription|Update\.is_channel|update|official)/;
 
 function clean(value) { return String(value == null ? '' : value).replace(/\s+/g, ' ').trim(); }
+function lower(value) { return clean(value).toLowerCase(); }
 function short(value = '', max = 180) { const text = clean(value); return text.length <= max ? text : `${text.slice(0, Math.max(1, max - 1)).trim()}…`; }
 function mask(value = '') { const id = clean(value); if (!id) return ''; return id.length <= 6 ? '***' : `${id.slice(0, 3)}…${id.slice(-3)}`; }
 function uniq(values = []) { return [...new Set(values.map(clean).filter(Boolean))]; }
@@ -27,35 +26,23 @@ function targetUsers() {
     .filter(Boolean);
   return uniq(configured.length ? configured : DEFAULT_TARGET_MAX_USER_IDS).slice(0, 10);
 }
-function scanText(value, out = [], seen = new Set()) {
-  if (value == null || seen.has(value)) return out;
-  if (typeof value !== 'object') { const text = clean(value); if (text) out.push(text); return out; }
-  seen.add(value);
-  if (Array.isArray(value)) { value.slice(0, 40).forEach((item) => scanText(item, out, seen)); return out; }
-  for (const [key, raw] of Object.entries(value).slice(0, 80)) {
-    const keyText = clean(key);
-    if (/(?:type|kind|source|title|name|chat|channel|recipient|dialog|group|isChannel|isChat)/i.test(keyText)) scanText(raw, out, seen);
-    else if (raw && typeof raw === 'object') scanText(raw, out, seen);
+function readPath(source = {}, path = '') {
+  if (!source || typeof source !== 'object') return '';
+  let current = source;
+  for (const part of String(path).split('.')) {
+    if (!current || typeof current !== 'object' || !(part in current)) return '';
+    current = current[part];
   }
-  return out;
+  return clean(current);
 }
-function deepFirst(raw = {}, keys = []) {
-  const wanted = new Set(keys.map((key) => key.toLowerCase()));
-  const seen = new Set();
-  function visit(value) {
-    if (!value || typeof value !== 'object' || seen.has(value)) return '';
-    seen.add(value);
-    for (const [key, child] of Object.entries(value)) {
-      if (wanted.has(key.toLowerCase())) {
-        const text = clean(child);
-        if (text && text !== '[object Object]') return text;
-      }
-      const nested = visit(child);
-      if (nested) return nested;
-    }
-    return '';
+function readBoolPath(source = {}, path = '') {
+  if (!source || typeof source !== 'object') return null;
+  let current = source;
+  for (const part of String(path).split('.')) {
+    if (!current || typeof current !== 'object' || !(part in current)) return null;
+    current = current[part];
   }
-  return visit(raw);
+  return typeof current === 'boolean' ? current : null;
 }
 function rawTitle(raw = {}, fallback = '') {
   return first(
@@ -67,45 +54,92 @@ function rawTitle(raw = {}, fallback = '') {
     raw.name,
     raw.displayName,
     raw.display_name,
-    deepFirst(raw, ['title', 'channelTitle', 'channel_title', 'chatTitle', 'chat_title', 'name']),
     fallback
   );
 }
-function rawDestination(raw = {}) {
-  const text = scanText(raw).join(' ').toLowerCase();
-  const explicitChannelId = first(raw.channelId, raw.channel_id, raw.channel && (raw.channel.id || raw.channel.channelId));
-  const chatId = first(raw.chatId, raw.chat_id, raw.chat && (raw.chat.id || raw.chat.chatId));
-  const type = first(raw.type, raw.chatType, raw.chat_type, raw.kind, raw.sourceType, raw.source_type, raw.destinationType, raw.destination_type, deepFirst(raw, ['type', 'chatType', 'chat_type', 'kind', 'sourceType', 'source_type', 'destinationType', 'destination_type'])).toLowerCase();
-  return { text, explicitChannelId, chatId, type };
+function mergeEvidencePayload(record = {}) {
+  const raw = parseJson(record.raw || {});
+  const metadata = parseJson(record.metadata || record.meta || {});
+  return { raw, metadata, combined: { ...metadata, ...raw, record } };
 }
-function classifyRecord(record = {}) {
-  const raw = parseJson(record.raw || record.metadata || {});
-  const title = rawTitle(raw, record.title || record.channelTitle || record.chatTitle || record.channel_id || record.chat_id);
-  const titleText = clean(title).toLowerCase();
-  const destination = rawDestination({ ...raw, ...record });
-  const candidate = {
-    ...raw,
-    ...record,
-    title,
-    channelId: first(record.channelId, record.channel_id, raw.channelId, raw.channel_id),
-    chatId: first(record.chatId, record.chat_id, raw.chatId, raw.chat_id)
-  };
-  if (picker.isChatLikeRecord(candidate)) return 'chat';
-  if (record.source === 'push_chat_binding') return 'chat';
-  if (candidate.isChat === true || candidate.isGroup === true || (CHAT_RE.test(destination.type) && !CHANNEL_RE.test(destination.type))) return 'chat';
-  if (CHAT_TITLE_RE.test(titleText) && !CHANNEL_RE.test(titleText)) return 'chat';
-  if (CHAT_RE.test(destination.text) && !CHANNEL_RE.test(destination.text)) return 'chat';
-  if (candidate.isChannel === true || CHANNEL_RE.test(destination.type) || destination.explicitChannelId) return 'channel';
-  return 'unknown';
+function officialSource(value = '') { return OFFICIAL_EVIDENCE_SOURCE_RE.test(clean(value)); }
+function officialTypeEvidence(record = {}) {
+  const { raw, metadata } = mergeEvidencePayload(record);
+  const candidates = [
+    ['record.type_from_api', record.type_from_api],
+    ['record.max_type', record.max_type],
+    ['record.chat_type', record.chat_type],
+    ['raw.type', readPath(raw, 'type')],
+    ['raw.chat.type', readPath(raw, 'chat.type')],
+    ['raw.max.type', readPath(raw, 'max.type')],
+    ['raw.maxChat.type', readPath(raw, 'maxChat.type')],
+    ['raw.response.type', readPath(raw, 'response.type')],
+    ['raw.chatInfo.type', readPath(raw, 'chatInfo.type')],
+    ['metadata.type', readPath(metadata, 'type')],
+    ['metadata.chat.type', readPath(metadata, 'chat.type')],
+    ['metadata.max.type', readPath(metadata, 'max.type')],
+    ['metadata.maxChat.type', readPath(metadata, 'maxChat.type')],
+    ['metadata.response.type', readPath(metadata, 'response.type')],
+    ['metadata.chatInfo.type', readPath(metadata, 'chatInfo.type')]
+  ];
+  for (const [path, value] of candidates) {
+    const type = lower(value);
+    if (OFFICIAL_TYPES.has(type)) return { type, path };
+  }
+  return null;
 }
+function officialIsChannelEvidence(record = {}) {
+  const { raw, metadata } = mergeEvidencePayload(record);
+  const sourceText = [record.evidence_source, record.evidenceSource, record.source, raw.evidence_source, raw.evidenceSource, metadata.evidence_source, metadata.evidenceSource, raw.update_type, raw.updateType, metadata.update_type, metadata.updateType].map(clean).join(' ');
+  const hasOfficialContext = officialSource(sourceText) || Boolean(raw.update_type || raw.updateType || metadata.update_type || metadata.updateType);
+  const candidates = [
+    ['record.is_channel', typeof record.is_channel === 'boolean' ? record.is_channel : null],
+    ['raw.is_channel', readBoolPath(raw, 'is_channel')],
+    ['raw.isChannel', readBoolPath(raw, 'isChannel')],
+    ['raw.update.is_channel', readBoolPath(raw, 'update.is_channel')],
+    ['raw.update.isChannel', readBoolPath(raw, 'update.isChannel')],
+    ['metadata.is_channel', readBoolPath(metadata, 'is_channel')],
+    ['metadata.isChannel', readBoolPath(metadata, 'isChannel')],
+    ['metadata.update.is_channel', readBoolPath(metadata, 'update.is_channel')],
+    ['metadata.update.isChannel', readBoolPath(metadata, 'update.isChannel')]
+  ];
+  for (const [path, value] of candidates) {
+    if (typeof value === 'boolean' && hasOfficialContext) return { value, path };
+  }
+  return null;
+}
+function classifyRecordDetails(record = {}) {
+  if (record.source === 'push_chat_binding') {
+    return { kind: 'chat', confidence: 'internal_typed_source', evidence: 'adminkit_web_push_chat_bindings', needsApiResolution: false };
+  }
+  const typeEvidence = officialTypeEvidence(record);
+  if (typeEvidence) {
+    if (typeEvidence.type === 'channel') return { kind: 'channel', confidence: 'official', evidence: `Chat.type=channel:${typeEvidence.path}`, needsApiResolution: false };
+    if (typeEvidence.type === 'chat') return { kind: 'chat', maxType: 'chat', confidence: 'official', evidence: `Chat.type=chat:${typeEvidence.path}`, needsApiResolution: false };
+    if (typeEvidence.type === 'dialog') return { kind: 'chat', maxType: 'dialog', confidence: 'official', evidence: `Chat.type=dialog:${typeEvidence.path}`, needsApiResolution: false };
+  }
+  const isChannelEvidence = officialIsChannelEvidence(record);
+  if (isChannelEvidence) {
+    return isChannelEvidence.value
+      ? { kind: 'channel', confidence: 'official_update', evidence: `Update.is_channel=true:${isChannelEvidence.path}`, needsApiResolution: false }
+      : { kind: 'chat', maxType: 'group_chat_or_dialog', confidence: 'official_update', evidence: `Update.is_channel=false:${isChannelEvidence.path}`, needsApiResolution: false };
+  }
+  return { kind: 'unknown', confidence: 'none', evidence: 'needs_api_resolution', needsApiResolution: true };
+}
+function classifyRecord(record = {}) { return classifyRecordDetails(record).kind; }
 function safeBindingRecord(record = {}) {
-  const kind = classifyRecord(record);
+  const classification = classifyRecordDetails(record);
   const id = first(record.channelId, record.channel_id, record.chatId, record.chat_id, record.id);
-  const title = rawTitle(parseJson(record.raw || record.metadata || {}), record.title || record.channelTitle || record.chatTitle || id);
+  const raw = parseJson(record.raw || record.metadata || record.meta || {});
+  const title = rawTitle(raw, record.title || record.channelTitle || record.chatTitle || id);
   return {
-    kind,
+    kind: classification.kind,
+    maxType: classification.maxType || classification.kind,
+    confidence: classification.confidence,
+    evidence: classification.evidence,
+    needsApiResolution: Boolean(classification.needsApiResolution),
     idMasked: mask(id),
-    title: short(title || (kind === 'chat' ? 'Чат без названия' : 'Канал без названия')),
+    title: short(title || (classification.kind === 'chat' ? 'Чат без названия' : classification.kind === 'channel' ? 'Канал без названия' : 'Объект без названия')),
     source: clean(record.source || ''),
     role: clean(record.role || ''),
     status: clean(record.status || 'active'),
@@ -213,6 +247,7 @@ async function buildUserRow(maxUserId = '') {
   if (!userId) blocks.push('max_user_id_missing');
   if (!db.hasDatabaseUrl()) blocks.push('postgres_not_configured');
   if (errors.length) blocks.push('postgres_query_failed');
+  if (unknown.length) blocks.push('needs_api_resolution');
   return {
     maxUserIdMasked: mask(userId),
     ok: blocks.length === 0,
@@ -255,4 +290,4 @@ async function exportMatrix() {
   return runtimeExport.exportJson({ path: DEFAULT_PATH, payload: () => buildMatrix(), message: 'live user postgres bindings matrix' });
 }
 
-module.exports = { RUNTIME, DEFAULT_PATH, DEFAULT_TARGET_MAX_USER_IDS, buildMatrix, buildUserRow, exportMatrix, classifyRecord, safeBindingRecord, targetUsers };
+module.exports = { RUNTIME, DEFAULT_PATH, DEFAULT_TARGET_MAX_USER_IDS, buildMatrix, buildUserRow, exportMatrix, classifyRecord, classifyRecordDetails, safeBindingRecord, targetUsers };
