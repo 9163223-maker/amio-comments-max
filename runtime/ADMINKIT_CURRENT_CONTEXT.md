@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 16:38 UTC
+Updated: 2026-07-01 17:03 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -64,10 +64,10 @@ PR266:
 - Branch: `codex/add-northflank-runtime-observability-and-deploy-gate`
 - Base: `main`
 - Base SHA: `f63d7c900b6f38af6b10ad705b6c5663be31d0af`
-- Current head: `375fe00cdc1917402894bfbfd9aa1668bc122c34`
+- Current head: `c9337a7dc1525cefd45b9f8692493e4339aefb98`
 - State: open, not merged, not draft.
 - Mergeable: true.
-- CI: PR regression tests #575, run id `28532422052`, conclusion `success`.
+- CI: PR regression tests #579, run id `28534255353`, status `in_progress` as of 17:03 UTC.
 - Changed files: `.github/workflows/adminkit-post-merge-runtime-check.yml`, `.github/workflows/pr-regression-tests.yml`, `package.json`, `scripts/check-post-merge-runtime-pickup.js`, `scripts/test-pr260-full-section-matrix.js`, `scripts/test-pr260-runtime-diagnostics-observable.js`, `scripts/test-pr261-reliable-runtime-diagnostics.js`, `scripts/test-pr266-northflank-runtime-observability.js`, `scripts/test-pr266-post-merge-runtime-gate.js`, `scripts/test-pr266-runtime-export-branch-safety.js`, `services/northflankStartupLogService.js`, `services/pushDispatchLogService.js`.
 
 PR266 purpose:
@@ -75,16 +75,18 @@ PR266 purpose:
 - Add strict post-merge runtime pickup gate.
 - Prevent runtime diagnostic export noise/writes when debug branch points to `main`.
 
-Assistant pre-audit result:
-- CI is green but PR266 is BLOCKED by review `4611108294`.
-- Blocker 1: `scripts/check-post-merge-runtime-pickup.js` does not verify that `diagnostic-export-status.expectedFiles` declares all required runtime files after PR265. It does not require `runtime/live-tenant-self-diagnostic-matrix.json` (and also does not explicitly require product-semantic, tenant-channel-binding, maximal-flow). A stale PR264 diagnostic status with `missingFiles: []` and expectedCount 8 can pass diagnosticComplete if fresh enough.
-- Blocker 2: `scripts/test-pr266-post-merge-runtime-gate.js` lacks fixture for the real PR265 failure mode: diagnostic status fresh/ok and missingFiles empty, but expectedFiles stale/short and no live tenant matrix.
-- Blocker 3: Northflank missing config returns `ok:false` in `runtime/northflank-startup-log.json`, but PR266 does not prove diagnostic-export-status treats that semantic not-ready payload as an observability block rather than merely counting the file export as successful. If diagnostic-export-status remains file-write-only, the post-merge gate must be documented/tested as the source of truth.
-- Assistant attempted direct GitHub connector patch to tighten the gate, but the update was blocked by tool safety due auth-handling code. Need Codex follow-up on existing PR266 branch.
+PR266 fix status:
+- Initial Codex PR266 head `375fe00cdc1917402894bfbfd9aa1668bc122c34` had CI #575 success but was BLOCKED by review `4611108294`.
+- BLOCK reason: post-merge gate did not require `diagnostic-export-status.expectedFiles` to declare all required runtime files, especially `runtime/live-tenant-self-diagnostic-matrix.json`; tests did not cover stale/short expectedFiles.
+- Direct GitHub connector first patch was blocked by tool safety due auth-handling code.
+- Assistant then updated PR266 branch directly with a safer implementation avoiding direct auth handling in `scripts/check-post-merge-runtime-pickup.js`; it uses `gh api` for GitHub contents reads.
+- New head `c9337a7dc1525cefd45b9f8692493e4339aefb98` now defines `REQUIRED_RUNTIME_FILES` including `runtime/live-tenant-self-diagnostic-matrix.json`, product-semantic, tenant-channel-binding, maximal-flow, etc.
+- `diagnosticComplete` now requires every required file to be present in `diagnostic.expectedFiles` and absent from `diagnostic.missingFiles`.
+- `runtime-post-merge-check.json` now outputs `diagnostic_expected_files_count`, `diagnostic_undeclared_required_files`, and `diagnostic_missing_required_files`.
+- `scripts/test-pr266-post-merge-runtime-gate.js` now includes a regression where expectedFiles is stale/short and omits `runtime/live-tenant-self-diagnostic-matrix.json`; it must fail with `likely_reason: runtime_export_failed`.
 
-Next required action for PR266:
-1. Ask Codex to push fixes to existing branch `codex/add-northflank-runtime-observability-and-deploy-gate`; do not create new PR.
-2. Required fix: in `scripts/check-post-merge-runtime-pickup.js`, define `REQUIRED_RUNTIME_FILES` including `runtime/live-tenant-self-diagnostic-matrix.json` and require every entry to be present in `diagnostic.expectedFiles` and absent from `diagnostic.missingFiles`.
-3. Required fix: output `diagnostic_undeclared_required_files` and `diagnostic_missing_required_files` in `runtime-post-merge-check.json`.
-4. Required fix: add tests proving stale/short diagnostic expectedFiles blocks with `likely_reason: runtime_export_failed`.
-5. After new head, check CI exact head, diff, comments, then audit-only PASS/BLOCK if clean.
+Next required action:
+1. Wait for CI #579 on head `c9337a7dc1525cefd45b9f8692493e4339aefb98`.
+2. If CI red, inspect diagnostics and fix in same PR266 branch.
+3. If CI green, re-check PR266 diff/comments and run audit-only PASS/BLOCK.
+4. Do not merge PR266 until audit PASS.
