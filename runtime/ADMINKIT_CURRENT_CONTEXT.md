@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 19:12 UTC
+Updated: 2026-07-01 20:45 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -50,47 +50,81 @@ PR267: `d142afd5ab4fb1562a8841151f7cf8d8e111656c`, runtime PASS.
 - `diagnostic-export-status.json` generated at `2026-07-01T19:08:31.015Z`, ok true, expectedCount 10, okCount 10, missingFiles [].
 - Expected files include `runtime/tenant-section-matrix.json`, `runtime/live-tenant-self-diagnostic-matrix.json`, and all previous matrices.
 - `runtime/tenant-section-matrix.json` exists, generated at `2026-07-01T19:08:25.404Z`, ok true.
-- Tenant section matrix checked `real-user-1`, knownTenant true, active true, pickerChannelsCount 1, channel `Olga Style`, firstChannelPostsCount 1, blockCount 0.
+- IMPORTANT: the PR267 runtime matrices still contain fixture-derived/manual expectations such as `real-user-1` and `Olga Style`; those are now known to be invalid live expectations for the real user.
 - `runtime/northflank-startup-log.json` remains configured:false/ok:false because Northflank API env variables are missing. This is observability-only, not product runtime failure.
 
-## PR267 status
-PR267:
-- URL: https://github.com/9163223-maker/amio-comments-max/pull/267
-- Title: `Tenant-aware section matrix`
-- Branch: `codex/pr267-tenant-section-matrix`
-- Base SHA: `a0278effba94c56ba33bf061d25a94a61a6f966d`
-- Final head: `e58d13761ab70b3e801b12c3cf358fd319166849`
-- CI: PR regression tests #594, run id `28541109876`, conclusion `success`.
-- Audit PASS recorded as review COMMENT `4612171086`.
-- Merge method: squash.
-- Merge commit: `d142afd5ab4fb1562a8841151f7cf8d8e111656c`.
-- Northflank build status: success, build `vigorous-group-4789`.
+## Live mismatch after PR267 manual MAX check
+Manual `/tenant` check for the real live user showed a mismatch:
+- live user seen as admin;
+- tenant not found;
+- tenant channels: 0;
+- access channels: 0;
+- picker channels: 0;
+- warning/code observed: `tenant_missing_for_active_user`.
 
-PR267 purpose and implementation:
-- Add tenant-aware matrix across all client-visible sections and all post-scoped sections.
-- Check current-user tenant binding, live self diagnostic, tenant channel binding, picker isolation, channels list, account root, and post-scoped choose_channel/choose_post/selected_post screens.
-- Ensure user A does not see user B channel and vice versa in fixture tests.
-- Ensure chat-like records do not leak into channel/post target flows.
-- Export `runtime/tenant-section-matrix.json` from startup diagnostics.
-- Add the new matrix to diagnostic expected files and post-merge runtime pickup gate.
-- Add `scripts/test-pr267-tenant-section-matrix.js` and wire it into `npm test` and PR regression workflow.
+Correction from user:
+- Do not rely on `Olga Style`, `Kid Club`, `real-user-1`, or any fixture/test channel as live truth.
+- The relevant real MAX ID is `17507246`.
+- The required live diagnostic must collect from production Postgres/runtime sources which channels and which chats are attached to MAX ID `17507246`, and keep channels separate from chats.
+- Channel/post flows must show only real channels/posts, not chats.
 
-Manual check algorithms for current live bot:
-1. Tenant diagnostic first, then all post-scoped sections.
-   - In private chat run `/tenant` or open `Личный кабинет → Диагностика привязки`.
-   - Expect tenant found, active access, pickerChannelsCount >= 1, channel title matching `Olga Style`, no raw IDs.
-   - Open Comments, Gifts, Buttons, Polls, Highlights, Editor and use `Выбрать пост`.
-   - Expect only tenant channel(s), no chats/groups/private dialogs, then post picker shows `Канал: Olga Style`.
-2. One-channel happy path.
-   - Gifts → Выбрать пост → Olga Style → first post: expect selected post screen with `Канал: Olga Style` and `Создать подарок`.
-   - Buttons → Выбрать пост → Olga Style → first post: expect `Добавить кнопку` and `Текущие кнопки` only after selected post.
-   - Editor → Выбрать пост → Olga Style → first post: expect edit action only after selected post.
-3. Account and Channels cross-check.
-   - Main → Channels → Мои каналы: expect `Olga Style` only.
-   - Main → Account: expect `Диагностика привязки` and `Мои каналы`.
-   - Compare `/tenant` picker count/title with Channels and Account screens.
-   - Open non-post sections Stats, Archive, Settings, Push: expect safe open without tenant leakage or debug/trace IDs.
+## PR268 status — live user Postgres bindings diagnostic
+PR268:
+- URL: https://github.com/9163223-maker/amio-comments-max/pull/268
+- Title: `PR268: Live user Postgres bindings diagnostic`
+- Branch: `codex/pr268-live-user-postgres-bindings`
+- Base: `main`
+- Base SHA at PR open: `21a835f997571b77b06492bb46d6f5f896190ea9`
+- Head SHA: `1870acfd5d885ad94377a8c0db5aad9fa0b670ce`
+- CI: `PR regression tests`, run `604`, run id `28545550713`, exact-head `1870acfd5d885ad94377a8c0db5aad9fa0b670ce`, conclusion `success`.
+- CI artifact: `adminkit-ci-diagnostics`, artifact id `8021691530`.
+- Audit-only result: `AUDIT: PASS` for exact head `1870acfd5d885ad94377a8c0db5aad9fa0b670ce`.
+- Merge status: NOT MERGED yet.
+- Deploy/runtime status: NOT DEPLOYED yet.
 
-Next required action:
-- User/manual MAX check using the 3 algorithms above and report mismatches with screenshots/text.
-- If mismatch appears, compare against `runtime/tenant-section-matrix.json` and create follow-up PR with exact route/user context.
+PR268 purpose and implementation:
+- Add `services/liveUserPostgresBindingsService.js` to export `runtime/live-user-postgres-bindings.json`.
+- Default live target is MAX ID `17507246` when env overrides are absent.
+- Env overrides include `ADMINKIT_LIVE_BINDINGS_MAX_USER_IDS`, `ADMINKIT_TENANT_DIAGNOSTIC_MAX_USER_IDS`, and `ADMINKIT_DIAGNOSTIC_MAX_USER_IDS`.
+- Postgres reads are parameterized with `$1` / `[maxUserId]`; do not interpolate MAX ID into SQL strings.
+- Covered sources: `ak_admin_channels`, tenant-user channels, tenant-owner channels, and `adminkit_web_push_chat_bindings`.
+- Runtime export separates `channels`, `chats`, and `unknown` and exposes only masked IDs plus safe fields such as title/source/role/status/posts counts/timestamps.
+- `liveTenantSelfDiagnosticService` defaults watched users to live MAX ID `17507246`, not fixture-derived users.
+- `tenant_missing_for_active_user` is now a violation/BLOCK, not a warning.
+- `tenantSectionMatrixService` default users come from `liveTenant.watchedUsers()` and no longer hardcode Olga Style/Kid Club/manual test channel expectations.
+- Startup exports and expected diagnostic files include `runtime/live-user-postgres-bindings.json`.
+- Post-merge pickup gate requires `runtime/live-user-postgres-bindings.json`.
+- `npm test` includes `scripts/test-pr268-live-user-postgres-bindings.js`.
+
+Audit PASS findings:
+- No merge-blocking issues found in PR268 at head `1870acfd5d885ad94377a8c0db5aad9fa0b670ce`.
+- Parameterized SQL, channel/chat separation, masking of full MAX ID/raw channel IDs, and honest BLOCK behavior when Postgres is unavailable were audited.
+- Existing PR265/PR267 fixture fallback cannot create false PASS for the default matrix path because watched live users exist by default.
+- Package start path remains the existing active entrypoint path.
+- No code changes were made by Codex audit; no branch/PR/merge was created by audit.
+
+## Process error recorded
+Process violation during PR268 preparation:
+- Temporary files were accidentally created/deleted in `main` history.
+- Commits recorded in main history: `61837be` create noop/tmp probe, `ad010fa` delete tmp probe, `dd856a6` create placeholder, `21a835f` delete placeholder.
+- Audit confirmed `tmp-probe-noop.txt`, `placeholder.tmp`, and `x` are absent from the audited tree.
+- Audit found no startup/runtime production path references those files and no evidence that the create/delete commits damaged production/runtime behavior.
+- This is not a functional merge blocker for PR268, but it is a process violation and must not be repeated.
+- Rule going forward: no writes to `main` except explicit merge after audit PASS/waiver.
+
+## Next required action
+1. Merge PR268 only if user explicitly approves merge after audit PASS.
+2. After merge, update this file with merge commit/head.
+3. Wait for Northflank deploy/runtime pickup.
+4. Verify runtime-status after deploy:
+   - `latest.githubMainHeadSha` equals PR268 merge commit;
+   - active entrypoint remains `clean-entrypoint-1.53.10-pr89.js`;
+   - production start path remains `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`;
+   - `runtime/live-user-postgres-bindings.json` exists;
+   - `diagnostic-export-status.json` ok and includes the new file;
+   - `runtime/live-tenant-self-diagnostic-matrix.json` and `runtime/tenant-section-matrix.json` use live MAX ID `17507246`, not fixture expectations.
+5. Read `runtime/live-user-postgres-bindings.json` and report to user the actual separated lists:
+   - channels attached to MAX ID `17507246`;
+   - chats attached to MAX ID `17507246`;
+   - unknown records, if any.
+6. Then run/manual request MAX check: `/tenant`, Channels, Account, and post-scoped sections Comments/Gifts/Buttons/Polls/Highlights/Editor must show only live channels and posts; chats must not appear as channel/post targets.
