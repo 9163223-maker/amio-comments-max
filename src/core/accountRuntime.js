@@ -4,6 +4,7 @@ const accountScreens = require('../../features/account-screens-pr106');
 const clientAccess = require('../../services/clientAccessService');
 const webhookContext = require('./webhookContext');
 const connectedChats = require('../../services/pushConnectedChatsService');
+const liveTenantDiagnostic = require('../../services/liveTenantSelfDiagnosticService');
 
 const RUNTIME = clientAccess.RUNTIME;
 const ACCOUNT_ACTIONS = new Set([
@@ -16,6 +17,7 @@ const ACCOUNT_ACTIONS = new Set([
   'account_my_access',
   'account_push_notifications',
   'account_push_notifications_help',
+  'account_tenant_diagnostic',
   'account_activate_code',
   'account_payment',
   'account_limits',
@@ -104,9 +106,14 @@ async function buildAccountScreenForUpdate({ update = {}, context = {}, config =
       options = { chats: [] };
     }
   }
-  const screen = decision.action === 'account_push_notifications'
-    ? accountScreens.pushNotificationsScreen(maxUserId, options)
-    : accountScreens.screenForAction(decision.action, maxUserId);
+  let screen;
+  if (decision.action === 'account_push_notifications') {
+    screen = accountScreens.pushNotificationsScreen(maxUserId, options);
+  } else if (decision.action === 'account_tenant_diagnostic') {
+    screen = await liveTenantDiagnostic.buildScreen({ maxUserId });
+  } else {
+    screen = accountScreens.screenForAction(decision.action, maxUserId);
+  }
   return { ok: Boolean(screen), action: decision.action, screen, contextOk: Boolean(maxUserId), contextReason: maxUserId ? '' : 'max_user_id_missing', runtimeVersion: RUNTIME };
 }
 

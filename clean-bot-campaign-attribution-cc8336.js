@@ -14,6 +14,7 @@ const pushConnectedChats = require('./services/pushConnectedChatsService');
 const adminScreens = require('./features/admin-activation-screens-pr108');
 const accessGate = require('./services/accessGateService');
 const liveIdentity = require('./services/liveIdentityService');
+const liveTenantDiagnostic = require('./services/liveTenantSelfDiagnosticService');
 
 const RUNTIME = access.RUNTIME;
 
@@ -46,13 +47,10 @@ function firstValue(value, keys = [], seen = new Set()) {
   return '';
 }
 function updateType(update = {}) { return clean(update.update_type || update.type || update?.data?.update_type || update?.data?.type).toLowerCase(); }
-function channelIdFromUpdate(update = {}) {
-  return clean(firstValue(update, ['chat_id', 'chatId', 'channel_id', 'channelId'])) || clean(find(update, (x) => x && typeof x === 'object' && (x.chat_id || x.chatId || x.channel_id || x.channelId), 7)?.chat_id || '');
-}
+function channelIdFromUpdate(update = {}) { return clean(firstValue(update, ['chat_id', 'chatId', 'channel_id', 'channelId'])) || clean(find(update, (x) => x && typeof x === 'object' && (x.chat_id || x.chatId || x.channel_id || x.channelId), 7)?.chat_id || ''); }
 function actorUserId(value = {}) { if (!value || typeof value !== 'object') return ''; return clean(value.user_id || value.userId || value.sender_id || value.senderId || value.from_id || value.fromId || value.id); }
 function userIdFromUpdate(update = {}) { const message = messageFromUpdate(update) || {}; const callback = callbackFromUpdate(update) || {}; return clean(actorUserId(callback.user) || actorUserId(callback.sender) || actorUserId(callback.from) || actorUserId(update.user) || actorUserId(update.sender) || actorUserId(update.from) || actorUserId(message.sender) || actorUserId(message.from) || actorUserId(message.user)); }
 function userNameFromUpdate(update = {}) { return clean(firstValue(update, ['first_name', 'firstName', 'username', 'name'])); }
-
 function messageFromUpdate(update = {}) { return update?.message || update?.data?.message || update?.callback?.message || update?.data?.callback?.message || find(update, (x) => x && typeof x === 'object' && (x.body?.text || x.text) && (x.recipient || x.sender || x.message_id || x.id), 6) || null; }
 function callbackFromUpdate(update = {}) { return update?.callback || update?.data?.callback || update?.message?.callback || update?.data?.message?.callback || find(update, (x) => x && typeof x === 'object' && (x.callback_id || x.callbackId || x.payload || x.callback_data || x.callbackData) && !(x.body && x.body.text), 6) || null; }
 function messageText(message = {}) { return clean(message?.body?.text || message?.text || ''); }
@@ -70,10 +68,7 @@ function isPrivateUserChat(message = {}) {
   if (recipientUserId(message)) return true;
   return ['user', 'private', 'direct', 'private_chat', 'direct_chat', 'im', 'dialog'].includes(type);
 }
-function isAdminRuntimeAction(action = '') {
-  const a = clean(action);
-  return a === 'admin_panel' || a === 'admin_codes_list' || a === 'admin_tenants_list' || a.startsWith('admin_code_') || a.startsWith('admin_tenant_');
-}
+function isAdminRuntimeAction(action = '') { const a = clean(action); return a === 'admin_panel' || a === 'admin_codes_list' || a === 'admin_tenants_list' || a.startsWith('admin_code_') || a.startsWith('admin_tenant_'); }
 function adminPrivateChatScreen() { return { id: 'pr108_admin_private_chat_required', text: 'Админ-панель доступна только в личном чате с ботом.', attachments: [] }; }
 function callbackId(callback = {}) { return clean(callback?.callback_id || callback?.callbackId || callback?.id); }
 function callbackPayload(callback = {}) { const raw = callback?.payload ?? callback?.data ?? callback?.value ?? callback?.callback_data ?? callback?.callbackData ?? ''; if (raw && typeof raw === 'object') return raw; const text = clean(raw); if (!text) return {}; try { return JSON.parse(text); } catch { return { action: text, raw: text }; } }
@@ -88,6 +83,8 @@ async function sendOrEditScreen({ update = {}, callback = null, message = null, 
   const uid = senderId(update, callback, message);
   return max.sendMessage({ botToken: config.botToken, userId: cid ? '' : uid, chatId: cid, text: screen.text, attachments: screen.attachments, notify: false });
 }
+async function tenantDiagnosticScreen(uid = '') { return liveTenantDiagnostic.buildScreen({ maxUserId: uid }); }
+function isTenantDiagnosticText(text = '') { return /^\/?(?:tenant|tenant_debug|tenant_diag|diagnostic|diag)(?:\s|$)/i.test(clean(text)) || /^диагностика(?:\s+привязки)?$/i.test(clean(text)); }
 async function tryHandleAccessRuntime(req, res, config = {}) {
   const update = req.body || {};
   const callback = callbackFromUpdate(update);
@@ -102,6 +99,12 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
       return res.status(200).json({ ok: true, handledBy: access.ADMIN_ACCESS_RUNTIME, action, screenId: 'pr108_admin_private_chat_required', adminRuntime: true, privateChatRequired: true });
     }
     if (!isChannelMessage(message)) {
+      if (action === 'account_tenant_diagnostic') {
+        const screen = await tenantDiagnosticScreen(uid);
+        if (callbackId(callback)) await max.answerCallback({ botToken: config.botToken, callbackId: callbackId(callback) }).catch(() => null);
+        await sendOrEditScreen({ update, callback, message, config, screen, edit: true });
+        return res.status(200).json({ ok: true, handledBy: RUNTIME, action, screenId: screen.id, accountRuntime: true, liveTenantDiagnostic: true });
+      }
       if (action === 'admin_section_main') {
         const state = access.getAccessState(uid);
         const screen = state.active || state.admin ? menu.mainScreen() : accountScreens.gateMenuForUser(uid);
@@ -151,6 +154,11 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
       await sendOrEditScreen({ update, callback, message, config, screen, edit: false });
       return res.status(200).json({ ok: true, handledBy: access.ADMIN_ACCESS_RUNTIME, action: 'admin_command', screenId: screen.id, adminRuntime: true, privateChatRequired: !isPrivateUserChat(message) });
     }
+    if (isPrivateUserChat(message) && isTenantDiagnosticText(text)) {
+      const screen = await tenantDiagnosticScreen(uid);
+      await sendOrEditScreen({ update, callback, message, config, screen, edit: false });
+      return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'tenant_diagnostic_command', screenId: screen.id, liveTenantDiagnostic: true });
+    }
     if (/^\/?(?:start|menu)(?:\s|$)/i.test(text)) {
       const isMenu = /^\/?menu(?:\s|$)/i.test(text);
       const state = access.getAccessState(uid);
@@ -168,36 +176,19 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
   }
   return null;
 }
-
-
-function callbackAction(update = {}) {
-  const callback = callbackFromUpdate(update) || {};
-  const payload = callbackPayload(callback);
-  return clean(payload.action || payload.raw || '');
-}
-function requestIdFromReq(req = {}) {
-  return clean(req.get && (req.get('x-request-id') || req.get('X-Request-Id'))) || clean(req.headers?.['x-request-id'] || req.headers?.['x-correlation-id'] || '');
-}
+function callbackAction(update = {}) { const callback = callbackFromUpdate(update) || {}; const payload = callbackPayload(callback); return clean(payload.action || payload.raw || ''); }
+function requestIdFromReq(req = {}) { return clean(req.get && (req.get('x-request-id') || req.get('X-Request-Id'))) || clean(req.headers?.['x-request-id'] || req.headers?.['x-correlation-id'] || ''); }
 function recordLiveWebhook(req = {}, meta = {}) {
   const update = req.body || {};
   const callback = callbackFromUpdate(update);
   const message = messageFromUpdate(update);
-  const item = liveIdentity.recordWebhook({
-    requestId: requestIdFromReq(req),
-    userId: userIdFromUpdate(update) || senderId(update, callback, message),
-    action: meta.action || callbackAction(update),
-    screenId: meta.screenId || '',
-    handler: meta.handler || 'clean-bot-campaign-attribution-cc8336.handleWebhook',
-    module: 'clean-bot-campaign-attribution-cc8336',
-    updateType: updateType(update)
-  });
+  const item = liveIdentity.recordWebhook({ requestId: requestIdFromReq(req), userId: userIdFromUpdate(update) || senderId(update, callback, message), action: meta.action || callbackAction(update), screenId: meta.screenId || '', handler: meta.handler || 'clean-bot-campaign-attribution-cc8336.handleWebhook', module: 'clean-bot-campaign-attribution-cc8336', updateType: updateType(update) });
   audit('live_identity.webhook_fingerprint', { requestId: item.requestId, userId: item.userId, action: item.action, screenId: item.screenId, handler: item.handler, liveIdentity: item.liveIdentity });
   return item;
 }
-
 async function resolveChannelTitleFromUpdate(update = {}, config = {}) {
   const channelId = channelIdFromUpdate(update);
-  if (!channelId || !/^-/i.test(channelId) || !config?.botToken) return null;
+  if (!channelId || !/^-/.test(channelId) || !config?.botToken) return null;
   const kind = updateType(update);
   const shouldResolve = ['bot_added', 'chat_title_changed', 'message_created', 'user_added', 'user_removed'].includes(kind) || clean(firstValue(update, ['is_channel', 'isChannel'])) === 'true';
   if (!shouldResolve) return null;
@@ -205,24 +196,10 @@ async function resolveChannelTitleFromUpdate(update = {}, config = {}) {
   audit('channel_title_resolver.checked', { updateType: kind, channelId, title: result && result.title, source: result && result.source, error: result && result.error, runtimeVersion: RUNTIME });
   return result;
 }
-
 function createCleanBot(legacy) {
   campaignAttribution.install();
   const wrapped = base.createCleanBot(legacy);
-  return {
-    ...legacy,
-    ...wrapped,
-    handleWebhook: async function handleWebhookWithCampaignAttribution(req, res, config) {
-      recordLiveWebhook(req, { handler: 'clean-bot-campaign-attribution-cc8336.handleWebhookWithCampaignAttribution' });
-      const accessResult = await tryHandleAccessRuntime(req, res, config);
-      if (accessResult) return accessResult;
-      try { await resolveChannelTitleFromUpdate(req.body || {}, config); }
-      catch (error) { audit('channel_title_resolver.error', { error: String(error && error.message || error).slice(0, 220), runtimeVersion: RUNTIME }); }
-      try { campaignAttribution.saveAudienceEventFromUpdate(store, growthService, req.body || {}, audit); }
-      catch (error) { audit('campaign_attribution.error', { error: String(error && error.message || error).slice(0, 220), runtimeVersion: RUNTIME }); }
-      return wrapped.handleWebhook(req, res, config);
-    }
-  };
+  return { ...legacy, ...wrapped, handleWebhook: async function handleWebhookWithCampaignAttribution(req, res, config) { recordLiveWebhook(req, { handler: 'clean-bot-campaign-attribution-cc8336.handleWebhookWithCampaignAttribution' }); const accessResult = await tryHandleAccessRuntime(req, res, config); if (accessResult) return accessResult; try { await resolveChannelTitleFromUpdate(req.body || {}, config); } catch (error) { audit('channel_title_resolver.error', { error: String(error && error.message || error).slice(0, 220), runtimeVersion: RUNTIME }); } try { campaignAttribution.saveAudienceEventFromUpdate(store, growthService, req.body || {}, audit); } catch (error) { audit('campaign_attribution.error', { error: String(error && error.message || error).slice(0, 220), runtimeVersion: RUNTIME }); } return wrapped.handleWebhook(req, res, config); } };
 }
 
 module.exports = { RUNTIME, createCleanBot };
