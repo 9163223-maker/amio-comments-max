@@ -16,6 +16,7 @@ const REQUIRED_RUNTIME_FILES = [
   'runtime/maximal-flow-matrix.json',
   'runtime/live-tenant-self-diagnostic-matrix.json',
   'runtime/tenant-section-matrix.json',
+  'runtime/live-user-postgres-bindings.json',
   'runtime/process-events.json'
 ];
 
