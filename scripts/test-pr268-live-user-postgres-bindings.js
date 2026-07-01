@@ -18,17 +18,17 @@ function rowForTable(sql) {
         role: 'admin',
         updated_at: '2026-07-01T10:00:00.000Z',
         title: 'AdminKIT Channel',
-        raw: { type: 'channel', isChannel: true, channelTitle: 'AdminKIT Channel' },
+        raw: { type: 'channel', chat_id: '-1001', title: 'AdminKIT Channel' },
         postsCount: 2,
         source: 'ak_admin_channels'
       },
       {
         admin_id: '17507246',
-        channel_id: '-1004',
+        channel_id: '-1002',
         role: 'admin',
         updated_at: '2026-07-01T10:30:00.000Z',
-        title: 'Important Updates',
-        raw: {},
+        title: 'Семейный чат',
+        raw: { type: 'channel', chat_id: '-1002', title: 'Семейный чат' },
         postsCount: 1,
         source: 'ak_admin_channels'
       },
@@ -37,8 +37,8 @@ function rowForTable(sql) {
         channel_id: '-2002',
         role: 'admin',
         updated_at: '2026-07-01T11:00:00.000Z',
-        title: 'Семейный чат',
-        raw: { type: 'group', isChat: true, chatTitle: 'Семейный чат' },
+        title: 'Канал новостей',
+        raw: { type: 'chat', chat_id: '-2002', title: 'Канал новостей' },
         postsCount: 0,
         source: 'ak_admin_channels'
       },
@@ -47,8 +47,8 @@ function rowForTable(sql) {
         channel_id: '-2003',
         role: 'admin',
         updated_at: '2026-07-01T11:30:00.000Z',
-        title: 'Рабочий чат без metadata',
-        raw: {},
+        title: 'Family chat!',
+        raw: { update_type: 'bot_added', is_channel: false, chat_id: '-2003', title: 'Family chat!' },
         postsCount: 0,
         source: 'ak_admin_channels'
       }
@@ -61,7 +61,7 @@ function rowForTable(sql) {
         channel_id: '-1001',
         title: 'AdminKIT Channel',
         status: 'active',
-        raw: { source: 'tenant', isChannel: true },
+        raw: { max: { type: 'channel' }, evidence_source: 'GET /chats/{chatId}' },
         updated_at: '2026-07-01T10:05:00.000Z',
         postsCount: 2,
         source: 'ak_tenant_channels'
@@ -85,6 +85,20 @@ function rowForTable(sql) {
 }
 
 (async () => {
+  assert.strictEqual(service.classifyRecord({ title: 'Семейный чат', raw: { type: 'channel' } }), 'channel', 'official type channel wins over chat-like title');
+  assert.strictEqual(service.classifyRecord({ title: 'Канал новостей', raw: { type: 'chat' } }), 'chat', 'official type chat wins over channel-like title');
+  assert.strictEqual(service.classifyRecord({ title: 'Important Updates', raw: { type: 'channel' } }), 'channel', 'title substrings never classify records');
+  assert.strictEqual(service.classifyRecord({ title: 'Olga Style', raw: {} }), 'unknown', 'missing official evidence remains unknown');
+  assert.strictEqual(service.classifyRecord({ title: 'АдминКИТ клуб', raw: {} }), 'unknown', 'live-looking title without official evidence remains unknown');
+  assert.strictEqual(service.classifyRecord({ raw: { update_type: 'bot_added', is_channel: true } }), 'channel', 'Update.is_channel true is channel evidence');
+  assert.strictEqual(service.classifyRecord({ raw: { update_type: 'bot_added', is_channel: false } }), 'chat', 'Update.is_channel false is chat/dialog evidence');
+  assert.strictEqual(service.classifyRecord({ source: 'push_chat_binding' }), 'chat', 'typed push chat binding remains chat');
+
+  const unresolved = service.safeBindingRecord({ title: 'Olga Style', raw: {} });
+  assert.strictEqual(unresolved.kind, 'unknown');
+  assert.strictEqual(unresolved.needsApiResolution, true);
+  assert.strictEqual(unresolved.evidence, 'needs_api_resolution');
+
   db.hasDatabaseUrl = () => true;
   db.query = async (sql, params = []) => {
     assert.ok(!String(sql).includes('17507246'), 'MAX ID must be parameterized, not interpolated into SQL');
@@ -98,19 +112,29 @@ function rowForTable(sql) {
   assert.deepStrictEqual(matrix.checkedUsers, ['175…246']);
   assert.strictEqual(matrix.rows.length, 1);
   const row = matrix.rows[0];
-  assert.strictEqual(row.counts.channels, 2, 'channel records are separated and im substrings do not force chat');
-  assert.strictEqual(row.counts.chats, 3, 'chat records are separated from admin and push bindings');
-  assert.strictEqual(row.counts.unknown, 0, 'no known records left unknown');
-  assert.ok(row.channels.some((item) => item.title === 'AdminKIT Channel'));
-  assert.ok(row.channels.some((item) => item.title === 'Important Updates'));
-  assert.ok(row.chats.some((item) => item.title === 'Семейный чат'));
-  assert.ok(row.chats.some((item) => item.title === 'Рабочий чат без metadata'));
+  assert.strictEqual(row.counts.channels, 2, 'only official channel evidence reaches channels');
+  assert.strictEqual(row.counts.chats, 3, 'official chat evidence and typed chat bindings reach chats');
+  assert.strictEqual(row.counts.unknown, 0, 'no official-evidence records left unknown');
+  assert.ok(row.channels.some((item) => item.title === 'AdminKIT Channel' && /Chat\.type=channel|type=channel/.test(item.evidence)));
+  assert.ok(row.channels.some((item) => item.title === 'Семейный чат'), 'chat-like title can still be a channel by official type');
+  assert.ok(row.chats.some((item) => item.title === 'Канал новостей'), 'channel-like title can still be a chat by official type');
+  assert.ok(row.chats.some((item) => item.title === 'Family chat!'), 'Update.is_channel false classifies punctuated chat title without title regex');
   assert.ok(row.chats.some((item) => item.title === 'MAX рабочий чат'));
   assert.ok(!JSON.stringify(matrix).includes('17507246'), 'full MAX ID is not exported');
   assert.ok(!JSON.stringify(matrix).includes('-1001'), 'raw channel ID is not exported');
-  assert.ok(!JSON.stringify(matrix).includes('-1004'), 'raw channel ID with im-title is not exported');
+  assert.ok(!JSON.stringify(matrix).includes('-1002'), 'raw channel ID with chat-like title is not exported');
   assert.strictEqual(matrix.summary.channelsCount, 2);
   assert.strictEqual(matrix.summary.chatsCount, 3);
+
+  db.query = async (sql, params = []) => {
+    if (/to_regclass/i.test(sql)) return { rows: [{ name: existingTables.has(params[0]) ? params[0] : null }] };
+    if (/FROM ak_admin_channels/i.test(sql)) return { rows: [{ admin_id: '17507246', channel_id: '-9999', title: 'Olga Style', raw: {}, source: 'ak_admin_channels' }] };
+    return { rows: [] };
+  };
+  const blockedUnknown = await service.buildMatrix({ users: ['17507246'] });
+  assert.strictEqual(blockedUnknown.ok, false, 'unknown official type blocks honestly');
+  assert.ok(blockedUnknown.rows[0].blocks.includes('needs_api_resolution'));
+  assert.strictEqual(blockedUnknown.rows[0].counts.unknown, 1);
 
   db.hasDatabaseUrl = () => false;
   db.query = async () => { throw new Error('database_url_missing'); };
