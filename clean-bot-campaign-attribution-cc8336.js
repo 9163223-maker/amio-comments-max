@@ -177,7 +177,7 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
   return null;
 }
 function callbackAction(update = {}) { const callback = callbackFromUpdate(update) || {}; const payload = callbackPayload(callback); return clean(payload.action || payload.raw || ''); }
-function requestIdFromReq(req = {}) { return clean(req.get && (req.get('x-request-id' || req.get('X-Request-Id')))) || clean(req.headers?.['x-request-id'] || req.headers?.['x-correlation-id'] || ''); }
+function requestIdFromReq(req = {}) { return clean(req.get && (req.get('x-request-id') || req.get('X-Request-Id'))) || clean(req.headers?.['x-request-id'] || req.headers?.['x-correlation-id'] || ''); }
 function recordLiveWebhook(req = {}, meta = {}) {
   const update = req.body || {};
   const callback = callbackFromUpdate(update);
@@ -188,7 +188,7 @@ function recordLiveWebhook(req = {}, meta = {}) {
 }
 async function resolveChannelTitleFromUpdate(update = {}, config = {}) {
   const channelId = channelIdFromUpdate(update);
-  if (!channelId || !/^-/i.test(channelId) || !config?.botToken) return null;
+  if (!channelId || !/^-/.test(channelId) || !config?.botToken) return null;
   const kind = updateType(update);
   const shouldResolve = ['bot_added', 'chat_title_changed', 'message_created', 'user_added', 'user_removed'].includes(kind) || clean(firstValue(update, ['is_channel', 'isChannel'])) === 'true';
   if (!shouldResolve) return null;
