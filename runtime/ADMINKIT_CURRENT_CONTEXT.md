@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 14:05 UTC
+Updated: 2026-07-01 14:17 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -34,18 +34,19 @@ PR261: `126d3a9d9a841b266337dceecce41d51855b6a3c`.
 PR262: `bc1e3f548ea65a18644d39335cd93c0f60f42cfb`, runtime PASS.
 PR263: `babac89e266044cf1cfb4e0026df913808f3a139`, runtime PASS.
 PR264: `f4f32c4fd2fdd6c12d034638c74861cb5f4ee55f`, runtime PASS.
+PR265: merged 2026-07-01 after audit PASS. Merge commit `f63d7c900b6f38af6b10ad705b6c5663be31d0af`. Runtime pickup pending at 14:17 UTC.
 
-## PR265 current state
+## PR265 details
 PR265:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/265
 - Title: `Live tenant self diagnostic`
 - Branch: `codex/pr265-live-tenant-self-diagnostic`
 - Base: `main`
-- Base SHA: `f4f32c4fd2fdd6c12d034638c74861cb5f4ee55f`
-- Current head: `67e9060d2c8d0b06749f70135a00faba38559e7b`
-- State: open, not merged, not draft.
-- Mergeable: true.
+- Final head: `67e9060d2c8d0b06749f70135a00faba38559e7b`
 - CI: PR regression tests #572, run id `28523344844`, conclusion `success`.
+- Audit-only: PASS confirmed by user screenshot at 2026-07-01 14:13 UTC.
+- Merge method: squash.
+- Merge commit: `f63d7c900b6f38af6b10ad705b6c5663be31d0af`.
 
 PR265 purpose:
 - Add generic live tenant self-diagnostic for the current MAX user without hardcoding any user id.
@@ -72,13 +73,13 @@ PR265 fix history:
 - CI #570 failed inside `test-pr265-live-tenant-self-diagnostic`; adjusted live diagnostic false-block handling so only evidence-backed hidden channels block, while non-evidence residue is warning.
 - CI #572 passed on head `67e9060d2c8d0b06749f70135a00faba38559e7b`.
 
-Assistant pre-audit conclusion:
-- Original PR265 BLOCK appears fixed.
-- Codex ENV_BLOCK is bypassed by direct GitHub updates.
-- No known code blocker after CI #572.
-- PR265 is ready for audit-only PASS/BLOCK on exact head `67e9060d2c8d0b06749f70135a00faba38559e7b`.
+Post-merge status at 14:17 UTC:
+- package.json on main: start path unchanged: `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
+- startup-log latest is still old PR264 SHA `f4f32c4fd2fdd6c12d034638c74861cb5f4ee55f`; Northflank/runtime pickup for merge commit `f63d7c900b6f38af6b10ad705b6c5663be31d0af` not yet observed.
 
 Next required action:
-1. Run audit-only PASS/BLOCK for PR265 head `67e9060d2c8d0b06749f70135a00faba38559e7b`.
-2. If audit PASS, merge with expected head SHA.
-3. After merge, verify runtime pickup, `runtime/live-tenant-self-diagnostic-matrix.json`, diagnostic-export-status expected files, and manual private MAX command `/tenant` or visible account button.
+1. Re-check `runtime/startup-log.json` in `runtime-status` until `latest.githubMainHeadSha` equals `f63d7c900b6f38af6b10ad705b6c5663be31d0af`.
+2. Verify runtime contract: startupPath.ok, contractLiveOk, finalRuntimeReadinessGate.ok / readyForManualMaxTest.
+3. Verify `runtime/live-tenant-self-diagnostic-matrix.json` exists and is current enough after pickup.
+4. Verify diagnostic-export-status includes live tenant diagnostic matrix in expected files.
+5. Then request/manual MAX check: private `/tenant` or visible account button `Диагностика привязки`.
