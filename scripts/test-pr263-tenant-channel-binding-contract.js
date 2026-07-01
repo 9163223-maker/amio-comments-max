@@ -15,14 +15,14 @@ function reset() {
 
 (async () => {
   reset();
-  const noAccessUser = 'pr263-no-access-user';
-  const noAccessTenant = binding.ensureTenantForUser({ maxUserId: noAccessUser, name: 'No Access', source: 'test' });
-  assert.strictEqual(noAccessTenant.ok, false, 'arbitrary no-access maxUserId cannot create tenant');
-  assert.strictEqual(noAccessTenant.reason, 'access_required_for_tenant_binding');
-  const noAccessBind = binding.bindChannelForInitiator({ maxUserId: noAccessUser, channelId: '-263000', channelTitle: 'No Access Channel', source: 'test' });
-  assert.strictEqual(noAccessBind.ok, false, 'arbitrary no-access maxUserId cannot bind channel');
-  assert.strictEqual(noAccessBind.reason, 'access_required_for_tenant_binding');
-  assert.strictEqual(access.getTenantByMaxUserId(noAccessUser), null, 'no-access user still has no tenant');
+  const untrustedUser = 'pr263-user-without-access';
+  const untrustedTenant = binding.ensureTenantForUser({ maxUserId: untrustedUser, name: 'Untrusted', source: 'test' });
+  assert.strictEqual(untrustedTenant.ok, false, 'user without access cannot create tenant');
+  assert.strictEqual(untrustedTenant.reason, 'access_required_for_tenant_binding');
+  const untrustedBind = binding.bindChannelForInitiator({ maxUserId: untrustedUser, channelId: '-263000', channelTitle: 'Untrusted Channel', source: 'test' });
+  assert.strictEqual(untrustedBind.ok, false, 'user without access cannot bind channel');
+  assert.strictEqual(untrustedBind.reason, 'access_required_for_tenant_binding');
+  assert.strictEqual(access.getTenantByMaxUserId(untrustedUser), null, 'user without access still has no tenant');
 
   const user = 'pr263-user';
   const code = access.createActivationCode({ planId: 'start', durationDays: 30, maxChannels: 5, createdByMaxUserId: 'pr263-admin', note: 'PR263 test activation' });
@@ -39,6 +39,22 @@ function reset() {
   const channels = await picker.listUiChannelsForUser(user, {});
   assert.ok(channels.some((ch) => ch.channelId === channel), 'channel-post-picker-core.listUiChannelsForUser includes bound channel');
   assert.ok(picker.listUiPostsForChannel(user, channel).some((post) => post.postId === 'p1'), 'listUiPostsForChannel includes posts for bound channel');
+
+  const rejectedNewChannel = '-263005';
+  const rejectedNew = binding.bindChannelForInitiator({ maxUserId: user, channelId: rejectedNewChannel, channelTitle: 'Rejected New', source: 'test', botAdminProof: { proven: false } });
+  assert.strictEqual(rejectedNew.ok, false, 'false bot-admin proof does not create a new active binding');
+  assert.strictEqual(rejectedNew.reason, 'bot_admin_required_for_tenant_binding');
+  assert.ok(!access.getClientChannels(user).some((ch) => ch.channelId === rejectedNewChannel), 'false proof new channel is not visible in picker');
+
+  const rejectedExistingChannel = '-263006';
+  assert.strictEqual(binding.bindChannelForInitiator({ maxUserId: user, channelId: rejectedExistingChannel, channelTitle: 'Rejected Existing', source: 'test', botAdminProof: { proven: true } }).ok, true, 'fixture starts with active binding');
+  assert.ok((await picker.listUiChannelsForUser(user, {})).some((ch) => ch.channelId === rejectedExistingChannel), 'fixture binding is initially visible');
+  const rejectedExisting = binding.bindChannelForInitiator({ maxUserId: user, channelId: rejectedExistingChannel, channelTitle: 'Rejected Existing', source: 'test', botAdminProof: { proven: false } });
+  assert.strictEqual(rejectedExisting.ok, false, 'false bot-admin proof rejects existing binding refresh');
+  assert.strictEqual(rejectedExisting.reason, 'bot_admin_required_for_tenant_binding');
+  assert.strictEqual(rejectedExisting.suspended, true, 'false bot-admin proof suspends existing binding');
+  assert.ok(!(await picker.listUiChannelsForUser(user, {})).some((ch) => ch.channelId === rejectedExistingChannel), 'suspended false-proof channel is hidden from picker');
+  assert.ok(binding.getDiagnostics().some((d) => d.code === 'bot_admin_negative_proof_for_channel_bind'), 'false bot-admin proof records diagnostic');
 
   const channel2 = '-263002';
   await patcher.tryPatchChannelPost({ channelId: channel2, postId: 'p2', messageId: 'm2', channelTitle: 'PR263 Direct', linkedByUserId: user, originalText: 'Direct post with user', autoMode: true });
