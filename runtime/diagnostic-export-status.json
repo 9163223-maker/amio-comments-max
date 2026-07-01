@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-07-01T20:47:33.773Z",
+  "generatedAt": "2026-07-01T20:59:47.899Z",
   "bootId": "",
   "expectedFiles": [
     "runtime/full-section-matrix.json",
@@ -23,7 +23,7 @@
       "branch": "runtime-status",
       "path": "runtime/channel-target-matrix.json",
       "attempts": 1,
-      "durationMs": 10201
+      "durationMs": 10096
     },
     {
       "ok": true,
@@ -32,7 +32,7 @@
       "branch": "runtime-status",
       "path": "runtime/full-section-matrix.json",
       "attempts": 1,
-      "durationMs": 4206
+      "durationMs": 5309
     },
     {
       "ok": true,
@@ -41,7 +41,7 @@
       "branch": "runtime-status",
       "path": "runtime/user-journey-matrix.json",
       "attempts": 1,
-      "durationMs": 3196
+      "durationMs": 2196
     },
     {
       "ok": true,
@@ -50,7 +50,7 @@
       "branch": "runtime-status",
       "path": "runtime/product-semantic-matrix.json",
       "attempts": 1,
-      "durationMs": 3410
+      "durationMs": 2706
     },
     {
       "ok": true,
@@ -59,7 +59,7 @@
       "branch": "runtime-status",
       "path": "runtime/tenant-channel-binding-matrix.json",
       "attempts": 1,
-      "durationMs": 6890
+      "durationMs": 4593
     },
     {
       "ok": true,
@@ -68,7 +68,7 @@
       "branch": "runtime-status",
       "path": "runtime/maximal-flow-matrix.json",
       "attempts": 1,
-      "durationMs": 3799
+      "durationMs": 4096
     },
     {
       "ok": true,
@@ -76,8 +76,8 @@
       "configured": true,
       "branch": "runtime-status",
       "path": "runtime/live-tenant-self-diagnostic-matrix.json",
-      "attempts": 1,
-      "durationMs": 3799
+      "attempts": 2,
+      "durationMs": 2904
     },
     {
       "ok": true,
@@ -86,7 +86,7 @@
       "branch": "runtime-status",
       "path": "runtime/tenant-section-matrix.json",
       "attempts": 1,
-      "durationMs": 2288
+      "durationMs": 2195
     },
     {
       "ok": true,
@@ -95,7 +95,7 @@
       "branch": "runtime-status",
       "path": "runtime/live-user-postgres-bindings.json",
       "attempts": 1,
-      "durationMs": 2113
+      "durationMs": 3705
     },
     {
       "ok": true,
@@ -104,7 +104,7 @@
       "branch": "runtime-status",
       "path": "runtime/process-events.json",
       "attempts": 1,
-      "durationMs": 1700
+      "durationMs": 1899
     },
     {
       "ok": true,
@@ -113,7 +113,7 @@
       "branch": "runtime-status",
       "path": "runtime/northflank-startup-log.json",
       "attempts": 1,
-      "durationMs": 1904
+      "durationMs": 1699
     }
   ],
   "missingFiles": [],
