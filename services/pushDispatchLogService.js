@@ -10,7 +10,7 @@ const runtimeExport = require('./runtimeExportService');
 const DEFAULT_PATH = 'runtime/push-dispatch-log.json';
 const LOCAL_PATH = path.join(__dirname, '..', DEFAULT_PATH);
 const LIMIT = 100;
-const state = { enabled: false, localPath: DEFAULT_PATH, githubPath: DEFAULT_PATH, lastAttemptAt: '', lastSyncedAt: '', lastOk: false, lastError: '' };
+const state = { enabled: false, localPath: DEFAULT_PATH, githubPath: DEFAULT_PATH, lastAttemptAt: '', lastSyncedAt: '', lastOk: false, lastError: '', refusedMainBranchCount: 0, lastRefusedAt: '', warnedMainBranch: false, runtimeBranch: '' };
 let queue = Promise.resolve();
 
 function clean(value) { return String(value || '').trim(); }
@@ -77,9 +77,24 @@ function requestJson({ method = 'GET', apiPath, token, body }) {
     req.on('error', reject); if (payload) req.write(payload); req.end();
   });
 }
+function resolveSafeRuntimeBranch() {
+  const raw = clean(process.env.GITHUB_DEBUG_BRANCH || process.env.RUNTIME_STATUS_BRANCH || 'runtime-status');
+  const branch = runtimeExport.resolveRuntimeBranch(raw);
+  state.runtimeBranch = branch;
+  if (raw.toLowerCase() === runtimeExport.MAIN_BRANCH) {
+    state.refusedMainBranchCount += 1;
+    state.lastRefusedAt = nowIso();
+    state.lastError = 'runtime_export_refuses_main_branch_safe_fallback_runtime-status';
+    if (!state.warnedMainBranch) {
+      state.warnedMainBranch = true;
+      console.warn('[push-dispatch-log] GITHUB_DEBUG_BRANCH=main refused; using runtime-status for runtime diagnostics');
+    }
+  }
+  return branch;
+}
 async function syncGithub(payload, token) {
   const repo = clean(process.env.GITHUB_DEBUG_REPO || '9163223-maker/amio-comments-max');
-  const branch = runtimeExport.branchFromEnv(process.env.GITHUB_DEBUG_BRANCH || 'runtime-status');
+  const branch = resolveSafeRuntimeBranch();
   await runtimeExport.exportJson({ repo, branch, path: DEFAULT_PATH, token, payload, message: `push dispatch log ${payload.latest.event}` });
 }
 function record(input = {}) {
@@ -105,4 +120,5 @@ function record(input = {}) {
 }
 function summary(limit = 10) { const log = readLocal(); const n = Math.max(1, Math.min(Number(limit) || 10, LIMIT)); return { path: DEFAULT_PATH, count: Array.isArray(log.items) ? log.items.length : 0, latest: Array.isArray(log.items) ? log.items.slice(0, n) : [], persistence: { ...state } }; }
 function info() { return { ...state }; }
-module.exports = { record, summary, info, safeEvent, DEFAULT_PATH, LIMIT };
+function resetForTest() { queue = Promise.resolve(); Object.assign(state, { enabled: false, localPath: DEFAULT_PATH, githubPath: DEFAULT_PATH, lastAttemptAt: '', lastSyncedAt: '', lastOk: false, lastError: '', refusedMainBranchCount: 0, lastRefusedAt: '', warnedMainBranch: false, runtimeBranch: '' }); }
+module.exports = { record, summary, info, safeEvent, DEFAULT_PATH, LIMIT, resolveSafeRuntimeBranch, resetForTest };

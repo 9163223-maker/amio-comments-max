@@ -39,7 +39,7 @@ try {
 const proc = processEvents.info();
 assert(proc.bootId && proc.bootedAt, 'process diagnostics payload is buildable');
 const nf = northflank.payload();
-assert.strictEqual(nf.ok, true, 'northflank payload ok');
+assert.strictEqual(nf.ok, false, 'northflank missing config is an observability block');
 assert('configured' in nf && nf.generatedAt, 'northflank fallback/build payload shape');
 const cm = channel.buildMatrix();
 assert.strictEqual(cm.ok, true, 'channel target matrix buildable and ok');

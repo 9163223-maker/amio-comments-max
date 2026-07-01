@@ -24,7 +24,8 @@ const northflank = require('../services/northflankStartupLogService');
   const processPayload = await processEvents.buildPayload();
   const payloads = [full.buildMatrix(), channel.buildMatrix(), userJourney.buildMatrix(), productSemantic.buildMatrix(), processPayload, northflank.payload()];
   assert(payloads.every((p) => p), 'all expected payloads build');
-  assert(payloads.filter((_, i) => i !== 3).every((p) => p.ok === true), 'technical runtime payloads build ok');
+  assert(payloads.filter((_, i) => i !== 3 && i !== 5).every((p) => p.ok === true), 'technical runtime payloads build ok except Northflank missing-config block');
+  assert.strictEqual(payloads[5].ok, false, 'Northflank missing config is a diagnostic block');
   assert.strictEqual(payloads[5].configured, false, 'missing Northflank config produces configured:false payload');
 
   const old = process.env.GITHUB_DEBUG_TOKEN;

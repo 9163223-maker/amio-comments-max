@@ -59,6 +59,10 @@ jobs:
           node --check scripts/test-pr260-full-section-matrix.js
           node --check scripts/test-pr260-runtime-diagnostics-observable.js
           node --check scripts/test-pr265-live-tenant-self-diagnostic.js
+          node --check scripts/test-pr266-northflank-runtime-observability.js
+          node --check scripts/test-pr266-post-merge-runtime-gate.js
+          node --check scripts/test-pr266-runtime-export-branch-safety.js
+          node --check scripts/check-post-merge-runtime-pickup.js
           node --check performance-debug-routes-pr73.js
           node --check pr180-startup-log-bootstrap.js
           node --check pr191-push-admin-invite-title-commands-bootstrap.js
@@ -163,6 +167,9 @@ jobs:
           run_logged test-pr262-no-menu-multiplication node scripts/test-pr262-no-menu-multiplication.js
           run_logged test-pr263-tenant-channel-binding-contract node scripts/test-pr263-tenant-channel-binding-contract.js
           run_logged test-pr265-live-tenant-self-diagnostic node scripts/test-pr265-live-tenant-self-diagnostic.js
+          run_logged test-pr266-northflank-runtime-observability node scripts/test-pr266-northflank-runtime-observability.js
+          run_logged test-pr266-post-merge-runtime-gate node scripts/test-pr266-post-merge-runtime-gate.js
+          run_logged test-pr266-runtime-export-branch-safety node scripts/test-pr266-runtime-export-branch-safety.js
           run_logged npm-test npm test
           run_logged test-product-perfect-gifts-journey-pr142 node scripts/test-product-perfect-gifts-journey-pr142.js
           run_logged test-product-perfect-buttons-gifts-pr126 node scripts/test-product-perfect-buttons-gifts-pr126.js
