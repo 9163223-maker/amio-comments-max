@@ -1,7 +1,21 @@
 {
-  "ok": true,
-  "runtime": "PR259-NORTHFLANK-STARTUP-LOG",
+  "ok": false,
+  "ready": false,
+  "runtime": "PR266-NORTHFLANK-RUNTIME-OBSERVABILITY",
   "configured": false,
+  "missing": [
+    "NORTHFLANK_API_TOKEN",
+    "NORTHFLANK_PROJECT_ID",
+    "NORTHFLANK_SERVICE_ID"
+  ],
   "reason": "missing NORTHFLANK_API_TOKEN,NORTHFLANK_PROJECT_ID,NORTHFLANK_SERVICE_ID",
-  "generatedAt": "2026-07-01T12:23:22.120Z"
+  "generatedAt": "2026-07-01T18:35:35.452Z",
+  "serviceStatus": "",
+  "deploymentStatus": "",
+  "startupSeen": false,
+  "startupLogShaSeen": false,
+  "staleRuntimeSuspected": true,
+  "crashLoopSuspected": false,
+  "lastLines": [],
+  "errors": []
 }
