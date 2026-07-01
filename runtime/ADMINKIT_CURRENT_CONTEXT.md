@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 20:53 UTC
+Updated: 2026-07-01 20:57 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -76,20 +76,11 @@ PR268:
 - Merge commit: `db686772b5f24b32050e3646c69902f1cb59535a`.
 - Deploy/runtime status: NOT VERIFIED yet.
 
-PR268 implementation:
-- Added `services/liveUserPostgresBindingsService.js` to export `runtime/live-user-postgres-bindings.json`.
-- Default live target is MAX ID `17507246` when env overrides are absent.
-- Covered sources: `ak_admin_channels`, tenant-user channels, tenant-owner channels, and `adminkit_web_push_chat_bindings`.
-- Runtime export separates `channels`, `chats`, and `unknown` and exposes masked IDs/safe fields.
-- `liveTenantSelfDiagnosticService` defaults watched users to live MAX ID `17507246`.
-- `tenant_missing_for_active_user` is a violation/BLOCK.
-- Startup exports and post-merge pickup gate require `runtime/live-user-postgres-bindings.json`.
-
 Important post-merge discovery:
 - After PR268 merge, PR268 discussion was inspected and two Codex P2 review comments were found that the audit PASS did not account for.
 - P2 #1: title-only chat-like `ak_admin_channels` rows can be misclassified as channels because source/channel evidence wins over chat-like title text.
 - P2 #2: `tenantSectionMatrixService` can export raw live MAX IDs in `runtime/tenant-section-matrix.json` through `checkedUsers` and row `userId` after switching default users to live target.
-- Because PR268 was already merged, fixes are being handled in follow-up PR269. Do not use the PR268 runtime matrix as final live truth until PR269 is merged/deployed.
+- Because PR268 was already merged, fixes are being handled in follow-up PR269. Do not use PR268 runtime matrix as final live truth until PR269 is merged/deployed.
 
 ## PR269 status — open follow-up for PR268 review findings
 PR269:
@@ -100,7 +91,7 @@ PR269:
 - Base SHA: `db686772b5f24b32050e3646c69902f1cb59535a`
 - Head SHA: `6f68ce1011458ee3f82f2fb420cce8d17fa42b9d`
 - Changed files: 4
-- CI exact-head: pending/not started at first check; `fetch_commit_workflow_runs` returned no runs for `6f68ce1011458ee3f82f2fb420cce8d17fa42b9d` immediately after PR creation.
+- CI: `PR regression tests`, run `610`, run id `28546907401`, exact-head `6f68ce1011458ee3f82f2fb420cce8d17fa42b9d`, conclusion `success`.
 - Audit: NOT RUN yet.
 - Merge status: NOT MERGED.
 
@@ -123,21 +114,19 @@ Additional process note:
 - During PR269 branch setup, `update_ref` was accidentally repeated several times with the same SHA on the same follow-up branch. It did not change content and did not touch `main`, but it is noisy process behavior and must not be repeated.
 
 ## Next required action
-1. Check PR269 CI for exact head `6f68ce1011458ee3f82f2fb420cce8d17fa42b9d`.
-2. If CI is red, fix only in PR269 branch.
-3. If CI is green, run final audit-only PASS/BLOCK for PR269.
-4. Merge PR269 only after audit PASS/waiver.
-5. After PR269 merge, update this file with merge commit/head.
-6. Wait for Northflank deploy/runtime pickup.
-7. Verify runtime-status after deploy:
+1. Run final audit-only PASS/BLOCK for PR269 at exact head `6f68ce1011458ee3f82f2fb420cce8d17fa42b9d`.
+2. Merge PR269 only after audit PASS/waiver.
+3. After PR269 merge, update this file with merge commit/head.
+4. Wait for Northflank deploy/runtime pickup.
+5. Verify runtime-status after deploy:
    - `latest.githubMainHeadSha` equals PR269 merge commit;
    - active entrypoint remains `clean-entrypoint-1.53.10-pr89.js`;
    - production start path remains `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`;
    - `runtime/live-user-postgres-bindings.json` exists;
    - `diagnostic-export-status.json` ok and includes the new file;
    - `runtime/live-tenant-self-diagnostic-matrix.json` and `runtime/tenant-section-matrix.json` use live MAX ID target safely without raw ID leakage.
-8. Read `runtime/live-user-postgres-bindings.json` and report to user the actual separated lists:
+6. Read `runtime/live-user-postgres-bindings.json` and report to user the actual separated lists:
    - channels attached to MAX ID `17507246`;
    - chats attached to MAX ID `17507246`;
    - unknown records, if any.
-9. Then run/manual request MAX check: `/tenant`, Channels, Account, and post-scoped sections Comments/Gifts/Buttons/Polls/Highlights/Editor must show only live channels and posts; chats must not appear as channel/post targets.
+7. Then run/manual request MAX check: `/tenant`, Channels, Account, and post-scoped sections Comments/Gifts/Buttons/Polls/Highlights/Editor must show only live channels and posts; chats must not appear as channel/post targets.
