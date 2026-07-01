@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 06:49 UTC
+Updated: 2026-07-01 06:56 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -23,7 +23,7 @@ Active entrypoint must remain:
 Diagnostics branch: `runtime-status`.
 
 ## Product rule
-Channel/post features must use only real channels and channel posts. Chats are a separate future product area and must not appear as channel/post targets.
+Channel/post features must use only real channels and channel posts. Chats are a separate future product area and must not appear as channel/post targets. Chats should eventually live in a separate chats section marked `скоро`; channel/post features must not use chats as targets.
 
 ## PR259 / PR260 / PR261
 PR259 merge commit: `c087323dcf38d1a6bbec082efe3b9bbdb496e747`.
@@ -35,8 +35,6 @@ PR261 runtime pickup and diagnostics passed.
 PR262:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/262
 - Title: `Product-semantic flow contracts and gifts lifecycle gate`
-- Branch: `codex-792bhs`
-- Base: `main`
 - Final head: `88971d9eb82665499a6205df5cd3fb764f26996c`
 - CI: PR regression tests #530, run id `28478999226`, conclusion `success`.
 - Audit-only: PASS shown by user screenshot on 2026-07-01 06:20 UTC.
@@ -44,47 +42,31 @@ PR262:
 - Merged at: 2026-07-01 06:43:35 UTC.
 - Main squash commit: `bc1e3f548ea65a18644d39335cd93c0f60f42cfb`.
 
-Key PR262 changes:
-- Product flow contract docs and machine-readable product flow contracts.
-- Product-semantic matrix export `runtime/product-semantic-matrix.json`.
-- Gifts root is context-first: `Выбрать пост`, `Все подарки`, `Помощь`, `Главное меню`.
-- Gifts context-free create/current/list actions are hidden until meaningful context.
-- Product-semantic matrix has route coverage and must be green.
-- Buttons/polls/highlights roots use `Выбрать пост`; concrete post actions are hidden until selected-post context.
-- Stats remains dashboard-scoped.
-- No-menu-multiplication test checks reachable runtime graph from active entry files.
+PR262 runtime check:
+- Runtime pickup PASS for main squash commit `bc1e3f548ea65a18644d39335cd93c0f60f42cfb`.
+- Production contract PASS.
+- Diagnostic export PASS.
+- Product-semantic matrix PASS with 0 BLOCKs.
 
-## PR262 post-merge runtime check — 2026-07-01 06:49 UTC
-Runtime pickup confirmed from `runtime/startup-log.json`:
-- updatedAt: `2026-07-01T06:44:49.200Z`
-- latest startedAt: `2026-07-01T06:44:12.902Z`
-- latest bootId: `mr1pnipm-0922367d`
-- latest githubMainHeadSha: `bc1e3f548ea65a18644d39335cd93c0f60f42cfb`
-- entrypoint: `clean-entrypoint-1.53.10-pr89.js`
-- runtimeContract.contractLiveOk: true
-- startupPath.ok: true
-- dataProviders.ok: true
-- finalRuntimeReadinessGate.ok: true
-- finalRuntimeReadinessGate.missing: []
-- readyForManualMaxTest: true
+## Manual MAX mismatch after PR262 — tenant/channel binding
+User visual check on 2026-07-01 06:52 UTC:
+- Gifts root now correctly shows `Выбрать пост`, `Все подарки`, `Помощь`, `Главное меню`.
+- Gifts zero-channel state now says to connect a channel and shows `Подключить канал`.
+- However, expected channels are not visible for the user; choosing a post says there are no connected channels.
 
-Production package on main:
-- main: `clean-entrypoint-1.53.10-pr89.js`
-- start: `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`
+Interpretation:
+- PR262 semantic root fix worked.
+- New P0/P1 issue: tenant channel ownership/binding is not reliably connected to live user-owned channels.
+- Current code has tenant access tables and `clientAccessService.getClientChannels(maxUserId)` merging tenant channels, profile channels, and store channels linked by `linkedByUserId` / `ownerUserId`.
+- Current direct channel post ingest saves posts/channels with `linkedByUserId: senderId(msg)`, but if MAX channel post update lacks the admin sender user id, the channel can be saved without a tenant owner link.
+- `recordAudienceWebhook()` currently records channel title/audience events but does not bind the channel to a tenant owner.
+- `channel-post-picker-core` only shows channels from access/db scoped sources; if tenant binding is missing, channel pickers show zero channels even though the bot is admin in the channel.
 
-Diagnostic files:
-- `runtime/full-section-matrix.json`: ok true, 37 routes, violations [], blockCount 0.
-- `runtime/channel-target-matrix.json`: ok true, violations [], leaks [].
-- `runtime/user-journey-matrix.json`: ok true, 14 sections, 16 journeys, 87 steps, violations [], blockCount 0, giftsBlockCount 0, buttonsBlockCount 0.
-- `runtime/product-semantic-matrix.json`: ok true, sectionCount 14, pass 4, partial 10, block 0, blockCount 0, warnCount 20, postScopedSectionsChecked 6.
-- `runtime/process-events.json`: ok true, handlersInstalled true, startup event entrypoint `clean-entrypoint-1.53.10-pr89.js`.
-- `runtime/northflank-startup-log.json`: ok true, configured false fallback because Northflank env credentials are missing.
-- `runtime/diagnostic-export-status.json`: ok true, expectedCount 6, okCount 6, failedCount 0, missingCount 0, missingFiles [].
-
-Conclusion:
-- PR262 merge: PASS.
-- Runtime pickup: PASS.
-- Production contract: PASS.
-- Diagnostic export: PASS.
-- Product-semantic matrix: PASS, with honest PARTIAL classifications for incomplete product sections and 0 BLOCKs.
-- Ready for manual MAX visual check of gifts root/no-post/list/post-selected states and buttons/polls/highlights gated roots.
+Next required task:
+Open PR263 for tenant channel binding contract and runtime diagnostic.
+Scope:
+1. Add server-side tenant binding contract/service that binds a channel to the initiating max user tenant when a user completes connect flow, forwards/syncs a channel post, or the bot receives a direct channel post with resolvable initiating admin context.
+2. Keep chats separate: chat-like records must not bind as channel targets; future chats section may show chats as `скоро` only.
+3. Add runtime diagnostic `runtime/tenant-channel-binding-matrix.json` showing known tenant, visible channels, DB tenant channels, store linked channels, missing bindings, suspicious chats excluded, and bot-admin proof when available.
+4. Add tests proving: activation creates tenant; channel connect/forward/direct post binds tenant channel; bound channels appear in `listUiChannelsForUser`; posts appear only for bound channel; unbound chats do not appear; stale binding is marked inactive only when bot-admin proof is false or bot removed event is received.
+5. Wire test into npm test and PR regression workflow.
