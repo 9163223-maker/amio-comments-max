@@ -15,10 +15,23 @@ function reset() {
 
 (async () => {
   reset();
+  const noAccessUser = 'pr263-no-access-user';
+  const noAccessTenant = binding.ensureTenantForUser({ maxUserId: noAccessUser, name: 'No Access', source: 'test' });
+  assert.strictEqual(noAccessTenant.ok, false, 'arbitrary no-access maxUserId cannot create tenant');
+  assert.strictEqual(noAccessTenant.reason, 'access_required_for_tenant_binding');
+  const noAccessBind = binding.bindChannelForInitiator({ maxUserId: noAccessUser, channelId: '-263000', channelTitle: 'No Access Channel', source: 'test' });
+  assert.strictEqual(noAccessBind.ok, false, 'arbitrary no-access maxUserId cannot bind channel');
+  assert.strictEqual(noAccessBind.reason, 'access_required_for_tenant_binding');
+  assert.strictEqual(access.getTenantByMaxUserId(noAccessUser), null, 'no-access user still has no tenant');
+
   const user = 'pr263-user';
+  const code = access.createActivationCode({ planId: 'start', durationDays: 30, maxChannels: 5, createdByMaxUserId: 'pr263-admin', note: 'PR263 test activation' });
+  const activation = access.activateCode({ maxUserId: user, code: code.code, name: 'PR263' });
+  assert.strictEqual(activation.ok, true, 'real activation code flow activates user');
+  assert.strictEqual(access.getAccessState(user).active, true, 'activated user has active access');
   const channel = '-263001';
   const tenantResult = binding.ensureTenantForUser({ maxUserId: user, name: 'PR263', source: 'test' });
-  assert.strictEqual(tenantResult.ok, true, 'activation creates tenant for user');
+  assert.strictEqual(tenantResult.ok, true, 'ensureTenantForUser reuses existing active tenant');
   const bind = binding.bindChannelForInitiator({ maxUserId: user, channelId: channel, channelTitle: 'PR263 Channel', source: 'test', botAdminProof: { proven: true }, postEvidence: { postId: 'p1' } });
   assert.strictEqual(bind.ok, true, 'bindChannelForInitiator creates active binding');
   assert.ok(access.getClientChannels(user).some((ch) => ch.channelId === channel), 'clientAccessService.getClientChannels includes bound channel');
@@ -46,6 +59,8 @@ function reset() {
   assert.ok(!(await picker.listUiChannelsForUser(user, {})).some((ch) => ch.channelId === 'chat-263'), 'chat-like record does not appear in channel picker');
 
   const other = 'pr263-other';
+  const otherCode = access.createActivationCode({ planId: 'start', durationDays: 30, maxChannels: 5, createdByMaxUserId: 'pr263-admin', note: 'PR263 conflict activation' });
+  assert.strictEqual(access.activateCode({ maxUserId: other, code: otherCode.code, name: 'PR263 other' }).ok, true, 'second user activation ok');
   binding.ensureTenantForUser({ maxUserId: other, source: 'test' });
   const conflict = binding.bindChannelForInitiator({ maxUserId: other, channelId: channel, channelTitle: 'Conflict', source: 'test' });
   assert.strictEqual(conflict.reason, 'channel_owned_by_another_tenant', 'conflict with another tenant returns channel_owned_by_another_tenant');

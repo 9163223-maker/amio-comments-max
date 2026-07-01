@@ -24,7 +24,13 @@ function ensureTenantForUser({ maxUserId, name = '', source = 'tenant_channel_bi
   const userId = clean(maxUserId);
   if (!userId) return { ok: false, reason: 'missing_initiating_user' };
   let tenant = access.getTenantByMaxUserId(userId);
-  if (!tenant) tenant = repository.upsertTenantForUser({ maxUserId: userId, name, source, maxChannels: 999 });
+  if (tenant) return { ok: true, tenant };
+  const state = access.getAccessState(userId);
+  const trustedActiveState = state && state.active === true && Boolean(state.tenant || state.tenantId || state.profile);
+  if (!(state.admin === true || trustedActiveState)) {
+    return { ok: false, reason: 'access_required_for_tenant_binding' };
+  }
+  tenant = repository.upsertTenantForUser({ maxUserId: userId, name, source, maxChannels: Number(state.maxChannels || 1) || 1, planId: state.planId || 'free', expiresAt: state.expiresAt || '' });
   return tenant ? { ok: true, tenant } : { ok: false, reason: 'tenant_upsert_failed' };
 }
 
@@ -58,7 +64,7 @@ function markChannelBotAdminState({ channelId, botIsAdmin, source = 'unknown', m
   store.saveChannel(cid, { ...stored, channelId: cid, botIsAdmin: botIsAdmin === true, botAdminStateSource: source, botAdminLastVerifiedAt: at, ...(metadata.channelTitle ? { title: metadata.channelTitle, channelTitle: metadata.channelTitle } : {}) });
   if (!existing) return { ok: true, bound: false };
   const item = { ...existing, status: botIsAdmin === false ? 'suspended' : 'active', metadata: { ...(existing.metadata || {}), ...metadata, source, botIsAdmin: botIsAdmin === true, lastVerifiedAt: at, suspendedAt: botIsAdmin === false ? at : existing.metadata?.suspendedAt || '' }, updatedAt: at };
-  repository.ns().tenantChannels[cid] = item; repository.persist();
+  repository.saveTenantChannel(item);
   return { ok: true, bound: true, channel: item };
 }
 
