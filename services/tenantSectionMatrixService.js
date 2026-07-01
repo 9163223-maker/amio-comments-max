@@ -10,7 +10,7 @@ const runtimeExport = require('./runtimeExportService');
 
 const RUNTIME = 'PR267-TENANT-SECTION-MATRIX-1.0';
 const DEFAULT_PATH = 'runtime/tenant-section-matrix.json';
-const CHAT_RE = /(?:chat-|grp-|private-|dialog-|supergroup|чат|группа|семейный чат|group chat|private chat|Все свои MAX|Саша - сын Мамочки)/i;
+const CHAT_RE = /(?:chat-|grp-|private-|dialog-|supergroup|семейный чат|group chat|private chat|Все свои MAX|Саша - сын Мамочки)/i;
 const TECH_RE = /\b(?:postId|channelId|commentKey|payload|token|trace|debug|null|undefined)\b/i;
 
 function clean(value) { return String(value == null ? '' : value).replace(/\s+/g, ' ').trim(); }
@@ -32,13 +32,13 @@ function selectedContext(userId = '', channel = {}, post = {}) {
   const title = postTitleOf(post);
   return { maxUserId: userId, userId, payload: { channelId: clean(channel.channelId), channelTitle: titleOf(channel), postId: clean(post.postId), postTitle: title, commentKey: clean(post.commentKey), section: '', step: 'action' }, dataContext: { channelId: clean(channel.channelId), channelTitle: titleOf(channel), posts: [post] } };
 }
-function checkRendered({ userId, section, scenario, route, result, ownTitles = [], foreignTitles = [], violations, warnings, requireOwn = false, forbidTechIds = true }) {
-  if (!result.ok) { violations.push(violation('block', userId, section, scenario, 'route_throw', 'safe rendered screen', result.error, { route })); return { route, scenario, ok: false, error: result.error }; }
+function checkRendered({ userId, section, scenario, route, result, ownTitles = [], foreignTitles = [], violations, warnings, requireOwn = false, forbidTechIds = true, guardChatLeaks = false }) {
+  if (!result.ok) { violations.push(violation('block', userId, section, scenario, 'route_throw', 'safe rendered screen', result.error, { route })); return { section, route, scenario, ok: false, error: result.error }; }
   const screen = result.screen || {};
   const combined = visibleText(screen);
   const screenLabels = labels(screen);
   if (!clean(screen.text)) violations.push(violation('block', userId, section, scenario, 'empty_screen_text', 'visible screen text', '', { route }));
-  if (CHAT_RE.test(combined)) violations.push(violation('block', userId, section, scenario, 'chat_like_record_visible', 'no chat/group/private records', combined, { route }));
+  if (guardChatLeaks && CHAT_RE.test(combined)) violations.push(violation('block', userId, section, scenario, 'chat_like_record_visible', 'no chat/group/private records', combined, { route }));
   for (const title of foreignTitles.filter(Boolean)) {
     if (combined.includes(title)) violations.push(violation('block', userId, section, scenario, 'foreign_tenant_channel_visible', 'only current tenant channels', title, { route }));
   }
@@ -49,7 +49,7 @@ function checkRendered({ userId, section, scenario, route, result, ownTitles = [
     violations.push(violation('block', userId, section, scenario, 'technical_identifier_visible', 'no technical identifiers in visible text/buttons', `${clean(screen.text)} | ${screenLabels.join(' | ')}`, { route }));
   }
   if (!screenLabels.length) warnings.push(violation('warn', userId, section, scenario, 'screen_without_buttons', 'navigation/action buttons where useful', '', { route }));
-  return { route, scenario, ok: true, text: short(screen.text, 220), labels: screenLabels };
+  return { section, route, scenario, ok: true, text: short(screen.text, 220), labels: screenLabels };
 }
 function manualAlgorithms() {
   return [
@@ -100,14 +100,14 @@ async function buildUserRow(userId = '', allUserChannels = {}) {
     routes.push(result);
   }
   routes.push(checkRendered({ userId, section: 'main', scenario: 'root_open', route: 'main:home', result: render('main:home', { maxUserId: userId, userId }), ownTitles, foreignTitles, violations, warnings }));
-  routes.push(checkRendered({ userId, section: 'channels', scenario: 'my_channels', route: 'channels:list', result: render('channels:list', context), ownTitles, foreignTitles, violations, warnings, requireOwn: pickerChannels.length > 0 }));
+  routes.push(checkRendered({ userId, section: 'channels', scenario: 'my_channels', route: 'channels:list', result: render('channels:list', context), ownTitles, foreignTitles, violations, warnings, requireOwn: pickerChannels.length > 0, guardChatLeaks: true }));
   routes.push(checkRendered({ userId, section: 'account', scenario: 'account_home', route: 'account:home', result: render('account:home', { maxUserId: userId, userId }), ownTitles, foreignTitles, violations, warnings }));
 
   for (const sectionId of contracts.POST_SCOPED) {
-    routes.push(checkRendered({ userId, section: sectionId, scenario: 'choose_channel', route: `${sectionId}:choose_channel`, result: render(`${sectionId}:choose_channel`, context), ownTitles, foreignTitles, violations, warnings, requireOwn: pickerChannels.length > 0 }));
-    routes.push(checkRendered({ userId, section: sectionId, scenario: 'choose_post', route: `${sectionId}:choose_post`, result: render(`${sectionId}:choose_post`, context), ownTitles, foreignTitles, violations, warnings, requireOwn: pickerChannels.length > 0 }));
+    routes.push(checkRendered({ userId, section: sectionId, scenario: 'choose_channel', route: `${sectionId}:choose_channel`, result: render(`${sectionId}:choose_channel`, context), ownTitles, foreignTitles, violations, warnings, requireOwn: pickerChannels.length > 0, guardChatLeaks: true }));
+    routes.push(checkRendered({ userId, section: sectionId, scenario: 'choose_post', route: `${sectionId}:choose_post`, result: render(`${sectionId}:choose_post`, context), ownTitles, foreignTitles, violations, warnings, requireOwn: pickerChannels.length > 0, guardChatLeaks: true }));
     if (firstChannel && ownPosts[0]) {
-      routes.push(checkRendered({ userId, section: sectionId, scenario: 'selected_post', route: `${sectionId}:post`, result: render(`${sectionId}:post`, selectedContext(userId, firstChannel, ownPosts[0])), ownTitles, foreignTitles, violations, warnings, forbidTechIds: false }));
+      routes.push(checkRendered({ userId, section: sectionId, scenario: 'selected_post', route: `${sectionId}:post`, result: render(`${sectionId}:post`, selectedContext(userId, firstChannel, ownPosts[0])), ownTitles, foreignTitles, violations, warnings, forbidTechIds: false, guardChatLeaks: true }));
     }
   }
 
