@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "updatedAt": "2026-07-01T19:15:17.067Z",
+  "updatedAt": "2026-07-01T19:15:20.344Z",
   "limit": 100,
   "latestRuntimeIdentity": {
     "deployStartedAt": "2026-07-01T19:07:43.211Z",
@@ -113,10 +113,10 @@
         "attempted": true,
         "targetBranch": "runtime-status",
         "targetPath": "runtime/manual-ui-walkthrough-trace.json",
-        "ok": false,
-        "reasonCategory": "no_events",
-        "lastAttemptAt": "2026-07-01T19:15:16.527Z",
-        "lastSuccessAt": "",
+        "ok": true,
+        "reasonCategory": "",
+        "lastAttemptAt": "2026-07-01T19:15:19.452Z",
+        "lastSuccessAt": "2026-07-01T19:15:18.047Z",
         "errorMessage": "",
         "lastExportEventKind": "trace_export_attempted",
         "lastExportResultKind": "trace_export_attempted"
@@ -128,10 +128,10 @@
     "attempted": true,
     "targetBranch": "runtime-status",
     "targetPath": "runtime/manual-ui-walkthrough-trace.json",
-    "ok": false,
-    "reasonCategory": "no_events",
-    "lastAttemptAt": "2026-07-01T19:15:16.527Z",
-    "lastSuccessAt": "",
+    "ok": true,
+    "reasonCategory": "",
+    "lastAttemptAt": "2026-07-01T19:15:19.452Z",
+    "lastSuccessAt": "2026-07-01T19:15:18.047Z",
     "errorMessage": "",
     "lastExportEventKind": "trace_export_attempted",
     "lastExportResultKind": "trace_export_attempted"
