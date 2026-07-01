@@ -1,12 +1,13 @@
 {
   "ok": true,
-  "generatedAt": "2026-07-01T06:44:44.303Z",
+  "generatedAt": "2026-07-01T08:06:43.616Z",
   "bootId": "",
   "expectedFiles": [
     "runtime/full-section-matrix.json",
     "runtime/channel-target-matrix.json",
     "runtime/user-journey-matrix.json",
     "runtime/product-semantic-matrix.json",
+    "runtime/tenant-channel-binding-matrix.json",
     "runtime/process-events.json",
     "runtime/northflank-startup-log.json"
   ],
@@ -18,7 +19,7 @@
       "branch": "runtime-status",
       "path": "runtime/northflank-startup-log.json",
       "attempts": 1,
-      "durationMs": 10099
+      "durationMs": 9593
     },
     {
       "ok": true,
@@ -27,7 +28,7 @@
       "branch": "runtime-status",
       "path": "runtime/channel-target-matrix.json",
       "attempts": 1,
-      "durationMs": 3600
+      "durationMs": 4310
     },
     {
       "ok": true,
@@ -36,7 +37,7 @@
       "branch": "runtime-status",
       "path": "runtime/full-section-matrix.json",
       "attempts": 1,
-      "durationMs": 2804
+      "durationMs": 2699
     },
     {
       "ok": true,
@@ -45,7 +46,7 @@
       "branch": "runtime-status",
       "path": "runtime/user-journey-matrix.json",
       "attempts": 1,
-      "durationMs": 2898
+      "durationMs": 2001
     },
     {
       "ok": true,
@@ -54,7 +55,16 @@
       "branch": "runtime-status",
       "path": "runtime/product-semantic-matrix.json",
       "attempts": 1,
-      "durationMs": 3006
+      "durationMs": 2994
+    },
+    {
+      "ok": true,
+      "skipped": false,
+      "configured": true,
+      "branch": "runtime-status",
+      "path": "runtime/tenant-channel-binding-matrix.json",
+      "attempts": 1,
+      "durationMs": 8095
     },
     {
       "ok": true,
@@ -63,13 +73,13 @@
       "branch": "runtime-status",
       "path": "runtime/process-events.json",
       "attempts": 1,
-      "durationMs": 2498
+      "durationMs": 1174
     }
   ],
   "missingFiles": [],
   "summary": {
-    "expectedCount": 6,
-    "okCount": 6,
+    "expectedCount": 7,
+    "okCount": 7,
     "skippedCount": 0,
     "failedCount": 0,
     "missingCount": 0
