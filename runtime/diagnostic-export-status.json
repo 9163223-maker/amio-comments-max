@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-07-01T20:15:03.532Z",
+  "generatedAt": "2026-07-01T20:17:01.338Z",
   "bootId": "",
   "expectedFiles": [
     "runtime/full-section-matrix.json",
@@ -22,7 +22,7 @@
       "branch": "runtime-status",
       "path": "runtime/channel-target-matrix.json",
       "attempts": 1,
-      "durationMs": 8896
+      "durationMs": 10297
     },
     {
       "ok": true,
@@ -31,7 +31,7 @@
       "branch": "runtime-status",
       "path": "runtime/full-section-matrix.json",
       "attempts": 1,
-      "durationMs": 4804
+      "durationMs": 4505
     },
     {
       "ok": true,
@@ -40,7 +40,7 @@
       "branch": "runtime-status",
       "path": "runtime/user-journey-matrix.json",
       "attempts": 1,
-      "durationMs": 2299
+      "durationMs": 2691
     },
     {
       "ok": true,
@@ -49,7 +49,7 @@
       "branch": "runtime-status",
       "path": "runtime/product-semantic-matrix.json",
       "attempts": 1,
-      "durationMs": 2605
+      "durationMs": 2903
     },
     {
       "ok": true,
@@ -58,7 +58,7 @@
       "branch": "runtime-status",
       "path": "runtime/tenant-channel-binding-matrix.json",
       "attempts": 1,
-      "durationMs": 4794
+      "durationMs": 8601
     },
     {
       "ok": true,
@@ -67,7 +67,7 @@
       "branch": "runtime-status",
       "path": "runtime/maximal-flow-matrix.json",
       "attempts": 1,
-      "durationMs": 2896
+      "durationMs": 2392
     },
     {
       "ok": true,
@@ -76,7 +76,7 @@
       "branch": "runtime-status",
       "path": "runtime/live-tenant-self-diagnostic-matrix.json",
       "attempts": 1,
-      "durationMs": 1400
+      "durationMs": 1238
     },
     {
       "ok": true,
@@ -85,7 +85,7 @@
       "branch": "runtime-status",
       "path": "runtime/tenant-section-matrix.json",
       "attempts": 1,
-      "durationMs": 1531
+      "durationMs": 1218
     },
     {
       "ok": true,
@@ -94,7 +94,7 @@
       "branch": "runtime-status",
       "path": "runtime/process-events.json",
       "attempts": 1,
-      "durationMs": 2676
+      "durationMs": 1852
     },
     {
       "ok": true,
@@ -103,7 +103,7 @@
       "branch": "runtime-status",
       "path": "runtime/northflank-startup-log.json",
       "attempts": 1,
-      "durationMs": 1598
+      "durationMs": 1599
     }
   ],
   "missingFiles": [],
