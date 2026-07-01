@@ -1,0 +1,3032 @@
+{
+  "ok": true,
+  "generatedAt": "2026-07-01T06:44:15.598Z",
+  "sections": [
+    {
+      "section": "main",
+      "expectedRootMode": "dashboard",
+      "actualRootButtons": [
+        "Каналы",
+        "Комментарии",
+        "Подарки / лид-магниты",
+        "Кнопки под постами",
+        "Статистика",
+        "🔔 Уведомления",
+        "Рекламные ссылки",
+        "Опросы / голосования",
+        "Выделение постов",
+        "Редактор постов",
+        "Архив постов",
+        "Личный кабинет",
+        "Настройки"
+      ],
+      "expectedAllowedRootButtons": [
+        "Каналы",
+        "Комментарии",
+        "Подарки / лид-магниты",
+        "Кнопки под постами",
+        "Статистика",
+        "🔔 Уведомления",
+        "Рекламные ссылки",
+        "Опросы / голосования",
+        "Выделение постов",
+        "Редактор постов",
+        "Архив постов",
+        "Личный кабинет",
+        "Настройки"
+      ],
+      "unexpectedRootButtons": [],
+      "missingRequiredRootButtons": [],
+      "forbiddenButtonsVisible": [],
+      "productReady": true,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:main:home"
+      ],
+      "postScopedRouteCoverage": 0,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PASS"
+    },
+    {
+      "section": "channels",
+      "expectedRootMode": "section_actions",
+      "actualRootButtons": [
+        "Подключить канал",
+        "Мои каналы",
+        "Помощь",
+        "Главное меню"
+      ],
+      "expectedAllowedRootButtons": [
+        "Подключить канал",
+        "Мои каналы",
+        "Помощь",
+        "Главное меню"
+      ],
+      "unexpectedRootButtons": [],
+      "missingRequiredRootButtons": [],
+      "forbiddenButtonsVisible": [],
+      "productReady": true,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:channels:home"
+      ],
+      "postScopedRouteCoverage": 0,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PASS"
+    },
+    {
+      "section": "comments",
+      "expectedRootMode": "context_gate",
+      "actualRootButtons": [
+        "Автокомментарии",
+        "Включить к посту",
+        "Фото",
+        "Ответы",
+        "Реакции",
+        "Помощь",
+        "Главное меню"
+      ],
+      "expectedAllowedRootButtons": [
+        "Автокомментарии",
+        "Включить к посту",
+        "Фото",
+        "Ответы",
+        "Реакции",
+        "Помощь",
+        "Главное меню"
+      ],
+      "unexpectedRootButtons": [],
+      "missingRequiredRootButtons": [],
+      "forbiddenButtonsVisible": [],
+      "productReady": false,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:comments:home",
+        "zero_channels:comments:choose_channel",
+        "multiple_channels:comments:choose_channel",
+        "zero_posts:comments:choose_post",
+        "selected_post:comments:post"
+      ],
+      "postScopedRouteCoverage": 4,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PARTIAL"
+    },
+    {
+      "section": "gifts",
+      "expectedRootMode": "context_gate",
+      "actualRootButtons": [
+        "Выбрать пост",
+        "Все подарки",
+        "Помощь",
+        "Главное меню"
+      ],
+      "expectedAllowedRootButtons": [
+        "Выбрать пост",
+        "Все подарки",
+        "Помощь",
+        "Главное меню"
+      ],
+      "unexpectedRootButtons": [],
+      "missingRequiredRootButtons": [],
+      "forbiddenButtonsVisible": [],
+      "productReady": false,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:gifts:home",
+        "zero_channels:gifts:choose_channel",
+        "multiple_channels:gifts:choose_channel",
+        "zero_posts:gifts:choose_post",
+        "selected_post:gifts:post",
+        "all_gifts_account_scope:gifts:all"
+      ],
+      "postScopedRouteCoverage": 5,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PARTIAL"
+    },
+    {
+      "section": "buttons",
+      "expectedRootMode": "context_gate",
+      "actualRootButtons": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "expectedAllowedRootButtons": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "unexpectedRootButtons": [],
+      "missingRequiredRootButtons": [],
+      "forbiddenButtonsVisible": [],
+      "productReady": false,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:buttons:home",
+        "zero_channels:buttons:choose_channel",
+        "multiple_channels:buttons:choose_channel",
+        "zero_posts:buttons:choose_post",
+        "selected_post:buttons:post"
+      ],
+      "postScopedRouteCoverage": 4,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PARTIAL"
+    },
+    {
+      "section": "stats",
+      "expectedRootMode": "dashboard",
+      "actualRootButtons": [
+        "Обзор",
+        "По каналу",
+        "По посту",
+        "Рекламные ссылки",
+        "Источники",
+        "Обновить данные",
+        "Помощь",
+        "Главное меню"
+      ],
+      "expectedAllowedRootButtons": [
+        "Обзор",
+        "По каналу",
+        "По посту",
+        "Рекламные ссылки",
+        "Источники",
+        "Обновить данные",
+        "Помощь",
+        "Главное меню"
+      ],
+      "unexpectedRootButtons": [],
+      "missingRequiredRootButtons": [],
+      "forbiddenButtonsVisible": [],
+      "productReady": false,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:stats:home"
+      ],
+      "postScopedRouteCoverage": 0,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PARTIAL"
+    },
+    {
+      "section": "push",
+      "expectedRootMode": "section_actions",
+      "actualRootButtons": [
+        "Опубликовать приглашение",
+        "Как это работает",
+        "Главное меню"
+      ],
+      "expectedAllowedRootButtons": [
+        "Опубликовать приглашение",
+        "Как это работает",
+        "Главное меню"
+      ],
+      "unexpectedRootButtons": [],
+      "missingRequiredRootButtons": [],
+      "forbiddenButtonsVisible": [],
+      "productReady": true,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:push:home"
+      ],
+      "postScopedRouteCoverage": 0,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PASS"
+    },
+    {
+      "section": "ad_links",
+      "expectedRootMode": "section_actions",
+      "actualRootButtons": [
+        "Создать ссылку",
+        "Мои ссылки",
+        "Помощь",
+        "Главное меню"
+      ],
+      "expectedAllowedRootButtons": [
+        "Создать ссылку",
+        "Мои ссылки",
+        "Помощь",
+        "Главное меню"
+      ],
+      "unexpectedRootButtons": [],
+      "missingRequiredRootButtons": [],
+      "forbiddenButtonsVisible": [],
+      "productReady": false,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:ad_links:home"
+      ],
+      "postScopedRouteCoverage": 0,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PARTIAL"
+    },
+    {
+      "section": "polls",
+      "expectedRootMode": "context_gate",
+      "actualRootButtons": [
+        "Выбрать пост",
+        "Результаты опросов",
+        "Помощь",
+        "Главное меню"
+      ],
+      "expectedAllowedRootButtons": [
+        "Выбрать пост",
+        "Результаты опросов",
+        "Помощь",
+        "Главное меню"
+      ],
+      "unexpectedRootButtons": [],
+      "missingRequiredRootButtons": [],
+      "forbiddenButtonsVisible": [],
+      "productReady": false,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:polls:home",
+        "zero_channels:polls:choose_channel",
+        "multiple_channels:polls:choose_channel",
+        "zero_posts:polls:choose_post",
+        "selected_post:polls:post"
+      ],
+      "postScopedRouteCoverage": 4,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PARTIAL"
+    },
+    {
+      "section": "highlights",
+      "expectedRootMode": "context_gate",
+      "actualRootButtons": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "expectedAllowedRootButtons": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "unexpectedRootButtons": [],
+      "missingRequiredRootButtons": [],
+      "forbiddenButtonsVisible": [],
+      "productReady": false,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:highlights:home",
+        "zero_channels:highlights:choose_channel",
+        "multiple_channels:highlights:choose_channel",
+        "zero_posts:highlights:choose_post",
+        "selected_post:highlights:post"
+      ],
+      "postScopedRouteCoverage": 4,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PARTIAL"
+    },
+    {
+      "section": "editor",
+      "expectedRootMode": "context_gate",
+      "actualRootButtons": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "expectedAllowedRootButtons": [
+        "Выбрать пост",
+        "Помощь",
+        "Главное меню"
+      ],
+      "unexpectedRootButtons": [],
+      "missingRequiredRootButtons": [],
+      "forbiddenButtonsVisible": [],
+      "productReady": false,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:editor:home",
+        "zero_channels:editor:choose_channel",
+        "multiple_channels:editor:choose_channel",
+        "zero_posts:editor:choose_post",
+        "selected_post:editor:post"
+      ],
+      "postScopedRouteCoverage": 4,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PARTIAL"
+    },
+    {
+      "section": "archive",
+      "expectedRootMode": "section_actions",
+      "actualRootButtons": [
+        "Сохранённые посты",
+        "Лимиты хранения",
+        "Помощь",
+        "Главное меню"
+      ],
+      "expectedAllowedRootButtons": [
+        "Сохранённые посты",
+        "Лимиты хранения",
+        "Помощь",
+        "Главное меню"
+      ],
+      "unexpectedRootButtons": [],
+      "missingRequiredRootButtons": [],
+      "forbiddenButtonsVisible": [],
+      "productReady": false,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:archive:home"
+      ],
+      "postScopedRouteCoverage": 0,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PARTIAL"
+    },
+    {
+      "section": "account",
+      "expectedRootMode": "account_panel",
+      "actualRootButtons": [
+        "🔔 Мои уведомления",
+        "➕ Подключить чат",
+        "Помощь",
+        "Что умеет АдминКИТ для MAX",
+        "Помощь",
+        "Главное меню"
+      ],
+      "expectedAllowedRootButtons": [
+        "Мой доступ",
+        "Активировать код",
+        "Оплата / продление",
+        "Лимиты и функции",
+        "Мои каналы",
+        "Поддержка",
+        "Главное меню"
+      ],
+      "unexpectedRootButtons": [
+        "🔔 Мои уведомления",
+        "➕ Подключить чат",
+        "Помощь",
+        "Что умеет АдминКИТ для MAX",
+        "Помощь"
+      ],
+      "missingRequiredRootButtons": [
+        "Мой доступ",
+        "Активировать код",
+        "Оплата / продление",
+        "Лимиты и функции",
+        "Мои каналы",
+        "Поддержка"
+      ],
+      "forbiddenButtonsVisible": [],
+      "productReady": true,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:account:home"
+      ],
+      "postScopedRouteCoverage": 0,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PASS"
+    },
+    {
+      "section": "settings",
+      "expectedRootMode": "section_actions",
+      "actualRootButtons": [
+        "Очистить чат",
+        "Privacy / Terms",
+        "Помощь",
+        "Главное меню"
+      ],
+      "expectedAllowedRootButtons": [
+        "Очистить чат",
+        "Privacy / Terms",
+        "Помощь",
+        "Главное меню"
+      ],
+      "unexpectedRootButtons": [],
+      "missingRequiredRootButtons": [],
+      "forbiddenButtonsVisible": [],
+      "productReady": false,
+      "lifecycleCovered": true,
+      "routesCovered": [
+        "root:settings:home"
+      ],
+      "postScopedRouteCoverage": 0,
+      "deadEndRisk": false,
+      "duplicateTextRisk": false,
+      "placeholderAsPassRisk": false,
+      "menuMultiplicationRisk": false,
+      "classification": "PARTIAL"
+    }
+  ],
+  "routeCoverage": [
+    {
+      "section": "main",
+      "routes": [
+        {
+          "route": "main:home",
+          "scenario": "root",
+          "text": "🐋 АдминКИТ Панель управления MAX-каналом. Выберите раздел.",
+          "buttons": [
+            "Каналы",
+            "Комментарии",
+            "Подарки / лид-магниты",
+            "Кнопки под постами",
+            "Статистика",
+            "🔔 Уведомления",
+            "Рекламные ссылки",
+            "Опросы / голосования",
+            "Выделение постов",
+            "Редактор постов",
+            "Архив постов",
+            "Личный кабинет",
+            "Настройки"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:home\",\"action\":\"channels:home\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"stats:home\",\"action\":\"stats:home\"}",
+            "{\"route\":\"push:home\",\"action\":\"push:home\"}",
+            "{\"route\":\"ad_links:home\",\"action\":\"ad_links:home\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"archive:home\",\"action\":\"archive:home\"}",
+            "{\"route\":\"account:home\",\"action\":\"account:home\"}",
+            "{\"route\":\"settings:home\",\"action\":\"settings:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "channels",
+      "routes": [
+        {
+          "route": "channels:home",
+          "scenario": "root",
+          "text": "Каналы Подключите канал, чтобы управлять комментариями, подарками, кнопками и статистикой через АдминКИТ.",
+          "buttons": [
+            "Подключить канал",
+            "Мои каналы",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"channels:list\",\"action\":\"channels:list\"}",
+            "{\"route\":\"channels:help\",\"action\":\"channels:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "comments",
+      "routes": [
+        {
+          "route": "comments:home",
+          "scenario": "root",
+          "text": "Комментарии Настройте комментарии в каналах: автоматически для новых постов или вручную для нужной публикации. Пост не выбран. Сначала выберите канал, затем пост.",
+          "buttons": [
+            "Автокомментарии",
+            "Включить к посту",
+            "Фото",
+            "Ответы",
+            "Реакции",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"comments.auto_comments\",\"section\":\"comments\",\"action\":\"comments_auto_patch\"}",
+            "{\"source\":\"comments_manual\",\"canonicalAction\":\"comments.manual_enable\",\"section\":\"comments\",\"action\":\"comments_select_post\"}",
+            "{\"source\":\"comments_photos\",\"canonicalAction\":\"comments.photo\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+            "{\"source\":\"comments_replies\",\"canonicalAction\":\"comments.replies\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+            "{\"source\":\"comments_reactions\",\"canonicalAction\":\"comments.reactions\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+            "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "comments:choose_channel",
+          "scenario": "zero_channels",
+          "text": "Комментарии У вас пока нет подключённых каналов.",
+          "buttons": [
+            "Подключить канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "comments:choose_channel",
+          "scenario": "multiple_channels",
+          "text": "Комментарии Выберите канал",
+          "buttons": [
+            "Семантический канал",
+            "Второй канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"section\":\"comments\",\"step\":\"post\",\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"backRoute\":\"comments:choose_channel\",\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+            "{\"section\":\"comments\",\"step\":\"post\",\"channelId\":\"semantic-channel-2\",\"channelTitle\":\"Второй канал\",\"backRoute\":\"comments:choose_channel\",\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "comments:choose_post",
+          "scenario": "zero_posts",
+          "text": "Комментарии Постов пока нет",
+          "buttons": [
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"comments:choose_channel\",\"action\":\"comments:choose_channel\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "comments:post",
+          "scenario": "selected_post",
+          "text": "Комментарии Пост: Семантический пост Выберите действие.",
+          "buttons": [
+            "Включить",
+            "Фото",
+            "Ответы",
+            "Реакции",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"source\":\"comments_manual_confirmation\",\"action\":\"comments_manual_patch\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"route\":\"comments:photos\",\"action\":\"comments:photos\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"route\":\"comments:replies\",\"action\":\"comments:replies\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"route\":\"comments:reactions\",\"action\":\"comments:reactions\"}",
+            "{\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "gifts",
+      "routes": [
+        {
+          "route": "gifts:home",
+          "scenario": "root",
+          "text": "Подарки / лид-магниты Подарок создаётся для конкретного поста канала.",
+          "buttons": [
+            "Выбрать пост",
+            "Все подарки",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"gifts.choose_post\",\"section\":\"gifts\",\"route\":\"gifts:choose_channel\",\"action\":\"gifts:choose_channel\"}",
+            "{\"canonicalAction\":\"gifts.all\",\"section\":\"gifts\",\"route\":\"gifts:all\",\"action\":\"gifts:all\"}",
+            "{\"route\":\"gifts:help\",\"action\":\"gifts:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "gifts:choose_channel",
+          "scenario": "zero_channels",
+          "text": "Подарки / лид-магниты Чтобы создать подарок, сначала подключите канал. Подарок привязывается к посту канала.",
+          "buttons": [
+            "Подключить канал",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "gifts:choose_channel",
+          "scenario": "multiple_channels",
+          "text": "Подарки / лид-магниты Выберите канал",
+          "buttons": [
+            "Семантический канал",
+            "Второй канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"section\":\"gifts\",\"step\":\"post\",\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"backRoute\":\"gifts:choose_channel\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+            "{\"section\":\"gifts\",\"step\":\"post\",\"channelId\":\"semantic-channel-2\",\"channelTitle\":\"Второй канал\",\"backRoute\":\"gifts:choose_channel\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+            "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+            "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+            "{\"route\":\"gifts:help\",\"action\":\"gifts:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "gifts:choose_post",
+          "scenario": "zero_posts",
+          "text": "Подарки / лид-магниты Пока нет сохранённых постов. Сначала перешлите или синхронизируйте пост канала.",
+          "buttons": [
+            "Обновить посты",
+            "К списку каналов",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelTitle\":\"Семантический канал\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+            "{\"route\":\"gifts:choose_channel\",\"action\":\"gifts:choose_channel\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "gifts:post",
+          "scenario": "selected_post",
+          "text": "Подарок для поста Канал: Семантический канал Пост: Семантический пост Подарок ещё не создан.",
+          "buttons": [
+            "Создать подарок",
+            "К выбору поста",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"action\":\"gift_admin_start_create\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "gifts:all",
+          "scenario": "all_gifts_account_scope",
+          "text": "Все подарки в аккаунте Пока нет подарков. Создайте подарок для конкретного поста.",
+          "buttons": [
+            "Выбрать пост",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"gifts:choose_channel\",\"action\":\"gifts:choose_channel\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "buttons",
+      "routes": [
+        {
+          "route": "buttons:home",
+          "scenario": "root",
+          "text": "Кнопки под постами Добавляйте и проверяйте кнопки под выбранными постами канала.",
+          "buttons": [
+            "Выбрать пост",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"buttons.choose_post\",\"section\":\"buttons\",\"route\":\"buttons:choose_channel\",\"action\":\"buttons:choose_channel\"}",
+            "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "buttons:choose_channel",
+          "scenario": "zero_channels",
+          "text": "Кнопки под постами У вас пока нет подключённых каналов.",
+          "buttons": [
+            "Подключить канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "buttons:choose_channel",
+          "scenario": "multiple_channels",
+          "text": "Кнопки под постами Выберите канал",
+          "buttons": [
+            "Семантический канал",
+            "Второй канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"section\":\"buttons\",\"step\":\"post\",\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"backRoute\":\"buttons:choose_channel\",\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+            "{\"section\":\"buttons\",\"step\":\"post\",\"channelId\":\"semantic-channel-2\",\"channelTitle\":\"Второй канал\",\"backRoute\":\"buttons:choose_channel\",\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "buttons:choose_post",
+          "scenario": "zero_posts",
+          "text": "Кнопки под постами Постов пока нет",
+          "buttons": [
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"buttons:choose_channel\",\"action\":\"buttons:choose_channel\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "buttons:post",
+          "scenario": "selected_post",
+          "text": "Кнопки под постами Пост: Семантический пост Выберите действие.",
+          "buttons": [
+            "Добавить кнопку",
+            "Текущие кнопки",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"action\":\"button_admin_start_add\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"action\":\"button_admin_show_current\"}",
+            "{\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "stats",
+      "routes": [
+        {
+          "route": "stats:home",
+          "scenario": "root",
+          "text": "Статистика Откройте нужное действие в этом разделе.",
+          "buttons": [
+            "Обзор",
+            "По каналу",
+            "По посту",
+            "Рекламные ссылки",
+            "Источники",
+            "Обновить данные",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"stats.overview\",\"section\":\"stats\",\"action\":\"admin_stats_overview_cache\"}",
+            "{\"canonicalAction\":\"stats.channel\",\"section\":\"stats\",\"action\":\"admin_stats_channel\"}",
+            "{\"canonicalAction\":\"stats.post\",\"section\":\"stats\",\"action\":\"admin_stats_post\"}",
+            "{\"canonicalAction\":\"stats.ad_links\",\"section\":\"stats\",\"action\":\"admin_stats_campaigns\"}",
+            "{\"canonicalAction\":\"stats.sources\",\"section\":\"stats\",\"action\":\"admin_stats_sources_cache\"}",
+            "{\"canonicalAction\":\"stats.refresh\",\"section\":\"stats\",\"action\":\"admin_stats_refresh\"}",
+            "{\"route\":\"stats:help\",\"action\":\"stats:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "push",
+      "routes": [
+        {
+          "route": "push:home",
+          "scenario": "root",
+          "text": "🔔 Уведомления MAX Опубликуйте кнопку подключения в нужном MAX-чате или канале. Участник нажмёт кнопку, а бот отправит ему персональную ссылку в личные сообщения.",
+          "buttons": [
+            "Опубликовать приглашение",
+            "Как это работает",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"admin_push_select_chat\",\"action\":\"admin_push_select_chat\"}",
+            "{\"route\":\"admin_push_help\",\"action\":\"admin_push_help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "ad_links",
+      "routes": [
+        {
+          "route": "ad_links:home",
+          "scenario": "root",
+          "text": "Рекламные ссылки Создавайте рекламные ссылки и открывайте список уже созданных ссылок.",
+          "buttons": [
+            "Создать ссылку",
+            "Мои ссылки",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"ad_links.create\",\"section\":\"ad_links\",\"action\":\"admin_stats_campaign_create\"}",
+            "{\"canonicalAction\":\"ad_links.mine\",\"section\":\"ad_links\",\"action\":\"admin_stats_campaigns\"}",
+            "{\"route\":\"ad_links:help\",\"action\":\"ad_links:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "polls",
+      "routes": [
+        {
+          "route": "polls:home",
+          "scenario": "root",
+          "text": "Опросы / голосования Создавайте опросы к постам канала и смотрите результаты.",
+          "buttons": [
+            "Выбрать пост",
+            "Результаты опросов",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"source\":\"polls\",\"legacyAction\":\"comments_select_post\",\"canonicalAction\":\"polls.choose_post\",\"section\":\"polls\",\"route\":\"polls:choose_channel\",\"action\":\"polls:choose_channel\"}",
+            "{\"legacyAction\":\"poll_status\",\"canonicalAction\":\"polls.results\",\"section\":\"polls\",\"route\":\"polls:results\",\"action\":\"polls:results\"}",
+            "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "polls:choose_channel",
+          "scenario": "zero_channels",
+          "text": "Опросы / голосования У вас пока нет подключённых каналов.",
+          "buttons": [
+            "Подключить канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "polls:choose_channel",
+          "scenario": "multiple_channels",
+          "text": "Опросы / голосования Выберите канал",
+          "buttons": [
+            "Семантический канал",
+            "Второй канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"section\":\"polls\",\"step\":\"post\",\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"backRoute\":\"polls:choose_channel\",\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+            "{\"section\":\"polls\",\"step\":\"post\",\"channelId\":\"semantic-channel-2\",\"channelTitle\":\"Второй канал\",\"backRoute\":\"polls:choose_channel\",\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "polls:choose_post",
+          "scenario": "zero_posts",
+          "text": "Опросы / голосования Постов пока нет",
+          "buttons": [
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"polls:choose_channel\",\"action\":\"polls:choose_channel\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "polls:post",
+          "scenario": "selected_post",
+          "text": "Опросы / голосования Пост: Семантический пост Выберите действие.",
+          "buttons": [
+            "Создать опрос",
+            "Результаты",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"action\":\"poll_create\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"action\":\"poll_status\"}",
+            "{\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "highlights",
+      "routes": [
+        {
+          "route": "highlights:home",
+          "scenario": "root",
+          "text": "Выделение постов Ставьте и снимайте метки у важных постов канала.",
+          "buttons": [
+            "Выбрать пост",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"source\":\"highlights\",\"canonicalAction\":\"highlights.choose_post\",\"section\":\"highlights\",\"route\":\"highlights:choose_channel\",\"action\":\"highlights:choose_channel\"}",
+            "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "highlights:choose_channel",
+          "scenario": "zero_channels",
+          "text": "Выделение постов У вас пока нет подключённых каналов.",
+          "buttons": [
+            "Подключить канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "highlights:choose_channel",
+          "scenario": "multiple_channels",
+          "text": "Выделение постов Выберите канал",
+          "buttons": [
+            "Семантический канал",
+            "Второй канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"section\":\"highlights\",\"step\":\"post\",\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"backRoute\":\"highlights:choose_channel\",\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+            "{\"section\":\"highlights\",\"step\":\"post\",\"channelId\":\"semantic-channel-2\",\"channelTitle\":\"Второй канал\",\"backRoute\":\"highlights:choose_channel\",\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "highlights:choose_post",
+          "scenario": "zero_posts",
+          "text": "Выделение постов Постов пока нет",
+          "buttons": [
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"highlights:choose_channel\",\"action\":\"highlights:choose_channel\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "highlights:post",
+          "scenario": "selected_post",
+          "text": "Выделение постов Пост: Семантический пост Выберите действие.",
+          "buttons": [
+            "Применить",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"source\":\"highlight_card\",\"action\":\"highlight_apply\"}",
+            "{\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "editor",
+      "routes": [
+        {
+          "route": "editor:home",
+          "scenario": "root",
+          "text": "Редактор постов Выберите пост канала, чтобы безопасно подготовить изменение текста.",
+          "buttons": [
+            "Выбрать пост",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"editor.change_text\",\"section\":\"editor\",\"action\":\"admin_posts_picker\"}",
+            "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "editor:choose_channel",
+          "scenario": "zero_channels",
+          "text": "Редактор постов У вас пока нет подключённых каналов.",
+          "buttons": [
+            "Подключить канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "editor:choose_channel",
+          "scenario": "multiple_channels",
+          "text": "Редактор постов Выберите канал",
+          "buttons": [
+            "Семантический канал",
+            "Второй канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"section\":\"editor\",\"step\":\"post\",\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"backRoute\":\"editor:choose_channel\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+            "{\"section\":\"editor\",\"step\":\"post\",\"channelId\":\"semantic-channel-2\",\"channelTitle\":\"Второй канал\",\"backRoute\":\"editor:choose_channel\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "editor:choose_post",
+          "scenario": "zero_posts",
+          "text": "Редактор постов Постов пока нет",
+          "buttons": [
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"editor:choose_channel\",\"action\":\"editor:choose_channel\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "editor:post",
+          "scenario": "selected_post",
+          "text": "Редактор постов Пост: Семантический пост Выберите действие.",
+          "buttons": [
+            "Изменить текст выбранного поста",
+            "Выбрать другой пост",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"action\":\"admin_posts_edit_text\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+            "{\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "archive",
+      "routes": [
+        {
+          "route": "archive:home",
+          "scenario": "root",
+          "text": "Архив постов Открывайте сохранённые посты, снимки и лимиты хранения.",
+          "buttons": [
+            "Сохранённые посты",
+            "Лимиты хранения",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"offset\":0,\"canonicalAction\":\"archive.saved_posts\",\"section\":\"archive\",\"action\":\"archive_list\"}",
+            "{\"canonicalAction\":\"archive.storage_limits\",\"section\":\"archive\",\"action\":\"archive_limits\"}",
+            "{\"route\":\"archive:help\",\"action\":\"archive:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "account",
+      "routes": [
+        {
+          "route": "account:home",
+          "scenario": "root",
+          "text": "АдминКИТ Здесь можно подключить уведомления для MAX-чатов и узнать, что умеет АдминКИТ для MAX.",
+          "buttons": [
+            "🔔 Мои уведомления",
+            "➕ Подключить чат",
+            "Помощь",
+            "Что умеет АдминКИТ для MAX",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"action\":\"account_push_notifications\"}",
+            "{\"action\":\"account_push_notifications_help\"}",
+            "{\"action\":\"account_support\"}",
+            "{\"action\":\"account_capabilities\"}",
+            "{\"route\":\"account:help\",\"action\":\"account:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "settings",
+      "routes": [
+        {
+          "route": "settings:home",
+          "scenario": "root",
+          "text": "Настройки Настройки интерфейса, документов и безопасных действий в чате.",
+          "buttons": [
+            "Очистить чат",
+            "Privacy / Terms",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"settings.clear_chat\",\"section\":\"settings\",\"route\":\"settings:clear_chat\",\"action\":\"settings:clear_chat\"}",
+            "{\"canonicalAction\":\"settings.privacy_terms\",\"section\":\"settings\",\"route\":\"settings:privacy_terms\",\"action\":\"settings:privacy_terms\"}",
+            "{\"route\":\"settings:help\",\"action\":\"settings:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "sectionCount": 14,
+    "pass": 4,
+    "partial": 10,
+    "block": 0,
+    "blockCount": 0,
+    "warnCount": 20,
+    "postScopedSectionsChecked": 6,
+    "table": [
+      {
+        "section": "main",
+        "classification": "PASS",
+        "productReady": true,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:main:home"
+        ]
+      },
+      {
+        "section": "channels",
+        "classification": "PASS",
+        "productReady": true,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:channels:home"
+        ]
+      },
+      {
+        "section": "comments",
+        "classification": "PARTIAL",
+        "productReady": false,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:comments:home",
+          "zero_channels:comments:choose_channel",
+          "multiple_channels:comments:choose_channel",
+          "zero_posts:comments:choose_post",
+          "selected_post:comments:post"
+        ]
+      },
+      {
+        "section": "gifts",
+        "classification": "PARTIAL",
+        "productReady": false,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:gifts:home",
+          "zero_channels:gifts:choose_channel",
+          "multiple_channels:gifts:choose_channel",
+          "zero_posts:gifts:choose_post",
+          "selected_post:gifts:post",
+          "all_gifts_account_scope:gifts:all"
+        ]
+      },
+      {
+        "section": "buttons",
+        "classification": "PARTIAL",
+        "productReady": false,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:buttons:home",
+          "zero_channels:buttons:choose_channel",
+          "multiple_channels:buttons:choose_channel",
+          "zero_posts:buttons:choose_post",
+          "selected_post:buttons:post"
+        ]
+      },
+      {
+        "section": "stats",
+        "classification": "PARTIAL",
+        "productReady": false,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:stats:home"
+        ]
+      },
+      {
+        "section": "push",
+        "classification": "PASS",
+        "productReady": true,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:push:home"
+        ]
+      },
+      {
+        "section": "ad_links",
+        "classification": "PARTIAL",
+        "productReady": false,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:ad_links:home"
+        ]
+      },
+      {
+        "section": "polls",
+        "classification": "PARTIAL",
+        "productReady": false,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:polls:home",
+          "zero_channels:polls:choose_channel",
+          "multiple_channels:polls:choose_channel",
+          "zero_posts:polls:choose_post",
+          "selected_post:polls:post"
+        ]
+      },
+      {
+        "section": "highlights",
+        "classification": "PARTIAL",
+        "productReady": false,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:highlights:home",
+          "zero_channels:highlights:choose_channel",
+          "multiple_channels:highlights:choose_channel",
+          "zero_posts:highlights:choose_post",
+          "selected_post:highlights:post"
+        ]
+      },
+      {
+        "section": "editor",
+        "classification": "PARTIAL",
+        "productReady": false,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:editor:home",
+          "zero_channels:editor:choose_channel",
+          "multiple_channels:editor:choose_channel",
+          "zero_posts:editor:choose_post",
+          "selected_post:editor:post"
+        ]
+      },
+      {
+        "section": "archive",
+        "classification": "PARTIAL",
+        "productReady": false,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:archive:home"
+        ]
+      },
+      {
+        "section": "account",
+        "classification": "PASS",
+        "productReady": true,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:account:home"
+        ]
+      },
+      {
+        "section": "settings",
+        "classification": "PARTIAL",
+        "productReady": false,
+        "lifecycleCovered": true,
+        "routesCovered": [
+          "root:settings:home"
+        ]
+      }
+    ]
+  },
+  "violations": [
+    {
+      "severity": "warn",
+      "section": "comments",
+      "route": "comments:home",
+      "scenario": "readiness",
+      "reason": "client_visible_product_ready_false",
+      "expected": "Either complete lifecycle or mark visible partial honestly",
+      "actual": "productReady false"
+    },
+    {
+      "severity": "warn",
+      "section": "comments",
+      "route": "comments:home",
+      "scenario": "root_help",
+      "reason": "help_visible_root_may_duplicate_docs",
+      "expected": "Help only when useful and non-duplicated",
+      "actual": "Помощь"
+    },
+    {
+      "severity": "warn",
+      "section": "gifts",
+      "route": "gifts:home",
+      "scenario": "readiness",
+      "reason": "client_visible_product_ready_false",
+      "expected": "Either complete lifecycle or mark visible partial honestly",
+      "actual": "productReady false"
+    },
+    {
+      "severity": "warn",
+      "section": "buttons",
+      "route": "buttons:home",
+      "scenario": "readiness",
+      "reason": "client_visible_product_ready_false",
+      "expected": "Either complete lifecycle or mark visible partial honestly",
+      "actual": "productReady false"
+    },
+    {
+      "severity": "warn",
+      "section": "buttons",
+      "route": "buttons:home",
+      "scenario": "root_help",
+      "reason": "help_visible_root_may_duplicate_docs",
+      "expected": "Help only when useful and non-duplicated",
+      "actual": "Помощь"
+    },
+    {
+      "severity": "warn",
+      "section": "stats",
+      "route": "stats:home",
+      "scenario": "readiness",
+      "reason": "client_visible_product_ready_false",
+      "expected": "Either complete lifecycle or mark visible partial honestly",
+      "actual": "productReady false"
+    },
+    {
+      "severity": "warn",
+      "section": "stats",
+      "route": "stats:home",
+      "scenario": "root_help",
+      "reason": "help_visible_root_may_duplicate_docs",
+      "expected": "Help only when useful and non-duplicated",
+      "actual": "Помощь"
+    },
+    {
+      "severity": "warn",
+      "section": "ad_links",
+      "route": "ad_links:home",
+      "scenario": "readiness",
+      "reason": "client_visible_product_ready_false",
+      "expected": "Either complete lifecycle or mark visible partial honestly",
+      "actual": "productReady false"
+    },
+    {
+      "severity": "warn",
+      "section": "ad_links",
+      "route": "ad_links:home",
+      "scenario": "root_help",
+      "reason": "help_visible_root_may_duplicate_docs",
+      "expected": "Help only when useful and non-duplicated",
+      "actual": "Помощь"
+    },
+    {
+      "severity": "warn",
+      "section": "polls",
+      "route": "polls:home",
+      "scenario": "readiness",
+      "reason": "client_visible_product_ready_false",
+      "expected": "Either complete lifecycle or mark visible partial honestly",
+      "actual": "productReady false"
+    },
+    {
+      "severity": "warn",
+      "section": "polls",
+      "route": "polls:home",
+      "scenario": "root_help",
+      "reason": "help_visible_root_may_duplicate_docs",
+      "expected": "Help only when useful and non-duplicated",
+      "actual": "Помощь"
+    },
+    {
+      "severity": "warn",
+      "section": "highlights",
+      "route": "highlights:home",
+      "scenario": "readiness",
+      "reason": "client_visible_product_ready_false",
+      "expected": "Either complete lifecycle or mark visible partial honestly",
+      "actual": "productReady false"
+    },
+    {
+      "severity": "warn",
+      "section": "highlights",
+      "route": "highlights:home",
+      "scenario": "root_help",
+      "reason": "help_visible_root_may_duplicate_docs",
+      "expected": "Help only when useful and non-duplicated",
+      "actual": "Помощь"
+    },
+    {
+      "severity": "warn",
+      "section": "editor",
+      "route": "editor:home",
+      "scenario": "readiness",
+      "reason": "client_visible_product_ready_false",
+      "expected": "Either complete lifecycle or mark visible partial honestly",
+      "actual": "productReady false"
+    },
+    {
+      "severity": "warn",
+      "section": "editor",
+      "route": "editor:home",
+      "scenario": "root_help",
+      "reason": "help_visible_root_may_duplicate_docs",
+      "expected": "Help only when useful and non-duplicated",
+      "actual": "Помощь"
+    },
+    {
+      "severity": "warn",
+      "section": "archive",
+      "route": "archive:home",
+      "scenario": "readiness",
+      "reason": "client_visible_product_ready_false",
+      "expected": "Either complete lifecycle or mark visible partial honestly",
+      "actual": "productReady false"
+    },
+    {
+      "severity": "warn",
+      "section": "archive",
+      "route": "archive:home",
+      "scenario": "root_help",
+      "reason": "help_visible_root_may_duplicate_docs",
+      "expected": "Help only when useful and non-duplicated",
+      "actual": "Помощь"
+    },
+    {
+      "severity": "warn",
+      "section": "account",
+      "route": "account:home",
+      "scenario": "root_help",
+      "reason": "help_visible_root_may_duplicate_docs",
+      "expected": "Help only when useful and non-duplicated",
+      "actual": "Помощь"
+    },
+    {
+      "severity": "warn",
+      "section": "settings",
+      "route": "settings:home",
+      "scenario": "readiness",
+      "reason": "client_visible_product_ready_false",
+      "expected": "Either complete lifecycle or mark visible partial honestly",
+      "actual": "productReady false"
+    },
+    {
+      "severity": "warn",
+      "section": "settings",
+      "route": "settings:home",
+      "scenario": "root_help",
+      "reason": "help_visible_root_may_duplicate_docs",
+      "expected": "Help only when useful and non-duplicated",
+      "actual": "Помощь"
+    }
+  ],
+  "actualVsExpected": [
+    {
+      "section": "main",
+      "route": "main:home",
+      "expected": {
+        "rootMode": "dashboard",
+        "buttons": [
+          "Каналы",
+          "Комментарии",
+          "Подарки / лид-магниты",
+          "Кнопки под постами",
+          "Статистика",
+          "🔔 Уведомления",
+          "Рекламные ссылки",
+          "Опросы / голосования",
+          "Выделение постов",
+          "Редактор постов",
+          "Архив постов",
+          "Личный кабинет",
+          "Настройки"
+        ],
+        "requiredContext": "none",
+        "states": {
+          "zero_channels": "Show useful empty state and recovery action.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work."
+        }
+      },
+      "actual": {
+        "text": "🐋 АдминКИТ Панель управления MAX-каналом. Выберите раздел.",
+        "buttons": [
+          "Каналы",
+          "Комментарии",
+          "Подарки / лид-магниты",
+          "Кнопки под постами",
+          "Статистика",
+          "🔔 Уведомления",
+          "Рекламные ссылки",
+          "Опросы / голосования",
+          "Выделение постов",
+          "Редактор постов",
+          "Архив постов",
+          "Личный кабинет",
+          "Настройки"
+        ],
+        "payloads": [
+          "{\"route\":\"channels:home\",\"action\":\"channels:home\"}",
+          "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+          "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+          "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+          "{\"route\":\"stats:home\",\"action\":\"stats:home\"}",
+          "{\"route\":\"push:home\",\"action\":\"push:home\"}",
+          "{\"route\":\"ad_links:home\",\"action\":\"ad_links:home\"}",
+          "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+          "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+          "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+          "{\"route\":\"archive:home\",\"action\":\"archive:home\"}",
+          "{\"route\":\"account:home\",\"action\":\"account:home\"}",
+          "{\"route\":\"settings:home\",\"action\":\"settings:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "main:home",
+          "scenario": "root",
+          "text": "🐋 АдминКИТ Панель управления MAX-каналом. Выберите раздел.",
+          "buttons": [
+            "Каналы",
+            "Комментарии",
+            "Подарки / лид-магниты",
+            "Кнопки под постами",
+            "Статистика",
+            "🔔 Уведомления",
+            "Рекламные ссылки",
+            "Опросы / голосования",
+            "Выделение постов",
+            "Редактор постов",
+            "Архив постов",
+            "Личный кабинет",
+            "Настройки"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:home\",\"action\":\"channels:home\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"stats:home\",\"action\":\"stats:home\"}",
+            "{\"route\":\"push:home\",\"action\":\"push:home\"}",
+            "{\"route\":\"ad_links:home\",\"action\":\"ad_links:home\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"archive:home\",\"action\":\"archive:home\"}",
+            "{\"route\":\"account:home\",\"action\":\"account:home\"}",
+            "{\"route\":\"settings:home\",\"action\":\"settings:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "channels",
+      "route": "channels:home",
+      "expected": {
+        "rootMode": "section_actions",
+        "buttons": [
+          "Подключить канал",
+          "Мои каналы",
+          "Помощь",
+          "Главное меню"
+        ],
+        "requiredContext": "none",
+        "states": {
+          "zero_channels": "Invite admin to connect a channel.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work.",
+          "selected_channel": "Show status/card for the selected real channel only."
+        }
+      },
+      "actual": {
+        "text": "Каналы Подключите канал, чтобы управлять комментариями, подарками, кнопками и статистикой через АдминКИТ.",
+        "buttons": [
+          "Подключить канал",
+          "Мои каналы",
+          "Помощь",
+          "Главное меню"
+        ],
+        "payloads": [
+          "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+          "{\"route\":\"channels:list\",\"action\":\"channels:list\"}",
+          "{\"route\":\"channels:help\",\"action\":\"channels:help\"}",
+          "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "channels:home",
+          "scenario": "root",
+          "text": "Каналы Подключите канал, чтобы управлять комментариями, подарками, кнопками и статистикой через АдминКИТ.",
+          "buttons": [
+            "Подключить канал",
+            "Мои каналы",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"channels:list\",\"action\":\"channels:list\"}",
+            "{\"route\":\"channels:help\",\"action\":\"channels:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "comments",
+      "route": "comments:home",
+      "expected": {
+        "rootMode": "context_gate",
+        "buttons": [
+          "Автокомментарии",
+          "Включить к посту",
+          "Фото",
+          "Ответы",
+          "Реакции",
+          "Помощь",
+          "Главное меню"
+        ],
+        "requiredContext": "channel + post",
+        "states": {
+          "zero_channels": "Show useful empty state and recovery action.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work.",
+          "zero_posts": "Explain that no saved posts exist and offer forwarding/syncing/recovery.",
+          "selected_post_no_entity": "Show the selected channel/post and allow create only after this context exists.",
+          "selected_post_with_entity": "Show current entity, edit/preview/status actions, and safe navigation."
+        }
+      },
+      "actual": {
+        "text": "Комментарии Настройте комментарии в каналах: автоматически для новых постов или вручную для нужной публикации. Пост не выбран. Сначала выберите канал, затем пост.",
+        "buttons": [
+          "Автокомментарии",
+          "Включить к посту",
+          "Фото",
+          "Ответы",
+          "Реакции",
+          "Помощь",
+          "Главное меню"
+        ],
+        "payloads": [
+          "{\"canonicalAction\":\"comments.auto_comments\",\"section\":\"comments\",\"action\":\"comments_auto_patch\"}",
+          "{\"source\":\"comments_manual\",\"canonicalAction\":\"comments.manual_enable\",\"section\":\"comments\",\"action\":\"comments_select_post\"}",
+          "{\"source\":\"comments_photos\",\"canonicalAction\":\"comments.photo\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+          "{\"source\":\"comments_replies\",\"canonicalAction\":\"comments.replies\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+          "{\"source\":\"comments_reactions\",\"canonicalAction\":\"comments.reactions\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+          "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+          "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "comments:home",
+          "scenario": "root",
+          "text": "Комментарии Настройте комментарии в каналах: автоматически для новых постов или вручную для нужной публикации. Пост не выбран. Сначала выберите канал, затем пост.",
+          "buttons": [
+            "Автокомментарии",
+            "Включить к посту",
+            "Фото",
+            "Ответы",
+            "Реакции",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"comments.auto_comments\",\"section\":\"comments\",\"action\":\"comments_auto_patch\"}",
+            "{\"source\":\"comments_manual\",\"canonicalAction\":\"comments.manual_enable\",\"section\":\"comments\",\"action\":\"comments_select_post\"}",
+            "{\"source\":\"comments_photos\",\"canonicalAction\":\"comments.photo\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+            "{\"source\":\"comments_replies\",\"canonicalAction\":\"comments.replies\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+            "{\"source\":\"comments_reactions\",\"canonicalAction\":\"comments.reactions\",\"section\":\"comments\",\"action\":\"comments_option_channel\"}",
+            "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "comments:choose_channel",
+          "scenario": "zero_channels",
+          "text": "Комментарии У вас пока нет подключённых каналов.",
+          "buttons": [
+            "Подключить канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "comments:choose_channel",
+          "scenario": "multiple_channels",
+          "text": "Комментарии Выберите канал",
+          "buttons": [
+            "Семантический канал",
+            "Второй канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"section\":\"comments\",\"step\":\"post\",\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"backRoute\":\"comments:choose_channel\",\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+            "{\"section\":\"comments\",\"step\":\"post\",\"channelId\":\"semantic-channel-2\",\"channelTitle\":\"Второй канал\",\"backRoute\":\"comments:choose_channel\",\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "comments:choose_post",
+          "scenario": "zero_posts",
+          "text": "Комментарии Постов пока нет",
+          "buttons": [
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"comments:choose_channel\",\"action\":\"comments:choose_channel\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "comments:post",
+          "scenario": "selected_post",
+          "text": "Комментарии Пост: Семантический пост Выберите действие.",
+          "buttons": [
+            "Включить",
+            "Фото",
+            "Ответы",
+            "Реакции",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"source\":\"comments_manual_confirmation\",\"action\":\"comments_manual_patch\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"route\":\"comments:photos\",\"action\":\"comments:photos\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"route\":\"comments:replies\",\"action\":\"comments:replies\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"route\":\"comments:reactions\",\"action\":\"comments:reactions\"}",
+            "{\"route\":\"comments:choose_post\",\"action\":\"comments:choose_post\"}",
+            "{\"route\":\"comments:home\",\"action\":\"comments:home\"}",
+            "{\"route\":\"comments:help\",\"action\":\"comments:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "gifts",
+      "route": "gifts:home",
+      "expected": {
+        "rootMode": "context_gate",
+        "buttons": [
+          "Выбрать пост",
+          "Все подарки",
+          "Помощь",
+          "Главное меню"
+        ],
+        "requiredContext": "channel + post",
+        "states": {
+          "zero_channels": "Чтобы создать подарок, сначала подключите канал. Подарок привязывается к посту канала.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work.",
+          "zero_posts": "Пока нет сохранённых постов. Сначала перешлите или синхронизируйте пост канала.",
+          "selected_post_no_entity": "Подарок ещё не создан; show create only now.",
+          "selected_post_with_entity": "Show current gift, edit, preview, toggle, delete and stats."
+        }
+      },
+      "actual": {
+        "text": "Подарки / лид-магниты Подарок создаётся для конкретного поста канала.",
+        "buttons": [
+          "Выбрать пост",
+          "Все подарки",
+          "Помощь",
+          "Главное меню"
+        ],
+        "payloads": [
+          "{\"canonicalAction\":\"gifts.choose_post\",\"section\":\"gifts\",\"route\":\"gifts:choose_channel\",\"action\":\"gifts:choose_channel\"}",
+          "{\"canonicalAction\":\"gifts.all\",\"section\":\"gifts\",\"route\":\"gifts:all\",\"action\":\"gifts:all\"}",
+          "{\"route\":\"gifts:help\",\"action\":\"gifts:help\"}",
+          "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "gifts:home",
+          "scenario": "root",
+          "text": "Подарки / лид-магниты Подарок создаётся для конкретного поста канала.",
+          "buttons": [
+            "Выбрать пост",
+            "Все подарки",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"gifts.choose_post\",\"section\":\"gifts\",\"route\":\"gifts:choose_channel\",\"action\":\"gifts:choose_channel\"}",
+            "{\"canonicalAction\":\"gifts.all\",\"section\":\"gifts\",\"route\":\"gifts:all\",\"action\":\"gifts:all\"}",
+            "{\"route\":\"gifts:help\",\"action\":\"gifts:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "gifts:choose_channel",
+          "scenario": "zero_channels",
+          "text": "Подарки / лид-магниты Чтобы создать подарок, сначала подключите канал. Подарок привязывается к посту канала.",
+          "buttons": [
+            "Подключить канал",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "gifts:choose_channel",
+          "scenario": "multiple_channels",
+          "text": "Подарки / лид-магниты Выберите канал",
+          "buttons": [
+            "Семантический канал",
+            "Второй канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"section\":\"gifts\",\"step\":\"post\",\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"backRoute\":\"gifts:choose_channel\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+            "{\"section\":\"gifts\",\"step\":\"post\",\"channelId\":\"semantic-channel-2\",\"channelTitle\":\"Второй канал\",\"backRoute\":\"gifts:choose_channel\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+            "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+            "{\"route\":\"gifts:home\",\"action\":\"gifts:home\"}",
+            "{\"route\":\"gifts:help\",\"action\":\"gifts:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "gifts:choose_post",
+          "scenario": "zero_posts",
+          "text": "Подарки / лид-магниты Пока нет сохранённых постов. Сначала перешлите или синхронизируйте пост канала.",
+          "buttons": [
+            "Обновить посты",
+            "К списку каналов",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelTitle\":\"Семантический канал\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+            "{\"route\":\"gifts:choose_channel\",\"action\":\"gifts:choose_channel\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "gifts:post",
+          "scenario": "selected_post",
+          "text": "Подарок для поста Канал: Семантический канал Пост: Семантический пост Подарок ещё не создан.",
+          "buttons": [
+            "Создать подарок",
+            "К выбору поста",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"action\":\"gift_admin_start_create\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"route\":\"gifts:choose_post\",\"action\":\"gifts:choose_post\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "gifts:all",
+          "scenario": "all_gifts_account_scope",
+          "text": "Все подарки в аккаунте Пока нет подарков. Создайте подарок для конкретного поста.",
+          "buttons": [
+            "Выбрать пост",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"gifts:choose_channel\",\"action\":\"gifts:choose_channel\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "buttons",
+      "route": "buttons:home",
+      "expected": {
+        "rootMode": "context_gate",
+        "buttons": [
+          "Выбрать пост",
+          "Помощь",
+          "Главное меню"
+        ],
+        "requiredContext": "channel + post",
+        "states": {
+          "zero_channels": "Show useful empty state and recovery action.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work.",
+          "zero_posts": "Explain that no saved posts exist and offer forwarding/syncing/recovery.",
+          "selected_post_no_entity": "Show the selected channel/post and allow create only after this context exists.",
+          "selected_post_with_entity": "Show current entity, edit/preview/status actions, and safe navigation."
+        }
+      },
+      "actual": {
+        "text": "Кнопки под постами Добавляйте и проверяйте кнопки под выбранными постами канала.",
+        "buttons": [
+          "Выбрать пост",
+          "Помощь",
+          "Главное меню"
+        ],
+        "payloads": [
+          "{\"canonicalAction\":\"buttons.choose_post\",\"section\":\"buttons\",\"route\":\"buttons:choose_channel\",\"action\":\"buttons:choose_channel\"}",
+          "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+          "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "buttons:home",
+          "scenario": "root",
+          "text": "Кнопки под постами Добавляйте и проверяйте кнопки под выбранными постами канала.",
+          "buttons": [
+            "Выбрать пост",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"buttons.choose_post\",\"section\":\"buttons\",\"route\":\"buttons:choose_channel\",\"action\":\"buttons:choose_channel\"}",
+            "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "buttons:choose_channel",
+          "scenario": "zero_channels",
+          "text": "Кнопки под постами У вас пока нет подключённых каналов.",
+          "buttons": [
+            "Подключить канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "buttons:choose_channel",
+          "scenario": "multiple_channels",
+          "text": "Кнопки под постами Выберите канал",
+          "buttons": [
+            "Семантический канал",
+            "Второй канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"section\":\"buttons\",\"step\":\"post\",\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"backRoute\":\"buttons:choose_channel\",\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+            "{\"section\":\"buttons\",\"step\":\"post\",\"channelId\":\"semantic-channel-2\",\"channelTitle\":\"Второй канал\",\"backRoute\":\"buttons:choose_channel\",\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "buttons:choose_post",
+          "scenario": "zero_posts",
+          "text": "Кнопки под постами Постов пока нет",
+          "buttons": [
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"buttons:choose_channel\",\"action\":\"buttons:choose_channel\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "buttons:post",
+          "scenario": "selected_post",
+          "text": "Кнопки под постами Пост: Семантический пост Выберите действие.",
+          "buttons": [
+            "Добавить кнопку",
+            "Текущие кнопки",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"action\":\"button_admin_start_add\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"action\":\"button_admin_show_current\"}",
+            "{\"route\":\"buttons:choose_post\",\"action\":\"buttons:choose_post\"}",
+            "{\"route\":\"buttons:home\",\"action\":\"buttons:home\"}",
+            "{\"route\":\"buttons:help\",\"action\":\"buttons:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "stats",
+      "route": "stats:home",
+      "expected": {
+        "rootMode": "dashboard",
+        "buttons": [
+          "Обзор",
+          "По каналу",
+          "По посту",
+          "Рекламные ссылки",
+          "Источники",
+          "Обновить данные",
+          "Помощь",
+          "Главное меню"
+        ],
+        "requiredContext": "none/channel/post",
+        "states": {
+          "zero_channels": "Show useful empty state and recovery action.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work.",
+          "zero_posts": "Explain that no saved posts exist and offer forwarding/syncing/recovery.",
+          "selected_post_no_entity": "Show the selected channel/post and allow create only after this context exists.",
+          "selected_post_with_entity": "Show current entity, edit/preview/status actions, and safe navigation."
+        }
+      },
+      "actual": {
+        "text": "Статистика Откройте нужное действие в этом разделе.",
+        "buttons": [
+          "Обзор",
+          "По каналу",
+          "По посту",
+          "Рекламные ссылки",
+          "Источники",
+          "Обновить данные",
+          "Помощь",
+          "Главное меню"
+        ],
+        "payloads": [
+          "{\"canonicalAction\":\"stats.overview\",\"section\":\"stats\",\"action\":\"admin_stats_overview_cache\"}",
+          "{\"canonicalAction\":\"stats.channel\",\"section\":\"stats\",\"action\":\"admin_stats_channel\"}",
+          "{\"canonicalAction\":\"stats.post\",\"section\":\"stats\",\"action\":\"admin_stats_post\"}",
+          "{\"canonicalAction\":\"stats.ad_links\",\"section\":\"stats\",\"action\":\"admin_stats_campaigns\"}",
+          "{\"canonicalAction\":\"stats.sources\",\"section\":\"stats\",\"action\":\"admin_stats_sources_cache\"}",
+          "{\"canonicalAction\":\"stats.refresh\",\"section\":\"stats\",\"action\":\"admin_stats_refresh\"}",
+          "{\"route\":\"stats:help\",\"action\":\"stats:help\"}",
+          "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "stats:home",
+          "scenario": "root",
+          "text": "Статистика Откройте нужное действие в этом разделе.",
+          "buttons": [
+            "Обзор",
+            "По каналу",
+            "По посту",
+            "Рекламные ссылки",
+            "Источники",
+            "Обновить данные",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"stats.overview\",\"section\":\"stats\",\"action\":\"admin_stats_overview_cache\"}",
+            "{\"canonicalAction\":\"stats.channel\",\"section\":\"stats\",\"action\":\"admin_stats_channel\"}",
+            "{\"canonicalAction\":\"stats.post\",\"section\":\"stats\",\"action\":\"admin_stats_post\"}",
+            "{\"canonicalAction\":\"stats.ad_links\",\"section\":\"stats\",\"action\":\"admin_stats_campaigns\"}",
+            "{\"canonicalAction\":\"stats.sources\",\"section\":\"stats\",\"action\":\"admin_stats_sources_cache\"}",
+            "{\"canonicalAction\":\"stats.refresh\",\"section\":\"stats\",\"action\":\"admin_stats_refresh\"}",
+            "{\"route\":\"stats:help\",\"action\":\"stats:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "push",
+      "route": "push:home",
+      "expected": {
+        "rootMode": "section_actions",
+        "buttons": [
+          "Опубликовать приглашение",
+          "Как это работает",
+          "Главное меню"
+        ],
+        "requiredContext": "external/pwa",
+        "states": {
+          "zero_channels": "Show useful empty state and recovery action.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work."
+        }
+      },
+      "actual": {
+        "text": "🔔 Уведомления MAX Опубликуйте кнопку подключения в нужном MAX-чате или канале. Участник нажмёт кнопку, а бот отправит ему персональную ссылку в личные сообщения.",
+        "buttons": [
+          "Опубликовать приглашение",
+          "Как это работает",
+          "Главное меню"
+        ],
+        "payloads": [
+          "{\"route\":\"admin_push_select_chat\",\"action\":\"admin_push_select_chat\"}",
+          "{\"route\":\"admin_push_help\",\"action\":\"admin_push_help\"}",
+          "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "push:home",
+          "scenario": "root",
+          "text": "🔔 Уведомления MAX Опубликуйте кнопку подключения в нужном MAX-чате или канале. Участник нажмёт кнопку, а бот отправит ему персональную ссылку в личные сообщения.",
+          "buttons": [
+            "Опубликовать приглашение",
+            "Как это работает",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"admin_push_select_chat\",\"action\":\"admin_push_select_chat\"}",
+            "{\"route\":\"admin_push_help\",\"action\":\"admin_push_help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "ad_links",
+      "route": "ad_links:home",
+      "expected": {
+        "rootMode": "section_actions",
+        "buttons": [
+          "Создать ссылку",
+          "Мои ссылки",
+          "Помощь",
+          "Главное меню"
+        ],
+        "requiredContext": "none/channel",
+        "states": {
+          "zero_channels": "Show useful empty state and recovery action.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work.",
+          "list_empty": "No links yet; offer create link.",
+          "selected_link": "Only selected link screens may show disable/stat details."
+        }
+      },
+      "actual": {
+        "text": "Рекламные ссылки Создавайте рекламные ссылки и открывайте список уже созданных ссылок.",
+        "buttons": [
+          "Создать ссылку",
+          "Мои ссылки",
+          "Помощь",
+          "Главное меню"
+        ],
+        "payloads": [
+          "{\"canonicalAction\":\"ad_links.create\",\"section\":\"ad_links\",\"action\":\"admin_stats_campaign_create\"}",
+          "{\"canonicalAction\":\"ad_links.mine\",\"section\":\"ad_links\",\"action\":\"admin_stats_campaigns\"}",
+          "{\"route\":\"ad_links:help\",\"action\":\"ad_links:help\"}",
+          "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "ad_links:home",
+          "scenario": "root",
+          "text": "Рекламные ссылки Создавайте рекламные ссылки и открывайте список уже созданных ссылок.",
+          "buttons": [
+            "Создать ссылку",
+            "Мои ссылки",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"ad_links.create\",\"section\":\"ad_links\",\"action\":\"admin_stats_campaign_create\"}",
+            "{\"canonicalAction\":\"ad_links.mine\",\"section\":\"ad_links\",\"action\":\"admin_stats_campaigns\"}",
+            "{\"route\":\"ad_links:help\",\"action\":\"ad_links:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "polls",
+      "route": "polls:home",
+      "expected": {
+        "rootMode": "context_gate",
+        "buttons": [
+          "Выбрать пост",
+          "Результаты опросов",
+          "Помощь",
+          "Главное меню"
+        ],
+        "requiredContext": "channel + post",
+        "states": {
+          "zero_channels": "Show useful empty state and recovery action.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work.",
+          "zero_posts": "Explain that no saved posts exist and offer forwarding/syncing/recovery.",
+          "selected_post_no_entity": "Show the selected channel/post and allow create only after this context exists.",
+          "selected_post_with_entity": "Show current entity, edit/preview/status actions, and safe navigation."
+        }
+      },
+      "actual": {
+        "text": "Опросы / голосования Создавайте опросы к постам канала и смотрите результаты.",
+        "buttons": [
+          "Выбрать пост",
+          "Результаты опросов",
+          "Помощь",
+          "Главное меню"
+        ],
+        "payloads": [
+          "{\"source\":\"polls\",\"legacyAction\":\"comments_select_post\",\"canonicalAction\":\"polls.choose_post\",\"section\":\"polls\",\"route\":\"polls:choose_channel\",\"action\":\"polls:choose_channel\"}",
+          "{\"legacyAction\":\"poll_status\",\"canonicalAction\":\"polls.results\",\"section\":\"polls\",\"route\":\"polls:results\",\"action\":\"polls:results\"}",
+          "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+          "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "polls:home",
+          "scenario": "root",
+          "text": "Опросы / голосования Создавайте опросы к постам канала и смотрите результаты.",
+          "buttons": [
+            "Выбрать пост",
+            "Результаты опросов",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"source\":\"polls\",\"legacyAction\":\"comments_select_post\",\"canonicalAction\":\"polls.choose_post\",\"section\":\"polls\",\"route\":\"polls:choose_channel\",\"action\":\"polls:choose_channel\"}",
+            "{\"legacyAction\":\"poll_status\",\"canonicalAction\":\"polls.results\",\"section\":\"polls\",\"route\":\"polls:results\",\"action\":\"polls:results\"}",
+            "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "polls:choose_channel",
+          "scenario": "zero_channels",
+          "text": "Опросы / голосования У вас пока нет подключённых каналов.",
+          "buttons": [
+            "Подключить канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "polls:choose_channel",
+          "scenario": "multiple_channels",
+          "text": "Опросы / голосования Выберите канал",
+          "buttons": [
+            "Семантический канал",
+            "Второй канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"section\":\"polls\",\"step\":\"post\",\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"backRoute\":\"polls:choose_channel\",\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+            "{\"section\":\"polls\",\"step\":\"post\",\"channelId\":\"semantic-channel-2\",\"channelTitle\":\"Второй канал\",\"backRoute\":\"polls:choose_channel\",\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "polls:choose_post",
+          "scenario": "zero_posts",
+          "text": "Опросы / голосования Постов пока нет",
+          "buttons": [
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"polls:choose_channel\",\"action\":\"polls:choose_channel\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "polls:post",
+          "scenario": "selected_post",
+          "text": "Опросы / голосования Пост: Семантический пост Выберите действие.",
+          "buttons": [
+            "Создать опрос",
+            "Результаты",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"action\":\"poll_create\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"action\":\"poll_status\"}",
+            "{\"route\":\"polls:choose_post\",\"action\":\"polls:choose_post\"}",
+            "{\"route\":\"polls:home\",\"action\":\"polls:home\"}",
+            "{\"route\":\"polls:help\",\"action\":\"polls:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "highlights",
+      "route": "highlights:home",
+      "expected": {
+        "rootMode": "context_gate",
+        "buttons": [
+          "Выбрать пост",
+          "Помощь",
+          "Главное меню"
+        ],
+        "requiredContext": "channel + post",
+        "states": {
+          "zero_channels": "Show useful empty state and recovery action.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work.",
+          "zero_posts": "Explain that no saved posts exist and offer forwarding/syncing/recovery.",
+          "selected_post_no_entity": "Show the selected channel/post and allow create only after this context exists.",
+          "selected_post_with_entity": "Show current entity, edit/preview/status actions, and safe navigation."
+        }
+      },
+      "actual": {
+        "text": "Выделение постов Ставьте и снимайте метки у важных постов канала.",
+        "buttons": [
+          "Выбрать пост",
+          "Помощь",
+          "Главное меню"
+        ],
+        "payloads": [
+          "{\"source\":\"highlights\",\"canonicalAction\":\"highlights.choose_post\",\"section\":\"highlights\",\"route\":\"highlights:choose_channel\",\"action\":\"highlights:choose_channel\"}",
+          "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+          "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "highlights:home",
+          "scenario": "root",
+          "text": "Выделение постов Ставьте и снимайте метки у важных постов канала.",
+          "buttons": [
+            "Выбрать пост",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"source\":\"highlights\",\"canonicalAction\":\"highlights.choose_post\",\"section\":\"highlights\",\"route\":\"highlights:choose_channel\",\"action\":\"highlights:choose_channel\"}",
+            "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "highlights:choose_channel",
+          "scenario": "zero_channels",
+          "text": "Выделение постов У вас пока нет подключённых каналов.",
+          "buttons": [
+            "Подключить канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "highlights:choose_channel",
+          "scenario": "multiple_channels",
+          "text": "Выделение постов Выберите канал",
+          "buttons": [
+            "Семантический канал",
+            "Второй канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"section\":\"highlights\",\"step\":\"post\",\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"backRoute\":\"highlights:choose_channel\",\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+            "{\"section\":\"highlights\",\"step\":\"post\",\"channelId\":\"semantic-channel-2\",\"channelTitle\":\"Второй канал\",\"backRoute\":\"highlights:choose_channel\",\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "highlights:choose_post",
+          "scenario": "zero_posts",
+          "text": "Выделение постов Постов пока нет",
+          "buttons": [
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"highlights:choose_channel\",\"action\":\"highlights:choose_channel\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "highlights:post",
+          "scenario": "selected_post",
+          "text": "Выделение постов Пост: Семантический пост Выберите действие.",
+          "buttons": [
+            "Применить",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"source\":\"highlight_card\",\"action\":\"highlight_apply\"}",
+            "{\"route\":\"highlights:choose_post\",\"action\":\"highlights:choose_post\"}",
+            "{\"route\":\"highlights:home\",\"action\":\"highlights:home\"}",
+            "{\"route\":\"highlights:help\",\"action\":\"highlights:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "editor",
+      "route": "editor:home",
+      "expected": {
+        "rootMode": "context_gate",
+        "buttons": [
+          "Выбрать пост",
+          "Помощь",
+          "Главное меню"
+        ],
+        "requiredContext": "channel + post",
+        "states": {
+          "zero_channels": "Show useful empty state and recovery action.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work.",
+          "zero_posts": "Explain that no saved posts exist and offer forwarding/syncing/recovery.",
+          "selected_post_no_entity": "Show the selected channel/post and allow create only after this context exists.",
+          "selected_post_with_entity": "Show current entity, edit/preview/status actions, and safe navigation."
+        }
+      },
+      "actual": {
+        "text": "Редактор постов Выберите пост канала, чтобы безопасно подготовить изменение текста.",
+        "buttons": [
+          "Выбрать пост",
+          "Помощь",
+          "Главное меню"
+        ],
+        "payloads": [
+          "{\"canonicalAction\":\"editor.change_text\",\"section\":\"editor\",\"action\":\"admin_posts_picker\"}",
+          "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+          "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "editor:home",
+          "scenario": "root",
+          "text": "Редактор постов Выберите пост канала, чтобы безопасно подготовить изменение текста.",
+          "buttons": [
+            "Выбрать пост",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"editor.change_text\",\"section\":\"editor\",\"action\":\"admin_posts_picker\"}",
+            "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "editor:choose_channel",
+          "scenario": "zero_channels",
+          "text": "Редактор постов У вас пока нет подключённых каналов.",
+          "buttons": [
+            "Подключить канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"channels:connect\",\"action\":\"channels:connect\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "editor:choose_channel",
+          "scenario": "multiple_channels",
+          "text": "Редактор постов Выберите канал",
+          "buttons": [
+            "Семантический канал",
+            "Второй канал",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"section\":\"editor\",\"step\":\"post\",\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"backRoute\":\"editor:choose_channel\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+            "{\"section\":\"editor\",\"step\":\"post\",\"channelId\":\"semantic-channel-2\",\"channelTitle\":\"Второй канал\",\"backRoute\":\"editor:choose_channel\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "editor:choose_post",
+          "scenario": "zero_posts",
+          "text": "Редактор постов Постов пока нет",
+          "buttons": [
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"route\":\"editor:choose_channel\",\"action\":\"editor:choose_channel\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        },
+        {
+          "route": "editor:post",
+          "scenario": "selected_post",
+          "text": "Редактор постов Пост: Семантический пост Выберите действие.",
+          "buttons": [
+            "Изменить текст выбранного поста",
+            "Выбрать другой пост",
+            "Назад",
+            "В начало раздела",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"action\":\"admin_posts_edit_text\"}",
+            "{\"channelId\":\"semantic-channel-1\",\"channelTitle\":\"Семантический канал\",\"postId\":\"semantic-post-1\",\"commentKey\":\"semantic-channel-1:semantic-post-1\",\"postTitle\":\"Семантический пост\",\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+            "{\"route\":\"editor:choose_post\",\"action\":\"editor:choose_post\"}",
+            "{\"route\":\"editor:home\",\"action\":\"editor:home\"}",
+            "{\"route\":\"editor:help\",\"action\":\"editor:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "archive",
+      "route": "archive:home",
+      "expected": {
+        "rootMode": "section_actions",
+        "buttons": [
+          "Сохранённые посты",
+          "Лимиты хранения",
+          "Помощь",
+          "Главное меню"
+        ],
+        "requiredContext": "account",
+        "states": {
+          "zero_channels": "Show useful empty state and recovery action.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work.",
+          "empty_archive": "Explain when saved posts appear.",
+          "selected_archived_post": "Restore/copy only after an archived post is selected."
+        }
+      },
+      "actual": {
+        "text": "Архив постов Открывайте сохранённые посты, снимки и лимиты хранения.",
+        "buttons": [
+          "Сохранённые посты",
+          "Лимиты хранения",
+          "Помощь",
+          "Главное меню"
+        ],
+        "payloads": [
+          "{\"offset\":0,\"canonicalAction\":\"archive.saved_posts\",\"section\":\"archive\",\"action\":\"archive_list\"}",
+          "{\"canonicalAction\":\"archive.storage_limits\",\"section\":\"archive\",\"action\":\"archive_limits\"}",
+          "{\"route\":\"archive:help\",\"action\":\"archive:help\"}",
+          "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "archive:home",
+          "scenario": "root",
+          "text": "Архив постов Открывайте сохранённые посты, снимки и лимиты хранения.",
+          "buttons": [
+            "Сохранённые посты",
+            "Лимиты хранения",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"offset\":0,\"canonicalAction\":\"archive.saved_posts\",\"section\":\"archive\",\"action\":\"archive_list\"}",
+            "{\"canonicalAction\":\"archive.storage_limits\",\"section\":\"archive\",\"action\":\"archive_limits\"}",
+            "{\"route\":\"archive:help\",\"action\":\"archive:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "account",
+      "route": "account:home",
+      "expected": {
+        "rootMode": "account_panel",
+        "buttons": [
+          "Мой доступ",
+          "Активировать код",
+          "Оплата / продление",
+          "Лимиты и функции",
+          "Мои каналы",
+          "Поддержка",
+          "Главное меню"
+        ],
+        "requiredContext": "account",
+        "states": {
+          "zero_channels": "Show useful empty state and recovery action.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work."
+        }
+      },
+      "actual": {
+        "text": "АдминКИТ Здесь можно подключить уведомления для MAX-чатов и узнать, что умеет АдминКИТ для MAX.",
+        "buttons": [
+          "🔔 Мои уведомления",
+          "➕ Подключить чат",
+          "Помощь",
+          "Что умеет АдминКИТ для MAX",
+          "Помощь",
+          "Главное меню"
+        ],
+        "payloads": [
+          "{\"action\":\"account_push_notifications\"}",
+          "{\"action\":\"account_push_notifications_help\"}",
+          "{\"action\":\"account_support\"}",
+          "{\"action\":\"account_capabilities\"}",
+          "{\"route\":\"account:help\",\"action\":\"account:help\"}",
+          "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "account:home",
+          "scenario": "root",
+          "text": "АдминКИТ Здесь можно подключить уведомления для MAX-чатов и узнать, что умеет АдминКИТ для MAX.",
+          "buttons": [
+            "🔔 Мои уведомления",
+            "➕ Подключить чат",
+            "Помощь",
+            "Что умеет АдминКИТ для MAX",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"action\":\"account_push_notifications\"}",
+            "{\"action\":\"account_push_notifications_help\"}",
+            "{\"action\":\"account_support\"}",
+            "{\"action\":\"account_capabilities\"}",
+            "{\"route\":\"account:help\",\"action\":\"account:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    },
+    {
+      "section": "settings",
+      "route": "settings:home",
+      "expected": {
+        "rootMode": "section_actions",
+        "buttons": [
+          "Очистить чат",
+          "Privacy / Terms",
+          "Помощь",
+          "Главное меню"
+        ],
+        "requiredContext": "none/account",
+        "states": {
+          "zero_channels": "Show useful empty state and recovery action.",
+          "one_channel": "Use the single channel when safe or show the channel context clearly.",
+          "multiple_channels": "Ask the admin to choose a channel before post-scoped work."
+        }
+      },
+      "actual": {
+        "text": "Настройки Настройки интерфейса, документов и безопасных действий в чате.",
+        "buttons": [
+          "Очистить чат",
+          "Privacy / Terms",
+          "Помощь",
+          "Главное меню"
+        ],
+        "payloads": [
+          "{\"canonicalAction\":\"settings.clear_chat\",\"section\":\"settings\",\"route\":\"settings:clear_chat\",\"action\":\"settings:clear_chat\"}",
+          "{\"canonicalAction\":\"settings.privacy_terms\",\"section\":\"settings\",\"route\":\"settings:privacy_terms\",\"action\":\"settings:privacy_terms\"}",
+          "{\"route\":\"settings:help\",\"action\":\"settings:help\"}",
+          "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+        ]
+      },
+      "routes": [
+        {
+          "route": "settings:home",
+          "scenario": "root",
+          "text": "Настройки Настройки интерфейса, документов и безопасных действий в чате.",
+          "buttons": [
+            "Очистить чат",
+            "Privacy / Terms",
+            "Помощь",
+            "Главное меню"
+          ],
+          "payloads": [
+            "{\"canonicalAction\":\"settings.clear_chat\",\"section\":\"settings\",\"route\":\"settings:clear_chat\",\"action\":\"settings:clear_chat\"}",
+            "{\"canonicalAction\":\"settings.privacy_terms\",\"section\":\"settings\",\"route\":\"settings:privacy_terms\",\"action\":\"settings:privacy_terms\"}",
+            "{\"route\":\"settings:help\",\"action\":\"settings:help\"}",
+            "{\"route\":\"main:home\",\"action\":\"main:home\"}"
+          ],
+          "duplicateTextRisk": false
+        }
+      ]
+    }
+  ]
+}
