@@ -4,7 +4,7 @@ const db = require('../src/db/postgres');
 const runtimeExport = require('./runtimeExportService');
 const picker = require('../channel-post-picker-core');
 
-const RUNTIME = 'PR268-LIVE-USER-POSTGRES-BINDINGS-1.0';
+const RUNTIME = 'PR269-LIVE-USER-POSTGRES-BINDINGS-1.1';
 const DEFAULT_PATH = 'runtime/live-user-postgres-bindings.json';
 const DEFAULT_TARGET_MAX_USER_IDS = Object.freeze(['17507246']);
 const CHAT_RE = /(?:chat|group|supergroup|private|private_chat|direct|dialog|im|чат|группа|диалог|личн)/i;
@@ -80,6 +80,7 @@ function rawDestination(raw = {}) {
 function classifyRecord(record = {}) {
   const raw = parseJson(record.raw || record.metadata || {});
   const title = rawTitle(raw, record.title || record.channelTitle || record.chatTitle || record.channel_id || record.chat_id);
+  const titleText = clean(title).toLowerCase();
   const destination = rawDestination({ ...raw, ...record });
   const candidate = {
     ...raw,
@@ -91,6 +92,7 @@ function classifyRecord(record = {}) {
   if (picker.isChatLikeRecord(candidate)) return 'chat';
   if (record.source === 'push_chat_binding') return 'chat';
   if (candidate.isChat === true || candidate.isGroup === true || (CHAT_RE.test(destination.type) && !CHANNEL_RE.test(destination.type))) return 'chat';
+  if (CHAT_RE.test(titleText) && !CHANNEL_RE.test(titleText)) return 'chat';
   if (CHAT_RE.test(destination.text) && !CHANNEL_RE.test(destination.text)) return 'chat';
   if (candidate.isChannel === true || CHANNEL_RE.test(destination.type) || destination.explicitChannelId) return 'channel';
   return 'unknown';
