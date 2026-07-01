@@ -1,0 +1,50 @@
+{
+  "ok": true,
+  "generatedAt": "2026-07-01T08:06:39.117Z",
+  "runtime": "PR263-TENANT-CHANNEL-BINDING-CONTRACT-1.0",
+  "checkedUsers": [
+    "real-user-1"
+  ],
+  "rows": [
+    {
+      "maxUserId": "real-user-1",
+      "knownTenant": true,
+      "tenantIdMasked": "ten…u94",
+      "tenantChannelsCount": 1,
+      "visiblePickerChannelsCount": 1,
+      "dbTenantChannelsCount": 1,
+      "storeLinkedChannelsCount": 0,
+      "postEvidenceChannelsCount": 0,
+      "missingBindings": [],
+      "conflictingBindings": [],
+      "inactiveBotAdminBindings": [],
+      "chatRecordsExcluded": 0,
+      "botAdminProofMissing": [
+        "channel-olga"
+      ]
+    }
+  ],
+  "knownTenant": true,
+  "tenantIdMasked": "ten…u94",
+  "tenantChannelsCount": 1,
+  "visiblePickerChannelsCount": 1,
+  "dbTenantChannelsCount": 1,
+  "storeLinkedChannelsCount": 0,
+  "postEvidenceChannelsCount": 0,
+  "missingBindings": [],
+  "conflictingBindings": [],
+  "inactiveBotAdminBindings": [],
+  "chatRecordsExcluded": 0,
+  "botAdminProofMissing": [
+    "channel-olga"
+  ],
+  "violations": [],
+  "warnings": [],
+  "summary": {
+    "blockCount": 0,
+    "warnCount": 0,
+    "missingBindingsCount": 0,
+    "visibleChannelsCount": 1,
+    "chatExcludedCount": 0
+  }
+}
