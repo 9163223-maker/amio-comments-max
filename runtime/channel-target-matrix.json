@@ -1,7 +1,7 @@
 {
   "ok": true,
   "runtime": "PR260-CHANNEL-TARGET-MATRIX",
-  "generatedAt": "2026-07-01T08:06:07.716Z",
+  "generatedAt": "2026-07-01T12:23:22.219Z",
   "bootId": "",
   "checkedRoutes": [
     "channels:list",
