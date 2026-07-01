@@ -31,6 +31,16 @@ function rowForTable(sql) {
         raw: { type: 'group', isChat: true, chatTitle: 'Семейный чат' },
         postsCount: 0,
         source: 'ak_admin_channels'
+      },
+      {
+        admin_id: '17507246',
+        channel_id: '-2003',
+        role: 'admin',
+        updated_at: '2026-07-01T11:30:00.000Z',
+        title: 'Рабочий чат без metadata',
+        raw: {},
+        postsCount: 0,
+        source: 'ak_admin_channels'
       }
     ];
   }
@@ -79,15 +89,16 @@ function rowForTable(sql) {
   assert.strictEqual(matrix.rows.length, 1);
   const row = matrix.rows[0];
   assert.strictEqual(row.counts.channels, 1, 'channel records are separated');
-  assert.strictEqual(row.counts.chats, 2, 'chat records are separated from admin and push bindings');
+  assert.strictEqual(row.counts.chats, 3, 'chat records are separated from admin and push bindings');
   assert.strictEqual(row.counts.unknown, 0, 'no known records left unknown');
   assert.ok(row.channels.some((item) => item.title === 'AdminKIT Channel'));
   assert.ok(row.chats.some((item) => item.title === 'Семейный чат'));
+  assert.ok(row.chats.some((item) => item.title === 'Рабочий чат без metadata'));
   assert.ok(row.chats.some((item) => item.title === 'MAX рабочий чат'));
   assert.ok(!JSON.stringify(matrix).includes('17507246'), 'full MAX ID is not exported');
   assert.ok(!JSON.stringify(matrix).includes('-1001'), 'raw channel ID is not exported');
   assert.strictEqual(matrix.summary.channelsCount, 1);
-  assert.strictEqual(matrix.summary.chatsCount, 2);
+  assert.strictEqual(matrix.summary.chatsCount, 3);
 
   db.hasDatabaseUrl = () => false;
   db.query = async () => { throw new Error('database_url_missing'); };
