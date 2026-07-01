@@ -18,7 +18,7 @@ function rowForTable(sql) {
         role: 'admin',
         updated_at: '2026-07-01T10:00:00.000Z',
         title: 'AdminKIT Channel',
-        raw: { type: 'channel', chat_id: '-1001', title: 'AdminKIT Channel' },
+        raw: {},
         postsCount: 2,
         source: 'ak_admin_channels'
       },
@@ -61,7 +61,7 @@ function rowForTable(sql) {
         channel_id: '-1001',
         title: 'AdminKIT Channel',
         status: 'active',
-        raw: { max: { type: 'channel' }, evidence_source: 'GET /chats/{chatId}' },
+        raw: { max: { type: 'channel' }, evidence_source: 'GET_chats_chatId' },
         updated_at: '2026-07-01T10:05:00.000Z',
         postsCount: 2,
         source: 'ak_tenant_channels'
@@ -92,12 +92,15 @@ function rowForTable(sql) {
   assert.strictEqual(service.classifyRecord({ title: 'АдминКИТ клуб', raw: {} }), 'unknown', 'live-looking title without official evidence remains unknown');
   assert.strictEqual(service.classifyRecord({ raw: { update_type: 'bot_added', is_channel: true } }), 'channel', 'Update.is_channel true is channel evidence');
   assert.strictEqual(service.classifyRecord({ raw: { update_type: 'bot_added', is_channel: false } }), 'chat', 'Update.is_channel false is chat/dialog evidence');
+  assert.strictEqual(service.classifyRecord({ raw: { isChannel: true } }), 'unknown', 'legacy isChannel without official update/source context is not trusted');
+  assert.strictEqual(service.classifyRecord({ raw: { isChat: true } }), 'unknown', 'legacy isChat is not trusted');
   assert.strictEqual(service.classifyRecord({ source: 'push_chat_binding' }), 'chat', 'typed push chat binding remains chat');
 
   const unresolved = service.safeBindingRecord({ title: 'Olga Style', raw: {} });
   assert.strictEqual(unresolved.kind, 'unknown');
   assert.strictEqual(unresolved.needsApiResolution, true);
   assert.strictEqual(unresolved.evidence, 'needs_api_resolution');
+  assert.ok(!JSON.stringify(unresolved).includes('_rawId'), 'internal dedupe id is not exported by safe record consumers');
 
   db.hasDatabaseUrl = () => true;
   db.query = async (sql, params = []) => {
@@ -114,8 +117,8 @@ function rowForTable(sql) {
   const row = matrix.rows[0];
   assert.strictEqual(row.counts.channels, 2, 'only official channel evidence reaches channels');
   assert.strictEqual(row.counts.chats, 3, 'official chat evidence and typed chat bindings reach chats');
-  assert.strictEqual(row.counts.unknown, 0, 'no official-evidence records left unknown');
-  assert.ok(row.channels.some((item) => item.title === 'AdminKIT Channel' && /Chat\.type=channel|type=channel/.test(item.evidence)));
+  assert.strictEqual(row.counts.unknown, 0, 'legacy duplicate with same id is resolved by official tenant metadata');
+  assert.ok(row.channels.some((item) => item.title === 'AdminKIT Channel' && /Chat\.type=channel/.test(item.evidence)), 'official tenant metadata resolves legacy duplicate channel row');
   assert.ok(row.channels.some((item) => item.title === 'Семейный чат'), 'chat-like title can still be a channel by official type');
   assert.ok(row.chats.some((item) => item.title === 'Канал новостей'), 'channel-like title can still be a chat by official type');
   assert.ok(row.chats.some((item) => item.title === 'Family chat!'), 'Update.is_channel false classifies punctuated chat title without title regex');
@@ -123,6 +126,7 @@ function rowForTable(sql) {
   assert.ok(!JSON.stringify(matrix).includes('17507246'), 'full MAX ID is not exported');
   assert.ok(!JSON.stringify(matrix).includes('-1001'), 'raw channel ID is not exported');
   assert.ok(!JSON.stringify(matrix).includes('-1002'), 'raw channel ID with chat-like title is not exported');
+  assert.ok(!JSON.stringify(matrix).includes('_rawId'), 'internal dedupe raw ID is not exported');
   assert.strictEqual(matrix.summary.channelsCount, 2);
   assert.strictEqual(matrix.summary.chatsCount, 3);
 
