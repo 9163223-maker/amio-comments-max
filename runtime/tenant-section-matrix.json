@@ -1,13 +1,14 @@
 {
   "ok": false,
-  "generatedAt": "2026-07-01T20:47:25.770Z",
-  "runtime": "PR267-TENANT-SECTION-MATRIX-1.1-PR268-LIVE-USER",
+  "generatedAt": "2026-07-01T20:59:38.985Z",
+  "runtime": "PR269-TENANT-SECTION-MATRIX-LIVE-ID-SAFE-1.0",
   "checkedUsers": [
-    "17507246"
+    "175…246"
   ],
   "rows": [
     {
-      "userId": "17507246",
+      "userId": "175…246",
+      "userIdMasked": "175…246",
       "ok": false,
       "diagnosticSummary": {
         "knownTenant": false,
@@ -426,7 +427,7 @@
       "violations": [
         {
           "severity": "block",
-          "userId": "17507246",
+          "userId": "175…246",
           "section": "tenant",
           "scenario": "self_diagnostic",
           "reason": "live_tenant_self_diagnostic_not_ok",
@@ -435,7 +436,7 @@
         },
         {
           "severity": "block",
-          "userId": "17507246",
+          "userId": "175…246",
           "section": "tenant",
           "scenario": "self_diagnostic",
           "reason": "tenant_missing",
@@ -444,7 +445,7 @@
         },
         {
           "severity": "block",
-          "userId": "17507246",
+          "userId": "175…246",
           "section": "tenant",
           "scenario": "picker",
           "reason": "zero_picker_channels",
@@ -513,7 +514,7 @@
   "violations": [
     {
       "severity": "block",
-      "userId": "17507246",
+      "userId": "175…246",
       "section": "tenant",
       "scenario": "self_diagnostic",
       "reason": "live_tenant_self_diagnostic_not_ok",
@@ -522,7 +523,7 @@
     },
     {
       "severity": "block",
-      "userId": "17507246",
+      "userId": "175…246",
       "section": "tenant",
       "scenario": "self_diagnostic",
       "reason": "tenant_missing",
@@ -531,7 +532,7 @@
     },
     {
       "severity": "block",
-      "userId": "17507246",
+      "userId": "175…246",
       "section": "tenant",
       "scenario": "picker",
       "reason": "zero_picker_channels",
