@@ -4,10 +4,11 @@ const db = require('../src/db/postgres');
 const runtimeExport = require('./runtimeExportService');
 const picker = require('../channel-post-picker-core');
 
-const RUNTIME = 'PR269-LIVE-USER-POSTGRES-BINDINGS-1.1';
+const RUNTIME = 'PR270-LIVE-USER-POSTGRES-BINDINGS-1.2';
 const DEFAULT_PATH = 'runtime/live-user-postgres-bindings.json';
 const DEFAULT_TARGET_MAX_USER_IDS = Object.freeze(['17507246']);
 const CHAT_RE = /(?:chat|group|supergroup|private|private_chat|direct|dialog|im|чат|группа|диалог|личн)/i;
+const CHAT_TITLE_RE = /(?:^|[\s:_./-])(?:chat|group|supergroup|private(?:[_\s-]?chat)?|direct|dialog)(?=$|[\s:_./-])|чат|группа|диалог|личн/i;
 const CHANNEL_RE = /(?:channel|канал)/i;
 
 function clean(value) { return String(value == null ? '' : value).replace(/\s+/g, ' ').trim(); }
@@ -92,7 +93,7 @@ function classifyRecord(record = {}) {
   if (picker.isChatLikeRecord(candidate)) return 'chat';
   if (record.source === 'push_chat_binding') return 'chat';
   if (candidate.isChat === true || candidate.isGroup === true || (CHAT_RE.test(destination.type) && !CHANNEL_RE.test(destination.type))) return 'chat';
-  if (CHAT_RE.test(titleText) && !CHANNEL_RE.test(titleText)) return 'chat';
+  if (CHAT_TITLE_RE.test(titleText) && !CHANNEL_RE.test(titleText)) return 'chat';
   if (CHAT_RE.test(destination.text) && !CHANNEL_RE.test(destination.text)) return 'chat';
   if (candidate.isChannel === true || CHANNEL_RE.test(destination.type) || destination.explicitChannelId) return 'channel';
   return 'unknown';
