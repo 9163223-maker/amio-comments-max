@@ -15,6 +15,7 @@ const REQUIRED_RUNTIME_FILES = [
   'runtime/tenant-channel-binding-matrix.json',
   'runtime/maximal-flow-matrix.json',
   'runtime/live-tenant-self-diagnostic-matrix.json',
+  'runtime/tenant-section-matrix.json',
   'runtime/process-events.json'
 ];
 
