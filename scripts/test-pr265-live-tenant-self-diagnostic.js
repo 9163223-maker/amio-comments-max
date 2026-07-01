@@ -6,6 +6,8 @@ const access = require('../services/clientAccessService');
 const binding = require('../services/tenantChannelBindingService');
 const diagnostic = require('../services/liveTenantSelfDiagnosticService');
 const picker = require('../channel-post-picker-core');
+const accountScreens = require('../features/account-screens-pr106');
+const accountRuntime = require('../src/core/accountRuntime');
 
 function reset() {
   access._resetForTests();
@@ -23,6 +25,8 @@ function bind(maxUserId, channelId, title, postId) {
   assert.strictEqual(r.ok, true, `${maxUserId}: channel binding works`);
   store.savePost(`${channelId}:${postId}`, { channelId, channelTitle: title, postId, messageId: `m-${postId}`, commentKey: `${channelId}:${postId}`, originalText: `Post ${postId}`, linkedByUserId: maxUserId });
 }
+function flatButtons(screen) { return ((screen.attachments || [])[0]?.payload?.buttons || []).flat(); }
+function callback(action, userId) { return { callback: { payload: JSON.stringify({ action }), user: { user_id: userId }, message: { recipient: { user_id: userId, chat_type: 'user' }, body: { mid: 'm1' } } } }; }
 
 (async () => {
   reset();
@@ -33,6 +37,10 @@ function bind(maxUserId, channelId, title, postId) {
   bind(userA, '-265001', 'PR265 A channel', 'a-post-1');
   bind(userB, '-265002', 'PR265 B channel', 'b-post-1');
   store.saveChannel('chat-265', { channelId: 'chat-265', title: 'PR265 group chat', type: 'group', linkedByUserId: userA });
+
+  const accountHome = accountScreens.accountHome(userA);
+  assert.ok(flatButtons(accountHome).some((button) => button.text === 'Диагностика привязки' && /account_tenant_diagnostic/.test(button.payload || '')), 'visible account home has tenant diagnostic button');
+  assert.ok(accountRuntime.isAccountAction('account_tenant_diagnostic'), 'account runtime recognizes tenant diagnostic action');
 
   const a = await diagnostic.buildSelfDiagnostic({ maxUserId: userA });
   const b = await diagnostic.buildSelfDiagnostic({ maxUserId: userB });
@@ -60,7 +68,12 @@ function bind(maxUserId, channelId, title, postId) {
   assert.ok(/Ваш MAX ID:/.test(screen.text), 'screen shows masked current user id');
   assert.ok(!screen.text.includes(userA), 'screen does not expose raw user id');
   assert.ok(/Каналы в picker: 1/.test(screen.text), 'screen reports picker channel count');
-  assert.ok((screen.attachments[0].payload.buttons || []).flat().some((button) => button.text === 'Обновить диагностику'), 'screen has refresh action');
+  assert.ok(flatButtons(screen).some((button) => button.text === 'Обновить диагностику'), 'screen has refresh action');
+
+  const runtimeResult = await accountRuntime.buildAccountScreenForUpdate({ update: callback('account_tenant_diagnostic', userA), context: { ok: true, user: { maxUserId: userA } }, config: {} });
+  assert.strictEqual(runtimeResult.ok, true, 'account runtime builds tenant diagnostic screen');
+  assert.strictEqual(runtimeResult.screen.id, 'account_tenant_diagnostic', 'account runtime returns tenant diagnostic screen');
+  assert.ok(/Каналы в picker: 1/.test(runtimeResult.screen.text), 'account runtime screen is live for current user');
 
   const matrix = await diagnostic.buildMatrix({ users: [userA, userB] });
   assert.strictEqual(matrix.ok, true, 'multi-user diagnostic matrix ok');
