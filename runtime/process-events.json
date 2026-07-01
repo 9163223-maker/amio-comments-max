@@ -1,14 +1,14 @@
 {
   "ok": true,
   "runtime": "PR260-PROCESS-EVENTS",
-  "generatedAt": "2026-07-01T08:06:07.617Z",
-  "bootId": "mr1sk45n-0206f21c",
-  "startedAt": "2026-07-01T08:06:07.115Z",
+  "generatedAt": "2026-07-01T12:23:22.119Z",
+  "bootId": "mr21qxhv-4eb54ac8",
+  "startedAt": "2026-07-01T12:23:21.622Z",
   "handlersInstalled": true,
   "capturedEvents": 1,
   "recent": [
     {
-      "at": "2026-07-01T08:06:07.617Z",
+      "at": "2026-07-01T12:23:22.119Z",
       "event": "startup",
       "pid": 15,
       "node": "v20.20.2",
