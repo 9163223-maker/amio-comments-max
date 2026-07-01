@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 10:30 UTC
+Updated: 2026-07-01 12:24 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -37,17 +37,17 @@ PR263: `babac89e266044cf1cfb4e0026df913808f3a139`, runtime PASS.
 ## PR263 runtime note
 PR263 runtime passed, but tenant matrix row was fixture/user `real-user-1`. If real MAX user still sees zero channels, next issue is live userId/tenantId mismatch or real-data backfill, not the general PR263 server contract.
 
-## PR264 current state
+## PR264 status
 PR264:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/264
 - Title: `Maximal flow matrix and manual route checklist`
 - Branch: `codex/pr264-maximal-flow-matrix-v2`
 - Base: `main`
-- Base SHA: `babac89e266044cf1cfb4e0026df913808f3a139`
-- Current head: `856d3c17c2d803927e073de29539d97c894a4c19`
-- State: open, not merged, not draft.
-- Mergeable: true.
+- Final head: `856d3c17c2d803927e073de29539d97c894a4c19`
 - CI: PR regression tests #550, run id `28510799754`, conclusion `success`.
+- Audit-only: PASS shown by user screenshot on 2026-07-01 12:21 UTC.
+- Merge method: squash merge.
+- Main squash commit: `f4f32c4fd2fdd6c12d034638c74861cb5f4ee55f`.
 
 PR264 scope:
 - Adds `services/maximalFlowMatrixService.js`.
@@ -65,11 +65,7 @@ PR264 CI fix history:
 - Fixed: embedded tenant matrix not-ok after fixture residue is WARN inside maximal matrix, not PR264 BLOCK; PR263 tenant matrix remains the source of truth for tenant binding BLOCKs.
 - CI #550 passed on head `856d3c17c2d803927e073de29539d97c894a4c19`.
 
-Assistant pre-audit conclusion:
-- No known code blocker after CI #550.
-- PR264 is ready for audit-only PASS/BLOCK on exact head `856d3c17c2d803927e073de29539d97c894a4c19`.
-
 Next required action:
-1. Run audit-only PASS/BLOCK for PR264 head `856d3c17c2d803927e073de29539d97c894a4c19`.
-2. If audit PASS, merge with expected head SHA.
-3. After merge, verify runtime pickup and `runtime/maximal-flow-matrix.json`.
+1. Verify runtime pickup for main commit `f4f32c4fd2fdd6c12d034638c74861cb5f4ee55f`.
+2. Verify `runtime/startup-log.json`, `runtime/diagnostic-export-status.json`, and `runtime/maximal-flow-matrix.json`.
+3. Produce server-contract success table and manual MAX checklist summary.
