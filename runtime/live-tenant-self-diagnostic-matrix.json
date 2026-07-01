@@ -1,15 +1,68 @@
 {
-  "ok": true,
-  "generatedAt": "2026-07-01T20:16:55.029Z",
-  "runtime": "PR265-LIVE-TENANT-SELF-DIAGNOSTIC-1.0",
-  "configuredUsers": [],
-  "checkedUsers": [],
-  "rows": [],
+  "ok": false,
+  "generatedAt": "2026-07-01T20:47:23.872Z",
+  "runtime": "PR265-LIVE-TENANT-SELF-DIAGNOSTIC-1.1-PR268-LIVE-USER",
+  "configuredUsers": [
+    "175…246"
+  ],
+  "checkedUsers": [
+    "175…246"
+  ],
+  "rows": [
+    {
+      "ok": false,
+      "runtime": "PR265-LIVE-TENANT-SELF-DIAGNOSTIC-1.1-PR268-LIVE-USER",
+      "generatedAt": "2026-07-01T20:47:23.872Z",
+      "label": "watch",
+      "maxUserIdMasked": "175…246",
+      "tenantIdMasked": "—",
+      "state": {
+        "status": "active",
+        "active": true,
+        "admin": true,
+        "planId": "business",
+        "friendlyStatus": "админ"
+      },
+      "channels": {
+        "tenant": [],
+        "client": [],
+        "picker": [],
+        "storeLinked": []
+      },
+      "postEvidence": [],
+      "missingBindings": [],
+      "hiddenFromPicker": [],
+      "chatRecordsExcluded": 0,
+      "botAdminProofMissing": [],
+      "violations": [
+        {
+          "code": "tenant_missing_for_active_user"
+        }
+      ],
+      "warnings": [],
+      "summary": {
+        "knownTenant": false,
+        "active": true,
+        "admin": true,
+        "tenantChannelsCount": 0,
+        "clientChannelsCount": 0,
+        "pickerChannelsCount": 0,
+        "storeLinkedChannelsCount": 0,
+        "postEvidenceChannelsCount": 0,
+        "chatExcludedCount": 0,
+        "missingBindingsCount": 0,
+        "hiddenFromPickerCount": 0,
+        "blockCount": 1,
+        "warnCount": 0
+      },
+      "verdict": "BLOCK"
+    }
+  ],
   "summary": {
-    "checkedCount": 0,
-    "blockCount": 0,
+    "checkedCount": 1,
+    "blockCount": 1,
     "warnCount": 0,
-    "missingTenantCount": 0,
-    "zeroPickerChannelsCount": 0
+    "missingTenantCount": 1,
+    "zeroPickerChannelsCount": 1
   }
 }
