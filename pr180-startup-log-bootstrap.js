@@ -9,6 +9,7 @@ const channelTargetMatrix = require('./services/channelTargetMatrixService');
 const fullSectionMatrix = require('./services/fullSectionMatrixService');
 const userJourneyMatrix = require('./services/userJourneyMatrixService');
 const productSemanticMatrix = require('./services/productSemanticMatrixService');
+const tenantChannelBinding = require('./services/tenantChannelBindingService');
 const runtimeExport = require('./services/runtimeExportService');
 
 const startedAt = new Date().toISOString();
@@ -129,12 +130,13 @@ function scheduleStartupLog() {
   return { ok: true, scheduled: true };
 }
 processEvents.install();
-const expectedDiagnosticFiles = [fullSectionMatrix.DEFAULT_PATH, channelTargetMatrix.DEFAULT_PATH, userJourneyMatrix.DEFAULT_PATH, productSemanticMatrix.DEFAULT_PATH, processEvents.DEFAULT_PATH, northflankStartupLog.DEFAULT_PATH];
+const expectedDiagnosticFiles = [fullSectionMatrix.DEFAULT_PATH, channelTargetMatrix.DEFAULT_PATH, userJourneyMatrix.DEFAULT_PATH, productSemanticMatrix.DEFAULT_PATH, tenantChannelBinding.DEFAULT_PATH, processEvents.DEFAULT_PATH, northflankStartupLog.DEFAULT_PATH];
 northflankStartupLog.exportLog().catch((error) => { console.warn('[northflank-startup-log] export skipped', error && error.message || error); });
 channelTargetMatrix.exportMatrix().catch((error) => { console.warn('[channel-target-matrix] export skipped', error && error.message || error); });
 fullSectionMatrix.exportMatrix().catch((error) => { console.warn('[full-section-matrix] export skipped', error && error.message || error); });
 userJourneyMatrix.exportMatrix().catch((error) => { console.warn('[user-journey-matrix] export skipped', error && error.message || error); });
 productSemanticMatrix.exportMatrix().catch((error) => { console.warn('[product-semantic-matrix] export skipped', error && error.message || error); });
+tenantChannelBinding.exportMatrix().catch((error) => { console.warn('[tenant-channel-binding-matrix] export skipped', error && error.message || error); });
 const diagnosticStatusTimer = setTimeout(() => {
   runtimeExport.exportStatus({ expectedFiles: expectedDiagnosticFiles }).catch((error) => { console.warn('[diagnostic-export-status] export skipped', error && error.message || error); });
 }, 2500);

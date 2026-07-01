@@ -2,6 +2,7 @@
 
 const store = require('../store');
 const basePatcher = require('./postPatcher');
+const tenantBinding = require('./tenantChannelBindingService');
 const {
   buildBotStartLink,
   buildMiniAppLaunchUrl,
@@ -83,6 +84,13 @@ async function tryPatchChannelPost(options = {}) {
     lastIngestedRuntime: RUNTIME,
     fastPatchRuntime: RUNTIME
   });
+
+  const initiatingUserId = clean(options.linkedByUserId);
+  if (initiatingUserId) {
+    tenantBinding.bindChannelForInitiator({ maxUserId: initiatingUserId, channelId, channelTitle: options.channelTitle || channelId, source: 'direct_channel_post_ingest', botAdminProof: { proven: true, source: 'direct_channel_post' }, postEvidence: { postId, messageId, commentKey } });
+  } else {
+    tenantBinding.recordDiagnostic('missing_initiating_user_for_channel_bind', { channelIdMasked: channelId ? channelId.slice(0, 3) + '…' + channelId.slice(-3) : '', postId: postId ? postId.slice(0, 24) : '', source: 'direct_channel_post_ingest' });
+  }
 
   store.saveChannel(channelId, {
     lastPostId: String(postId || ''),
