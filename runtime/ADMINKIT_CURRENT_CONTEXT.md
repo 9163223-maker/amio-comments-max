@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 14:17 UTC
+Updated: 2026-07-01 14:22 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -34,7 +34,7 @@ PR261: `126d3a9d9a841b266337dceecce41d51855b6a3c`.
 PR262: `bc1e3f548ea65a18644d39335cd93c0f60f42cfb`, runtime PASS.
 PR263: `babac89e266044cf1cfb4e0026df913808f3a139`, runtime PASS.
 PR264: `f4f32c4fd2fdd6c12d034638c74861cb5f4ee55f`, runtime PASS.
-PR265: merged 2026-07-01 after audit PASS. Merge commit `f63d7c900b6f38af6b10ad705b6c5663be31d0af`. Runtime pickup pending at 14:17 UTC.
+PR265: merged 2026-07-01 after audit PASS. Merge commit `f63d7c900b6f38af6b10ad705b6c5663be31d0af`. Runtime pickup BLOCKED/not observed as of 14:22 UTC.
 
 ## PR265 details
 PR265:
@@ -73,13 +73,18 @@ PR265 fix history:
 - CI #570 failed inside `test-pr265-live-tenant-self-diagnostic`; adjusted live diagnostic false-block handling so only evidence-backed hidden channels block, while non-evidence residue is warning.
 - CI #572 passed on head `67e9060d2c8d0b06749f70135a00faba38559e7b`.
 
-Post-merge status at 14:17 UTC:
+Post-merge runtime status at 14:22 UTC:
 - package.json on main: start path unchanged: `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
-- startup-log latest is still old PR264 SHA `f4f32c4fd2fdd6c12d034638c74861cb5f4ee55f`; Northflank/runtime pickup for merge commit `f63d7c900b6f38af6b10ad705b6c5663be31d0af` not yet observed.
+- Northflank commit status for merge commit `f63d7c900b6f38af6b10ad705b6c5663be31d0af`: success (`deep-business-9777`).
+- `runtime/startup-log.json` remains stale: `updatedAt` `2026-07-01T12:24:16.220Z`; latest `githubMainHeadSha` is still PR264 merge `f4f32c4fd2fdd6c12d034638c74861cb5f4ee55f`.
+- `runtime/live-tenant-self-diagnostic-matrix.json` is missing / 404.
+- `runtime/diagnostic-export-status.json` is also stale at `2026-07-01T12:24:02.576Z` and expectedFiles does not include live tenant diagnostic matrix.
+- Therefore PR265 code merge succeeded, but production runtime pickup/export is not confirmed. Treat as post-merge runtime BLOCK/live mismatch until startup-log updates to `f63d7c900b6f38af6b10ad705b6c5663be31d0af` and live tenant matrix appears.
 
 Next required action:
 1. Re-check `runtime/startup-log.json` in `runtime-status` until `latest.githubMainHeadSha` equals `f63d7c900b6f38af6b10ad705b6c5663be31d0af`.
-2. Verify runtime contract: startupPath.ok, contractLiveOk, finalRuntimeReadinessGate.ok / readyForManualMaxTest.
-3. Verify `runtime/live-tenant-self-diagnostic-matrix.json` exists and is current enough after pickup.
-4. Verify diagnostic-export-status includes live tenant diagnostic matrix in expected files.
-5. Then request/manual MAX check: private `/tenant` or visible account button `Диагностика привязки`.
+2. If still stale, investigate Northflank restart/runtime export path. Do not claim done.
+3. Verify runtime contract: startupPath.ok, contractLiveOk, finalRuntimeReadinessGate.ok / readyForManualMaxTest.
+4. Verify `runtime/live-tenant-self-diagnostic-matrix.json` exists after pickup.
+5. Verify diagnostic-export-status includes live tenant diagnostic matrix in expected files.
+6. Then request/manual MAX check: private `/tenant` or visible account button `Диагностика привязки`.
