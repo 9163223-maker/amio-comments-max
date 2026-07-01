@@ -34,6 +34,43 @@ function ensureTenantForUser({ maxUserId, name = '', source = 'tenant_channel_bi
   return tenant ? { ok: true, tenant } : { ok: false, reason: 'tenant_upsert_failed' };
 }
 
+function suspendBindingForNegativeProof({ channelId, channelTitle = '', source = 'unknown', botAdminProof = null, metadata = {} } = {}) {
+  const cid = clean(channelId);
+  const at = nowIso();
+  const existing = repository.findChannelOwner(cid);
+  const stored = channelRecord(cid);
+  recordDiagnostic('bot_admin_negative_proof_for_channel_bind', { channelIdMasked: mask(cid), source: clean(source), bound: Boolean(existing) });
+  store.saveChannel(cid, {
+    ...stored,
+    channelId: cid,
+    ...(channelTitle ? { title: channelTitle, channelTitle } : {}),
+    botIsAdmin: false,
+    botAdminProof: botAdminProof || stored.botAdminProof || null,
+    botAdminStateSource: source,
+    botAdminLastVerifiedAt: at
+  });
+  if (!existing) {
+    return { ok: false, reason: 'bot_admin_required_for_tenant_binding', diagnostic: 'bot_admin_negative_proof_for_channel_bind' };
+  }
+  const item = {
+    ...existing,
+    status: 'suspended',
+    metadata: {
+      ...(existing.metadata || {}),
+      ...metadata,
+      source,
+      botAdminProof: botAdminProof || existing.metadata?.botAdminProof || null,
+      botIsAdmin: false,
+      lastVerifiedAt: at,
+      suspendedAt: at,
+      suspendedReason: 'bot_admin_proof_false'
+    },
+    updatedAt: at
+  };
+  repository.saveTenantChannel(item);
+  return { ok: false, reason: 'bot_admin_required_for_tenant_binding', suspended: true, channel: item, diagnostic: 'bot_admin_negative_proof_for_channel_bind' };
+}
+
 function bindChannelForInitiator({ maxUserId, channelId, channelTitle = '', source = 'unknown', botAdminProof = null, postEvidence = null, metadata = {} } = {}) {
   const userId = clean(maxUserId), cid = clean(channelId);
   if (!userId) return { ok: false, reason: 'missing_initiating_user' };
@@ -41,6 +78,9 @@ function bindChannelForInitiator({ maxUserId, channelId, channelTitle = '', sour
   const stored = channelRecord(cid);
   const candidate = { ...stored, ...(metadata.channelRecord || {}), channelId: cid, title: channelTitle || stored.title || stored.channelTitle, type: metadata.type || stored.type || stored.chatType || stored.sourceType };
   if (isChatLikeRecord(candidate)) return { ok: false, reason: 'chat_like_record' };
+  if (botAdminProof && botAdminProof.proven === false) {
+    return suspendBindingForNegativeProof({ channelId: cid, channelTitle, source, botAdminProof, metadata });
+  }
   const tenantResult = ensureTenantForUser({ maxUserId: userId, name: metadata.name || '', source });
   if (!tenantResult.ok) return tenantResult;
   const tenant = tenantResult.tenant;
