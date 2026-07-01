@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 10:23 UTC
+Updated: 2026-07-01 10:30 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -34,12 +34,8 @@ PR261: `126d3a9d9a841b266337dceecce41d51855b6a3c`.
 PR262: `bc1e3f548ea65a18644d39335cd93c0f60f42cfb`, runtime PASS.
 PR263: `babac89e266044cf1cfb4e0026df913808f3a139`, runtime PASS.
 
-## PR263 post-merge runtime check — 2026-07-01 08:12 UTC
-Runtime pickup, production contract, diagnostic export, and tenant-channel-binding matrix all passed for main squash commit `babac89e266044cf1cfb4e0026df913808f3a139`.
-
-Important PR263 runtime note:
-- `runtime/tenant-channel-binding-matrix.json` showed knownTenant true, tenantChannelsCount 1, visiblePickerChannelsCount 1, blockCount 0.
-- Matrix row was for fixture/user `real-user-1`. If real MAX user still sees zero channels, next issue is live userId/tenantId mismatch or real-data backfill, not the general PR263 server contract.
+## PR263 runtime note
+PR263 runtime passed, but tenant matrix row was fixture/user `real-user-1`. If real MAX user still sees zero channels, next issue is live userId/tenantId mismatch or real-data backfill, not the general PR263 server contract.
 
 ## PR264 current state
 PR264:
@@ -48,9 +44,10 @@ PR264:
 - Branch: `codex/pr264-maximal-flow-matrix-v2`
 - Base: `main`
 - Base SHA: `babac89e266044cf1cfb4e0026df913808f3a139`
-- Current head: `28601237307858ab752c879b3009b7c488eea975`
+- Current head: `856d3c17c2d803927e073de29539d97c894a4c19`
 - State: open, not merged, not draft.
-- CI: PR regression tests #546, run id `28510586045`, currently in_progress at creation check.
+- Mergeable: true.
+- CI: PR regression tests #550, run id `28510799754`, conclusion `success`.
 
 PR264 scope:
 - Adds `services/maximalFlowMatrixService.js`.
@@ -62,12 +59,17 @@ PR264 scope:
 - Matrix integrates tenant-channel-binding matrix.
 - Matrix includes manual MAX checklist M01-M12 for later selective user verification.
 
-Known PR264 caveat:
-- Assistant attempted to add a named wrapper and node --check line to `.github/workflows/pr-regression-tests.yml`, but the full YAML update was blocked by tool safety layer.
-- The test is still included in `npm test`, and the PR workflow already runs `npm-test`, so CI still exercises PR264 maximal matrix.
+PR264 CI fix history:
+- CI #546 failed because maximal matrix treated legitimate Push/Account/Settings word `чат` as channel/post chat leakage, and embedded tenant matrix inherited residue from the PR263 missing-binding fixture.
+- Fixed: chat leakage is BLOCK only in channel/post target flows; Push/Account/Settings chat wording is not a channel-target leak.
+- Fixed: embedded tenant matrix not-ok after fixture residue is WARN inside maximal matrix, not PR264 BLOCK; PR263 tenant matrix remains the source of truth for tenant binding BLOCKs.
+- CI #550 passed on head `856d3c17c2d803927e073de29539d97c894a4c19`.
+
+Assistant pre-audit conclusion:
+- No known code blocker after CI #550.
+- PR264 is ready for audit-only PASS/BLOCK on exact head `856d3c17c2d803927e073de29539d97c894a4c19`.
 
 Next required action:
-1. Wait for CI #546 result.
-2. If CI red, inspect diagnostics artifact and fix in the same PR264 branch.
-3. If CI green, do pre-audit code review and then audit-only PASS/BLOCK on exact head.
-4. Do not merge without final audit-only PASS or explicit waiver.
+1. Run audit-only PASS/BLOCK for PR264 head `856d3c17c2d803927e073de29539d97c894a4c19`.
+2. If audit PASS, merge with expected head SHA.
+3. After merge, verify runtime pickup and `runtime/maximal-flow-matrix.json`.
