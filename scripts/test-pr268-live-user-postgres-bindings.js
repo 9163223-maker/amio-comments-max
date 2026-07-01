@@ -24,6 +24,16 @@ function rowForTable(sql) {
       },
       {
         admin_id: '17507246',
+        channel_id: '-1004',
+        role: 'admin',
+        updated_at: '2026-07-01T10:30:00.000Z',
+        title: 'Important Updates',
+        raw: {},
+        postsCount: 1,
+        source: 'ak_admin_channels'
+      },
+      {
+        admin_id: '17507246',
         channel_id: '-2002',
         role: 'admin',
         updated_at: '2026-07-01T11:00:00.000Z',
@@ -88,16 +98,18 @@ function rowForTable(sql) {
   assert.deepStrictEqual(matrix.checkedUsers, ['175…246']);
   assert.strictEqual(matrix.rows.length, 1);
   const row = matrix.rows[0];
-  assert.strictEqual(row.counts.channels, 1, 'channel records are separated');
+  assert.strictEqual(row.counts.channels, 2, 'channel records are separated and im substrings do not force chat');
   assert.strictEqual(row.counts.chats, 3, 'chat records are separated from admin and push bindings');
   assert.strictEqual(row.counts.unknown, 0, 'no known records left unknown');
   assert.ok(row.channels.some((item) => item.title === 'AdminKIT Channel'));
+  assert.ok(row.channels.some((item) => item.title === 'Important Updates'));
   assert.ok(row.chats.some((item) => item.title === 'Семейный чат'));
   assert.ok(row.chats.some((item) => item.title === 'Рабочий чат без metadata'));
   assert.ok(row.chats.some((item) => item.title === 'MAX рабочий чат'));
   assert.ok(!JSON.stringify(matrix).includes('17507246'), 'full MAX ID is not exported');
   assert.ok(!JSON.stringify(matrix).includes('-1001'), 'raw channel ID is not exported');
-  assert.strictEqual(matrix.summary.channelsCount, 1);
+  assert.ok(!JSON.stringify(matrix).includes('-1004'), 'raw channel ID with im-title is not exported');
+  assert.strictEqual(matrix.summary.channelsCount, 2);
   assert.strictEqual(matrix.summary.chatsCount, 3);
 
   db.hasDatabaseUrl = () => false;
