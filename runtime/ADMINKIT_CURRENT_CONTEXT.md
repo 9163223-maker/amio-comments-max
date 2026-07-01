@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 08:12 UTC
+Updated: 2026-07-01 10:23 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -32,68 +32,42 @@ PR259: `c087323dcf38d1a6bbec082efe3b9bbdb496e747`.
 PR260: `cc33ac39aee2817070ea8e65693553d36df103aa`.
 PR261: `126d3a9d9a841b266337dceecce41d51855b6a3c`.
 PR262: `bc1e3f548ea65a18644d39335cd93c0f60f42cfb`, runtime PASS.
-
-## PR263 status
-PR263:
-- URL: https://github.com/9163223-maker/amio-comments-max/pull/263
-- Title: `Tenant channel binding contract and live channel ownership diagnostics`
-- Branch: `codex/add-tenant-channel-binding-service`
-- Base: `main`
-- Final head: `34322880e3a065232e820c9e281227243678714c`
-- CI: PR regression tests #539, run id `28502260093`, conclusion `success`.
-- Audit-only: PASS shown by user screenshot on 2026-07-01 08:02 UTC.
-- Merge method: squash merge.
-- Merged at: 2026-07-01 08:05:27 UTC.
-- Main squash commit: `babac89e266044cf1cfb4e0026df913808f3a139`.
-
-PR263 scope:
-- Added tenant-channel binding service.
-- Binds real channels to the initiating user's tenant only when the user state is trusted and bot-admin proof is not explicitly negative.
-- Keeps chats out of channel/post targets.
-- Exports `runtime/tenant-channel-binding-matrix.json`.
-- Adds regression test and wires it into npm test and PR workflow.
-
-Audit/fix history:
-1. Initial assistant BLOCK on 2026-07-01 07:15 UTC: tenant creation was too permissive when no tenant existed.
-2. Follow-up fixed trusted access checks; CI #535 passed.
-3. Audit BLOCK on 2026-07-01 07:48 UTC: negative `botAdminProof.proven === false` still refreshed active binding.
-4. Follow-up fixed negative bot-admin proof handling: new/unbound channel is rejected without active binding; existing binding is persisted as `suspended`; picker hides it; tests cover both cases.
-5. CI #539 passed; final audit-only PASS shown by user screenshot.
+PR263: `babac89e266044cf1cfb4e0026df913808f3a139`, runtime PASS.
 
 ## PR263 post-merge runtime check — 2026-07-01 08:12 UTC
-Runtime pickup confirmed from `runtime/startup-log.json`:
-- updatedAt: `2026-07-01T08:06:57.913Z`
-- latest startedAt: `2026-07-01T08:06:07.616Z`
-- latest bootId: `mr1sl6j9-ed455b53`
-- latest githubMainHeadSha: `babac89e266044cf1cfb4e0026df913808f3a139`
-- entrypoint: `clean-entrypoint-1.53.10-pr89.js`
-- postgresConfigured: true
-- runtimeContract.contractLiveOk: true
-- startupPath.ok: true
-- dataProviders.ok: true
-- finalRuntimeReadinessGate.ok: true
-- finalRuntimeReadinessGate.missing: []
-- readyForManualMaxTest: true
+Runtime pickup, production contract, diagnostic export, and tenant-channel-binding matrix all passed for main squash commit `babac89e266044cf1cfb4e0026df913808f3a139`.
 
-Production package on main:
-- main: `clean-entrypoint-1.53.10-pr89.js`
-- start: `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`
-- npm test includes `scripts/test-pr263-tenant-channel-binding-contract.js`.
+Important PR263 runtime note:
+- `runtime/tenant-channel-binding-matrix.json` showed knownTenant true, tenantChannelsCount 1, visiblePickerChannelsCount 1, blockCount 0.
+- Matrix row was for fixture/user `real-user-1`. If real MAX user still sees zero channels, next issue is live userId/tenantId mismatch or real-data backfill, not the general PR263 server contract.
 
-Diagnostic files:
-- `runtime/tenant-channel-binding-matrix.json`: ok true, runtime `PR263-TENANT-CHANNEL-BINDING-CONTRACT-1.0`, knownTenant true, tenantChannelsCount 1, visiblePickerChannelsCount 1, missingBindings [], conflictingBindings [], inactiveBotAdminBindings [], violations [], warnings [], blockCount 0, warnCount 0. Note: botAdminProofMissing includes `channel-olga`, but it is not currently a warning/block in matrix.
-- `runtime/diagnostic-export-status.json`: ok true, expectedCount 7, okCount 7, failedCount 0, missingCount 0, missingFiles []; includes `runtime/tenant-channel-binding-matrix.json`.
-- `runtime/full-section-matrix.json`: ok true, 37 routes, violations [], blockCount 0.
-- `runtime/channel-target-matrix.json`: ok true, violations [], leaks [], forbidden chat titles excluded.
-- `runtime/user-journey-matrix.json`: ok true, 14 sections, 16 journeys, 87 steps, violations [], blockCount 0, giftsBlockCount 0, buttonsBlockCount 0.
-- `runtime/product-semantic-matrix.json`: ok true, sectionCount 14, pass 4, partial 10, block 0, blockCount 0, postScopedSectionsChecked 6.
-- `runtime/process-events.json`: ok true, handlersInstalled true, startup event entrypoint `clean-entrypoint-1.53.10-pr89.js`.
-- `runtime/northflank-startup-log.json`: ok true, configured false fallback because Northflank env credentials are missing.
+## PR264 current state
+PR264:
+- URL: https://github.com/9163223-maker/amio-comments-max/pull/264
+- Title: `Maximal flow matrix and manual route checklist`
+- Branch: `codex/pr264-maximal-flow-matrix-v2`
+- Base: `main`
+- Base SHA: `babac89e266044cf1cfb4e0026df913808f3a139`
+- Current head: `28601237307858ab752c879b3009b7c488eea975`
+- State: open, not merged, not draft.
+- CI: PR regression tests #546, run id `28510586045`, currently in_progress at creation check.
 
-Conclusion:
-- PR263 merge: PASS.
-- Runtime pickup: PASS.
-- Production contract: PASS.
-- Diagnostic export: PASS.
-- Tenant-channel binding matrix: PASS.
-- Ready for manual MAX visual check: user should re-open gifts/buttons/polls/highlights post selection and verify tenant-bound channels are visible. If live user still sees zero channels, next issue is real-data migration/backfill for existing channels, not PR263 server contract itself.
+PR264 scope:
+- Adds `services/maximalFlowMatrixService.js`.
+- Adds runtime export `runtime/maximal-flow-matrix.json`.
+- Adds `scripts/test-pr264-maximal-flow-matrix.js` and wires it into `npm test`.
+- Wires maximal matrix into `pr180-startup-log-bootstrap.js` expected diagnostic files/export queue.
+- Matrix renders all root sections, repeated root opens, and broad post-scoped scenarios for comments/gifts/buttons/polls/highlights/editor.
+- Scenarios include zero/one/multiple channels, dangerous chat records, zero posts, selected post, malformed/missing payload, missing required id, foreign post, stale/deleted post.
+- Matrix integrates tenant-channel-binding matrix.
+- Matrix includes manual MAX checklist M01-M12 for later selective user verification.
+
+Known PR264 caveat:
+- Assistant attempted to add a named wrapper and node --check line to `.github/workflows/pr-regression-tests.yml`, but the full YAML update was blocked by tool safety layer.
+- The test is still included in `npm test`, and the PR workflow already runs `npm-test`, so CI still exercises PR264 maximal matrix.
+
+Next required action:
+1. Wait for CI #546 result.
+2. If CI red, inspect diagnostics artifact and fix in the same PR264 branch.
+3. If CI green, do pre-audit code review and then audit-only PASS/BLOCK on exact head.
+4. Do not merge without final audit-only PASS or explicit waiver.
