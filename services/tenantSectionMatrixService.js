@@ -8,21 +8,31 @@ const liveTenant = require('./liveTenantSelfDiagnosticService');
 const picker = require('../channel-post-picker-core');
 const runtimeExport = require('./runtimeExportService');
 
-const RUNTIME = 'PR267-TENANT-SECTION-MATRIX-1.1-PR268-LIVE-USER';
+const RUNTIME = 'PR269-TENANT-SECTION-MATRIX-LIVE-ID-SAFE-1.0';
 const DEFAULT_PATH = 'runtime/tenant-section-matrix.json';
 const CHAT_RE = /(?:chat-|grp-|private-|dialog-|supergroup|семейный чат|group chat|private chat|Все свои MAX|Саша - сын Мамочки)/i;
 const TECH_RE = /\b(?:postId|channelId|commentKey|payload|token|trace|debug|null|undefined)\b/i;
 
 function clean(value) { return String(value == null ? '' : value).replace(/\s+/g, ' ').trim(); }
+function mask(value = '') { const id = clean(value); if (!id) return ''; return id.length <= 6 ? '***' : `${id.slice(0, 3)}…${id.slice(-3)}`; }
 function liveUsers() { return liveTenant.watchedUsers().map(clean).filter(Boolean); }
 function short(value = '', max = 160) { const text = clean(value); return text.length <= max ? text : `${text.slice(0, Math.max(1, max - 1)).trim()}…`; }
+function scrubUserId(value, userId = '') {
+  const raw = clean(userId);
+  if (!raw) return value;
+  const masked = mask(raw);
+  if (typeof value === 'string') return value.split(raw).join(masked);
+  if (!value || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((item) => scrubUserId(item, raw));
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, scrubUserId(item, raw)]));
+}
 function buttons(screen = {}) { return (screen.attachments?.[0]?.payload?.buttons || []).flat().filter(Boolean); }
 function labels(screen = {}) { return buttons(screen).map((button) => clean(button.text)).filter(Boolean); }
 function payloads(screen = {}) { return buttons(screen).map((button) => clean(button.payload)).filter(Boolean); }
 function visibleText(screen = {}) { return `${clean(screen.text)}\n${labels(screen).join('\n')}\n${payloads(screen).join('\n')}`; }
 function titleOf(channel = {}, index = 0) { return clean(channel.title || channel.channelTitle || channel.name || channel.channelName || `Канал ${index + 1}`); }
 function postTitleOf(post = {}, index = 0) { return clean(post.title || post.preview || post.originalText || `${index + 1}. Пост`); }
-function violation(severity, userId, section, scenario, reason, expected, actual, extra = {}) { return { severity, userId, section, scenario, reason, expected, actual: short(actual), ...extra }; }
+function violation(severity, userId, section, scenario, reason, expected, actual, extra = {}) { return { severity, userId: mask(userId), section, scenario, reason, expected, actual: short(scrubUserId(actual, userId)), ...scrubUserId(extra, userId) }; }
 function render(route, context = {}) { try { return { ok: true, screen: menu.render(route, context) }; } catch (error) { return { ok: false, error: clean(error && error.message || error) }; } }
 function enrichChannel(userId = '', channel = {}) { return { ...channel, channelId: clean(channel.channelId || channel.id || channel.chatId), title: titleOf(channel), channelTitle: titleOf(channel), type: 'channel', isChannel: true, ownerUserId: clean(channel.ownerUserId || userId), linkedByUserId: clean(channel.linkedByUserId || userId) }; }
 function scenarioContext(userId = '', channels = [], posts = [], channel = null) {
@@ -34,7 +44,7 @@ function selectedContext(userId = '', channel = {}, post = {}) {
   return { maxUserId: userId, userId, payload: { channelId: clean(channel.channelId), channelTitle: titleOf(channel), postId: clean(post.postId), postTitle: title, commentKey: clean(post.commentKey), section: '', step: 'action' }, dataContext: { channelId: clean(channel.channelId), channelTitle: titleOf(channel), posts: [post] } };
 }
 function checkRendered({ userId, section, scenario, route, result, ownTitles = [], foreignTitles = [], violations, warnings, requireOwn = false, forbidTechIds = true, guardChatLeaks = false }) {
-  if (!result.ok) { violations.push(violation('block', userId, section, scenario, 'route_throw', 'safe rendered screen', result.error, { route })); return { section, route, scenario, ok: false, error: result.error }; }
+  if (!result.ok) { violations.push(violation('block', userId, section, scenario, 'route_throw', 'safe rendered screen', result.error, { route })); return { section, route, scenario, ok: false, error: scrubUserId(result.error, userId) }; }
   const screen = result.screen || {};
   const combined = visibleText(screen);
   const screenLabels = labels(screen);
@@ -50,7 +60,7 @@ function checkRendered({ userId, section, scenario, route, result, ownTitles = [
     violations.push(violation('block', userId, section, scenario, 'technical_identifier_visible', 'no technical identifiers in visible text/buttons', `${clean(screen.text)} | ${screenLabels.join(' | ')}`, { route }));
   }
   if (!screenLabels.length) warnings.push(violation('warn', userId, section, scenario, 'screen_without_buttons', 'navigation/action buttons where useful', '', { route }));
-  return { section, route, scenario, ok: true, text: short(screen.text, 220), labels: screenLabels };
+  return { section, route, scenario, ok: true, text: scrubUserId(short(screen.text, 220), userId), labels: scrubUserId(screenLabels, userId) };
 }
 function manualAlgorithms() {
   return [
@@ -109,7 +119,20 @@ async function buildUserRow(userId = '', allUserChannels = {}) {
     }
   }
 
-  return { userId, ok: violations.filter((v) => v.severity === 'block').length === 0, diagnosticSummary: diagnostic.summary || {}, tenantSummary: tenant.summary || {}, pickerChannelsCount: pickerChannels.length, pickerChannelTitles: ownTitles, firstChannelPostsCount: ownPosts.length, routes, violations, warnings };
+  const row = {
+    userId: mask(userId),
+    userIdMasked: mask(userId),
+    ok: violations.filter((v) => v.severity === 'block').length === 0,
+    diagnosticSummary: diagnostic.summary || {},
+    tenantSummary: tenant.summary || {},
+    pickerChannelsCount: pickerChannels.length,
+    pickerChannelTitles: ownTitles,
+    firstChannelPostsCount: ownPosts.length,
+    routes,
+    violations,
+    warnings
+  };
+  return scrubUserId(row, userId);
 }
 async function buildMatrix({ users = null } = {}) {
   const ids = Array.from(new Set((Array.isArray(users) && users.length ? users : await usersFromRuntime()).map(clean).filter(Boolean)));
@@ -120,7 +143,7 @@ async function buildMatrix({ users = null } = {}) {
   const violations = rows.flatMap((row) => row.violations || []);
   const warnings = rows.flatMap((row) => row.warnings || []);
   const blockCount = violations.filter((v) => v.severity === 'block').length;
-  return { ok: blockCount === 0, generatedAt: new Date().toISOString(), runtime: RUNTIME, checkedUsers: ids, rows, manualAlgorithms: manualAlgorithms(), summary: { checkedUsersCount: ids.length, rootSectionsChecked: canonical.clientSections.length + 1, postScopedSectionsChecked: contracts.POST_SCOPED.length, renderedRoutes: rows.reduce((n, row) => n + (row.routes || []).length, 0), blockCount, warnCount: warnings.length }, violations, warnings };
+  return { ok: blockCount === 0, generatedAt: new Date().toISOString(), runtime: RUNTIME, checkedUsers: ids.map(mask), rows, manualAlgorithms: manualAlgorithms(), summary: { checkedUsersCount: ids.length, rootSectionsChecked: canonical.clientSections.length + 1, postScopedSectionsChecked: contracts.POST_SCOPED.length, renderedRoutes: rows.reduce((n, row) => n + (row.routes || []).length, 0), blockCount, warnCount: warnings.length }, violations, warnings };
 }
 async function exportMatrix() { return runtimeExport.exportJson({ path: DEFAULT_PATH, payload: () => buildMatrix(), message: 'tenant section matrix' }); }
 
