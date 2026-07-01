@@ -12,6 +12,7 @@ const productSemanticMatrix = require('./services/productSemanticMatrixService')
 const tenantChannelBinding = require('./services/tenantChannelBindingService');
 const maximalFlowMatrix = require('./services/maximalFlowMatrixService');
 const liveTenantSelfDiagnostic = require('./services/liveTenantSelfDiagnosticService');
+const tenantSectionMatrix = require('./services/tenantSectionMatrixService');
 const runtimeExport = require('./services/runtimeExportService');
 
 const startedAt = new Date().toISOString();
@@ -41,7 +42,7 @@ function shouldDeferStartupLog(info) { if (isFinalDisabledProductionProbeStartup
 function writeScheduledStartupLog(attempt = 0) { const info = runtimeInfo(); if (shouldDeferStartupLog(info) && attempt < 60) { const retry = setTimeout(() => writeScheduledStartupLog(attempt + 1), 500); if (retry && typeof retry.unref === 'function') retry.unref(); return; } if (shouldDeferStartupLog(info)) { startupLog.recordStartup({ ...info, startupLogRefreshReason: 'deferred-startup-timeout-before-final-runtime-readiness' }).catch((error) => { console.warn('[startup-log] unhandled failure', error && error.message || error); }); return; } startupLog.recordStartup(info).catch((error) => { console.warn('[startup-log] unhandled failure', error && error.message || error); }); }
 function scheduleStartupLog() { if (scheduled) return { ok: true, already: true }; scheduled = true; const timer = setTimeout(() => writeScheduledStartupLog(), 1500); if (timer && typeof timer.unref === 'function') timer.unref(); return { ok: true, scheduled: true }; }
 processEvents.install();
-const expectedDiagnosticFiles = [fullSectionMatrix.DEFAULT_PATH, channelTargetMatrix.DEFAULT_PATH, userJourneyMatrix.DEFAULT_PATH, productSemanticMatrix.DEFAULT_PATH, tenantChannelBinding.DEFAULT_PATH, maximalFlowMatrix.DEFAULT_PATH, liveTenantSelfDiagnostic.DEFAULT_PATH, processEvents.DEFAULT_PATH, northflankStartupLog.DEFAULT_PATH];
+const expectedDiagnosticFiles = [fullSectionMatrix.DEFAULT_PATH, channelTargetMatrix.DEFAULT_PATH, userJourneyMatrix.DEFAULT_PATH, productSemanticMatrix.DEFAULT_PATH, tenantChannelBinding.DEFAULT_PATH, maximalFlowMatrix.DEFAULT_PATH, liveTenantSelfDiagnostic.DEFAULT_PATH, tenantSectionMatrix.DEFAULT_PATH, processEvents.DEFAULT_PATH, northflankStartupLog.DEFAULT_PATH];
 northflankStartupLog.exportLog().catch((error) => { console.warn('[northflank-startup-log] export skipped', error && error.message || error); });
 channelTargetMatrix.exportMatrix().catch((error) => { console.warn('[channel-target-matrix] export skipped', error && error.message || error); });
 fullSectionMatrix.exportMatrix().catch((error) => { console.warn('[full-section-matrix] export skipped', error && error.message || error); });
@@ -50,6 +51,7 @@ productSemanticMatrix.exportMatrix().catch((error) => { console.warn('[product-s
 tenantChannelBinding.exportMatrix().catch((error) => { console.warn('[tenant-channel-binding-matrix] export skipped', error && error.message || error); });
 maximalFlowMatrix.exportMatrix().catch((error) => { console.warn('[maximal-flow-matrix] export skipped', error && error.message || error); });
 liveTenantSelfDiagnostic.exportMatrix().catch((error) => { console.warn('[live-tenant-self-diagnostic-matrix] export skipped', error && error.message || error); });
+tenantSectionMatrix.exportMatrix().catch((error) => { console.warn('[tenant-section-matrix] export skipped', error && error.message || error); });
 const diagnosticStatusTimer = setTimeout(() => { runtimeExport.exportStatus({ expectedFiles: expectedDiagnosticFiles }).catch((error) => { console.warn('[diagnostic-export-status] export skipped', error && error.message || error); }); }, 2500);
 if (diagnosticStatusTimer && typeof diagnosticStatusTimer.unref === 'function') diagnosticStatusTimer.unref();
 scheduleStartupLog();
