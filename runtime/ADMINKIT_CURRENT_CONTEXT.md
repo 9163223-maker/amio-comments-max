@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 13:05 UTC
+Updated: 2026-07-01 14:05 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -42,41 +42,43 @@ PR265:
 - Branch: `codex/pr265-live-tenant-self-diagnostic`
 - Base: `main`
 - Base SHA: `f4f32c4fd2fdd6c12d034638c74861cb5f4ee55f`
-- Current head: `e34abf37c24b36f2c8ace785518deeee439d7a7f`
+- Current head: `67e9060d2c8d0b06749f70135a00faba38559e7b`
 - State: open, not merged, not draft.
 - Mergeable: true.
-- CI: PR regression tests #556, run id `28519013715`, conclusion `success`.
-- Review state: assistant left a COMMENT review with explicit BLOCK on 2026-07-01 13:04 UTC.
+- CI: PR regression tests #572, run id `28523344844`, conclusion `success`.
 
 PR265 purpose:
 - Add generic live tenant self-diagnostic for the current MAX user without hardcoding any user id.
 - Allow the same diagnostic to work for any other user id when that user runs the diagnostic or when configured in env watch list later.
 - Distinguish general server contract from a specific live user binding: current maxUserId -> tenant -> tenant channels -> client channels -> picker channels -> posts.
 
-PR265 changes currently on head:
+PR265 changes:
 - Adds `services/liveTenantSelfDiagnosticService.js`.
 - Adds runtime export `runtime/live-tenant-self-diagnostic-matrix.json` through `pr180-startup-log-bootstrap.js`.
 - Adds private-chat command handling in `clean-bot-campaign-attribution-cc8336.js`:
   `/tenant`, `/tenant_debug`, `/tenant_diag`, `/diagnostic`, `/diag`, `диагностика`, `диагностика привязки`.
+- Adds visible ordinary account button `Диагностика привязки` with action `account_tenant_diagnostic` for active/admin account users.
+- `src/core/accountRuntime.js` recognizes `account_tenant_diagnostic` and routes to `liveTenantSelfDiagnostic.buildScreen({ maxUserId })` using current live user context.
 - Diagnostic output masks IDs and shows current MAX id, tenant found/not found, access status, tenant/client/picker channel counts, post evidence, excluded chats, warnings and blockers.
-- Adds standalone test `scripts/test-pr265-live-tenant-self-diagnostic.js` with two users and isolated channel sets.
+- Adds `scripts/test-pr265-live-tenant-self-diagnostic.js` with two users and isolated channel sets.
+- Wires PR265 test into `package.json` npm test.
+- Adds named workflow wrapper `test-pr265-live-tenant-self-diagnostic` and node --check for the service/test.
+- Restores `requestIdFromReq()` behavior to check both `req.get('x-request-id')` and `req.get('X-Request-Id')`.
 
-Assistant review BLOCK:
-- Blocker files: `package.json`, `.github/workflows/pr-regression-tests.yml`, `features/account-screens-pr106.js`, `clean-bot-campaign-attribution-cc8336.js`.
-- Reason: CI #556 passed, but the dedicated PR265 test is not wired into `npm test` or PR workflow, so the main regression gate did not execute it. Also, the live diagnostic currently has private commands/callback action but no ordinary visible account UI entry. There is also a small `requestIdFromReq()` fallback regression and unrelated formatting churn in active runtime files.
-- Minimal required fix:
-  1. Wire `scripts/test-pr265-live-tenant-self-diagnostic.js` into `package.json` `npm test`.
-  2. Add a named PR regression workflow wrapper for this test.
-  3. Add visible account button `Диагностика привязки` -> `account_tenant_diagnostic` for the current live `maxUserId`; keep private commands too.
-  4. Update account runtime/contracts/tests if needed.
-  5. Restore `requestIdFromReq()` to preserve both header lookups and minimize unrelated formatting churn.
-  6. Re-run CI on new head.
+PR265 fix history:
+- Initial Codex follow-up attempts returned ENV_BLOCK because Codex Cloud could not fetch/push PR265 branch (`origin` missing / CONNECT tunnel failed 403).
+- Assistant fixed the PR265 BLOCK directly through GitHub connector in the existing PR branch.
+- CI #568 failed because canonical menu expected list did not include `Диагностика привязки`; fixed `scripts/test-canonical-menu-matrix-pr175.js`.
+- CI #570 failed inside `test-pr265-live-tenant-self-diagnostic`; adjusted live diagnostic false-block handling so only evidence-backed hidden channels block, while non-evidence residue is warning.
+- CI #572 passed on head `67e9060d2c8d0b06749f70135a00faba38559e7b`.
 
-Tooling note:
-- ChatGPT GitHub update_file repeatedly blocked direct `package.json` and test-hook updates in this session. A Codex follow-up on the existing PR265 branch may be the fastest fix route.
+Assistant pre-audit conclusion:
+- Original PR265 BLOCK appears fixed.
+- Codex ENV_BLOCK is bypassed by direct GitHub updates.
+- No known code blocker after CI #572.
+- PR265 is ready for audit-only PASS/BLOCK on exact head `67e9060d2c8d0b06749f70135a00faba38559e7b`.
 
 Next required action:
-1. Fix PR265 BLOCK in the existing branch.
-2. Re-run CI.
-3. Only after green CI and no known code blockers, run audit-only PASS/BLOCK on exact head.
-4. Do not merge PR265 yet.
+1. Run audit-only PASS/BLOCK for PR265 head `67e9060d2c8d0b06749f70135a00faba38559e7b`.
+2. If audit PASS, merge with expected head SHA.
+3. After merge, verify runtime pickup, `runtime/live-tenant-self-diagnostic-matrix.json`, diagnostic-export-status expected files, and manual private MAX command `/tenant` or visible account button.
