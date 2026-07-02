@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-02 08:39 UTC
+Updated: 2026-07-02 09:06 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -46,14 +46,16 @@ PR265: `f63d7c900b6f38af6b10ad705b6c5663be31d0af`, runtime pickup confirmed thro
 PR266: `a0278effba94c56ba33bf061d25a94a61a6f966d`, runtime PASS with remaining Northflank API env config observability-only BLOCK.
 PR267: `d142afd5ab4fb1562a8841151f7cf8d8e111656c`, runtime PASS.
 PR268: `db686772b5f24b32050e3646c69902f1cb59535a`, merged after audit PASS.
-PR269: `38370010b9120ff41f744b109dc2ee10d7a50a32`, merged after audit PASS, but post-merge P2 found.
+PR269: `38370010b9120ff41f744b109dc2ee10d7a50a32`, merged after audit PASS.
+PR270: `383a03fc6c45d7a617836310750121162ad53e03`, merged after audit PASS.
 
-## Current production runtime before PR268/PR269/PR270 pickup
+## Current production runtime before PR270 pickup
 - Last confirmed runtime is still after PR267: `latest.githubMainHeadSha` was `d142afd5ab4fb1562a8841151f7cf8d8e111656c` in `runtime/startup-log.json` at `2026-07-01T19:08:15.506Z`.
 - active entrypoint remained `clean-entrypoint-1.53.10-pr89.js`.
 - production start path on main remained `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
 - `runtimeContract.contractLiveOk`, `startupPath.ok`, and `finalRuntimeReadinessGate.ok` were true at last confirmed runtime.
 - `runtime/northflank-startup-log.json` remained configured:false/ok:false because Northflank API env variables are missing. This is observability-only, not product runtime failure.
+- Deploy/runtime pickup for PR270 merge commit `383a03fc6c45d7a617836310750121162ad53e03` is NOT VERIFIED yet.
 
 ## Live mismatch after PR267 manual MAX check
 Manual `/tenant` check for the real live user showed a mismatch:
@@ -72,7 +74,7 @@ Correction from user:
 - The required live diagnostic must collect from production Postgres/runtime sources which channels and which chats are attached to MAX ID `17507246`, and keep channels separate from chats.
 - Channel/post flows must show only real channels/posts, not chats.
 
-## PR268 / PR269 status
+## PR268 / PR269 / PR270 status
 PR268:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/268
 - Head SHA: `1870acfd5d885ad94377a8c0db5aad9fa0b670ce`
@@ -91,14 +93,13 @@ PR269:
 - Deploy/runtime status: NOT VERIFIED yet.
 - Post-merge finding: title-regex classification was architecturally wrong. User corrected: remove title-based classification entirely. PR270 handles this.
 
-## PR270 status — open follow-up after audit BLOCKs, fixed and ready for re-audit
 PR270:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/270
 - Title: `PR270: Classify bindings by official MAX evidence`
 - Branch: `codex/pr270-chat-title-token-match`
 - Base: `main`
 - Base SHA: `38370010b9120ff41f744b109dc2ee10d7a50a32`
-- Current head SHA: `10049dd3d3d0dd467db80d12576ddeef60acf0fb`
+- Final audited head SHA: `10049dd3d3d0dd467db80d12576ddeef60acf0fb`
 - Previous blocked heads:
   - `db2dd0f8936a2a07b5384b86fb1d6b163b562dcf`: missed single-record conflicting official evidence.
   - `544c670f8393cd764a7fd73053dd52d986ec0c93`: treated `chat + dialog` subtype evidence as conflict.
@@ -107,8 +108,10 @@ PR270:
   - `scripts/test-pr268-live-user-postgres-bindings.js`
 - CI: `PR regression tests`, run `640`, run id `28576741049`, exact-head `10049dd3d3d0dd467db80d12576ddeef60acf0fb`, conclusion `success`.
 - CI artifact: `adminkit-ci-diagnostics`, artifact id `8033257734`, digest `sha256:80af86818322d12a146e755516611e0e1470649bef246e6a68dbfbc18a33f7cb`.
-- PR state: open, not merged, mergeable true.
-- Audit: previous `AUDIT: BLOCK` at `db2dd0f...` and at `544c670f...`; re-audit NOT RUN yet at `10049dd3...`.
+- Audit result: `AUDIT: PASS`.
+- Merge method: squash.
+- Merge commit: `383a03fc6c45d7a617836310750121162ad53e03`.
+- Deploy/runtime status: NOT VERIFIED yet.
 
 PR270 implementation:
 - Replaced title/regex classification with official MAX evidence only.
@@ -125,28 +128,6 @@ PR270 implementation:
 - Safe export does not expose raw MAX ID, raw channel/chat IDs, raw dedupe IDs, or internal hash keys.
 - Duplicate legacy+official rows for the same raw object prefer official evidence; explicit conflict entries inside a group cannot be hidden by another official duplicate and remain unknown/BLOCK.
 
-PR270 tests cover:
-- chat-like title + `raw.type=channel` remains channel;
-- channel-like title + `raw.type=chat` remains chat;
-- title-only `Olga Style` / `АдминКИТ клуб` remains unknown;
-- `Update.is_channel=true/false` evidence;
-- webhook `raw.sample.recipient.type`, `raw.sample.chat.type`, and sample `is_channel` evidence;
-- legacy `isChannel/isChat` without official context remains unknown;
-- `chat + dialog` subtype evidence in one payload is non-channel/chat and not conflict;
-- `channel + chat` official type conflict in one record blocks;
-- typed official type vs `Update.is_channel` conflict blocks;
-- conflicting `Update.is_channel` fields block;
-- push chat binding remains chat;
-- unknown/conflict records block with `needs_api_resolution`;
-- parameterized SQL and no raw MAX/channel IDs in runtime export;
-- `safeBindingRecord()` does not expose raw/internal dedupe IDs or use raw ID as title fallback.
-
-PR270 self-sweep after latest green CI:
-- Changed files limited to the expected 2 files.
-- Production start path and active entrypoint are not changed by PR270.
-- No direct writes to `main` were made for PR270.
-- Previous BLOCK at `db2dd0f...` and `544c670f...` fixed in the same PR branch by commits ending at `10049dd3...`.
-
 ## Process error recorded
 Process violation during PR268 preparation:
 - Temporary files were accidentally created/deleted in `main` history.
@@ -162,19 +143,16 @@ Additional process notes:
 - During PR270 work there were repeated CI polling/log-read calls. They did not change repo state, but should be reduced going forward.
 
 ## Next required action
-1. Run final audit-only PASS/BLOCK for PR270 at exact head `10049dd3d3d0dd467db80d12576ddeef60acf0fb`.
-2. Merge PR270 only after audit PASS/waiver.
-3. After PR270 merge, update this file with merge commit/head.
-4. Wait for Northflank deploy/runtime pickup.
-5. Verify runtime-status after deploy:
-   - `latest.githubMainHeadSha` equals PR270 merge commit;
+1. Wait for Northflank deploy/runtime pickup after PR270 merge commit `383a03fc6c45d7a617836310750121162ad53e03`.
+2. Verify runtime-status after deploy:
+   - `latest.githubMainHeadSha` equals `383a03fc6c45d7a617836310750121162ad53e03`;
    - active entrypoint remains `clean-entrypoint-1.53.10-pr89.js`;
    - production start path remains `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`;
    - `runtime/live-user-postgres-bindings.json` exists;
    - `diagnostic-export-status.json` ok and includes the new file;
    - `runtime/live-tenant-self-diagnostic-matrix.json` and `runtime/tenant-section-matrix.json` use live MAX ID target safely without raw ID leakage.
-6. Read `runtime/live-user-postgres-bindings.json` and report to user the actual separated lists:
+3. Read `runtime/live-user-postgres-bindings.json` and report to user the actual separated lists:
    - channels attached to MAX ID `17507246`;
    - chats attached to MAX ID `17507246`;
    - unknown records, if any.
-7. Then run/manual request MAX check: `/tenant`, Channels, Account, and post-scoped sections Comments/Gifts/Buttons/Polls/Highlights/Editor must show only live channels and posts; chats must not appear as channel/post targets.
+4. Then run/manual request MAX check: `/tenant`, Channels, Account, and post-scoped sections Comments/Gifts/Buttons/Polls/Highlights/Editor must show only live channels and posts; chats must not appear as channel/post targets.
