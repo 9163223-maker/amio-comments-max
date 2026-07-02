@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-07-02T14:33:56.783Z",
+  "generatedAt": "2026-07-02T17:10:18.443Z",
   "runtime": "PR270-LIVE-USER-POSTGRES-BINDINGS-OFFICIAL-EVIDENCE-2.6",
   "checkedUsers": [
     "175…246"
@@ -16,41 +16,13 @@
           "confidence": "official",
           "evidence": "Chat.type=channel:raw.type=channel, raw.max.type=channel",
           "needsApiResolution": false,
-          "idMasked": "-73…622",
-          "title": "Тест стикеры 2",
-          "source": "ak_admin_channels",
-          "role": "admin",
-          "status": "active",
-          "postsCount": 113,
-          "updatedAt": "2026-06-15T20:30:43.703Z"
-        },
-        {
-          "kind": "channel",
-          "maxType": "channel",
-          "confidence": "official",
-          "evidence": "Chat.type=channel:raw.type=channel, raw.max.type=channel",
-          "needsApiResolution": false,
-          "idMasked": "-75…702",
-          "title": "Тест текст медиа",
-          "source": "ak_admin_channels",
-          "role": "admin",
-          "status": "active",
-          "postsCount": 2,
-          "updatedAt": "2026-06-02T18:12:38.745Z"
-        },
-        {
-          "kind": "channel",
-          "maxType": "channel",
-          "confidence": "official",
-          "evidence": "Chat.type=channel:raw.type=channel, raw.max.type=channel",
-          "needsApiResolution": false,
           "idMasked": "-75…230",
-          "title": "https://max.ru/join/qREn2XQqqYjBKZbfZaEaA0EcNoK4_qE0F23l_QfP7Ec",
-          "source": "ak_admin_channels",
-          "role": "admin",
+          "title": "АК-Тест 3",
+          "source": "ak_tenant_channels",
+          "role": "",
           "status": "active",
           "postsCount": 1,
-          "updatedAt": "2026-06-01T09:41:10.931Z"
+          "updatedAt": "2026-07-02T17:10:07.641Z"
         },
         {
           "kind": "channel",
@@ -59,12 +31,40 @@
           "evidence": "Chat.type=channel:raw.type=channel, raw.max.type=channel",
           "needsApiResolution": false,
           "idMasked": "-75…630",
-          "title": "Тест текст плюс медиа АК тест 2",
-          "source": "ak_admin_channels",
-          "role": "admin",
+          "title": "АК-ТЕСТ 2",
+          "source": "ak_tenant_channels",
+          "role": "",
           "status": "active",
           "postsCount": 2,
-          "updatedAt": "2026-06-01T09:09:23.484Z"
+          "updatedAt": "2026-07-02T17:10:06.438Z"
+        },
+        {
+          "kind": "channel",
+          "maxType": "channel",
+          "confidence": "official",
+          "evidence": "Chat.type=channel:raw.type=channel, raw.max.type=channel",
+          "needsApiResolution": false,
+          "idMasked": "-75…702",
+          "title": "АК-ТЕСТ 1",
+          "source": "ak_tenant_channels",
+          "role": "",
+          "status": "active",
+          "postsCount": 2,
+          "updatedAt": "2026-07-02T17:10:05.138Z"
+        },
+        {
+          "kind": "channel",
+          "maxType": "channel",
+          "confidence": "official",
+          "evidence": "Chat.type=channel:raw.type=channel, raw.max.type=channel",
+          "needsApiResolution": false,
+          "idMasked": "-73…622",
+          "title": "АдминКит клуб",
+          "source": "ak_tenant_channels",
+          "role": "",
+          "status": "active",
+          "postsCount": 113,
+          "updatedAt": "2026-07-02T17:10:03.738Z"
         }
       ],
       "chats": [
@@ -155,7 +155,7 @@
       ],
       "unknown": [],
       "counts": {
-        "sourceRecords": 28,
+        "sourceRecords": 36,
         "channels": 4,
         "chats": 6,
         "unknown": 0,
