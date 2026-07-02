@@ -68,7 +68,7 @@ function restoreDbMock() {
   assert.ok(snapshot, 'clean-core db snapshot is found by max_user_id');
   assert.strictEqual(snapshot.tenant.tenantId, 'tenant-clean-core-1', 'snapshot returns tenant id');
   assert.strictEqual(snapshot.tenant.ownerUserId, 'clean-core-user-1', 'snapshot preserves clean-core owner user id');
-  assert.strictEqual(snapshot.tenantChannels.length, 1, 'snapshot returns tenant channels');
+  assert.strictEqual(snapshot.tenantChannels.length, 1, 'snapshot returns tenant channels from ak_tenant_channels');
 
   const result = await diagnostic.buildSelfDiagnostic({ maxUserId: '17507246', label: 'pr273' });
   assert.strictEqual(result.ok, true, 'diagnostic no longer blocks active user when clean-core tenant exists');
