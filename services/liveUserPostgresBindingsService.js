@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const db = require('../src/db/postgres');
 const runtimeExport = require('./runtimeExportService');
 
-const RUNTIME = 'PR270-LIVE-USER-POSTGRES-BINDINGS-OFFICIAL-EVIDENCE-2.4';
+const RUNTIME = 'PR270-LIVE-USER-POSTGRES-BINDINGS-OFFICIAL-EVIDENCE-2.5';
 const DEFAULT_PATH = 'runtime/live-user-postgres-bindings.json';
 const DEFAULT_TARGET_MAX_USER_IDS = Object.freeze(['17507246']);
 const TYPES = new Set(['channel', 'chat', 'dialog']);
@@ -47,6 +47,9 @@ function pathBool(obj = {}, path = '') {
 }
 function payload(record = {}) { return { raw: parseJson(record.raw || {}), meta: parseJson(record.metadata || record.meta || {}) }; }
 function titleFrom(raw = {}, fallback = '') { return first(raw.title, raw.channelTitle, raw.channel_title, raw.chatTitle, raw.chat_title, raw.name, raw.displayName, raw.display_name, pathValue(raw, 'sample.chat.title'), pathValue(raw, 'sample.recipient.title'), fallback); }
+function conflictRecord(evidence = 'conflicting_official_evidence') {
+  return { kind: 'unknown', maxType: 'conflict', confidence: 'conflict', evidence, needsApiResolution: true };
+}
 function typeEvidence(record = {}) {
   const { raw, meta } = payload(record);
   const candidates = [
@@ -56,11 +59,10 @@ function typeEvidence(record = {}) {
     ['metadata.type', pathValue(meta, 'type')], ['metadata.chat.type', pathValue(meta, 'chat.type')], ['metadata.max.type', pathValue(meta, 'max.type')], ['metadata.maxChat.type', pathValue(meta, 'maxChat.type')], ['metadata.response.type', pathValue(meta, 'response.type')], ['metadata.chatInfo.type', pathValue(meta, 'chatInfo.type')],
     ['metadata.sample.type', pathValue(meta, 'sample.type')], ['metadata.sample.chat.type', pathValue(meta, 'sample.chat.type')], ['metadata.sample.recipient.type', pathValue(meta, 'sample.recipient.type')], ['metadata.sample.max.type', pathValue(meta, 'sample.max.type')]
   ];
-  for (const [where, value] of candidates) {
-    const type = lower(value);
-    if (TYPES.has(type)) return { type, where };
-  }
-  return null;
+  const matches = candidates.map(([where, value]) => ({ type: lower(value), where })).filter((item) => TYPES.has(item.type));
+  const distinctTypes = uniq(matches.map((item) => item.type));
+  if (distinctTypes.length > 1) return { conflict: true, types: distinctTypes, where: matches.map((item) => `${item.where}=${item.type}`).join(', ') };
+  return matches[0] || null;
 }
 function isChannelEvidence(record = {}) {
   const { raw, meta } = payload(record);
@@ -72,16 +74,21 @@ function isChannelEvidence(record = {}) {
     ['raw.is_channel', pathBool(raw, 'is_channel')], ['raw.isChannel', pathBool(raw, 'isChannel')], ['raw.update.is_channel', pathBool(raw, 'update.is_channel')], ['raw.update.isChannel', pathBool(raw, 'update.isChannel')], ['raw.sample.is_channel', pathBool(raw, 'sample.is_channel')], ['raw.sample.isChannel', pathBool(raw, 'sample.isChannel')], ['raw.sample.update.is_channel', pathBool(raw, 'sample.update.is_channel')], ['raw.sample.update.isChannel', pathBool(raw, 'sample.update.isChannel')],
     ['metadata.is_channel', pathBool(meta, 'is_channel')], ['metadata.isChannel', pathBool(meta, 'isChannel')], ['metadata.update.is_channel', pathBool(meta, 'update.is_channel')], ['metadata.update.isChannel', pathBool(meta, 'update.isChannel')], ['metadata.sample.is_channel', pathBool(meta, 'sample.is_channel')], ['metadata.sample.isChannel', pathBool(meta, 'sample.isChannel')], ['metadata.sample.update.is_channel', pathBool(meta, 'sample.update.is_channel')], ['metadata.sample.update.isChannel', pathBool(meta, 'sample.update.isChannel')]
   ];
-  for (const [where, value] of candidates) if (typeof value === 'boolean') return { value, where };
-  return null;
+  const matches = candidates.filter(([, value]) => typeof value === 'boolean').map(([where, value]) => ({ value, where }));
+  const distinctValues = [...new Set(matches.map((item) => item.value))];
+  if (distinctValues.length > 1) return { conflict: true, where: matches.map((item) => `${item.where}=${item.value}`).join(', ') };
+  return matches[0] || null;
 }
 function classifyRecordDetails(record = {}) {
   if (record.source === 'push_chat_binding') return { kind: 'chat', confidence: 'internal_typed_source', evidence: 'adminkit_web_push_chat_bindings', needsApiResolution: false };
   const typed = typeEvidence(record);
+  const update = isChannelEvidence(record);
+  if (typed?.conflict) return conflictRecord(`conflicting_official_type_evidence:${typed.where}`);
+  if (update?.conflict) return conflictRecord(`conflicting_official_update_evidence:${update.where}`);
+  if (typed && update && ((typed.type === 'channel') !== update.value)) return conflictRecord(`conflicting_official_type_update_evidence:${typed.where};${update.where}=${update.value}`);
   if (typed?.type === 'channel') return { kind: 'channel', confidence: 'official', evidence: `Chat.type=channel:${typed.where}`, needsApiResolution: false };
   if (typed?.type === 'chat') return { kind: 'chat', maxType: 'chat', confidence: 'official', evidence: `Chat.type=chat:${typed.where}`, needsApiResolution: false };
   if (typed?.type === 'dialog') return { kind: 'chat', maxType: 'dialog', confidence: 'official', evidence: `Chat.type=dialog:${typed.where}`, needsApiResolution: false };
-  const update = isChannelEvidence(record);
   if (update?.value === true) return { kind: 'channel', confidence: 'official_update', evidence: `Update.is_channel=true:${update.where}`, needsApiResolution: false };
   if (update?.value === false) return { kind: 'chat', maxType: 'group_chat_or_dialog', confidence: 'official_update', evidence: `Update.is_channel=false:${update.where}`, needsApiResolution: false };
   return { kind: 'unknown', confidence: 'none', evidence: 'needs_api_resolution', needsApiResolution: true };
@@ -99,7 +106,7 @@ function safeBindingRecord(record = {}) {
     evidence: c.evidence,
     needsApiResolution: Boolean(c.needsApiResolution),
     idMasked: mask(id),
-    title: short(titleFrom(raw, record.title || record.channelTitle || record.chatTitle || id) || (c.kind === 'channel' ? 'Канал без названия' : c.kind === 'chat' ? 'Чат без названия' : 'Объект без названия')),
+    title: short(titleFrom(raw, record.title || record.channelTitle || record.chatTitle || '') || (c.kind === 'channel' ? 'Канал без названия' : c.kind === 'chat' ? 'Чат без названия' : 'Объект без названия')),
     source: clean(record.source || ''),
     role: clean(record.role || ''),
     status: clean(record.status || 'active'),
@@ -107,7 +114,7 @@ function safeBindingRecord(record = {}) {
     updatedAt: iso(record.updated_at || record.updatedAt || record.connected_at || record.created_at || record.createdAt)
   };
 }
-function rank(item = {}) { return item.kind === 'unknown' ? 0 : item.confidence === 'internal_typed_source' ? 1 : item.confidence === 'official_update' ? 2 : item.confidence === 'official' ? 3 : 0; }
+function rank(item = {}) { return item.confidence === 'conflict' ? -1 : item.kind === 'unknown' ? 0 : item.confidence === 'internal_typed_source' ? 1 : item.confidence === 'official_update' ? 2 : item.confidence === 'official' ? 3 : 0; }
 function dedupe(records = []) {
   const groups = new Map();
   for (const record of records) {
@@ -119,6 +126,12 @@ function dedupe(records = []) {
   }
   const out = [];
   for (const group of groups.values()) {
+    const conflicts = group.filter((item) => item.confidence === 'conflict');
+    if (conflicts.length) {
+      const latest = [...conflicts].sort((a, b) => time(b.updatedAt) - time(a.updatedAt))[0] || conflicts[0];
+      out.push({ ...latest, kind: 'unknown', maxType: 'conflict', confidence: 'conflict', evidence: latest.evidence || 'conflicting_official_evidence', needsApiResolution: true, source: uniq(group.map((item) => item.source)).join(', ') });
+      continue;
+    }
     const officialKinds = new Set(group.filter((item) => item.kind !== 'unknown' && /^official/.test(clean(item.confidence))).map((item) => item.kind));
     if (officialKinds.size > 1) {
       const latest = [...group].sort((a, b) => time(b.updatedAt) - time(a.updatedAt))[0] || group[0];
