@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-02 17:12 UTC
+Updated: 2026-07-02 17:32 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -21,63 +21,76 @@ Channel/post features must use only real channels and channel posts. Chats are s
 
 MAX classification rule: official evidence only. Use `Chat.type = channel|chat|dialog` and official update/API evidence. Do not classify by title/name/regex, ID sign, link, participants count, owner id, or post count alone. `chat` and `dialog` both normalize to non-channel/chat. `channel` vs non-channel conflict is BLOCK. Unknown official evidence is BLOCK for channel/post flows.
 
-## PR271 — merged and runtime pickup confirmed
-PR271:
-- URL: https://github.com/9163223-maker/amio-comments-max/pull/271
-- Final audited head SHA: `0d68caec0f23490028d329f4148d3356275f97cb`
-- Merge commit: `44516658f52c6681d27cc492b16356f6768a42a2`
-- Runtime pickup: CONFIRMED. `runtime/startup-log.json` latest `githubMainHeadSha` equals `44516658f52c6681d27cc492b16356f6768a42a2`.
-- Active entrypoint remains `clean-entrypoint-1.53.10-pr89.js`.
-
-PR271 live result for MAX user `17507246`:
-- `runtime/live-official-channel-resolution.json` exists, runtime `PR271-LIVE-OFFICIAL-CHANNEL-RESOLUTION-1.4`.
-- Official resolver succeeded for type evidence: `live-user-postgres-bindings` shows official channels=4, chats=6, unknown=0, block=0.
-- Remaining product BLOCK before PR272: tenant binding failed because actual `ak_tenants` schema has `owner_user_id NOT NULL`; resolver inserted `owner_max_user_id` but not `owner_user_id`.
-- `tenant-section-matrix` and live tenant diagnostic still showed tenant missing and picker included stale/incorrect rows before PR272. No manual MAX PASS yet.
-
-## PR272 — merged, runtime pickup pending
+## PR272 — merged, runtime pickup confirmed, live gate BLOCK
 PR272:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/272
-- Title: `PR272: Service diagnostics and official channel picker`
-- Branch: `codex/pr272-tenant-schema-picker-official-channel`
-- Base: `main`
-- Base SHA: `44516658f52c6681d27cc492b16356f6768a42a2`
 - Final audited head SHA: `f00ac4212ecb128b2f8dceee4c4b16ff9b11fb43`
-- CI: `PR regression tests`, run `674`, exact-head success.
-- Artifact: `adminkit-ci-diagnostics`, id `8044780040`, digest `sha256:77dff833169148c6d0315d8d2c0bd81fec0cf871697a466b1583d636ca74a2dd`.
-- Audit: PASS for exact head `f00ac4212ecb128b2f8dceee4c4b16ff9b11fb43`; previous P1 `Handle existing ak_users rows by max_user_id` fixed.
-- Merge: DONE.
-- Merge commit: `933ca0c89a71f67c9f8e640e8775084f5d02ff4a`.
-- Runtime pickup: PENDING. Do not report manual MAX readiness until `runtime/startup-log.json` confirms `githubMainHeadSha=933ca0c89a71f67c9f8e640e8775084f5d02ff4a` and live matrices are checked.
+- Merge commit: `933ca0c89a71f67c9f8e640e8775084f5d02ff4a`
+- Runtime pickup: CONFIRMED. `runtime/startup-log.json` latest `githubMainHeadSha` equals `933ca0c89a71f67c9f8e640e8775084f5d02ff4a`.
+- Production start path and active entrypoint contract remain OK.
+- `runtime/live-official-channel-resolution.json` is OK with runtime `PR272-LIVE-OFFICIAL-CHANNEL-RESOLUTION-SCHEMA-SAFE-1.2`: resolvedChannels=4, resolvedNonChannels=3, unresolved=0, blockCount=0.
+- Product improvement: official resolver bound 4 channel rows for MAX user `17507246`; chats are separated as non-channels.
+- Live gate remains BLOCK because `runtime/live-tenant-self-diagnostic-matrix.json` still shows `tenant_missing_for_active_user`, `knownTenant=false`, `tenantChannelsCount=0`, while pickerChannelsCount=4.
+- `runtime/tenant-section-matrix.json` likewise remains `ok:false` only because diagnostic summary says knownTenant=false; picker has the 4 official channels.
 
-PR272 implementation:
-- `/akdiag <MAX_ID>` in `clean-bot-campaign-attribution-cc8336.js`, gated to service admins and masked output.
-- `liveOfficialChannelResolutionService` supports owner_user_id-only clean-core schema and legacy schemas with extra columns through dynamic column checks.
-- `existingUserIdForMaxUserId(maxUserId)` looks up existing `ak_users.user_id` by `max_user_id`.
-- `ak_tenants.owner_user_id` uses the existing clean-core `ak_users.user_id`, not raw MAX ID, when available.
-- `upsertTenantUser()` first updates an existing `ak_users` row by `max_user_id`; only if no row exists does it insert fallback, avoiding duplicate `max_user_id` conflicts.
-- Tenant user bootstrap supports both `ak_tenant_users` and clean-core `ak_users` when present.
-- DB-backed picker path in `cc5-db-core.getChannels()` returns only official channel rows with `c.raw->>'type'='channel'` and `c.raw->>'resolution_status'='ok'`.
-- `cc5-db-core` forwarded channel/post extraction was restored from PR271 base logic; forwarded channel/post IDs must not regress.
-- `cc5-db-core.upsertChannel()` calls `upsertAdmin()` before writing `ak_admin_channels`, avoiding FK violation for direct calls like verify-access/saveRules.
-- Adds smoke test `scripts/test-pr272-service-diagnostic-and-official-picker.js` to npm test.
+Root cause after PR272:
+- `services/liveTenantSelfDiagnosticService.js` still used legacy `access.getTenantByMaxUserId(userId)` / `clientAccessRepository.getTenantByUserId()`.
+- That legacy path reads old `ak_tenants.owner_max_user_id` / `ak_tenant_users`, but does not resolve clean-core `ak_users.max_user_id -> tenant_id`.
+- Therefore PR272 binding can be present and picker can be correct, while old live self-diagnostic falsely blocks as missing tenant.
 
-Known process note:
-- During PR272 work, temp/note files were accidentally created on PR branch only and branch was force-reset back to clean commits. Compare showed only intended files. This did not touch `main`, but it is a process mistake and should not repeat.
+## Current PR273 — open, CI pending
+PR273:
+- URL: https://github.com/9163223-maker/amio-comments-max/pull/273
+- Title: `PR273: Clean-core tenant lookup for live diagnostics`
+- Branch: `codex/pr273-live-tenant-diagnostic-clean-core-lookup`
+- Base: `main`
+- Base SHA: `933ca0c89a71f67c9f8e640e8775084f5d02ff4a`
+- Current head SHA: `aa0cd595c864b1ad21f5e60dea9a4165e1360393`
+- PR state: open, not merged, mergeable true.
+- CI: pending/not yet reported when this file was updated.
+- Changed files: `services/liveTenantSelfDiagnosticService.js`, `scripts/test-pr273-live-tenant-diagnostic-clean-core.js`, `package.json`.
+
+PR273 intent:
+- Fix false live diagnostic BLOCK after PR272 by adding direct schema-safe Postgres lookup to `liveTenantSelfDiagnosticService`.
+- Resolve tenant through:
+  - `ak_tenant_users.max_user_id -> tenant_id` when present;
+  - `ak_users.max_user_id -> tenant_id` for clean-core;
+  - `ak_tenants.owner_max_user_id` legacy;
+  - `ak_tenants.owner_user_id` using `ak_users.user_id` resolved from MAX ID.
+- Read `ak_tenant_channels` directly when legacy repository cache is empty.
+- Keep IDs masked in diagnostic output.
+- Add `scripts/test-pr273-live-tenant-diagnostic-clean-core.js` and include it in `npm test`.
+
+PR273 process note:
+- A temporary marker file `runtime/PR273_NOTE.tmp` was accidentally created and then deleted on the PR273 branch only. This did not touch `main`. Final compare against base shows only intended files, but branch history includes the create/delete mistake. Do not repeat.
+- An attempt to force-clean branch history by resetting and reapplying the large service file via content API was blocked by the connector safety layer; branch was restored to the clean-tree head `aa0cd595...`.
 
 ## Next required action
-Wait/check Northflank/runtime pickup for merge commit `933ca0c89a71f67c9f8e640e8775084f5d02ff4a`.
+Wait for PR273 exact-head CI for `aa0cd595c864b1ad21f5e60dea9a4165e1360393`.
 
-Post-merge checks:
-- `runtime/startup-log.json` latest `githubMainHeadSha` must equal `933ca0c89a71f67c9f8e640e8775084f5d02ff4a`.
-- Production start path remains `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
-- Active entrypoint remains `clean-entrypoint-1.53.10-pr89.js`.
-- `runtime/live-official-channel-resolution.json` runtime should update to PR272 runtime and resolve/bind official channels for MAX user `17507246`.
-- `runtime/live-tenant-self-diagnostic-matrix.json` and `runtime/tenant-section-matrix.json` should no longer show tenant missing or chat rows in channel/post picker.
-- `/akdiag <MAX_ID>` should be usable only by service admin and show masked IDs.
-- If runtime pickup or live matrices fail, update this file with BLOCK and do not ask for manual MAX PASS.
+If CI fails:
+- inspect logs;
+- fix same PR273 branch;
+- update runtime-status;
+- rerun CI.
 
-After runtime PASS, manual MAX check should verify: `/tenant`, Channels, Account, Comments, Gifts, Buttons, Polls, Highlights, Editor show only real live channels/posts, no chats.
+If CI succeeds:
+- inspect PR state/comments/diff;
+- request/send audit-only prompt for PR273;
+- do not merge without audit PASS.
+
+PR273 audit focus:
+- Does clean-core `ak_users(max_user_id, tenant_id)` make live self diagnostic knownTenant=true?
+- Does it avoid false `tenant_missing_for_active_user` for active/admin users with clean-core tenant rows?
+- Does it avoid raw MAX ID leakage in diagnostic JSON/text?
+- Are SQL values parameterized and dynamic column names hardcoded/checked?
+- Does it preserve production start path and active entrypoint?
+- Does final diff contain only intended files despite branch process mistake?
+
+After PR273 merge later, runtime must be checked again. Manual MAX PASS only after live matrices are green.
+
+## Earlier context
+PR271 merged and runtime pickup was confirmed at merge commit `44516658f52c6681d27cc492b16356f6768a42a2`.
 
 ## Process error recorded
 Earlier PR268 preparation accidentally created/deleted temporary files in `main` history. Final tree was clean and audits found no runtime path damage, but this remains a process violation and must not be repeated.
