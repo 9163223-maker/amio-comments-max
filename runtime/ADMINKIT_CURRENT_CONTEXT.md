@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-01 21:03 UTC
+Updated: 2026-07-02 08:05 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -27,6 +27,12 @@ Diagnostics branch: `runtime-status`.
 ## Product rule
 Channel/post features must use only real channels and channel posts. Chats are a separate future product area and must not appear as channel/post targets.
 
+MAX chat/channel classification rule:
+- Do not classify by title/name/channelTitle/chatTitle/regex, ID sign, participants_count, link alone, is_public, owner_id, or legacy isChannel/isChat without official source.
+- Official evidence only: `Chat.type = channel|chat|dialog`, `Update.is_channel` from official update/API context, `GET /chats/{chatId}` / `GET /chats/{link}` typed response, and equivalent typed metadata saved in DB.
+- Legacy webhook payloads can store official evidence under `raw.sample.recipient.type`, `raw.sample.chat.type`, or sample `is_channel`.
+- Unknown official evidence means `needs_api_resolution` and BLOCK for channel/post runtime diagnostics.
+
 ## Recent merged PRs
 PR259: `c087323dcf38d1a6bbec082efe3b9bbdb496e747`.
 PR260: `cc33ac39aee2817070ea8e65693553d36df103aa`.
@@ -45,7 +51,6 @@ PR269: `38370010b9120ff41f744b109dc2ee10d7a50a32`, merged after audit PASS, but 
 - active entrypoint remained `clean-entrypoint-1.53.10-pr89.js`.
 - production start path on main remained `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
 - `runtimeContract.contractLiveOk`, `startupPath.ok`, and `finalRuntimeReadinessGate.ok` were true at last confirmed runtime.
-- IMPORTANT: PR267 runtime matrices still contained fixture-derived/manual expectations such as `real-user-1` and `Olga Style`; those are invalid live expectations for the real user.
 - `runtime/northflank-startup-log.json` remained configured:false/ok:false because Northflank API env variables are missing. This is observability-only, not product runtime failure.
 
 ## Live mismatch after PR267 manual MAX check
@@ -59,6 +64,8 @@ Manual `/tenant` check for the real live user showed a mismatch:
 
 Correction from user:
 - Do not rely on `Olga Style`, `Kid Club`, `real-user-1`, or any fixture/test channel as live truth.
+- `Kid Club` was OCR/context error. Ignore it.
+- `АдминКИТ клуб` is only an example visible in a mixed channel/chat list, not proof of type.
 - The relevant real MAX ID is `17507246`.
 - The required live diagnostic must collect from production Postgres/runtime sources which channels and which chats are attached to MAX ID `17507246`, and keep channels separate from chats.
 - Channel/post flows must show only real channels/posts, not chats.
@@ -87,29 +94,58 @@ PR269:
 - Deploy/runtime status: NOT VERIFIED yet.
 
 Post-merge discovery after PR269:
-- PR269 Codex Review left a new P2 comment after/around merge: `CHAT_RE` contains bare `im`, so ordinary channel titles like `Important Updates`, `Time News`, or `Swimming News` can be classified as chats when the new title check runs before channel evidence.
-- Because PR269 was already merged, this is being handled in PR270.
+- PR269 Codex Review found title-regex risk: ordinary channel titles could be classified as chats.
+- User corrected the architecture: do not improve regex; remove title-based classification entirely.
+- PR270 now handles this as official MAX evidence-only classification.
 
-## PR270 status — open follow-up for PR269 review finding
+## PR270 status — open follow-up, self-sweep clean, ready for final audit-only
 PR270:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/270
-- Title: `PR270: Use token matching for chat-like titles`
+- Title: `PR270: Classify bindings by official MAX evidence`
 - Branch: `codex/pr270-chat-title-token-match`
 - Base: `main`
 - Base SHA: `38370010b9120ff41f744b109dc2ee10d7a50a32`
-- Head SHA: `9f08a65b6b5e2de26f3cf1b0fbb4e4686325f571`
+- Head SHA: `db2dd0f8936a2a07b5384b86fb1d6b163b562dcf`
 - Changed files: 2
-- CI: `PR regression tests`, run `614`, run id `28547462407`, exact-head `9f08a65b6b5e2de26f3cf1b0fbb4e4686325f571`, conclusion `success`.
-- PR comments/reviews: checked after CI; no comments returned.
+  - `services/liveUserPostgresBindingsService.js`
+  - `scripts/test-pr268-live-user-postgres-bindings.js`
+- CI: `PR regression tests`, run `632`, run id `28574715661`, exact-head `db2dd0f8936a2a07b5384b86fb1d6b163b562dcf`, conclusion `success`.
+- CI artifact: `adminkit-ci-diagnostics`, artifact id `8032443320`, digest `sha256:ae651fc3189bab2604468015aef35c299df322e9ad54048061f47c2555db2eb1`.
+- PR state: open, not merged, mergeable true.
 - Audit: NOT RUN yet.
-- Merge status: NOT MERGED.
 
-PR270 purpose:
-- Add title-specific `CHAT_TITLE_RE` without the bare `im` alternative.
-- Keep broad `CHAT_RE` for explicit type/destination metadata.
-- Preserve title-only chat detection for Russian/explicit chat words such as `Рабочий чат без metadata`.
-- Ensure channel titles with `im` substrings, e.g. `Important Updates`, remain channels when channel evidence exists.
-- Extend `scripts/test-pr268-live-user-postgres-bindings.js` for the `Important Updates` case: expected channels = 2, chats = 3, no raw ids exported.
+PR270 implementation:
+- Replaced title/regex classification with official MAX evidence only.
+- Removed `channel-post-picker-core` classifier dependency from `liveUserPostgresBindingsService`.
+- Removed `CHAT_RE` / `CHAT_TITLE_RE` classification logic.
+- Uses `Chat.type` paths across raw/metadata/API response fields.
+- Uses `Update.is_channel` only with official update/API context.
+- Recognizes legacy webhook official evidence under `raw.sample.recipient.type`, `raw.sample.chat.type`, `metadata.sample.*`, and sample `is_channel` fields.
+- Treats `adminkit_web_push_chat_bindings` as internal typed chat source.
+- Unknown official evidence becomes `needs_api_resolution` and BLOCK.
+- Safe export does not expose raw MAX ID, raw channel/chat IDs, raw dedupe IDs, or internal hash keys.
+- Duplicate legacy+official rows for the same raw object prefer official evidence; conflicting official evidence becomes unknown/BLOCK.
+
+PR270 tests cover:
+- chat-like title + `raw.type=channel` remains channel;
+- channel-like title + `raw.type=chat` remains chat;
+- title-only `Olga Style` / `АдминКИТ клуб` remains unknown;
+- `Update.is_channel=true/false` evidence;
+- webhook `raw.sample.recipient.type`, `raw.sample.chat.type`, and sample `is_channel` evidence;
+- legacy `isChannel/isChat` without official context remains unknown;
+- push chat binding remains chat;
+- unknown records block with `needs_api_resolution`;
+- parameterized SQL and no raw MAX/channel IDs in runtime export;
+- `safeBindingRecord()` does not expose raw/internal dedupe IDs.
+
+PR270 self-sweep after green CI:
+- PR comments/reviews inspected. Old comments on old commits are addressed:
+  - old regex-boundary P2 is obsolete because title-regex classification was removed;
+  - P2 `raw.sample.*` official evidence is fixed and tested;
+  - P1 `_rawId` safe record leak is fixed and tested.
+- Changed files limited to the expected 2 files.
+- Production start path and active entrypoint are not changed by PR270.
+- No direct writes to `main` were made for PR270.
 
 ## Process error recorded
 Process violation during PR268 preparation:
@@ -123,9 +159,10 @@ Process violation during PR268 preparation:
 Additional process notes:
 - During PR269 branch setup, `update_ref` was accidentally repeated several times with the same SHA on the same follow-up branch. It did not change content and did not touch `main`, but it is noisy process behavior and must not be repeated.
 - During PR270 setup, `create_pull_request` was accidentally called several times with a nonexistent head branch; GitHub returned 422 and no PR was created. This did not modify repo state but is noisy process behavior and must not be repeated.
+- During PR270 work there were repeated CI polling/log-read calls. They did not change repo state, but should be reduced going forward.
 
 ## Next required action
-1. Run final audit-only PASS/BLOCK for PR270 at exact head `9f08a65b6b5e2de26f3cf1b0fbb4e4686325f571`.
+1. Run final audit-only PASS/BLOCK for PR270 at exact head `db2dd0f8936a2a07b5384b86fb1d6b163b562dcf`.
 2. Merge PR270 only after audit PASS/waiver.
 3. After PR270 merge, update this file with merge commit/head.
 4. Wait for Northflank deploy/runtime pickup.
