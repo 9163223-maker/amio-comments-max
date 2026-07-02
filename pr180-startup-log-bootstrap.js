@@ -59,8 +59,7 @@ userJourneyMatrix.exportMatrix().catch((error) => { console.warn('[user-journey-
 productSemanticMatrix.exportMatrix().catch((error) => { console.warn('[product-semantic-matrix] export skipped', error && error.message || error); });
 tenantChannelBinding.exportMatrix().catch((error) => { console.warn('[tenant-channel-binding-matrix] export skipped', error && error.message || error); });
 maximalFlowMatrix.exportMatrix().catch((error) => { console.warn('[maximal-flow-matrix] export skipped', error && error.message || error); });
-exportPostResolutionDiagnostics();
-const diagnosticStatusTimer = setTimeout(() => { runtimeExport.exportStatus({ expectedFiles: expectedDiagnosticFiles }).catch((error) => { console.warn('[diagnostic-export-status] export skipped', error && error.message || error); }); }, 4500);
-if (diagnosticStatusTimer && typeof diagnosticStatusTimer.unref === 'function') diagnosticStatusTimer.unref();
+const postResolutionDiagnostics = exportPostResolutionDiagnostics();
+postResolutionDiagnostics.then(() => runtimeExport.exportStatus({ expectedFiles: expectedDiagnosticFiles }).catch((error) => { console.warn('[diagnostic-export-status] export skipped', error && error.message || error); }));
 scheduleStartupLog();
 module.exports = { ok: true, marker: 'adminkit-pr180-startup-log-bootstrap', scheduleStartupLog, recordStartupNow, markRuntimeReadinessInstallComplete, markPr199InstallComplete, shouldDeferStartupLog, isFinalDisabledProductionProbeStartup, finalRuntimeReadinessGate, info: startupLog.info, runtimeInfo, exportPostResolutionDiagnostics };
