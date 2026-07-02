@@ -1,6 +1,6 @@
 {
-  "ok": false,
-  "generatedAt": "2026-07-02T09:04:40.021Z",
+  "ok": true,
+  "generatedAt": "2026-07-02T14:33:56.783Z",
   "runtime": "PR270-LIVE-USER-POSTGRES-BINDINGS-OFFICIAL-EVIDENCE-2.6",
   "checkedUsers": [
     "175…246"
@@ -8,8 +8,65 @@
   "rows": [
     {
       "maxUserIdMasked": "175…246",
-      "ok": false,
-      "channels": [],
+      "ok": true,
+      "channels": [
+        {
+          "kind": "channel",
+          "maxType": "channel",
+          "confidence": "official",
+          "evidence": "Chat.type=channel:raw.type=channel, raw.max.type=channel",
+          "needsApiResolution": false,
+          "idMasked": "-73…622",
+          "title": "Тест стикеры 2",
+          "source": "ak_admin_channels",
+          "role": "admin",
+          "status": "active",
+          "postsCount": 113,
+          "updatedAt": "2026-06-15T20:30:43.703Z"
+        },
+        {
+          "kind": "channel",
+          "maxType": "channel",
+          "confidence": "official",
+          "evidence": "Chat.type=channel:raw.type=channel, raw.max.type=channel",
+          "needsApiResolution": false,
+          "idMasked": "-75…702",
+          "title": "Тест текст медиа",
+          "source": "ak_admin_channels",
+          "role": "admin",
+          "status": "active",
+          "postsCount": 2,
+          "updatedAt": "2026-06-02T18:12:38.745Z"
+        },
+        {
+          "kind": "channel",
+          "maxType": "channel",
+          "confidence": "official",
+          "evidence": "Chat.type=channel:raw.type=channel, raw.max.type=channel",
+          "needsApiResolution": false,
+          "idMasked": "-75…230",
+          "title": "https://max.ru/join/qREn2XQqqYjBKZbfZaEaA0EcNoK4_qE0F23l_QfP7Ec",
+          "source": "ak_admin_channels",
+          "role": "admin",
+          "status": "active",
+          "postsCount": 1,
+          "updatedAt": "2026-06-01T09:41:10.931Z"
+        },
+        {
+          "kind": "channel",
+          "maxType": "channel",
+          "confidence": "official",
+          "evidence": "Chat.type=channel:raw.type=channel, raw.max.type=channel",
+          "needsApiResolution": false,
+          "idMasked": "-75…630",
+          "title": "Тест текст плюс медиа АК тест 2",
+          "source": "ak_admin_channels",
+          "role": "admin",
+          "status": "active",
+          "postsCount": 2,
+          "updatedAt": "2026-06-01T09:09:23.484Z"
+        }
+      ],
       "chats": [
         {
           "kind": "chat",
@@ -23,21 +80,7 @@
           "role": "",
           "status": "active",
           "postsCount": 0,
-          "updatedAt": "2026-06-10T19:20:40.570Z"
-        },
-        {
-          "kind": "chat",
-          "maxType": "chat",
-          "confidence": "internal_typed_source",
-          "evidence": "adminkit_web_push_chat_bindings",
-          "needsApiResolution": false,
-          "idMasked": "-75…782",
-          "title": "Чат без названия",
-          "source": "push_chat_binding",
-          "role": "",
-          "status": "active",
-          "postsCount": 0,
-          "updatedAt": "2026-06-10T17:20:49.169Z"
+          "updatedAt": "2026-07-02T14:33:38.678Z"
         },
         {
           "kind": "chat",
@@ -46,12 +89,12 @@
           "evidence": "adminkit_web_push_chat_bindings",
           "needsApiResolution": false,
           "idMasked": "-75…694",
-          "title": "Чат без названия",
+          "title": "Тест чат push",
           "source": "push_chat_binding",
           "role": "",
           "status": "active",
           "postsCount": 0,
-          "updatedAt": "2026-06-10T17:13:14.881Z"
+          "updatedAt": "2026-07-02T14:33:38.079Z"
         },
         {
           "kind": "chat",
@@ -59,120 +102,75 @@
           "confidence": "internal_typed_source",
           "evidence": "adminkit_web_push_chat_bindings",
           "needsApiResolution": false,
-          "idMasked": "-75…630",
-          "title": "Саша - сын Мамочки 🌸",
+          "idMasked": "-75…782",
+          "title": "Мож Хвост 3",
           "source": "push_chat_binding",
           "role": "",
           "status": "active",
           "postsCount": 0,
-          "updatedAt": "2026-06-10T16:43:25.044Z"
+          "updatedAt": "2026-07-02T14:33:37.781Z"
         },
         {
           "kind": "chat",
           "maxType": "chat",
-          "confidence": "internal_typed_source",
-          "evidence": "adminkit_web_push_chat_bindings",
+          "confidence": "official",
+          "evidence": "Chat.type=chat:raw.type=chat, raw.max.type=chat",
           "needsApiResolution": false,
           "idMasked": "-70…230",
-          "title": "Чат без названия",
-          "source": "push_chat_binding",
-          "role": "",
+          "title": "Мои хорошие!!!! Отдыхайте😍😍😍😍😍😍😍",
+          "source": "ak_admin_channels",
+          "role": "admin",
           "status": "active",
-          "postsCount": 0,
-          "updatedAt": "2026-06-10T16:41:18.544Z"
+          "postsCount": 38,
+          "updatedAt": "2026-06-30T16:24:57.464Z"
         },
         {
           "kind": "chat",
           "maxType": "chat",
-          "confidence": "internal_typed_source",
-          "evidence": "adminkit_web_push_chat_bindings",
+          "confidence": "official",
+          "evidence": "Chat.type=chat:raw.type=chat, raw.max.type=chat",
           "needsApiResolution": false,
           "idMasked": "-75…142",
-          "title": "Чат без названия",
-          "source": "push_chat_binding",
-          "role": "",
-          "status": "active",
-          "postsCount": 0,
-          "updatedAt": "2026-06-10T16:39:16.261Z"
-        }
-      ],
-      "unknown": [
-        {
-          "kind": "unknown",
-          "maxType": "unknown",
-          "confidence": "none",
-          "evidence": "needs_api_resolution",
-          "needsApiResolution": true,
-          "idMasked": "-73…622",
-          "title": "Тест стикеры 2",
+          "title": "Тест",
           "source": "ak_admin_channels",
           "role": "admin",
           "status": "active",
-          "postsCount": 113,
-          "updatedAt": "2026-06-15T20:30:43.703Z"
+          "postsCount": 44,
+          "updatedAt": "2026-06-30T10:54:06.835Z"
         },
         {
-          "kind": "unknown",
-          "maxType": "unknown",
-          "confidence": "none",
-          "evidence": "needs_api_resolution",
-          "needsApiResolution": true,
-          "idMasked": "-75…702",
-          "title": "Тест текст медиа",
-          "source": "ak_admin_channels",
-          "role": "admin",
-          "status": "active",
-          "postsCount": 2,
-          "updatedAt": "2026-06-02T18:12:38.745Z"
-        },
-        {
-          "kind": "unknown",
-          "maxType": "unknown",
-          "confidence": "none",
-          "evidence": "needs_api_resolution",
-          "needsApiResolution": true,
-          "idMasked": "-75…230",
-          "title": "https://max.ru/join/qREn2XQqqYjBKZbfZaEaA0EcNoK4_qE0F23l_QfP7Ec",
-          "source": "ak_admin_channels",
-          "role": "admin",
-          "status": "active",
-          "postsCount": 1,
-          "updatedAt": "2026-06-01T09:41:10.931Z"
-        },
-        {
-          "kind": "unknown",
-          "maxType": "unknown",
-          "confidence": "none",
-          "evidence": "needs_api_resolution",
-          "needsApiResolution": true,
+          "kind": "chat",
+          "maxType": "chat",
+          "confidence": "official",
+          "evidence": "Chat.type=chat:raw.type=chat, raw.max.type=chat",
+          "needsApiResolution": false,
           "idMasked": "-75…630",
-          "title": "Тест текст плюс медиа АК тест 2",
+          "title": "Позже позвоню и расскажу. Сам сделал. Уведомления работают)",
           "source": "ak_admin_channels",
           "role": "admin",
           "status": "active",
-          "postsCount": 2,
-          "updatedAt": "2026-06-01T09:09:23.484Z"
+          "postsCount": 6,
+          "updatedAt": "2026-06-12T10:29:36.236Z"
         }
       ],
+      "unknown": [],
       "counts": {
         "sourceRecords": 28,
-        "channels": 0,
+        "channels": 4,
         "chats": 6,
-        "unknown": 4,
+        "unknown": 0,
         "missingTables": 0
       },
       "missingTables": [],
       "errors": [],
-      "blocks": [
-        "needs_api_resolution"
-      ]
+      "blocks": []
     }
   ],
   "summary": {
     "checkedUsersCount": 1,
-    "channelsCount": 0,
+    "channelsCount": 4,
     "chatsCount": 6,
-    "unknownCount": 4,
-    "blockCount": 1
+    "unknownCount": 0,
+    "blockCount": 0
   }
 }
