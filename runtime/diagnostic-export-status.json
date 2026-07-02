@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-07-02T09:04:45.322Z",
+  "generatedAt": "2026-07-02T14:33:58.011Z",
   "bootId": "",
   "expectedFiles": [
     "runtime/full-section-matrix.json",
@@ -9,6 +9,7 @@
     "runtime/product-semantic-matrix.json",
     "runtime/tenant-channel-binding-matrix.json",
     "runtime/maximal-flow-matrix.json",
+    "runtime/live-official-channel-resolution.json",
     "runtime/live-tenant-self-diagnostic-matrix.json",
     "runtime/tenant-section-matrix.json",
     "runtime/live-user-postgres-bindings.json",
@@ -23,7 +24,7 @@
       "branch": "runtime-status",
       "path": "runtime/channel-target-matrix.json",
       "attempts": 1,
-      "durationMs": 9699
+      "durationMs": 9742
     },
     {
       "ok": true,
@@ -32,7 +33,7 @@
       "branch": "runtime-status",
       "path": "runtime/full-section-matrix.json",
       "attempts": 1,
-      "durationMs": 5001
+      "durationMs": 4463
     },
     {
       "ok": true,
@@ -41,7 +42,7 @@
       "branch": "runtime-status",
       "path": "runtime/user-journey-matrix.json",
       "attempts": 1,
-      "durationMs": 2306
+      "durationMs": 2699
     },
     {
       "ok": true,
@@ -50,7 +51,7 @@
       "branch": "runtime-status",
       "path": "runtime/product-semantic-matrix.json",
       "attempts": 1,
-      "durationMs": 3301
+      "durationMs": 3363
     },
     {
       "ok": true,
@@ -59,7 +60,7 @@
       "branch": "runtime-status",
       "path": "runtime/tenant-channel-binding-matrix.json",
       "attempts": 1,
-      "durationMs": 6493
+      "durationMs": 6330
     },
     {
       "ok": true,
@@ -68,34 +69,16 @@
       "branch": "runtime-status",
       "path": "runtime/maximal-flow-matrix.json",
       "attempts": 1,
-      "durationMs": 2705
+      "durationMs": 4899
     },
     {
       "ok": true,
       "skipped": false,
       "configured": true,
       "branch": "runtime-status",
-      "path": "runtime/live-tenant-self-diagnostic-matrix.json",
+      "path": "runtime/live-official-channel-resolution.json",
       "attempts": 1,
-      "durationMs": 1431
-    },
-    {
-      "ok": true,
-      "skipped": false,
-      "configured": true,
-      "branch": "runtime-status",
-      "path": "runtime/tenant-section-matrix.json",
-      "attempts": 1,
-      "durationMs": 1762
-    },
-    {
-      "ok": true,
-      "skipped": false,
-      "configured": true,
-      "branch": "runtime-status",
-      "path": "runtime/live-user-postgres-bindings.json",
-      "attempts": 1,
-      "durationMs": 2907
+      "durationMs": 10903
     },
     {
       "ok": true,
@@ -104,7 +87,7 @@
       "branch": "runtime-status",
       "path": "runtime/process-events.json",
       "attempts": 1,
-      "durationMs": 1697
+      "durationMs": 3200
     },
     {
       "ok": true,
@@ -113,13 +96,40 @@
       "branch": "runtime-status",
       "path": "runtime/northflank-startup-log.json",
       "attempts": 1,
-      "durationMs": 2009
+      "durationMs": 1805
+    },
+    {
+      "ok": true,
+      "skipped": false,
+      "configured": true,
+      "branch": "runtime-status",
+      "path": "runtime/live-tenant-self-diagnostic-matrix.json",
+      "attempts": 1,
+      "durationMs": 1795
+    },
+    {
+      "ok": true,
+      "skipped": false,
+      "configured": true,
+      "branch": "runtime-status",
+      "path": "runtime/tenant-section-matrix.json",
+      "attempts": 1,
+      "durationMs": 3001
+    },
+    {
+      "ok": true,
+      "skipped": false,
+      "configured": true,
+      "branch": "runtime-status",
+      "path": "runtime/live-user-postgres-bindings.json",
+      "attempts": 3,
+      "durationMs": 6566
     }
   ],
   "missingFiles": [],
   "summary": {
-    "expectedCount": 11,
-    "okCount": 11,
+    "expectedCount": 12,
+    "okCount": 12,
     "skippedCount": 0,
     "failedCount": 0,
     "missingCount": 0
