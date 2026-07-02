@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-02 09:06 UTC
+Updated: 2026-07-02 09:09 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -11,8 +11,6 @@ Update this file after major events: new PR/head SHA, CI red/green, audit PASS/B
 
 ## Core rules
 Do not use GitHub `@codex` comments. Do not create a new PR if the existing PR can be updated. Do not merge before final audit-only PASS/waiver. Green CI is not done. Merge is not done. Runtime readiness is not visual UX done.
-
-After a PR is initially created from a requested task: read this context, fetch PR metadata/head/base/state, check CI for exact head, inspect comments/reviews/diff, fix blockers in the same PR branch, update this context, then run audit-only PASS/BLOCK only after green CI and no known code blocker.
 
 Standard post-audit workflow: confirm exact head and green CI; merge only that head; verify runtime-status and production contract; produce a server-contract success table; then run/manual request MAX visual check.
 
@@ -49,13 +47,17 @@ PR268: `db686772b5f24b32050e3646c69902f1cb59535a`, merged after audit PASS.
 PR269: `38370010b9120ff41f744b109dc2ee10d7a50a32`, merged after audit PASS.
 PR270: `383a03fc6c45d7a617836310750121162ad53e03`, merged after audit PASS.
 
-## Current production runtime before PR270 pickup
-- Last confirmed runtime is still after PR267: `latest.githubMainHeadSha` was `d142afd5ab4fb1562a8841151f7cf8d8e111656c` in `runtime/startup-log.json` at `2026-07-01T19:08:15.506Z`.
-- active entrypoint remained `clean-entrypoint-1.53.10-pr89.js`.
-- production start path on main remained `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`.
-- `runtimeContract.contractLiveOk`, `startupPath.ok`, and `finalRuntimeReadinessGate.ok` were true at last confirmed runtime.
-- `runtime/northflank-startup-log.json` remained configured:false/ok:false because Northflank API env variables are missing. This is observability-only, not product runtime failure.
-- Deploy/runtime pickup for PR270 merge commit `383a03fc6c45d7a617836310750121162ad53e03` is NOT VERIFIED yet.
+## Live mismatch / runtime pickup status after PR270 merge
+PR270 was merged at `383a03fc6c45d7a617836310750121162ad53e03` after `AUDIT: PASS` on head `10049dd3d3d0dd467db80d12576ddeef60acf0fb`.
+
+Runtime pickup check at 2026-07-02 09:08 UTC:
+- `runtime/startup-log.json` is still old: `updatedAt=2026-07-01T20:59:51.490Z`.
+- `startup-log.latest.githubMainHeadSha` is still `38370010b9120ff41f744b109dc2ee10d7a50a32` (PR269 merge), not PR270 merge `383a03fc6c45d7a617836310750121162ad53e03`.
+- active entrypoint in latest startup log is still `clean-entrypoint-1.53.10-pr89.js` and startup path contract is ok.
+- `runtime/live-user-postgres-bindings.json` exists but is still from runtime `PR269-LIVE-USER-POSTGRES-BINDINGS-1.1`, generated at `2026-07-01T20:59:42.289Z`.
+- `runtime/diagnostic-export-status.json` exists and expected files include `runtime/live-user-postgres-bindings.json`, but this is still from PR269 runtime export.
+
+Conclusion: PR270 code is merged in GitHub main, but production/runtime-status has NOT yet picked up PR270. Do not treat PR270 runtime as verified until `startup-log.latest.githubMainHeadSha` equals `383a03fc6c45d7a617836310750121162ad53e03` and `runtime/live-user-postgres-bindings.json` runtime marker is PR270.
 
 ## Live mismatch after PR267 manual MAX check
 Manual `/tenant` check for the real live user showed a mismatch:
@@ -81,8 +83,7 @@ PR268:
 - CI: `PR regression tests`, run `604`, exact-head success.
 - Audit-only result: `AUDIT: PASS`.
 - Merge commit: `db686772b5f24b32050e3646c69902f1cb59535a`.
-- Deploy/runtime status: NOT VERIFIED yet.
-- Post-merge P2 findings were handled by PR269.
+- Deploy/runtime status: not separately verified after PR270.
 
 PR269:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/269
@@ -90,8 +91,7 @@ PR269:
 - CI: `PR regression tests`, run `610`, exact-head success.
 - Audit-only result: `AUDIT: PASS`.
 - Merge commit: `38370010b9120ff41f744b109dc2ee10d7a50a32`.
-- Deploy/runtime status: NOT VERIFIED yet.
-- Post-merge finding: title-regex classification was architecturally wrong. User corrected: remove title-based classification entirely. PR270 handles this.
+- Runtime pickup: yes, latest startup log currently reports this SHA.
 
 PR270:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/270
@@ -100,18 +100,12 @@ PR270:
 - Base: `main`
 - Base SHA: `38370010b9120ff41f744b109dc2ee10d7a50a32`
 - Final audited head SHA: `10049dd3d3d0dd467db80d12576ddeef60acf0fb`
-- Previous blocked heads:
-  - `db2dd0f8936a2a07b5384b86fb1d6b163b562dcf`: missed single-record conflicting official evidence.
-  - `544c670f8393cd764a7fd73053dd52d986ec0c93`: treated `chat + dialog` subtype evidence as conflict.
-- Changed files: 2
-  - `services/liveUserPostgresBindingsService.js`
-  - `scripts/test-pr268-live-user-postgres-bindings.js`
-- CI: `PR regression tests`, run `640`, run id `28576741049`, exact-head `10049dd3d3d0dd467db80d12576ddeef60acf0fb`, conclusion `success`.
+- CI: `PR regression tests`, run `640`, exact-head success.
 - CI artifact: `adminkit-ci-diagnostics`, artifact id `8033257734`, digest `sha256:80af86818322d12a146e755516611e0e1470649bef246e6a68dbfbc18a33f7cb`.
 - Audit result: `AUDIT: PASS`.
 - Merge method: squash.
 - Merge commit: `383a03fc6c45d7a617836310750121162ad53e03`.
-- Deploy/runtime status: NOT VERIFIED yet.
+- Runtime pickup: NOT VERIFIED, current startup log still PR269 SHA.
 
 PR270 implementation:
 - Replaced title/regex classification with official MAX evidence only.
@@ -126,7 +120,6 @@ PR270 implementation:
 - Treats `adminkit_web_push_chat_bindings` as internal typed chat source.
 - Unknown official evidence becomes `needs_api_resolution` and BLOCK.
 - Safe export does not expose raw MAX ID, raw channel/chat IDs, raw dedupe IDs, or internal hash keys.
-- Duplicate legacy+official rows for the same raw object prefer official evidence; explicit conflict entries inside a group cannot be hidden by another official duplicate and remain unknown/BLOCK.
 
 ## Process error recorded
 Process violation during PR268 preparation:
@@ -143,15 +136,16 @@ Additional process notes:
 - During PR270 work there were repeated CI polling/log-read calls. They did not change repo state, but should be reduced going forward.
 
 ## Next required action
-1. Wait for Northflank deploy/runtime pickup after PR270 merge commit `383a03fc6c45d7a617836310750121162ad53e03`.
+1. Wait/check again for Northflank deploy/runtime pickup after PR270 merge commit `383a03fc6c45d7a617836310750121162ad53e03`.
 2. Verify runtime-status after deploy:
    - `latest.githubMainHeadSha` equals `383a03fc6c45d7a617836310750121162ad53e03`;
    - active entrypoint remains `clean-entrypoint-1.53.10-pr89.js`;
    - production start path remains `node -r ./pr178-push-pairing-bootstrap.js clean-entrypoint-1.53.10-pr89.js`;
    - `runtime/live-user-postgres-bindings.json` exists;
    - `diagnostic-export-status.json` ok and includes the new file;
+   - `runtime/live-user-postgres-bindings.json` runtime marker is PR270, not PR269;
    - `runtime/live-tenant-self-diagnostic-matrix.json` and `runtime/tenant-section-matrix.json` use live MAX ID target safely without raw ID leakage.
-3. Read `runtime/live-user-postgres-bindings.json` and report to user the actual separated lists:
+3. After PR270 runtime pickup, read `runtime/live-user-postgres-bindings.json` and report to user the actual separated lists:
    - channels attached to MAX ID `17507246`;
    - chats attached to MAX ID `17507246`;
    - unknown records, if any.
