@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-02 15:34 UTC
+Updated: 2026-07-02 16:16 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -35,40 +35,49 @@ PR271 live result for MAX user `17507246`:
 - Remaining product BLOCK: tenant binding failed because actual `ak_tenants` schema has `owner_user_id NOT NULL`; resolver inserted `owner_max_user_id` but not `owner_user_id`.
 - `tenant-section-matrix` and live tenant diagnostic still show tenant missing and picker includes stale/incorrect rows, including rows that official resolver identified as chats. No manual MAX PASS.
 
-## Current PR272 — open, CI green, audit needed
+## Current PR272 — open, latest CI green, re-audit required
 PR272:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/272
 - Title: `PR272: Service diagnostics and official channel picker`
 - Branch: `codex/pr272-tenant-schema-picker-official-channel`
 - Base: `main`
 - Base SHA: `44516658f52c6681d27cc492b16356f6768a42a2`
-- Current head SHA: `b3566e648fbbe344b4ba583aec422a1072d4a0ef`
-- Previous heads reviewed/blocked during self-sweep: `893ea7aa94efb8506c8a2d22a8e2aad7267d5d20`, `72c2c0053f92d125a651ba0d777bc921c274ff1d`, `2070fca6a443f4e5b8b736233efaed25f43e3f44`
-- CI: `PR regression tests`, run `672`, exact-head success.
-- Artifact: `adminkit-ci-diagnostics`, id `8043700754`, digest `sha256:2897e7a2ad90d50838cf3ef79f674cac4722ec1d7695d17cac85c78632e48b31`.
+- Current head SHA: `f00ac4212ecb128b2f8dceee4c4b16ff9b11fb43`
+- CI: `PR regression tests`, run `674`, exact-head success.
+- Artifact: `adminkit-ci-diagnostics`, id `8044780040`, digest `sha256:77dff833169148c6d0315d8d2c0bd81fec0cf871697a466b1583d636ca74a2dd`.
 - PR state: open, not merged, mergeable true.
-- Audit: NOT RUN yet.
+- Audit: previous PASS was for old head `b3566e648fbbe344b4ba583aec422a1072d4a0ef`; NOT valid for current head.
 - Changed files: `cc5-db-core.js`, `clean-bot-campaign-attribution-cc8336.js`, `services/liveOfficialChannelResolutionService.js`, `scripts/test-pr272-service-diagnostic-and-official-picker.js`, `package.json`.
 
-PR272 implementation:
-- `liveOfficialChannelResolutionService` now supports actual `ak_tenants.owner_user_id`-only clean-core schema and legacy schemas with extra columns.
+Why PR272 was not merged after previous PASS:
+- After the audit PASS for `b3566e648...`, a new PR review P1 appeared: existing clean-core `ak_users` rows may have `user_id != MAX_ID` with `max_user_id=MAX_ID`; inserting fallback `ak_users(user_id=MAX_ID,max_user_id=MAX_ID)` can hit the unique `max_user_id` constraint and set wrong `owner_user_id`.
+- Merge was stopped according to process.
+
+Latest PR272 fixes:
+- `existingUserIdForMaxUserId(maxUserId)` looks up existing `ak_users.user_id` by `max_user_id`.
+- `ak_tenants.owner_user_id` uses the existing clean-core `ak_users.user_id`, not raw MAX ID, when available.
+- `upsertTenantUser()` first updates an existing `ak_users` row by `max_user_id`; only if no row exists does it insert fallback.
+- This should avoid `ak_users.max_user_id` unique conflicts and preserve clean-core user identity.
+
+PR272 existing implementation:
+- `/akdiag <MAX_ID>` in `clean-bot-campaign-attribution-cc8336.js`, gated to service admins and masked output.
+- `liveOfficialChannelResolutionService` supports owner_user_id-only clean-core schema and legacy schemas with extra columns through dynamic column checks.
 - Tenant bootstrap dynamically checks columns before writing `owner_user_id`, `owner_max_user_id`, `plan_id`, `max_channels`, `source`, `metadata`, and `settings_json`; it must not reference missing columns.
 - Tenant user bootstrap supports both `ak_tenant_users` and clean-core `ak_users` when present.
-- DB-backed picker path in `cc5-db-core.getChannels()` now returns only rows with official `c.raw->>'type'='channel'` and `c.raw->>'resolution_status'='ok'`; official chats/dialogs and unresolved records do not enter channel/post picker through this DB path.
+- DB-backed picker path in `cc5-db-core.getChannels()` returns only official channel rows with `c.raw->>'type'='channel'` and `c.raw->>'resolution_status'='ok'`.
 - `cc5-db-core` forwarded channel/post extraction was restored from PR271 base logic; forwarded channel/post IDs must not regress.
-- `cc5-db-core.upsertChannel()` again calls `upsertAdmin()` before writing `ak_admin_channels`, avoiding FK violation for direct calls like verify-access/saveRules.
-- Adds service slash command `/akdiag <MAX_ID>` in `clean-bot-campaign-attribution-cc8336.js`.
-- `/akdiag` can be used in the test group or private chat, but only by service admins from `ADMINKIT_SERVICE_DIAGNOSTIC_ADMIN_IDS` or existing admin envs.
-- `/akdiag` returns selected-client tenant/picker diagnostic with masked requester and target IDs.
+- `cc5-db-core.upsertChannel()` calls `upsertAdmin()` before writing `ak_admin_channels`, avoiding FK violation for direct calls like verify-access/saveRules.
 - Adds smoke test `scripts/test-pr272-service-diagnostic-and-official-picker.js` to npm test.
 
 Known process note:
 - During PR272 work, temp/note files were accidentally created on PR branch only and branch was force-reset back to clean commits. Compare now shows only intended files. This did not touch `main`, but it is a process mistake and should not repeat.
 
 ## Next required action
-Run final audit-only PASS/BLOCK for PR272 at exact head `b3566e648fbbe344b4ba583aec422a1072d4a0ef`. Do not merge until audit PASS or explicit waiver.
+Run final audit-only PASS/BLOCK for PR272 at exact head `f00ac4212ecb128b2f8dceee4c4b16ff9b11fb43`. Do not merge until audit PASS or explicit waiver.
 
 Audit focus for PR272:
+- Previous P1 `Handle existing ak_users rows by max_user_id` is fixed.
+- Existing `ak_users` row with `user_id != MAX_ID`, `max_user_id=MAX_ID` is reused for `owner_user_id` and updated by `max_user_id`, avoiding unique conflicts.
 - `/akdiag <MAX_ID>` works in test group/private chat but is gated to service admins.
 - `/akdiag` output masks IDs and does not leak raw IDs beyond explicit operator input.
 - DB-backed channel picker cannot show official `chat`/`dialog` or unresolved rows.
@@ -80,6 +89,8 @@ Audit focus for PR272:
 - SQL remains parameterized.
 - Production start path and active entrypoint unchanged.
 - No temp/note files remain in diff.
+
+After audit PASS, merge exact head only, then wait/check runtime pickup and live matrices before reporting manual readiness.
 
 ## Process error recorded
 Earlier PR268 preparation accidentally created/deleted temporary files in `main` history. Final tree was clean and audits found no runtime path damage, but this remains a process violation and must not be repeated.
