@@ -1,0 +1,229 @@
+{
+  "ok": false,
+  "generatedAt": "2026-07-02T14:33:40.077Z",
+  "runtime": "PR271-LIVE-OFFICIAL-CHANNEL-RESOLUTION-1.4",
+  "checkedUsers": [
+    "175…246"
+  ],
+  "rows": [
+    {
+      "maxUserIdMasked": "175…246",
+      "ok": false,
+      "botTokenConfigured": true,
+      "resolvedChannels": [],
+      "resolvedNonChannels": [
+        {
+          "idMasked": "-75…142",
+          "title": "Мож•Хвост",
+          "postsCount": 44,
+          "beforeType": "missing",
+          "resolvedType": "chat",
+          "action": "official_non_channel_saved",
+          "ok": true,
+          "error": ""
+        },
+        {
+          "idMasked": "-70…230",
+          "title": "Все свои MAX",
+          "postsCount": 38,
+          "beforeType": "missing",
+          "resolvedType": "chat",
+          "action": "official_non_channel_saved",
+          "ok": true,
+          "error": ""
+        },
+        {
+          "idMasked": "-75…630",
+          "title": "Саша - сын Мамочки 🌸",
+          "postsCount": 6,
+          "beforeType": "missing",
+          "resolvedType": "chat",
+          "action": "official_non_channel_saved",
+          "ok": true,
+          "error": ""
+        }
+      ],
+      "unresolved": [
+        {
+          "idMasked": "-73…622",
+          "title": "Объект без названия",
+          "postsCount": 113,
+          "beforeType": "missing",
+          "resolvedType": "",
+          "action": "api_resolution_failed",
+          "ok": false,
+          "error": "null value in column \"owner_user_id\" of relation \"ak_tenants\" violates not-null constraint"
+        },
+        {
+          "idMasked": "-75…702",
+          "title": "Объект без названия",
+          "postsCount": 2,
+          "beforeType": "missing",
+          "resolvedType": "",
+          "action": "api_resolution_failed",
+          "ok": false,
+          "error": "null value in column \"owner_user_id\" of relation \"ak_tenants\" violates not-null constraint"
+        },
+        {
+          "idMasked": "-75…630",
+          "title": "Объект без названия",
+          "postsCount": 2,
+          "beforeType": "missing",
+          "resolvedType": "",
+          "action": "api_resolution_failed",
+          "ok": false,
+          "error": "null value in column \"owner_user_id\" of relation \"ak_tenants\" violates not-null constraint"
+        },
+        {
+          "idMasked": "-75…230",
+          "title": "Объект без названия",
+          "postsCount": 1,
+          "beforeType": "missing",
+          "resolvedType": "",
+          "action": "api_resolution_failed",
+          "ok": false,
+          "error": "null value in column \"owner_user_id\" of relation \"ak_tenants\" violates not-null constraint"
+        }
+      ],
+      "pushTitles": [
+        {
+          "idMasked": "-75…686",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож Хвост 2"
+        },
+        {
+          "idMasked": "-75…782",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Мож Хвост 3"
+        },
+        {
+          "idMasked": "-75…694",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Тест чат push"
+        },
+        {
+          "idMasked": "-75…630",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Саша - сын Мамочки 🌸"
+        },
+        {
+          "idMasked": "-70…230",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Все свои MAX"
+        },
+        {
+          "idMasked": "-75…142",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Мож•Хвост"
+        },
+        {
+          "idMasked": "-75…694",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Тест чат push"
+        },
+        {
+          "idMasked": "-75…686",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Мож Хвост 2"
+        },
+        {
+          "idMasked": "-75…142",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Мож•Хвост"
+        },
+        {
+          "idMasked": "-75…782",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Мож Хвост 3"
+        },
+        {
+          "idMasked": "-75…782",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож Хвост 3"
+        },
+        {
+          "idMasked": "-75…782",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Мож Хвост 3"
+        },
+        {
+          "idMasked": "-75…782",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Мож Хвост 3"
+        },
+        {
+          "idMasked": "-75…686",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож Хвост 2"
+        },
+        {
+          "idMasked": "-75…686",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Мож Хвост 2"
+        },
+        {
+          "idMasked": "-75…686",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Мож Хвост 2"
+        },
+        {
+          "idMasked": "-70…230",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Все свои MAX"
+        },
+        {
+          "idMasked": "-75…142",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож•Хвост"
+        },
+        {
+          "idMasked": "-75…142",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Мож•Хвост"
+        },
+        {
+          "idMasked": "-75…142",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Мож•Хвост"
+        },
+        {
+          "idMasked": "-70…230",
+          "ok": true,
+          "action": "title_refreshed",
+          "title": "Все свои MAX"
+        }
+      ],
+      "blocks": [
+        "official_resolution_incomplete"
+      ]
+    }
+  ],
+  "summary": {
+    "checkedUsersCount": 1,
+    "resolvedChannelsCount": 0,
+    "resolvedNonChannelsCount": 3,
+    "unresolvedCount": 4,
+    "pushTitlesResolvedCount": 14,
+    "blockCount": 1
+  }
+}
