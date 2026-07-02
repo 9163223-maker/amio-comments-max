@@ -92,6 +92,10 @@ function rowForTable(sql) {
   assert.strictEqual(service.classifyRecord({ title: 'АдминКИТ клуб', raw: {} }), 'unknown', 'live-looking title without official evidence remains unknown');
   assert.strictEqual(service.classifyRecord({ raw: { update_type: 'bot_added', is_channel: true } }), 'channel', 'Update.is_channel true is channel evidence');
   assert.strictEqual(service.classifyRecord({ raw: { update_type: 'bot_added', is_channel: false } }), 'chat', 'Update.is_channel false is chat/dialog evidence');
+  assert.strictEqual(service.classifyRecord({ raw: { sample: { recipient: { type: 'channel' } } } }), 'channel', 'webhook sample recipient type is channel evidence');
+  assert.strictEqual(service.classifyRecord({ raw: { sample: { chat: { type: 'chat' } } } }), 'chat', 'webhook sample chat type is chat evidence');
+  assert.strictEqual(service.classifyRecord({ raw: { sample: { update_type: 'bot_added', is_channel: true } } }), 'channel', 'webhook sample is_channel true is channel evidence');
+  assert.strictEqual(service.classifyRecord({ raw: { sample: { update_type: 'bot_added', is_channel: false } } }), 'chat', 'webhook sample is_channel false is chat evidence');
   assert.strictEqual(service.classifyRecord({ raw: { isChannel: true } }), 'unknown', 'legacy isChannel without official update/source context is not trusted');
   assert.strictEqual(service.classifyRecord({ raw: { isChat: true } }), 'unknown', 'legacy isChat is not trusted');
   assert.strictEqual(service.classifyRecord({ source: 'push_chat_binding' }), 'chat', 'typed push chat binding remains chat');
