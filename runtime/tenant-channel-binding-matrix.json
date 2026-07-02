@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-07-02T14:33:24.284Z",
+  "generatedAt": "2026-07-02T17:09:54.137Z",
   "runtime": "PR263-TENANT-CHANNEL-BINDING-CONTRACT-1.0",
   "checkedUsers": [
     "real-user-1"
@@ -9,7 +9,7 @@
     {
       "maxUserId": "real-user-1",
       "knownTenant": true,
-      "tenantIdMasked": "ten…p20",
+      "tenantIdMasked": "ten…sdn",
       "tenantChannelsCount": 1,
       "visiblePickerChannelsCount": 1,
       "dbTenantChannelsCount": 1,
@@ -25,7 +25,7 @@
     }
   ],
   "knownTenant": true,
-  "tenantIdMasked": "ten…p20",
+  "tenantIdMasked": "ten…sdn",
   "tenantChannelsCount": 1,
   "visiblePickerChannelsCount": 1,
   "dbTenantChannelsCount": 1,
