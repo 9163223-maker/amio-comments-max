@@ -6,23 +6,35 @@ const runtimeExport = require('./runtimeExportService');
 const maxApi = require('./maxApi');
 const config = require('../config');
 
-const RUNTIME = 'PR271-LIVE-OFFICIAL-CHANNEL-RESOLUTION-1.0';
+const RUNTIME = 'PR271-LIVE-OFFICIAL-CHANNEL-RESOLUTION-1.2';
 const DEFAULT_PATH = 'runtime/live-official-channel-resolution.json';
 const DEFAULT_TARGET_MAX_USER_IDS = Object.freeze(['17507246']);
+const OFFICIAL_GET_CHAT_SOURCE_RE = /(?:GET[_\s/{}-]*chats[_\s/{}-]*chatId|GET\s*\/chats\/\{chatId\}|get_chats_chatid)/i;
+
 const clean = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
 const lower = (v) => clean(v).toLowerCase();
 const mask = (v = '') => { const id = clean(v); return !id ? '' : id.length <= 6 ? '***' : `${id.slice(0,3)}…${id.slice(-3)}`; };
 const parse = (v) => { if (!v) return {}; if (typeof v === 'object') return v; try { const p = JSON.parse(String(v)); return p && typeof p === 'object' ? p : {}; } catch { return {}; } };
 const short = (v = '', n = 160) => { const s = clean(v); return s.length <= n ? s : `${s.slice(0,n-1).trim()}…`; };
 const uniq = (a = []) => [...new Set(a.map(clean).filter(Boolean))];
-const titleOf = (chat = {}, fallback = '') => clean(chat.title || chat.name || chat.channelTitle || chat.chatTitle || fallback);
+const idLike = (v = '') => /^-?\d{6,}$/.test(clean(v));
+const safeTitle = (v = '', fallback = 'Объект без названия') => { const text = clean(v); return text && !idLike(text) ? text : fallback; };
+const titleOf = (chat = {}, fallback = '') => safeTitle(chat.title || chat.name || chat.channelTitle || chat.chatTitle || fallback, '');
 const tenantIdFor = (id = '') => `tenant_live_${crypto.createHash('sha256').update(clean(id)).digest('hex').slice(0,12)}`;
+
 function targetUsers() {
   const env = uniq([process.env.ADMINKIT_LIVE_BINDINGS_MAX_USER_IDS, process.env.ADMINKIT_TENANT_DIAGNOSTIC_MAX_USER_IDS, process.env.ADMINKIT_DIAGNOSTIC_MAX_USER_IDS].join(',').split(/[\s,;]+/));
   return env.length ? env.slice(0,10) : [...DEFAULT_TARGET_MAX_USER_IDS];
 }
-function officialType(raw = {}) {
-  const vals = [raw.type, raw.chat?.type, raw.max?.type, raw.maxChat?.type, raw.response?.type, raw.chatInfo?.type, raw.sample?.recipient?.type, raw.sample?.chat?.type].map(lower).filter(Boolean);
+function trustedOfficialSource(raw = {}) {
+  const source = clean(raw.evidence_source || raw.evidenceSource || raw.source || raw.resolution_source || raw.resolutionSource);
+  const status = lower(raw.resolution_status || raw.resolutionStatus || raw.max?.resolution_status || raw.max?.resolutionStatus);
+  return OFFICIAL_GET_CHAT_SOURCE_RE.test(source) && status === 'ok';
+}
+function officialType(raw = {}, { requireTrusted = true } = {}) {
+  const source = parse(raw);
+  if (requireTrusted && !trustedOfficialSource(source)) return '';
+  const vals = [source.type, source.chat?.type, source.max?.type, source.maxChat?.type, source.response?.type, source.chatInfo?.type, source.sample?.recipient?.type, source.sample?.chat?.type].map(lower).filter(Boolean);
   const kinds = new Set(vals.map((t) => t === 'channel' ? 'channel' : (t === 'chat' || t === 'dialog') ? 'chat' : '').filter(Boolean));
   if (kinds.size > 1) return 'conflict';
   return kinds.has('channel') ? 'channel' : kinds.has('chat') ? 'chat' : '';
@@ -40,43 +52,56 @@ async function pushRows(userId) {
   const r = await db.query(`SELECT chat_id, chat_title FROM adminkit_web_push_chat_bindings WHERE max_user_id=$1 AND COALESCE(status,'active')='active' ORDER BY updated_at DESC LIMIT 80`, [clean(userId)]);
   return r.rows || [];
 }
+function officialRaw(oldRaw, chat, status = '') {
+  const type = lower(chat?.type);
+  return { ...parse(oldRaw), type, max: chat || {}, evidence_source: 'GET_chats_chatId', resolution_status: status || (type ? 'ok' : 'type_missing'), resolved_at: new Date().toISOString() };
+}
 async function saveOfficialChannelRaw(channelId, oldRaw, title, chat) {
   const type = lower(chat?.type);
-  const raw = { ...parse(oldRaw), type, max: chat || {}, evidence_source: 'GET_chats_chatId', resolution_status: type ? 'ok' : 'type_missing', resolved_at: new Date().toISOString() };
-  await db.query(`INSERT INTO ak_channels(channel_id,title,raw,updated_at) VALUES($1,$2,$3::jsonb,NOW()) ON CONFLICT(channel_id) DO UPDATE SET title=COALESCE(NULLIF(EXCLUDED.title,''),ak_channels.title),raw=ak_channels.raw || EXCLUDED.raw,updated_at=NOW()`, [clean(channelId), titleOf(chat, title) || clean(title) || clean(channelId), JSON.stringify(raw)]);
+  const displayTitle = titleOf(chat, title) || safeTitle(title, type === 'channel' ? 'Канал без названия' : 'Чат без названия');
+  await db.query(`INSERT INTO ak_channels(channel_id,title,raw,updated_at) VALUES($1,$2,$3::jsonb,NOW()) ON CONFLICT(channel_id) DO UPDATE SET title=COALESCE(NULLIF(EXCLUDED.title,''),ak_channels.title),raw=ak_channels.raw || EXCLUDED.raw,updated_at=NOW()`, [clean(channelId), displayTitle, JSON.stringify(officialRaw(oldRaw, chat))]);
+}
+async function saveResolutionFailure(channelId, oldRaw, title, error) {
+  if (!clean(channelId)) return;
+  const raw = { ...parse(oldRaw), evidence_source: 'GET_chats_chatId', resolution_status: 'api_resolution_failed', resolution_error: short(error), resolved_at: new Date().toISOString() };
+  await db.query(`INSERT INTO ak_channels(channel_id,title,raw,updated_at) VALUES($1,$2,$3::jsonb,NOW()) ON CONFLICT(channel_id) DO UPDATE SET title=COALESCE(NULLIF(EXCLUDED.title,''),ak_channels.title),raw=ak_channels.raw || EXCLUDED.raw,updated_at=NOW()`, [clean(channelId), safeTitle(title, 'Объект без названия'), JSON.stringify(raw)]);
 }
 async function bindTenantChannel(userId, channelId, title, chat) {
   const tenantId = tenantIdFor(userId);
   const meta = { type: lower(chat?.type), max: chat || {}, evidence_source: 'GET_chats_chatId', source: 'pr271_official_channel_resolution', resolved_at: new Date().toISOString() };
   await db.query(`INSERT INTO ak_tenants(tenant_id,owner_max_user_id,status,plan_id,max_channels,source,metadata,created_at,updated_at) VALUES($1,$2,'active','business',100,'pr271_live_admin_bootstrap',$3::jsonb,NOW(),NOW()) ON CONFLICT(tenant_id) DO UPDATE SET owner_max_user_id=EXCLUDED.owner_max_user_id,status='active',plan_id='business',max_channels=GREATEST(ak_tenants.max_channels,100),metadata=ak_tenants.metadata || EXCLUDED.metadata,updated_at=NOW()`, [tenantId, clean(userId), JSON.stringify({ source: 'pr271_live_admin_bootstrap', maxUserIdMasked: mask(userId) })]);
   await db.query(`INSERT INTO ak_tenant_users(tenant_id,max_user_id,role,status,created_at,updated_at) VALUES($1,$2,'owner','active',NOW(),NOW()) ON CONFLICT(tenant_id,max_user_id) DO UPDATE SET role='owner',status='active',updated_at=NOW()`, [tenantId, clean(userId)]);
-  await db.query(`INSERT INTO ak_tenant_channels(tenant_id,channel_id,channel_title,status,connected_at,bound_by_code,metadata,updated_at) VALUES($1,$2,$3,'active','now'::timestamptz,'',$4::jsonb,NOW()) ON CONFLICT(channel_id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,channel_title=COALESCE(NULLIF(EXCLUDED.channel_title,''),ak_tenant_channels.channel_title),status='active',metadata=ak_tenant_channels.metadata || EXCLUDED.metadata,updated_at=NOW()`, [tenantId, clean(channelId), clean(title), JSON.stringify(meta)]);
+  await db.query(`INSERT INTO ak_tenant_channels(tenant_id,channel_id,channel_title,status,connected_at,bound_by_code,metadata,updated_at) VALUES($1,$2,$3,'active','now'::timestamptz,'',$4::jsonb,NOW()) ON CONFLICT(channel_id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,channel_title=COALESCE(NULLIF(EXCLUDED.channel_title,''),ak_tenant_channels.channel_title),status='active',metadata=ak_tenant_channels.metadata || EXCLUDED.metadata,updated_at=NOW()`, [tenantId, clean(channelId), safeTitle(title, 'Канал без названия'), JSON.stringify(meta)]);
   return tenantId;
 }
 async function resolveAdminRow(userId, row, botToken) {
   const channelId = clean(row.channel_id);
   const raw = parse(row.raw);
   const before = officialType(raw);
-  const item = { idMasked: mask(channelId), title: short(row.title), postsCount: Number(row.posts_count || 0), beforeType: before || 'missing', resolvedType: '', action: '', ok: false, error: '' };
+  const item = { idMasked: mask(channelId), title: short(safeTitle(row.title, 'Объект без названия')), postsCount: Number(row.posts_count || 0), beforeType: before || 'missing', resolvedType: '', action: '', ok: false, error: '' };
   if (!channelId) return { ...item, action: 'missing_id', error: 'missing_channel_id' };
-  if (before === 'channel') return { ...item, ok: true, resolvedType: 'channel', action: 'already_channel' };
-  if (before === 'chat') return { ...item, ok: true, resolvedType: 'chat', action: 'already_non_channel' };
+  if (before === 'channel') return { ...item, ok: true, resolvedType: 'channel', action: 'already_verified_channel' };
+  if (before === 'chat') return { ...item, ok: true, resolvedType: 'chat', action: 'already_verified_non_channel' };
   try {
     const chat = await maxApi.getChat({ botToken, chatId: channelId, timeoutMs: Number(process.env.ADMINKIT_PR271_GET_CHAT_TIMEOUT_MS || 1600) || 1600 });
     const type = lower(chat?.type);
     const title = titleOf(chat, row.title || '');
     await saveOfficialChannelRaw(channelId, raw, title, chat);
     if (type === 'channel') {
-      const tenantId = await bindTenantChannel(userId, channelId, title || row.title || channelId, chat);
-      return { ...item, ok: true, resolvedType: type, title: short(title || row.title), action: 'official_channel_bound', tenantIdMasked: mask(tenantId) };
+      const tenantId = await bindTenantChannel(userId, channelId, title || row.title || '', chat);
+      return { ...item, ok: true, resolvedType: type, title: short(safeTitle(title || row.title, 'Канал без названия')), action: 'official_channel_bound', tenantIdMasked: mask(tenantId) };
     }
-    if (type === 'chat' || type === 'dialog') return { ...item, ok: true, resolvedType: type, title: short(title || row.title), action: 'official_non_channel_saved' };
+    if (type === 'chat' || type === 'dialog') return { ...item, ok: true, resolvedType: type, title: short(safeTitle(title || row.title, 'Чат без названия')), action: 'official_non_channel_saved' };
     return { ...item, resolvedType: 'missing', action: 'api_type_missing', error: 'max_chat_type_missing' };
-  } catch (e) { return { ...item, action: 'api_resolution_failed', error: short(e?.message || e) }; }
+  } catch (e) {
+    const message = e?.message || e;
+    try { await saveResolutionFailure(channelId, raw, row.title || '', message); } catch {}
+    return { ...item, action: 'api_resolution_failed', error: short(message) };
+  }
 }
 async function refreshPushTitle(row, botToken) {
   const chatId = clean(row.chat_id), current = clean(row.chat_title);
-  if (!chatId || (current && !/^-?\d{6,}$/.test(current))) return { idMasked: mask(chatId), ok: true, action: 'already_titled', title: short(current) };
+  if (!chatId || (current && !idLike(current))) return { idMasked: mask(chatId), ok: true, action: 'already_titled', title: short(safeTitle(current, 'Чат без названия')) };
   try {
     const chat = await maxApi.getChat({ botToken, chatId, timeoutMs: Number(process.env.ADMINKIT_PR271_GET_CHAT_TIMEOUT_MS || 1600) || 1600 });
     const title = titleOf(chat, '');
@@ -110,4 +135,4 @@ async function buildMatrix({ users = null, resolve = true } = {}) {
   return { ok: blockCount === 0, generatedAt: new Date().toISOString(), runtime: RUNTIME, checkedUsers: rows.map((r) => r.maxUserIdMasked), rows, summary: { checkedUsersCount: rows.length, resolvedChannelsCount: rows.reduce((s, r) => s + r.resolvedChannels.length, 0), resolvedNonChannelsCount: rows.reduce((s, r) => s + r.resolvedNonChannels.length, 0), unresolvedCount: rows.reduce((s, r) => s + r.unresolved.length, 0), pushTitlesResolvedCount: rows.reduce((s, r) => s + r.pushTitles.filter((p) => p.action === 'title_refreshed').length, 0), blockCount } };
 }
 async function exportMatrix() { return runtimeExport.exportJson({ path: DEFAULT_PATH, payload: () => buildMatrix({ resolve: true }), message: 'live official channel resolution' }); }
-module.exports = { RUNTIME, DEFAULT_PATH, DEFAULT_TARGET_MAX_USER_IDS, buildMatrix, exportMatrix, officialType, tenantIdFor, titleOf };
+module.exports = { RUNTIME, DEFAULT_PATH, DEFAULT_TARGET_MAX_USER_IDS, buildMatrix, exportMatrix, officialType, tenantIdFor, titleOf, safeTitle, trustedOfficialSource };
