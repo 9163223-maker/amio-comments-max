@@ -6,7 +6,7 @@ const runtimeExport = require('./runtimeExportService');
 const maxApi = require('./maxApi');
 const config = require('../config');
 
-const RUNTIME = 'PR271-LIVE-OFFICIAL-CHANNEL-RESOLUTION-1.3';
+const RUNTIME = 'PR271-LIVE-OFFICIAL-CHANNEL-RESOLUTION-1.4';
 const DEFAULT_PATH = 'runtime/live-official-channel-resolution.json';
 const DEFAULT_TARGET_MAX_USER_IDS = Object.freeze(['17507246']);
 const OFFICIAL_GET_CHAT_SOURCE_RE = /(?:GET[_\s/{}-]*chats[_\s/{}-]*chatId|GET\s*\/chats\/\{chatId\}|get_chats_chatid)/i;
@@ -21,6 +21,14 @@ const idLike = (v = '') => /^-?\d{6,}$/.test(clean(v));
 const safeTitle = (v = '', fallback = 'Объект без названия') => { const text = clean(v); return text && !idLike(text) ? text : fallback; };
 const titleOf = (chat = {}, fallback = '') => safeTitle(chat.title || chat.name || chat.channelTitle || chat.chatTitle || fallback, '');
 const fallbackTenantIdFor = (id = '') => `tenant_live_${crypto.createHash('sha256').update(clean(id)).digest('hex').slice(0,12)}`;
+const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function redactText(value = '', ids = []) {
+  let text = clean(value);
+  for (const id of ids.map(clean).filter(Boolean)) text = text.replace(new RegExp(escapeRegExp(id), 'g'), '<id>');
+  text = text.replace(/\/chats\/-?\d{6,}/gi, '/chats/<id>');
+  text = text.replace(/\b-?\d{6,}\b/g, '<id>');
+  return text;
+}
 
 function targetUsers() {
   const env = uniq([process.env.ADMINKIT_LIVE_BINDINGS_MAX_USER_IDS, process.env.ADMINKIT_TENANT_DIAGNOSTIC_MAX_USER_IDS, process.env.ADMINKIT_DIAGNOSTIC_MAX_USER_IDS].join(',').split(/[\s,;]+/));
@@ -66,7 +74,7 @@ async function existingTenantIdForUser(userId) {
 }
 async function existingChannelOwner(channelId) {
   if (!(await tableExists('ak_tenant_channels'))) return '';
-  const result = await db.query(`SELECT tenant_id FROM ak_tenant_channels WHERE channel_id=$1 AND COALESCE(status,'active')='active' LIMIT 1`, [clean(channelId)]);
+  const result = await db.query(`SELECT tenant_id FROM ak_tenant_channels WHERE channel_id=$1 LIMIT 1`, [clean(channelId)]);
   return clean(result.rows?.[0]?.tenant_id);
 }
 function officialRaw(oldRaw, chat, status = '') {
@@ -80,7 +88,7 @@ async function saveOfficialChannelRaw(channelId, oldRaw, title, chat) {
 }
 async function saveResolutionFailure(channelId, oldRaw, title, error) {
   if (!clean(channelId)) return;
-  const raw = { ...parse(oldRaw), evidence_source: 'GET_chats_chatId', resolution_status: 'api_resolution_failed', resolution_error: short(error), resolved_at: new Date().toISOString() };
+  const raw = { ...parse(oldRaw), evidence_source: 'GET_chats_chatId', resolution_status: 'api_resolution_failed', resolution_error: short(redactText(error, [channelId])), resolved_at: new Date().toISOString() };
   await db.query(`INSERT INTO ak_channels(channel_id,title,raw,updated_at) VALUES($1,$2,$3::jsonb,NOW()) ON CONFLICT(channel_id) DO UPDATE SET title=COALESCE(NULLIF(EXCLUDED.title,''),ak_channels.title),raw=ak_channels.raw || EXCLUDED.raw,updated_at=NOW()`, [clean(channelId), safeTitle(title, 'Объект без названия'), JSON.stringify(raw)]);
 }
 async function bindTenantChannel(userId, channelId, title, chat) {
@@ -90,7 +98,8 @@ async function bindTenantChannel(userId, channelId, title, chat) {
   const meta = { type: lower(chat?.type), max: chat || {}, evidence_source: 'GET_chats_chatId', source: 'pr271_official_channel_resolution', resolved_at: new Date().toISOString() };
   await db.query(`INSERT INTO ak_tenants(tenant_id,owner_max_user_id,status,plan_id,max_channels,source,metadata,created_at,updated_at) VALUES($1,$2,'active','business',100,'pr271_live_admin_bootstrap',$3::jsonb,NOW(),NOW()) ON CONFLICT(tenant_id) DO UPDATE SET owner_max_user_id=COALESCE(NULLIF(ak_tenants.owner_max_user_id,''),EXCLUDED.owner_max_user_id),status='active',max_channels=GREATEST(ak_tenants.max_channels,100),metadata=ak_tenants.metadata || EXCLUDED.metadata,updated_at=NOW()`, [tenantId, clean(userId), JSON.stringify({ source: 'pr271_live_admin_bootstrap', maxUserIdMasked: mask(userId) })]);
   await db.query(`INSERT INTO ak_tenant_users(tenant_id,max_user_id,role,status,created_at,updated_at) VALUES($1,$2,'owner','active',NOW(),NOW()) ON CONFLICT(tenant_id,max_user_id) DO UPDATE SET role=EXCLUDED.role,status='active',updated_at=NOW()`, [tenantId, clean(userId)]);
-  await db.query(`INSERT INTO ak_tenant_channels(tenant_id,channel_id,channel_title,status,connected_at,bound_by_code,metadata,updated_at) VALUES($1,$2,$3,'active','now'::timestamptz,'',$4::jsonb,NOW()) ON CONFLICT(channel_id) DO UPDATE SET channel_title=COALESCE(NULLIF(EXCLUDED.channel_title,''),ak_tenant_channels.channel_title),status='active',metadata=ak_tenant_channels.metadata || EXCLUDED.metadata,updated_at=NOW() WHERE ak_tenant_channels.tenant_id=EXCLUDED.tenant_id`, [tenantId, clean(channelId), safeTitle(title, 'Канал без названия'), JSON.stringify(meta)]);
+  const write = await db.query(`INSERT INTO ak_tenant_channels(tenant_id,channel_id,channel_title,status,connected_at,bound_by_code,metadata,updated_at) VALUES($1,$2,$3,'active','now'::timestamptz,'',$4::jsonb,NOW()) ON CONFLICT(channel_id) DO UPDATE SET channel_title=COALESCE(NULLIF(EXCLUDED.channel_title,''),ak_tenant_channels.channel_title),status='active',metadata=ak_tenant_channels.metadata || EXCLUDED.metadata,updated_at=NOW() WHERE ak_tenant_channels.tenant_id=EXCLUDED.tenant_id RETURNING tenant_id`, [tenantId, clean(channelId), safeTitle(title, 'Канал без названия'), JSON.stringify(meta)]);
+  if (clean(write.rows?.[0]?.tenant_id) !== tenantId) return { ok: false, error: 'channel_binding_not_written', tenantId };
   return { ok: true, tenantId };
 }
 async function resolveAdminRow(userId, row, botToken) {
@@ -118,7 +127,7 @@ async function resolveAdminRow(userId, row, botToken) {
     if (type === 'chat' || type === 'dialog') return { ...item, ok: true, resolvedType: type, title: short(safeTitle(title || row.title, 'Чат без названия')), action: 'official_non_channel_saved' };
     return { ...item, resolvedType: 'missing', action: 'api_type_missing', error: 'max_chat_type_missing' };
   } catch (e) {
-    const message = e?.message || e;
+    const message = redactText(e?.message || e, [channelId]);
     try { await saveResolutionFailure(channelId, raw, row.title || '', message); } catch {}
     return { ...item, action: 'api_resolution_failed', error: short(message) };
   }
@@ -132,7 +141,7 @@ async function refreshPushTitle(row, botToken) {
     if (!title) return { idMasked: mask(chatId), ok: false, action: 'title_missing' };
     await db.query(`UPDATE adminkit_web_push_chat_bindings SET chat_title=$2,updated_at=NOW() WHERE chat_id=$1 AND (chat_title='' OR chat_title IS NULL OR chat_title ~ '^-?[0-9]{6,}$')`, [chatId, title]);
     return { idMasked: mask(chatId), ok: true, action: 'title_refreshed', title: short(title) };
-  } catch (e) { return { idMasked: mask(chatId), ok: false, action: 'title_resolution_failed', error: short(e?.message || e) }; }
+  } catch (e) { return { idMasked: mask(chatId), ok: false, action: 'title_resolution_failed', error: short(redactText(e?.message || e, [chatId])) }; }
 }
 async function buildMatrix({ users = null, resolve = true } = {}) {
   const ids = uniq(Array.isArray(users) && users.length ? users : targetUsers());
@@ -159,4 +168,4 @@ async function buildMatrix({ users = null, resolve = true } = {}) {
   return { ok: blockCount === 0, generatedAt: new Date().toISOString(), runtime: RUNTIME, checkedUsers: rows.map((r) => r.maxUserIdMasked), rows, summary: { checkedUsersCount: rows.length, resolvedChannelsCount: rows.reduce((s, r) => s + r.resolvedChannels.length, 0), resolvedNonChannelsCount: rows.reduce((s, r) => s + r.resolvedNonChannels.length, 0), unresolvedCount: rows.reduce((s, r) => s + r.unresolved.length, 0), pushTitlesResolvedCount: rows.reduce((s, r) => s + r.pushTitles.filter((p) => p.action === 'title_refreshed').length, 0), blockCount } };
 }
 async function exportMatrix() { return runtimeExport.exportJson({ path: DEFAULT_PATH, payload: () => buildMatrix({ resolve: true }), message: 'live official channel resolution' }); }
-module.exports = { RUNTIME, DEFAULT_PATH, DEFAULT_TARGET_MAX_USER_IDS, buildMatrix, exportMatrix, officialType, fallbackTenantIdFor, titleOf, safeTitle, trustedOfficialSource };
+module.exports = { RUNTIME, DEFAULT_PATH, DEFAULT_TARGET_MAX_USER_IDS, buildMatrix, exportMatrix, officialType, fallbackTenantIdFor, titleOf, safeTitle, redactText, trustedOfficialSource };
