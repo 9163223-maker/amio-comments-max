@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-02 08:05 UTC
+Updated: 2026-07-02 08:15 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -31,6 +31,7 @@ MAX chat/channel classification rule:
 - Do not classify by title/name/channelTitle/chatTitle/regex, ID sign, participants_count, link alone, is_public, owner_id, or legacy isChannel/isChat without official source.
 - Official evidence only: `Chat.type = channel|chat|dialog`, `Update.is_channel` from official update/API context, `GET /chats/{chatId}` / `GET /chats/{link}` typed response, and equivalent typed metadata saved in DB.
 - Legacy webhook payloads can store official evidence under `raw.sample.recipient.type`, `raw.sample.chat.type`, or sample `is_channel`.
+- Conflicting official evidence inside one raw/metadata payload must become unknown/conflict and BLOCK.
 - Unknown official evidence means `needs_api_resolution` and BLOCK for channel/post runtime diagnostics.
 
 ## Recent merged PRs
@@ -98,21 +99,22 @@ Post-merge discovery after PR269:
 - User corrected the architecture: do not improve regex; remove title-based classification entirely.
 - PR270 now handles this as official MAX evidence-only classification.
 
-## PR270 status — open follow-up, self-sweep clean, ready for final audit-only
+## PR270 status — open follow-up after audit BLOCK, fixed and ready for re-audit
 PR270:
 - URL: https://github.com/9163223-maker/amio-comments-max/pull/270
 - Title: `PR270: Classify bindings by official MAX evidence`
 - Branch: `codex/pr270-chat-title-token-match`
 - Base: `main`
 - Base SHA: `38370010b9120ff41f744b109dc2ee10d7a50a32`
-- Head SHA: `db2dd0f8936a2a07b5384b86fb1d6b163b562dcf`
+- Current head SHA: `544c670f8393cd764a7fd73053dd52d986ec0c93`
+- Previous blocked head SHA: `db2dd0f8936a2a07b5384b86fb1d6b163b562dcf`
 - Changed files: 2
   - `services/liveUserPostgresBindingsService.js`
   - `scripts/test-pr268-live-user-postgres-bindings.js`
-- CI: `PR regression tests`, run `632`, run id `28574715661`, exact-head `db2dd0f8936a2a07b5384b86fb1d6b163b562dcf`, conclusion `success`.
-- CI artifact: `adminkit-ci-diagnostics`, artifact id `8032443320`, digest `sha256:ae651fc3189bab2604468015aef35c299df322e9ad54048061f47c2555db2eb1`.
+- CI: `PR regression tests`, run `636`, run id `28575373664`, exact-head `544c670f8393cd764a7fd73053dd52d986ec0c93`, conclusion `success`.
+- CI artifact: `adminkit-ci-diagnostics`, artifact id `8032707667`, digest `sha256:fbca8b9a7f7c28788911982595362f040601ab446b9c330d393b552de966cd6f`.
 - PR state: open, not merged, mergeable true.
-- Audit: NOT RUN yet.
+- Audit: previous `AUDIT: BLOCK` at `db2dd0f8936a2a07b5384b86fb1d6b163b562dcf`; re-audit NOT RUN yet at `544c670f8393cd764a7fd73053dd52d986ec0c93`.
 
 PR270 implementation:
 - Replaced title/regex classification with official MAX evidence only.
@@ -121,10 +123,13 @@ PR270 implementation:
 - Uses `Chat.type` paths across raw/metadata/API response fields.
 - Uses `Update.is_channel` only with official update/API context.
 - Recognizes legacy webhook official evidence under `raw.sample.recipient.type`, `raw.sample.chat.type`, `metadata.sample.*`, and sample `is_channel` fields.
+- Detects conflicting official type evidence inside a single raw/metadata payload and returns unknown/conflict/BLOCK.
+- Detects conflicting official Update.is_channel evidence inside a single payload and returns unknown/conflict/BLOCK.
+- Detects conflict between typed official evidence and Update.is_channel evidence and returns unknown/conflict/BLOCK.
 - Treats `adminkit_web_push_chat_bindings` as internal typed chat source.
 - Unknown official evidence becomes `needs_api_resolution` and BLOCK.
 - Safe export does not expose raw MAX ID, raw channel/chat IDs, raw dedupe IDs, or internal hash keys.
-- Duplicate legacy+official rows for the same raw object prefer official evidence; conflicting official evidence becomes unknown/BLOCK.
+- Duplicate legacy+official rows for the same raw object prefer official evidence; explicit conflict entries inside a group cannot be hidden by another official duplicate and remain unknown/BLOCK.
 
 PR270 tests cover:
 - chat-like title + `raw.type=channel` remains channel;
@@ -133,19 +138,20 @@ PR270 tests cover:
 - `Update.is_channel=true/false` evidence;
 - webhook `raw.sample.recipient.type`, `raw.sample.chat.type`, and sample `is_channel` evidence;
 - legacy `isChannel/isChat` without official context remains unknown;
+- conflicting official type fields in one record block;
+- conflicting official type vs Update.is_channel evidence block;
+- conflicting Update.is_channel fields block;
 - push chat binding remains chat;
 - unknown records block with `needs_api_resolution`;
+- conflict records block with `needs_api_resolution`;
 - parameterized SQL and no raw MAX/channel IDs in runtime export;
-- `safeBindingRecord()` does not expose raw/internal dedupe IDs.
+- `safeBindingRecord()` does not expose raw/internal dedupe IDs or use raw ID as title fallback.
 
-PR270 self-sweep after green CI:
-- PR comments/reviews inspected. Old comments on old commits are addressed:
-  - old regex-boundary P2 is obsolete because title-regex classification was removed;
-  - P2 `raw.sample.*` official evidence is fixed and tested;
-  - P1 `_rawId` safe record leak is fixed and tested.
+PR270 self-sweep after latest green CI:
 - Changed files limited to the expected 2 files.
 - Production start path and active entrypoint are not changed by PR270.
 - No direct writes to `main` were made for PR270.
+- Previous BLOCK at `db2dd0f...` was fixed in the same PR branch by commits ending at `544c670f...`.
 
 ## Process error recorded
 Process violation during PR268 preparation:
@@ -162,7 +168,7 @@ Additional process notes:
 - During PR270 work there were repeated CI polling/log-read calls. They did not change repo state, but should be reduced going forward.
 
 ## Next required action
-1. Run final audit-only PASS/BLOCK for PR270 at exact head `db2dd0f8936a2a07b5384b86fb1d6b163b562dcf`.
+1. Run final audit-only PASS/BLOCK for PR270 at exact head `544c670f8393cd764a7fd73053dd52d986ec0c93`.
 2. Merge PR270 only after audit PASS/waiver.
 3. After PR270 merge, update this file with merge commit/head.
 4. Wait for Northflank deploy/runtime pickup.
