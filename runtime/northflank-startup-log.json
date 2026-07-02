@@ -9,7 +9,7 @@
     "NORTHFLANK_SERVICE_ID"
   ],
   "reason": "missing NORTHFLANK_API_TOKEN,NORTHFLANK_PROJECT_ID,NORTHFLANK_SERVICE_ID",
-  "generatedAt": "2026-07-02T14:32:55.282Z",
+  "generatedAt": "2026-07-02T17:09:27.147Z",
   "serviceStatus": "",
   "deploymentStatus": "",
   "startupSeen": false,
