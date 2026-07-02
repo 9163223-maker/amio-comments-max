@@ -1,6 +1,6 @@
 {
   "ok": false,
-  "generatedAt": "2026-07-02T09:04:35.318Z",
+  "generatedAt": "2026-07-02T14:33:47.180Z",
   "runtime": "PR265-LIVE-TENANT-SELF-DIAGNOSTIC-1.1-PR268-LIVE-USER",
   "configuredUsers": [
     "175…246"
@@ -12,7 +12,7 @@
     {
       "ok": false,
       "runtime": "PR265-LIVE-TENANT-SELF-DIAGNOSTIC-1.1-PR268-LIVE-USER",
-      "generatedAt": "2026-07-02T09:04:35.318Z",
+      "generatedAt": "2026-07-02T14:33:47.179Z",
       "label": "watch",
       "maxUserIdMasked": "175…246",
       "tenantIdMasked": "—",
@@ -26,7 +26,50 @@
       "channels": {
         "tenant": [],
         "client": [],
-        "picker": [],
+        "picker": [
+          {
+            "channelIdMasked": "-70…230",
+            "title": "Все свои MAX",
+            "status": "active",
+            "postsCount": 0
+          },
+          {
+            "channelIdMasked": "-75…142",
+            "title": "Мож•Хвост",
+            "status": "active",
+            "postsCount": 0
+          },
+          {
+            "channelIdMasked": "-73…622",
+            "title": "Объект без названия",
+            "status": "active",
+            "postsCount": 0
+          },
+          {
+            "channelIdMasked": "-75…630",
+            "title": "Саша - сын Мамочки 🌸",
+            "status": "active",
+            "postsCount": 0
+          },
+          {
+            "channelIdMasked": "-75…702",
+            "title": "Объект без названия",
+            "status": "active",
+            "postsCount": 0
+          },
+          {
+            "channelIdMasked": "-75…230",
+            "title": "Объект без названия",
+            "status": "active",
+            "postsCount": 0
+          },
+          {
+            "channelIdMasked": "-75…630",
+            "title": "Объект без названия",
+            "status": "active",
+            "postsCount": 0
+          }
+        ],
         "storeLinked": []
       },
       "postEvidence": [],
@@ -46,7 +89,7 @@
         "admin": true,
         "tenantChannelsCount": 0,
         "clientChannelsCount": 0,
-        "pickerChannelsCount": 0,
+        "pickerChannelsCount": 7,
         "storeLinkedChannelsCount": 0,
         "postEvidenceChannelsCount": 0,
         "chatExcludedCount": 0,
@@ -63,6 +106,6 @@
     "blockCount": 1,
     "warnCount": 0,
     "missingTenantCount": 1,
-    "zeroPickerChannelsCount": 1
+    "zeroPickerChannelsCount": 0
   }
 }
