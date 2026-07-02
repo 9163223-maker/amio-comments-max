@@ -6,7 +6,7 @@ const runtimeExport = require('./runtimeExportService');
 const maxApi = require('./maxApi');
 const config = require('../config');
 
-const RUNTIME = 'PR272-LIVE-OFFICIAL-CHANNEL-RESOLUTION-SCHEMA-SAFE-1.1';
+const RUNTIME = 'PR272-LIVE-OFFICIAL-CHANNEL-RESOLUTION-SCHEMA-SAFE-1.2';
 const DEFAULT_PATH = 'runtime/live-official-channel-resolution.json';
 const DEFAULT_TARGET_MAX_USER_IDS = Object.freeze(['17507246']);
 const OFFICIAL_GET_CHAT_SOURCE_RE = /(?:GET[_\s/{}-]*chats[_\s/{}-]*chatId|GET\s*\/chats\/\{chatId\}|get_chats_chatid)/i;
@@ -66,6 +66,12 @@ async function pushRows(userId) {
   const r = await db.query(`SELECT chat_id, chat_title FROM adminkit_web_push_chat_bindings WHERE max_user_id=$1 AND COALESCE(status,'active')='active' ORDER BY updated_at DESC LIMIT 80`, [clean(userId)]);
   return r.rows || [];
 }
+async function existingUserIdForMaxUserId(userId) {
+  const id = clean(userId);
+  if (!id || !(await tableExists('ak_users'))) return id;
+  const linked = await db.query('SELECT user_id FROM ak_users WHERE max_user_id=$1 ORDER BY updated_at DESC NULLS LAST LIMIT 1', [id]);
+  return clean(linked.rows?.[0]?.user_id) || id;
+}
 async function existingTenantIdForUser(userId) {
   const id = clean(userId);
   if (await tableExists('ak_tenant_users')) {
@@ -82,7 +88,8 @@ async function existingTenantIdForUser(userId) {
       if (clean(owned.rows?.[0]?.tenant_id)) return clean(owned.rows[0].tenant_id);
     }
     if (await columnExists('ak_tenants', 'owner_user_id')) {
-      const owned = await db.query(`SELECT tenant_id FROM ak_tenants WHERE owner_user_id=$1 AND COALESCE(status,'active')='active' ORDER BY updated_at DESC NULLS LAST LIMIT 1`, [id]);
+      const ownerUserId = await existingUserIdForMaxUserId(id);
+      const owned = await db.query(`SELECT tenant_id FROM ak_tenants WHERE owner_user_id=$1 AND COALESCE(status,'active')='active' ORDER BY updated_at DESC NULLS LAST LIMIT 1`, [ownerUserId]);
       if (clean(owned.rows?.[0]?.tenant_id)) return clean(owned.rows[0].tenant_id);
     }
   }
@@ -112,8 +119,9 @@ async function upsertTenant(userId, tenantId) {
   const insertCols = ['tenant_id'];
   const values = [tenantId];
   const add = (col, value) => { if (c[col]) { insertCols.push(col); values.push(value); } };
+  const ownerUserId = await existingUserIdForMaxUserId(userId);
   const metadata = { source: 'pr272_live_admin_bootstrap', maxUserIdMasked: mask(userId) };
-  add('owner_user_id', clean(userId));
+  add('owner_user_id', ownerUserId);
   add('owner_max_user_id', clean(userId));
   add('name', 'Live tenant');
   add('status', 'active');
@@ -140,11 +148,16 @@ async function upsertTenant(userId, tenantId) {
   await db.query(`INSERT INTO ak_tenants(${insertCols.join(',')}) VALUES(${placeholders}) ON CONFLICT(tenant_id) ${updateSql}`, values);
 }
 async function upsertTenantUser(userId, tenantId) {
+  const maxUserId = clean(userId);
   if (await tableExists('ak_tenant_users')) {
-    await db.query(`INSERT INTO ak_tenant_users(tenant_id,max_user_id,role,status,created_at,updated_at) VALUES($1,$2,'owner','active',NOW(),NOW()) ON CONFLICT(tenant_id,max_user_id) DO UPDATE SET role=EXCLUDED.role,status='active',updated_at=NOW()`, [tenantId, clean(userId)]);
+    await db.query(`INSERT INTO ak_tenant_users(tenant_id,max_user_id,role,status,created_at,updated_at) VALUES($1,$2,'owner','active',NOW(),NOW()) ON CONFLICT(tenant_id,max_user_id) DO UPDATE SET role=EXCLUDED.role,status='active',updated_at=NOW()`, [tenantId, maxUserId]);
   }
   if (await tableExists('ak_users')) {
-    await db.query(`INSERT INTO ak_users(user_id,tenant_id,max_user_id,display_name,status,tariff_code,raw_json,created_at,updated_at) VALUES($1,$2,$1,'','active','business',$3::jsonb,NOW(),NOW()) ON CONFLICT(user_id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,max_user_id=EXCLUDED.max_user_id,status='active',tariff_code=COALESCE(NULLIF(ak_users.tariff_code,''),EXCLUDED.tariff_code),raw_json=COALESCE(ak_users.raw_json,'{}'::jsonb) || EXCLUDED.raw_json,updated_at=NOW()`, [clean(userId), tenantId, JSON.stringify({ source: 'pr272_live_admin_bootstrap' })]);
+    const raw = JSON.stringify({ source: 'pr272_live_admin_bootstrap' });
+    const updated = await db.query(`UPDATE ak_users SET tenant_id=$2,status='active',tariff_code=COALESCE(NULLIF(tariff_code,''),'business'),raw_json=COALESCE(raw_json,'{}'::jsonb) || $3::jsonb,updated_at=NOW() WHERE max_user_id=$1 RETURNING user_id`, [maxUserId, tenantId, raw]);
+    if (clean(updated.rows?.[0]?.user_id)) return;
+    const ownerUserId = await existingUserIdForMaxUserId(maxUserId);
+    await db.query(`INSERT INTO ak_users(user_id,tenant_id,max_user_id,display_name,status,tariff_code,raw_json,created_at,updated_at) VALUES($1,$2,$3,'','active','business',$4::jsonb,NOW(),NOW()) ON CONFLICT(user_id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,max_user_id=EXCLUDED.max_user_id,status='active',tariff_code=COALESCE(NULLIF(ak_users.tariff_code,''),EXCLUDED.tariff_code),raw_json=COALESCE(ak_users.raw_json,'{}'::jsonb) || EXCLUDED.raw_json,updated_at=NOW()`, [ownerUserId, tenantId, maxUserId, raw]);
   }
 }
 async function bindTenantChannel(userId, channelId, title, chat) {
