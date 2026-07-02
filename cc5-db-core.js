@@ -14,7 +14,7 @@ const pool = DATABASE_URL ? new Pool({
 let initPromise = null;
 let lastInitError = '';
 
-const clean = (v) => String(v || '').replace(/^post:/i, '').replace(/^ck:/i, '').replace(/^:+/, '').replace(/^['\"]+|['\"]+$/g, '').trim();
+const clean = (v) => String(v || '').replace(/^post:/i, '').replace(/^ck:/i, '').replace(/^:+/, '').replace(/^['"]+|['"]+$/g, '').trim();
 const norm = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 const cut = (v, n = 90) => { const s = norm(v); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 const defaults = () => ({ enabled: true, applyPresetCommon: true, blockLinks: false, blockInvites: true, aiEnabled: false, customBlocklist: [] });
@@ -215,8 +215,8 @@ async function upsertFromUpdate(update = {}) {
 }
 async function getChannels(adminId) {
   if (!adminId) return [];
-  const { rows } = await query(`select c.channel_id as "channelId", coalesce(c.title,c.channel_id) as title, ac.updated_at as "updatedAt" from ak_admin_channels ac join ak_channels c on c.channel_id=ac.channel_id where ac.admin_id=$1 order by ac.updated_at desc limit 50`, [adminId]);
-  return rows;
+  const { rows } = await query(`select c.channel_id as "channelId", coalesce(c.title,c.channel_id) as title, c.raw, ac.updated_at as "updatedAt" from ak_admin_channels ac join ak_channels c on c.channel_id=ac.channel_id where ac.admin_id=$1 and c.raw->>'type'='channel' and c.raw->>'resolution_status'='ok' order by ac.updated_at desc limit 50`, [adminId]);
+  return rows.map((row) => ({ ...row, type: 'channel', isChannel: true, source: 'cc5_admin_channels_official' }));
 }
 async function getPosts(adminId, channelId, limit = 20) {
   if (!adminId || !channelId) return [];
