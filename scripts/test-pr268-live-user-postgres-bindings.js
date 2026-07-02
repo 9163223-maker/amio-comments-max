@@ -100,7 +100,7 @@ function rowForTable(sql) {
   assert.strictEqual(unresolved.kind, 'unknown');
   assert.strictEqual(unresolved.needsApiResolution, true);
   assert.strictEqual(unresolved.evidence, 'needs_api_resolution');
-  assert.ok(!JSON.stringify(unresolved).includes('_rawId'), 'internal dedupe id is not exported by safe record consumers');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(unresolved, '_rawId'), false, 'safeBindingRecord must not expose raw dedupe ids');
 
   db.hasDatabaseUrl = () => true;
   db.query = async (sql, params = []) => {
