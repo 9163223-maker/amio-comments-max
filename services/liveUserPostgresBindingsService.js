@@ -3,7 +3,7 @@
 const db = require('../src/db/postgres');
 const runtimeExport = require('./runtimeExportService');
 
-const RUNTIME = 'PR270-LIVE-USER-POSTGRES-BINDINGS-OFFICIAL-EVIDENCE-2.1';
+const RUNTIME = 'PR270-LIVE-USER-POSTGRES-BINDINGS-OFFICIAL-EVIDENCE-2.2';
 const DEFAULT_PATH = 'runtime/live-user-postgres-bindings.json';
 const DEFAULT_TARGET_MAX_USER_IDS = Object.freeze(['17507246']);
 const TYPES = new Set(['channel', 'chat', 'dialog']);
@@ -83,9 +83,10 @@ function classifyRecordDetails(record = {}) {
   return { kind: 'unknown', confidence: 'none', evidence: 'needs_api_resolution', needsApiResolution: true };
 }
 function classifyRecord(record = {}) { return classifyRecordDetails(record).kind; }
+function recordId(record = {}) { return first(record.channelId, record.channel_id, record.chatId, record.chat_id, record.id); }
 function safeBindingRecord(record = {}) {
   const c = classifyRecordDetails(record);
-  const id = first(record.channelId, record.channel_id, record.chatId, record.chat_id, record.id);
+  const id = recordId(record);
   const raw = parseJson(record.raw || record.metadata || record.meta || {});
   return {
     kind: c.kind,
@@ -99,28 +100,27 @@ function safeBindingRecord(record = {}) {
     role: clean(record.role || ''),
     status: clean(record.status || 'active'),
     postsCount: Number(record.postsCount || 0),
-    updatedAt: iso(record.updated_at || record.updatedAt || record.connected_at || record.created_at || record.createdAt),
-    _rawId: clean(id)
+    updatedAt: iso(record.updated_at || record.updatedAt || record.connected_at || record.created_at || record.createdAt)
   };
 }
 function rank(item = {}) { return item.kind === 'unknown' ? 0 : item.confidence === 'internal_typed_source' ? 1 : item.confidence === 'official_update' ? 2 : item.confidence === 'official' ? 3 : 0; }
-function strip(item = {}) { const copy = { ...item }; delete copy._rawId; return copy; }
-function dedupe(items = []) {
+function dedupe(records = []) {
   const groups = new Map();
-  for (const item of items) {
-    const key = item._rawId ? `id:${item._rawId}` : `record:${item.source}:${item.kind}:${item.title.toLowerCase()}`;
+  for (const record of records) {
+    const safe = safeBindingRecord(record);
+    const key = mask(recordId(record)) || `record:${safe.source}:${safe.kind}:${safe.title.toLowerCase()}`;
     if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(item);
+    groups.get(key).push(safe);
   }
   const out = [];
   for (const group of groups.values()) {
     const officialKinds = new Set(group.filter((item) => item.kind !== 'unknown' && /^official/.test(clean(item.confidence))).map((item) => item.kind));
     if (officialKinds.size > 1) {
       const latest = [...group].sort((a, b) => time(b.updatedAt) - time(a.updatedAt))[0] || group[0];
-      out.push(strip({ ...latest, kind: 'unknown', maxType: 'conflict', confidence: 'conflict', evidence: 'conflicting_official_evidence', needsApiResolution: true, source: uniq(group.map((item) => item.source)).join(', ') }));
+      out.push({ ...latest, kind: 'unknown', maxType: 'conflict', confidence: 'conflict', evidence: 'conflicting_official_evidence', needsApiResolution: true, source: uniq(group.map((item) => item.source)).join(', ') });
       continue;
     }
-    out.push(strip([...group].sort((a, b) => rank(b) - rank(a) || time(b.updatedAt) - time(a.updatedAt))[0]));
+    out.push([...group].sort((a, b) => rank(b) - rank(a) || time(b.updatedAt) - time(a.updatedAt))[0]);
   }
   return out.sort((a, b) => time(b.updatedAt) - time(a.updatedAt));
 }
@@ -142,7 +142,8 @@ async function buildUserRow(maxUserId = '') {
   const sources = await Promise.all([adminChannelRows(userId), tenantChannelRows(userId), ownedTenantChannelRows(userId), pushChatRows(userId)]);
   const errors = sources.filter((item) => !item.ok).map((item) => item.error).filter(Boolean);
   const missingTables = ['ak_admin_channels', 'ak_tenant_channels', 'ak_tenants', 'adminkit_web_push_chat_bindings'].filter((_, index) => sources[index].missing);
-  const safeRecords = dedupe(sources.flatMap((item) => item.rows || []).map(safeBindingRecord));
+  const rawRecords = sources.flatMap((item) => item.rows || []);
+  const safeRecords = dedupe(rawRecords);
   const channels = safeRecords.filter((item) => item.kind === 'channel');
   const chats = safeRecords.filter((item) => item.kind === 'chat');
   const unknown = safeRecords.filter((item) => item.kind === 'unknown');
@@ -151,7 +152,7 @@ async function buildUserRow(maxUserId = '') {
   if (!db.hasDatabaseUrl()) blocks.push('postgres_not_configured');
   if (errors.length) blocks.push('postgres_query_failed');
   if (unknown.length) blocks.push('needs_api_resolution');
-  return { maxUserIdMasked: mask(userId), ok: blocks.length === 0, channels, chats, unknown, counts: { sourceRecords: sources.reduce((sum, item) => sum + (item.rows || []).length, 0), channels: channels.length, chats: chats.length, unknown: unknown.length, missingTables: missingTables.length }, missingTables, errors, blocks };
+  return { maxUserIdMasked: mask(userId), ok: blocks.length === 0, channels, chats, unknown, counts: { sourceRecords: rawRecords.length, channels: channels.length, chats: chats.length, unknown: unknown.length, missingTables: missingTables.length }, missingTables, errors, blocks };
 }
 async function buildMatrix({ users = null } = {}) {
   const ids = uniq(Array.isArray(users) && users.length ? users : targetUsers());
