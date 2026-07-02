@@ -1,24 +1,69 @@
 {
-  "ok": false,
-  "generatedAt": "2026-07-02T14:33:40.077Z",
-  "runtime": "PR271-LIVE-OFFICIAL-CHANNEL-RESOLUTION-1.4",
+  "ok": true,
+  "generatedAt": "2026-07-02T17:10:07.838Z",
+  "runtime": "PR272-LIVE-OFFICIAL-CHANNEL-RESOLUTION-SCHEMA-SAFE-1.2",
   "checkedUsers": [
     "175…246"
   ],
   "rows": [
     {
       "maxUserIdMasked": "175…246",
-      "ok": false,
+      "ok": true,
       "botTokenConfigured": true,
-      "resolvedChannels": [],
+      "resolvedChannels": [
+        {
+          "idMasked": "-73…622",
+          "title": "АдминКит клуб",
+          "postsCount": 113,
+          "beforeType": "missing",
+          "resolvedType": "channel",
+          "action": "official_channel_bound",
+          "ok": true,
+          "error": "",
+          "tenantIdMasked": "ten…246"
+        },
+        {
+          "idMasked": "-75…702",
+          "title": "АК-ТЕСТ 1",
+          "postsCount": 2,
+          "beforeType": "missing",
+          "resolvedType": "channel",
+          "action": "official_channel_bound",
+          "ok": true,
+          "error": "",
+          "tenantIdMasked": "ten…246"
+        },
+        {
+          "idMasked": "-75…630",
+          "title": "АК-ТЕСТ 2",
+          "postsCount": 2,
+          "beforeType": "missing",
+          "resolvedType": "channel",
+          "action": "official_channel_bound",
+          "ok": true,
+          "error": "",
+          "tenantIdMasked": "ten…246"
+        },
+        {
+          "idMasked": "-75…230",
+          "title": "АК-Тест 3",
+          "postsCount": 1,
+          "beforeType": "missing",
+          "resolvedType": "channel",
+          "action": "official_channel_bound",
+          "ok": true,
+          "error": "",
+          "tenantIdMasked": "ten…246"
+        }
+      ],
       "resolvedNonChannels": [
         {
           "idMasked": "-75…142",
           "title": "Мож•Хвост",
           "postsCount": 44,
-          "beforeType": "missing",
+          "beforeType": "chat",
           "resolvedType": "chat",
-          "action": "official_non_channel_saved",
+          "action": "already_verified_non_channel",
           "ok": true,
           "error": ""
         },
@@ -26,9 +71,9 @@
           "idMasked": "-70…230",
           "title": "Все свои MAX",
           "postsCount": 38,
-          "beforeType": "missing",
+          "beforeType": "chat",
           "resolvedType": "chat",
-          "action": "official_non_channel_saved",
+          "action": "already_verified_non_channel",
           "ok": true,
           "error": ""
         },
@@ -36,55 +81,14 @@
           "idMasked": "-75…630",
           "title": "Саша - сын Мамочки 🌸",
           "postsCount": 6,
-          "beforeType": "missing",
+          "beforeType": "chat",
           "resolvedType": "chat",
-          "action": "official_non_channel_saved",
+          "action": "already_verified_non_channel",
           "ok": true,
           "error": ""
         }
       ],
-      "unresolved": [
-        {
-          "idMasked": "-73…622",
-          "title": "Объект без названия",
-          "postsCount": 113,
-          "beforeType": "missing",
-          "resolvedType": "",
-          "action": "api_resolution_failed",
-          "ok": false,
-          "error": "null value in column \"owner_user_id\" of relation \"ak_tenants\" violates not-null constraint"
-        },
-        {
-          "idMasked": "-75…702",
-          "title": "Объект без названия",
-          "postsCount": 2,
-          "beforeType": "missing",
-          "resolvedType": "",
-          "action": "api_resolution_failed",
-          "ok": false,
-          "error": "null value in column \"owner_user_id\" of relation \"ak_tenants\" violates not-null constraint"
-        },
-        {
-          "idMasked": "-75…630",
-          "title": "Объект без названия",
-          "postsCount": 2,
-          "beforeType": "missing",
-          "resolvedType": "",
-          "action": "api_resolution_failed",
-          "ok": false,
-          "error": "null value in column \"owner_user_id\" of relation \"ak_tenants\" violates not-null constraint"
-        },
-        {
-          "idMasked": "-75…230",
-          "title": "Объект без названия",
-          "postsCount": 1,
-          "beforeType": "missing",
-          "resolvedType": "",
-          "action": "api_resolution_failed",
-          "ok": false,
-          "error": "null value in column \"owner_user_id\" of relation \"ak_tenants\" violates not-null constraint"
-        }
-      ],
+      "unresolved": [],
       "pushTitles": [
         {
           "idMasked": "-75…686",
@@ -93,16 +97,88 @@
           "title": "Мож Хвост 2"
         },
         {
-          "idMasked": "-75…782",
+          "idMasked": "-75…686",
           "ok": true,
-          "action": "title_refreshed",
-          "title": "Мож Хвост 3"
+          "action": "already_titled",
+          "title": "Мож Хвост 2"
+        },
+        {
+          "idMasked": "-75…686",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож Хвост 2"
+        },
+        {
+          "idMasked": "-75…142",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож•Хвост"
+        },
+        {
+          "idMasked": "-75…142",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож•Хвост"
+        },
+        {
+          "idMasked": "-75…142",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож•Хвост"
+        },
+        {
+          "idMasked": "-75…142",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож•Хвост"
+        },
+        {
+          "idMasked": "-70…230",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Все свои MAX"
+        },
+        {
+          "idMasked": "-70…230",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Все свои MAX"
         },
         {
           "idMasked": "-75…694",
           "ok": true,
-          "action": "title_refreshed",
+          "action": "already_titled",
           "title": "Тест чат push"
+        },
+        {
+          "idMasked": "-75…782",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож Хвост 3"
+        },
+        {
+          "idMasked": "-75…782",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож Хвост 3"
+        },
+        {
+          "idMasked": "-75…782",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож Хвост 3"
+        },
+        {
+          "idMasked": "-75…782",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож Хвост 3"
+        },
+        {
+          "idMasked": "-75…686",
+          "ok": true,
+          "action": "already_titled",
+          "title": "Мож Хвост 2"
         },
         {
           "idMasked": "-75…630",
@@ -111,75 +187,21 @@
           "title": "Саша - сын Мамочки 🌸"
         },
         {
-          "idMasked": "-70…230",
-          "ok": true,
-          "action": "title_refreshed",
-          "title": "Все свои MAX"
-        },
-        {
-          "idMasked": "-75…142",
-          "ok": true,
-          "action": "title_refreshed",
-          "title": "Мож•Хвост"
-        },
-        {
           "idMasked": "-75…694",
           "ok": true,
           "action": "already_titled",
           "title": "Тест чат push"
         },
         {
-          "idMasked": "-75…686",
-          "ok": true,
-          "action": "title_refreshed",
-          "title": "Мож Хвост 2"
-        },
-        {
-          "idMasked": "-75…142",
-          "ok": true,
-          "action": "title_refreshed",
-          "title": "Мож•Хвост"
-        },
-        {
-          "idMasked": "-75…782",
-          "ok": true,
-          "action": "title_refreshed",
-          "title": "Мож Хвост 3"
-        },
-        {
           "idMasked": "-75…782",
           "ok": true,
           "action": "already_titled",
           "title": "Мож Хвост 3"
         },
         {
-          "idMasked": "-75…782",
-          "ok": true,
-          "action": "title_refreshed",
-          "title": "Мож Хвост 3"
-        },
-        {
-          "idMasked": "-75…782",
-          "ok": true,
-          "action": "title_refreshed",
-          "title": "Мож Хвост 3"
-        },
-        {
           "idMasked": "-75…686",
           "ok": true,
           "action": "already_titled",
-          "title": "Мож Хвост 2"
-        },
-        {
-          "idMasked": "-75…686",
-          "ok": true,
-          "action": "title_refreshed",
-          "title": "Мож Хвост 2"
-        },
-        {
-          "idMasked": "-75…686",
-          "ok": true,
-          "action": "title_refreshed",
           "title": "Мож Хвост 2"
         },
         {
@@ -193,37 +215,17 @@
           "ok": true,
           "action": "already_titled",
           "title": "Мож•Хвост"
-        },
-        {
-          "idMasked": "-75…142",
-          "ok": true,
-          "action": "title_refreshed",
-          "title": "Мож•Хвост"
-        },
-        {
-          "idMasked": "-75…142",
-          "ok": true,
-          "action": "title_refreshed",
-          "title": "Мож•Хвост"
-        },
-        {
-          "idMasked": "-70…230",
-          "ok": true,
-          "action": "title_refreshed",
-          "title": "Все свои MAX"
         }
       ],
-      "blocks": [
-        "official_resolution_incomplete"
-      ]
+      "blocks": []
     }
   ],
   "summary": {
     "checkedUsersCount": 1,
-    "resolvedChannelsCount": 0,
+    "resolvedChannelsCount": 4,
     "resolvedNonChannelsCount": 3,
-    "unresolvedCount": 4,
-    "pushTitlesResolvedCount": 14,
-    "blockCount": 1
+    "unresolvedCount": 0,
+    "pushTitlesResolvedCount": 0,
+    "blockCount": 0
   }
 }
