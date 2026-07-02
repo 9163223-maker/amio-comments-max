@@ -6,7 +6,7 @@ const runtimeExport = require('./runtimeExportService');
 const maxApi = require('./maxApi');
 const config = require('../config');
 
-const RUNTIME = 'PR271-LIVE-OFFICIAL-CHANNEL-RESOLUTION-1.4';
+const RUNTIME = 'PR272-LIVE-OFFICIAL-CHANNEL-RESOLUTION-SCHEMA-SAFE-1.0';
 const DEFAULT_PATH = 'runtime/live-official-channel-resolution.json';
 const DEFAULT_TARGET_MAX_USER_IDS = Object.freeze(['17507246']);
 const OFFICIAL_GET_CHAT_SOURCE_RE = /(?:GET[_\s/{}-]*chats[_\s/{}-]*chatId|GET\s*\/chats\/\{chatId\}|get_chats_chatid)/i;
@@ -29,7 +29,6 @@ function redactText(value = '', ids = []) {
   text = text.replace(/\b-?\d{6,}\b/g, '<id>');
   return text;
 }
-
 function targetUsers() {
   const env = uniq([process.env.ADMINKIT_LIVE_BINDINGS_MAX_USER_IDS, process.env.ADMINKIT_TENANT_DIAGNOSTIC_MAX_USER_IDS, process.env.ADMINKIT_DIAGNOSTIC_MAX_USER_IDS].join(',').split(/[\s,;]+/));
   return env.length ? env.slice(0,10) : [...DEFAULT_TARGET_MAX_USER_IDS];
@@ -50,6 +49,9 @@ function officialType(raw = {}, { requireTrusted = true } = {}) {
 async function tableExists(name) {
   try { const r = await db.query('SELECT to_regclass($1) AS name', [clean(name)]); return Boolean(r.rows?.[0]?.name); } catch { return false; }
 }
+async function columnExists(tableName, columnName) {
+  try { const r = await db.query(`SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name=$2 LIMIT 1`, [clean(tableName), clean(columnName)]); return Boolean(r.rows?.[0]); } catch { return false; }
+}
 async function adminRows(userId) {
   if (!(await tableExists('ak_admin_channels'))) return [];
   const r = await db.query(`SELECT ac.admin_id, ac.channel_id, ac.updated_at, c.title, c.raw, COALESCE(pc.posts_count,0)::int AS posts_count FROM ak_admin_channels ac LEFT JOIN ak_channels c ON c.channel_id=ac.channel_id LEFT JOIN (SELECT admin_id, channel_id, COUNT(*)::int AS posts_count FROM ak_posts WHERE admin_id=$1 GROUP BY admin_id, channel_id) pc ON pc.admin_id=ac.admin_id AND pc.channel_id=ac.channel_id WHERE ac.admin_id=$1 ORDER BY COALESCE(pc.posts_count,0) DESC, ac.updated_at DESC LIMIT 80`, [clean(userId)]);
@@ -67,8 +69,14 @@ async function existingTenantIdForUser(userId) {
     if (clean(linked.rows?.[0]?.tenant_id)) return clean(linked.rows[0].tenant_id);
   }
   if (await tableExists('ak_tenants')) {
-    const owned = await db.query(`SELECT tenant_id FROM ak_tenants WHERE owner_max_user_id=$1 AND COALESCE(status,'active')='active' ORDER BY updated_at DESC NULLS LAST LIMIT 1`, [id]);
-    if (clean(owned.rows?.[0]?.tenant_id)) return clean(owned.rows[0].tenant_id);
+    if (await columnExists('ak_tenants', 'owner_max_user_id')) {
+      const owned = await db.query(`SELECT tenant_id FROM ak_tenants WHERE owner_max_user_id=$1 AND COALESCE(status,'active')='active' ORDER BY updated_at DESC NULLS LAST LIMIT 1`, [id]);
+      if (clean(owned.rows?.[0]?.tenant_id)) return clean(owned.rows[0].tenant_id);
+    }
+    if (await columnExists('ak_tenants', 'owner_user_id')) {
+      const owned = await db.query(`SELECT tenant_id FROM ak_tenants WHERE owner_user_id=$1 AND COALESCE(status,'active')='active' ORDER BY updated_at DESC NULLS LAST LIMIT 1`, [id]);
+      if (clean(owned.rows?.[0]?.tenant_id)) return clean(owned.rows[0].tenant_id);
+    }
   }
   return fallbackTenantIdFor(id);
 }
@@ -91,12 +99,20 @@ async function saveResolutionFailure(channelId, oldRaw, title, error) {
   const raw = { ...parse(oldRaw), evidence_source: 'GET_chats_chatId', resolution_status: 'api_resolution_failed', resolution_error: short(redactText(error, [channelId])), resolved_at: new Date().toISOString() };
   await db.query(`INSERT INTO ak_channels(channel_id,title,raw,updated_at) VALUES($1,$2,$3::jsonb,NOW()) ON CONFLICT(channel_id) DO UPDATE SET title=COALESCE(NULLIF(EXCLUDED.title,''),ak_channels.title),raw=ak_channels.raw || EXCLUDED.raw,updated_at=NOW()`, [clean(channelId), safeTitle(title, 'Объект без названия'), JSON.stringify(raw)]);
 }
+async function upsertTenant(userId, tenantId) {
+  const metadata = JSON.stringify({ source: 'pr272_live_admin_bootstrap', maxUserIdMasked: mask(userId) });
+  if (await columnExists('ak_tenants', 'owner_user_id')) {
+    await db.query(`INSERT INTO ak_tenants(tenant_id,owner_user_id,owner_max_user_id,name,status,plan_id,max_channels,source,metadata,settings_json,created_at,updated_at) VALUES($1,$2,$2,'Live tenant','active','business',100,'pr272_live_admin_bootstrap',$3::jsonb,$3::jsonb,NOW(),NOW()) ON CONFLICT(tenant_id) DO UPDATE SET owner_user_id=COALESCE(NULLIF(ak_tenants.owner_user_id,''),EXCLUDED.owner_user_id),owner_max_user_id=COALESCE(NULLIF(ak_tenants.owner_max_user_id,''),EXCLUDED.owner_max_user_id),status='active',max_channels=GREATEST(ak_tenants.max_channels,100),metadata=ak_tenants.metadata || EXCLUDED.metadata,settings_json=COALESCE(ak_tenants.settings_json,'{}'::jsonb) || EXCLUDED.settings_json,updated_at=NOW()`, [tenantId, clean(userId), metadata]);
+    return;
+  }
+  await db.query(`INSERT INTO ak_tenants(tenant_id,owner_max_user_id,status,plan_id,max_channels,source,metadata,created_at,updated_at) VALUES($1,$2,'active','business',100,'pr272_live_admin_bootstrap',$3::jsonb,NOW(),NOW()) ON CONFLICT(tenant_id) DO UPDATE SET owner_max_user_id=COALESCE(NULLIF(ak_tenants.owner_max_user_id,''),EXCLUDED.owner_max_user_id),status='active',max_channels=GREATEST(ak_tenants.max_channels,100),metadata=ak_tenants.metadata || EXCLUDED.metadata,updated_at=NOW()`, [tenantId, clean(userId), metadata]);
+}
 async function bindTenantChannel(userId, channelId, title, chat) {
   const tenantId = await existingTenantIdForUser(userId);
   const ownerTenantId = await existingChannelOwner(channelId);
   if (ownerTenantId && ownerTenantId !== tenantId) return { ok: false, error: 'channel_owned_by_another_tenant', tenantId };
-  const meta = { type: lower(chat?.type), max: chat || {}, evidence_source: 'GET_chats_chatId', source: 'pr271_official_channel_resolution', resolved_at: new Date().toISOString() };
-  await db.query(`INSERT INTO ak_tenants(tenant_id,owner_max_user_id,status,plan_id,max_channels,source,metadata,created_at,updated_at) VALUES($1,$2,'active','business',100,'pr271_live_admin_bootstrap',$3::jsonb,NOW(),NOW()) ON CONFLICT(tenant_id) DO UPDATE SET owner_max_user_id=COALESCE(NULLIF(ak_tenants.owner_max_user_id,''),EXCLUDED.owner_max_user_id),status='active',max_channels=GREATEST(ak_tenants.max_channels,100),metadata=ak_tenants.metadata || EXCLUDED.metadata,updated_at=NOW()`, [tenantId, clean(userId), JSON.stringify({ source: 'pr271_live_admin_bootstrap', maxUserIdMasked: mask(userId) })]);
+  const meta = { type: lower(chat?.type), max: chat || {}, evidence_source: 'GET_chats_chatId', source: 'pr272_official_channel_resolution', resolved_at: new Date().toISOString() };
+  await upsertTenant(userId, tenantId);
   await db.query(`INSERT INTO ak_tenant_users(tenant_id,max_user_id,role,status,created_at,updated_at) VALUES($1,$2,'owner','active',NOW(),NOW()) ON CONFLICT(tenant_id,max_user_id) DO UPDATE SET role=EXCLUDED.role,status='active',updated_at=NOW()`, [tenantId, clean(userId)]);
   const write = await db.query(`INSERT INTO ak_tenant_channels(tenant_id,channel_id,channel_title,status,connected_at,bound_by_code,metadata,updated_at) VALUES($1,$2,$3,'active','now'::timestamptz,'',$4::jsonb,NOW()) ON CONFLICT(channel_id) DO UPDATE SET channel_title=COALESCE(NULLIF(EXCLUDED.channel_title,''),ak_tenant_channels.channel_title),status='active',metadata=ak_tenant_channels.metadata || EXCLUDED.metadata,updated_at=NOW() WHERE ak_tenant_channels.tenant_id=EXCLUDED.tenant_id RETURNING tenant_id`, [tenantId, clean(channelId), safeTitle(title, 'Канал без названия'), JSON.stringify(meta)]);
   if (clean(write.rows?.[0]?.tenant_id) !== tenantId) return { ok: false, error: 'channel_binding_not_written', tenantId };
