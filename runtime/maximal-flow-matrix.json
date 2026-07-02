@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-07-02T09:04:33.318Z",
+  "generatedAt": "2026-07-02T14:33:27.679Z",
   "runtime": "PR264-MAXIMAL-FLOW-MATRIX-1.0",
   "sections": [
     {
@@ -2190,7 +2190,7 @@
   ],
   "tenantBinding": {
     "ok": true,
-    "generatedAt": "2026-07-02T09:04:33.318Z",
+    "generatedAt": "2026-07-02T14:33:27.678Z",
     "runtime": "PR263-TENANT-CHANNEL-BINDING-CONTRACT-1.0",
     "checkedUsers": [],
     "rows": [],
