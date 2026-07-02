@@ -218,7 +218,7 @@ async function getPosts(adminId, channelId, limit = 20) {
 }
 async function getRules({ adminId, channelId, scopeType = 'channel', postId = '' }) {
   if (!adminId || !channelId) return defaults();
-  const { rows } = await query(`select enabled, apply_preset_common as "applyPresetCommon", block_links as "blockLinks", block_invites as "blockInvites", ai_enabled as "aiEnabled", custom_blocklist as "customBlocklist", updated_at as "UpdatedAt" from ak_moderation_rules where admin_id=$1 and channel_id=$2 and scope_type=$3 and post_id=$4`, [adminId, channelId, scopeType, scopeType === 'post' ? String(postId || '') : '']);
+  const { rows } = await query(`select enabled, apply_preset_common as "applyPresetCommon", block_links as "blockLinks", block_invites as "blockInvites", ai_enabled as "aiEnabled", custom_blocklist as "customBlocklist", updated_at as "updatedAt" from ak_moderation_rules where admin_id=$1 and channel_id=$2 and scope_type=$3 and post_id=$4`, [adminId, channelId, scopeType, scopeType === 'post' ? String(postId || '') : '']);
   return { ...defaults(), ...(rows[0] || {}), scopeType, adminId, channelId, postId: scopeType === 'post' ? String(postId || '') : '' };
 }
 async function saveRules(scope, next = {}) {
