@@ -178,6 +178,7 @@ async function upsertAdmin(adminId, raw = {}) {
 async function upsertChannel(adminId, channelId, title = '', raw = {}) {
   const a = clean(adminId), c = clean(channelId);
   if (!a || !c) return null;
+  await upsertAdmin(a, { source: 'upsertChannel_direct' });
   await query(`insert into ak_channels(channel_id,title,raw,updated_at) values($1,$2,$3::jsonb,now()) on conflict(channel_id) do update set title=coalesce(nullif(excluded.title,''),ak_channels.title), raw=ak_channels.raw || excluded.raw, updated_at=now()`, [c, cut(title || c, 120), JSON.stringify(raw || {})]);
   await query(`insert into ak_admin_channels(admin_id,channel_id,role,updated_at) values($1,$2,'admin',now()) on conflict(admin_id,channel_id) do update set role='admin', updated_at=now()`, [a, c]);
   return { adminId: a, channelId: c, title: title || c };
