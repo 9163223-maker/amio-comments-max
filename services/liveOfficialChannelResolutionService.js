@@ -6,7 +6,7 @@ const runtimeExport = require('./runtimeExportService');
 const maxApi = require('./maxApi');
 const config = require('../config');
 
-const RUNTIME = 'PR271-LIVE-OFFICIAL-CHANNEL-RESOLUTION-1.2';
+const RUNTIME = 'PR271-LIVE-OFFICIAL-CHANNEL-RESOLUTION-1.3';
 const DEFAULT_PATH = 'runtime/live-official-channel-resolution.json';
 const DEFAULT_TARGET_MAX_USER_IDS = Object.freeze(['17507246']);
 const OFFICIAL_GET_CHAT_SOURCE_RE = /(?:GET[_\s/{}-]*chats[_\s/{}-]*chatId|GET\s*\/chats\/\{chatId\}|get_chats_chatid)/i;
@@ -20,7 +20,7 @@ const uniq = (a = []) => [...new Set(a.map(clean).filter(Boolean))];
 const idLike = (v = '') => /^-?\d{6,}$/.test(clean(v));
 const safeTitle = (v = '', fallback = 'Объект без названия') => { const text = clean(v); return text && !idLike(text) ? text : fallback; };
 const titleOf = (chat = {}, fallback = '') => safeTitle(chat.title || chat.name || chat.channelTitle || chat.chatTitle || fallback, '');
-const tenantIdFor = (id = '') => `tenant_live_${crypto.createHash('sha256').update(clean(id)).digest('hex').slice(0,12)}`;
+const fallbackTenantIdFor = (id = '') => `tenant_live_${crypto.createHash('sha256').update(clean(id)).digest('hex').slice(0,12)}`;
 
 function targetUsers() {
   const env = uniq([process.env.ADMINKIT_LIVE_BINDINGS_MAX_USER_IDS, process.env.ADMINKIT_TENANT_DIAGNOSTIC_MAX_USER_IDS, process.env.ADMINKIT_DIAGNOSTIC_MAX_USER_IDS].join(',').split(/[\s,;]+/));
@@ -52,6 +52,23 @@ async function pushRows(userId) {
   const r = await db.query(`SELECT chat_id, chat_title FROM adminkit_web_push_chat_bindings WHERE max_user_id=$1 AND COALESCE(status,'active')='active' ORDER BY updated_at DESC LIMIT 80`, [clean(userId)]);
   return r.rows || [];
 }
+async function existingTenantIdForUser(userId) {
+  const id = clean(userId);
+  if (await tableExists('ak_tenant_users')) {
+    const linked = await db.query(`SELECT tu.tenant_id FROM ak_tenant_users tu JOIN ak_tenants t ON t.tenant_id=tu.tenant_id WHERE tu.max_user_id=$1 AND COALESCE(tu.status,'active')='active' AND COALESCE(t.status,'active')='active' ORDER BY tu.updated_at DESC NULLS LAST LIMIT 1`, [id]);
+    if (clean(linked.rows?.[0]?.tenant_id)) return clean(linked.rows[0].tenant_id);
+  }
+  if (await tableExists('ak_tenants')) {
+    const owned = await db.query(`SELECT tenant_id FROM ak_tenants WHERE owner_max_user_id=$1 AND COALESCE(status,'active')='active' ORDER BY updated_at DESC NULLS LAST LIMIT 1`, [id]);
+    if (clean(owned.rows?.[0]?.tenant_id)) return clean(owned.rows[0].tenant_id);
+  }
+  return fallbackTenantIdFor(id);
+}
+async function existingChannelOwner(channelId) {
+  if (!(await tableExists('ak_tenant_channels'))) return '';
+  const result = await db.query(`SELECT tenant_id FROM ak_tenant_channels WHERE channel_id=$1 AND COALESCE(status,'active')='active' LIMIT 1`, [clean(channelId)]);
+  return clean(result.rows?.[0]?.tenant_id);
+}
 function officialRaw(oldRaw, chat, status = '') {
   const type = lower(chat?.type);
   return { ...parse(oldRaw), type, max: chat || {}, evidence_source: 'GET_chats_chatId', resolution_status: status || (type ? 'ok' : 'type_missing'), resolved_at: new Date().toISOString() };
@@ -67,12 +84,14 @@ async function saveResolutionFailure(channelId, oldRaw, title, error) {
   await db.query(`INSERT INTO ak_channels(channel_id,title,raw,updated_at) VALUES($1,$2,$3::jsonb,NOW()) ON CONFLICT(channel_id) DO UPDATE SET title=COALESCE(NULLIF(EXCLUDED.title,''),ak_channels.title),raw=ak_channels.raw || EXCLUDED.raw,updated_at=NOW()`, [clean(channelId), safeTitle(title, 'Объект без названия'), JSON.stringify(raw)]);
 }
 async function bindTenantChannel(userId, channelId, title, chat) {
-  const tenantId = tenantIdFor(userId);
+  const tenantId = await existingTenantIdForUser(userId);
+  const ownerTenantId = await existingChannelOwner(channelId);
+  if (ownerTenantId && ownerTenantId !== tenantId) return { ok: false, error: 'channel_owned_by_another_tenant', tenantId };
   const meta = { type: lower(chat?.type), max: chat || {}, evidence_source: 'GET_chats_chatId', source: 'pr271_official_channel_resolution', resolved_at: new Date().toISOString() };
-  await db.query(`INSERT INTO ak_tenants(tenant_id,owner_max_user_id,status,plan_id,max_channels,source,metadata,created_at,updated_at) VALUES($1,$2,'active','business',100,'pr271_live_admin_bootstrap',$3::jsonb,NOW(),NOW()) ON CONFLICT(tenant_id) DO UPDATE SET owner_max_user_id=EXCLUDED.owner_max_user_id,status='active',plan_id='business',max_channels=GREATEST(ak_tenants.max_channels,100),metadata=ak_tenants.metadata || EXCLUDED.metadata,updated_at=NOW()`, [tenantId, clean(userId), JSON.stringify({ source: 'pr271_live_admin_bootstrap', maxUserIdMasked: mask(userId) })]);
-  await db.query(`INSERT INTO ak_tenant_users(tenant_id,max_user_id,role,status,created_at,updated_at) VALUES($1,$2,'owner','active',NOW(),NOW()) ON CONFLICT(tenant_id,max_user_id) DO UPDATE SET role='owner',status='active',updated_at=NOW()`, [tenantId, clean(userId)]);
-  await db.query(`INSERT INTO ak_tenant_channels(tenant_id,channel_id,channel_title,status,connected_at,bound_by_code,metadata,updated_at) VALUES($1,$2,$3,'active','now'::timestamptz,'',$4::jsonb,NOW()) ON CONFLICT(channel_id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,channel_title=COALESCE(NULLIF(EXCLUDED.channel_title,''),ak_tenant_channels.channel_title),status='active',metadata=ak_tenant_channels.metadata || EXCLUDED.metadata,updated_at=NOW()`, [tenantId, clean(channelId), safeTitle(title, 'Канал без названия'), JSON.stringify(meta)]);
-  return tenantId;
+  await db.query(`INSERT INTO ak_tenants(tenant_id,owner_max_user_id,status,plan_id,max_channels,source,metadata,created_at,updated_at) VALUES($1,$2,'active','business',100,'pr271_live_admin_bootstrap',$3::jsonb,NOW(),NOW()) ON CONFLICT(tenant_id) DO UPDATE SET owner_max_user_id=COALESCE(NULLIF(ak_tenants.owner_max_user_id,''),EXCLUDED.owner_max_user_id),status='active',max_channels=GREATEST(ak_tenants.max_channels,100),metadata=ak_tenants.metadata || EXCLUDED.metadata,updated_at=NOW()`, [tenantId, clean(userId), JSON.stringify({ source: 'pr271_live_admin_bootstrap', maxUserIdMasked: mask(userId) })]);
+  await db.query(`INSERT INTO ak_tenant_users(tenant_id,max_user_id,role,status,created_at,updated_at) VALUES($1,$2,'owner','active',NOW(),NOW()) ON CONFLICT(tenant_id,max_user_id) DO UPDATE SET role=EXCLUDED.role,status='active',updated_at=NOW()`, [tenantId, clean(userId)]);
+  await db.query(`INSERT INTO ak_tenant_channels(tenant_id,channel_id,channel_title,status,connected_at,bound_by_code,metadata,updated_at) VALUES($1,$2,$3,'active','now'::timestamptz,'',$4::jsonb,NOW()) ON CONFLICT(channel_id) DO UPDATE SET channel_title=COALESCE(NULLIF(EXCLUDED.channel_title,''),ak_tenant_channels.channel_title),status='active',metadata=ak_tenant_channels.metadata || EXCLUDED.metadata,updated_at=NOW() WHERE ak_tenant_channels.tenant_id=EXCLUDED.tenant_id`, [tenantId, clean(channelId), safeTitle(title, 'Канал без названия'), JSON.stringify(meta)]);
+  return { ok: true, tenantId };
 }
 async function resolveAdminRow(userId, row, botToken) {
   const channelId = clean(row.channel_id);
@@ -80,7 +99,11 @@ async function resolveAdminRow(userId, row, botToken) {
   const before = officialType(raw);
   const item = { idMasked: mask(channelId), title: short(safeTitle(row.title, 'Объект без названия')), postsCount: Number(row.posts_count || 0), beforeType: before || 'missing', resolvedType: '', action: '', ok: false, error: '' };
   if (!channelId) return { ...item, action: 'missing_id', error: 'missing_channel_id' };
-  if (before === 'channel') return { ...item, ok: true, resolvedType: 'channel', action: 'already_verified_channel' };
+  if (before === 'channel') {
+    const bind = await bindTenantChannel(userId, channelId, row.title || '', raw.max || raw);
+    if (!bind.ok) return { ...item, resolvedType: 'channel', action: bind.error, error: bind.error };
+    return { ...item, ok: true, resolvedType: 'channel', action: 'already_verified_channel_bound', tenantIdMasked: mask(bind.tenantId) };
+  }
   if (before === 'chat') return { ...item, ok: true, resolvedType: 'chat', action: 'already_verified_non_channel' };
   try {
     const chat = await maxApi.getChat({ botToken, chatId: channelId, timeoutMs: Number(process.env.ADMINKIT_PR271_GET_CHAT_TIMEOUT_MS || 1600) || 1600 });
@@ -88,8 +111,9 @@ async function resolveAdminRow(userId, row, botToken) {
     const title = titleOf(chat, row.title || '');
     await saveOfficialChannelRaw(channelId, raw, title, chat);
     if (type === 'channel') {
-      const tenantId = await bindTenantChannel(userId, channelId, title || row.title || '', chat);
-      return { ...item, ok: true, resolvedType: type, title: short(safeTitle(title || row.title, 'Канал без названия')), action: 'official_channel_bound', tenantIdMasked: mask(tenantId) };
+      const bind = await bindTenantChannel(userId, channelId, title || row.title || '', chat);
+      if (!bind.ok) return { ...item, resolvedType: type, title: short(safeTitle(title || row.title, 'Канал без названия')), action: bind.error, error: bind.error };
+      return { ...item, ok: true, resolvedType: type, title: short(safeTitle(title || row.title, 'Канал без названия')), action: 'official_channel_bound', tenantIdMasked: mask(bind.tenantId) };
     }
     if (type === 'chat' || type === 'dialog') return { ...item, ok: true, resolvedType: type, title: short(safeTitle(title || row.title, 'Чат без названия')), action: 'official_non_channel_saved' };
     return { ...item, resolvedType: 'missing', action: 'api_type_missing', error: 'max_chat_type_missing' };
@@ -121,8 +145,8 @@ async function buildMatrix({ users = null, resolve = true } = {}) {
     if (resolve && db.hasDatabaseUrl() && botToken) {
       for (const r of await adminRows(userId)) {
         const item = await resolveAdminRow(userId, r, botToken);
-        if (item.resolvedType === 'channel') row.resolvedChannels.push(item);
-        else if (item.resolvedType === 'chat' || item.resolvedType === 'dialog') row.resolvedNonChannels.push(item);
+        if (item.ok && item.resolvedType === 'channel') row.resolvedChannels.push(item);
+        else if (item.ok && (item.resolvedType === 'chat' || item.resolvedType === 'dialog')) row.resolvedNonChannels.push(item);
         else row.unresolved.push(item);
       }
       for (const r of await pushRows(userId)) row.pushTitles.push(await refreshPushTitle(r, botToken));
@@ -135,4 +159,4 @@ async function buildMatrix({ users = null, resolve = true } = {}) {
   return { ok: blockCount === 0, generatedAt: new Date().toISOString(), runtime: RUNTIME, checkedUsers: rows.map((r) => r.maxUserIdMasked), rows, summary: { checkedUsersCount: rows.length, resolvedChannelsCount: rows.reduce((s, r) => s + r.resolvedChannels.length, 0), resolvedNonChannelsCount: rows.reduce((s, r) => s + r.resolvedNonChannels.length, 0), unresolvedCount: rows.reduce((s, r) => s + r.unresolved.length, 0), pushTitlesResolvedCount: rows.reduce((s, r) => s + r.pushTitles.filter((p) => p.action === 'title_refreshed').length, 0), blockCount } };
 }
 async function exportMatrix() { return runtimeExport.exportJson({ path: DEFAULT_PATH, payload: () => buildMatrix({ resolve: true }), message: 'live official channel resolution' }); }
-module.exports = { RUNTIME, DEFAULT_PATH, DEFAULT_TARGET_MAX_USER_IDS, buildMatrix, exportMatrix, officialType, tenantIdFor, titleOf, safeTitle, trustedOfficialSource };
+module.exports = { RUNTIME, DEFAULT_PATH, DEFAULT_TARGET_MAX_USER_IDS, buildMatrix, exportMatrix, officialType, fallbackTenantIdFor, titleOf, safeTitle, trustedOfficialSource };
