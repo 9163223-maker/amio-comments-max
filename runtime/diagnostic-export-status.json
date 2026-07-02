@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-07-02T14:33:58.011Z",
+  "generatedAt": "2026-07-02T17:10:20.718Z",
   "bootId": "",
   "expectedFiles": [
     "runtime/full-section-matrix.json",
@@ -24,7 +24,7 @@
       "branch": "runtime-status",
       "path": "runtime/channel-target-matrix.json",
       "attempts": 1,
-      "durationMs": 9742
+      "durationMs": 9595
     },
     {
       "ok": true,
@@ -33,7 +33,7 @@
       "branch": "runtime-status",
       "path": "runtime/full-section-matrix.json",
       "attempts": 1,
-      "durationMs": 4463
+      "durationMs": 3499
     },
     {
       "ok": true,
@@ -42,7 +42,7 @@
       "branch": "runtime-status",
       "path": "runtime/user-journey-matrix.json",
       "attempts": 1,
-      "durationMs": 2699
+      "durationMs": 2312
     },
     {
       "ok": true,
@@ -51,7 +51,7 @@
       "branch": "runtime-status",
       "path": "runtime/product-semantic-matrix.json",
       "attempts": 1,
-      "durationMs": 3363
+      "durationMs": 2698
     },
     {
       "ok": true,
@@ -60,7 +60,7 @@
       "branch": "runtime-status",
       "path": "runtime/tenant-channel-binding-matrix.json",
       "attempts": 1,
-      "durationMs": 6330
+      "durationMs": 5999
     },
     {
       "ok": true,
@@ -69,7 +69,7 @@
       "branch": "runtime-status",
       "path": "runtime/maximal-flow-matrix.json",
       "attempts": 1,
-      "durationMs": 4899
+      "durationMs": 5991
     },
     {
       "ok": true,
@@ -78,7 +78,7 @@
       "branch": "runtime-status",
       "path": "runtime/live-official-channel-resolution.json",
       "attempts": 1,
-      "durationMs": 10903
+      "durationMs": 7800
     },
     {
       "ok": true,
@@ -87,7 +87,7 @@
       "branch": "runtime-status",
       "path": "runtime/process-events.json",
       "attempts": 1,
-      "durationMs": 3200
+      "durationMs": 2005
     },
     {
       "ok": true,
@@ -96,7 +96,7 @@
       "branch": "runtime-status",
       "path": "runtime/northflank-startup-log.json",
       "attempts": 1,
-      "durationMs": 1805
+      "durationMs": 1601
     },
     {
       "ok": true,
@@ -105,7 +105,7 @@
       "branch": "runtime-status",
       "path": "runtime/live-tenant-self-diagnostic-matrix.json",
       "attempts": 1,
-      "durationMs": 1795
+      "durationMs": 1504
     },
     {
       "ok": true,
@@ -114,7 +114,7 @@
       "branch": "runtime-status",
       "path": "runtime/tenant-section-matrix.json",
       "attempts": 1,
-      "durationMs": 3001
+      "durationMs": 3299
     },
     {
       "ok": true,
@@ -122,8 +122,8 @@
       "configured": true,
       "branch": "runtime-status",
       "path": "runtime/live-user-postgres-bindings.json",
-      "attempts": 3,
-      "durationMs": 6566
+      "attempts": 1,
+      "durationMs": 2793
     }
   ],
   "missingFiles": [],
