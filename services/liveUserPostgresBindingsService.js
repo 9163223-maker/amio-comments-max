@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const db = require('../src/db/postgres');
 const runtimeExport = require('./runtimeExportService');
 
-const RUNTIME = 'PR270-LIVE-USER-POSTGRES-BINDINGS-OFFICIAL-EVIDENCE-2.5';
+const RUNTIME = 'PR270-LIVE-USER-POSTGRES-BINDINGS-OFFICIAL-EVIDENCE-2.6';
 const DEFAULT_PATH = 'runtime/live-user-postgres-bindings.json';
 const DEFAULT_TARGET_MAX_USER_IDS = Object.freeze(['17507246']);
 const TYPES = new Set(['channel', 'chat', 'dialog']);
@@ -50,6 +50,7 @@ function titleFrom(raw = {}, fallback = '') { return first(raw.title, raw.channe
 function conflictRecord(evidence = 'conflicting_official_evidence') {
   return { kind: 'unknown', maxType: 'conflict', confidence: 'conflict', evidence, needsApiResolution: true };
 }
+function typeKind(type = '') { return lower(type) === 'channel' ? 'channel' : TYPES.has(lower(type)) ? 'chat' : ''; }
 function typeEvidence(record = {}) {
   const { raw, meta } = payload(record);
   const candidates = [
@@ -59,10 +60,12 @@ function typeEvidence(record = {}) {
     ['metadata.type', pathValue(meta, 'type')], ['metadata.chat.type', pathValue(meta, 'chat.type')], ['metadata.max.type', pathValue(meta, 'max.type')], ['metadata.maxChat.type', pathValue(meta, 'maxChat.type')], ['metadata.response.type', pathValue(meta, 'response.type')], ['metadata.chatInfo.type', pathValue(meta, 'chatInfo.type')],
     ['metadata.sample.type', pathValue(meta, 'sample.type')], ['metadata.sample.chat.type', pathValue(meta, 'sample.chat.type')], ['metadata.sample.recipient.type', pathValue(meta, 'sample.recipient.type')], ['metadata.sample.max.type', pathValue(meta, 'sample.max.type')]
   ];
-  const matches = candidates.map(([where, value]) => ({ type: lower(value), where })).filter((item) => TYPES.has(item.type));
-  const distinctTypes = uniq(matches.map((item) => item.type));
-  if (distinctTypes.length > 1) return { conflict: true, types: distinctTypes, where: matches.map((item) => `${item.where}=${item.type}`).join(', ') };
-  return matches[0] || null;
+  const matches = candidates.map(([where, value]) => ({ type: lower(value), where, kind: typeKind(value) })).filter((item) => TYPES.has(item.type));
+  const distinctKinds = uniq(matches.map((item) => item.kind));
+  if (distinctKinds.length > 1) return { conflict: true, kinds: distinctKinds, where: matches.map((item) => `${item.where}=${item.type}`).join(', ') };
+  if (!matches.length) return null;
+  const preferred = matches.find((item) => item.type === 'channel') || matches.find((item) => item.type === 'chat') || matches[0];
+  return { type: preferred.type, where: matches.map((item) => `${item.where}=${item.type}`).join(', '), kind: preferred.kind };
 }
 function isChannelEvidence(record = {}) {
   const { raw, meta } = payload(record);
@@ -85,7 +88,7 @@ function classifyRecordDetails(record = {}) {
   const update = isChannelEvidence(record);
   if (typed?.conflict) return conflictRecord(`conflicting_official_type_evidence:${typed.where}`);
   if (update?.conflict) return conflictRecord(`conflicting_official_update_evidence:${update.where}`);
-  if (typed && update && ((typed.type === 'channel') !== update.value)) return conflictRecord(`conflicting_official_type_update_evidence:${typed.where};${update.where}=${update.value}`);
+  if (typed && update && ((typed.kind === 'channel') !== update.value)) return conflictRecord(`conflicting_official_type_update_evidence:${typed.where};${update.where}=${update.value}`);
   if (typed?.type === 'channel') return { kind: 'channel', confidence: 'official', evidence: `Chat.type=channel:${typed.where}`, needsApiResolution: false };
   if (typed?.type === 'chat') return { kind: 'chat', maxType: 'chat', confidence: 'official', evidence: `Chat.type=chat:${typed.where}`, needsApiResolution: false };
   if (typed?.type === 'dialog') return { kind: 'chat', maxType: 'dialog', confidence: 'official', evidence: `Chat.type=dialog:${typed.where}`, needsApiResolution: false };
