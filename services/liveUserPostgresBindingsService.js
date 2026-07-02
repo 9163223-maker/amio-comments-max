@@ -1,9 +1,10 @@
 'use strict';
 
+const crypto = require('crypto');
 const db = require('../src/db/postgres');
 const runtimeExport = require('./runtimeExportService');
 
-const RUNTIME = 'PR270-LIVE-USER-POSTGRES-BINDINGS-OFFICIAL-EVIDENCE-2.2';
+const RUNTIME = 'PR270-LIVE-USER-POSTGRES-BINDINGS-OFFICIAL-EVIDENCE-2.3';
 const DEFAULT_PATH = 'runtime/live-user-postgres-bindings.json';
 const DEFAULT_TARGET_MAX_USER_IDS = Object.freeze(['17507246']);
 const TYPES = new Set(['channel', 'chat', 'dialog']);
@@ -18,6 +19,7 @@ const first = (...values) => values.map(clean).find(Boolean) || '';
 const time = (v) => { const t = Date.parse(clean(v)); return Number.isFinite(t) ? t : 0; };
 const iso = (v) => { if (!v) return ''; const d = v instanceof Date ? v : new Date(v); return Number.isFinite(d.getTime()) ? d.toISOString() : clean(v); };
 const short = (v = '', max = 180) => { const t = clean(v); return t.length <= max ? t : `${t.slice(0, Math.max(1, max - 1)).trim()}…`; };
+const hashKey = (v = '') => crypto.createHash('sha256').update(clean(v)).digest('hex').slice(0, 16);
 
 function targetUsers() {
   const configured = [process.env.ADMINKIT_LIVE_BINDINGS_MAX_USER_IDS, process.env.ADMINKIT_TENANT_DIAGNOSTIC_MAX_USER_IDS, process.env.ADMINKIT_DIAGNOSTIC_MAX_USER_IDS]
@@ -108,7 +110,8 @@ function dedupe(records = []) {
   const groups = new Map();
   for (const record of records) {
     const safe = safeBindingRecord(record);
-    const key = mask(recordId(record)) || `record:${safe.source}:${safe.kind}:${safe.title.toLowerCase()}`;
+    const id = recordId(record);
+    const key = id ? `id:${hashKey(id)}` : `record:${safe.source}:${safe.kind}:${safe.title.toLowerCase()}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(safe);
   }
