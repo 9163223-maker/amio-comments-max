@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const db = require('../src/db/postgres');
 const runtimeExport = require('./runtimeExportService');
 
-const RUNTIME = 'PR270-LIVE-USER-POSTGRES-BINDINGS-OFFICIAL-EVIDENCE-2.3';
+const RUNTIME = 'PR270-LIVE-USER-POSTGRES-BINDINGS-OFFICIAL-EVIDENCE-2.4';
 const DEFAULT_PATH = 'runtime/live-user-postgres-bindings.json';
 const DEFAULT_TARGET_MAX_USER_IDS = Object.freeze(['17507246']);
 const TYPES = new Set(['channel', 'chat', 'dialog']);
@@ -46,13 +46,15 @@ function pathBool(obj = {}, path = '') {
   return typeof cur === 'boolean' ? cur : null;
 }
 function payload(record = {}) { return { raw: parseJson(record.raw || {}), meta: parseJson(record.metadata || record.meta || {}) }; }
-function titleFrom(raw = {}, fallback = '') { return first(raw.title, raw.channelTitle, raw.channel_title, raw.chatTitle, raw.chat_title, raw.name, raw.displayName, raw.display_name, fallback); }
+function titleFrom(raw = {}, fallback = '') { return first(raw.title, raw.channelTitle, raw.channel_title, raw.chatTitle, raw.chat_title, raw.name, raw.displayName, raw.display_name, pathValue(raw, 'sample.chat.title'), pathValue(raw, 'sample.recipient.title'), fallback); }
 function typeEvidence(record = {}) {
   const { raw, meta } = payload(record);
   const candidates = [
     ['record.type_from_api', record.type_from_api], ['record.max_type', record.max_type], ['record.chat_type', record.chat_type],
     ['raw.type', pathValue(raw, 'type')], ['raw.chat.type', pathValue(raw, 'chat.type')], ['raw.max.type', pathValue(raw, 'max.type')], ['raw.maxChat.type', pathValue(raw, 'maxChat.type')], ['raw.response.type', pathValue(raw, 'response.type')], ['raw.chatInfo.type', pathValue(raw, 'chatInfo.type')],
-    ['metadata.type', pathValue(meta, 'type')], ['metadata.chat.type', pathValue(meta, 'chat.type')], ['metadata.max.type', pathValue(meta, 'max.type')], ['metadata.maxChat.type', pathValue(meta, 'maxChat.type')], ['metadata.response.type', pathValue(meta, 'response.type')], ['metadata.chatInfo.type', pathValue(meta, 'chatInfo.type')]
+    ['raw.sample.type', pathValue(raw, 'sample.type')], ['raw.sample.chat.type', pathValue(raw, 'sample.chat.type')], ['raw.sample.recipient.type', pathValue(raw, 'sample.recipient.type')], ['raw.sample.max.type', pathValue(raw, 'sample.max.type')],
+    ['metadata.type', pathValue(meta, 'type')], ['metadata.chat.type', pathValue(meta, 'chat.type')], ['metadata.max.type', pathValue(meta, 'max.type')], ['metadata.maxChat.type', pathValue(meta, 'maxChat.type')], ['metadata.response.type', pathValue(meta, 'response.type')], ['metadata.chatInfo.type', pathValue(meta, 'chatInfo.type')],
+    ['metadata.sample.type', pathValue(meta, 'sample.type')], ['metadata.sample.chat.type', pathValue(meta, 'sample.chat.type')], ['metadata.sample.recipient.type', pathValue(meta, 'sample.recipient.type')], ['metadata.sample.max.type', pathValue(meta, 'sample.max.type')]
   ];
   for (const [where, value] of candidates) {
     const type = lower(value);
@@ -62,13 +64,13 @@ function typeEvidence(record = {}) {
 }
 function isChannelEvidence(record = {}) {
   const { raw, meta } = payload(record);
-  const sourceText = [record.evidence_source, record.evidenceSource, raw.evidence_source, raw.evidenceSource, meta.evidence_source, meta.evidenceSource, raw.update_type, raw.updateType, meta.update_type, meta.updateType].map(clean).join(' ');
-  const official = OFFICIAL_SOURCE_RE.test(sourceText) || Boolean(raw.update_type || raw.updateType || meta.update_type || meta.updateType);
+  const sourceText = [record.evidence_source, record.evidenceSource, raw.evidence_source, raw.evidenceSource, meta.evidence_source, meta.evidenceSource, raw.update_type, raw.updateType, meta.update_type, meta.updateType, pathValue(raw, 'sample.update_type'), pathValue(raw, 'sample.updateType'), pathValue(meta, 'sample.update_type'), pathValue(meta, 'sample.updateType')].map(clean).join(' ');
+  const official = OFFICIAL_SOURCE_RE.test(sourceText) || Boolean(raw.update_type || raw.updateType || meta.update_type || meta.updateType || pathValue(raw, 'sample.update_type') || pathValue(raw, 'sample.updateType') || pathValue(meta, 'sample.update_type') || pathValue(meta, 'sample.updateType'));
   if (!official) return null;
   const candidates = [
     ['record.is_channel', typeof record.is_channel === 'boolean' ? record.is_channel : null],
-    ['raw.is_channel', pathBool(raw, 'is_channel')], ['raw.isChannel', pathBool(raw, 'isChannel')], ['raw.update.is_channel', pathBool(raw, 'update.is_channel')], ['raw.update.isChannel', pathBool(raw, 'update.isChannel')],
-    ['metadata.is_channel', pathBool(meta, 'is_channel')], ['metadata.isChannel', pathBool(meta, 'isChannel')], ['metadata.update.is_channel', pathBool(meta, 'update.is_channel')], ['metadata.update.isChannel', pathBool(meta, 'update.isChannel')]
+    ['raw.is_channel', pathBool(raw, 'is_channel')], ['raw.isChannel', pathBool(raw, 'isChannel')], ['raw.update.is_channel', pathBool(raw, 'update.is_channel')], ['raw.update.isChannel', pathBool(raw, 'update.isChannel')], ['raw.sample.is_channel', pathBool(raw, 'sample.is_channel')], ['raw.sample.isChannel', pathBool(raw, 'sample.isChannel')], ['raw.sample.update.is_channel', pathBool(raw, 'sample.update.is_channel')], ['raw.sample.update.isChannel', pathBool(raw, 'sample.update.isChannel')],
+    ['metadata.is_channel', pathBool(meta, 'is_channel')], ['metadata.isChannel', pathBool(meta, 'isChannel')], ['metadata.update.is_channel', pathBool(meta, 'update.is_channel')], ['metadata.update.isChannel', pathBool(meta, 'update.isChannel')], ['metadata.sample.is_channel', pathBool(meta, 'sample.is_channel')], ['metadata.sample.isChannel', pathBool(meta, 'sample.isChannel')], ['metadata.sample.update.is_channel', pathBool(meta, 'sample.update.is_channel')], ['metadata.sample.update.isChannel', pathBool(meta, 'sample.update.isChannel')]
   ];
   for (const [where, value] of candidates) if (typeof value === 'boolean') return { value, where };
   return null;
