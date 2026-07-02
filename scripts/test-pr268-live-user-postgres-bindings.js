@@ -96,6 +96,9 @@ function rowForTable(sql) {
   assert.strictEqual(service.classifyRecord({ raw: { sample: { chat: { type: 'chat' } } } }), 'chat', 'webhook sample chat type is chat evidence');
   assert.strictEqual(service.classifyRecord({ raw: { sample: { update_type: 'bot_added', is_channel: true } } }), 'channel', 'webhook sample is_channel true is channel evidence');
   assert.strictEqual(service.classifyRecord({ raw: { sample: { update_type: 'bot_added', is_channel: false } } }), 'chat', 'webhook sample is_channel false is chat evidence');
+  assert.strictEqual(service.classifyRecord({ raw: { type: 'channel', chat: { type: 'chat' } } }), 'unknown', 'conflicting official type fields in one record block');
+  assert.strictEqual(service.classifyRecord({ raw: { type: 'channel', update_type: 'bot_added', is_channel: false } }), 'unknown', 'conflicting official type and Update.is_channel block');
+  assert.strictEqual(service.classifyRecord({ raw: { update_type: 'bot_added', is_channel: true, update: { is_channel: false } } }), 'unknown', 'conflicting official Update.is_channel fields block');
   assert.strictEqual(service.classifyRecord({ raw: { isChannel: true } }), 'unknown', 'legacy isChannel without official update/source context is not trusted');
   assert.strictEqual(service.classifyRecord({ raw: { isChat: true } }), 'unknown', 'legacy isChat is not trusted');
   assert.strictEqual(service.classifyRecord({ source: 'push_chat_binding' }), 'chat', 'typed push chat binding remains chat');
@@ -105,6 +108,13 @@ function rowForTable(sql) {
   assert.strictEqual(unresolved.needsApiResolution, true);
   assert.strictEqual(unresolved.evidence, 'needs_api_resolution');
   assert.strictEqual(Object.prototype.hasOwnProperty.call(unresolved, '_rawId'), false, 'safeBindingRecord must not expose raw dedupe ids');
+
+  const conflicted = service.safeBindingRecord({ title: 'Conflicted object', channel_id: '-conflict', raw: { type: 'channel', chat: { type: 'chat' } } });
+  assert.strictEqual(conflicted.kind, 'unknown');
+  assert.strictEqual(conflicted.confidence, 'conflict');
+  assert.strictEqual(conflicted.needsApiResolution, true);
+  assert.ok(/conflicting_official_type_evidence/.test(conflicted.evidence));
+  assert.ok(!JSON.stringify(conflicted).includes('-conflict'), 'conflicted safe record does not leak raw id');
 
   db.hasDatabaseUrl = () => true;
   db.query = async (sql, params = []) => {
@@ -143,6 +153,17 @@ function rowForTable(sql) {
   assert.strictEqual(blockedUnknown.ok, false, 'unknown official type blocks honestly');
   assert.ok(blockedUnknown.rows[0].blocks.includes('needs_api_resolution'));
   assert.strictEqual(blockedUnknown.rows[0].counts.unknown, 1);
+
+  db.query = async (sql, params = []) => {
+    if (/to_regclass/i.test(sql)) return { rows: [{ name: existingTables.has(params[0]) ? params[0] : null }] };
+    if (/FROM ak_admin_channels/i.test(sql)) return { rows: [{ admin_id: '17507246', channel_id: '-9998', title: 'Conflicted object', raw: { type: 'channel', chat: { type: 'chat' } }, source: 'ak_admin_channels' }] };
+    return { rows: [] };
+  };
+  const blockedConflict = await service.buildMatrix({ users: ['17507246'] });
+  assert.strictEqual(blockedConflict.ok, false, 'conflicting official evidence blocks honestly');
+  assert.ok(blockedConflict.rows[0].blocks.includes('needs_api_resolution'));
+  assert.strictEqual(blockedConflict.rows[0].counts.unknown, 1);
+  assert.ok(/conflicting_official_type_evidence/.test(blockedConflict.rows[0].unknown[0].evidence));
 
   db.hasDatabaseUrl = () => false;
   db.query = async () => { throw new Error('database_url_missing'); };
