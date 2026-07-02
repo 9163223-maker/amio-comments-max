@@ -96,6 +96,8 @@ function rowForTable(sql) {
   assert.strictEqual(service.classifyRecord({ raw: { sample: { chat: { type: 'chat' } } } }), 'chat', 'webhook sample chat type is chat evidence');
   assert.strictEqual(service.classifyRecord({ raw: { sample: { update_type: 'bot_added', is_channel: true } } }), 'channel', 'webhook sample is_channel true is channel evidence');
   assert.strictEqual(service.classifyRecord({ raw: { sample: { update_type: 'bot_added', is_channel: false } } }), 'chat', 'webhook sample is_channel false is chat evidence');
+  assert.strictEqual(service.classifyRecord({ raw: { type: 'chat', chat: { type: 'dialog' } } }), 'chat', 'chat and dialog subtypes in one payload are non-channel, not conflict');
+  assert.strictEqual(service.classifyRecord({ raw: { type: 'dialog', chat: { type: 'chat' } } }), 'chat', 'dialog and chat subtypes in one payload are non-channel, not conflict');
   assert.strictEqual(service.classifyRecord({ raw: { type: 'channel', chat: { type: 'chat' } } }), 'unknown', 'conflicting official type fields in one record block');
   assert.strictEqual(service.classifyRecord({ raw: { type: 'channel', update_type: 'bot_added', is_channel: false } }), 'unknown', 'conflicting official type and Update.is_channel block');
   assert.strictEqual(service.classifyRecord({ raw: { update_type: 'bot_added', is_channel: true, update: { is_channel: false } } }), 'unknown', 'conflicting official Update.is_channel fields block');
@@ -108,6 +110,12 @@ function rowForTable(sql) {
   assert.strictEqual(unresolved.needsApiResolution, true);
   assert.strictEqual(unresolved.evidence, 'needs_api_resolution');
   assert.strictEqual(Object.prototype.hasOwnProperty.call(unresolved, '_rawId'), false, 'safeBindingRecord must not expose raw dedupe ids');
+
+  const nonChannelSubtype = service.safeBindingRecord({ title: 'Subtype object', raw: { type: 'chat', chat: { type: 'dialog' } } });
+  assert.strictEqual(nonChannelSubtype.kind, 'chat');
+  assert.strictEqual(nonChannelSubtype.confidence, 'official');
+  assert.strictEqual(nonChannelSubtype.needsApiResolution, false);
+  assert.ok(!/conflicting_official/.test(nonChannelSubtype.evidence), 'chat/dialog subtype evidence is not conflict');
 
   const conflicted = service.safeBindingRecord({ title: 'Conflicted object', channel_id: '-conflict', raw: { type: 'channel', chat: { type: 'chat' } } });
   assert.strictEqual(conflicted.kind, 'unknown');
