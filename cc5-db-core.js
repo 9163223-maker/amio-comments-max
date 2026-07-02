@@ -14,7 +14,7 @@ const pool = DATABASE_URL ? new Pool({
 let initPromise = null;
 let lastInitError = '';
 
-const clean = (v) => String(v || '').replace(/^post:/i, '').replace(/^ck:/i, '').replace(/^:+/, '').replace(/^['\"]+|['\"]+$/g, '').trim();
+const clean = (v) => String(v || '').replace(/^post:/i, '').replace(/^ck:/i, '').replace(/^:+/, '').replace(/^[\'"]+|[\'"]+$/g, '').trim();
 const norm = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 const cut = (v, n = 90) => { const s = norm(v); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 const defaults = () => ({ enabled: true, applyPresetCommon: true, blockLinks: false, blockInvites: true, aiEnabled: false, customBlocklist: [] });
@@ -58,7 +58,7 @@ function parsePayload(v) {
   if (!s) return {};
   try { const p = JSON.parse(s); return p && typeof p === 'object' ? p : { action: s }; } catch { return { action: s }; }
 }
-function cb(update = {}) { return update.callback || update.data?.callback || update.message?.callback || update.update?.callback || null; }
+function cb(update = {}) { return update.callback || update.data?.callback || update.message?.callback || update.data?.callback?.message || null; }
 function msg(update = {}) { return update.message || update.data?.message || cb(update)?.message || update.data?.callback?.message || null; }
 function payload(update = {}) {
   const c = cb(update) || {};
@@ -158,36 +158,29 @@ async function query(sql, params = []) { await init(); return pool.query(sql, pa
 function extractChannel(update = {}, p = {}) {
   const explicit = norm(p.channelId || p.channel_id || p.channel || '');
   if (explicit) return { channelId: explicit, title: norm(p.channelTitle || p.title || explicit) };
-  const vals = allValuesByKey(update, ['channel_id', 'channelId', 'chat_id']);
-  const dialog = chatId(update);
-  let channelId = vals.find((v) => v && v !== dialog && /^-/.test(v)) || vals.find((v) => v && v !== dialog) || '';
-  const title = norm(deep(update, ['channel_title', 'channelTitle', 'chat_title', 'title', 'name']) || channelId || 'Канал');
-  return { channelId, title };
+  const id = chatId(update);
+  const title = norm(p.channelTitle || p.title || deep(update, ['title', 'chat_title', 'channel_title']) || id);
+  return { channelId: id, title };
 }
-function extractPost(update = {}, p = {}, channelId = '') {
-  const explicitPostId = norm(p.postId || p.post_id || p.messageId || p.message_id || '');
-  let postId = explicitPostId;
-  if (!postId) {
-    const msgIds = allValuesByKey(update, ['post_id', 'postId', 'message_id', 'messageId', 'mid', 'id']);
-    const current = messageId(update);
-    postId = msgIds.find((v) => v && v !== current) || current || '';
-  }
-  const commentKey = clean(p.commentKey || p.key || (channelId && postId ? `${channelId}:${postId}` : ''));
-  const title = cut(p.postTitle || p.title || text(update) || deep(update, ['caption', 'originalText', 'text']) || postId || 'Пост', 120);
-  return { postId, commentKey, title, messageId: messageId(update) };
+function extractPost(update = {}, p = {}, channelIdValue = '') {
+  const postId = norm(p.postId || p.post_id || p.messageId || p.message_id || messageId(update));
+  const ck = norm(p.commentKey || p.comment_key || p.commentId || p.comment_id || p.commentsThreadId || p.thread_id || '');
+  const messageIdValue = norm(p.messageId || p.message_id || messageId(update));
+  const title = cut(p.postTitle || p.title || text(update) || postId || channelIdValue);
+  return { postId, commentKey: ck || (channelIdValue && postId ? `${channelIdValue}:${postId}` : ''), messageId: messageIdValue, title };
 }
-
 async function upsertAdmin(adminId, raw = {}) {
-  if (!adminId) return null;
-  await query(`insert into ak_admins(admin_id, raw, updated_at) values($1,$2::jsonb,now()) on conflict(admin_id) do update set raw = excluded.raw, updated_at = now()`, [adminId, JSON.stringify(raw || {})]);
-  return adminId;
+  const id = clean(adminId);
+  if (!id) return null;
+  await query(`insert into ak_admins(admin_id,raw,updated_at) values($1,$2::jsonb,now()) on conflict(admin_id) do update set raw=excluded.raw, updated_at=now()`, [id, JSON.stringify(raw || {})]);
+  return { adminId: id };
 }
 async function upsertChannel(adminId, channelId, title = '', raw = {}) {
-  if (!adminId || !channelId) return null;
-  await upsertAdmin(adminId, raw);
-  await query(`insert into ak_channels(channel_id,title,raw,updated_at) values($1,$2,$3::jsonb,now()) on conflict(channel_id) do update set title = coalesce(nullif(excluded.title,''), ak_channels.title), raw = excluded.raw, updated_at = now()`, [channelId, title || channelId, JSON.stringify(raw || {})]);
-  await query(`insert into ak_admin_channels(admin_id,channel_id,updated_at) values($1,$2,now()) on conflict(admin_id,channel_id) do update set updated_at=now()`, [adminId, channelId]);
-  return { adminId, channelId, title: title || channelId };
+  const a = clean(adminId), c = clean(channelId);
+  if (!a || !c) return null;
+  await query(`insert into ak_channels(channel_id,title,raw,updated_at) values($1,$2,$3::jsonb,now()) on conflict(channel_id) do update set title=coalesce(nullif(excluded.title,''),ak_channels.title), raw=ak_channels.raw || excluded.raw, updated_at=now()`, [c, cut(title || c, 120), JSON.stringify(raw || {})]);
+  await query(`insert into ak_admin_channels(admin_id,channel_id,role,updated_at) values($1,$2,'admin',now()) on conflict(admin_id,channel_id) do update set role='admin', updated_at=now()`, [a, c]);
+  return { adminId: a, channelId: c, title: title || c };
 }
 async function upsertPost(adminId, channelId, postId, title = '', raw = {}, messageIdValue = '') {
   if (!adminId || !channelId || !postId) return null;
@@ -215,8 +208,8 @@ async function upsertFromUpdate(update = {}) {
 }
 async function getChannels(adminId) {
   if (!adminId) return [];
-  const { rows } = await query(`select c.channel_id as "channelId", coalesce(c.title,c.channel_id) as title, ac.updated_at as "updatedAt" from ak_admin_channels ac join ak_channels c on c.channel_id=ac.channel_id where ac.admin_id=$1 order by ac.updated_at desc limit 50`, [adminId]);
-  return rows;
+  const { rows } = await query(`select c.channel_id as "channelId", coalesce(nullif(c.title,''),'Канал без названия') as title, c.raw, ac.updated_at as "updatedAt" from ak_admin_channels ac join ak_channels c on c.channel_id=ac.channel_id where ac.admin_id=$1 and c.raw->>'type'='channel' and c.raw->>'resolution_status'='ok' order by ac.updated_at desc limit 50`, [adminId]);
+  return rows.map((row) => ({ ...row, type: 'channel', isChannel: true, source: 'cc5_admin_channels_official' }));
 }
 async function getPosts(adminId, channelId, limit = 20) {
   if (!adminId || !channelId) return [];
@@ -225,7 +218,7 @@ async function getPosts(adminId, channelId, limit = 20) {
 }
 async function getRules({ adminId, channelId, scopeType = 'channel', postId = '' }) {
   if (!adminId || !channelId) return defaults();
-  const { rows } = await query(`select enabled, apply_preset_common as "applyPresetCommon", block_links as "blockLinks", block_invites as "blockInvites", ai_enabled as "aiEnabled", custom_blocklist as "customBlocklist", updated_at as "updatedAt" from ak_moderation_rules where admin_id=$1 and channel_id=$2 and scope_type=$3 and post_id=$4`, [adminId, channelId, scopeType, scopeType === 'post' ? String(postId || '') : '']);
+  const { rows } = await query(`select enabled, apply_preset_common as "applyPresetCommon", block_links as "blockLinks", block_invites as "blockInvites", ai_enabled as "aiEnabled", custom_blocklist as "customBlocklist", updated_at as "UpdatedAt" from ak_moderation_rules where admin_id=$1 and channel_id=$2 and scope_type=$3 and post_id=$4`, [adminId, channelId, scopeType, scopeType === 'post' ? String(postId || '') : '']);
   return { ...defaults(), ...(rows[0] || {}), scopeType, adminId, channelId, postId: scopeType === 'post' ? String(postId || '') : '' };
 }
 async function saveRules(scope, next = {}) {
@@ -245,7 +238,7 @@ async function saveRules(scope, next = {}) {
   return getRules({ adminId, channelId, scopeType, postId });
 }
 async function getFlow(adminId) { if (!adminId) return null; const { rows } = await query(`select flow from ak_flow_state where admin_id=$1`, [adminId]); return rows[0]?.flow || null; }
-async function setFlow(adminId, flow) { if (!adminId) return; await query(`insert into ak_flow_state(admin_id,flow,updated_at) values($1,$2::jsonb,now()) on conflict(admin_id) do update set flow=excluded.flow, updated_at=now()`, [adminId, JSON.stringify(flow || {})]); }
+async function setFlow(adminId, flow) { if (!adminId) return; await query(`insert into ak_flow_state(admin_id,flow,updated_at) values($1,$2,now()) on conflict(admin_id) do update set flow=excluded.flow, updated_at=now()`, [adminId, JSON.stringify(flow || {})]); }
 async function clearFlow(adminId) { if (!adminId) return; await query(`delete from ak_flow_state where admin_id=$1`, [adminId]); }
 async function getMenu(adminId) { if (!adminId) return ''; const { rows } = await query(`select message_id from ak_menu_state where admin_id=$1`, [adminId]); return rows[0]?.message_id || ''; }
 async function setMenu(adminId, messageIdValue) { if (!adminId || !messageIdValue) return; await query(`insert into ak_menu_state(admin_id,message_id,updated_at) values($1,$2,now()) on conflict(admin_id) do update set message_id=excluded.message_id, updated_at=now()`, [adminId, messageIdValue]); }
