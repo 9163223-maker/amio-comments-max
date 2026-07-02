@@ -1,6 +1,6 @@
 # АдминКИТ — current handoff
 
-Updated: 2026-07-02 14:34 UTC
+Updated: 2026-07-02 14:38 UTC
 Branch: runtime-status
 Repo: 9163223-maker/amio-comments-max
 
@@ -45,7 +45,9 @@ PR271:
 - Audit result: `AUDIT: PASS`
 - Merge method: squash
 - Merge commit: `44516658f52c6681d27cc492b16356f6768a42a2`
-- Runtime pickup: NOT VERIFIED yet
+- Runtime pickup checks at 2026-07-02 14:34-14:38 UTC: NOT PICKED UP YET
+- Current runtime/startup log still reports PR270 merge `383a03fc6c45d7a617836310750121162ad53e03`
+- `runtime/live-official-channel-resolution.json` is not present yet
 
 PR271 implementation:
 - Adds live official resolver before downstream live matrices.
@@ -69,6 +71,8 @@ After pickup verify:
 - `diagnostic-export-status.json` includes live official resolution and is ok;
 - downstream `live-tenant-self-diagnostic-matrix`, `tenant-section-matrix`, and `live-user-postgres-bindings` reflect post-resolution state;
 - report actual channels/chats/unknown for MAX user `17507246`.
+
+Do not give manual MAX PASS until PR271 runtime pickup and post-resolution matrices are checked.
 
 ## Process error recorded
 Earlier PR268 preparation accidentally created/deleted temporary files in `main` history. Final tree was clean and audits found no runtime path damage, but this remains a process violation and must not be repeated.
