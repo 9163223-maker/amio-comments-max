@@ -1,6 +1,6 @@
 {
   "ok": false,
-  "generatedAt": "2026-07-02T14:33:47.180Z",
+  "generatedAt": "2026-07-02T17:10:13.243Z",
   "runtime": "PR265-LIVE-TENANT-SELF-DIAGNOSTIC-1.1-PR268-LIVE-USER",
   "configuredUsers": [
     "175…246"
@@ -12,7 +12,7 @@
     {
       "ok": false,
       "runtime": "PR265-LIVE-TENANT-SELF-DIAGNOSTIC-1.1-PR268-LIVE-USER",
-      "generatedAt": "2026-07-02T14:33:47.179Z",
+      "generatedAt": "2026-07-02T17:10:13.243Z",
       "label": "watch",
       "maxUserIdMasked": "175…246",
       "tenantIdMasked": "—",
@@ -28,44 +28,26 @@
         "client": [],
         "picker": [
           {
-            "channelIdMasked": "-70…230",
-            "title": "Все свои MAX",
-            "status": "active",
-            "postsCount": 0
-          },
-          {
-            "channelIdMasked": "-75…142",
-            "title": "Мож•Хвост",
-            "status": "active",
-            "postsCount": 0
-          },
-          {
             "channelIdMasked": "-73…622",
-            "title": "Объект без названия",
-            "status": "active",
-            "postsCount": 0
-          },
-          {
-            "channelIdMasked": "-75…630",
-            "title": "Саша - сын Мамочки 🌸",
+            "title": "АдминКит клуб",
             "status": "active",
             "postsCount": 0
           },
           {
             "channelIdMasked": "-75…702",
-            "title": "Объект без названия",
+            "title": "АК-ТЕСТ 1",
             "status": "active",
             "postsCount": 0
           },
           {
             "channelIdMasked": "-75…230",
-            "title": "Объект без названия",
+            "title": "АК-Тест 3",
             "status": "active",
             "postsCount": 0
           },
           {
             "channelIdMasked": "-75…630",
-            "title": "Объект без названия",
+            "title": "АК-ТЕСТ 2",
             "status": "active",
             "postsCount": 0
           }
@@ -89,7 +71,7 @@
         "admin": true,
         "tenantChannelsCount": 0,
         "clientChannelsCount": 0,
-        "pickerChannelsCount": 7,
+        "pickerChannelsCount": 4,
         "storeLinkedChannelsCount": 0,
         "postEvidenceChannelsCount": 0,
         "chatExcludedCount": 0,
