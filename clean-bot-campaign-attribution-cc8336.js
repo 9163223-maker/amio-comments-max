@@ -85,6 +85,11 @@ async function sendOrEditScreen({ update = {}, callback = null, message = null, 
 }
 async function tenantDiagnosticScreen(uid = '') { return liveTenantDiagnostic.buildScreen({ maxUserId: uid }); }
 function isTenantDiagnosticText(text = '') { return /^\/?(?:tenant|tenant_debug|tenant_diag|diagnostic|diag)(?:\s|$)/i.test(clean(text)) || /^диагностика(?:\s+привязки)?$/i.test(clean(text)); }
+function isServiceDiagnosticText(text = '') { return /^\/?(?:akdiag|service_diag|svcdiag|client_diag)(?:\s|$)/i.test(clean(text)); }
+function serviceTargetUserId(text = '') { const match = clean(text).match(/^\/?(?:akdiag|service_diag|svcdiag|client_diag)\s+([0-9]{4,32})\b/i); return match ? match[1] : ''; }
+function serviceDiagnosticAllowed(uid = '') { return access.isAdmin(uid) || [process.env.ADMINKIT_SERVICE_DIAGNOSTIC_ADMIN_IDS, process.env.ADMINKIT_ADMIN_MAX_USER_IDS, process.env.DEBUG_ADMIN_ID, process.env.ADMIN_ID].join(',').split(/[\s,;]+/).map(clean).filter(Boolean).includes(clean(uid)); }
+function serviceDiagnosticUsageScreen() { return { id: 'service_diag_usage', text: 'Сервисная диагностика\n\nКоманда: /akdiag MAX_ID\n\nПокажет tenant, picker, official channels/chats и причины BLOCK для выбранного клиента. Доступно только service-admin.', attachments: [] }; }
+async function serviceDiagnosticScreen(targetUid = '', requesterUid = '') { const screen = await tenantDiagnosticScreen(targetUid); return { ...screen, id: 'service_diag_for_client', text: `🛠 Service diag\nКлиент: ${liveTenantDiagnostic.mask(targetUid)}\nЗапросил: ${liveTenantDiagnostic.mask(requesterUid)}\n\n${screen.text}` }; }
 async function tryHandleAccessRuntime(req, res, config = {}) {
   const update = req.body || {};
   const callback = callbackFromUpdate(update);
@@ -149,6 +154,12 @@ async function tryHandleAccessRuntime(req, res, config = {}) {
   if (message) {
     const uid = senderId(update, callback, message);
     const text = messageText(message);
+    if (isServiceDiagnosticText(text)) {
+      const targetUid = serviceTargetUserId(text);
+      const screen = !serviceDiagnosticAllowed(uid) ? { id: 'service_diag_forbidden', text: 'Сервисная диагностика доступна только service-admin.', attachments: [] } : (!targetUid ? serviceDiagnosticUsageScreen() : await serviceDiagnosticScreen(targetUid, uid));
+      await sendOrEditScreen({ update, callback, message, config, screen, edit: false });
+      return res.status(200).json({ ok: true, handledBy: RUNTIME, action: 'service_diagnostic_command', screenId: screen.id, serviceDiagnostic: true, targetUserMasked: targetUid ? liveTenantDiagnostic.mask(targetUid) : '' });
+    }
     if (/^\/?admin(?:\s|$)/i.test(text)) {
       const screen = isPrivateUserChat(message) ? adminScreens.adminPanel(uid) : adminPrivateChatScreen();
       await sendOrEditScreen({ update, callback, message, config, screen, edit: false });
